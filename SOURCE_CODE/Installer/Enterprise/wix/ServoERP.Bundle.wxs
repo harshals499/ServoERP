@@ -5,7 +5,7 @@
 
   <Bundle
       Name="ServoERP Enterprise Setup"
-      Manufacturer="Harshal Sonawane"
+      Manufacturer="ServoERP"
       Version="$(var.AppVersion)"
       UpgradeCode="{A6BE21A7-7B82-4D0F-A47F-D2DE6F063F41}"
       IconSourceFile="$(var.AppSource)\app.ico"

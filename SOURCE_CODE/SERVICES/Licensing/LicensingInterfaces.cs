@@ -5,6 +5,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
     public interface ILicenseService
     {
         LicenseValidationResult ValidateCurrentLicense();
+        LicenseValidationResult ActivateTrial(string companyName);
         LicenseValidationResult ActivateOffline(string licenseFilePath);
         LicenseValidationResult ActivateOnline(LicenseActivationRequest request);
         LicenseSnapshot GetCurrentSnapshot();

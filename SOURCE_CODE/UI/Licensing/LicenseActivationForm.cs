@@ -42,7 +42,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
             Controls.Add(new Label
             {
-                Text = "Use online activation when the licensing API is available, or import a signed offline license file from ServoERP.",
+                Text = "Start a 14-day trial, use online activation when available, or import a signed offline license file from ServoERP.",
                 Location = new Point(30, 66),
                 Size = new Size(560, 46),
                 ForeColor = DS.Slate600
@@ -77,15 +77,22 @@ namespace HVAC_Pro_Desktop.UI.Licensing
             };
             Controls.Add(copyFingerprint);
 
-            Button online = Button("Activate Online", 32, 284, DS.Primary600);
+            Button trial = Button("Start Trial", 32, 284, DS.Primary600);
+            trial.Click += (s, e) => StartTrial();
+            Controls.Add(trial);
+
+            Button online = Button("Activate Online", 196, 284, DS.Teal600);
             online.Click += (s, e) => ActivateOnline();
             Controls.Add(online);
 
-            Button offline = Button("Import Offline File", 196, 284, DS.Teal600);
+            Button offline = Button("Import Offline File", 360, 284, Color.White);
+            offline.ForeColor = DS.Slate700;
+            offline.FlatAppearance.BorderColor = DS.Slate300;
+            offline.FlatAppearance.BorderSize = 1;
             offline.Click += (s, e) => ImportOffline();
             Controls.Add(offline);
 
-            Button close = Button("Close", 390, 284, Color.White);
+            Button close = Button("Close", 430, 334, Color.White);
             close.ForeColor = DS.Slate700;
             close.FlatAppearance.BorderColor = DS.Slate300;
             close.FlatAppearance.BorderSize = 1;
@@ -109,6 +116,20 @@ namespace HVAC_Pro_Desktop.UI.Licensing
                 CompanyName = _txtCompany.Text.Trim()
             });
             HandleResult(result);
+        }
+
+        private void StartTrial()
+        {
+            string company = _txtCompany.Text.Trim();
+            if (string.IsNullOrWhiteSpace(company))
+            {
+                _lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
+                _lblStatus.Text = "Enter the company name before starting the trial.";
+                _txtCompany.Focus();
+                return;
+            }
+
+            HandleResult(_licenseService.ActivateTrial(company));
         }
 
         private void ImportOffline()

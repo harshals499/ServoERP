@@ -214,7 +214,7 @@ namespace HVAC_Pro_Desktop
 
                     licenseResult = new LicenseService().ValidateCurrentLicense();
                 }
-                ShowLicenseStartupWarning(licenseResult);
+                licenseResult = ShowLicenseStartupWarning(licenseResult);
 
                 stageWatch.Restart();
                 if (LocalLoginBypassService.TryStartSession(out _))
@@ -248,19 +248,28 @@ namespace HVAC_Pro_Desktop
             }
         }
 
-        private static void ShowLicenseStartupWarning(LicenseValidationResult result)
+        private static LicenseValidationResult ShowLicenseStartupWarning(LicenseValidationResult result)
         {
             if (result == null || result.Snapshot == null)
-                return;
+                return result;
 
             if (result.IsFrozen)
             {
-                MessageBox.Show(
-                    "Your ServoERP license has expired. Renew to continue business operations.",
+                DialogResult openActivation = MessageBox.Show(
+                    "Your ServoERP license has expired. Renew to continue business operations.\r\n\r\nOpen license activation now?",
                     BrandingService.WindowTitle("License Frozen"),
-                    MessageBoxButtons.OK,
+                    MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning);
-                return;
+                if (openActivation == DialogResult.Yes)
+                {
+                    using (var activation = new LicenseActivationForm())
+                    {
+                        if (activation.ShowDialog() == DialogResult.OK)
+                            return new LicenseService().ValidateCurrentLicense();
+                    }
+                }
+
+                return result;
             }
 
             int days = (int)Math.Ceiling((result.Snapshot.ExpiryDateUtc - DateTime.UtcNow).TotalDays);
@@ -271,6 +280,8 @@ namespace HVAC_Pro_Desktop
                     : "Your ServoERP license expires in " + days + " day(s).";
                 MessageBox.Show(text, BrandingService.WindowTitle("License Renewal"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
+
+            return result;
         }
 
         private static void OnThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)

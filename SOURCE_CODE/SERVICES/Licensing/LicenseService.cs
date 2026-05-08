@@ -71,6 +71,51 @@ namespace HVAC_Pro_Desktop.Services.Licensing
             }
         }
 
+        public LicenseValidationResult ActivateTrial(string companyName)
+        {
+            lock (Sync)
+            {
+                var now = DateTime.UtcNow;
+                var snapshot = new LicenseSnapshot
+                {
+                    LicenseKey = "TRIAL-" + Guid.NewGuid().ToString("N").ToUpperInvariant(),
+                    PlanType = LicensePlanType.Trial,
+                    CompanyName = string.IsNullOrWhiteSpace(companyName) ? "Trial Company" : companyName.Trim(),
+                    MaxCompanies = 1,
+                    MaxDevices = 1,
+                    MaxUsers = 1,
+                    IssueDateUtc = now,
+                    ExpiryDateUtc = now.AddDays(14),
+                    LastSuccessfulValidationUtc = now,
+                    LastAppOpenUtc = now,
+                    LastTrustedServerTimeUtc = now,
+                    GracePeriodDays = 3,
+                    Status = LicenseStatus.Active,
+                    MachineFingerprintHash = _fingerprint.GetFingerprintHash(),
+                    ActivatedDeviceId = _fingerprint.GetFingerprintHash(),
+                    ActivatedDeviceCount = 1,
+                    SupportLevel = "Limited",
+                    PlanName = "Trial Download",
+                    BillingCycle = "14 days",
+                    Currency = "INR",
+                    PriceAmount = 0,
+                    RenewalPriceAmount = 10000,
+                    IsLaunchOffer = false,
+                    EnabledModules = LicenseFeatureCatalog.GetModulesForPlan(LicensePlanType.Trial),
+                    StatusMessage = "Trial active."
+                };
+
+                _cache.Save(snapshot);
+                PersistState(snapshot);
+                PersistDevice(snapshot);
+                PersistEntitlements(snapshot);
+                LogEvent(snapshot, "ACTIVATE_TRIAL", "14-day trial activated.");
+                SessionManager.LogAction("LICENSE", "Activation", null, "14-day trial activated for " + snapshot.CompanyName);
+                _lastValidation = Evaluate(snapshot);
+                return _lastValidation;
+            }
+        }
+
         public LicenseValidationResult ActivateOnline(LicenseActivationRequest request)
         {
             if (request == null)

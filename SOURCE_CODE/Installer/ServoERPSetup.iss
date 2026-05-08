@@ -4,7 +4,7 @@
 #include "ServoERP.version.iss"
 
 #define AppName "ServoERP"
-#define AppPublisher "Harshal Sonawane"
+#define AppPublisher "ServoERP"
 #define AppWebsite "https://servoerp.in"
 #define AppExeName "HVAC_Pro_Desktop.exe"
 #define AppCustomConfig "HVACPro.config"
@@ -23,7 +23,7 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppWebsite}
 AppSupportURL={#AppWebsite}
 AppUpdatesURL={#AppWebsite}
-AppCopyright=Copyright (c) Harshal Sonawane 2026
+AppCopyright=Copyright (c) ServoERP 2026
 DefaultDirName={#AppRoot}
 DefaultGroupName={#AppName}
 DisableDirPage=yes
@@ -82,8 +82,8 @@ Name: "{commondesktop}\ServoERP"; Filename: "{app}\{#AppExeName}"; IconFilename:
 Name: "{commonprograms}\ServoERP"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app.ico"; WorkingDir: "{app}"
 
 [Registry]
-Root: HKLM; Subkey: "SOFTWARE\Harshal Sonawane\ServoERP"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekeyifempty
-Root: HKLM; Subkey: "SOFTWARE\Harshal Sonawane\ServoERP"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
+Root: HKLM; Subkey: "SOFTWARE\ServoERP\Installer"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekeyifempty
+Root: HKLM; Subkey: "SOFTWARE\ServoERP\Installer"; ValueType: string; ValueName: "Version"; ValueData: "{#AppVersion}"
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Parameters: "/firstrun"; Description: "Initialize ServoERP database"; Flags: runhidden waituntilterminated
