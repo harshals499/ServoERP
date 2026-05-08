@@ -237,9 +237,9 @@ namespace ServoERP.LicenseIssuer
                 _support.Text = "Standard";
                 _planName.Text = "Standard Download";
                 _billingCycle.SelectedItem = "Annual";
-                _priceAmount.Value = 14999;
-                _renewalPriceAmount.Value = 24999;
-                _launchOffer.Checked = true;
+                _priceAmount.Value = 10000;
+                _renewalPriceAmount.Value = 10000;
+                _launchOffer.Checked = false;
             }
             else
             {
@@ -250,9 +250,9 @@ namespace ServoERP.LicenseIssuer
                 _support.Text = "Priority";
                 _planName.Text = "Enterprise Download";
                 _billingCycle.SelectedItem = "Annual";
-                _priceAmount.Value = 49999;
-                _renewalPriceAmount.Value = 74999;
-                _launchOffer.Checked = true;
+                _priceAmount.Value = 25000;
+                _renewalPriceAmount.Value = 25000;
+                _launchOffer.Checked = false;
             }
 
             if (_currency.SelectedIndex < 0)

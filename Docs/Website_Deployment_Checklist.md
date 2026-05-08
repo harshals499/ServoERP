@@ -60,8 +60,8 @@ Expected results:
 Current public pricing:
 
 - Trial: free for 14 days.
-- Standard: Rs. 14,999 launch, Rs. 24,999 renewal.
-- Enterprise: Rs. 49,999 launch, Rs. 74,999 renewal.
+- Standard: Rs. 10,000 for the first year.
+- Enterprise: Rs. 25,000 per year.
 
 Before uploading a new release:
 
