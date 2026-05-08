@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Package
+      Name="ServoERP"
+      Manufacturer="Harshal Sonawane"
+      Version="$(var.AppVersion)"
+      UpgradeCode="{7B23C9B1-21A0-47A8-9E27-5F3987C32026}"
+      Scope="perMachine"
+      InstallerVersion="500"
+      Compressed="yes">
+
+    <SummaryInformation
+        Description="ServoERP enterprise desktop application"
+        Manufacturer="Harshal Sonawane" />
+
+    <MajorUpgrade
+        DowngradeErrorMessage="A newer version of ServoERP is already installed."
+        Schedule="afterInstallInitialize" />
+
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="ServoERPIcon" SourceFile="$(var.AppSource)\app.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ServoERPIcon" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+
+    <StandardDirectory Id="TARGETDIR">
+      <Directory Id="INSTALLFOLDER" Name="HVAC_PRO_MSE" ComponentGuidGenerationSeed="{EB3D927B-7447-4182-92B5-B78B82FD1188}">
+        <Directory Id="CONFIGDIR" Name="CONFIG" />
+        <Directory Id="DATABASEDIR" Name="DATABASE" />
+        <Directory Id="INVOICEDIR" Name="Invoice" />
+        <Directory Id="LOGSDIR" Name="LOGS">
+          <Directory Id="ERRORLOGSDIR" Name="errors" />
+        </Directory>
+        <Directory Id="PAYROLLEXPORTSDIR" Name="PAYROLL_EXPORTS" />
+        <Directory Id="PAYSLIPSDIR" Name="PAYSLIPS" />
+        <Directory Id="RECEIPTSDIR" Name="RECEIPTS" />
+        <Directory Id="TOOLSDIR" Name="TOOLS" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ProgramMenuServoERP" Name="ServoERP" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="ServoERP" Level="1" AllowAdvertise="no">
+      <ComponentGroupRef Id="ApplicationPayload" />
+      <ComponentGroupRef Id="DataDirectories" />
+      <ComponentRef Id="ApplicationShortcuts" />
+      <ComponentRef Id="InstallRegistry" />
+    </Feature>
+
+    <CustomAction
+        Id="InitializeServoERPDatabase"
+        Directory="INSTALLFOLDER"
+        Execute="deferred"
+        Impersonate="no"
+        Return="ignore"
+        ExeCommand="&quot;[INSTALLFOLDER]HVAC_Pro_Desktop.exe&quot; /firstrun" />
+
+    <InstallExecuteSequence>
+      <Custom Action="InitializeServoERPDatabase" After="InstallFiles" Condition="NOT REMOVE~=&quot;ALL&quot;" />
+    </InstallExecuteSequence>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="ApplicationPayload" Directory="INSTALLFOLDER">
+      <Files Include="$(var.AppSource)\**" />
+      <Component Id="DefaultTenantConfig" Guid="{6772508D-EDBD-4B1D-B7C5-48DFADAD4E2F}" NeverOverwrite="yes">
+        <File Id="DefaultTenantConfigFile" Source="$(var.DefaultConfig)" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="DataDirectories">
+      <Component Id="ConfigDirectoryPermissions" Directory="CONFIGDIR" Guid="{BAEE0607-F0BF-41CC-8B2B-34091CC4DB60}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="DatabaseDirectoryPermissions" Directory="DATABASEDIR" Guid="{7C0B920B-C968-46E9-8268-C9FA7AE7B636}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="InvoiceDirectoryPermissions" Directory="INVOICEDIR" Guid="{57514875-C171-492E-AE64-6308274E5365}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="LogsDirectoryPermissions" Directory="LOGSDIR" Guid="{C06AE45E-5DAE-4F2F-A949-A4557E5BEB54}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="ErrorLogsDirectoryPermissions" Directory="ERRORLOGSDIR" Guid="{38E6129B-6DDC-448C-92E4-F1C14034F2DA}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="PayrollExportsDirectoryPermissions" Directory="PAYROLLEXPORTSDIR" Guid="{650A2097-4E81-445B-BE73-B5DF30E9C6DC}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="PayslipsDirectoryPermissions" Directory="PAYSLIPSDIR" Guid="{29F08083-D60E-4309-8406-D6BF82341BF5}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="ReceiptsDirectoryPermissions" Directory="RECEIPTSDIR" Guid="{2724B3F9-CA54-4D47-9D33-36BF8A3423F9}" Permanent="yes">
+        <CreateFolder>
+          <util:PermissionEx User="Users" GenericAll="yes" />
+        </CreateFolder>
+      </Component>
+      <Component Id="ToolsDirectory" Directory="TOOLSDIR" Guid="{890FC397-6B56-4F31-91EA-2EF62621F286}" Permanent="yes">
+        <CreateFolder />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="ApplicationShortcuts" Directory="INSTALLFOLDER" Guid="{0E28C4FE-7D35-4D1B-B875-6F14765ED59E}">
+      <Shortcut Id="DesktopShortcut"
+                Directory="DesktopFolder"
+                Name="ServoERP"
+                Description="ServoERP"
+                Target="[INSTALLFOLDER]HVAC_Pro_Desktop.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="ServoERPIcon" />
+      <Shortcut Id="StartMenuShortcut"
+                Directory="ProgramMenuServoERP"
+                Name="ServoERP"
+                Description="ServoERP"
+                Target="[INSTALLFOLDER]HVAC_Pro_Desktop.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="ServoERPIcon" />
+      <RemoveFolder Id="RemoveProgramMenuServoERP" Directory="ProgramMenuServoERP" On="uninstall" />
+      <RegistryValue Root="HKLM" Key="SOFTWARE\ServoERP\Installer" Name="ShortcutsInstalled" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="InstallRegistry" Directory="INSTALLFOLDER" Guid="{34AB42EF-1D64-4A19-A18C-BD58E0587D98}">
+      <RegistryKey Root="HKLM" Key="SOFTWARE\ServoERP">
+        <RegistryValue Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" />
+        <RegistryValue Name="Version" Type="string" Value="$(var.AppVersion)" />
+        <RegistryValue Name="Channel" Type="string" Value="Stable" />
+        <RegistryValue Name="UpdateUrl" Type="string" Value="https://servoerp.in/version.txt" />
+        <RegistryValue Name="InstalledByMSI" Type="integer" Value="1" KeyPath="yes" />
+      </RegistryKey>
+    </Component>
+  </Fragment>
+</Wix>

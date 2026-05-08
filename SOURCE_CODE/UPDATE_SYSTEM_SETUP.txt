@@ -1,0 +1,29 @@
+ServoERP - Update Notification System Setup
+===========================================
+
+CURRENT RELEASE FLOW
+
+1. Bump the application version in Properties\AssemblyInfo.cs.
+2. Build the installer with SOURCE_CODE\Installer\Build-ServoERPInstaller.ps1.
+3. Upload the installer EXE to the public release download location.
+4. Update the installer download URL in:
+   - SOURCE_CODE\SERVICES\UpdateService.cs
+   - marketing_site\script.js
+   - marketing_site\download\index.html
+5. Update marketing_site\version.txt with the latest version number.
+6. Update marketing_site\changelog.json with the release notes.
+7. Deploy the full marketing_site folder to servoerp.in.
+
+REQUIRED LIVE ENDPOINTS
+
+- https://servoerp.in/version.txt
+- https://servoerp.in/changelog.json
+- https://servoerp.in/download/
+
+VERSION NUMBERING GUIDE
+
+1.0.0 -> First release
+1.0.1 -> Small bug fix
+1.0.2 -> Another bug fix
+1.1.0 -> New features added
+2.0.0 -> Major redesign or breaking change

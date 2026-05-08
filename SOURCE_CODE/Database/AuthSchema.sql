@@ -1,0 +1,60 @@
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='AppRoles')
+CREATE TABLE AppRoles (
+    RoleId INT IDENTITY(1,1) PRIMARY KEY,
+    RoleName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(200) NULL
+);
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='AppUsers')
+CREATE TABLE AppUsers (
+    UserId INT IDENTITY(1,1) PRIMARY KEY,
+    Username NVARCHAR(50) NOT NULL UNIQUE,
+    Email NVARCHAR(255) NULL,
+    DisplayName NVARCHAR(100) NOT NULL,
+    PasswordHash NVARCHAR(256) NOT NULL,
+    PasswordSalt NVARCHAR(64) NOT NULL,
+    RoleId INT NOT NULL FOREIGN KEY REFERENCES AppRoles(RoleId),
+    IsActive BIT NOT NULL DEFAULT 1,
+    LastLoginDate DATETIME NULL,
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ForcePasswordChange BIT NOT NULL DEFAULT 0,
+    FailedAttempts INT NOT NULL DEFAULT 0,
+    LockoutUntil DATETIME NULL
+);
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='UserSessions')
+CREATE TABLE UserSessions (
+    SessionId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    UserId INT NOT NULL FOREIGN KEY REFERENCES AppUsers(UserId),
+    TokenHash NVARCHAR(128) NOT NULL,
+    RefreshTokenHash NVARCHAR(128) NULL,
+    DeviceName NVARCHAR(128) NULL,
+    IPAddress NVARCHAR(50) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    ExpiresAt DATETIME NOT NULL,
+    LastSeenAt DATETIME NULL,
+    RevokedAt DATETIME NULL
+);
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='LoginAudit')
+CREATE TABLE LoginAudit (
+    AuditId INT IDENTITY(1,1) PRIMARY KEY,
+    UserId INT NULL,
+    Username NVARCHAR(255) NULL,
+    Success BIT NOT NULL,
+    FailureReason NVARCHAR(200) NULL,
+    IPAddress NVARCHAR(50) NULL,
+    DeviceName NVARCHAR(128) NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE()
+);
+
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='PasswordResetTokens')
+CREATE TABLE PasswordResetTokens (
+    TokenId UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    UserId INT NOT NULL FOREIGN KEY REFERENCES AppUsers(UserId),
+    TokenHash NVARCHAR(128) NOT NULL,
+    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+    ExpiresAt DATETIME NOT NULL,
+    UsedAt DATETIME NULL,
+    RequestedByUserId INT NULL
+);

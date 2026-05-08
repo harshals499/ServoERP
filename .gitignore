@@ -1,0 +1,67 @@
+# Visual Studio / .NET build output
+**/.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# Generated release/package output
+/build_out/
+/build_out_verify/
+/release/
+/CLIENT_INSTALLER_KIT/
+/TEST_RESULTS/
+/qa_screens*/
+/tmp/
+/temp/
+
+# Local QA screenshots and smoke-test captures
+/*.png
+/smoke*.png
+/qa_*.png
+/audit_*.png
+/*_check*.png
+/*_capture*.png
+
+# Logs and temporary scripts generated during manual QA
+*.log
+/audit_click.ps1
+/read_data.ps1
+/temp_verify.cs
+
+# Local runtime/build artifacts at workspace root
+/*.dll
+/*.xml
+/*.exe
+/*.pdb
+/unins000.*
+/LOGS/
+/Invoice/
+/PAYROLL_EXPORTS/
+/PAYSLIPS/
+/RECEIPTS/
+/installer_output/
+
+# Local test/license artifacts
+/*.servoerp-license
+/license-private.xml
+/license-public.xml
+/*license*.ps1
+/vm_*.ps1
+/check_proc_vm.ps1
+/proc_vm.ps1
+/validate_vm*.ps1
+/inspect_license_vm.ps1
+
+# Generated installer prerequisites and staged binaries
+/SOURCE_CODE/Installer/Prerequisites/*.exe
+/SOURCE_CODE/bin/
+/SOURCE_CODE/obj/
+/SOURCE_CODE/packages/
+
+# Generated package archives
+/HVAC_Pro_Desktop_*Client*.zip
+/DOWNLOADS/*.zip
+
+# Website-hosted installer binaries are generated release artifacts
+/marketing_site/download/*.exe

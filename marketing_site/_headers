@@ -1,0 +1,8 @@
+/version.txt
+  Cache-Control: no-store
+
+/changelog.json
+  Cache-Control: no-store
+
+/download/*
+  Cache-Control: no-store

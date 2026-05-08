@@ -1,0 +1,151 @@
+﻿{
+    "product":  "ServoERP",
+    "latestVersion":  "1.0.20.0",
+    "updatedAt":  "2026-05-07",
+    "download":  {
+                     "url":  "/download/",
+                     "installer":  "ServoERP_Setup_1.0.16.0.exe",
+                     "packageUrl":  "/updates/ServoERP_Update_1.0.20.0.zip"
+                 },
+    "versions":  [
+                     {
+                         "version":  "1.0.20.0",
+                         "date":  "2026-05-07",
+                         "title":  "Data Quality Protection",
+                         "changes":  [
+                                         {
+                                             "type":  "quality",
+                                             "items":  [
+                                                           "Added central data-quality audit documentation.",
+                                                           "Added reusable validation, business-rule, duplicate-detection, calculation-verification, import-review, audit, logging, and form-recovery foundations.",
+                                                           "Blocked invalid client, vendor, site, inventory, quotation, PO, invoice, contract, job, and HVAC asset saves at service boundaries.",
+                                                           "Added duplicate GSTIN hard stops for clients and vendors.",
+                                                           "Added negative-stock protection for inventory movements and service-job part usage.",
+                                                           "Added focused smoke tests for bad formats, duplicate detection, total mismatches, broken references, negative stock, and impossible dates."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.19.0",
+                         "date":  "2026-05-07",
+                         "title":  "Company Document Templates",
+                         "changes":  [
+                                         {
+                                             "type":  "feature",
+                                             "items":  [
+                                                           "Added Company Document Templates inside Master Data.",
+                                                           "Added upload, recognition, mapping, preview, default selection, and module-use toggles for invoice, quotation, PO, letterhead, contract, report, and delivery templates.",
+                                                           "Added template services for upload, recognition, mapping, storage, rendering, and central management.",
+                                                           "Generated invoices, quotations, and purchase orders now read central default template metadata."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.18.0",
+                         "date":  "2026-05-07",
+                         "title":  "Enterprise Login System",
+                         "changes":  [
+                                         {
+                                             "type":  "security",
+                                             "items":  [
+                                                           "Added modern split-screen ServoERP login experience.",
+                                                           "Added BCrypt password hashing for new and changed passwords.",
+                                                           "Replaced raw-password remember-me storage with encrypted session tokens.",
+                                                           "Added SQL session tracking, lockout handling, and login audit tables."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.17.0",
+                         "date":  "2026-05-07",
+                         "title":  "Master Data Control Center",
+                         "changes":  [
+                                         {
+                                             "type":  "ui",
+                                             "items":  [
+                                                           "Redesigned Master Data as an upload, validation, mapping, and sync hub.",
+                                                           "Added smart import cards for clients, vendors, invoices, inventory, contracts, assets, rate cards, and documents.",
+                                                           "Added missing-data warnings, recent import status, duplicate checks, and one-click routing into ERP modules."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.16.0",
+                         "date":  "2026-05-07",
+                         "title":  "Automatic update package support",
+                         "changes":  [
+                                         {
+                                             "type":  "update",
+                                             "items":  [
+                                                           "Added no-installer update flow using downloadable ZIP packages.",
+                                                           "App can download, apply, and restart into the latest build after this updater is installed once.",
+                                                           "Unlocked manual quotation number entry and fixed quotation client dropdown to use the full client list."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.14.0",
+                         "date":  "2026-05-07",
+                         "title":  "Startup stability fix",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Prevent sample-data seeding from blocking app startup.",
+                                                           "Protect existing client databases from demo-data reset logic.",
+                                                           "Handle duplicate seed lookup rows without SQL Server startup error 512."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.13.0",
+                         "date":  "2026-05-07",
+                         "title":  "Official invoice header fix",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Fixed the invoice header to use the official Madhusuman Enterprises letterhead.",
+                                                           "Corrected company GST, PAN, phone, email, and address defaults used by invoice generation."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.12.0",
+                         "date":  "2026-05-06",
+                         "title":  "Performance and installer release",
+                         "changes":  [
+                                         {
+                                             "type":  "performance",
+                                             "items":  [
+                                                           "Improved page navigation speed by keeping main modules cached.",
+                                                           "Added background warmup for shared app data after login.",
+                                                           "Prevented repeated theme, layout, grid, and resize handler wiring during navigation."
+                                                       ]
+                                         },
+                                         {
+                                             "type":  "installer",
+                                             "items":  [
+                                                           "Added complete Inno Setup 6 installer for ServoERP.",
+                                                           "Bundled .NET Framework 4.7.2, SQL Server Express, and WebView2 Runtime prerequisite installers.",
+                                                           "Installer now uses official ServoERP icon and asks whether to keep business data during uninstall."
+                                                       ]
+                                         },
+                                         {
+                                             "type":  "ui",
+                                             "items":  [
+                                                           "Refined modern table styling and quotation line item layout.",
+                                                           "Improved dashboard, sidebar, settings, purchases, inventory, vendors, jobs, and invoice layouts for laptop displays."
+                                                       ]
+                                         }
+                                     ]
+                     }
+                 ]
+}

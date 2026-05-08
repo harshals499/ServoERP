@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>HVAC_Pro_Desktop</RootNamespace>
+    <AssemblyName>HVAC_Pro_Desktop</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>x64</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="EPPlus, Version=4.5.3.3, Culture=neutral, PublicKeyToken=ea159fdaa78159a1, processorArchitecture=MSIL">
+      <HintPath>packages\EPPlus.4.5.3.3\lib\net40\EPPlus.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="BCrypt.Net-Next">
+      <HintPath>packages\BCrypt.Net-Next.4.0.3\lib\net472\BCrypt.Net-Next.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.Core">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\lib\net462\Microsoft.Web.WebView2.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.WinForms">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\lib\net462\Microsoft.Web.WebView2.WinForms.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\tools\wv2winrt\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.4.5.3\package\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Web" />
+    <Reference Include="System.Web.Extensions" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <!-- Models -->
+    <Compile Include="MODELS\B2BClient.cs" />
+    <Compile Include="MODELS\ClientContact.cs" />
+    <Compile Include="MODELS\ClientSite.cs" />
+    <Compile Include="MODELS\ClientTeamMember.cs" />
+    <Compile Include="MODELS\ClientActivity.cs" />
+    <Compile Include="MODELS\AMCContract.cs" />
+    <Compile Include="MODELS\Invoice.cs" />
+    <Compile Include="MODELS\InvoiceLineItem.cs" />
+    <Compile Include="MODELS\Payment.cs" />
+    <Compile Include="MODELS\Technician.cs" />
+    <Compile Include="MODELS\SLALog.cs" />
+    <Compile Include="MODELS\TenderBid.cs" />
+    <Compile Include="MODELS\Vendor.cs" />
+    <Compile Include="MODELS\PurchaseOrder.cs" />
+    <Compile Include="MODELS\StockItem.cs" />
+    <Compile Include="MODELS\Employee.cs" />
+    <Compile Include="MODELS\Job.cs" />
+    <Compile Include="MODELS\InvoiceTemplate.cs" />
+    <Compile Include="MODELS\InvoiceInventoryReservation.cs" />
+    <Compile Include="MODELS\IndiaCompanySettings.cs" />
+    <Compile Include="MODELS\GeoIntelligenceModels.cs" />
+    <Compile Include="MODELS\HsnSacMasterEntry.cs" />
+    <Compile Include="MODELS\PendingCharge.cs" />
+    <Compile Include="MODELS\AuthModels.cs" />
+    <Compile Include="MODELS\PayrollModels.cs" />
+    <Compile Include="MODELS\CardLayoutDto.cs" />
+    <Compile Include="MODELS\ServiceDeskModels.cs" />
+    <Compile Include="MODELS\MailIntegrationModels.cs" />
+    <Compile Include="MODELS\MasterDataModels.cs" />
+    <Compile Include="MODELS\CompanyDocumentTemplateModels.cs" />
+    <Compile Include="MODELS\FoundationModels.cs" />
+    <Compile Include="MODELS\LicenseModels.cs" />
+    <Compile Include="MODELS\Validation\ValidationSeverity.cs" />
+    <Compile Include="MODELS\Validation\ValidationIssue.cs" />
+    <Compile Include="MODELS\Validation\ValidationResult.cs" />
+    <Compile Include="MODELS\Validation\DataQualityScore.cs" />
+    <!-- Data Access Layer -->
+    <Compile Include="DAL\DatabaseManager.cs" />
+    <Compile Include="DAL\DbExecutor.cs" />
+    <Compile Include="DAL\ClientRepository.cs" />
+    <Compile Include="DAL\ContractRepository.cs" />
+    <Compile Include="DAL\InvoiceRepository.cs" />
+    <Compile Include="DAL\PaymentRepository.cs" />
+    <Compile Include="DAL\SLARepository.cs" />
+    <Compile Include="DAL\VendorRepository.cs" />
+    <Compile Include="DAL\PurchaseRepository.cs" />
+    <Compile Include="DAL\InventoryRepository.cs" />
+    <Compile Include="DAL\EmployeeRepository.cs" />
+    <Compile Include="DAL\SiteRepository.cs" />
+    <Compile Include="DAL\SettingsRepository.cs" />
+    <Compile Include="DAL\JobRepository.cs" />
+    <Compile Include="DAL\InvoiceTemplateRepository.cs" />
+    <Compile Include="DAL\HsnSacMasterRepository.cs" />
+    <Compile Include="DAL\AuthRepository.cs" />
+    <Compile Include="DAL\PayrollRepository.cs" />
+    <Compile Include="DAL\ServiceDeskRepository.cs" />
+    <Compile Include="DAL\MailIntegrationRepository.cs" />
+    <Compile Include="DAL\MasterDataRepository.cs" />
+    <!-- Services -->
+    <Compile Include="SERVICES\ClientService.cs" />
+    <Compile Include="SERVICES\ContractService.cs" />
+    <Compile Include="SERVICES\InvoiceService.cs" />
+    <Compile Include="SERVICES\PaymentService.cs" />
+    <Compile Include="SERVICES\SLAService.cs" />
+    <Compile Include="SERVICES\ReportService.cs" />
+    <Compile Include="SERVICES\AppDataCache.cs" />
+    <Compile Include="SERVICES\AppWarmupService.cs" />
+    <Compile Include="SERVICES\VendorService.cs" />
+    <Compile Include="SERVICES\VendorAdvancePaymentService.cs" />
+    <Compile Include="SERVICES\PurchaseService.cs" />
+    <Compile Include="SERVICES\InventoryService.cs" />
+    <Compile Include="SERVICES\EmployeeService.cs" />
+    <Compile Include="SERVICES\EmployeeExportService.cs" />
+    <Compile Include="SERVICES\EmployeeSalarySlipService.cs" />
+    <Compile Include="SERVICES\SiteService.cs" />
+    <Compile Include="SERVICES\SettingsService.cs" />
+    <Compile Include="SERVICES\ConfigService.cs" />
+    <Compile Include="SERVICES\AppLogger.cs" />
+    <Compile Include="SERVICES\BrandingService.cs" />
+    <Compile Include="SERVICES\DocumentBranding.cs" />
+    <Compile Include="SERVICES\DocumentTemplateService.cs" />
+    <Compile Include="SERVICES\TemplateUploadService.cs" />
+    <Compile Include="SERVICES\TemplateRecognitionService.cs" />
+    <Compile Include="SERVICES\TemplateMappingService.cs" />
+    <Compile Include="SERVICES\TemplateStorageService.cs" />
+    <Compile Include="SERVICES\DocumentTemplateRenderer.cs" />
+    <Compile Include="SERVICES\CompanyTemplateManager.cs" />
+    <Compile Include="SERVICES\ExcelImportService.cs" />
+    <Compile Include="SERVICES\FreshStartService.cs" />
+    <Compile Include="SERVICES\AutoSaveService.cs" />
+    <Compile Include="SERVICES\BackupService.cs" />
+    <Compile Include="SERVICES\GlobalSearchService.cs" />
+    <Compile Include="SERVICES\NotificationCenterService.cs" />
+    <Compile Include="SERVICES\SiteTimelineService.cs" />
+    <Compile Include="SERVICES\PersistentLayoutMemoryService.cs" />
+    <Compile Include="SERVICES\ImportUiHelper.cs" />
+    <Compile Include="SERVICES\TenderService.cs" />
+    <Compile Include="SERVICES\TenderService.MultiLine.cs" />
+    <Compile Include="SERVICES\JobService.cs" />
+    <Compile Include="SERVICES\InvoiceTemplateService.cs" />
+    <Compile Include="SERVICES\InvoiceInventoryService.cs" />
+    <Compile Include="SERVICES\IndiaTaxValidationHelper.cs" />
+    <Compile Include="SERVICES\IndiaStateCatalog.cs" />
+    <Compile Include="SERVICES\IndiaFinancialYearHelper.cs" />
+    <Compile Include="SERVICES\IndiaFormatHelper.cs" />
+    <Compile Include="SERVICES\IndiaComplianceLogger.cs" />
+    <Compile Include="SERVICES\HsnSacMasterService.cs" />
+    <Compile Include="SERVICES\SessionManager.cs" />
+    <Compile Include="SERVICES\GoogleGeocodingService.cs" />
+    <Compile Include="SERVICES\GeoIntelligenceService.cs" />
+    <Compile Include="SERVICES\NominatimGeocodingService.cs" />
+    <Compile Include="SERVICES\WebView2RuntimeHelper.cs" />
+    <Compile Include="SERVICES\AuthService.cs" />
+    <Compile Include="SERVICES\LocalLoginBypassService.cs" />
+    <Compile Include="SERVICES\PayrollSupport.cs" />
+    <Compile Include="SERVICES\AttendanceService.cs" />
+    <Compile Include="SERVICES\PayrollService.cs" />
+    <Compile Include="SERVICES\PayslipService.cs" />
+    <Compile Include="SERVICES\PayrollReportService.cs" />
+    <Compile Include="SERVICES\PayrollDataImportService.cs" />
+    <Compile Include="SERVICES\SecurityHelpers.cs" />
+    <Compile Include="SERVICES\RememberedLoginService.cs" />
+    <Compile Include="SERVICES\Licensing\LicensingInterfaces.cs" />
+    <Compile Include="SERVICES\Licensing\DeviceFingerprintService.cs" />
+    <Compile Include="SERVICES\Licensing\LicenseCacheStore.cs" />
+    <Compile Include="SERVICES\Licensing\LicenseFeatureCatalog.cs" />
+    <Compile Include="SERVICES\Licensing\LicenseService.cs" />
+    <Compile Include="SERVICES\Licensing\OfflineLicenseValidator.cs" />
+    <Compile Include="SERVICES\Licensing\OnlineLicenseClient.cs" />
+    <Compile Include="Helpers\SecureStorageHelper.cs" />
+    <Compile Include="SERVICES\CardLayoutService.cs" />
+    <Compile Include="SERVICES\AppStartupService.cs" />
+    <Compile Include="SERVICES\UpdateService.cs" />
+    <Compile Include="SERVICES\VersionCheckService.cs" />
+    <Compile Include="SERVICES\ServiceDeskService.cs" />
+    <Compile Include="SERVICES\MailIntegrationService.cs" />
+    <Compile Include="SERVICES\MasterDataService.cs" />
+    <Compile Include="SERVICES\Validation\GlobalValidationEngine.cs" />
+    <Compile Include="SERVICES\Validation\BusinessRuleEngine.cs" />
+    <Compile Include="SERVICES\Validation\DataQualityEngine.cs" />
+    <Compile Include="SERVICES\Validation\DuplicateDetectionService.cs" />
+    <Compile Include="SERVICES\Validation\ReferenceIntegrityService.cs" />
+    <Compile Include="SERVICES\Validation\CalculationVerificationService.cs" />
+    <Compile Include="SERVICES\Validation\ImportReviewService.cs" />
+    <Compile Include="SERVICES\Audit\AuditTrailService.cs" />
+    <Compile Include="SERVICES\Logging\ErrorLoggingService.cs" />
+    <Compile Include="SERVICES\Recovery\FormStateRecoveryService.cs" />
+    <Compile Include="Tests\DataQualitySmokeTests.cs" />
+      <!-- UI -->
+    <Compile Include="UI\BaseForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\BaseUserControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\DesignSystem.cs" />
+    <Compile Include="UI\GridTheme.cs" />
+    <Compile Include="UI\UIHelper.cs" />
+    <Compile Include="UI\HtmlPreviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\GlobalSearchDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\NotificationCenterDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\AccordionPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\ModernTextBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Helpers\LayoutScaler.cs" />
+    <Compile Include="UI\Helpers\ResizeCursorHelper.cs" />
+    <Compile Include="UI\ConnectionSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\DeferredPageControl.cs" />
+    <Compile Include="UI\PermissionUiHelper.cs" />
+    <Compile Include="UI\ResizableCard.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\LoginForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\CreateAccountForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Licensing\LicenseActivationForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ChangePasswordForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\MainForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\DashboardForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\DashboardForm.Payroll.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\DashboardForm.Analysis.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\DashboardAnalysisDrawer.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ClientManagementForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ClientCommandCenterControls.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ClientUi.cs" />
+    <Compile Include="UI\ClientDetailPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ContractManagementForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\InvoiceForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\SLADashboardForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\TenderBidForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ReportForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\PaymentForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\SettingsForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\VendorForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\PurchaseForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\InventoryForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\EmployeeForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\GeoIntelligenceForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\JobManagementForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\JobDetailPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\PayrollForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\ServiceDeskForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\MasterDataForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+    <None Include="app.manifest" />
+    <Content Include="HVACPro.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\Branding\app_logo_sidebar.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <EmbeddedResource Include="Resources\GeoMap\map.html" />
+  </ItemGroup>
+  <Import Project="packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets')" />
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

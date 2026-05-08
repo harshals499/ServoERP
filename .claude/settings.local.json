@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(pkill -f \"tsx server.ts\")",
+      "Bash(pkill -f \"vite\")",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(__NEW_LINE_93b35fa81abf4356__ echo:*)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(npx tsc:*)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(grep -A 10 '\"\"win\"\"' package.json)",
+      "Bash(ls -lh \"C:\\\\Users\\\\harsh\\\\Desktop\\\\mse-erp\\\\dist_electron\"/*.exe)",
+      "Bash(ls -lh C:UsersharshDesktopmse-erpdist_electron/*.exe)",
+      "Bash(tasklist)",
+      "Bash(grep -n \"case ''inventory''\" \"C:\\\\Users\\\\harsh\\\\Desktop\\\\mse-erp\\\\src\\\\App.tsx\")",
+      "Bash(ls -lh \"C:\\\\Users\\\\harsh\\\\Desktop\\\\mse-erp\\\\src\\\\App.tsx\"*)",
+      "Bash(ls -lah src/App.tsx*)",
+      "Bash(find src/services/fsm -type f -name *.ts)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -s http://localhost:5197/)",
+      "Bash(grep -n \"Operational Command Center\" src/**/*.tsx)",
+      "Bash(pkill -9 node)",
+      "Bash(pkill -9 tsx)",
+      "Bash(npx vite:*)"
+    ]
+  }
+}

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HVAC PRO Geo-Intelligence</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <style>
+    :root{--navy:#17315f;--navy2:#27548f;--panel:#ffffff;--line:#dde5ef;--soft:#53719b;--grey:#f5f7fb;--blue:#2f74e5;--teal:#1d9e75;--warn:#f0a11d;--red:#da5048;--green:#2fa66a}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;overflow-x:hidden;overflow-y:auto;font-family:"Segoe UI",sans-serif;background:#f5f7fb;color:#17315f}
+    body{scrollbar-gutter:stable}
+    .app{display:flex;flex-direction:column;min-height:100vh;padding:16px;gap:14px}
+    .header{display:flex;align-items:center;gap:16px;justify-content:space-between;padding:4px 6px 0}
+    .brand{display:flex;align-items:center;gap:14px;min-width:280px}.mark{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#1d9e75,#2f74e5 58%,#f0a11d)}.title{font-size:24px;font-weight:700;color:#17315f}
+    .filters{display:flex;gap:12px;flex:1;justify-content:center;flex-wrap:wrap}.field{position:relative;min-width:210px;background:#fff;border:1px solid #d9e2ef;border-radius:12px;box-shadow:0 4px 12px rgba(23,49,95,.05)}.field:after{content:"v";position:absolute;right:14px;top:11px;font-size:18px;color:#53719b;pointer-events:none}.field.date:after{display:none}.field select,.field input{width:100%;height:46px;padding:0 38px 0 14px;border:0;border-radius:12px;background:transparent;color:#17315f;font:600 14px "Segoe UI";outline:none}.field select{-webkit-appearance:none;appearance:none}.field select option{background:#fff;color:#17315f}
+    .custom-range{display:none;gap:10px;align-items:center}.custom-range.show{display:flex}.custom-range button{height:42px;padding:0 14px;border:0;border-radius:10px;background:#2f74e5;color:#fff;font:700 13px "Segoe UI";cursor:pointer}
+    .main{display:flex;gap:14px;min-height:430px}
+    .map-shell{position:relative;flex:0 0 65%;min-width:0;min-height:430px;border-radius:18px;overflow:hidden;background:#d7e5ef;border:1px solid #d9e2ef;box-shadow:0 8px 22px rgba(23,49,95,.07)}
+    #map{position:absolute;inset:0;width:100%;height:100%}
+    .notice{position:absolute;top:18px;left:18px;z-index:20;display:none;max-width:430px;padding:10px 16px;border-radius:999px;background:rgba(255,205,96,.95);color:#593d00;font-size:13px;font-weight:700}
+    .legend{position:absolute;right:18px;top:18px;z-index:20;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.94);border:1px solid #d9e2ef;color:#17315f;font-size:12px;box-shadow:0 8px 18px rgba(23,49,95,.12)}.legend.hide{display:none}.legend-row{display:flex;align-items:center;gap:8px;margin-top:6px}.legend-row:first-child{margin-top:0}.lpin{width:10px;height:10px;border-radius:50%}
+    .count{position:absolute;right:18px;bottom:18px;z-index:20;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.94);border:1px solid #d9e2ef;color:#17315f;font-size:14px;font-weight:700;box-shadow:0 8px 18px rgba(23,49,95,.12)}
+    .summary-toggle{position:absolute;left:18px;bottom:18px;z-index:20;display:none;padding:10px 14px;border:0;border-radius:999px;background:#fff;color:#17315f;font:700 13px "Segoe UI";cursor:pointer;box-shadow:0 8px 18px rgba(23,49,95,.12)}
+    .side{flex:0 0 35%;min-width:320px;min-height:430px;border-radius:18px;overflow:hidden;background:#fff;border:1px solid var(--line);display:flex;flex-direction:column;box-shadow:0 8px 22px rgba(23,49,95,.07)}
+    .side-head{display:flex;justify-content:space-between;align-items:center;padding:20px 22px 16px;border-bottom:1px solid var(--line);background:#fff}.side-head h3{margin:0;font-size:20px;color:#17315f}.gear{cursor:pointer;color:#53719b}
+    .cfg{display:none;margin:14px 20px 0;padding:12px;border-radius:14px;background:#f5f7fb;border:1px solid #e1e8f1}.cfg.show{display:block}.cfg-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-top:8px;color:#17315f}.cfg-row:first-child{margin-top:0}.cfg input{accent-color:#2f74e5}
+    .zone-body{padding:18px 22px 20px;overflow:auto;min-height:0}.small{margin:0 0 4px;font-size:13px;color:var(--soft)}.big{margin:0 0 10px;font-size:28px;font-weight:700;color:#17315f}.badge{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#eef4fb;color:#17315f;font-size:12px;font-weight:700}.bdot{width:8px;height:8px;border-radius:50%;background:var(--warn)}.copy{margin:12px 0 18px;color:var(--soft);font-size:13px;line-height:1.5}
+    .metric{display:flex;justify-content:space-between;gap:14px;width:100%;padding:14px 0;border:0;border-top:1px solid #e1e8f1;background:transparent;color:#17315f;text-align:left;cursor:pointer}.metric:first-of-type{border-top:0}.ml{display:flex;align-items:center;gap:10px;font-weight:600}.mdot{width:8px;height:8px;border-radius:50%}.mv{font-weight:700}.abox{margin-top:18px;padding:13px 14px;border-radius:14px;background:#e1f5ee;border-left:4px solid var(--teal);color:#0f6e56;font-size:13px;line-height:1.45}.btn{width:100%;margin-top:18px;height:46px;border:0;border-radius:12px;color:#fff;font:700 15px "Segoe UI";cursor:pointer;background:#2f74e5}.back{display:inline-flex;margin-top:14px;color:#185fa5;font-size:13px;font-weight:700;cursor:pointer}
+    .summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;padding:14px;border-top:1px solid #d7e0ea;background:var(--grey);min-height:160px}.summary.hidden{display:none}
+    .card{background:#fff;color:#17315f;border-radius:18px;border:1px solid #e1e8f1;box-shadow:0 10px 26px rgba(15,35,74,.08);padding:16px 18px;cursor:pointer}.card h4{margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid #dde5ef;font-size:16px}.items{display:flex;flex-direction:column;gap:8px}.item-link{padding:0;border:0;background:transparent;color:#27548f;font:600 14px "Segoe UI";text-align:left;cursor:pointer}.item-link:hover{text-decoration:underline}.muted{color:#53719b;font-size:14px;line-height:1.55}.accent-live{font-size:30px;font-weight:700;color:#e67b2c;line-height:1}.accent-ups{font-size:42px;font-weight:700;color:#da5048;line-height:1}
+    .tabs{display:flex;justify-content:center;gap:12px;padding:10px 14px;border-radius:18px;background:#fff;border:1px solid #d9e2ef;box-shadow:0 8px 20px rgba(23,49,95,.06)}.tab{padding:10px 16px;border-radius:12px;color:#53719b;font-size:14px;font-weight:600;cursor:pointer}.tab:hover{background:#f1f6fc}.tab.active{background:#e6f1fb;color:#185fa5}
+    .leaflet-container{background:#d3e5f0}.leaflet-tile-pane{filter:saturate(1.03) sepia(.08) brightness(1.04)}.leaflet-control-attribution{font-size:10px;background:rgba(255,255,255,.72)}.leaflet-control-zoom{margin:18px 0 0 14px!important;border:0!important}.leaflet-control-zoom a{border:0!important;color:#17315f!important}
+    .pw{position:relative;width:38px;height:54px}.pin{position:absolute;left:5px;top:6px;width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 10px 16px rgba(0,0,0,.25)}.pin:before{content:"";position:absolute;left:6px;top:6px;width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.92)}.pc{position:absolute;right:0;top:0;min-width:22px;height:22px;padding:0 6px;border-radius:999px;display:grid;place-items:center;background:rgba(51,36,31,.84);color:#fff;border:2px solid rgba(255,255,255,.86);font-size:12px;font-weight:700}.pr{background:linear-gradient(180deg,#ff7068,#eb4f48)}.pa{background:linear-gradient(180deg,#ffd05b,#f0a11d)}.pg{background:linear-gradient(180deg,#7de67b,#39b96b)}.ps{background:linear-gradient(180deg,#b1bac8,#7d8796)}
+    .leaflet-popup-content-wrapper{border-radius:18px;background:transparent;box-shadow:none}.leaflet-popup-tip{background:#fff}.leaflet-popup-content{margin:0}
+    @media (max-width:1100px){.main{flex-direction:column}.map-shell,.side{flex:1 1 auto;min-width:0}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-height:760px){.summary-toggle{display:block}.summary{min-height:140px}}
+    @media (max-height:860px){.app{padding-bottom:26px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand"><div class="mark"></div><div class="title">Geo-Intelligence</div></div>
+      <div class="filters">
+        <div class="field"><select id="range"><option value="today">Today</option><option value="last7">Last 7 Days</option><option value="last30" selected>Last 30 Days</option><option value="thisMonth">This Month</option><option value="thisQuarter">This Quarter</option><option value="thisFY">This FY</option><option value="custom">Custom Range</option></select></div>
+        <div id="customRange" class="custom-range"><div class="field date"><input id="fromDate" type="date" /></div><div class="field date"><input id="toDate" type="date" /></div><button id="applyCustom">Apply</button></div>
+        <div class="field"><select id="contract"><option value="All">Contract Type: All</option><option value="AMC">Contract Type: AMC</option><option value="OMC">Contract Type: OMC</option><option value="No Contract">Contract Type: No Contract</option></select></div>
+        <div class="field"><select id="tech"><option value="0">Technician: All</option></select></div>
+      </div>
+    </header>
+
+    <section class="main">
+      <div class="map-shell">
+        <div id="map"></div>
+        <div id="notice" class="notice"></div>
+        <div id="legend" class="legend">
+          <div class="legend-row"><span class="lpin" style="background:#ff6f67"></span>Urgent / overdue</div>
+          <div class="legend-row"><span class="lpin" style="background:#ffc857"></span>Renewal risk</div>
+          <div class="legend-row"><span class="lpin" style="background:#83df6f"></span>Healthy contract</div>
+          <div class="legend-row"><span class="lpin" style="background:#a8b3c2"></span>No contract</div>
+        </div>
+        <div id="count" class="count">0</div>
+        <button id="summaryToggle" class="summary-toggle">Summary ^</button>
+      </div>
+
+      <aside class="side">
+        <div class="side-head"><h3>Zone Insights</h3><div id="gearBtn" class="gear">&#9881;</div></div>
+        <div id="cfg" class="cfg">
+          <div class="cfg-row"><span>Legend</span><input id="legendToggle" type="checkbox" checked /></div>
+          <div class="cfg-row"><span>Auto-refresh</span><input id="refreshToggle" type="checkbox" /></div>
+        </div>
+        <div id="zoneBody" class="zone-body"></div>
+      </aside>
+    </section>
+
+    <section id="summary" class="summary"></section>
+    <nav class="tabs"><div class="tab" data-nav="dashboard">Dashboard</div><div class="tab" data-nav="jobs">Jobs</div><div class="tab" data-nav="technicians">Technicians</div><div class="tab active">Geo-Intelligence</div><div class="tab" data-nav="reports">Reports</div></nav>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const DEFAULT_CENTER=[19.1977617,72.9558786],DEFAULT_ZOOM=9,INDIA_BOUNDS=[[6.45,67.6],[37.6,97.6]];
+    const map=L.map("map",{zoomControl:true,preferCanvas:true,maxBounds:INDIA_BOUNDS,maxBoundsViscosity:.65}).setView(DEFAULT_CENTER,DEFAULT_ZOOM);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,subdomains:"abc",detectRetina:true,updateWhenIdle:true,keepBuffer:4,attribution:"&copy; OpenStreetMap contributors"}).addTo(map);
+    const pins=L.layerGroup().addTo(map),markerMap={},visibleIds=new Set();
+    const S={sites:[],summary:{topDemandAreas:[],risingBreakdowns:[],travelAlertTitle:"",travelAlertDetail:"",travelNeedsOfficeCoordinates:false,upsellOpportunity:0,mappedSitesCount:0},zone:null,filters:{rangeKey:"last30",dateFrom:"",dateTo:"",contractType:"All",technicianId:0,autoRefresh:false},summaryVisible:true};
+    const $=id=>document.getElementById(id),post=m=>window.chrome&&window.chrome.webview&&window.chrome.webview.postMessage(m),esc=v=>String(v||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"),hex=c=>({red:"#ff6b57",amber:"#ffbe44",green:"#6cd66f"}[(c||"").toLowerCase()]||"#9aa8bd"),cls=c=>({red:"pr",amber:"pa",green:"pg"}[(c||"").toLowerCase()]||"ps");
+    function metric(label,val,color,action){return "<button class='metric'"+(action?" onclick=\"post('QUICK_FILTER:"+action+"')\"":"")+"><span class='ml'><span class='mdot' style='background:"+color+"'></span>"+esc(label)+"</span><span class='mv'>"+esc(val)+"</span></button>"}
+    function fmtDate(t){if(!t)return"-";const d=new Date(t+"T00:00:00");return isNaN(d)?t:d.toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"})}
+    function techCount(v){v=Number(v||0);return v<=0?"None":v===1?"1 More":v+" More"}
+    function icon(site){const c=site.openCallsCount>0?"<div class='pc'>"+site.openCallsCount+"</div>":"";return L.divIcon({className:"",html:"<div class='pw'><div class='pin "+cls(site.pinColour)+"'></div>"+c+"</div>",iconSize:[38,54],iconAnchor:[19,46],popupAnchor:[0,-34]})}
+    function renderCount(){const count=visibleIds.size||S.sites.length;$("count").textContent=count.toString()}
+    function applySummaryVisibility(){const small=window.innerHeight<760;$("summaryToggle").style.display=small?"block":"none";$("summary").classList.toggle("hidden",small&&!S.summaryVisible);$("summaryToggle").textContent="Summary "+(S.summaryVisible?"^":"v");setTimeout(()=>map.invalidateSize(),80)}
+    function renderItems(items,empty){if(!items||!items.length)return "<div class='muted'>"+empty+"</div>";return "<div class='items'>"+items.map(x=>x.isClickable===false?"<div class='muted'>"+esc(x.title||x.detail)+"</div>":"<button class='item-link' onclick='centreSite("+x.siteId+")'>"+esc(x.title)+(x.detail?" <span class=\"muted\">"+esc(x.detail)+"</span>":"")+"</button>").join("")+"</div>"}
+    function renderSummary(){const s=S.summary;$("summary").innerHTML="<article class='card'><h4>Top Demand Areas</h4>"+renderItems(s.topDemandAreas,"No high demand sites right now.")+"</article>"
+      +"<article class='card'><h4>Rising Breakdown Zones</h4>"+renderItems(s.risingBreakdowns,"No sites trending above the prior period.")+"</article>"
+      +"<article class='card' onclick=\"post('NAV:"+(s.travelNeedsOfficeCoordinates?"SETTINGS":"REPORT_TECHNICIAN")+"')\"><h4>Travel Efficiency Alert</h4><div class='muted'>"+esc(s.travelAlertDetail||"")+"</div><div class='accent-live'>"+esc(s.travelAlertTitle||"Live")+"</div><div class='muted'>"+(s.travelNeedsOfficeCoordinates?"Set office coordinates":"Consider route optimisation")+"</div></article>"
+      +"<article class='card' onclick=\"post('QUICK_FILTER:UPSELL')\"><h4>AMC Upsell Opportunity</h4><div class='muted'><span class='accent-ups'>"+(s.upsellOpportunity||0)+"</span> customers ready for renewal outreach</div><div class='muted'><a href='#' onclick=\"event.stopPropagation();post('NAV:CONTRACTS')\">Renew AMC plan</a> for uncovered sites.</div></article>"
+    }
+    function renderOverview(){const mapped=S.sites.length,urgent=S.sites.filter(s=>(s.pinColour||"").toLowerCase()==="red").length,open=S.sites.reduce((n,s)=>n+(s.openCallsCount||0),0),renew=S.sites.filter(s=>(s.pinColour||"").toLowerCase()==="amber").length;$("zoneBody").innerHTML="<p class='small'>Maharashtra-first snapshot</p><h2 class='big'>India Client Network</h2><div class='badge'><span class='bdot'></span>Thane office coverage</div><p class='copy'>Select a company pin to inspect service, PM and contract signals across India.</p>"
+      +metric("Mapped Clients",mapped,"#5da2ff","ALL_MAPPED")+metric("Urgent Clients",urgent,"#ff7b73","URGENT")+metric("Open Calls",open,"#ffc857","OPEN_CALLS")+metric("Renewal Risk",renew,"#ffe05c","RENEWAL_RISK")+metric("Upsell Leads",S.summary.upsellOpportunity||0,"#7de67b","UPSELL")
+      +"<div class='abox'>Use the quick filters above or click a company pin to drill into client service activity.</div>"}
+    function renderZone(){if(!S.zone){renderOverview();return}const z=S.zone,c=hex(z.healthColour),label=z.healthColour==="red"?"High Demand Zone":z.healthColour==="amber"?"Renewal Attention Zone":z.healthColour==="green"?"Healthy Contract Zone":"No Contract Zone";$("zoneBody").innerHTML="<p class='small'>"+esc(z.clientName||"")+"</p><h2 class='big'>"+esc(z.siteName||"Selected Site")+"</h2><div class='badge'><span class='bdot' style='background:"+c+"'></span>"+label+"</div><p class='copy'>"+esc(z.contractType||"No Contract")+(z.contractExpiry?" | Expiry "+fmtDate(z.contractExpiry):"")+"</p>"
+      +metric("Demand Score",z.demandScoreLabel||"Stable","#ff8c7a","")+metric("Breakdown Rate",(z.breakdownRatePercent||0)+"%","#ff6b6b","")+metric("Avg. Travel Time",(z.avgTravelTimeMinutes||0)+" mins","#ffcf5f","")+metric("Techs Recommended",techCount(z.additionalTechniciansRecommended),"#ffe54c","")+metric("Top Issue",z.topIssue||"No repeated issue trend","#7de67b","")
+      +"<div class='abox'>"+esc(z.recommendedAction||"Site is healthy")+"</div><button class='btn' onclick='post(\"VIEW_SITE:"+z.siteId+"\")'>View Full Site Details</button><a class='back' onclick='post(\"ZONE_BACK\")'>Back</a>"}
+    function loadSites(s){let rows=[];try{rows=JSON.parse(s||"[]")}catch(e){console.error(e);return}S.sites=rows;Object.keys(markerMap).forEach(k=>delete markerMap[k]);visibleIds.clear();pins.clearLayers();if(!rows.length){map.setView(DEFAULT_CENTER,DEFAULT_ZOOM);renderCount();renderZone();setTimeout(()=>map.invalidateSize(),80);return}const bounds=[];rows.forEach(site=>{const m=L.marker([site.lat,site.lon],{icon:icon(site)});m.siteData=site;m.bindPopup(site.popupHtml||"",{closeButton:true,autoPanPadding:[40,40]});m.on("click",()=>post("SITE_CLICK:"+site.siteId));m.addTo(pins);markerMap[site.siteId]=m;visibleIds.add(site.siteId);bounds.push([site.lat,site.lon])});setTimeout(()=>{map.invalidateSize();if(bounds.length===1)map.setView(bounds[0],12);else map.fitBounds(bounds,{padding:[24,24]})},80);renderCount();renderZone()}
+    function centreSite(id){const m=markerMap[id];if(!m)return;map.setView(m.getLatLng(),15);m.openPopup()}
+    function fitAll(){const ids=[...visibleIds];if(!ids.length){map.setView(DEFAULT_CENTER,DEFAULT_ZOOM);return}const bounds=[];ids.forEach(id=>{const m=markerMap[id];if(m)bounds.push(m.getLatLng())});bounds.length===1?map.setView(bounds[0],15):map.fitBounds(bounds,{padding:[26,26]})}
+    function filterByColour(colour){visibleIds.clear();pins.clearLayers();Object.keys(markerMap).forEach(id=>{const m=markerMap[id],site=m.siteData;if(!colour||String(site.pinColour||"").toLowerCase()===String(colour).toLowerCase()){m.addTo(pins);visibleIds.add(site.siteId)}});renderCount()}
+    function clearFilter(){filterByColour("")}
+    function setSummary(s){try{S.summary=JSON.parse(s||"{}")||S.summary}catch(e){console.error(e)}renderSummary();renderZone()}
+    function showZone(s){try{S.zone=JSON.parse(s||"{}")}catch(e){S.zone=null}renderZone()}
+    function setFilters(s){try{S.filters=JSON.parse(s||"{}")||S.filters}catch(e){console.error(e)}$("range").value=S.filters.rangeKey||"last30";$("fromDate").value=S.filters.dateFrom||"";$("toDate").value=S.filters.dateTo||"";$("contract").value=S.filters.contractType||"All";$("refreshToggle").checked=!!S.filters.autoRefresh;$("customRange").classList.toggle("show",$("range").value==="custom")}
+    function setTechs(s){let rows=[];try{rows=JSON.parse(s||"[]")}catch(e){}const current=String(S.filters.technicianId||0),sel=$("tech");sel.innerHTML="<option value='0'>Technician: All</option>"+rows.map(r=>"<option value='"+r.id+"'>Technician: "+esc(r.name)+"</option>").join("");sel.value=current}
+    function notice(s){let p={missingCount:0};try{p=JSON.parse(s||"{}")||p}catch(e){}if((p.missingCount||0)>0){$("notice").style.display="inline-flex";$("notice").textContent=p.missingCount+" client sites missing India coordinates - add them in Clients > Sites"}else{$("notice").style.display="none";$("notice").textContent=""}}
+    function sendFilters(){const rv=$("range").value,cv=$("contract").value,tv=$("tech").value||"0";let from=$("fromDate").value,to=$("toDate").value;const now=new Date();if(rv!=="custom"){const r=resolveRange(rv,now);from=r.from;to=r.to}$("customRange").classList.toggle("show",rv==="custom");if(!from||!to)return;post("FILTER_CHANGED:"+rv+"|"+from+"|"+to+"|"+encodeURIComponent(cv)+"|"+tv)}
+    function resolveRange(key,now){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()),fmt=x=>x.toISOString().slice(0,10);let from=new Date(d),to=new Date(d);if(key==="last7")from.setDate(d.getDate()-6);else if(key==="last30")from.setDate(d.getDate()-29);else if(key==="thisMonth")from=new Date(d.getFullYear(),d.getMonth(),1);else if(key==="thisQuarter"){const q=Math.floor(d.getMonth()/3)*3;from=new Date(d.getFullYear(),q,1)}else if(key==="thisFY"){from=new Date(d.getMonth()>=3?d.getFullYear():d.getFullYear()-1,3,1)}return{from:fmt(from),to:fmt(to)}}
+    $("range").addEventListener("change",sendFilters);$("contract").addEventListener("change",sendFilters);$("tech").addEventListener("change",sendFilters);$("applyCustom").addEventListener("click",sendFilters);
+    $("summaryToggle").addEventListener("click",()=>{S.summaryVisible=!S.summaryVisible;applySummaryVisibility()});window.addEventListener("resize",()=>{applySummaryVisibility();setTimeout(()=>map.invalidateSize(),80)});
+    $("gearBtn").addEventListener("click",()=>$("cfg").classList.toggle("show"));$("legendToggle").addEventListener("change",e=>$("legend").classList.toggle("hide",!e.target.checked));$("refreshToggle").addEventListener("change",e=>post("AUTO_REFRESH:"+(e.target.checked?"1":"0")));
+    document.querySelectorAll(".tab[data-nav]").forEach(t=>t.addEventListener("click",()=>post("NAV:"+t.dataset.nav.toUpperCase())));
+    if(window.chrome&&window.chrome.webview){window.chrome.webview.addEventListener("message",e=>{const m=e.data||"";if(typeof m!=="string")return;if(m.indexOf("LOAD_SITES:")===0)loadSites(m.substring(11));else if(m.indexOf("LOAD_SUMMARY:")===0)setSummary(m.substring(13));else if(m.indexOf("SHOW_ZONE:")===0)showZone(m.substring(10));else if(m.indexOf("SET_FILTERS:")===0)setFilters(m.substring(12));else if(m.indexOf("SET_TECHNICIANS:")===0)setTechs(m.substring(16));else if(m.indexOf("SET_NOTICE:")===0)notice(m.substring(11));else if(m.indexOf("CENTRE_SITE:")===0)centreSite(parseInt(m.substring(12),10));else if(m==="FIT_ALL")fitAll();else if(m.indexOf("FILTER_COLOUR:")===0)filterByColour(m.substring(14));else if(m==="FILTER_CLEAR")clearFilter();else if(m.indexOf("CLEAR_ZONE:")===0){S.zone=null;renderZone()}})}
+    setTimeout(()=>map.invalidateSize(),120);applySummaryVisibility();renderSummary();renderZone();
+  </script>
+</body>
+</html>
