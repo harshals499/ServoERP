@@ -1,5 +1,5 @@
 const DOWNLOAD_URL =
-  "download/ServoERP.Setup.1.0.20.0.exe";
+  "https://downloads.servoerp.in/ServoERP.Setup.1.0.20.0.exe";
 const SALES_EMAIL = "harshalsonawane@servoerp.com";
 
 const header = document.querySelector(".site-header");
