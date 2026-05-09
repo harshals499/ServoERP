@@ -172,9 +172,9 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             Button notify = MakeToolbarButton("Bell", 64);
-            notify.Click += (s, e) => ShowTodo("Notifications");
+            notify.Click += (s, e) => ShowNotificationCenter();
             Button help = MakeToolbarButton("?", 42);
-            help.Click += (s, e) => ShowTodo("Help");
+            help.Click += (s, e) => ShowDispatchHelp();
             Button refresh = MakeToolbarButton("Refresh", 92);
             refresh.Click += (s, e) => QueueLoadDispatchData();
             Button newJob = MakePrimaryButton("+ New Job", 116);
@@ -323,7 +323,7 @@ namespace HVAC_Pro_Desktop.UI
             Button filter = MakeToolbarButton("Filter", 70);
             filter.Dock = DockStyle.Fill;
             filter.Margin = new Padding(0, 0, 6, 8);
-            filter.Click += (s, e) => ShowTodo("Advanced dispatch filters");
+            filter.Click += (s, e) => OpenDispatchFilters();
             _cmbType = MakeCombo();
             _cmbType.Dock = DockStyle.Fill;
             _cmbType.Margin = new Padding(0, 0, 6, 8);
@@ -339,7 +339,7 @@ namespace HVAC_Pro_Desktop.UI
             Button date = MakeToolbarButton("Date", 70);
             date.Dock = DockStyle.Fill;
             date.Margin = new Padding(0, 0, 0, 4);
-            date.Click += (s, e) => ShowTodo("Date filter");
+            date.Click += (s, e) => SetTodayDispatchFilter();
             filters.Controls.Add(_txtSearch, 0, 0);
             filters.SetColumnSpan(_txtSearch, 2);
             filters.Controls.Add(filter, 2, 0);
@@ -427,10 +427,10 @@ namespace HVAC_Pro_Desktop.UI
             _lblTechTitle.Width = 220;
             Button timeline = MakeToolbarButton("View Timeline", 112);
             timeline.Dock = DockStyle.Right;
-            timeline.Click += (s, e) => ShowTodo("Full technician timeline");
+            timeline.Click += (s, e) => ShowTechnicianTimelineSummary();
             Button list = MakeToolbarButton("List", 52);
             list.Dock = DockStyle.Right;
-            list.Click += (s, e) => ShowTodo("Technician list view");
+            list.Click += (s, e) => ToggleTechnicianListView();
             header.Controls.AddRange(new Control[] { timeline, list, _lblTechTitle });
             card.Controls.Add(header);
             _techList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = White, Padding = new Padding(0, 4, 0, 0) };
@@ -1427,7 +1427,72 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < combo.Items.Count; i++)
                 if (string.Equals(Convert.ToString(combo.Items[i]), text, StringComparison.OrdinalIgnoreCase)) { combo.SelectedIndex = i; return; }
         }
-        private void ShowTodo(string feature) => MessageBox.Show(feature + " is not configured yet. The dispatch page remains usable without it.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        private void ShowNotificationCenter()
+        {
+            MainForm main = FindForm() as MainForm;
+            using (var dialog = new NotificationCenterDialog(main != null ? new Action<string>(main.NavigateTo) : null))
+                dialog.ShowDialog(FindForm());
+        }
+
+        private void ShowDispatchHelp()
+        {
+            MessageBox.Show(
+                "Dispatch Center uses the search, type, priority, technician and auto-refresh controls on this screen. Select a job card to update assignment, status and schedule.",
+                "Dispatch Center Help",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void OpenDispatchFilters()
+        {
+            if (_cmbType != null && _cmbType.Enabled)
+            {
+                _cmbType.Focus();
+                _cmbType.DroppedDown = true;
+            }
+        }
+
+        private void SetTodayDispatchFilter()
+        {
+            _txtSearch.Text = DateTime.Today.ToString("dd/MM/yyyy");
+            ApplyJobFilters();
+            SetStatus("Filtered dispatch queue to today's date.", Info);
+        }
+
+        private void ShowTechnicianTimelineSummary()
+        {
+            int available = _technicians == null ? 0 : _technicians.Count;
+            int assigned = _visibleJobs == null ? 0 : _visibleJobs.Count(j => j.TechnicianId.HasValue);
+            MessageBox.Show(
+                "Technicians: " + available + Environment.NewLine +
+                "Visible assigned jobs: " + assigned + Environment.NewLine +
+                "Use job cards to inspect and reschedule assignments.",
+                "Technician Timeline",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void ToggleTechnicianListView()
+        {
+            if (_techList == null)
+                return;
+
+            _techList.FlowDirection = _techList.FlowDirection == FlowDirection.LeftToRight
+                ? FlowDirection.TopDown
+                : FlowDirection.LeftToRight;
+            _techList.WrapContents = _techList.FlowDirection == FlowDirection.LeftToRight;
+            SetStatus(_techList.FlowDirection == FlowDirection.TopDown ? "Technician list view enabled." : "Technician board view enabled.", Info);
+        }
+
+        private void SetStatus(string text, Color color)
+        {
+            if (_lblStatus == null)
+                return;
+
+            _lblStatus.Text = text;
+            _lblStatus.ForeColor = color;
+            _lblStatus.Visible = true;
+        }
 
         private string PromptText(string title, string initial)
         {

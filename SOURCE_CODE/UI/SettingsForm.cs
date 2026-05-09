@@ -58,6 +58,7 @@ namespace HVAC_Pro_Desktop.UI
         private TabControl _tabs;
         private Panel _generalCanvas;
         private TextBox _txtVersionCheckUrl;
+        private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
         private CheckBox _chkVersionCheckEnabled;
         private Label _lblInstalledVersion;
         private ComboBox _cmbDisplayFitMode;
@@ -307,6 +308,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.White
             };
             defaultsBody.Controls.Add(_chkEInvoiceEligible);
+            _toolTip.SetToolTip(_chkEInvoiceEligible, "Calculated automatically from annual turnover and configured e-invoice threshold.");
             _lblMoneyPreview = new Label
             {
                 Location = new Point(190, 220),
@@ -1994,6 +1996,7 @@ namespace HVAC_Pro_Desktop.UI
                 var btnCancel = new Button { Text = "Cancel", Location = new Point(318, 214), Width = 88, DialogResult = DialogResult.Cancel };
                 var btnDelete = new Button { Text = "Delete", Location = new Point(414, 214), Width = 88, Enabled = false, BackColor = Color.FromArgb(220, 38, 38), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
                 btnDelete.FlatAppearance.BorderSize = 0;
+                _toolTip.SetToolTip(btnDelete, "Type CONFIRM to unlock this destructive action.");
                 confirmBox.TextChanged += (s, e) => btnDelete.Enabled = string.Equals(confirmBox.Text, "CONFIRM", StringComparison.Ordinal);
                 btnDelete.Click += (s, e) => dialog.DialogResult = DialogResult.OK;
                 dialog.Controls.AddRange(new Control[] { prompt, confirmBox, btnCancel, btnDelete });

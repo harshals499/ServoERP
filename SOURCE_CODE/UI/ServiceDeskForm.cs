@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -25,6 +26,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Color Blue = DS.Primary600;
         private readonly Color Amber = DS.Amber500;
         private readonly Color Red = DS.Red500;
+        private readonly Color SoftInfo = Color.FromArgb(239, 246, 255);
 
         private DataGridView _grid;
         private TextBox _txtSearch;
@@ -91,7 +93,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Fill,
                 FixedPanel = FixedPanel.Panel1,
-                BackColor = Border
+                BackColor = Border,
+                SplitterWidth = 1,
+                BorderStyle = BorderStyle.None
             };
             BuildLeft(_split.Panel1);
             BuildRight(_split.Panel2);
@@ -102,14 +106,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLeft(Control parent)
         {
-            Panel left = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(16) };
+            Panel left = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(16, 18, 14, 16) };
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = White, Padding = new Padding(12, 0, 12, 0) };
-            header.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, header.Width - 1, header.Height - 1);
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = White, Padding = new Padding(16, 0, 16, 0) };
+            header.Paint += (s, e) => PaintCardBorder(e.Graphics, header.ClientRectangle, 10);
             DS.Rounded(header, 10);
             header.Controls.Add(new Label { Text = "INCIDENT OVERVIEW", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
 
-            TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(18, 0, 18, 10), ColumnCount = 4, BackColor = White };
+            TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 94, Padding = new Padding(14, 10, 14, 12), ColumnCount = 4, BackColor = White };
             for (int i = 0; i < 4; i++)
                 kpis.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
             _lblOpen = AddKpi(kpis, 0, "Open", Blue);
@@ -117,7 +121,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblBreached = AddKpi(kpis, 2, "SLA Breached", Amber);
             _lblResolvedToday = AddKpi(kpis, 3, "Resolved Today", Teal);
 
-            Panel filters = new Panel { Dock = DockStyle.Top, Height = 56, Padding = new Padding(12, 8, 12, 8), BackColor = White };
+            Panel filters = new Panel { Dock = DockStyle.Top, Height = 64, Padding = new Padding(12, 10, 12, 10), BackColor = White };
             _txtSearch = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle };
             _txtSearch.TextChanged += (s, e) => BindGrid();
             _cmbFilter = new ComboBox { Dock = DockStyle.Left, Width = 92, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f) };
@@ -126,6 +130,11 @@ namespace HVAC_Pro_Desktop.UI
             _cmbFilter.SelectedIndexChanged += (s, e) => BindGrid();
             Button filterButton = MakeButton("Filter", White, DS.Slate700, 58);
             filterButton.Dock = DockStyle.Right;
+            filterButton.Click += (s, e) =>
+            {
+                _cmbFilter.Focus();
+                _cmbFilter.DroppedDown = true;
+            };
             filters.Controls.Add(_txtSearch);
             filters.Controls.Add(_cmbFilter);
             filters.Controls.Add(filterButton);
@@ -153,7 +162,7 @@ namespace HVAC_Pro_Desktop.UI
             StyleGrid(_grid);
 
             Panel gridCard = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(12) };
-            gridCard.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, gridCard.Width - 1, gridCard.Height - 1);
+            gridCard.Paint += (s, e) => PaintCardBorder(e.Graphics, gridCard.ClientRectangle, 10);
             DS.Rounded(gridCard, 10);
             gridCard.Controls.Add(_grid);
             gridCard.Controls.Add(new Label { Text = "Recent Incidents", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900 });
@@ -166,14 +175,15 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildRight(Control parent)
         {
-            Panel right = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(18) };
+            Panel right = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(18, 18, 18, 14) };
 
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = White, Padding = new Padding(18, 10, 18, 10) };
-            top.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, top.Width - 1, top.Height - 1);
+            Panel top = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = White, Padding = new Padding(20, 14, 20, 12) };
+            top.Paint += (s, e) => PaintCardBorder(e.Graphics, top.ClientRectangle, 10);
             DS.Rounded(top, 10);
             Panel titleBlock = new Panel { Dock = DockStyle.Fill, BackColor = White };
-            _lblIncidentNumber = new Label { Text = "New Incident", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft };
-            _lblSla = new Label { Text = "Create a new service incident and assign it to the right team.", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            Label breadcrumb = new Label { Text = "Incidents  >  Current Incident", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue, TextAlign = ContentAlignment.MiddleLeft };
+            _lblIncidentNumber = new Label { Text = "New Incident", Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft };
+            _lblSla = new Label { Text = "Create a new service incident and assign it to the right team.", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.TopLeft };
             FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 520, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             _btnSave = MakeButton("Save", Teal, White, 90);
             _btnCreateJob = MakeButton("Create Job", Blue, White, 110);
@@ -188,10 +198,11 @@ namespace HVAC_Pro_Desktop.UI
             _btnClose.Click += (s, e) => ChangeStatus("Closed");
             titleBlock.Controls.Add(_lblSla);
             titleBlock.Controls.Add(_lblIncidentNumber);
+            titleBlock.Controls.Add(breadcrumb);
             top.Controls.Add(titleBlock);
             top.Controls.Add(actions);
 
-            TabControl tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f) };
+            TabControl tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), Appearance = TabAppearance.Normal };
             tabs.TabPages.Add(BuildIncidentTab());
             tabs.TabPages.Add(BuildNotesTab());
             tabs.TabPages.Add(BuildEmailTab());
@@ -207,27 +218,45 @@ namespace HVAC_Pro_Desktop.UI
         {
             TabPage page = new TabPage("Incident");
             Panel host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PageBg, Padding = new Padding(0, 14, 0, 0) };
-            TableLayoutPanel form = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2, Padding = new Padding(8) };
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-            _cmbClient = AddCombo(form, 0, 0, "Client");
-            _cmbSite = AddCombo(form, 1, 0, "Site");
-            _txtCaller = AddText(form, 0, 1, "Caller name");
-            _txtPhone = AddText(form, 1, 1, "Caller phone");
-            _cmbCategory = AddCombo(form, 0, 2, "Category");
-            _cmbEquipment = AddCombo(form, 1, 2, "Equipment");
-            _cmbPriority = AddCombo(form, 0, 3, "Priority");
-            _cmbStatus = AddCombo(form, 1, 3, "Status");
-            _cmbAssigned = AddCombo(form, 0, 4, "Assigned technician");
-            _txtSerial = AddText(form, 1, 4, "Asset / serial number");
-            _txtShortDescription = AddText(form, 0, 5, "Short description");
-            form.SetColumnSpan(form.GetControlFromPosition(0, 5), 2);
-            _txtDescription = AddMultiText(form, 0, 6, "Description");
-            form.SetColumnSpan(form.GetControlFromPosition(0, 6), 2);
-            _txtRootCause = AddMultiText(form, 0, 7, "Root cause / resolution");
-            form.SetColumnSpan(form.GetControlFromPosition(0, 7), 2);
-            _lblLinkedJob = new Label { Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(16, 0, 0, 0) };
+            Panel descriptionCard = MakeFormSection("Description", 330, out Panel descriptionBody);
+            TableLayoutPanel descriptionForm = MakeTwoColumnForm();
+            _txtShortDescription = AddText(descriptionForm, 0, 0, "Short description");
+            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 0), 2);
+            _txtDescription = AddMultiText(descriptionForm, 0, 1, "Description");
+            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 1), 2);
+            _txtRootCause = AddMultiText(descriptionForm, 0, 2, "Root cause / resolution");
+            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 2), 2);
+            descriptionBody.Controls.Add(descriptionForm);
+
+            Panel detailsCard = MakeFormSection("Details", 260, out Panel detailsBody);
+            TableLayoutPanel detailsForm = MakeTwoColumnForm();
+            _cmbCategory = AddCombo(detailsForm, 0, 0, "Category");
+            _cmbEquipment = AddCombo(detailsForm, 1, 0, "Equipment");
+            _cmbPriority = AddCombo(detailsForm, 0, 1, "Priority");
+            _cmbStatus = AddCombo(detailsForm, 1, 1, "Status");
+            _cmbAssigned = AddCombo(detailsForm, 0, 2, "Assigned technician");
+            _txtSerial = AddText(detailsForm, 1, 2, "Asset / serial number");
+            detailsBody.Controls.Add(detailsForm);
+
+            Panel callerCard = MakeFormSection("Caller & Location", 200, out Panel callerBody);
+            TableLayoutPanel callerForm = MakeTwoColumnForm();
+            _cmbClient = AddCombo(callerForm, 0, 0, "Client");
+            _cmbSite = AddCombo(callerForm, 1, 0, "Site");
+            _txtCaller = AddText(callerForm, 0, 1, "Caller name");
+            _txtPhone = AddText(callerForm, 1, 1, "Caller phone");
+            callerBody.Controls.Add(callerForm);
+
+            _lblLinkedJob = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Blue,
+                BackColor = SoftInfo,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(16, 0, 0, 0)
+            };
 
             _cmbClient.SelectedIndexChanged += (s, e) => LoadSitesForClient();
             _cmbPriority.SelectedIndexChanged += (s, e) => RefreshSlaPreview();
@@ -242,14 +271,19 @@ namespace HVAC_Pro_Desktop.UI
                 Text = "Provide as much detail as possible to help the team resolve this issue faster.",
                 Dock = DockStyle.Top,
                 Height = 34,
-                BackColor = Color.FromArgb(239, 246, 255),
+                BackColor = SoftInfo,
                 ForeColor = Blue,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(14, 0, 0, 0)
             };
             host.Controls.Add(info);
-            host.Controls.Add(form);
+            host.Controls.Add(descriptionCard);
+            host.Controls.Add(MakeSpacer(10));
+            host.Controls.Add(detailsCard);
+            host.Controls.Add(MakeSpacer(10));
+            host.Controls.Add(callerCard);
+            host.Controls.Add(MakeSpacer(10));
             host.Controls.Add(_lblLinkedJob);
             page.Controls.Add(host);
             return page;
@@ -824,9 +858,58 @@ namespace HVAC_Pro_Desktop.UI
             return cmb;
         }
 
+        private Panel MakeFormSection(string title, int height, out Panel body)
+        {
+            Panel card = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = height,
+                BackColor = White,
+                Padding = new Padding(16, 42, 16, 14)
+            };
+            card.Paint += (s, e) => PaintCardBorder(e.Graphics, card.ClientRectangle, 10);
+            DS.Rounded(card, 10);
+
+            Label heading = new Label
+            {
+                Text = title,
+                Location = new Point(16, 14),
+                Size = new Size(360, 20),
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                BackColor = Color.Transparent
+            };
+
+            body = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            card.Controls.Add(body);
+            card.Controls.Add(heading);
+            heading.BringToFront();
+            return card;
+        }
+
+        private TableLayoutPanel MakeTwoColumnForm()
+        {
+            TableLayoutPanel form = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true,
+                ColumnCount = 2,
+                Padding = Padding.Empty,
+                BackColor = White
+            };
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            return form;
+        }
+
+        private Panel MakeSpacer(int height)
+        {
+            return new Panel { Dock = DockStyle.Top, Height = height, BackColor = PageBg };
+        }
+
         private Panel FieldPanel(string label, int height)
         {
-            Panel panel = new Panel { Height = height, Dock = DockStyle.Top, Margin = new Padding(8), BackColor = PageBg };
+            Panel panel = new Panel { Height = height, Dock = DockStyle.Top, Margin = new Padding(8), BackColor = White };
             return panel;
         }
 
@@ -863,7 +946,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label AddKpi(TableLayoutPanel table, int col, string title, Color color)
         {
             Panel card = new Panel { Dock = DockStyle.Fill, Margin = new Padding(col == 0 ? 0 : 8, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(12) };
-            card.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, card.Width - 1, card.Height - 1);
+            card.Paint += (s, e) => PaintCardBorder(e.Graphics, card.ClientRectangle, 8);
             Label value = new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = color };
             card.Controls.Add(value);
             card.Controls.Add(new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TextSecondary });
@@ -873,10 +956,29 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeButton(string text, Color back, Color fore, int width)
         {
-            Button button = new Button { Text = text, Width = width, Height = 32, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Margin = new Padding(6, 0, 0, 0), Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
+            Button button = new Button { Text = text, Width = width, Height = 34, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Margin = new Padding(6, 0, 0, 0), Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
             button.FlatAppearance.BorderColor = Border;
             button.FlatAppearance.BorderSize = back == White ? 1 : 0;
+            button.FlatAppearance.MouseOverBackColor = back == White ? DS.Slate50 : DS.Lighten(back, 0.08f);
+            button.FlatAppearance.MouseDownBackColor = back == White ? DS.Slate100 : DS.Darken(back, 0.10f);
+            DS.Rounded(button, 6);
             return button;
+        }
+
+        private void PaintCardBorder(Graphics graphics, Rectangle bounds, int radius)
+        {
+            if (bounds.Width <= 1 || bounds.Height <= 1)
+                return;
+
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(bounds.X, bounds.Y, bounds.Width - 1, bounds.Height - 1);
+            using (GraphicsPath path = DS.RoundedRect(rect, radius))
+            using (SolidBrush fill = new SolidBrush(White))
+            using (Pen pen = new Pen(Border))
+            {
+                graphics.FillPath(fill, path);
+                graphics.DrawPath(pen, path);
+            }
         }
 
         private void StyleGrid(DataGridView grid)

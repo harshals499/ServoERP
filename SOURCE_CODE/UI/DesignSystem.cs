@@ -9,18 +9,18 @@ namespace HVAC_Pro_Desktop.UI
     internal static class DS
     {
         public static readonly Color White = Color.White;
-        public static readonly Color BgPage = Color.FromArgb(246, 248, 251);
-        public static readonly Color BgSubtle = Color.FromArgb(244, 244, 245);
+        public static readonly Color BgPage = Color.FromArgb(244, 248, 252);
+        public static readonly Color BgSubtle = Color.FromArgb(239, 246, 255);
         public static readonly Color BgCard = Color.White;
         public static readonly Color BgCardHov = Color.FromArgb(244, 247, 255);
         public static readonly Color BgInput = Color.White;
         public static readonly Color BgRail = Color.FromArgb(250, 250, 250);
 
-        public static readonly Color Primary700 = Color.FromArgb(67, 56, 202);
-        public static readonly Color Primary600 = Color.FromArgb(79, 70, 229);
-        public static readonly Color Primary500 = Color.FromArgb(99, 102, 241);
-        public static readonly Color Primary100 = Color.FromArgb(224, 231, 255);
-        public static readonly Color Primary50 = Color.FromArgb(238, 242, 255);
+        public static readonly Color Primary700 = Color.FromArgb(29, 78, 216);
+        public static readonly Color Primary600 = Color.FromArgb(37, 99, 235);
+        public static readonly Color Primary500 = Color.FromArgb(59, 130, 246);
+        public static readonly Color Primary100 = Color.FromArgb(219, 234, 254);
+        public static readonly Color Primary50 = Color.FromArgb(239, 246, 255);
 
         public static readonly Color Teal600 = Color.FromArgb(13, 148, 136);
         public static readonly Color Teal500 = Color.FromArgb(20, 184, 166);
@@ -49,7 +49,7 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color Border = Color.FromArgb(228, 228, 231);
         public static readonly Color BorderStrong = Color.FromArgb(212, 212, 216);
         public static readonly Color FocusBlue = Color.FromArgb(129, 140, 248);
-        public static readonly Color Shadow = Color.FromArgb(218, 224, 238);
+        public static readonly Color Shadow = Color.FromArgb(205, 216, 232);
 
         public static readonly Color Indigo600 = Primary700;
         public static readonly Color Indigo500 = Primary600;
@@ -456,6 +456,18 @@ namespace HVAC_Pro_Desktop.UI
             if (control is TabPage tabPage)
             {
                 tabPage.BackColor = BgPage;
+                return;
+            }
+
+            if (control is Form || control is UserControl)
+            {
+                control.BackColor = BgPage;
+                return;
+            }
+
+            if (control is Panel panel && panel.BackColor.ToArgb() == SystemColors.Control.ToArgb())
+            {
+                panel.BackColor = BgPage;
                 return;
             }
 

@@ -78,22 +78,24 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56f));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72f));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 0f));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            // Header
-            Panel header = new Panel { Dock = DockStyle.Fill, Height = 56, BackColor = HeaderBg, Padding = new Padding(16, 0, 0, 0) };
-            header.Controls.Add(new Label { Text = "CONTRACT MANAGEMENT", Font = new Font("Segoe UI", 14, FontStyle.Bold), ForeColor = DS.Slate900, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft });
+            Panel header = new Panel { Dock = DockStyle.Fill, Height = 72, BackColor = DS.BgPage, Padding = new Padding(22, 12, 22, 10) };
+            Panel titleStack = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+            titleStack.Controls.Add(new Label { Text = "Contracts  >  New Contract", Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600, Dock = DockStyle.Bottom, Height = 22, TextAlign = ContentAlignment.MiddleLeft });
+            titleStack.Controls.Add(new Label { Text = "Contract Management", Font = new Font("Segoe UI", 17, FontStyle.Bold), ForeColor = DS.Slate900, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft });
+            header.Controls.Add(titleStack);
 
-            // Toolbar
-            Panel toolbar = new Panel { Dock = DockStyle.Fill, Height = 58, BackColor = Color.White, Padding = new Padding(16, 10, 16, 8) };
+            Panel toolbar = new Panel { Dock = DockStyle.Fill, Height = 0, BackColor = DS.BgPage, Padding = new Padding(0) };
             FlowLayoutPanel actionFlow = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.LeftToRight,
+                Dock = DockStyle.Right,
+                Width = 760,
+                FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = true,
-                BackColor = Color.White,
+                BackColor = Color.Transparent,
                 Margin = new Padding(0),
                 Padding = new Padding(0)
             };
@@ -111,22 +113,22 @@ namespace HVAC_Pro_Desktop.UI
             btnSLA.Click   += BtnSLALog_Click;
             btnRef.Click   += (s, e) => LoadContractList();
 
-            _lblStatus = new Label { AutoSize = false, Width = 220, Height = 36, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(8, 0, 0, 0) };
-            actionFlow.Controls.AddRange(new Control[] { _btnNewContract, _btnSaveContract, btnInv, btnRenew, btnSLA, btnRef, _lblStatus });
-            toolbar.Controls.Add(actionFlow);
+            _lblStatus = new Label { AutoSize = false, Width = 120, Height = 36, Font = new Font("Segoe UI", 9), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(8, 0, 0, 0) };
+            actionFlow.Controls.AddRange(new Control[] { _lblStatus, btnRef, btnSLA, btnRenew, btnInv, _btnSaveContract, _btnNewContract });
+            header.Controls.Add(actionFlow);
 
             // Split
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage };
 
-            Panel leftWrap = new Panel { Dock = DockStyle.Left, Width = 320, BackColor = Color.White };
-            Label lblHdr   = new Label { Text = "ALL CONTRACTS", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = InfoBlue, BackColor = SectionBg, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0) };
+            Panel leftWrap = new Panel { Dock = DockStyle.Left, Width = 320, BackColor = DS.BgPage, Padding = new Padding(22, 10, 8, 16) };
+            Label lblHdr   = new Label { Text = "CONTRACTS", Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = InfoBlue, BackColor = Color.White, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(12, 0, 0, 0) };
             Panel listWrap = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, AutoScroll = true };
             _contractFlow  = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(0), BackColor = Color.White };
             listWrap.Controls.Add(_contractFlow);
             leftWrap.Controls.Add(listWrap);
             leftWrap.Controls.Add(lblHdr);
 
-            Panel rightWrap = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage, Padding = new Padding(16, 10, 16, 16) };
+            Panel rightWrap = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage, Padding = new Padding(16, 10, 22, 16) };
             BuildDetailForm(rightWrap);
 
             body.Controls.Add(rightWrap);
@@ -673,11 +675,21 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private GroupBox MakeGroup(string title) =>
-            new GroupBox { Text = title, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = InfoBlue, BackColor = SectionBg, Padding = new Padding(8) };
+        private GroupBox MakeGroup(string title)
+        {
+            var group = new GroupBox
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = InfoBlue,
+                BackColor = Color.White,
+                Padding = new Padding(10)
+            };
+            return group;
+        }
 
         private void AddLabel(GroupBox parent, string text, int x, int y) =>
-            parent.Controls.Add(new Label { Text = text, AutoSize = true, Location = new Point(x, y), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(80, 80, 80) });
+            parent.Controls.Add(new Label { Text = text, AutoSize = true, Location = new Point(x, y), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = DS.Slate700 });
 
         private NumericUpDown NumBox(GroupBox parent, decimal min, decimal max, Point loc, int width)
         {
@@ -692,6 +704,7 @@ namespace HVAC_Pro_Desktop.UI
             b.FlatAppearance.BorderSize = 0;
             b.FlatAppearance.MouseOverBackColor = DS.Lighten(bg, 0.08f);
             b.FlatAppearance.MouseDownBackColor = DS.Darken(bg, 0.08f);
+            DS.Rounded(b, 8);
             return b;
         }
 

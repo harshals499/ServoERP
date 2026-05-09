@@ -90,6 +90,7 @@
     <Compile Include="MODELS\Vendor.cs" />
     <Compile Include="MODELS\PurchaseOrder.cs" />
     <Compile Include="MODELS\StockItem.cs" />
+    <Compile Include="MODELS\StockMovement.cs" />
     <Compile Include="MODELS\Employee.cs" />
     <Compile Include="MODELS\Job.cs" />
     <Compile Include="MODELS\InvoiceTemplate.cs" />
@@ -223,6 +224,7 @@
     <Compile Include="SERVICES\Logging\ErrorLoggingService.cs" />
     <Compile Include="SERVICES\Recovery\FormStateRecoveryService.cs" />
     <Compile Include="Tests\DataQualitySmokeTests.cs" />
+    <Compile Include="Tests\EnterpriseUiSmokeTests.cs" />
       <!-- UI -->
     <Compile Include="UI\BaseForm.cs">
       <SubType>Form</SubType>
@@ -246,6 +248,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Controls\ModernTextBox.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Controls\ModernErpControls.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\Helpers\LayoutScaler.cs" />

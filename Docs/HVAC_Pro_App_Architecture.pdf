@@ -1,0 +1,231 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Length 5909 >>
+stream
+0.973 0.980 0.988 rg
+1.000 1.000 1.000 RG
+0 w 0 0 842 595 re B
+BT 0.067 0.094 0.153 rg /F1 22 Tf 34 560 Td (HVAC Pro / ServoERP Application Architecture) Tj ET
+BT 0.392 0.455 0.545 rg /F2 8 Tf 36 540 Td (Derived from SOURCE_CODE/HVAC_Pro_Desktop.csproj, HVACPro.config, and whatsapp-integration-service/package.json) Tj ET
+0.859 0.918 0.996 rg
+0.145 0.388 0.922 RG
+1.2 w 34 390 108 62 re B
+BT 0.118 0.227 0.541 rg /F1 12 Tf 72.4 426 Td (Users) Tj ET
+BT 0.118 0.251 0.686 rg /F2 8 Tf 60.96 410 Td (Admin / Staff) Tj ET
+1.000 1.000 1.000 rg
+0.059 0.090 0.165 RG
+1.4 w 180 128 366 360 re B
+BT 0.059 0.090 0.165 rg /F1 15 Tf 196 466 Td (HVAC_Pro_Desktop.exe) Tj ET
+BT 0.278 0.333 0.412 rg /F2 8 Tf 198 450 Td (.NET Framework 4.7.2 WinForms desktop client) Tj ET
+0.878 0.949 0.996 rg
+0.008 0.518 0.780 RG
+1 w 202 394 322 38 re B
+BT 0.027 0.349 0.522 rg /F1 11 Tf 340.12 416 Td (UI Layer) Tj ET
+BT 0.027 0.349 0.522 rg /F2 7.5 Tf 220.65 402 Td (Login, Dashboard, Clients, Jobs, Invoice, Payroll, Service Desk, Settings) Tj ET
+0.863 0.988 0.906 rg
+0.020 0.588 0.412 RG
+1 w 202 318 322 58 re B
+BT 0.024 0.373 0.275 rg /F1 11 Tf 291.5 355 Td (Services / Business Logic) Tj ET
+BT 0.016 0.471 0.341 rg /F2 7.5 Tf 232.35 341 Td (Auth, Licensing, Invoicing, Inventory, Payroll, Reports, Validation) Tj ET
+BT 0.016 0.471 0.341 rg /F2 7.5 Tf 251.85 329 Td (Geo intelligence, mail sync, templates, backups, autosave) Tj ET
+0.929 0.914 0.996 rg
+0.486 0.227 0.929 RG
+1 w 202 250 154 48 re B
+BT 0.357 0.129 0.714 rg /F1 11 Tf 261.84000000000003 279 Td (Models) Tj ET
+BT 0.357 0.129 0.714 rg /F2 7.5 Tf 251.7 265 Td (B2B, AMC, Jobs) Tj ET
+BT 0.357 0.129 0.714 rg /F2 7.5 Tf 228.3 254 Td (Invoices, Payroll, License) Tj ET
+1.000 0.929 0.835 rg
+0.918 0.345 0.047 RG
+1 w 370 250 154 48 re B
+BT 0.604 0.204 0.071 rg /F1 11 Tf 395.52 279 Td (DAL / Repositories) Tj ET
+BT 0.604 0.204 0.071 rg /F2 7.5 Tf 398.25 265 Td (DbExecutor + module repos) Tj ET
+BT 0.604 0.204 0.071 rg /F2 7.5 Tf 413.85 254 Td (SQL Server access) Tj ET
+0.945 0.961 0.976 rg
+0.278 0.333 0.412 RG
+1 w 202 165 322 58 re B
+BT 0.200 0.255 0.333 rg /F1 11 Tf 297.22 202 Td (Shared Runtime Services) Tj ET
+BT 0.200 0.255 0.333 rg /F2 7.5 Tf 255.75 188 Td (ConfigService, SessionManager, logging, WebView2 helper) Tj ET
+BT 0.200 0.255 0.333 rg /F2 7.5 Tf 267.45 176 Td (Secure storage, update/version checks, app warmup) Tj ET
+0.200 0.255 0.333 RG
+1.2 w 363 394 m 363 376 l S
+0.200 0.255 0.333 rg 363 376 m 366.0 382.3 l 360.0 382.3 l f
+0.200 0.255 0.333 RG
+1.2 w 363 318 m 363 298 l S
+0.200 0.255 0.333 rg 363 298 m 366.0 304.3 l 360.0 304.3 l f
+0.200 0.255 0.333 RG
+1.0 w 363 250 m 443 298 l S
+0.200 0.255 0.333 rg 443 298 m 436.0 297.4 l 439.2 292.2 l f
+0.200 0.255 0.333 RG
+1.0 w 443 250 m 443 223 l S
+0.200 0.255 0.333 rg 443 223 m 446.0 229.3 l 440.0 229.3 l f
+0.200 0.255 0.333 RG
+1.0 w 302 250 m 302 223 l S
+0.200 0.255 0.333 rg 302 223 m 305.0 229.3 l 299.0 229.3 l f
+0.145 0.388 0.922 RG
+1.5 w 142 421 m 180 421 l S
+0.145 0.388 0.922 rg 180 421 m 173.7 424.0 l 173.7 418.0 l f
+0.800 0.984 0.945 rg
+0.059 0.463 0.431 RG
+1.2 w 174 34 388 70 re B
+BT 0.075 0.306 0.290 rg /F1 11 Tf 279.34000000000003 83 Td (Persistence and Local Artifacts) Tj ET
+BT 0.075 0.306 0.290 rg /F2 8.5 Tf 194 66 Td (SQL Server Express: HVAC_PRO) Tj ET
+BT 0.075 0.306 0.290 rg /F2 8.5 Tf 194 52 Td (Config/license files, LOGS, Resources, templates, invoices, receipts, payroll exports, payslips, backups) Tj ET
+0.059 0.463 0.431 RG
+1.3 w 447 250 m 447 104 l S
+0.059 0.463 0.431 rg 447 104 m 450.0 110.3 l 444.0 110.3 l f
+0.059 0.463 0.431 RG
+1.0 w 362 165 m 362 104 l S
+0.059 0.463 0.431 rg 362 104 m 365.0 110.3 l 359.0 110.3 l f
+0.953 0.910 1.000 rg
+0.576 0.200 0.918 RG
+1.2 w 600 292 204 142 re B
+BT 0.345 0.110 0.529 rg /F1 12 Tf 614.64 413 Td (WhatsApp Integration Service) Tj ET
+BT 0.420 0.129 0.659 rg /F2 8 Tf 645.84 398 Td (Node.js Express + Socket.IO) Tj ET
+BT 0.345 0.110 0.529 rg /F2 8 Tf 616 374 Td (Routes: WhatsApp webhook, PO import, geo API) Tj ET
+BT 0.345 0.110 0.529 rg /F2 8 Tf 616 359 Td (Services: webhook processor, dispatcher) Tj ET
+BT 0.345 0.110 0.529 rg /F2 8 Tf 616 344 Td (PO parsing: pdf-parse, OCR/Tesseract) Tj ET
+BT 0.345 0.110 0.529 rg /F2 8 Tf 616 329 Td (Database: mssql connection pool) Tj ET
+BT 0.345 0.110 0.529 rg /F2 8 Tf 616 314 Td (Live updates: Socket.IO bridge) Tj ET
+0.494 0.133 0.808 RG
+1.3 w 546 362 m 600 362 l S
+0.494 0.133 0.808 rg 600 362 m 593.7 365.0 l 593.7 359.0 l f
+0.059 0.463 0.431 RG
+1.0 w 655 292 m 520 104 l S
+0.059 0.463 0.431 rg 520 104 m 526.1 107.4 l 521.2 110.9 l f
+0.996 0.886 0.886 rg
+0.725 0.110 0.110 RG
+1.2 w 600 154 204 103 re B
+BT 0.498 0.114 0.114 rg /F1 12 Tf 648.96 235 Td (External Services) Tj ET
+BT 0.498 0.114 0.114 rg /F2 8 Tf 616 213 Td (Meta WhatsApp Cloud API) Tj ET
+BT 0.498 0.114 0.114 rg /F2 8 Tf 616 199 Td (Microsoft Graph / Gmail OAuth APIs) Tj ET
+BT 0.498 0.114 0.114 rg /F2 8 Tf 616 185 Td (Google/Nominatim geocoding) Tj ET
+BT 0.498 0.114 0.114 rg /F2 8 Tf 616 171 Td (Version URL: servoerp.in/version.txt) Tj ET
+0.725 0.110 0.110 RG
+1.2 w 702 292 m 702 257 l S
+0.725 0.110 0.110 rg 702 257 m 705.0 263.3 l 699.0 263.3 l f
+0.725 0.110 0.110 RG
+1.2 w 546 194 m 600 194 l S
+0.725 0.110 0.110 rg 600 194 m 593.7 197.0 l 593.7 191.0 l f
+0.886 0.910 0.941 rg
+0.200 0.255 0.333 RG
+1.1 w 34 202 108 100 re B
+BT 0.118 0.161 0.231 rg /F1 11 Tf 62.26 279 Td (Installer) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8 Tf 67.2 264 Td (Inno / WiX) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8 Tf 65.12 249 Td (SQL Express) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8 Tf 71.36 234 Td (WebView2) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8 Tf 60.96 219 Td (Prerequisites) Tj ET
+0.200 0.255 0.333 RG
+1.2 w 142 252 m 180 252 l S
+0.200 0.255 0.333 rg 180 252 m 173.7 255.0 l 173.7 249.0 l f
+BT 0.392 0.455 0.545 rg /F2 8 Tf 34 20 Td (Legend: arrows show primary runtime calls/data flow; boxes group source folders and deployment artifacts.) Tj ET
+
+endstream
+endobj
+2 0 obj
+<< /Length 5047 >>
+stream
+1.000 1.000 1.000 rg
+1.000 1.000 1.000 RG
+0 w 0 0 842 595 re B
+BT 0.067 0.094 0.153 rg /F1 20 Tf 42 552 Td (Architecture Notes) Tj ET
+BT 0.278 0.333 0.412 rg /F2 9 Tf 44 532 Td (This page summarizes the major responsibilities visible in the repository.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 492 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 500 Td (Desktop client) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 470 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 470 Td (SOURCE_CODE builds HVAC_Pro_Desktop.exe as a .NET Framework 4.7.2 WinForms application.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 456 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 456 Td (UI forms and user controls host the main workflows: dashboard, clients, contracts, invoices, payments, jobs, payroll, inventory, service desk, geo intelligence,) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 444 Td (reports, settings, login, and licensing.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 414 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 422 Td (Business and platform services) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 392 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 392 Td (SERVICES contains module services plus cross-cutting services for auth, session management, licensing, audit trail, validation, templates, document rendering, backups,) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 380 Td (autosave, logging, update checks, mail sync, and WebView2 runtime checks.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 366 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 366 Td (MODELS defines the shared domain objects for B2B clients, contacts, sites, AMC contracts, invoices, stock, employees, jobs, payroll, service desk, mail integration,) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 354 Td (master data, and licensing.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 324 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 332 Td (Data access) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 302 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 302 Td (DAL uses DatabaseManager, DbExecutor, and module repositories to read and write SQL Server data.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 288 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 288 Td (The configured default database is HVAC_PRO on local SQLEXPRESS, with tenant and app settings in HVACPro.config.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 258 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 266 Td (Local outputs) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 236 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 236 Td (The app writes operational artifacts around the workspace/application folder: LOGS, Invoice, RECEIPTS, PAYSLIPS, PAYROLL_EXPORTS, Resources, CONFIG, and license/config) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 224 Td (files.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 194 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 202 Td (Integrations) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 172 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 172 Td (MailIntegrationService connects to Outlook via Microsoft Graph and Gmail via Google APIs using OAuth, then turns incoming messages into service desk updates or) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 160 Td (incidents.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 146 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 146 Td (Geo services call Google geocoding and Nominatim, with a WebView2 embedded map resource under Resources/GeoMap/map.html.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 132 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 132 Td (The app checks servoerp.in/version.txt for update/version information when enabled.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 102 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 110 Td (WhatsApp integration service) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 80 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 80 Td (whatsapp-integration-service is a Node.js service using Express, Socket.IO, mssql, multer, pdf-parse, pg, and Tesseract.js.) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 66 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 66 Td (It exposes health, WhatsApp webhook, purchase-order import, geo intelligence, and send-template routes; it connects to SQL Server and Meta WhatsApp Cloud API and emits) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 54 Td (live updates over Socket.IO.) Tj ET
+0.973 0.980 0.988 rg
+0.796 0.835 0.882 RG
+0.6 w 42 24 758 22 re B
+BT 0.059 0.090 0.165 rg /F1 11 Tf 54 32 Td (Deployment) Tj ET
+BT 0.200 0.255 0.333 rg /F2 9 Tf 60 2 Td (-) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 2 Td (Installer scripts and WiX/Inno setup files package the desktop app, SQL Server Express prerequisites, WebView2 fixes, update packages, and enterprise installer/VM) Tj ET
+BT 0.200 0.255 0.333 rg /F2 8.7 Tf 76 -10 Td (smoke-test tooling.) Tj ET
+BT 0.392 0.455 0.545 rg /F2 8 Tf 42 24 Td (Generated file: Docs/HVAC_Pro_App_Architecture.pdf) Tj ET
+
+endstream
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 1 0 R >>
+endobj
+6 0 obj
+<< /Type /Page /Parent 7 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 2 0 R >>
+endobj
+7 0 obj
+<< /Type /Pages /Kids [5 0 R 6 0 R] /Count 2 >>
+endobj
+8 0 obj
+<< /Type /Catalog /Pages 7 0 R >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000005976 00000 n 
+0000011075 00000 n 
+0000011150 00000 n 
+0000011220 00000 n 
+0000011356 00000 n 
+0000011492 00000 n 
+0000011555 00000 n 
+trailer
+<< /Size 9 /Root 8 0 R >>
+startxref
+11604
+%%EOF

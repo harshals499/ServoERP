@@ -8,19 +8,19 @@ namespace HVAC_Pro_Desktop.UI
 {
     public static class GridTheme
     {
-        public static readonly Color HeaderBack = Color.FromArgb(21, 101, 192);
+        public static readonly Color HeaderBack = Color.FromArgb(18, 57, 183);
         public static readonly Color HeaderFore = Color.White;
-        public static readonly Color RowAlt = Color.FromArgb(240, 247, 255);
+        public static readonly Color RowAlt = Color.FromArgb(248, 251, 255);
         public static readonly Color RowNormal = Color.White;
-        public static readonly Color RowSelected = Color.FromArgb(187, 222, 251);
-        public static readonly Color RowSelectedFore = Color.FromArgb(13, 71, 161);
-        public static readonly Color GridLine = Color.FromArgb(220, 230, 241);
-        public static readonly Color BorderColor = Color.FromArgb(189, 213, 234);
+        public static readonly Color RowSelected = Color.FromArgb(219, 234, 254);
+        public static readonly Color RowSelectedFore = Color.FromArgb(15, 23, 42);
+        public static readonly Color GridLine = Color.FromArgb(226, 232, 240);
+        public static readonly Color BorderColor = Color.FromArgb(203, 213, 225);
 
         private static readonly HashSet<DataGridView> BoundGrids = new HashSet<DataGridView>();
         private static readonly HashSet<DataGridView> StyledGrids = new HashSet<DataGridView>();
 
-        public static void Apply(DataGridView dgv, bool fillWidth = true, bool alternateRows = true, int rowHeight = 30)
+        public static void Apply(DataGridView dgv, bool fillWidth = true, bool alternateRows = true, int rowHeight = 34)
         {
             if (dgv == null)
                 return;
@@ -42,7 +42,7 @@ namespace HVAC_Pro_Desktop.UI
             dgv.ScrollBars = ScrollBars.Both;
             dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgv.RowTemplate.Height = rowHeight;
-            dgv.ColumnHeadersHeight = 36;
+            dgv.ColumnHeadersHeight = 38;
             dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 
             dgv.AllowUserToResizeRows = false;
@@ -65,11 +65,11 @@ namespace HVAC_Pro_Desktop.UI
             dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = HeaderFore;
 
             dgv.DefaultCellStyle.Font = new Font("Segoe UI", 9f);
-            dgv.DefaultCellStyle.ForeColor = Color.FromArgb(30, 30, 50);
+            dgv.DefaultCellStyle.ForeColor = Color.FromArgb(15, 23, 42);
             dgv.DefaultCellStyle.BackColor = RowNormal;
             dgv.DefaultCellStyle.SelectionBackColor = RowSelected;
             dgv.DefaultCellStyle.SelectionForeColor = RowSelectedFore;
-            dgv.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
+            dgv.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
             dgv.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
 
             if (alternateRows)

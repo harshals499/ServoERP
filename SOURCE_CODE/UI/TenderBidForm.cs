@@ -61,6 +61,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _updatingGrid;
         private int _inventorySelectionRow = -1;
         private StockItem _inventorySelectionItem;
+        private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
         public Action<int> OnNavigate { get; set; }
         private Button _btnNewQuote;
         private Button _btnSaveQuote;
@@ -502,7 +503,7 @@ namespace HVAC_Pro_Desktop.UI
             _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
             addItem.Click += (s, e) => AddLineItem();
             addLabour.Click += (s, e) => AddServiceLabourLine();
-            bulk.Click += (s, e) => MessageBox.Show("Bulk actions will be added after approval rules are finalised.", "Bulk Actions", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            bulk.Click += (s, e) => ShowBulkActionsMenu(bulk);
             card.Controls.AddRange(new Control[] { addItem, addLabour, bulk, filterLabel, _cmbCategoryFilter, searchPanel });
 
             Panel gridHost = new Panel
@@ -796,7 +797,7 @@ namespace HVAC_Pro_Desktop.UI
             pdf.Click += (s, e) => PrintQuotationToPdf();
             po.Click += async (s, e) => await CreatePurchaseOrdersAsync();
             invoice.Click += async (s, e) => await CreateInvoiceAsync();
-            dispatch.Click += (s, e) => CreateDispatchJobStub();
+            dispatch.Click += async (s, e) => await CreateDispatchJobAsync();
             card.Controls.AddRange(buttons);
             return card;
         }
@@ -1978,10 +1979,78 @@ namespace HVAC_Pro_Desktop.UI
             SetStatus("Quotation marked for approval review.", InfoBlue);
         }
 
+        private void ShowBulkActionsMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Analyse all lines", null, async (s, e) => await AnalyseAllLinesAsync());
+            menu.Items.Add("Add labour line", null, (s, e) => AddServiceLabourLine());
+            menu.Items.Add("Clear empty lines", null, (s, e) => ClearEmptyQuotationLines());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Clear all lines", null, (s, e) =>
+            {
+                if (MessageBox.Show("Clear all quotation line items?", "Bulk Actions", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+                _lineItems.Clear();
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+                RefreshGrid();
+                RefreshSummary();
+                RefreshSuggestions();
+                SetStatus("Quotation lines cleared.", WarnOrange);
+            });
+            menu.Show(owner, new Point(0, owner.Height + 4));
+        }
+
+        private async Task AnalyseAllLinesAsync()
+        {
+            SyncGridToModel();
+            int count = 0;
+            for (int i = 0; i < _lineItems.Count; i++)
+            {
+                if (string.IsNullOrWhiteSpace(_lineItems[i].ItemDescription))
+                    continue;
+                TenderBid draft = BuildDraftHeaderOnly();
+                TenderBidLineItem analysed = await Task.Run(() => _svc.AnalyseTenderLineItem(draft, CloneLine(_lineItems[i], i)));
+                _lineItems[i] = analysed;
+                count++;
+            }
+            RefreshGrid();
+            RefreshSummary();
+            RefreshSuggestions();
+            SetStatus(count + " quotation line(s) analysed.", SaveGreen);
+        }
+
+        private void ClearEmptyQuotationLines()
+        {
+            SyncGridToModel();
+            int before = _lineItems.Count;
+            _lineItems.RemoveAll(li => string.IsNullOrWhiteSpace(li.ItemDescription));
+            if (_lineItems.Count == 0)
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+            RefreshGrid();
+            RefreshSummary();
+            RefreshSuggestions();
+            SetStatus("Removed " + Math.Max(0, before - _lineItems.Count) + " empty quotation line(s).", InfoBlue);
+        }
+
         private void CreateDispatchJobStub()
         {
-            // TODO: connect quotation-to-dispatch job creation once the dispatch workflow contract is final.
-            MessageBox.Show("Dispatch job creation is not connected yet. Save the quotation, then create the dispatch job from Jobs/Dispatch Center.", "Create Dispatch Job", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            SetStatus("Use Create Dispatch Job to hand this quotation to Jobs.", InfoBlue);
+        }
+
+        private async Task CreateDispatchJobAsync()
+        {
+            try
+            {
+                int bidId = await EnsureSavedAsync();
+                Job job = await Task.Run(() => _svc.CreateDispatchJobFromQuotation(bidId));
+                SetStatus("Dispatch job created: " + job.JobNumber, SaveGreen);
+                if (MessageBox.Show("Dispatch job created.\r\n\r\n" + job.JobNumber + "\r\n\r\nOpen Jobs now?", "Create Dispatch Job", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                    OnNavigate?.Invoke(15);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Dispatch job failed: " + ex.Message, Color.Firebrick);
+            }
         }
 
         private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)

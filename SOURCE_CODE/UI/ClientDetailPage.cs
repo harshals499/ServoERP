@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Net;
 using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
@@ -28,6 +29,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InvoiceService _invoiceService = new InvoiceService();
         private readonly SiteTimelineService _siteTimelineService = new SiteTimelineService();
         private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
+        private readonly ToolTip _toolTip = new ToolTip();
 
         private B2BClient _client;
         private FlowLayoutPanel _leftStack;
@@ -104,7 +106,7 @@ namespace HVAC_Pro_Desktop.UI
             Button print = Button("Print", Color.White, TextMain, 70);
             Button log = Button("+ Log activity", Color.White, TextMain, 112);
             save.Click += (s, e) => SaveClient();
-            print.Click += (s, e) => MessageBox.Show("Print preview is not wired for client profiles yet.", "Clients", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            print.Click += (s, e) => PrintClientProfile();
             log.Click += (s, e) => ClientUi.ShowActivityModal(this, ClientId, RenderClient);
             actions.Controls.Add(save);
             actions.Controls.Add(print);
@@ -417,6 +419,62 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void PrintClientProfile()
+        {
+            try
+            {
+                using (var preview = new HtmlPreviewDialog("Client Profile - " + Safe(_client.CompanyName, "Client"), BuildClientProfileHtml()))
+                    preview.ShowDialog(this);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("ClientDetailPage.PrintClientProfile", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Printing client profile", ex);
+            }
+        }
+
+        private string BuildClientProfileHtml()
+        {
+            ClientStats stats = LoadStats();
+            List<ClientSite> sites = SafeSites();
+            List<ClientTeamMember> team = SafeTeamMembers();
+            List<ClientActivity> activities = SafeActivities();
+            string rows = string.Join("", sites.Select(s => "<tr><td>" + H(s.SiteName) + "</td><td>" + H(s.City) + "</td><td>" + H(s.Address) + "</td></tr>"));
+            if (string.IsNullOrEmpty(rows))
+                rows = "<tr><td colspan='3' class='muted'>No sites configured.</td></tr>";
+            string contacts = string.Join("", team.Select(t => "<tr><td>" + H(t.EmployeeName) + "</td><td>" + H(t.Position) + "</td><td>" + H(t.EmailId) + "</td><td>" + H(t.ContactNo) + "</td></tr>"));
+            if (string.IsNullOrEmpty(contacts))
+                contacts = "<tr><td colspan='4' class='muted'>No team contacts configured.</td></tr>";
+            string activity = string.Join("", activities.Take(8).Select(a => "<li><b>" + H(a.Title) + "</b><span>" + a.CreatedAt.ToString("dd/MM/yyyy") + "</span><p>" + H(a.Detail) + "</p></li>"));
+            if (string.IsNullOrEmpty(activity))
+                activity = "<li class='muted'>No recent activity.</li>";
+
+            return @"<!doctype html><html><head><meta charset='utf-8'><style>
+body{font-family:'Segoe UI',Arial,sans-serif;margin:34px;color:#0f172a;background:#fff}
+h1{font-size:28px;margin:0 0 6px} h2{font-size:16px;margin:26px 0 10px;color:#4338ca}
+.muted{color:#64748b}.header{display:flex;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:18px}
+.badge{background:#dcfce7;color:#166534;border-radius:999px;padding:5px 10px;font-weight:700;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}
+.metric{border:1px solid #e2e8f0;border-radius:10px;padding:14px;background:#f8fafc}.metric b{display:block;font-size:20px}
+table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid #e2e8f0;padding:9px;text-align:left;font-size:13px}th{background:#f1f5f9}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:8px;font-size:13px}.kv div{padding:5px 0;border-bottom:1px solid #f1f5f9}
+li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px 0 0;color:#475569}
+@media print{button{display:none}body{margin:18px}}
+</style></head><body>
+<div class='header'><div><h1>" + H(_client.CompanyName) + @"</h1><div class='muted'>" + H(_client.IndustryType) + " - " + H(_client.City) + @"</div></div><div class='badge'>" + H(NormalizeStage(_client.RelationshipStage)) + @"</div></div>
+<div class='grid'><div class='metric'><span>Open jobs</span><b>" + H(stats.OpenJobs) + @"</b><small>" + H(stats.OverdueJobs > 0 ? stats.OverdueJobs + " overdue" : "None overdue") + @"</small></div><div class='metric'><span>Active contracts</span><b>" + H(stats.ActiveContracts) + @"</b></div><div class='metric'><span>Outstanding</span><b>" + H(stats.Outstanding) + @"</b></div></div>
+<h2>Company</h2><div class='kv'><div>GSTIN</div><div>" + H(_client.GSTNumber) + @"</div><div>PAN</div><div>" + H(_client.PANNumber) + @"</div><div>Phone</div><div>" + H(_client.Phone) + @"</div><div>Email</div><div>" + H(_client.Email) + @"</div><div>Billing address</div><div>" + H(_client.BillingAddress) + @"</div></div>
+<h2>Sites</h2><table><thead><tr><th>Site</th><th>City</th><th>Address</th></tr></thead><tbody>" + rows + @"</tbody></table>
+<h2>Contacts</h2><table><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th></tr></thead><tbody>" + contacts + @"</tbody></table>
+<h2>Recent activity</h2><ul>" + activity + @"</ul>
+</body></html>";
+        }
+
+        private static string H(string value)
+        {
+            return WebUtility.HtmlEncode(value ?? string.Empty);
+        }
+
         private void SaveTeam()
         {
             try
@@ -491,7 +549,11 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (site.SiteID == HighlightSiteId)
             {
-                chip.Click += (s, e) => { };
+                chip.Click += (s, e) =>
+                {
+                    HighlightSiteId = 0;
+                    RenderClient();
+                };
             }
             else
             {

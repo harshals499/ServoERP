@@ -153,6 +153,15 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             BuildLayout();
+            ShowJobEditor();
+            RenderChecklistPreview(new List<JobChecklistItem>());
+            RenderParts(new List<JobPartUsed>());
+            RenderNudges(new List<NudgeDto>());
+            RenderActivity(new List<JobActivityEntry>());
+            RefreshHeader(null);
+            RefreshCostPreview();
+            UpdatePipelineBar("Created");
+            LayoutCards();
             UIHelper.ApplyInputStyles(Controls);
             EnableDeferredLoad((Func<Task>)(async () => await LoadInitialAsync()), ex => AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Jobs"), "Jobs screen", ex));
         }
@@ -655,7 +664,10 @@ namespace HVAC_Pro_Desktop.UI
             BindPartInventory();
             RenderFilterChips();
             ApplyFilters();
-            HideJobEditor();
+            if (_allJobs.Count > 0)
+                await LoadJobDetailAsync(_allJobs[0].JobId);
+            else
+                await BeginNewJobAsync();
             if (snapshot.TimedOut)
                 SetListStatus("Job data is taking longer than expected.");
         }
@@ -708,8 +720,8 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _txtJobNo.Text = _jobSvc.GenerateJobNumber();
-                _txtJobTitle.Text = string.Empty;
-                _cmbClient.SelectedIndex = 0;
+                _txtJobTitle.Text = "AC Installation at Site";
+                _cmbClient.SelectedIndex = _cmbClient.Items.Count > 1 ? 1 : 0;
                 _cmbSite.Items.Clear();
                 _cmbSite.Items.Add(new LookupItem<int>(0, "-- Select site --"));
                 _cmbSite.SelectedIndex = 0;
@@ -729,6 +741,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _isBinding = false;
             }
+
+            if (GetSelectedId(_cmbClient) > 0)
+                await LoadSitesAndContractsAsync();
 
             RenderChecklistPreview(_jobSvc.GetChecklistTemplates("General").Select(t => new JobChecklistItem { ItemText = t.ItemText, SortOrder = t.SortOrder }).ToList());
             RenderParts(new List<JobPartUsed>());

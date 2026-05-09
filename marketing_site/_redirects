@@ -1,0 +1,5 @@
+/version.txt /version.txt 200
+/changelog.json /changelog.json 200
+/download/* /download/:splat 200
+/updates/* /updates/:splat 200
+/* /404.html 404

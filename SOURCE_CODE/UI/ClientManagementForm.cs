@@ -573,18 +573,54 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowClientEditor(B2BClient client, string title)
         {
             B2BClient target = client == null ? new B2BClient { IsActive = true, RelationshipStage = "Prospect", CustomerSince = DateTime.Today } : CloneClient(client);
-            using (Form form = Modal(title, 500, 610))
+            using (Form form = Modal(title, 560, 720))
             {
-                TextBox company = ModalField(form, "Company name", target.CompanyName, 24);
-                TextBox contact = ModalField(form, "Contact person", target.PrimaryContact, 84);
-                TextBox phone = ModalField(form, "Phone", target.Phone, 144);
-                TextBox email = ModalField(form, "Email", target.Email, 204);
-                TextBox gst = ModalField(form, "GSTIN", target.GSTNumber, 264);
-                TextBox address = ModalField(form, "Address", target.BillingAddress, 324);
-                TextBox city = ModalField(form, "City", target.City, 384);
-                TextBox state = ModalField(form, "State", "", 444);
+                form.Padding = new Padding(24);
+                form.BackColor = Color.White;
+                form.Controls.Add(new Label
+                {
+                    Text = title,
+                    Location = new Point(24, 20),
+                    Size = new Size(420, 30),
+                    Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                    ForeColor = DS.Slate900
+                });
+                Button close = new Button
+                {
+                    Text = "×",
+                    Location = new Point(504, 20),
+                    Size = new Size(28, 28),
+                    BackColor = Color.White,
+                    ForeColor = DS.Slate900,
+                    FlatStyle = FlatStyle.Flat,
+                    Font = new Font("Segoe UI", 12f)
+                };
+                close.FlatAppearance.BorderSize = 0;
+                close.Click += (s, e) => form.Close();
+                form.Controls.Add(close);
+                form.Controls.Add(new Label
+                {
+                    Text = "CLIENT INFORMATION",
+                    Location = new Point(24, 68),
+                    Size = new Size(220, 18),
+                    Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                    ForeColor = DS.Primary600
+                });
+
+                TextBox company = ModalIconField(form, "▥", "Company name *", target.CompanyName, 96);
+                TextBox contact = ModalIconField(form, "♙", "Contact person", target.PrimaryContact, 156);
+                TextBox phone = ModalIconField(form, "☎", "Phone", target.Phone, 216);
+                TextBox email = ModalIconField(form, "✉", "Email", target.Email, 276);
+                TextBox gst = ModalIconField(form, "%", "GSTIN", target.GSTNumber, 336);
+                TextBox address = ModalIconField(form, "⌖", "Address", target.BillingAddress, 396);
+                TextBox city = ModalIconField(form, "⌂", "City", target.City, 456);
+                TextBox state = ModalIconField(form, "▱", "State", "", 516);
+                Button cancel = DS.GhostBtn("Cancel", 92, 36);
+                cancel.Location = new Point(24, 620);
+                cancel.Click += (s, e) => form.Close();
                 Button save = PrimaryButton("Save", 36);
-                save.Location = new Point(360, 522);
+                save.Width = 112;
+                save.Location = new Point(420, 620);
                 save.Click += (s, e) =>
                 {
                     if (string.IsNullOrWhiteSpace(company.Text))
@@ -624,6 +660,7 @@ namespace HVAC_Pro_Desktop.UI
                         AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Saving client", ex);
                     }
                 };
+                form.Controls.Add(cancel);
                 form.Controls.Add(save);
                 if (form.ShowDialog(this) == DialogResult.OK)
                 {
@@ -635,6 +672,46 @@ namespace HVAC_Pro_Desktop.UI
                     ShowToast(title + " saved");
                 }
             }
+        }
+
+        private TextBox ModalIconField(Form form, string icon, string label, string value, int y)
+        {
+            Panel iconBox = new Panel
+            {
+                Location = new Point(24, y + 11),
+                Size = new Size(42, 42),
+                BackColor = DS.Primary50
+            };
+            DS.Rounded(iconBox, 7);
+            iconBox.Controls.Add(new Label
+            {
+                Text = icon,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = DS.Primary600,
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
+            });
+            form.Controls.Add(iconBox);
+
+            form.Controls.Add(new Label
+            {
+                Text = label,
+                Location = new Point(82, y),
+                Size = new Size(400, 18),
+                ForeColor = DS.Slate700,
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold)
+            });
+
+            TextBox box = new TextBox
+            {
+                Text = value ?? string.Empty,
+                Location = new Point(82, y + 22),
+                Size = new Size(420, 28),
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 9f)
+            };
+            form.Controls.Add(box);
+            return box;
         }
 
         private void ShowActionModal(string title, string message, string fieldLabel, string defaultValue)

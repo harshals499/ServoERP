@@ -59,6 +59,81 @@ namespace HVAC_Pro_Desktop.Services
             AppDataCache.RemovePrefix("inventory:");
             _audit.Record("STOCK", "Inventory", itemId, "Stock movement " + qty.ToString("0.###") + " validated");
         }
+
+        public int TransferStock(int itemId, decimal qty, string fromLocation, string toLocation, string referenceNo, string notes)
+        {
+            SessionManager.DemandPermission("Inventory", "Edit");
+            if (itemId <= 0)
+                throw new InvalidOperationException("Inventory item is required.");
+            if (qty <= 0)
+                throw new InvalidOperationException("Transfer quantity must be greater than zero.");
+            if (string.IsNullOrWhiteSpace(fromLocation))
+                throw new InvalidOperationException("Source location is required.");
+            if (string.IsNullOrWhiteSpace(toLocation))
+                throw new InvalidOperationException("Destination location is required.");
+            if (string.Equals(fromLocation.Trim(), toLocation.Trim(), StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Source and destination locations must be different.");
+
+            StockMovement movement = new StockMovement
+            {
+                ItemID = itemId,
+                MovementType = "TransferOut",
+                Quantity = qty,
+                FromLocation = GlobalValidationEngine.CleanText(fromLocation, 120),
+                ToLocation = GlobalValidationEngine.CleanText(toLocation, 120),
+                ReferenceNo = GlobalValidationEngine.CleanText(referenceNo, 80),
+                Notes = GlobalValidationEngine.CleanText(notes, 1000),
+                CreatedByUserId = SessionManager.CurrentUser?.UserId,
+                CreatedByName = ResolveActorName()
+            };
+
+            int id = _repo.RecordMovement(movement);
+            AppDataCache.RemovePrefix("inventory:");
+            SessionManager.LogAction("TRANSFER", "Inventory", itemId, "Stock transferred");
+            _audit.Record("TRANSFER", "Inventory", itemId, "Stock transferred from " + movement.FromLocation + " to " + movement.ToLocation + ": " + qty.ToString("0.###"));
+            return id;
+        }
+
+        public int AdjustStock(int itemId, decimal signedQty, string referenceNo, string notes)
+        {
+            SessionManager.DemandPermission("Inventory", "Edit");
+            if (itemId <= 0)
+                throw new InvalidOperationException("Inventory item is required.");
+            if (signedQty == 0)
+                throw new InvalidOperationException("Adjustment quantity cannot be zero.");
+
+            StockMovement movement = new StockMovement
+            {
+                ItemID = itemId,
+                MovementType = signedQty < 0 ? "Decrease" : "Increase",
+                Quantity = Math.Abs(signedQty),
+                ReferenceNo = GlobalValidationEngine.CleanText(referenceNo, 80),
+                Notes = GlobalValidationEngine.CleanText(notes, 1000),
+                CreatedByUserId = SessionManager.CurrentUser?.UserId,
+                CreatedByName = ResolveActorName()
+            };
+
+            int id = _repo.RecordMovement(movement);
+            AppDataCache.RemovePrefix("inventory:");
+            SessionManager.LogAction("ADJUST", "Inventory", itemId, "Stock adjusted");
+            _audit.Record("ADJUST", "Inventory", itemId, "Stock adjusted by " + signedQty.ToString("0.###"));
+            return id;
+        }
+
+        public List<StockMovement> GetMovements(int itemId, int maxRows = 100)
+        {
+            return _repo.GetMovements(itemId, maxRows);
+        }
+
+        private static string ResolveActorName()
+        {
+            AppUserDto user = SessionManager.CurrentUser;
+            if (!string.IsNullOrWhiteSpace(user?.DisplayName))
+                return user.DisplayName.Trim();
+            if (!string.IsNullOrWhiteSpace(user?.Username))
+                return user.Username.Trim();
+            return Environment.UserName;
+        }
         public StockItem GetByName(string name)
         {
             if (string.IsNullOrWhiteSpace(name))

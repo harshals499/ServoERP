@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -63,6 +64,9 @@ namespace HVAC_Pro_Desktop.UI
         private int     _activeContracts, _expiringContracts, _overdueCount, _purchasePaymentsOverdue;
         private int     _vendorCount, _lowStockCount, _employeeCount;
         private int     _jobPendingCount, _jobProgressCount, _jobCompletedCount;
+        private string  _backupStatusText = "Not checked";
+        private string  _backupSubText = "Open Settings";
+        private Color   _backupAccent = AccentOrange;
         private List<AMCContract> _expiringList  = new List<AMCContract>();
         private List<Invoice>     _overdueList   = new List<Invoice>();
         private List<Invoice>     _recentInvoices = new List<Invoice>();
@@ -197,6 +201,7 @@ namespace HVAC_Pro_Desktop.UI
             try { _jobPendingCount  = _jobSvc.GetPendingCount();                  } catch { }
             try { _jobProgressCount = _jobSvc.GetInProgressCount();               } catch { }
             try { _jobCompletedCount= _jobSvc.GetCompletedCount();                } catch { }
+            try { LoadBackupHealth();                                             } catch { }
 
             try
             {
@@ -215,6 +220,38 @@ namespace HVAC_Pro_Desktop.UI
                 _recentInvoices = all.OrderByDescending(i => i.InvoiceDate).Take(8).ToList();
             }
             catch { }
+        }
+
+        private void LoadBackupHealth()
+        {
+            FileInfo latest = new BackupService().GetBackups().FirstOrDefault();
+            if (latest == null)
+            {
+                _backupStatusText = "No backup";
+                _backupSubText = "Create one today";
+                _backupAccent = AccentRed;
+                return;
+            }
+
+            TimeSpan age = DateTime.Now - latest.LastWriteTime;
+            if (age.TotalHours < 24)
+            {
+                _backupStatusText = "Protected";
+                _backupSubText = "Last backup " + FormatBackupAge(age);
+                _backupAccent = AccentGreen;
+            }
+            else if (age.TotalHours < 72)
+            {
+                _backupStatusText = "Due soon";
+                _backupSubText = "Last backup " + FormatBackupAge(age);
+                _backupAccent = AccentOrange;
+            }
+            else
+            {
+                _backupStatusText = "Overdue";
+                _backupSubText = "Last backup " + FormatBackupAge(age);
+                _backupAccent = AccentRed;
+            }
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -271,6 +308,7 @@ namespace HVAC_Pro_Desktop.UI
             // ── 2. KPI scorecard row ────────────────────────────────────
             Panel kpiSection = BuildKpiRow();
             Panel filterSection = BuildRevenueFilterBar();
+            Panel coreWorkflowSection = BuildCoreWorkflowSection();
 
             // ── 1. Page header (header + quick actions) ─────────────────
             Panel pageHeader = BuildPageHeader();
@@ -284,6 +322,7 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardContent.Controls.Add(ownerSection);
             _dashboardContent.Controls.Add(kpiSection);
             _dashboardContent.Controls.Add(filterSection);
+            _dashboardContent.Controls.Add(coreWorkflowSection);
             _dashboardContent.Controls.Add(pageHeader);
             _dashboardContent.ResumeLayout();
             _dashboardHost.Controls.Add(_dashboardContent);
@@ -517,10 +556,14 @@ namespace HVAC_Pro_Desktop.UI
             customize.Click += (s, e) => OnNavigate?.Invoke(8);
             customizeText.Click += (s, e) => OnNavigate?.Invoke(8);
 
+            string currentDisplayName = SessionManager.CurrentUser?.DisplayName ?? "Guest";
+            string currentRole = SessionManager.CurrentUser?.RoleName ?? "No Role";
+            string userMenuText = compact ? ShortUserName(currentDisplayName) : currentDisplayName;
+
             Panel avatar = MakeGradientHeaderButton(compact ? new Size(38, 38) : new Size(44, 44));
             Label avatarText = new Label
             {
-                Text = "AD",
+                Text = UserInitials(currentDisplayName),
                 Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", compact ? 10f : 11f, FontStyle.Bold),
                 ForeColor = Color.White,
@@ -530,7 +573,7 @@ namespace HVAC_Pro_Desktop.UI
             avatar.Controls.Add(avatarText);
             Label user = new Label
             {
-                Text = compact ? "Admin ˅" : "Administrator ˅",
+                Text = userMenuText + " ˅",
                 Font = new Font("Segoe UI", compact ? 8.5f : 9.5f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true,
@@ -539,7 +582,7 @@ namespace HVAC_Pro_Desktop.UI
             avatar.Click += (s, e) => ShowUserMenu(avatar);
             avatarText.Click += (s, e) => ShowUserMenu(avatar);
             user.Click += (s, e) => ShowUserMenu(user);
-            _dashboardToolTip.SetToolTip(user, "Administrator");
+            _dashboardToolTip.SetToolTip(user, currentDisplayName + " (" + currentRole + ")");
             StartHeaderClock();
 
             topBar.Resize += (s, e) =>
@@ -717,13 +760,13 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            ShowDashboardTodo("Menu");
+            FocusDashboardSearch();
         }
 
         private void ShowUserMenu(Control owner)
         {
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
-            menu.Items.Add("Profile", null, (s, e) => ShowDashboardTodo("Profile"));
+            menu.Items.Add("Profile", null, (s, e) => OnNavigate?.Invoke(8));
             menu.Items.Add("Settings", null, (s, e) => OnNavigate?.Invoke(8));
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Logout", null, (s, e) =>
@@ -741,6 +784,185 @@ namespace HVAC_Pro_Desktop.UI
             menu.Show(owner, new Point(0, owner.Height + 4));
         }
 
+        private static string UserInitials(string displayName)
+        {
+            string[] parts = (displayName ?? string.Empty)
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+                return "NA";
+            if (parts.Length == 1)
+                return parts[0].Substring(0, Math.Min(2, parts[0].Length)).ToUpperInvariant();
+            return (parts[0][0].ToString() + parts[1][0].ToString()).ToUpperInvariant();
+        }
+
+        private static string ShortUserName(string displayName)
+        {
+            string[] parts = (displayName ?? string.Empty)
+                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0)
+                return "User";
+            return parts[0];
+        }
+
+        private Panel BuildCoreWorkflowSection()
+        {
+            bool compact = IsCompactDashboard();
+            int viewportWidth = GetDashboardVisibleWidth();
+            int columns = viewportWidth < 1180 ? 3 : 6;
+            int rows = columns == 3 ? 2 : 1;
+            int cardHeight = compact ? 86 : 96;
+            int labelHeight = compact ? 36 : 42;
+
+            Panel wrap = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = labelHeight + (cardHeight * rows) + (rows > 1 ? 8 : 0) + 10,
+                BackColor = BgPage,
+                Padding = new Padding(DashboardSafeLeftInset, 8, 16, 8)
+            };
+
+            Label label = new Label
+            {
+                Text = "CORE SERVICE WORKFLOW",
+                Font = new Font("Segoe UI", 8, FontStyle.Bold),
+                ForeColor = TextMid,
+                Location = new Point(DashboardSafeLeftInset, 6),
+                AutoSize = true
+            };
+            Label helper = new Label
+            {
+                Text = "Move daily work from customer request to job, invoice, payment, AMC renewal, and backup.",
+                Font = new Font("Segoe UI", compact ? 7.5f : 8.5f),
+                ForeColor = TextLight,
+                Location = new Point(DashboardSafeLeftInset, 22),
+                Size = new Size(Math.Max(320, viewportWidth - DashboardSafeLeftInset - 16), 18),
+                AutoEllipsis = true
+            };
+
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                ColumnCount = columns,
+                RowCount = rows,
+                BackColor = BgPage,
+                Location = new Point(DashboardSafeLeftInset, labelHeight),
+                Size = new Size(Math.Max(720, viewportWidth - DashboardSafeLeftInset - 16), cardHeight * rows + (rows > 1 ? 8 : 0)),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            for (int i = 0; i < columns; i++)
+                grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / columns));
+            for (int i = 0; i < rows; i++)
+                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, cardHeight));
+
+            int openJobs = _jobPendingCount + _jobProgressCount;
+            int activeClients = _clients.Count(c => c.IsActive);
+            AddWorkflowCard(grid, 0, columns, "1. Customers", activeClients.ToString(), _clients.Count + " total clients", AccentBlue, "Open Clients", () => OnNavigate?.Invoke(1));
+            AddWorkflowCard(grid, 1, columns, "2. Jobs", openJobs.ToString(), _jobPendingCount + " pending, " + _jobProgressCount + " in progress", openJobs > 0 ? AccentOrange : AccentGreen, "Open Jobs", () => OnNavigate?.Invoke(15));
+            AddWorkflowCard(grid, 2, columns, "3. Invoices", FormatLakhs(_pendingAmount), _overdueCount > 0 ? _overdueCount + " overdue" : "No overdue invoices", _overdueCount > 0 ? AccentRed : AccentGreen, "Open Invoices", () => OnNavigate?.Invoke(3));
+            AddWorkflowCard(grid, 3, columns, "4. Payments", FormatLakhs(_collectedMonth), "collected this month", AccentTeal, "Open Payments", () => OnNavigate?.Invoke(4));
+            AddWorkflowCard(grid, 4, columns, "5. AMC Renewals", _expiringContracts.ToString(), _expiringContracts > 0 ? "due in 90 days" : "all renewals clear", _expiringContracts > 0 ? AccentOrange : AccentGreen, "Open AMC", () => OnNavigate?.Invoke(2));
+            AddWorkflowCard(grid, 5, columns, "6. Backup", _backupStatusText, _backupSubText, _backupAccent, "Backup", () => OnNavigate?.Invoke(8));
+
+            wrap.Resize += (s, e) =>
+            {
+                grid.Width = Math.Max(0, wrap.ClientSize.Width - DashboardSafeLeftInset - 16);
+                helper.Width = grid.Width;
+            };
+
+            wrap.Controls.Add(grid);
+            wrap.Controls.Add(helper);
+            wrap.Controls.Add(label);
+            return wrap;
+        }
+
+        private void AddWorkflowCard(TableLayoutPanel grid, int index, int columns, string title, string value, string sub, Color accent, string actionText, Action action)
+        {
+            grid.Controls.Add(MakeWorkflowCard(title, value, sub, accent, actionText, action), index % columns, index / columns);
+        }
+
+        private Panel MakeWorkflowCard(string title, string value, string sub, Color accent, string actionText, Action action)
+        {
+            Panel card = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = BgCard,
+                Margin = new Padding(5, 0, 5, 8),
+                Cursor = Cursors.Hand
+            };
+            DS.Rounded(card, 10);
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 10))
+                using (Pen pen = new Pen(BorderLine, 1))
+                    e.Graphics.DrawPath(pen, path);
+                using (SolidBrush brush = new SolidBrush(accent))
+                    e.Graphics.FillRectangle(brush, 0, 0, 4, card.Height);
+            };
+
+            Label titleLabel = new Label
+            {
+                Text = title,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = TextMid,
+                Location = new Point(14, 10),
+                Size = new Size(150, 16),
+                AutoEllipsis = true
+            };
+            Label valueLabel = new Label
+            {
+                Text = value,
+                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                ForeColor = accent,
+                Location = new Point(14, 29),
+                Size = new Size(150, 24),
+                AutoEllipsis = true
+            };
+            Label subLabel = new Label
+            {
+                Text = sub,
+                Font = new Font("Segoe UI", 7.5f),
+                ForeColor = TextLight,
+                Location = new Point(14, 55),
+                Size = new Size(150, 16),
+                AutoEllipsis = true
+            };
+            Label actionLabel = new Label
+            {
+                Text = actionText,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = accent,
+                Location = new Point(14, 74),
+                Size = new Size(150, 16),
+                AutoEllipsis = true
+            };
+
+            card.Resize += (s, e) =>
+            {
+                int width = Math.Max(40, card.ClientSize.Width - 26);
+                titleLabel.Width = width;
+                valueLabel.Width = width;
+                subLabel.Width = width;
+                actionLabel.Width = width;
+            };
+
+            EventHandler open = (s, e) => action?.Invoke();
+            card.Click += open;
+            titleLabel.Click += open;
+            valueLabel.Click += open;
+            subLabel.Click += open;
+            actionLabel.Click += open;
+            card.MouseEnter += (s, e) => card.BackColor = DS.Primary50;
+            card.MouseLeave += (s, e) => card.BackColor = BgCard;
+
+            card.Controls.Add(titleLabel);
+            card.Controls.Add(valueLabel);
+            card.Controls.Add(subLabel);
+            card.Controls.Add(actionLabel);
+            ConfigureDashboardDataLabel(valueLabel);
+            ConfigureDashboardDataLabel(subLabel);
+            return card;
+        }
+
         private Panel BuildRevenueFilterBar()
         {
             Panel section = new Panel
@@ -755,9 +977,20 @@ namespace HVAC_Pro_Desktop.UI
             filter.Height = 32;
             filter.Location = new Point(DashboardSafeLeftInset, 8);
             filter.TextAlign = ContentAlignment.MiddleLeft;
-            filter.Click += (s, e) => ShowDashboardTodo("Revenue Snapshot filter");
+            filter.Click += (s, e) => ShowRevenueSnapshotMenu(filter);
             section.Controls.Add(filter);
             return section;
+        }
+
+        private void ShowRevenueSnapshotMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Open Reports", null, (s, e) => OnNavigate?.Invoke(7));
+            menu.Items.Add("Open Invoices", null, (s, e) => OnNavigate?.Invoke(3));
+            menu.Items.Add("Open Payments", null, (s, e) => OnNavigate?.Invoke(4));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Refresh Dashboard", null, (s, e) => RenderDashboard());
+            menu.Show(owner, new Point(0, owner.Height + 4));
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -1620,8 +1853,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowDashboardTodo(string feature)
         {
-            MessageBox.Show(feature + " is available as a dashboard placeholder. Wire it to the matching module/service when the workflow is finalized.",
-                "Dashboard", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            AppRuntime.LogTiming("Dashboard.Action", 0, feature);
         }
 
         private void HandleDashboardSearch(string text)
@@ -1773,6 +2005,17 @@ namespace HVAC_Pro_Desktop.UI
             v >= 100000 ? "₹" + (v / 100000m).ToString("F1") + " L"
             : v >= 1000  ? "₹" + (v / 1000m).ToString("F0") + " K"
             : v.ToString("₹#,##0.00");
+
+        private static string FormatBackupAge(TimeSpan age)
+        {
+            if (age.TotalMinutes < 1)
+                return "just now";
+            if (age.TotalHours < 1)
+                return ((int)Math.Max(1, age.TotalMinutes)).ToString() + " min ago";
+            if (age.TotalHours < 24)
+                return ((int)Math.Max(1, age.TotalHours)).ToString() + " hr ago";
+            return ((int)Math.Max(1, age.TotalDays)).ToString() + " days ago";
+        }
 
         private void ConfigureDashboardDataLabel(Label label)
         {

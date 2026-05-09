@@ -16,6 +16,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly DatabaseManager _db = new DatabaseManager();
         private readonly PurchaseRepository _purchaseRepo = new PurchaseRepository();
         private readonly InvoiceService _invoiceService = new InvoiceService();
+        private readonly JobService _jobService = new JobService();
         private readonly ClientRepository _clientRepo = new ClientRepository();
         private readonly SiteRepository _siteRepo = new SiteRepository();
         private readonly SettingsService _settingsSvc = new SettingsService();

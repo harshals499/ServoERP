@@ -1,13 +1,43 @@
 ﻿{
     "product":  "ServoERP",
-    "latestVersion":  "1.0.20.0",
-    "updatedAt":  "2026-05-07",
+    "latestVersion":  "1.0.22.0",
+    "updatedAt":  "2026-05-09",
     "download":  {
                      "url":  "/download/",
-                     "installer":  "ServoERP_Setup_1.0.16.0.exe",
-                     "packageUrl":  "/updates/ServoERP_Update_1.0.20.0.zip"
+                     "installer":  "ServoERP.Setup.1.0.22.0.exe",
+                     "packageUrl":  "/updates/ServoERP_Update_1.0.22.0.zip"
                  },
     "versions":  [
+                     {
+                         "version":  "1.0.22.0",
+                         "date":  "2026-05-09",
+                         "title":  "Enterprise Login Polish",
+                         "changes":  [
+                                         {
+                                             "type":  "ui",
+                                             "items":  [
+                                                           "Corrected the Sign In title and improved login typography hierarchy.",
+                                                           "Added a stronger ServoERP brand panel with readable HVAC operations value props.",
+                                                           "Improved input alignment, focus styling, button treatment, footer context, and VM/laptop screen fit."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.21.0",
+                         "date":  "2026-05-09",
+                         "title":  "Lightweight Login Window",
+                         "changes":  [
+                                         {
+                                             "type":  "performance",
+                                             "items":  [
+                                                           "Redesigned the login window with a cleaner logo-free layout.",
+                                                           "Removed heavy custom artwork from the login paint path to reduce lag in VM and remote desktop environments.",
+                                                           "Kept the update ZIP flow compatible so this change can ship through the in-app updater."
+                                                       ]
+                                         }
+                                     ]
+                     },
                      {
                          "version":  "1.0.20.0",
                          "date":  "2026-05-07",

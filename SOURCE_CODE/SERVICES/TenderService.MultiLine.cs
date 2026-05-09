@@ -464,6 +464,46 @@ namespace HVAC_Pro_Desktop.Services
             return _invoiceService.GetInvoiceById(invoiceId);
         }
 
+        public Job CreateDispatchJobFromQuotation(int tenderId)
+        {
+            TenderBid bid = GetByIdDetailed(tenderId);
+            if (bid == null)
+                throw new Exception("Quotation not found.");
+            if (bid.ClientID <= 0)
+                throw new Exception("Quotation must be linked to a client before creating a job.");
+            if (bid.SiteID <= 0)
+                throw new Exception("Quotation must be linked to a site before creating a job.");
+
+            AnalyseTenderDraft(bid);
+            SaveTenderBid(bid);
+
+            string description = string.Join(Environment.NewLine, bid.LineItems
+                .Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription))
+                .Select(li => "- " + li.ItemDescription + " x " + li.Quantity.ToString("0.##") + " " + (li.Unit ?? "Nos")));
+            if (string.IsNullOrWhiteSpace(description))
+                description = bid.Notes ?? string.Empty;
+
+            Job job = new Job
+            {
+                ClientID = bid.ClientID,
+                SiteID = bid.SiteID,
+                Title = bid.TenderName,
+                JobTitle = bid.TenderName,
+                JobType = "Quotation Handoff",
+                Priority = bid.DueDate.Date <= DateTime.Today.AddDays(2) ? "High" : "Medium",
+                ScheduledDate = bid.RequiredByDate ?? bid.DueDate,
+                PipelineStatus = "Created",
+                Status = "Pending",
+                QuotedRevenue = bid.BidValue,
+                Revenue = bid.BidValue,
+                Description = description,
+                Notes = "Created from quotation " + bid.QuotationNumber + Environment.NewLine + (bid.Notes ?? string.Empty)
+            };
+
+            int jobId = _jobService.Create(job);
+            return _jobService.GetById(jobId);
+        }
+
         public void RecordClientPriceMemory(int tenderId, bool wasWon)
         {
             TenderBid bid = GetByIdDetailed(tenderId);

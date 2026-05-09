@@ -1008,6 +1008,23 @@ namespace HVAC_Pro_Desktop.DAL
                 );");
                 AddColumn(conn, "StockItems", "ReservedStock", "DECIMAL(10,2) NOT NULL DEFAULT 0");
 
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='StockMovements')
+                CREATE TABLE StockMovements (
+                    MovementID      INT PRIMARY KEY IDENTITY(1,1),
+                    ItemID          INT NOT NULL FOREIGN KEY REFERENCES StockItems(ItemID),
+                    MovementType    NVARCHAR(30) NOT NULL,
+                    Quantity        DECIMAL(10,2) NOT NULL,
+                    StockBefore     DECIMAL(10,2) NOT NULL,
+                    StockAfter      DECIMAL(10,2) NOT NULL,
+                    FromLocation    NVARCHAR(120) NULL,
+                    ToLocation      NVARCHAR(120) NULL,
+                    ReferenceNo     NVARCHAR(80) NULL,
+                    Notes           NVARCHAR(MAX) NULL,
+                    CreatedByUserId INT NULL,
+                    CreatedByName   NVARCHAR(120) NULL,
+                    CreatedDate     DATETIME NOT NULL DEFAULT GETDATE()
+                );");
+
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='InvoiceTemplates')
                 CREATE TABLE InvoiceTemplates (
                     TemplateID            INT PRIMARY KEY IDENTITY(1,1),

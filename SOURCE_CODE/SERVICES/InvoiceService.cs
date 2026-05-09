@@ -259,6 +259,81 @@ namespace HVAC_Pro_Desktop.Services
         }
 
         // ── AGING REPORT ─────────────────────────────────────
+        public Invoice CreateCreditNoteForInvoice(int invoiceId, decimal creditAmount, string reason)
+        {
+            SessionManager.DemandPermission("Invoices", "Edit");
+            if (creditAmount <= 0)
+                throw new Exception("Credit amount must be greater than zero.");
+
+            Invoice original = GetInvoiceById(invoiceId);
+            if (original == null)
+                throw new Exception("Invoice not found.");
+            if (original.PaymentStatus == "Cancelled")
+                throw new Exception("Cannot create a credit note for a cancelled invoice.");
+
+            decimal openBalance = Math.Max(0m, original.BalanceDue);
+            if (openBalance <= 0)
+                throw new Exception("Invoice has no open balance to credit.");
+            if (creditAmount > openBalance)
+                throw new Exception("Credit amount cannot exceed the open balance of " + IndiaFormatHelper.FormatCurrency(openBalance) + ".");
+
+            var creditNote = new Invoice
+            {
+                ClientID = original.ClientID,
+                SiteID = original.SiteID,
+                ContractID = original.ContractID,
+                QuotationBidID = original.QuotationBidID,
+                InvoiceDate = DateTime.Today,
+                DueDate = DateTime.Today,
+                InvoiceTitle = "CREDIT NOTE",
+                Subject = "Credit note against " + original.InvoiceNumber,
+                Notes = "Credit note against invoice " + original.InvoiceNumber + "." + Environment.NewLine + (reason ?? string.Empty),
+                SendInvoiceTo = original.SendInvoiceTo,
+                TemplateCode = original.TemplateCode,
+                WorkflowType = "Credit Note",
+                PaymentTerms = "Immediate",
+                PlaceOfSupply = original.PlaceOfSupply,
+                GSTMode = original.GSTMode,
+                GSTPercent = original.GSTPercent > 0 ? original.GSTPercent : 18m,
+                ContractCoverageType = original.ContractCoverageType,
+                WarrantyStatus = original.WarrantyStatus,
+                InventoryReservationStatus = "None",
+                PaymentStatus = "Credit Note",
+                PaidAmount = creditAmount
+            };
+
+            decimal gstPct = creditNote.GSTPercent > 0 ? creditNote.GSTPercent : 18m;
+            decimal taxable = Math.Round(creditAmount / (1m + (gstPct / 100m)), 2);
+            creditNote.LineItems.Add(new InvoiceLineItem
+            {
+                Description = "Credit adjustment for " + original.InvoiceNumber,
+                HSNCode = FirstNonEmpty(original.LineItems.FirstOrDefault()?.HSNCode, "9987"),
+                Unit = "Nos",
+                Quantity = 1m,
+                Rate = taxable,
+                GSTPercent = gstPct,
+                Amount = taxable,
+                TaxAmount = Math.Round(creditAmount - taxable, 2),
+                IsBillable = true,
+                CoverageNote = reason
+            });
+
+            int creditNoteId = CreateInvoiceWithLineItems(creditNote);
+            creditNote = GetInvoiceById(creditNoteId);
+            creditNote.PaidAmount = creditNote.TotalAmount;
+            creditNote.BalanceDue = 0m;
+            creditNote.PaymentStatus = "Credit Note";
+            creditNote.InventoryReservationStatus = "None";
+            _invoiceRepo.Update(creditNote);
+
+            decimal adjustedPaid = Math.Min(original.TotalAmount, original.PaidAmount + creditAmount);
+            string adjustedStatus = adjustedPaid >= original.TotalAmount ? "Paid" : "Partial";
+            _invoiceRepo.UpdatePaymentStatus(original.InvoiceID, adjustedPaid, adjustedStatus);
+            _audit.Record("CREDIT_NOTE", "Invoices", original.InvoiceID, "Credit note " + creditNote.InvoiceNumber + " created for " + IndiaFormatHelper.FormatCurrency(creditAmount));
+            AppDataCache.RemovePrefix("invoices:");
+            return creditNote;
+        }
+
         public DataTable GetAgingReport()
         {
             return _invoiceRepo.GetAgingReport();

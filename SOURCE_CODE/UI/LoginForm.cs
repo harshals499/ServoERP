@@ -31,6 +31,8 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnSignIn;
         private Label _lblError;
         private Label _lblSpinner;
+        private bool _signInHover;
+        private bool _signInPressed;
         private bool _passwordVisible;
         private float _spinnerPhase;
         private Bitmap _brandPanelCache;
@@ -59,8 +61,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             Text = BrandingService.WindowTitle("Login");
             StartPosition = FormStartPosition.CenterScreen;
-            ClientSize = new Size(1360, 880);
-            MinimumSize = new Size(1080, 720);
+            ClientSize = new Size(1180, 760);
+            MinimumSize = new Size(940, 660);
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Color.FromArgb(245, 249, 255);
             Font = new Font("Segoe UI", 9f);
@@ -93,6 +95,7 @@ namespace HVAC_Pro_Desktop.UI
         protected override async void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            FitToWorkingArea();
             ApplyRoundedWindow();
             await TryAutoLoginAsync();
         }
@@ -118,13 +121,12 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(_titleBar);
             BuildTitleBar();
 
-            _footer = new BufferedPanel { Dock = DockStyle.Bottom, Height = 86, BackColor = Color.FromArgb(248, 251, 255) };
+            _footer = new BufferedPanel { Dock = DockStyle.Bottom, Height = 62, BackColor = Color.FromArgb(248, 251, 255) };
             _footer.Paint += DrawFooter;
             Controls.Add(_footer);
 
-            _leftPanel = new BufferedPanel { BackColor = Color.FromArgb(245, 249, 255) };
-            _leftPanel.Paint += DrawBrandPanelV2;
-            _leftPanel.Resize += (s, e) => DisposeBrandPanelCache();
+            _leftPanel = new BufferedPanel { BackColor = Color.FromArgb(239, 246, 255) };
+            _leftPanel.Paint += DrawBrandPanelLite;
             Controls.Add(_leftPanel);
 
             _rightPanel = new BufferedPanel { BackColor = BackColor };
@@ -139,19 +141,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             _titleBar.MouseDown += DragWindow;
 
-            var icon = new PictureBox
-            {
-                Location = new Point(18, 16),
-                Size = new Size(22, 22),
-                SizeMode = PictureBoxSizeMode.StretchImage,
-                Image = Icon?.ToBitmap()
-            };
-            _titleBar.Controls.Add(icon);
-
             _titleBar.Controls.Add(new Label
             {
                 Text = "ServoERP",
-                Location = new Point(48, 13),
+                Location = new Point(24, 13),
                 Size = new Size(180, 28),
                 Font = new Font("Segoe UI", 13f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42)
@@ -184,6 +177,128 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         private void BuildLoginCardV2()
+        {
+            _loginCard = new BufferedPanel { BackColor = Color.White };
+            _loginCard.Paint += DrawLoginCard;
+            _rightPanel.Controls.Add(_loginCard);
+
+            _loginCard.Controls.Add(new Label
+            {
+                Text = "Sign In",
+                Location = new Point(56, 36),
+                Size = new Size(440, 56),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 25f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(8, 22, 61)
+            });
+
+            _loginCard.Controls.Add(new Label
+            {
+                Text = "Use your ServoERP account to continue.",
+                Location = new Point(56, 92),
+                Size = new Size(440, 30),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 10.5f),
+                ForeColor = Color.FromArgb(71, 85, 105)
+            });
+
+            _loginCard.Controls.Add(FieldLabel("Username / Email", 56, 136));
+            _txtUsername = new ModernTextBox
+            {
+                Location = new Point(56, 164),
+                Size = new Size(440, 52),
+                Placeholder = "Enter your username or email",
+                LeadingIcon = '\uE77B'
+            };
+            _loginCard.Controls.Add(_txtUsername);
+
+            _loginCard.Controls.Add(FieldLabel("Password", 56, 232));
+            _txtPassword = new ModernTextBox
+            {
+                Location = new Point(56, 260),
+                Size = new Size(440, 52),
+                Placeholder = "Enter your password",
+                UseSystemPasswordChar = true,
+                LeadingIcon = '\uE72E'
+            };
+            _txtPassword.Padding = new Padding(52, 0, 78, 0);
+            _loginCard.Controls.Add(_txtPassword);
+
+            _btnPasswordToggle = GhostButton("Show", 424, 270, 58, 32);
+            _btnPasswordToggle.Click += (s, e) => TogglePasswordVisibility();
+            _loginCard.Controls.Add(_btnPasswordToggle);
+
+            _chkRememberMe = new CheckBox
+            {
+                Text = "Remember me",
+                Location = new Point(56, 332),
+                Size = new Size(160, 28),
+                Font = new Font("Segoe UI", 10f),
+                ForeColor = Color.FromArgb(8, 22, 61)
+            };
+            _loginCard.Controls.Add(_chkRememberMe);
+
+            var forgot = LinkLabel("Forgot password?", 346, 328, 150, 30);
+            forgot.Click += (s, e) => ShowToast("Contact your ServoERP administrator to reset password.", false);
+            _loginCard.Controls.Add(forgot);
+
+            _lblError = new Label
+            {
+                Location = new Point(56, 368),
+                Size = new Size(440, 28),
+                ForeColor = Color.FromArgb(220, 38, 38),
+                Font = new Font("Segoe UI", 9.5f),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            _loginCard.Controls.Add(_lblError);
+
+            _btnSignIn = new Button
+            {
+                Text = "Sign In",
+                Location = new Point(56, 404),
+                Size = new Size(440, 54),
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(0, 91, 224),
+                ForeColor = Color.White,
+                Font = new Font("Segoe UI", 13f, FontStyle.Bold)
+            };
+            _btnSignIn.FlatAppearance.BorderSize = 0;
+            _btnSignIn.FlatAppearance.MouseOverBackColor = Color.FromArgb(29, 78, 216);
+            _btnSignIn.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
+            _btnSignIn.Click += async (s, e) => await AttemptLoginAsync();
+            _loginCard.Controls.Add(_btnSignIn);
+            StylePrimaryButton(_btnSignIn);
+
+            _lblSpinner = new Label
+            {
+                Text = "",
+                Location = new Point(72, 417),
+                Size = new Size(34, 28),
+                ForeColor = Color.White,
+                BackColor = Color.FromArgb(0, 91, 224),
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Visible = false
+            };
+            _loginCard.Controls.Add(_lblSpinner);
+
+            AddDivider(56, 464, 440);
+
+            var demoButton = SocialButton("Continue as Demo", 56, 488);
+            demoButton.Size = new Size(210, 46);
+            demoButton.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            demoButton.Click += (s, e) => ShowToast("Demo access can be enabled from administrator settings.", false);
+            _loginCard.Controls.Add(demoButton);
+
+            var createButton = SocialButton("Create Account", 286, 488);
+            createButton.Size = new Size(210, 46);
+            createButton.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            createButton.ForeColor = Color.FromArgb(0, 92, 255);
+            createButton.FlatAppearance.BorderColor = Color.FromArgb(0, 92, 255);
+            createButton.Click += (s, e) => ShowCreateAccountDialog();
+            _loginCard.Controls.Add(createButton);
+        }
+
+        private void BuildLoginCardLegacy()
         {
             _loginCard = new BufferedPanel { BackColor = Color.White };
             _loginCard.Paint += DrawLoginCard;
@@ -541,6 +656,38 @@ namespace HVAC_Pro_Desktop.UI
         {
             _footer.Controls.Add(new Label
             {
+                Text = "\uE72E",
+                Location = new Point(30, 18),
+                Size = new Size(30, 30),
+                Font = new Font("Segoe MDL2 Assets", 16f),
+                ForeColor = Color.FromArgb(22, 163, 74),
+                TextAlign = ContentAlignment.MiddleCenter
+            });
+            _footer.Controls.Add(new Label
+            {
+                Text = "Secure encrypted local connection",
+                Location = new Point(66, 16),
+                Size = new Size(320, 34),
+                ForeColor = Color.FromArgb(8, 44, 118),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
+            });
+            _footer.Controls.Add(new Label
+            {
+                Text = "Version " + Assembly.GetExecutingAssembly().GetName().Version + "  |  Licensed workstation",
+                Dock = DockStyle.Right,
+                Width = 420,
+                Padding = new Padding(0, 0, 36, 0),
+                TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Font = new Font("Segoe UI", 9.5f)
+            });
+        }
+
+        private void BuildFooterLabelsV2Legacy()
+        {
+            _footer.Controls.Add(new Label
+            {
                 Text = "\uE83D",
                 Location = new Point(28, 22),
                 Size = new Size(36, 36),
@@ -575,12 +722,12 @@ namespace HVAC_Pro_Desktop.UI
 
             int availableTop = TitleBarHeight;
             int availableHeight = Math.Max(300, ClientSize.Height - TitleBarHeight - _footer.Height);
-            int leftWidth = Math.Max(430, (int)(ClientSize.Width * 0.45));
+            int leftWidth = Math.Max(410, (int)(ClientSize.Width * 0.40));
             _leftPanel.Bounds = new Rectangle(0, availableTop, leftWidth, availableHeight);
             _rightPanel.Bounds = new Rectangle(leftWidth, availableTop, ClientSize.Width - leftWidth, availableHeight);
 
-            int cardWidth = Math.Min(690, Math.Max(620, _rightPanel.Width - 96));
-            int cardHeight = Math.Min(760, Math.Max(700, _rightPanel.Height - 20));
+            int cardWidth = Math.Min(560, Math.Max(520, _rightPanel.Width - 128));
+            int cardHeight = Math.Min(620, Math.Max(540, _rightPanel.Height - 28));
             _loginCard.Bounds = new Rectangle((_rightPanel.Width - cardWidth) / 2, (_rightPanel.Height - cardHeight) / 2, cardWidth, cardHeight);
         }
 
@@ -661,6 +808,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     _txtUsername.Text = dialog.CreatedUsername;
                     _txtPassword.Text = string.Empty;
+                    _txtPassword.Focus();
                     ShowToast("Account created. Enter the password to sign in.", false);
                 }
             }
@@ -702,9 +850,9 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.Enabled = !busy;
             _chkRememberMe.Enabled = !busy;
             _btnSignIn.Enabled = !busy;
-            _btnSignIn.Text = busy ? "   Signing In..." : "→  Sign In";
+            _btnSignIn.Text = busy ? "   Signing In..." : "Sign In";
             if (!busy)
-                _btnSignIn.Text = "Sign In  ->";
+                _btnSignIn.Text = "Sign In";
             _lblSpinner.Visible = busy;
             if (busy && !_spinnerTimer.Enabled)
                 _spinnerTimer.Start();
@@ -724,8 +872,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _passwordVisible = !_passwordVisible;
             _txtPassword.UseSystemPasswordChar = !_passwordVisible;
-            _btnPasswordToggle.Text = _passwordVisible ? "◌" : "◉";
-            _btnPasswordToggle.Text = _passwordVisible ? "●" : "○";
+            _btnPasswordToggle.Text = _passwordVisible ? "Hide" : "Show";
         }
 
         private void WireEvents()
@@ -753,6 +900,19 @@ namespace HVAC_Pro_Desktop.UI
             WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
         }
 
+        private void FitToWorkingArea()
+        {
+            Rectangle work = Screen.FromControl(this).WorkingArea;
+            int targetWidth = Math.Min(Width, Math.Max(MinimumSize.Width, work.Width - 24));
+            int targetHeight = Math.Min(Height, Math.Max(MinimumSize.Height, work.Height - 24));
+            if (Width != targetWidth || Height != targetHeight)
+                Size = new Size(targetWidth, targetHeight);
+
+            Location = new Point(
+                work.Left + Math.Max(0, (work.Width - Width) / 2),
+                work.Top + Math.Max(0, (work.Height - Height) / 2));
+        }
+
         private void ApplyRoundedWindow()
         {
             if (_lastWindowRegionSize == Size && _lastWindowRegionState == WindowState)
@@ -769,6 +929,90 @@ namespace HVAC_Pro_Desktop.UI
 
             using (GraphicsPath path = Rounded(new Rectangle(0, 0, Width, Height), 14))
                 Region = new Region(path);
+        }
+
+        private void DrawBrandPanelLite(object sender, PaintEventArgs e)
+        {
+            Graphics g = e.Graphics;
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle r = _leftPanel.ClientRectangle;
+
+            using (LinearGradientBrush bg = new LinearGradientBrush(r, Color.FromArgb(8, 32, 78), Color.FromArgb(0, 91, 224), 115f))
+                g.FillRectangle(bg, r);
+
+            using (SolidBrush rail = new SolidBrush(Color.FromArgb(249, 115, 22)))
+                g.FillRectangle(rail, 0, 0, 6, r.Height);
+
+            using (SolidBrush glow = new SolidBrush(Color.FromArgb(24, 255, 255, 255)))
+            {
+                g.FillEllipse(glow, r.Width - 190, 48, 260, 260);
+                g.FillEllipse(glow, -120, r.Height - 220, 260, 260);
+            }
+
+            int x = 58;
+            DrawLeftAligned(g, "ServoERP", new Font("Segoe UI", 30f, FontStyle.Bold), new Rectangle(x, 60, r.Width - 112, 54), Color.White);
+            DrawLeftAligned(g, "Manage every service call, contract, and invoice. Built for India.", new Font("Segoe UI", 11.7f, FontStyle.Bold), new Rectangle(x, 126, r.Width - 112, 86), Color.FromArgb(226, 239, 255));
+            DrawLeftAligned(g, "Secure local sign-in for clients, service jobs, billing and field operations.", new Font("Segoe UI", 9.5f), new Rectangle(x, 220, r.Width - 112, 46), Color.FromArgb(203, 213, 225));
+
+            int previewHeight = r.Height < 620 ? 120 : 136;
+            Rectangle preview = new Rectangle(x, r.Height < 620 ? 282 : 294, Math.Min(336, r.Width - 116), previewHeight);
+            DrawDashboardPreview(g, preview);
+
+            string[] items =
+            {
+                "Manage Clients & Sites",
+                "Dispatch Technicians",
+                "GST Invoicing & Quotations",
+                "AMC & Service Tracking"
+            };
+
+            int y = preview.Bottom + (r.Height < 620 ? 20 : 30);
+            for (int i = 0; i < items.Length; i++)
+            {
+                int rowGap = r.Height < 620 ? 30 : 36;
+                Rectangle dot = new Rectangle(x + 2, y + (i * rowGap) + 9, 9, 9);
+                using (SolidBrush orange = new SolidBrush(Color.FromArgb(249, 115, 22)))
+                    g.FillEllipse(orange, dot);
+
+                DrawLeftAligned(g, items[i], new Font("Segoe UI", 10f, FontStyle.Bold), new Rectangle(x + 28, y + (i * rowGap), r.Width - 124, 28), Color.White);
+            }
+        }
+
+        private void DrawDashboardPreview(Graphics g, Rectangle rect)
+        {
+            using (GraphicsPath path = Rounded(rect, 14))
+            using (SolidBrush bg = new SolidBrush(Color.FromArgb(236, 255, 255, 255)))
+            using (Pen border = new Pen(Color.FromArgb(90, 255, 255, 255)))
+            {
+                g.FillPath(bg, path);
+                g.DrawPath(border, path);
+            }
+
+            using (SolidBrush navy = new SolidBrush(Color.FromArgb(8, 44, 118)))
+                g.FillRectangle(navy, rect.X + 18, rect.Y + 18, rect.Width - 36, 16);
+
+            Color[] colors = { Color.FromArgb(0, 91, 224), Color.FromArgb(249, 115, 22), Color.FromArgb(22, 163, 74) };
+            for (int i = 0; i < 3; i++)
+            {
+                Rectangle card = new Rectangle(rect.X + 18 + (i * ((rect.Width - 48) / 3)), rect.Y + 48, (rect.Width - 66) / 3, 48);
+                using (GraphicsPath cardPath = Rounded(card, 8))
+                using (SolidBrush cardBg = new SolidBrush(Color.White))
+                    g.FillPath(cardBg, cardPath);
+                using (SolidBrush accent = new SolidBrush(colors[i]))
+                    g.FillRectangle(accent, card.X + 10, card.Y + 12, card.Width - 20, 5);
+                using (SolidBrush line = new SolidBrush(Color.FromArgb(203, 213, 225)))
+                    g.FillRectangle(line, card.X + 10, card.Y + 27, card.Width - 32, 4);
+            }
+
+            using (Pen chart = new Pen(Color.FromArgb(0, 91, 224), 3f))
+                g.DrawLines(chart, new[]
+                {
+                    new Point(rect.X + 24, rect.Bottom - 34),
+                    new Point(rect.X + 82, rect.Bottom - 54),
+                    new Point(rect.X + 138, rect.Bottom - 44),
+                    new Point(rect.X + 196, rect.Bottom - 68),
+                    new Point(rect.X + rect.Width - 28, rect.Bottom - 48)
+                });
         }
 
         private void DrawBrandPanel(object sender, PaintEventArgs e)
@@ -1053,10 +1297,20 @@ namespace HVAC_Pro_Desktop.UI
         {
             Graphics g = e.Graphics;
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle rect = new Rectangle(0, 0, _loginCard.Width - 1, _loginCard.Height - 1);
+            Rectangle shadowRect = new Rectangle(8, 10, _loginCard.Width - 18, _loginCard.Height - 18);
+            Rectangle rect = new Rectangle(0, 0, _loginCard.Width - 10, _loginCard.Height - 10);
+
+            using (GraphicsPath shadowPath = Rounded(shadowRect, 18))
+            using (SolidBrush shadow = new SolidBrush(Color.FromArgb(22, 15, 23, 42)))
+                g.FillPath(shadow, shadowPath);
+
             using (GraphicsPath path = Rounded(rect, 18))
-            using (Pen border = new Pen(Color.FromArgb(226, 232, 240)))
+            using (SolidBrush bg = new SolidBrush(Color.White))
+            using (Pen border = new Pen(Color.FromArgb(218, 226, 236)))
+            {
+                g.FillPath(bg, path);
                 g.DrawPath(border, path);
+            }
         }
 
         private void DrawFooter(object sender, PaintEventArgs e)
@@ -1072,8 +1326,8 @@ namespace HVAC_Pro_Desktop.UI
                 Text = text,
                 Location = new Point(x, y),
                 Size = new Size(240, 28),
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(8, 22, 61)
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(30, 41, 59)
             };
         }
 
@@ -1091,6 +1345,29 @@ namespace HVAC_Pro_Desktop.UI
             button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             return button;
+        }
+
+        private void StylePrimaryButton(Button button)
+        {
+            button.FlatAppearance.BorderSize = 0;
+            button.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle rect = new Rectangle(0, 0, button.Width - 1, button.Height - 1);
+                Color top = _signInPressed ? Color.FromArgb(30, 64, 175) : (_signInHover ? Color.FromArgb(37, 99, 235) : Color.FromArgb(0, 91, 224));
+                Color bottom = _signInPressed ? Color.FromArgb(30, 58, 138) : Color.FromArgb(8, 44, 118);
+                using (GraphicsPath path = Rounded(rect, 12))
+                using (LinearGradientBrush fill = new LinearGradientBrush(rect, top, bottom, 90f))
+                {
+                    e.Graphics.FillPath(fill, path);
+                }
+
+                TextRenderer.DrawText(e.Graphics, button.Text, button.Font, rect, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            };
+            button.MouseEnter += (s, e) => { _signInHover = true; button.Invalidate(); };
+            button.MouseLeave += (s, e) => { _signInHover = false; _signInPressed = false; button.Invalidate(); };
+            button.MouseDown += (s, e) => { _signInPressed = true; button.Invalidate(); };
+            button.MouseUp += (s, e) => { _signInPressed = false; button.Invalidate(); };
         }
 
         private Label LinkLabel(string text, int x, int y, int width, int height)
@@ -1112,6 +1389,14 @@ namespace HVAC_Pro_Desktop.UI
             using (font)
             using (Brush brush = new SolidBrush(color))
             using (StringFormat format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                g.DrawString(text, font, brush, bounds, format);
+        }
+
+        private static void DrawLeftAligned(Graphics g, string text, Font font, Rectangle bounds, Color color)
+        {
+            using (font)
+            using (Brush brush = new SolidBrush(color))
+            using (StringFormat format = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Near, Trimming = StringTrimming.Word })
                 g.DrawString(text, font, brush, bounds, format);
         }
 

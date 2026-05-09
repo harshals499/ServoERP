@@ -11,6 +11,7 @@ using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.Services.Licensing;
+using HVAC_Pro_Desktop.Tests;
 using HVAC_Pro_Desktop.UI;
 using HVAC_Pro_Desktop.UI.Licensing;
 
@@ -163,7 +164,6 @@ namespace HVAC_Pro_Desktop
                     }
                     return;
                 }
-
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 var dbManager = new DatabaseManager();
                 Stopwatch stageWatch = Stopwatch.StartNew();
@@ -193,6 +193,13 @@ namespace HVAC_Pro_Desktop
                 {
                     dbManager.InsertSampleData();
                     AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "seed/import completed");
+                }
+
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/smoketest", StringComparison.OrdinalIgnoreCase)))
+                {
+                    string reportPath = EnterpriseUiSmokeTests.WriteReport();
+                    AppRuntime.LogTiming("EnterpriseUiSmokeTests", 0, reportPath);
+                    return;
                 }
 
                 Task.Run(() => new BackupService().CreateStartupBackupIfDue());

@@ -2,7 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
@@ -15,6 +18,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _svc     = new InventoryService();
         private readonly VendorService    _vndSvc  = new VendorService();
         private readonly PurchaseService  _poSvc   = new PurchaseService();
+        private readonly ToolTip _toolTip = new ToolTip();
 
         private FlowLayoutPanel _itemFlow;
         private Panel    _detail;
@@ -60,7 +64,7 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = DS.BgPage, Padding = new Padding(32, 22, 24, 10) };
-            Label title = new Label { Text = "INVENTORY / STOCK", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
+            Label title = new Label { Text = "Inventory / Stock", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
             Label sub = new Label { Text = "Monitor and manage your inventory items, stock levels, and pricing.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(560, 22) };
             Button btnExport = MakeBtn("Export", Color.White, 92); btnExport.ForeColor = DS.Slate700; btnExport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnImport = MakeBtn("Import", Color.White, 92); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
@@ -87,8 +91,8 @@ namespace HVAC_Pro_Desktop.UI
                 sub.Width = Math.Max(220, header.ClientSize.Width - reserved - sub.Left);
             };
             btnNew.Click += (s, e) => NewRecord();
-            btnImport.Click += (s, e) => MessageBox.Show("Inventory import is not wired in this build yet. Use Add Item or existing inventory data entry.", "Import", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            btnExport.Click += (s, e) => MessageBox.Show("Inventory export will use the Reports/Inventory export workflow.", "Export", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            btnImport.Click += async (s, e) => await ImportInventoryCsvAsync();
+            btnExport.Click += (s, e) => ExportInventoryCsv();
             header.Controls.AddRange(new Control[] { title, sub, headerActions });
 
             TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 112, BackColor = DS.BgPage, Padding = new Padding(24, 8, 24, 14), ColumnCount = 5, RowCount = 1 };
@@ -108,9 +112,18 @@ namespace HVAC_Pro_Desktop.UI
 
             _detail = new Panel { Dock = DockStyle.Top, Height = 465, AutoScroll = true, BackColor = Color.White };
             BuildDetailPanel();
+            Button saveItem = MakeBtn("Save Item", SaveGreen, 104);
+            Button clearItem = MakeBtn("Clear", Color.White, 82);
+            Button createPo = MakeBtn("Create PO", InfoBlue, 104);
+            clearItem.ForeColor = DS.Slate700;
+            clearItem.FlatAppearance.BorderColor = DS.BorderStrong;
+            saveItem.Click += (s, e) => Save();
+            clearItem.Click += (s, e) => NewRecord();
+            createPo.Click += (s, e) => CreatePO();
             Panel quick = BuildInventoryQuickActions();
             right.Controls.Add(quick);
             right.Controls.Add(_detail);
+            right.Controls.Add(BuildDetailActionBar(saveItem, clearItem, createPo));
 
             Panel mainCard = CreateModernCard(null);
             mainCard.Dock = DockStyle.Fill;
@@ -348,12 +361,18 @@ namespace HVAC_Pro_Desktop.UI
             Button bulk = MakeBtn("Bulk Update", Color.White, 120); bulk.ForeColor = InfoBlue; bulk.FlatAppearance.BorderColor = DS.BorderStrong;
             Button print = MakeBtn("Print Stock Report", Color.White, 150); print.ForeColor = InfoBlue; print.FlatAppearance.BorderColor = DS.BorderStrong;
             Button value = MakeBtn("Stock Valuation", Color.White, 135); value.ForeColor = SaveGreen; value.FlatAppearance.BorderColor = DS.BorderStrong;
-            adjust.Click += (s, e) => MessageBox.Show("Select an item and update Current Stock, then Save.", "Stock Adjustment", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            reorder.Click += (s, e) => LoadLowStock();
-            transfer.Click += (s, e) => MessageBox.Show("Stock transfer workflow is not configured yet.", "Stock Transfer", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            bulk.Click += (s, e) => MessageBox.Show("Bulk update is not configured yet.", "Bulk Update", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            print.Click += (s, e) => MessageBox.Show("Use Reports for printable stock reports.", "Print Stock Report", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            value.Click += (s, e) => MessageBox.Show("Total stock value: ₹ " + (_allItems.Sum(i => i.StockValue)).ToString("N2"), "Stock Valuation", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            adjust.Click += (s, e) => FocusStockAdjustment();
+            reorder.Click += (s, e) => ShowReorderSuggestions();
+            transfer.Click += (s, e) => ShowStockTransferDialog();
+            bulk.Click += async (s, e) => await ImportInventoryCsvAsync();
+            print.Click += (s, e) => PreviewStockReport();
+            value.Click += (s, e) => PreviewStockValuation();
+            _toolTip.SetToolTip(adjust, "Select an item, adjust Current Stock, then save.");
+            _toolTip.SetToolTip(reorder, "Load low-stock items. Select one to create a purchase order.");
+            _toolTip.SetToolTip(transfer, "Transfer selected item stock between operational locations.");
+            _toolTip.SetToolTip(bulk, "Import a CSV file to create or update inventory items.");
+            _toolTip.SetToolTip(print, "Open a printable stock report preview.");
+            _toolTip.SetToolTip(value, "Open current stock valuation summary.");
             grid.Controls.Add(adjust, 0, 0); grid.Controls.Add(reorder, 1, 0);
             grid.Controls.Add(transfer, 0, 1); grid.Controls.Add(bulk, 1, 1);
             grid.Controls.Add(print, 0, 2); grid.Controls.Add(value, 1, 2);
@@ -893,6 +912,374 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus("PO created: " + poNumber, SaveGreen);
             }
             catch (Exception ex) { SetStatus("PO creation error: " + ex.Message, Color.Red); }
+        }
+
+        private void FocusStockAdjustment()
+        {
+            if (_current == null)
+            {
+                SetStatus("Select an item to adjust stock.", WarnOrange);
+                _txtSearch.Focus();
+                return;
+            }
+
+            _numStock.Focus();
+            _numStock.Select(0, _numStock.Text.Length);
+            SetStatus("Update Current Stock and save the item.", InfoBlue);
+        }
+
+        private void ShowReorderSuggestions()
+        {
+            if (_current != null && _current.IsLowStock)
+            {
+                CreatePO();
+                return;
+            }
+
+            LoadLowStock();
+            SetStatus("Low-stock suggestions loaded. Select an item to create a PO.", WarnOrange);
+        }
+
+        private void ShowStockTransferDialog()
+        {
+            if (_current == null)
+            {
+                SetStatus("Select an item before transferring stock.", WarnOrange);
+                _txtSearch.Focus();
+                return;
+            }
+
+            using (var dialog = new Form())
+            {
+                dialog.Text = "Transfer Stock - " + _current.ItemName;
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.AutoScaleMode = AutoScaleMode.Dpi;
+                dialog.BackColor = Color.White;
+                dialog.ClientSize = new Size(470, 320);
+
+                Label title = new Label { Text = _current.ItemName, Location = new Point(18, 14), Size = new Size(420, 24), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 };
+                Label stock = new Label { Text = "Available stock: " + _current.CurrentStock.ToString("N2") + " " + DisplayUnit(_current.Unit), Location = new Point(18, 42), Size = new Size(420, 20), Font = DS.Body, ForeColor = DS.Slate600 };
+                NumericUpDown qty = new NumericUpDown { Location = new Point(150, 82), Width = 150, DecimalPlaces = 2, Minimum = 0.01m, Maximum = Math.Max(0.01m, _current.CurrentStock), Value = Math.Min(Math.Max(0.01m, _current.CurrentStock), 1m), Font = DS.Body };
+                ComboBox from = new ComboBox { Location = new Point(150, 120), Width = 270, DropDownStyle = ComboBoxStyle.DropDown, Font = DS.Body };
+                ComboBox to = new ComboBox { Location = new Point(150, 158), Width = 270, DropDownStyle = ComboBoxStyle.DropDown, Font = DS.Body };
+                TextBox reference = new TextBox { Location = new Point(150, 196), Width = 270, Font = DS.Body };
+                TextBox notes = new TextBox { Location = new Point(150, 234), Width = 270, Height = 44, Multiline = true, Font = DS.Body };
+
+                from.Items.AddRange(new object[] { "Main Store", "Service Van", "Site Store", "Vendor Return", "Damaged Hold" });
+                to.Items.AddRange(new object[] { "Main Store", "Service Van", "Site Store", "Vendor Return", "Damaged Hold" });
+                from.Text = "Main Store";
+                to.Text = "Service Van";
+
+                dialog.Controls.Add(title);
+                dialog.Controls.Add(stock);
+                AddDialogLabel(dialog, "Quantity *", 82);
+                AddDialogLabel(dialog, "From location *", 120);
+                AddDialogLabel(dialog, "To location *", 158);
+                AddDialogLabel(dialog, "Reference", 196);
+                AddDialogLabel(dialog, "Notes", 234);
+                dialog.Controls.Add(qty);
+                dialog.Controls.Add(from);
+                dialog.Controls.Add(to);
+                dialog.Controls.Add(reference);
+                dialog.Controls.Add(notes);
+
+                Button cancel = DS.GhostBtn("Cancel", 96, 34);
+                Button save = DS.PrimaryBtn("Transfer", 108, 34);
+                cancel.Location = new Point(214, 286);
+                save.Location = new Point(322, 286);
+                cancel.Click += (s, e) => dialog.DialogResult = DialogResult.Cancel;
+                save.Click += (s, e) =>
+                {
+                    try
+                    {
+                        _svc.TransferStock(_current.ItemID, qty.Value, from.Text, to.Text, reference.Text, notes.Text);
+                        dialog.DialogResult = DialogResult.OK;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(dialog, ex.Message, "Stock Transfer", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                };
+                dialog.Controls.Add(cancel);
+                dialog.Controls.Add(save);
+                dialog.AcceptButton = save;
+                dialog.CancelButton = cancel;
+
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    SetStatus("Stock transferred successfully.", SaveGreen);
+                    LoadList();
+                }
+            }
+        }
+
+        private static void AddDialogLabel(Control parent, string text, int y)
+        {
+            parent.Controls.Add(new Label
+            {
+                Text = text,
+                Location = new Point(18, y + 3),
+                Size = new Size(120, 20),
+                Font = DS.SmallBold,
+                ForeColor = DS.Slate700,
+                TextAlign = ContentAlignment.MiddleRight
+            });
+        }
+
+        private void ExportInventoryCsv()
+        {
+            try
+            {
+                using (SaveFileDialog dialog = new SaveFileDialog())
+                {
+                    dialog.Filter = "CSV files (*.csv)|*.csv";
+                    dialog.FileName = "Inventory_" + DateTime.Today.ToString("yyyyMMdd") + ".csv";
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    List<StockItem> rows = (_allItems != null && _allItems.Count > 0 ? _allItems : _listSource) ?? new List<StockItem>();
+                    var sb = new StringBuilder();
+                    sb.AppendLine("ItemName,Category,Unit,CurrentStock,ReservedStock,AvailableStock,LastPurchaseRate,ReorderLevel,StockValue,VendorName,Status,LastUpdated");
+                    foreach (StockItem item in rows.OrderBy(i => i.Category).ThenBy(i => i.ItemName))
+                    {
+                        sb.AppendLine(string.Join(",",
+                            Csv(item.ItemName),
+                            Csv(item.Category),
+                            Csv(DisplayUnit(item.Unit)),
+                            Csv(item.CurrentStock.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.ReservedStock.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.AvailableStock.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.LastPurchaseRate.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.ReorderLevel.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.StockValue.ToString(CultureInfo.InvariantCulture)),
+                            Csv(item.VendorName),
+                            Csv(item.CurrentStock <= 0 ? "Out of Stock" : item.IsLowStock ? "Low Stock" : "Healthy"),
+                            Csv(item.LastUpdated == default(DateTime) ? "" : item.LastUpdated.ToString("yyyy-MM-dd HH:mm"))));
+                    }
+
+                    File.WriteAllText(dialog.FileName, sb.ToString(), new UTF8Encoding(true));
+                    SetStatus("Exported inventory: " + Path.GetFileName(dialog.FileName), SaveGreen);
+                    Process.Start(new ProcessStartInfo(dialog.FileName) { UseShellExecute = true });
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InventoryForm.ExportInventoryCsv", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Inventory"), "Export inventory", ex);
+            }
+        }
+
+        private async Task ImportInventoryCsvAsync()
+        {
+            try
+            {
+                using (OpenFileDialog dialog = new OpenFileDialog())
+                {
+                    dialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
+                    dialog.Title = "Import inventory CSV";
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    SetStatus("Importing inventory...", InfoBlue);
+                    int[] counts = new int[2];
+                    List<string> errors = new List<string>();
+                    await Task.Run(() => ImportInventoryRows(dialog.FileName, counts, errors));
+                    LoadList();
+
+                    string message = "Import complete. Created " + counts[0] + ", updated " + counts[1] + ".";
+                    if (errors.Count > 0)
+                        message += " Skipped " + errors.Count + " row(s).";
+                    SetStatus(message, errors.Count > 0 ? WarnOrange : SaveGreen);
+                    if (errors.Count > 0)
+                    {
+                        MessageBox.Show(this, message + Environment.NewLine + Environment.NewLine + string.Join(Environment.NewLine, errors.Take(15)), "Inventory Import", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InventoryForm.ImportInventoryCsvAsync", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Inventory"), "Import inventory", ex);
+                SetStatus("Import error: " + ex.Message, Color.Red);
+            }
+        }
+
+        private void ImportInventoryRows(string fileName, int[] counts, List<string> errors)
+        {
+            string[] lines = File.ReadAllLines(fileName);
+            if (lines.Length == 0)
+                return;
+
+            Dictionary<string, int> map = BuildCsvHeaderMap(ParseCsvLine(lines[0]));
+            List<StockItem> existing = _svc.GetAll();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i]))
+                    continue;
+
+                try
+                {
+                    List<string> cells = ParseCsvLine(lines[i]);
+                    string name = CsvValue(cells, map, "ItemName", "Item Name", "Name");
+                    if (string.IsNullOrWhiteSpace(name))
+                        throw new InvalidOperationException("Item name is required.");
+
+                    StockItem item = new StockItem
+                    {
+                        ItemName = name.Trim(),
+                        Category = CsvValue(cells, map, "Category"),
+                        Unit = NormalizeUnit(CsvValue(cells, map, "Unit", "UOM")),
+                        CurrentStock = ParseDecimal(CsvValue(cells, map, "CurrentStock", "Current Stock", "Stock")),
+                        LastPurchaseRate = ParseDecimal(CsvValue(cells, map, "LastPurchaseRate", "Last Purchase Rate", "Rate")),
+                        ReorderLevel = ParseDecimal(CsvValue(cells, map, "ReorderLevel", "Reorder Level")),
+                    };
+
+                    StockItem match = existing.FirstOrDefault(x => string.Equals(x.ItemName, item.ItemName, StringComparison.OrdinalIgnoreCase));
+                    if (match == null)
+                    {
+                        item.ItemID = _svc.Create(item);
+                        existing.Add(item);
+                        counts[0]++;
+                    }
+                    else
+                    {
+                        item.ItemID = match.ItemID;
+                        item.VendorID = match.VendorID;
+                        _svc.Update(item);
+                        counts[1]++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add("Row " + (i + 1) + ": " + ex.Message);
+                }
+            }
+        }
+
+        private void PreviewStockReport()
+        {
+            List<StockItem> rows = (_allItems != null && _allItems.Count > 0 ? _allItems : _listSource) ?? new List<StockItem>();
+            string html = BuildInventoryHtml("Inventory Stock Report", rows);
+            new HtmlPreviewDialog("Inventory Stock Report", html).ShowDialog(this);
+        }
+
+        private void PreviewStockValuation()
+        {
+            List<StockItem> rows = ((_allItems != null && _allItems.Count > 0 ? _allItems : _listSource) ?? new List<StockItem>())
+                .OrderByDescending(i => i.StockValue)
+                .ToList();
+            string html = BuildInventoryHtml("Inventory Valuation", rows);
+            new HtmlPreviewDialog("Inventory Valuation", html).ShowDialog(this);
+        }
+
+        private string BuildInventoryHtml(string title, List<StockItem> rows)
+        {
+            rows = rows ?? new List<StockItem>();
+            decimal value = rows.Sum(i => i.StockValue);
+            int low = rows.Count(i => i.IsLowStock && i.CurrentStock > 0);
+            int outOfStock = rows.Count(i => i.CurrentStock <= 0);
+            var sb = new StringBuilder();
+            sb.Append("<html><head><style>");
+            sb.Append("body{font-family:Segoe UI,Arial,sans-serif;color:#0f172a;margin:28px}h1{font-size:24px;margin:0 0 6px}.meta{color:#64748b;margin-bottom:18px}.cards{display:flex;gap:12px;margin-bottom:18px}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;min-width:150px}.label{color:#64748b;font-size:12px}.value{font-size:20px;font-weight:700}table{border-collapse:collapse;width:100%;font-size:12px}th{background:#f1f5f9;text-align:left}th,td{border:1px solid #e2e8f0;padding:8px}.right{text-align:right}.low{color:#d97706;font-weight:700}.out{color:#dc2626;font-weight:700}.ok{color:#16a34a;font-weight:700}");
+            sb.Append("</style></head><body>");
+            sb.Append("<h1>").Append(Html(title)).Append("</h1>");
+            sb.Append("<div class='meta'>Generated ").Append(DateTime.Now.ToString("dd MMM yyyy HH:mm")).Append("</div>");
+            sb.Append("<div class='cards'>");
+            sb.Append(KpiHtml("Items", rows.Count.ToString("N0")));
+            sb.Append(KpiHtml("Low stock", low.ToString("N0")));
+            sb.Append(KpiHtml("Out of stock", outOfStock.ToString("N0")));
+            sb.Append(KpiHtml("Stock value", IndiaFormatHelper.FormatCurrency(value)));
+            sb.Append("</div><table><tr><th>Item</th><th>Category</th><th>Unit</th><th class='right'>Stock</th><th class='right'>Rate</th><th class='right'>Value</th><th>Status</th><th>Vendor</th></tr>");
+            foreach (StockItem item in rows)
+            {
+                string status = item.CurrentStock <= 0 ? "Out of Stock" : item.IsLowStock ? "Low Stock" : "Healthy";
+                string cls = item.CurrentStock <= 0 ? "out" : item.IsLowStock ? "low" : "ok";
+                sb.Append("<tr><td>").Append(Html(item.ItemName)).Append("</td><td>").Append(Html(item.Category)).Append("</td><td>").Append(Html(DisplayUnit(item.Unit))).Append("</td><td class='right'>").Append(item.CurrentStock.ToString("N2")).Append("</td><td class='right'>").Append(item.LastPurchaseRate.ToString("N2")).Append("</td><td class='right'>").Append(item.StockValue.ToString("N2")).Append("</td><td class='").Append(cls).Append("'>").Append(status).Append("</td><td>").Append(Html(item.VendorName)).Append("</td></tr>");
+            }
+            sb.Append("</table></body></html>");
+            return sb.ToString();
+        }
+
+        private static string KpiHtml(string label, string value)
+        {
+            return "<div class='card'><div class='label'>" + Html(label) + "</div><div class='value'>" + Html(value) + "</div></div>";
+        }
+
+        private static Dictionary<string, int> BuildCsvHeaderMap(List<string> headers)
+        {
+            var map = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < headers.Count; i++)
+                if (!map.ContainsKey(headers[i].Trim()))
+                    map[headers[i].Trim()] = i;
+            return map;
+        }
+
+        private static string CsvValue(List<string> cells, Dictionary<string, int> map, params string[] names)
+        {
+            foreach (string name in names)
+            {
+                int index;
+                if (map.TryGetValue(name, out index) && index >= 0 && index < cells.Count)
+                    return cells[index];
+            }
+            return string.Empty;
+        }
+
+        private static decimal ParseDecimal(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return 0m;
+            value = value.Replace("Rs", string.Empty).Replace("INR", string.Empty).Replace(",", string.Empty).Trim();
+            decimal parsed;
+            if (!decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out parsed) &&
+                !decimal.TryParse(value, NumberStyles.Number, CultureInfo.CurrentCulture, out parsed))
+                throw new InvalidOperationException("Invalid number: " + value);
+            return parsed;
+        }
+
+        private static List<string> ParseCsvLine(string line)
+        {
+            var values = new List<string>();
+            var current = new StringBuilder();
+            bool quoted = false;
+            for (int i = 0; i < (line ?? string.Empty).Length; i++)
+            {
+                char c = line[i];
+                if (c == '"' && quoted && i + 1 < line.Length && line[i + 1] == '"')
+                {
+                    current.Append('"');
+                    i++;
+                }
+                else if (c == '"')
+                {
+                    quoted = !quoted;
+                }
+                else if (c == ',' && !quoted)
+                {
+                    values.Add(current.ToString());
+                    current.Clear();
+                }
+                else
+                {
+                    current.Append(c);
+                }
+            }
+            values.Add(current.ToString());
+            return values;
+        }
+
+        private static string Csv(string value)
+        {
+            string safe = (value ?? string.Empty).Replace("\"", "\"\"");
+            return "\"" + safe + "\"";
+        }
+
+        private static string Html(string value)
+        {
+            return System.Web.HttpUtility.HtmlEncode(value ?? string.Empty);
         }
 
         private void SetStatus(string msg, Color c) { _lblStatus.Text = msg; _lblStatus.ForeColor = c; }

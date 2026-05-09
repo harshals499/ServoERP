@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.UI.Controls;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -13,6 +15,8 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly HashSet<Control> ComboOutlineParents = new HashSet<Control>();
         private static readonly HashSet<Control> ScrollResizeConfiguredControls = new HashSet<Control>();
         private static readonly HashSet<Control> ScrollConfiguredControls = new HashSet<Control>();
+        private static readonly HashSet<Control> ModernizedControls = new HashSet<Control>();
+        private static readonly HashSet<Panel> ModernCardPanels = new HashSet<Panel>();
         private static readonly Dictionary<Control, PanelResizeState> ResizablePanels = new Dictionary<Control, PanelResizeState>();
         private static readonly HashSet<string> EmptyClientMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> EmptyVendorMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -36,16 +40,24 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void ApplyInputStyle(Control ctrl)
         {
+            ApplyModernErpStyle(ctrl);
+
             if (ctrl is TextBox tb)
             {
                 tb.BorderStyle = BorderStyle.FixedSingle;
                 tb.BackColor = tb.ReadOnly ? DS.Slate50 : Color.White;
+                tb.ForeColor = DS.Slate900;
+                tb.Font = DS.Body;
+                if (!tb.Multiline)
+                    tb.Height = Math.Max(tb.Height, 30);
             }
             else if (ctrl is ComboBox cb)
             {
                 cb.FlatStyle = FlatStyle.System;
                 cb.BackColor = Color.White;
                 cb.ForeColor = DS.Slate900;
+                cb.Font = DS.Body;
+                cb.Height = Math.Max(cb.Height, 30);
                 cb.AutoCompleteSource = AutoCompleteSource.ListItems;
                 cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
                 AttachComboOutline(cb);
@@ -57,12 +69,174 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     dtp.Format = DateTimePickerFormat.Short;
                 }
+
+                dtp.Font = DS.Body;
+                dtp.Height = Math.Max(dtp.Height, 30);
             }
             else if (ctrl is NumericUpDown nud)
             {
                 nud.BorderStyle = BorderStyle.FixedSingle;
                 nud.BackColor = Color.White;
+                nud.ForeColor = DS.Slate900;
+                nud.Font = DS.Body;
             }
+        }
+
+        private static void ApplyModernErpStyle(Control ctrl)
+        {
+            if (ctrl == null || ctrl.IsDisposed)
+                return;
+
+            if (ModernizedControls.Contains(ctrl))
+                return;
+
+            ModernizedControls.Add(ctrl);
+            ctrl.Disposed += (s, e) => ModernizedControls.Remove(ctrl);
+
+            if (ctrl is DataGridView grid)
+            {
+                GridTheme.Apply(grid);
+                return;
+            }
+
+            if (ctrl is Button button)
+            {
+                ApplyModernButtonStyle(button);
+                return;
+            }
+
+            if (ctrl is FlowLayoutPanel flow)
+            {
+                flow.BackColor = flow.BackColor == SystemColors.Control ? Color.Transparent : flow.BackColor;
+                flow.WrapContents = true;
+                flow.Padding = flow.Padding == Padding.Empty ? new Padding(0) : flow.Padding;
+                return;
+            }
+
+            if (ctrl is TableLayoutPanel table)
+            {
+                table.BackColor = table.BackColor == SystemColors.Control ? Color.Transparent : table.BackColor;
+                table.Margin = table.Margin == Padding.Empty ? new Padding(0) : table.Margin;
+                return;
+            }
+
+            if (ctrl is Form || ctrl is UserControl)
+            {
+                ctrl.BackColor = DS.BgPage;
+                ctrl.Font = DS.Body;
+                return;
+            }
+
+            if (ctrl is Panel panel)
+            {
+                ApplyModernPanelStyle(panel);
+            }
+        }
+
+        private static void ApplyModernButtonStyle(Button button)
+        {
+            if (button == null)
+                return;
+
+            button.FlatStyle = FlatStyle.Flat;
+            button.UseVisualStyleBackColor = false;
+            button.Cursor = Cursors.Hand;
+            button.Font = new Font("Segoe UI", Math.Max(8.75f, button.Font.Size), FontStyle.Bold);
+            button.Height = Math.Max(button.Height, 32);
+            button.Padding = button.Padding == Padding.Empty ? new Padding(12, 0, 12, 0) : button.Padding;
+
+            Color resolved = ResolveActionColor(button);
+            if (resolved == Color.Empty)
+            {
+                bool light = button.BackColor == Color.Empty
+                    || button.BackColor.ToArgb() == SystemColors.Control.ToArgb()
+                    || button.BackColor.GetBrightness() > 0.92f;
+
+                if (light)
+                {
+                    button.BackColor = Color.White;
+                    button.ForeColor = DS.Slate700;
+                    button.FlatAppearance.BorderSize = 1;
+                    button.FlatAppearance.BorderColor = DS.BorderStrong;
+                    button.FlatAppearance.MouseOverBackColor = DS.BgCardHov;
+                    button.FlatAppearance.MouseDownBackColor = DS.Slate100;
+                }
+            }
+            else
+            {
+                button.BackColor = resolved;
+                button.ForeColor = resolved == ModernERPTheme.Warning ? Color.FromArgb(69, 26, 3) : Color.White;
+                button.FlatAppearance.BorderSize = 0;
+                button.FlatAppearance.MouseOverBackColor = ModernERPTheme.Lighten(resolved, 0.08f);
+                button.FlatAppearance.MouseDownBackColor = ModernERPTheme.Darken(resolved, 0.10f);
+            }
+
+            DS.Rounded(button, DS.RadiusSm);
+        }
+
+        private static Color ResolveActionColor(Button button)
+        {
+            string key = ((button.Name ?? string.Empty) + " " + (button.Text ?? string.Empty)).ToLowerInvariant();
+            if (ContainsAny(key, "delete", "remove", "archive", "void"))
+                return ModernERPTheme.Danger;
+            if (ContainsAny(key, "save", "submit", "post", "approve", "resolve", "paid", "complete"))
+                return ModernERPTheme.Success;
+            if (ContainsAny(key, "edit", "new", "add", "create", "generate", "import", "export", "print", "refresh", "search", "view", "open", "install"))
+                return ModernERPTheme.Primary;
+            if (ContainsAny(key, "warn", "renew", "remind", "hold"))
+                return ModernERPTheme.Warning;
+
+            return Color.Empty;
+        }
+
+        private static void ApplyModernPanelStyle(Panel panel)
+        {
+            if (panel == null)
+                return;
+
+            if (panel.BackColor.ToArgb() == SystemColors.Control.ToArgb())
+                panel.BackColor = DS.BgPage;
+
+            if (!ShouldPaintCardSurface(panel))
+                return;
+
+            if (ModernCardPanels.Contains(panel))
+                return;
+
+            ModernCardPanels.Add(panel);
+            panel.Disposed += (s, e) => ModernCardPanels.Remove(panel);
+            panel.Paint += ModernCardPanelPaint;
+            panel.Resize += (s, e) => panel.Invalidate();
+        }
+
+        private static bool ShouldPaintCardSurface(Panel panel)
+        {
+            if (panel is FlowLayoutPanel || panel is TableLayoutPanel)
+                return false;
+
+            if (panel.Dock == DockStyle.Fill && panel.Parent is Form)
+                return false;
+
+            string name = (panel.Name ?? string.Empty).ToUpperInvariant();
+            if (ContainsAny(name, "SIDEBAR", "NAV", "TOOLBAR", "HEADER", "FOOTER", "STRIP", "MENU", "BANNER"))
+                return false;
+
+            bool cardName = ContainsAny(name, "CARD", "PANEL", "SECTION", "SUMMARY", "DETAIL", "DETAILS", "KPI", "WIDGET", "FORM", "LIST", "FILTER");
+            bool whiteSurface = panel.BackColor == Color.White || panel.BackColor == DS.White || panel.BackColor == SystemColors.Window;
+            return panel.HasChildren && (cardName || whiteSurface);
+        }
+
+        private static void ModernCardPanelPaint(object sender, PaintEventArgs e)
+        {
+            Panel panel = sender as Panel;
+            if (panel == null || panel.Width < 4 || panel.Height < 4)
+                return;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(0, 0, panel.Width - 1, panel.Height - 1);
+            using (GraphicsPath path = ModernERPTheme.RoundedRect(rect, DS.RadiusLg))
+            using (Pen pen = new Pen(DS.Border))
+                e.Graphics.DrawPath(pen, path);
         }
 
         public static void AttachComboOutline(ComboBox comboBox)
@@ -91,7 +265,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (host == null)
                     return;
 
-                using (Pen pen = new Pen(Color.Black, 1))
+                using (Pen pen = new Pen(DS.BorderStrong, 1))
                 {
                     foreach (Control child in host.Controls)
                     {

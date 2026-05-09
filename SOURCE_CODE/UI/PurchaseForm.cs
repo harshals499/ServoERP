@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -63,6 +64,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _invSvc = new InventoryService();
         private readonly ContractService _cntSvc = new ContractService();
         private readonly JobService _jobSvc = new JobService();
+        private readonly TenderService _tenderSvc = new TenderService();
         private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
         private readonly PaymentService _paymentSvc = new PaymentService();
         private readonly VendorAdvancePaymentService _vendorAdvanceSvc = new VendorAdvancePaymentService();
@@ -174,6 +176,7 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = Color.FromArgb(245, 247, 250);
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            ApplyPurchaseReferenceSkin(Controls);
             ApplyPermissions();
             EnableDeferredLoad(
                 LoadInitialDataAsync,
@@ -194,14 +197,14 @@ namespace HVAC_Pro_Desktop.UI
             };
             Label subtitle = new Label
             {
-                Text = "Purchase > Purchase Orders > New PO",
+                Text = "Purchase  >  Purchase Orders  >  New PO",
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = DS.Slate600,
                 Location = new Point(25, 42),
                 AutoSize = true
             };
             _lblBreadcrumb = subtitle;
-            _lblHeaderStatus = MakeStatusBadge("Active", SaveGreen, new Point(224, 40), 62);
+            _lblHeaderStatus = MakeStatusBadge("Draft", SaveGreen, new Point(282, 40), 62);
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
             header.Controls.Add(_lblHeaderStatus);
@@ -216,8 +219,8 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.Transparent
             };
             Button btnRefresh = MakeOutlineButton("Refresh", 78);
-            _btnNewPo = MakeBtn("+ New PO", InfoBlue, 104);
-            _btnSavePo = MakeBtn("Save", SaveGreen, 72);
+            _btnNewPo = MakeBtn("+  New PO", InfoBlue, 104);
+            _btnSavePo = MakeOutlineButton("Save as Draft", 118);
             Button btnReceived = MakeOutlineButton("Mark Received", 118);
             _btnPreview = MakeOutlineButton("Preview", 80);
             _btnPrintPdf = MakeOutlineButton("Print PDF", 88);
@@ -241,7 +244,11 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(8, 8, 0, 0)
             };
 
-            btnRefresh.Click += (s, e) => LoadList();
+            btnRefresh.Click += async (s, e) =>
+            {
+                await LoadInitialDataAsync();
+                SetStatus("Showing " + (_orderSource?.Count ?? 0) + " purchase orders.", DS.Slate600);
+            };
             _btnPayablesToggle.Click += (s, e) => ToggleVendorPayablesView();
             _btnBatchPay.Click += (s, e) => BatchPaySelected();
             _btnVendorAdvance.Click += (s, e) => RecordVendorAdvance();
@@ -256,7 +263,7 @@ namespace HVAC_Pro_Desktop.UI
             btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Purchases, FindForm());
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Purchases, FindForm());
             btnSettings.Click += (s, e) => ShowPurchaseMoreMenu();
-            toolbar.Controls.AddRange(new Control[] { btnRefresh, _btnPayablesToggle, _btnBatchPay, _btnVendorAdvance, btnImport, btnTemplate, _btnPreview, _btnPrintPdf, _btnNewPo, btnSettings, _lblStatus });
+            toolbar.Controls.AddRange(new Control[] { btnRefresh, _btnPayablesToggle, btnImport, btnTemplate, _btnPreview, _btnPrintPdf, _btnNewPo, btnSettings, _lblStatus });
             header.Controls.Add(toolbar);
             header.Resize += (s, e) =>
             {
@@ -292,6 +299,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Controls.Add(body);
             Controls.Add(header);
+            ApplyPurchaseReferenceSkin(Controls);
         }
 
         private Control BuildLeftRailContent()
@@ -402,6 +410,15 @@ namespace HVAC_Pro_Desktop.UI
             Button p1 = MakeBtn("1", InfoBlue, 32);
             Button p2 = MakeOutlineButton("2", 32);
             Button next = MakeOutlineButton(">", 32);
+            ToolTip pagerTips = new ToolTip();
+            prev.Enabled = false;
+            p1.Enabled = false;
+            p2.Enabled = false;
+            next.Enabled = false;
+            pagerTips.SetToolTip(prev, "Purchase list pagination is disabled until more than one page is available.");
+            pagerTips.SetToolTip(p1, "Current purchase list page.");
+            pagerTips.SetToolTip(p2, "Purchase list pagination is disabled until more than one page is available.");
+            pagerTips.SetToolTip(next, "Purchase list pagination is disabled until more than one page is available.");
             prev.Location = new Point(0, 5);
             p1.Location = new Point(38, 5);
             p2.Location = new Point(76, 5);
@@ -468,7 +485,8 @@ namespace HVAC_Pro_Desktop.UI
             print.Click += (s, e) => SavePurchaseOrderPdf();
             clone.Click += (s, e) => ClonePurchaseOrder();
             cancel.Click += (s, e) => CancelPurchaseOrder();
-            delete.Click += (s, e) => DeletePurchaseOrder();
+            delete.Enabled = false;
+            _toolTip.SetToolTip(delete, "Hard delete is disabled to protect purchasing history. Use Cancel PO to close this order safely.");
             actions.Controls.AddRange(new Control[] { save, convert, received, send, print, clone, cancel, delete });
             panel.Controls.Add(actions);
             return panel;
@@ -498,6 +516,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildDetailPanel()
         {
+            BuildReferencePurchaseDetailPanel();
+            if (DateTime.MinValue != DateTime.MaxValue)
+                return;
+
             FlowLayoutPanel workspace = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -975,6 +997,226 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
+        private void BuildReferencePurchaseDetailPanel()
+        {
+            FlowLayoutPanel workspace = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                BackColor = DS.BgPage,
+                Padding = new Padding(0)
+            };
+            _detail.Controls.Add(workspace);
+
+            CreatePurchaseEditorControls();
+
+            Panel vendorCard = CreateReferenceSection("1", "PO & Vendor Details", 860, 250);
+            Button selectVendor = MakeOutlineButton("Select Vendor", 126);
+            selectVendor.Location = new Point(700, 18);
+            selectVendor.ForeColor = InfoBlue;
+            selectVendor.Click += (s, e) => _cboVendor.Focus();
+            vendorCard.Controls.Add(selectVendor);
+            AddRefField(vendorCard, "PO Number", _txtPONumber, 18, 58, 255);
+            AddRefField(vendorCard, "PO Date *", _dtpDate, 300, 58, 255);
+            AddRefField(vendorCard, "Required By", _dtpPayByDate, 582, 58, 255);
+            AddRefField(vendorCard, "Vendor *", _cboVendor, 18, 116, 255);
+            AddRefField(vendorCard, "Vendor GSTIN", _txtVendorGstin, 300, 116, 255);
+            AddRefField(vendorCard, "Vendor Invoice #", _txtVendorInvoiceNumber, 582, 116, 255);
+            AddRefField(vendorCard, "Vendor Contact", CreateReadonlyTextBox("Select contact"), 18, 174, 255);
+            AddRefField(vendorCard, "Phone", CreateReadonlyTextBox("Enter phone"), 300, 174, 255);
+            AddRefField(vendorCard, "Email", CreateReadonlyTextBox("Enter email"), 582, 174, 255);
+
+            Panel infoCard = CreateReferenceSection("2", "Order Information", 860, 210);
+            AddRefField(infoCard, "Currency", CreateReadonlyTextBox("INR - Indian Rupee"), 18, 58, 195);
+            AddRefField(infoCard, "Exchange Rate", CreateReadonlyTextBox("1.0000"), 235, 58, 120);
+            AddRefField(infoCard, "Payment Terms", CreateReadonlyTextBox("30 Days"), 378, 58, 170);
+            AddRefField(infoCard, "Credit Days", CreateReadonlyTextBox("30"), 570, 58, 145);
+            AddRefField(infoCard, "Purchase Type", CreateReadonlyTextBox("General Purchase"), 732, 58, 105);
+            AddRefField(infoCard, "Priority", CreateReadonlyTextBox("Normal"), 18, 116, 170);
+            AddRefField(infoCard, "Linked To", _cboLinkedType, 210, 116, 118);
+            AddRefField(infoCard, "", _cboLinkedRecord, 340, 116, 160);
+            AddRefField(infoCard, "Status", _cboStatus, 522, 116, 150);
+            AddRefField(infoCard, "Department", CreateReadonlyTextBox("Purchase"), 694, 116, 143);
+            AddRefField(infoCard, "Project / Site", CreateReadonlyTextBox("Select project / site"), 18, 166, 245);
+            AddRefField(infoCard, "Created By", CreateReadonlyTextBox("Administrator"), 300, 166, 200);
+            _lblCreatedByMeta = new Label { Location = new Point(522, 168), Size = new Size(315, 26), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700, Text = "Created On   " + DateTime.Now.ToString("dd/MM/yyyy HH:mm") };
+            infoCard.Controls.Add(_lblCreatedByMeta);
+
+            Panel deliveryCard = CreateReferenceSection("3", "Delivery & Notes", 860, 186);
+            Panel modePanel = new Panel { Location = new Point(18, 58), Size = new Size(240, 42), BackColor = Color.White };
+            modePanel.Controls.Add(new Label { Text = "Delivery Mode", Location = new Point(0, 0), Size = new Size(150, 16), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = DS.Slate700 });
+            _rbTechPickup.Location = new Point(0, 20);
+            _rbSiteDelivery.Location = new Point(112, 20);
+            modePanel.Controls.Add(_rbTechPickup);
+            modePanel.Controls.Add(_rbSiteDelivery);
+            deliveryCard.Controls.Add(modePanel);
+            AddRefField(deliveryCard, "Assigned Technician", _cboTechnician, 300, 58, 190);
+            AddRefField(deliveryCard, "Expected Delivery Date", CreateReadonlyTextBox(DateTime.Today.AddDays(15).ToString("dd/MM/yyyy")), 18, 116, 170);
+            _txtDeliveryAddress.Location = new Point(252, 132);
+            AddRefField(deliveryCard, "Address", _txtDeliveryAddress, 235, 116, 315);
+            AddRefField(deliveryCard, "Notes", _txtNotes, 570, 116, 267);
+
+            _picReceipt = new PictureBox { Visible = false };
+            _lblReceiptFile = new Label { Visible = false };
+            _btnAttachReceipt = MakeOutlineButton("Attach Photo/File", 132);
+            _btnInlineViewReceipt = MakeOutlineButton("View", 62);
+            _btnDeleteReceipt = MakeOutlineButton("Delete", 62);
+
+            Panel itemsCard = CreateCardPanel();
+            itemsCard.Width = 860;
+            itemsCard.Height = 282;
+            itemsCard.Margin = new Padding(0, 0, 0, 12);
+            itemsCard.Padding = new Padding(14);
+            itemsCard.Controls.Add(MakeStepHeader("4", "Items", new Point(18, 16)));
+            Panel itemActions = new Panel { Location = new Point(92, 12), Size = new Size(745, 38), BackColor = Color.White };
+            Button btnAddLine = MakeBtn("+  Add Item", InfoBlue, 92);
+            Button btnAddRfq = MakeOutlineButton("Add from RFQ", 108);
+            Button btnImportItems = MakeOutlineButton("Import Items", 106);
+            Button btnDiscount = MakeOutlineButton("Apply Discount", 122);
+            btnAddLine.Location = new Point(0, 2);
+            btnAddRfq.Location = new Point(106, 2);
+            btnImportItems.Location = new Point(230, 2);
+            btnDiscount.Location = new Point(600, 2);
+            btnAddLine.Click += (s, e) => AddLineItemCard();
+            btnAddRfq.Click += (s, e) => AddFromRfq();
+            btnImportItems.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Purchases, FindForm());
+            btnDiscount.Click += (s, e) => ApplyDiscountToLines();
+            itemActions.Controls.AddRange(new Control[] { btnAddLine, btnAddRfq, btnImportItems, btnDiscount });
+            itemsCard.Controls.Add(itemActions);
+            _lblVarianceWarning = new Label { Visible = false };
+            _lineItemHeader = BuildLineItemHeader();
+            _lineItemHeader.Location = new Point(14, 58);
+            _lineItemHeader.Width = 832;
+            Panel lineHost = new Panel { Location = new Point(14, 90), Size = new Size(832, 130), BackColor = Color.White, AutoScroll = true };
+            lineHost.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                    e.Graphics.DrawRectangle(pen, 0, 0, lineHost.Width - 1, lineHost.Height - 1);
+            };
+            _lineItemFlow = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White, Padding = new Padding(0) };
+            _lblLineItemEmptyState = new Label { Dock = DockStyle.Fill, Text = "No line items added yet.", Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter, BackColor = Color.White };
+            lineHost.Controls.Add(_lblLineItemEmptyState);
+            lineHost.Controls.Add(_lineItemFlow);
+            _lblLineItemEmptyState.BringToFront();
+            Panel totalBar = new Panel { Location = new Point(14, 226), Size = new Size(832, 42), BackColor = Color.FromArgb(248, 250, 252) };
+            _lblLineItemCount = new Label { Text = "Showing 1 item", Location = new Point(12, 10), Size = new Size(160, 22), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
+            _lblTotal = new Label { Text = "Sub Total:  ₹0.00        Discount:  ₹0.00        GST:  ₹0.00        Other Charges:  ₹0.00        Total:  ₹0.00", Location = new Point(180, 10), Size = new Size(640, 22), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
+            totalBar.Controls.Add(_lblLineItemCount);
+            totalBar.Controls.Add(_lblTotal);
+            itemsCard.Controls.Add(totalBar);
+            itemsCard.Controls.Add(lineHost);
+            itemsCard.Controls.Add(_lineItemHeader);
+
+            workspace.Controls.Add(vendorCard);
+            workspace.Controls.Add(infoCard);
+            workspace.Controls.Add(deliveryCard);
+            workspace.Controls.Add(itemsCard);
+
+            _detail.Resize += (s, e) =>
+            {
+                int width = Math.Max(760, _detail.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8);
+                foreach (Control control in workspace.Controls)
+                    control.Width = width;
+                if (itemsCard.Width > 120)
+                {
+                    itemActions.Width = Math.Max(400, itemsCard.Width - 110);
+                    btnDiscount.Left = Math.Max(440, itemActions.Width - 130);
+                    _lineItemHeader.Width = Math.Max(700, itemsCard.Width - 28);
+                    lineHost.Width = _lineItemHeader.Width;
+                    totalBar.Width = _lineItemHeader.Width;
+                    _lblTotal.Width = Math.Max(420, totalBar.Width - 190);
+                }
+            };
+        }
+
+        private void CreatePurchaseEditorControls()
+        {
+            _cboVendor = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
+            _txtVendorGstin = CreateReadonlyTextBox("Enter GSTIN");
+            _txtPONumber = CreateReadonlyTextBox("Auto generated");
+            _txtVendorInvoiceNumber = CreateInputTextBox("Enter invoice number");
+            _dtpDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
+            _dtpDate.ValueChanged += (s, e) => RefreshPayByDate();
+            _dtpPayByDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(9) };
+            _cboStatus = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Received", "Paid", "Closed", "Cancelled" });
+            _cboStatus.SelectedIndex = 0;
+            _chkAddToClientInvoice = new CheckBox { Visible = false };
+            _txtNotes = CreateInputTextBox("Enter notes");
+            _txtNotes.Multiline = true;
+            _txtNotes.Height = 42;
+            _rbTechPickup = new RadioButton { Text = "Tech Pickup", Width = 104, Font = new Font("Segoe UI", 8.5f), Checked = true };
+            _rbSiteDelivery = new RadioButton { Text = "Site Delivery", Width = 110, Font = new Font("Segoe UI", 8.5f) };
+            _rbTechPickup.CheckedChanged += (s, e) => { if (_rbTechPickup.Checked) RefreshDeliveryAddressPreview(); };
+            _rbSiteDelivery.CheckedChanged += (s, e) => { if (_rbSiteDelivery.Checked) RefreshDeliveryAddressPreview(); };
+            _txtDeliveryAddress = CreateInputTextBox("Enter delivery address");
+            _txtDeliveryAddress.Multiline = true;
+            _txtDeliveryAddress.Height = 42;
+            _deliveryAddressPanel = new Panel { Visible = false };
+            _cboTechnician = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboTechnician.SelectedIndexChanged += (s, e) => ApplyTechnicianSelection();
+            _cboLinkedType = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboLinkedType.Items.AddRange(new object[] { "General", "Contract", "WorkOrder" });
+            _cboLinkedType.SelectedIndexChanged += (s, e) =>
+            {
+                PopulateLinkedRecordCombo();
+                UpdateBillingControls();
+                RefreshDeliveryAddressPreview();
+            };
+            _cboLinkedRecord = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboLinkedRecord.SelectedIndexChanged += (s, e) =>
+            {
+                UpdateBillingControls();
+                RefreshDeliveryAddressPreview();
+            };
+            _cboLinkedType.SelectedIndex = 0;
+        }
+
+        private Panel CreateReferenceSection(string number, string title, int width, int height)
+        {
+            Panel card = CreateCardPanel();
+            card.Width = width;
+            card.Height = height;
+            card.Margin = new Padding(0, 0, 0, 0);
+            card.Padding = new Padding(14);
+            card.Controls.Add(MakeStepHeader(number, title, new Point(18, 18)));
+            return card;
+        }
+
+        private Control MakeStepHeader(string number, string title, Point location)
+        {
+            Panel panel = new Panel { Location = location, Size = new Size(300, 24), BackColor = Color.White };
+            Label badge = new Label { Text = number, Location = new Point(0, 1), Size = new Size(20, 20), BackColor = InfoBlue, ForeColor = Color.White, Font = new Font("Segoe UI", 8, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            DS.Rounded(badge, 10);
+            panel.Controls.Add(badge);
+            panel.Controls.Add(new Label { Text = title, Location = new Point(28, 1), Size = new Size(250, 20), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
+            return panel;
+        }
+
+        private void AddRefField(Control parent, string label, Control input, int x, int y, int width)
+        {
+            if (!string.IsNullOrWhiteSpace(label))
+                parent.Controls.Add(new Label { Text = label, Location = new Point(x, y), Size = new Size(width, 18), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = DS.Slate700 });
+            input.Location = new Point(x, y + 20);
+            input.Width = width;
+            if (input.Height < 30)
+                input.Height = 30;
+            parent.Controls.Add(input);
+        }
+
+        private TextBox CreateInputTextBox(string text)
+        {
+            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ForeColor = DS.Slate500 };
+        }
+
+        private TextBox CreateReadonlyTextBox(string text)
+        {
+            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(248, 250, 252), ForeColor = DS.Slate700, ReadOnly = true };
+        }
+
         private Panel BuildTabInfoPanel(string label1, string value1, string label2, string value2, string label3, string value3)
         {
             Panel panel = new Panel { Location = new Point(0, 462), Size = new Size(840, 180), BackColor = Color.White, Visible = false, Tag = "StaticInfoPanel" };
@@ -1067,7 +1309,8 @@ namespace HVAC_Pro_Desktop.UI
             _hsnEntries = hsnTask.Result ?? new List<HsnSacMasterEntry>();
             _orderSource = orderTask.Result ?? new List<PurchaseOrder>();
 
-            _cboLinkedType.SelectedIndex = 0;
+            if (_cboLinkedType != null && _cboLinkedType.Items.Count > 0)
+                _cboLinkedType.SelectedIndex = 0;
             PopulateLinkedRecordCombo();
             NewRecord();
             ApplyFiltersAndRender();
@@ -1079,6 +1322,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateVendorCombo()
         {
+            if (_cboVendor == null)
+                return;
+
             _cboVendor.BeginUpdate();
             _cboVendor.Items.Clear();
             foreach (Vendor vendor in _vendors)
@@ -1091,6 +1337,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateTechnicianCombo()
         {
+            if (_cboTechnician == null)
+                return;
+
             _cboTechnician.Items.Clear();
             _cboTechnician.Items.Add(new ComboItem<int?>(null, "Unassigned"));
             foreach (Employee employee in _technicians ?? new List<Employee>())
@@ -1100,6 +1349,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateLinkedRecordCombo()
         {
+            if (_cboLinkedType == null || _cboLinkedRecord == null)
+                return;
+
             string linkedType = _cboLinkedType.SelectedItem?.ToString() ?? "General";
             _cboLinkedRecord.Items.Clear();
 
@@ -1535,6 +1787,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshDeliveryAddressPreview()
         {
+            if (_txtDeliveryAddress == null || _deliveryAddressPanel == null)
+                return;
+
             string mode = _rbSiteDelivery != null && _rbSiteDelivery.Checked ? "SiteDelivery" : "TechPickup";
             int siteId = ResolveLinkedSiteId();
             PurchaseOrder updated = _svc.OnDeliveryModeChanged(_current?.POID ?? 0, mode, siteId);
@@ -1558,6 +1813,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void UpdateBillingControls()
         {
+            if (_chkAddToClientInvoice == null)
+                return;
+
             bool canBill = IsWorkOrderLinked();
             if (!canBill && _chkAddToClientInvoice.Checked)
                 _chkAddToClientInvoice.Checked = false;
@@ -2107,13 +2365,20 @@ namespace HVAC_Pro_Desktop.UI
 
         private void OnVendorChanged()
         {
+            if (_cboVendor == null)
+                return;
+
             Vendor vendor = _cboVendor.SelectedItem as Vendor;
-            _txtVendorGstin.Text = vendor?.GSTNumber ?? string.Empty;
+            if (_txtVendorGstin != null)
+                _txtVendorGstin.Text = vendor?.GSTNumber ?? string.Empty;
             RefreshPayByDate();
         }
 
         private void RefreshPayByDate()
         {
+            if (_cboVendor == null || _dtpDate == null || _dtpPayByDate == null)
+                return;
+
             Vendor vendor = _cboVendor.SelectedItem as Vendor;
             DateTime payByDate = _svc.AutoSuggestPayByDate(_dtpDate.Value.Date, vendor?.VendorID ?? 0);
             if (_dtpPayByDate.Value.Date != payByDate)
@@ -2382,12 +2647,115 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            MessageBox.Show("Delete PO is intentionally not wired to remove database rows yet. Use Cancel PO to close this order safely.", "Delete PO", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            CancelPurchaseOrder();
         }
 
         private void AddFromRfq()
         {
-            MessageBox.Show("RFQ item selection is not available in this screen yet. Use Add Item or Import Items for now.", "Add from RFQ", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            try
+            {
+                List<TenderBid> quotes = _tenderSvc.GetAll()
+                    .Where(q => q.BidID > 0)
+                    .OrderByDescending(q => q.RequiredByDate ?? q.DueDate)
+                    .Take(80)
+                    .ToList();
+                if (quotes.Count == 0)
+                {
+                    SetStatus("No RFQ/quotation records are available.", WarnOrange);
+                    return;
+                }
+
+                using (Form dialog = new Form())
+                using (ComboBox cboQuote = new ComboBox())
+                using (CheckedListBox lineList = new CheckedListBox())
+                using (Button btnAdd = MakeBtn("Add Lines", SaveGreen, 96))
+                using (Button btnCancel = MakeBtn("Cancel", DelRed, 86))
+                {
+                    dialog.AutoScaleMode = AutoScaleMode.Dpi;
+                    dialog.Text = "Add from RFQ / Quotation";
+                    dialog.StartPosition = FormStartPosition.CenterParent;
+                    dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                    dialog.ClientSize = new Size(620, 390);
+                    dialog.MaximizeBox = false;
+                    dialog.MinimizeBox = false;
+
+                    cboQuote.Location = new Point(18, 38);
+                    cboQuote.Width = 570;
+                    cboQuote.DropDownStyle = ComboBoxStyle.DropDownList;
+                    foreach (TenderBid quote in quotes)
+                        cboQuote.Items.Add(new ComboItem<TenderBid>(quote, quote.QuotationNumber + " - " + quote.TenderName));
+
+                    lineList.Location = new Point(18, 92);
+                    lineList.Size = new Size(570, 220);
+                    lineList.CheckOnClick = true;
+
+                    Action loadLines = () =>
+                    {
+                        lineList.Items.Clear();
+                        ComboItem<TenderBid> selected = cboQuote.SelectedItem as ComboItem<TenderBid>;
+                        if (selected == null)
+                            return;
+                        TenderBid detailed = _tenderSvc.GetByIdDetailed(selected.Value.BidID);
+                        foreach (TenderBidLineItem line in detailed.LineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)))
+                        {
+                            decimal rate = line.CostPerUnit > 0 ? line.CostPerUnit : line.SellPricePerUnit;
+                            string text = line.ItemDescription + " | " + line.Quantity.ToString("0.##") + " " + (line.Unit ?? "Nos") + " | " + IndiaFormatHelper.FormatCurrency(rate);
+                            lineList.Items.Add(new ComboItem<TenderBidLineItem>(line, text), true);
+                        }
+                    };
+
+                    cboQuote.SelectedIndexChanged += (s, e) => loadLines();
+                    if (cboQuote.Items.Count > 0)
+                        cboQuote.SelectedIndex = 0;
+
+                    btnAdd.Location = new Point(394, 332);
+                    btnCancel.Location = new Point(502, 332);
+                    btnAdd.DialogResult = DialogResult.OK;
+                    btnCancel.DialogResult = DialogResult.Cancel;
+                    dialog.Controls.AddRange(new Control[]
+                    {
+                        new Label { Text = "Quotation", Location = new Point(18, 16), Width = 180, Font = new Font("Segoe UI", 9, FontStyle.Bold) },
+                        cboQuote,
+                        new Label { Text = "Line items", Location = new Point(18, 70), Width = 180, Font = new Font("Segoe UI", 9, FontStyle.Bold) },
+                        lineList,
+                        btnAdd,
+                        btnCancel
+                    });
+                    dialog.AcceptButton = btnAdd;
+                    dialog.CancelButton = btnCancel;
+
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    int added = 0;
+                    foreach (object checkedItem in lineList.CheckedItems)
+                    {
+                        ComboItem<TenderBidLineItem> item = checkedItem as ComboItem<TenderBidLineItem>;
+                        TenderBidLineItem rfqLine = item?.Value;
+                        if (rfqLine == null)
+                            continue;
+                        decimal rate = rfqLine.CostPerUnit > 0 ? rfqLine.CostPerUnit : rfqLine.SellPricePerUnit;
+                        AddLineItemCard(new PurchaseLineItem
+                        {
+                            InventoryItemId = rfqLine.InventoryItemId,
+                            Description = rfqLine.ItemDescription,
+                            HsnSacCode = rfqLine.HsnSacCode,
+                            Quantity = rfqLine.Shortfall > 0 ? rfqLine.Shortfall : rfqLine.Quantity,
+                            UOM = string.IsNullOrWhiteSpace(rfqLine.Unit) ? "Nos" : rfqLine.Unit,
+                            Rate = rate,
+                            GSTRate = rfqLine.GSTRatePct,
+                            IGSTRate = rfqLine.GSTRatePct,
+                            JobLink = "General"
+                        });
+                        added++;
+                    }
+                    SetStatus(added + " RFQ line item(s) added.", SaveGreen);
+                }
+            }
+            catch (Exception ex)
+            {
+                SetStatus("RFQ import failed: " + ex.Message, Color.Red);
+            }
         }
 
         private void ApplyDiscountToLines()
@@ -3152,7 +3520,110 @@ namespace HVAC_Pro_Desktop.UI
             btn.FlatAppearance.BorderSize = 1;
             btn.FlatAppearance.BorderColor = DS.Slate200;
             btn.Margin = new Padding(0, 0, 8, 0);
+            DS.Rounded(btn, 5);
             return btn;
+        }
+
+        private void ApplyPurchaseReferenceSkin(Control.ControlCollection controls)
+        {
+            foreach (Control child in controls.Cast<Control>().ToList())
+            {
+                if (child is TextBox || child is ComboBox || child is DateTimePicker || child is NumericUpDown)
+                {
+                    WrapPurchaseReferenceInput(child);
+                    continue;
+                }
+
+                if (child is Button button)
+                    StylePurchaseReferenceButton(button);
+
+                if (child is Panel panel && panel.BackColor == Color.White && panel.Width > 30 && panel.Height > 24)
+                {
+                    if (!(panel.Tag as string == "purchase-input-host"))
+                        DS.Rounded(panel, 8);
+                }
+
+                ApplyPurchaseReferenceSkin(child.Controls);
+            }
+        }
+
+        private void WrapPurchaseReferenceInput(Control input)
+        {
+            Control parent = input.Parent;
+            if (parent == null || parent.Tag as string == "purchase-input-host" || input is DataGridView)
+                return;
+
+            Rectangle bounds = input.Bounds;
+            int index = parent.Controls.GetChildIndex(input);
+            parent.Controls.Remove(input);
+
+            Panel host = new Panel
+            {
+                Tag = "purchase-input-host",
+                Location = bounds.Location,
+                Size = bounds.Size,
+                BackColor = Color.White,
+                Margin = input.Margin
+            };
+            host.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle rect = new Rectangle(0, 0, host.Width - 1, host.Height - 1);
+                using (GraphicsPath path = CreatePurchaseRoundedPath(rect, 4))
+                using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            DS.Rounded(host, 4);
+
+            input.Location = input is DateTimePicker || input is ComboBox || input is NumericUpDown
+                ? new Point(4, Math.Max(1, (host.Height - input.Height) / 2))
+                : new Point(8, input is TextBox tb && tb.Multiline ? 6 : Math.Max(2, (host.Height - input.Height) / 2));
+            input.Width = Math.Max(24, host.Width - (input.Left * 2));
+            input.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
+            input.Font = new Font("Segoe UI", 8.25f, input.Font.Style);
+            input.BackColor = Color.White;
+            input.ForeColor = DS.Slate900;
+
+            if (input is TextBox textBox)
+                textBox.BorderStyle = BorderStyle.None;
+            if (input is NumericUpDown numeric)
+                numeric.BorderStyle = BorderStyle.None;
+            if (input is ComboBox combo)
+            {
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
+                combo.FlatStyle = FlatStyle.Flat;
+            }
+
+            host.Controls.Add(input);
+            parent.Controls.Add(host);
+            parent.Controls.SetChildIndex(host, index);
+        }
+
+        private void StylePurchaseReferenceButton(Button button)
+        {
+            button.FlatStyle = FlatStyle.Flat;
+            button.Font = new Font("Segoe UI", 8.25f, FontStyle.Bold);
+            button.Cursor = Cursors.Hand;
+            button.UseVisualStyleBackColor = false;
+            if (button.BackColor == Color.White)
+            {
+                button.ForeColor = DS.Slate900;
+                button.FlatAppearance.BorderSize = 1;
+                button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            }
+            DS.Rounded(button, 5);
+        }
+
+        private GraphicsPath CreatePurchaseRoundedPath(Rectangle rect, int radius)
+        {
+            int d = radius * 2;
+            GraphicsPath path = new GraphicsPath();
+            path.AddArc(rect.X, rect.Y, d, d, 180, 90);
+            path.AddArc(rect.Right - d, rect.Y, d, d, 270, 90);
+            path.AddArc(rect.Right - d, rect.Bottom - d, d, d, 0, 90);
+            path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
+            path.CloseFigure();
+            return path;
         }
 
         private Panel CreateCardPanel()
@@ -3164,9 +3635,12 @@ namespace HVAC_Pro_Desktop.UI
             };
             panel.Paint += (s, e) =>
             {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = CreatePurchaseRoundedPath(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 8))
                 using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+                    e.Graphics.DrawPath(pen, path);
             };
+            DS.Rounded(panel, 8);
             return panel;
         }
 
