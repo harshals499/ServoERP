@@ -12,6 +12,7 @@ GENESIS full run requested. Deployment was explicitly requested by the user but 
 
 - Fixed typo and dead-end guidance in the Clients dashboard upcoming renewals toast.
 - Replaced a "coming soon" client revenue toast with actionable report navigation guidance.
+- Hardened optional invoice mapper fields to use safe conversion helpers instead of direct SQL value casts, addressing repeated `InvalidCastException` crashes seen in today's crash log.
 
 ## Features Completed
 
@@ -32,19 +33,22 @@ Validation completed:
 
 - Debug build passed.
 - Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260527-221659.txt`.
+- Final Debug build passed after stopping the locked validation process.
+- Final Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260527-222139.txt`.
 - Fresh build launched a visible `ServoERP` window.
 - Captured launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-launch-20260527-221734.png`.
 - Captured Jobs page screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-validation-20260527-221800.png`.
 - Captured Clients page screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-clients-validation-20260527-221805.png`.
 - Captured Jobs Columns menu screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-columns-menu-20260527-221830.png`.
+- Captured final fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-final-launch-20260527-222215.png`.
 - UI reference folder `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing, so no page redesign was attempted.
 
 ## What Still Needs Human Input
 
 Production deployment requires explicit override of the project's hard limit and an approved deployment target. It was skipped.
 
-Two source files touched by this GENESIS run already contained large pre-existing uncommitted changes: `SOURCE_CODE/UI/ClientManagementForm.cs` and `SOURCE_CODE/UI/JobManagementForm.cs`. I will not commit those whole files without human review because that would mix prior work into this session's commit.
+Three source files touched by this GENESIS run already contained large pre-existing uncommitted changes: `SOURCE_CODE/UI/ClientManagementForm.cs`, `SOURCE_CODE/UI/JobManagementForm.cs`, and `SOURCE_CODE/DAL/InvoiceRepository.cs`. I will not commit those whole files without human review because that would mix prior work into this session's commit.
 
 ## All Commits This Session
 
-No commits created. Git is not available on PATH in this environment.
+- `0dd91a9` chore: add autonomous agent core and genesis log.
