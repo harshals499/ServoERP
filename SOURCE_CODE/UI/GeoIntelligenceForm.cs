@@ -710,7 +710,7 @@ namespace HVAC_Pro_Desktop.UI
             _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
             _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
             AddQuickAction(_quickActionsPanel, "Assign", SaveAssignment);
-            AddQuickAction(_quickActionsPanel, "Reschedule", SaveAssignment);
+            AddQuickAction(_quickActionsPanel, "Schedule", SaveAssignment);
             AddQuickAction(_quickActionsPanel, "Escalate", EscalateSelected);
             AddQuickAction(_quickActionsPanel, "Add Note", AddNote);
             AddQuickAction(_quickActionsPanel, "Print Job", PrintJob);
@@ -909,7 +909,11 @@ namespace HVAC_Pro_Desktop.UI
             _jobCards.Clear();
             if (_visibleJobs.Count == 0)
             {
-                _jobList.Controls.Add(CreateEmptyState("No jobs match these filters", "Try another queue, date or priority."));
+                bool filtered = HasDispatchFilters();
+                _jobList.Controls.Add(CreateEmptyState(
+                    filtered ? "No jobs match these filters" : "No dispatch jobs",
+                    filtered ? "Clear filters to return to the full dispatch queue." : "Jobs will appear here once they are scheduled.",
+                    filtered));
                 _jobList.ResumeLayout();
                 return;
             }
@@ -938,9 +942,40 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private Control CreateEmptyState(string title, string subtitle)
+        private bool HasDispatchFilters()
         {
-            Panel empty = new Panel { Width = Math.Max(280, _jobList.ClientSize.Width - 26), Height = 138, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 8, 0, 8) };
+            string search = (_txtSearch?.Text ?? string.Empty).Trim();
+            string type = Convert.ToString(_cmbType?.SelectedItem ?? "All Types");
+            string priority = Convert.ToString(_cmbPriority?.SelectedItem ?? "All Priority");
+            return !string.IsNullOrWhiteSpace(search)
+                || !string.Equals(type, "All Types", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(priority, "All Priority", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(_activeQueue, "All", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ClearDispatchFilters()
+        {
+            if (_txtSearch != null)
+                _txtSearch.Clear();
+            if (_cmbType != null && _cmbType.Items.Count > 0)
+                _cmbType.SelectedIndex = 0;
+            if (_cmbPriority != null && _cmbPriority.Items.Count > 0)
+                _cmbPriority.SelectedIndex = 0;
+            _activeQueue = "All";
+            foreach (Button tab in _queueTabs)
+            {
+                string key = _queueTabKeys.ContainsKey(tab) ? _queueTabKeys[tab] : string.Empty;
+                bool active = key == _activeQueue;
+                tab.BackColor = active ? Lighten(Primary, 0.88f) : White;
+                tab.ForeColor = active ? Primary : TextSecondary;
+            }
+            ApplyJobFilters();
+            SetStatus("Dispatch filters cleared.", Info);
+        }
+
+        private Control CreateEmptyState(string title, string subtitle, bool showClearFilters)
+        {
+            Panel empty = new Panel { Width = Math.Max(280, _jobList.ClientSize.Width - 26), Height = showClearFilters ? 170 : 138, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 8, 0, 8) };
             empty.Paint += (s, e) =>
             {
                 DrawRoundedBorder(e.Graphics, empty.ClientRectangle, Border);
@@ -949,6 +984,13 @@ namespace HVAC_Pro_Desktop.UI
             };
             empty.Controls.Add(new Label { Text = title, Location = new Point(76, 24), Size = new Size(empty.Width - 96, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary });
             empty.Controls.Add(new Label { Text = subtitle, Location = new Point(76, 50), Size = new Size(empty.Width - 96, 42), Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary });
+            if (showClearFilters)
+            {
+                Button clear = MakeToolbarButton("Clear Filters", 118);
+                clear.Location = new Point(76, 104);
+                clear.Click += (s, e) => ClearDispatchFilters();
+                empty.Controls.Add(clear);
+            }
             return empty;
         }
 
