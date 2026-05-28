@@ -52,6 +52,8 @@ Clients activity-action completion brief: the Clients command center reference i
 
 Clients live-activity detail brief: broader unfinished-action scan found live client activity rows still displaying an "Opening activity details" toast instead of showing the selected activity. Wire the action to the existing modal pattern and display the activity title, type, timestamp, and detail text so users get the record context they clicked for.
 
+Contracts action-rail redesign brief: the Contracts reference shows a right-side Actions card that only explains what can be done while the real contract operations are crowded into the top toolbar. Convert the rail into a useful action surface with a primary Save Contract button and an Open Contract Actions menu for WhatsApp, invoice, renewal, SLA log, refresh, and delete. This preserves existing handlers while making the form easier to operate at restored widths.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -67,6 +69,7 @@ Clients live-activity detail brief: broader unfinished-action scan found live cl
 - Inventory GENESIS redesign: the Quick Actions card now avoids clipped labels by using full-width primary stock actions and a compact stock-actions menu.
 - Clients GENESIS completion: sample activity cards now navigate to Jobs for service request and service summary actions instead of showing dead-end opened toasts.
 - Clients GENESIS completion: live activity rows now open a detail modal instead of a placeholder toast.
+- Contracts GENESIS redesign: the right Actions rail now exposes Save Contract and a compact Contract Actions menu instead of passive guidance text.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -83,6 +86,8 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Inventory action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080500.txt`.
 - Enterprise UI smoke test passed after Clients activity-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080812.txt`.
 - Enterprise UI smoke test passed after Clients live-activity detail completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081103.txt`.
+- Enterprise UI smoke test passed after Contracts action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081412.txt`.
+- Enterprise UI smoke test passed after Contracts header/action polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081735.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -121,6 +126,9 @@ Validation completed:
 - Observed a pre-existing `Expiring / Expired Document` dashboard title truncation in the hosted Vendor render; left it for a dedicated later fix rather than mixing it into the action-card commit.
 - Captured corrected Vendor dashboard document-card title render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-doc-title-fixed-20260528-080113.png`.
 - Captured Inventory action-card redesign render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-inventory-actions-20260528-080522.png`.
+- Captured Contracts action-rail render with clipped header/hint defect: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-action-rail-20260528-081502.png`.
+- Captured corrected Contracts action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-action-rail-fixed-20260528-081639.png`.
+- Captured corrected Contracts header/action render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-header-actions-fixed-20260528-081817.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input

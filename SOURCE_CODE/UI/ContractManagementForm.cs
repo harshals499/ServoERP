@@ -444,7 +444,7 @@ namespace HVAC_Pro_Desktop.UI
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                Size = new Size(1032, 44),
+                Size = new Size(880, 44),
                 BackColor = Color.Transparent
             };
             Button newContract = MakeButton("+  New Contract", Blue, 130);
@@ -455,7 +455,6 @@ namespace HVAC_Pro_Desktop.UI
             Button review = MakeButton("Review", Blue, 94);
             Button sla = MakeButton("SLA Log", Color.FromArgb(88, 28, 135), 92);
             Button refresh = MakeButton("Refresh", Color.White, 92);
-            Button delete = MakeButton("Delete", Red, 82);
             foreach (Button white in new[] { forms, refresh })
             {
                 white.ForeColor = Ink;
@@ -470,8 +469,7 @@ namespace HVAC_Pro_Desktop.UI
             review.Click += BtnRenew_Click;
             sla.Click += BtnSLALog_Click;
             refresh.Click += (s, e) => { LoadReferenceData(); RefreshSidebarList(); UpdateContractCount(); };
-            delete.Click += async (s, e) => await DeleteCurrentContractAsync();
-            actions.Controls.AddRange(new Control[] { newContract, save, forms, whatsapp, invoice, review, sla, refresh, delete });
+            actions.Controls.AddRange(new Control[] { newContract, save, forms, whatsapp, invoice, review, sla, refresh });
             bar.Controls.Add(actions);
 
             _contractCountLabel = new Label
@@ -689,21 +687,63 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel actions = MakeCard(new Padding(16));
             actions.Dock = DockStyle.Top;
-            actions.Height = 112;
+            actions.Height = 178;
             actions.Margin = new Padding(0, 16, 0, 0);
             actions.Controls.Add(new Label { Text = "ACTIONS", Location = new Point(18, 18), Size = new Size(160, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
-            actions.Controls.Add(new Label
+            Button saveContract = MakeButton("Save Contract", Green, 220);
+            saveContract.Location = new Point(20, 50);
+            saveContract.Size = new Size(220, 34);
+            saveContract.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            saveContract.Click += BtnSave_Click;
+
+            Button openActions = MakeButton("Open Contract Actions", Blue, 220);
+            openActions.Location = new Point(20, 92);
+            openActions.Size = new Size(220, 34);
+            openActions.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            openActions.Click += (s, e) => ShowContractActionsMenu(openActions);
+
+            Label hint = new Label
             {
-                Text = "You can save the contract\r\nor create invoice once saved.",
-                Location = new Point(20, 50),
-                Size = new Size(205, 44),
-                Font = new Font("Segoe UI", 9f),
+                Text = "Renewals, SLA, invoices, reminders.",
+                Location = new Point(20, 136),
+                Size = new Size(220, 28),
+                Font = new Font("Segoe UI", 8f),
                 ForeColor = Muted,
-                TextAlign = ContentAlignment.MiddleCenter
-            });
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            actions.Controls.Add(saveContract);
+            actions.Controls.Add(openActions);
+            actions.Controls.Add(hint);
+            actions.Resize += (s, e) =>
+            {
+                int width = Math.Max(190, actions.ClientSize.Width - 40);
+                saveContract.Width = width;
+                openActions.Width = width;
+                hint.Width = width;
+            };
             rail.Controls.Add(actions);
             rail.Controls.Add(summary);
             return rail;
+        }
+
+        private void ShowContractActionsMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddContractAction(menu, "WhatsApp Reminder", (s, e) => ShowContractWhatsAppAction());
+            AddContractAction(menu, "Create Invoice", (s, e) => BtnGenerateInvoice_Click(s, e));
+            AddContractAction(menu, "Renew Contract", (s, e) => BtnRenew_Click(s, e));
+            AddContractAction(menu, "SLA Log", (s, e) => BtnSLALog_Click(s, e));
+            AddContractAction(menu, "Refresh", (s, e) => { LoadReferenceData(); RefreshSidebarList(); UpdateContractCount(); });
+            menu.Items.Add(new ToolStripSeparator());
+            AddContractAction(menu, "Delete Contract", async (s, e) => await DeleteCurrentContractAsync());
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddContractAction(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private void RefreshDashboard()
