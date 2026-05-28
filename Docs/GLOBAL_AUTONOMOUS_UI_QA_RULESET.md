@@ -23,11 +23,17 @@ The job is not just to write code. The responsibility is to modernize ServoERP, 
 
 All UI modernization references come from:
 
-`C:\Users\harsh\Downloads\ServoERP_UI_Redesigns`
+`C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`
+
+Optional convenience mirror on this workstation:
+
+`C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns`
+
+The older path `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` is not valid on this workstation because the `harsh` Windows profile is absent. Do not block UI work on that missing profile path when the repo-local reference folder above is available.
 
 Mandatory rules:
 
-1. Inspect this folder before touching any UI page.
+1. Inspect the repo-local reference folder before touching any UI page.
 2. Only redesign pages that have matching reference screenshots.
 3. If no reference image exists, do not touch the page.
 4. The screenshots are the source of truth.

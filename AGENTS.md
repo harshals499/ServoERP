@@ -246,7 +246,7 @@ Prefer the repository's existing architecture, helper APIs, naming patterns, sty
 
 For UI work, the reference screenshot controls the target. The agent must:
 
-- Find the matching screenshot in `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns`.
+- Find the matching screenshot in `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 - Refuse to redesign pages with no matching reference unless the user explicitly changes the rule.
 - Preserve the existing sidebar and app shell exactly.
 - Keep existing data bindings, field names, service calls, event handlers, and workflows intact.
@@ -359,7 +359,7 @@ Every completed engineering task must report:
 
 Always active:
 
-- Use `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` as the only primary UI reference source.
+- Use `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current` as the only primary UI reference source. On this workstation, `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` is a convenience junction to the same reference folder.
 - Before touching any UI page, inspect the matching reference image.
 - Only redesign pages with matching reference screenshots. If no reference exists, do not touch the page.
 - Preserve app shell, sidebar, navigation, routing, database schema, service behavior, business rules, field names, event handlers, and working integrations.

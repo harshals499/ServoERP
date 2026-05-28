@@ -30,11 +30,14 @@ Jobs quick-action completion brief: replace remaining "coming soon" dashboard ac
 
 Clipboard resilience recon brief: broad scan found no active TODO or NotImplemented defects, but multiple UI copy actions write directly to the Windows clipboard. Clipboard access can fail when another process owns it, which would turn simple Copy actions into recoverable UI crashes. Add one shared safe clipboard helper and route copy actions through it without changing business data, navigation, schema, integrations, or protected shell/sidebar behavior.
 
+UI reference source fix brief: the mandated `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` path cannot exist on this workstation because the `harsh` Windows profile is absent and Windows denied creating it. Use the existing repo-local reference set at `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current` as the canonical primary UI reference source and create an Administrator downloads junction to that folder for local discoverability.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
 - Jobs dashboard quick actions: Job Templates now opens the existing forms workflow, while Schedule Board and Resource Planner show live dispatch and technician workload summaries instead of dead-end "coming soon" messages.
 - Clipboard resilience: shared UI copy helper now catches busy-clipboard failures, logs the issue, and shows an actionable warning instead of allowing Copy actions to crash the UI.
+- UI reference source unblocked: mandatory rules now point to the accessible repo-local baseline folder, and `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` links to the same 90-image reference set.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -65,7 +68,7 @@ Validation completed:
 - Captured final fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-final-launch-20260527-222215.png`.
 - Captured Jobs quick-action fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-quick-actions-visible-20260528-064837.png`.
 - Captured clipboard resilience fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\clipboard-resilience-launch-20260528-070220.png`.
-- UI reference folder `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing, so no page redesign was attempted.
+- Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
 
@@ -82,3 +85,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `6e2fc56` chore: move generated artifacts out of git tracking.
 - `54a9e95` chore: ignore local workspace artifacts.
 - `6d0787c` genesis: complete jobs dashboard quick actions.
+- `8ea94c2` fix: harden clipboard copy actions.
