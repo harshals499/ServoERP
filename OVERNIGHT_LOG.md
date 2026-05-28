@@ -44,6 +44,8 @@ Payments action-card redesign brief: the Payments reference shows a useful payme
 
 Vendors dashboard action redesign brief: the Vendors dashboard still uses an older six-tile Quick Actions grid that consumes the whole card and is less consistent with the newer GENESIS action-area pattern. Replace it with a short operational prompt plus one Open Vendor Actions menu wired to the same existing dashboard actions. This improves scanability and keeps vendor onboarding, contracts, review, import/export, and evaluation reachable.
 
+Vendors document-card polish brief: validation of the Vendor dashboard action redesign exposed a pre-existing sidebar title truncation in the Expiring / Expired Documents card. Shorten the card title to Expiring Documents so it fits beside the View All link while preserving the same document-count content and drilldown behavior.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -55,6 +57,7 @@ Vendors dashboard action redesign brief: the Vendors dashboard still uses an old
 - Purchases GENESIS redesign: the PO action rail now keeps Save PO primary and groups secondary purchase operations into a compact menu, matching the newer GENESIS action-area pattern.
 - Payments GENESIS redesign: the Quick Actions card now exposes a compact Payment Actions menu for secondary operations while keeping Save Payment primary.
 - Vendors GENESIS redesign: the dashboard Quick Actions card now uses a compact Vendor Actions menu instead of a dense six-tile grid.
+- Vendors polish: the expiring-documents dashboard card title now fits its narrow sidebar card without clipping.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -67,6 +70,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Purchases action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075054.txt`.
 - Enterprise UI smoke test passed after Payments action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075441.txt`.
 - Enterprise UI smoke test passed after Vendors dashboard action redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075717.txt`.
+- Enterprise UI smoke test passed after Vendors document-title polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080044.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -103,6 +107,7 @@ Validation completed:
 - Captured blank first Vendor direct render caused by deferred page lifecycle: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-dashboard-actions-20260528-075740.png`.
 - Captured hosted Vendor dashboard action render after deferred lifecycle fired: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-dashboard-actions-hosted-20260528-075835.png`.
 - Observed a pre-existing `Expiring / Expired Document` dashboard title truncation in the hosted Vendor render; left it for a dedicated later fix rather than mixing it into the action-card commit.
+- Captured corrected Vendor dashboard document-card title render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-doc-title-fixed-20260528-080113.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input

@@ -513,7 +513,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildExpiringDocumentsCard()
         {
-            Panel card = MakeDashboardCard("Expiring / Expired Documents", "View All", (s, e) => ShowVendorDashboardMessage("Documents", BuildDocumentSummaryText()));
+            Panel card = MakeDashboardCard("Expiring Documents", "View All", (s, e) => ShowVendorDashboardMessage("Documents", BuildDocumentSummaryText()));
             card.Size = new Size(260, 190);
             var rows = BuildDocumentCounts();
             int y = 48;
