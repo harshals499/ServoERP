@@ -60,3 +60,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 
 - `0dd91a9` chore: add autonomous agent core and genesis log.
 - `afc16a1` chore: record genesis validation results.
+- `7906396` chore: package servoerp genesis release.
