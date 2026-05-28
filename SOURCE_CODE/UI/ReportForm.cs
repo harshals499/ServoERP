@@ -437,11 +437,11 @@ namespace HVAC_Pro_Desktop.UI
             int lowStock = _stock.Count(s => s.IsLowStock);
             int overduePo = _purchases.Count(p => p.IsOverdue);
 
-            AddAction("Chase overdue invoices", overdueInvoices + " invoices need collection follow-up", Red);
-            AddAction("Renew expiring contracts", renewals + " contracts need owner review", Amber);
-            AddAction("Assign unassigned jobs", unassigned + " jobs need technician assignment", Blue);
-            AddAction("Reorder low stock", lowStock + " items below reorder level", Amber);
-            AddAction("Clear vendor payables", overduePo + " purchase payments overdue", Teal);
+            AddAction("Chase overdue invoices", overdueInvoices + " invoices need collection follow-up", Red, 1);
+            AddAction("Renew expiring contracts", renewals + " contracts need owner review", Amber, 2);
+            AddAction("Assign unassigned jobs", unassigned + " jobs need technician assignment", Blue, 3);
+            AddAction("Reorder low stock", lowStock + " items below reorder level", Amber, 5);
+            AddAction("Clear vendor payables", overduePo + " purchase payments overdue", Teal, 7);
         }
 
         private void SelectReport(int index)
@@ -807,14 +807,24 @@ namespace HVAC_Pro_Desktop.UI
             return tile;
         }
 
-        private void AddAction(string title, string body, Color accent)
+        private void AddAction(string title, string body, Color accent, int reportIndex)
         {
-            Panel item = new Panel { Width = 300, Height = 62, BackColor = Color.FromArgb(249, 250, 251), Margin = new Padding(0, 0, 0, 8), Padding = new Padding(10, 8, 8, 6) };
+            Panel item = new Panel { Width = 300, Height = 62, BackColor = Color.FromArgb(249, 250, 251), Margin = new Padding(0, 0, 0, 8), Padding = new Padding(10, 8, 8, 6), Cursor = Cursors.Hand };
             item.Paint += (s, e) => DrawBorder(e.Graphics, item);
             Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 26, DS.Lighten(accent, 0.82f), accent, 8);
             icon.Dock = DockStyle.Left;
-            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark };
-            Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid };
+            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, Cursor = Cursors.Hand };
+            Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid, Cursor = Cursors.Hand };
+            EventHandler openReport = (s, e) =>
+            {
+                SelectReport(reportIndex);
+                _lblStatus.Text = "Opened " + ReportNames[reportIndex] + " report from action queue.";
+                _lblStatus.ForeColor = Blue;
+            };
+            item.Click += openReport;
+            titleLabel.Click += openReport;
+            bodyLabel.Click += openReport;
+            icon.Click += openReport;
             item.Controls.Add(bodyLabel);
             item.Controls.Add(titleLabel);
             item.Controls.Add(icon);
