@@ -1213,19 +1213,52 @@ namespace HVAC_Pro_Desktop.UI
         {
             container.Padding = new Padding(16, 42, 16, 16);
 
-            TableLayoutPanel actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = Color.White };
+            TableLayoutPanel actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = Color.White };
             actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
             actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
+            actions.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
             actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
+            Button paymentActions = MakeBtn("Open Payment Actions", InfoBlue, 180);
+            ModernIconSystem.AddButtonIcon(paymentActions, ModernIconKind.ChevronDown);
             _btnSavePayment.Dock = DockStyle.Fill;
-            btnClear.Dock = DockStyle.Fill;
+            paymentActions.Dock = DockStyle.Fill;
             _btnSavePayment.Margin = new Padding(0, 0, 0, 8);
-            btnClear.Margin = new Padding(0, 0, 0, 8);
+            paymentActions.Margin = new Padding(0, 0, 0, 8);
+            paymentActions.Click += (s, e) => ShowPaymentActionsMenu(paymentActions, btnClear);
+            Label hint = new Label
+            {
+                Text = "Clear, refresh, export, import, templates, and forms live here.",
+                Dock = DockStyle.Fill,
+                Font = DS.Small,
+                ForeColor = DS.Slate500,
+                TextAlign = ContentAlignment.TopLeft
+            };
             actions.Controls.Add(_btnSavePayment, 0, 0);
-            actions.Controls.Add(btnClear, 0, 1);
+            actions.Controls.Add(paymentActions, 0, 1);
+            actions.Controls.Add(hint, 0, 2);
             container.Controls.Add(actions);
+        }
+
+        private void ShowPaymentActionsMenu(Control anchor, Button clearButton)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddPaymentAction(menu, "Clear Form", (s, e) => clearButton.PerformClick());
+            AddPaymentAction(menu, "Refresh History", (s, e) => LoadPaymentHistory());
+            AddPaymentAction(menu, "Export Payments", (s, e) => ExportPaymentsCsv());
+            menu.Items.Add(new ToolStripSeparator());
+            AddPaymentAction(menu, "Import Payments", (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Payments, FindForm()));
+            AddPaymentAction(menu, "Download Template", (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Payments, FindForm()));
+            AddPaymentAction(menu, "Open Payment Forms", (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payments", "Finance / Payments", null, "payment receipt collections follow-up invoice approval credit note customer sign-off"));
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddPaymentAction(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private void BuildInvoiceSummaryCard(Panel container)

@@ -40,6 +40,8 @@ Invoices action-rail redesign brief: the Invoices reference shows every operatio
 
 Purchases action-rail redesign brief: the Purchases reference shows a tall stack of eight right-panel action buttons below the summary, creating a visually heavy rail and leaving little room for contextual purchase intelligence. Redesign the panel around one primary Save PO button plus an Open PO Actions menu for secondary operations. This keeps convert, receive, send, print, clone, cancel, and delete reachable while making the PO workspace less brittle at restored widths.
 
+Payments action-card redesign brief: the Payments reference shows a useful payment form but a sparse Quick Actions panel that spends most of its card area on empty space. Keep Save Payment as the primary action and add a compact Payment Actions menu for clear, refresh, export, import, template, and forms workflows. This makes the right rail more useful without changing payment posting behavior or invoice balance calculations.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -49,6 +51,7 @@ Purchases action-rail redesign brief: the Purchases reference shows a tall stack
 - Jobs dashboard GENESIS redesign: the dashboard now fits restored-width workspaces better, keeps the right-rail Quick Actions reachable through a compact action menu, and gives the Jobs detail list header a clearer responsive action grid.
 - Invoices GENESIS redesign: the Quick Actions rail now keeps Save Draft as the primary action and groups secondary invoice actions into a compact menu instead of a crowded fixed button grid.
 - Purchases GENESIS redesign: the PO action rail now keeps Save PO primary and groups secondary purchase operations into a compact menu, matching the newer GENESIS action-area pattern.
+- Payments GENESIS redesign: the Quick Actions card now exposes a compact Payment Actions menu for secondary operations while keeping Save Payment primary.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -59,6 +62,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Jobs dashboard redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-072714.txt`.
 - Enterprise UI smoke test passed after Invoices action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-073915.txt`.
 - Enterprise UI smoke test passed after Purchases action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075054.txt`.
+- Enterprise UI smoke test passed after Payments action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075441.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -89,6 +93,9 @@ Validation completed:
 - Captured Purchases dashboard render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-action-rail-workspace-20260528-075115.png`.
 - Captured Purchases workspace action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-po-action-rail-workspace-20260528-075142.png`.
 - Captured corrected Purchases workspace action-rail render after fixing clipped hint text: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-po-action-rail-fixed-20260528-075236.png`.
+- Captured Payments management render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payments-action-card-20260528-075504.png`.
+- Captured Payments recording-form action-card render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payments-recording-action-card-20260528-075534.png`.
+- In the direct unauthenticated render host, Save Payment is hidden by the existing permission helper; the new Payment Actions menu rendered cleanly and the enterprise smoke test passed.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
