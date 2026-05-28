@@ -969,8 +969,8 @@ namespace HVAC_Pro_Desktop.UI
                 }));
             }
 
-            Clipboard.SetText(sb.ToString());
-            ShowDashboardMessage("Copy Jobs", "Copied " + jobs.Count + " filtered job row(s) to the clipboard.");
+            if (UIHelper.TrySetClipboardText(this, sb.ToString(), BrandingService.WindowTitle("Copy Jobs")))
+                ShowDashboardMessage("Copy Jobs", "Copied " + jobs.Count + " filtered job row(s) to the clipboard.");
         }
 
         private static string CleanClipboardCell(string value)

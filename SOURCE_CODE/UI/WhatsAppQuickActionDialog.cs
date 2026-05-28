@@ -117,9 +117,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private void CopyMessage()
         {
-            Clipboard.SetText(_message.Text ?? string.Empty);
-            _status.Text = "Status: Prepared, copied";
-            Log("Prepared");
+            if (UIHelper.TrySetClipboardText(this, _message.Text ?? string.Empty, BrandingService.WindowTitle("WhatsApp")))
+            {
+                _status.Text = "Status: Prepared, copied";
+                Log("Prepared");
+            }
         }
 
         private void OpenWhatsApp()

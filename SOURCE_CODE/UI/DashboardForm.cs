@@ -367,7 +367,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             string text = context == null ? string.Empty : context.ToString();
             if (!string.IsNullOrWhiteSpace(text))
-                Clipboard.SetText(text);
+                UIHelper.TrySetClipboardText(this, text, BrandingService.WindowTitle("Copy"));
         }
 
         private void AddAlertsBar()

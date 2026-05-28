@@ -92,7 +92,7 @@ namespace HVAC_Pro_Desktop.UI
             copy.Click += (s, e) =>
             {
                 if (!string.IsNullOrWhiteSpace(_lastResponse))
-                    Clipboard.SetText(_lastResponse);
+                    UIHelper.TrySetClipboardText(this, _lastResponse, BrandingService.WindowTitle("ServoERP Copilot"));
             };
 
             _cmbMode = new ComboBox

@@ -76,9 +76,11 @@ namespace HVAC_Pro_Desktop.UI.Licensing
             copyFingerprint.FlatAppearance.BorderSize = 1;
             copyFingerprint.Click += (s, e) =>
             {
-                Clipboard.SetText(_fingerprint.GetFingerprintHash());
-                _lblStatus.ForeColor = DS.Teal600;
-                _lblStatus.Text = "Device fingerprint copied. Send it to ServoERP support for offline license issuance.";
+                if (UIHelper.TrySetClipboardText(this, _fingerprint.GetFingerprintHash(), BrandingService.WindowTitle("License Activation")))
+                {
+                    _lblStatus.ForeColor = DS.Teal600;
+                    _lblStatus.Text = "Device fingerprint copied. Send it to ServoERP support for offline license issuance.";
+                }
             };
             Controls.Add(copyFingerprint);
 

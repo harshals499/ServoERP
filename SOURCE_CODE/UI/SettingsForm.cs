@@ -449,7 +449,7 @@ namespace HVAC_Pro_Desktop.UI
             btnCopy.Click += (s, e) =>
             {
                 if (!string.IsNullOrWhiteSpace(_txtVersionCheckUrl.Text))
-                    Clipboard.SetText(_txtVersionCheckUrl.Text.Trim());
+                    UIHelper.TrySetClipboardText(this, _txtVersionCheckUrl.Text.Trim(), BrandingService.WindowTitle("Settings"));
             };
             updatesBody.Controls.Add(btnCopy);
             updatesBody.Resize += (s, e) =>
@@ -2136,9 +2136,11 @@ namespace HVAC_Pro_Desktop.UI
         private void CopyLicenseDeviceFingerprint()
         {
             string fingerprint = new DeviceFingerprintService().GetFingerprintHash();
-            Clipboard.SetText(fingerprint);
-            _lblStatus.Text = "Device fingerprint copied for license issuance.";
-            _lblStatus.ForeColor = SaveGreen;
+            if (UIHelper.TrySetClipboardText(this, fingerprint, BrandingService.WindowTitle("License")))
+            {
+                _lblStatus.Text = "Device fingerprint copied for license issuance.";
+                _lblStatus.ForeColor = SaveGreen;
+            }
         }
 
         private string BuildBackupSummary()

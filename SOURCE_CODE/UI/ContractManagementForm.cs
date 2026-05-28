@@ -1305,8 +1305,10 @@ namespace HVAC_Pro_Desktop.UI
                     Csv((c.AnnualValue > 0 ? c.AnnualValue : c.MonthlyValue * 12).ToString(CultureInfo.InvariantCulture))
                 }));
             }
-            Clipboard.SetText(csv.ToString());
-            SetStatus("Visible contracts copied for export.", Green);
+            if (UIHelper.TrySetClipboardText(this, csv.ToString(), BrandingService.WindowTitle("Contract Export")))
+                SetStatus("Visible contracts copied for export.", Green);
+            else
+                SetStatus("Copy failed. Please try again.", Red);
         }
 
         private Panel MakeStatCard(string label, string number, string sub, Color accent, ModernIconKind iconKind)

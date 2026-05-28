@@ -257,6 +257,27 @@ namespace HVAC_Pro_Desktop.UI
             ApplyActionButton(button, ResolveActionVariant(button == null ? string.Empty : button.Text));
         }
 
+        public static bool TrySetClipboardText(IWin32Window owner, string text, string title)
+        {
+            try
+            {
+                Clipboard.SetText(text ?? string.Empty);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                string resolvedTitle = string.IsNullOrWhiteSpace(title) ? BrandingService.WindowTitle("Copy") : title;
+                AppLogger.LogError("UIHelper.TrySetClipboardText", ex);
+                MessageBox.Show(
+                    owner,
+                    "Windows clipboard is busy right now. Please try the copy action again.",
+                    resolvedTitle,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return false;
+            }
+        }
+
         private static Color ResolveActionColor(Button button)
         {
             string key = ((button.Name ?? string.Empty) + " " + (button.Text ?? string.Empty)).ToLowerInvariant();
