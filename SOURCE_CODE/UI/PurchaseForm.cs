@@ -1698,27 +1698,23 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel actions = CreateCardPanel();
             actions.Width = 276;
-            actions.Height = 336;
+            actions.Height = 172;
             actions.Margin = new Padding(0, 0, 0, 14);
             actions.Controls.Add(new Label { Text = "Actions", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = DS.Slate900 });
             Button save = MakePanelActionButton("Save PO", SaveGreen, 48);
-            Button convert = MakePanelActionButton("Convert to Bill", SaveGreen, 84);
-            Button received = MakePanelActionButton("Mark as Received", SaveGreen, 120);
-            Button send = MakePanelActionButton("Send to Vendor Email", InfoBlue, 156);
-            Button print = MakePanelActionButton("Print PO", InfoBlue, 192);
-            Button clone = MakePanelActionButton("Clone PO", InfoBlue, 228);
-            Button cancel = MakePanelActionButton("Cancel PO", DelRed, 264);
-            Button delete = MakePanelActionButton("Delete PO", DelRed, 300);
+            Button openActions = MakePanelActionButton("Open PO Actions", InfoBlue, 92);
+            Label hint = new Label
+            {
+                Text = "More purchase operations live in this menu.",
+                Location = new Point(16, 132),
+                Size = new Size(244, 32),
+                Font = new Font("Segoe UI", 7.8f),
+                ForeColor = DS.Slate600
+            };
             save.Click += (s, e) => Save();
-            convert.Click += (s, e) => ConvertToBill();
-            received.Click += (s, e) => MarkReceived();
-            send.Click += (s, e) => SendPurchaseOrder();
-            print.Click += (s, e) => SavePurchaseOrderPdf();
-            clone.Click += (s, e) => ClonePurchaseOrder();
-            cancel.Click += (s, e) => CancelPurchaseOrder();
-            delete.Click += (s, e) => DeletePurchaseOrder();
-            _toolTip.SetToolTip(delete, "Permanently delete this purchase order and its line items after confirmation.");
-            actions.Controls.AddRange(new Control[] { save, convert, received, send, print, clone, cancel, delete });
+            openActions.Click += (s, e) => ShowPurchaseOrderActionMenu(openActions);
+            _toolTip.SetToolTip(openActions, "Open secondary purchase order actions.");
+            actions.Controls.AddRange(new Control[] { save, openActions, hint });
             panel.Controls.Add(actions);
             panel.Resize += (s, e) =>
             {
@@ -1727,8 +1723,30 @@ namespace HVAC_Pro_Desktop.UI
                 actions.Width = cardWidth;
                 foreach (Button button in actions.Controls.OfType<Button>())
                     button.Width = Math.Max(216, cardWidth - 32);
+                hint.Width = Math.Max(216, cardWidth - 32);
             };
             return panel;
+        }
+
+        private void ShowPurchaseOrderActionMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddPurchaseOrderAction(menu, "Convert to Bill", (s, e) => ConvertToBill());
+            AddPurchaseOrderAction(menu, "Mark as Received", (s, e) => MarkReceived());
+            AddPurchaseOrderAction(menu, "Send to Vendor Email", (s, e) => SendPurchaseOrder());
+            AddPurchaseOrderAction(menu, "Print PO", (s, e) => SavePurchaseOrderPdf());
+            AddPurchaseOrderAction(menu, "Clone PO", (s, e) => ClonePurchaseOrder());
+            menu.Items.Add(new ToolStripSeparator());
+            AddPurchaseOrderAction(menu, "Cancel PO", (s, e) => CancelPurchaseOrder());
+            AddPurchaseOrderAction(menu, "Delete PO", (s, e) => DeletePurchaseOrder());
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddPurchaseOrderAction(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private Label AddSummaryRow(Control parent, string label, string value, int y, bool total)

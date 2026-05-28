@@ -38,6 +38,8 @@ GENESIS UI authority brief: user requested a durable GENESIS UI Agent rule that 
 
 Invoices action-rail redesign brief: the Invoices reference shows every operational action exposed as a fixed right-rail button grid, which makes the page feel dense and fragile at restored widths. Redesign the Quick Actions card to keep Save Draft prominent while moving secondary invoice operations into a Jobs-style menu. This preserves all invoice workflows and event handlers while making the right rail calmer, more scalable, and consistent with the GENESIS action-area pattern.
 
+Purchases action-rail redesign brief: the Purchases reference shows a tall stack of eight right-panel action buttons below the summary, creating a visually heavy rail and leaving little room for contextual purchase intelligence. Redesign the panel around one primary Save PO button plus an Open PO Actions menu for secondary operations. This keeps convert, receive, send, print, clone, cancel, and delete reachable while making the PO workspace less brittle at restored widths.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -46,6 +48,7 @@ Invoices action-rail redesign brief: the Invoices reference shows every operatio
 - UI reference source unblocked: mandatory rules now point to the accessible repo-local baseline folder, and `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` links to the same 90-image reference set.
 - Jobs dashboard GENESIS redesign: the dashboard now fits restored-width workspaces better, keeps the right-rail Quick Actions reachable through a compact action menu, and gives the Jobs detail list header a clearer responsive action grid.
 - Invoices GENESIS redesign: the Quick Actions rail now keeps Save Draft as the primary action and groups secondary invoice actions into a compact menu instead of a crowded fixed button grid.
+- Purchases GENESIS redesign: the PO action rail now keeps Save PO primary and groups secondary purchase operations into a compact menu, matching the newer GENESIS action-area pattern.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -55,6 +58,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after clipboard resilience fix: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-070136.txt`.
 - Enterprise UI smoke test passed after Jobs dashboard redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-072714.txt`.
 - Enterprise UI smoke test passed after Invoices action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-073915.txt`.
+- Enterprise UI smoke test passed after Purchases action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075054.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -82,6 +86,9 @@ Validation completed:
 - Captured Invoices dashboard render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-invoices-action-rail-render-20260528-074140.png`.
 - Captured Invoices workspace action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-invoices-action-rail-workspace-20260528-074218.png`.
 - Fresh Debug executable launch started a responsive `HVAC_Pro_Desktop` process after the Invoices redesign, but no visible main window handle was exposed in this desktop session. Direct form rendering was used for visual validation of the changed Invoices workspace.
+- Captured Purchases dashboard render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-action-rail-workspace-20260528-075115.png`.
+- Captured Purchases workspace action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-po-action-rail-workspace-20260528-075142.png`.
+- Captured corrected Purchases workspace action-rail render after fixing clipped hint text: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-purchases-po-action-rail-fixed-20260528-075236.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
