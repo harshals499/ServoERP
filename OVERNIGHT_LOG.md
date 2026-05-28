@@ -42,6 +42,8 @@ Purchases action-rail redesign brief: the Purchases reference shows a tall stack
 
 Payments action-card redesign brief: the Payments reference shows a useful payment form but a sparse Quick Actions panel that spends most of its card area on empty space. Keep Save Payment as the primary action and add a compact Payment Actions menu for clear, refresh, export, import, template, and forms workflows. This makes the right rail more useful without changing payment posting behavior or invoice balance calculations.
 
+Vendors dashboard action redesign brief: the Vendors dashboard still uses an older six-tile Quick Actions grid that consumes the whole card and is less consistent with the newer GENESIS action-area pattern. Replace it with a short operational prompt plus one Open Vendor Actions menu wired to the same existing dashboard actions. This improves scanability and keeps vendor onboarding, contracts, review, import/export, and evaluation reachable.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -52,6 +54,7 @@ Payments action-card redesign brief: the Payments reference shows a useful payme
 - Invoices GENESIS redesign: the Quick Actions rail now keeps Save Draft as the primary action and groups secondary invoice actions into a compact menu instead of a crowded fixed button grid.
 - Purchases GENESIS redesign: the PO action rail now keeps Save PO primary and groups secondary purchase operations into a compact menu, matching the newer GENESIS action-area pattern.
 - Payments GENESIS redesign: the Quick Actions card now exposes a compact Payment Actions menu for secondary operations while keeping Save Payment primary.
+- Vendors GENESIS redesign: the dashboard Quick Actions card now uses a compact Vendor Actions menu instead of a dense six-tile grid.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -63,6 +66,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Invoices action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-073915.txt`.
 - Enterprise UI smoke test passed after Purchases action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075054.txt`.
 - Enterprise UI smoke test passed after Payments action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075441.txt`.
+- Enterprise UI smoke test passed after Vendors dashboard action redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075717.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -96,6 +100,9 @@ Validation completed:
 - Captured Payments management render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payments-action-card-20260528-075504.png`.
 - Captured Payments recording-form action-card render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payments-recording-action-card-20260528-075534.png`.
 - In the direct unauthenticated render host, Save Payment is hidden by the existing permission helper; the new Payment Actions menu rendered cleanly and the enterprise smoke test passed.
+- Captured blank first Vendor direct render caused by deferred page lifecycle: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-dashboard-actions-20260528-075740.png`.
+- Captured hosted Vendor dashboard action render after deferred lifecycle fired: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-vendors-dashboard-actions-hosted-20260528-075835.png`.
+- Observed a pre-existing `Expiring / Expired Document` dashboard title truncation in the hosted Vendor render; left it for a dedicated later fix rather than mixing it into the action-card commit.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input

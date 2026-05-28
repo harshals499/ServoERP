@@ -532,23 +532,42 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = MakeDashboardCard("Quick Actions", null, null);
             card.Size = new Size(260, 220);
-            string[,] actions = {
-                { "Add Vendor", "Add" }, { "Add Contact", "Contact" }, { "New Contract", "Contract" },
-                { "Review", "Review" }, { "Import/Export", "Import" }, { "Evaluation", "Eval" }
-            };
-            int w = 82, h = 60;
-            for (int i = 0; i < actions.GetLength(0); i++)
+            card.Controls.Add(new Label
             {
-                int x = 16 + (i % 3) * (w + 8);
-                int y = 48 + (i / 3) * (h + 10);
-                Button b = MakeDashboardButton(actions[i, 0], White, TextPrimary, w, true);
-                b.Location = new Point(x, y);
-                b.Size = new Size(w, h);
-                string action = actions[i, 1];
-                b.Click += async (s, e) => await HandleVendorQuickActionAsync(action);
-                card.Controls.Add(b);
-            }
+                Text = "Create, review, import, and evaluate vendors from one compact menu.",
+                Location = new Point(16, 48),
+                Size = new Size(card.Width - 32, 48),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = TextSecondary
+            });
+            Button open = MakeDashboardButton("Open Vendor Actions", Blue, White, 220, false);
+            open.Location = new Point(16, 108);
+            open.Size = new Size(card.Width - 32, 34);
+            open.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            open.Click += (s, e) => ShowVendorDashboardActionsMenu(open);
+            card.Controls.Add(open);
             return card;
+        }
+
+        private void ShowVendorDashboardActionsMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            var actions = new[]
+            {
+                Tuple.Create("Add Vendor", "Add"),
+                Tuple.Create("Add Contact", "Contact"),
+                Tuple.Create("New Contract", "Contract"),
+                Tuple.Create("Review Vendors", "Review"),
+                Tuple.Create("Import / Export", "Import"),
+                Tuple.Create("Evaluation", "Eval")
+            };
+            foreach (var action in actions)
+            {
+                string command = action.Item2;
+                menu.Items.Add(action.Item1, null, async (s, e) => await HandleVendorQuickActionAsync(command));
+            }
+            menu.Show(anchor, new Point(0, anchor.Height));
         }
 
         private Panel BuildUpcomingRenewalsCard()
