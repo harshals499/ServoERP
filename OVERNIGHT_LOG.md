@@ -32,12 +32,15 @@ Clipboard resilience recon brief: broad scan found no active TODO or NotImplemen
 
 UI reference source fix brief: the mandated `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` path cannot exist on this workstation because the `harsh` Windows profile is absent and Windows denied creating it. Use the existing repo-local reference set at `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current` as the canonical primary UI reference source and create an Administrator downloads junction to that folder for local discoverability.
 
+Jobs left-pane redesign brief: the Jobs reference screenshots show the left action row cramped, with the primary `+ New Job` action vulnerable to clipping in the fixed-width queue pane. Redesign only the Jobs page left header by giving it a clearer dispatch title/subtitle and a two-by-two responsive action grid so Template, Import, Forms, and New Job remain visible at normal and restored widths. Preserve the sidebar, split-pane routing, job services, filters, bindings, and detail workflow.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
 - Jobs dashboard quick actions: Job Templates now opens the existing forms workflow, while Schedule Board and Resource Planner show live dispatch and technician workload summaries instead of dead-end "coming soon" messages.
 - Clipboard resilience: shared UI copy helper now catches busy-clipboard failures, logs the issue, and shows an actionable warning instead of allowing Copy actions to crash the UI.
 - UI reference source unblocked: mandatory rules now point to the accessible repo-local baseline folder, and `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` links to the same 90-image reference set.
+- Jobs dashboard GENESIS redesign: the dashboard now fits restored-width workspaces better, keeps the right-rail Quick Actions reachable through a compact action menu, and gives the Jobs detail list header a clearer responsive action grid.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -45,6 +48,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-062657.txt`.
 - Enterprise UI smoke test passed after Jobs quick-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-064628.txt`.
 - Enterprise UI smoke test passed after clipboard resilience fix: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-070136.txt`.
+- Enterprise UI smoke test passed after Jobs dashboard redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-072714.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -68,6 +72,7 @@ Validation completed:
 - Captured final fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-final-launch-20260527-222215.png`.
 - Captured Jobs quick-action fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-quick-actions-visible-20260528-064837.png`.
 - Captured clipboard resilience fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\clipboard-resilience-launch-20260528-070220.png`.
+- Captured Jobs dashboard redesign screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-redesign-validated5-20260528-072631.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input

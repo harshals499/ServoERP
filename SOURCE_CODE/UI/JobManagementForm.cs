@@ -259,7 +259,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _dashboardHost.SuspendLayout();
             _dashboardHost.Controls.Clear();
-            Panel content = new Panel { BackColor = PageBg, Location = new Point(18, 14), Size = new Size(Math.Max(1180, _dashboardHost.ClientSize.Width - 48), 1040) };
+            Panel content = new Panel { BackColor = PageBg, Location = new Point(18, 14), Size = new Size(Math.Max(980, _dashboardHost.ClientSize.Width - 48), 1040) };
             _dashboardHost.Controls.Add(content);
 
             Control header = BuildJobsDashboardHeader(content.Width);
@@ -284,15 +284,15 @@ namespace HVAC_Pro_Desktop.UI
             charts.Controls.Add(BuildUpcomingJobsCard(), 3, 0);
             content.Controls.Add(charts);
 
-            TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, 436), Size = new Size(content.Width, 330), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
-            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 82f));
-            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, 436), Size = new Size(content.Width, 380), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
+            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80f));
+            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
             middle.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             middle.Controls.Add(BuildAllJobsCard(), 0, 0);
             middle.Controls.Add(BuildJobsSidebar(), 1, 0);
             content.Controls.Add(middle);
 
-            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 784), Size = new Size(content.Width, 210), BackColor = PageBg, ColumnCount = 3, RowCount = 1 };
+            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 834), Size = new Size(content.Width, 210), BackColor = PageBg, ColumnCount = 3, RowCount = 1 };
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
@@ -459,10 +459,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel host = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(10, 0, 0, 0) };
             TableLayoutPanel stack = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = PageBg };
-            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 52f));
             stack.RowStyles.Add(new RowStyle(SizeType.Percent, 48f));
-            stack.Controls.Add(BuildJobsSummaryCard(), 0, 0);
-            stack.Controls.Add(BuildQuickActionsCard(), 0, 1);
+            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 52f));
+            stack.Controls.Add(BuildQuickActionsCard(), 0, 0);
+            stack.Controls.Add(BuildJobsSummaryCard(), 0, 1);
             host.Controls.Add(stack);
             return host;
         }
@@ -491,17 +491,42 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildQuickActionsCard()
         {
             Panel card = DashboardCard("Quick Actions", null, null);
-            string[] actions = { "Add New Job", "Job Templates", "Bulk Create", "Schedule Board", "Resource Planner", "Reports" };
-            for (int i = 0; i < actions.Length; i++)
+            card.Controls.Add(new Label
             {
-                Button b = DashboardButton(actions[i], White, TextPrimary, 92, true);
-                b.Size = new Size(92, 38);
-                b.Location = new Point(14 + (i % 2) * 100, 46 + (i / 2) * 46);
-                string action = actions[i];
-                b.Click += async (s, e) => await HandleDashboardQuickAction(action);
-                card.Controls.Add(b);
-            }
+                Text = "Create, import, plan, review.",
+                Location = new Point(16, 44),
+                Size = new Size(card.Width - 32, 38),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 7.8f),
+                ForeColor = TextSecondary
+            });
+            Button open = DashboardButton("Open Actions", Blue, White, 130, false);
+            open.Location = new Point(16, 92);
+            open.Size = new Size(card.Width - 32, 32);
+            open.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            open.Click += (s, e) => ShowDashboardQuickActionsMenu(open);
+            card.Controls.Add(open);
             return card;
+        }
+
+        private void ShowDashboardQuickActionsMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            var actions = new[]
+            {
+                Tuple.Create("Add New Job", "Add New Job"),
+                Tuple.Create("Job Templates", "Job Templates"),
+                Tuple.Create("Bulk Create", "Bulk Create"),
+                Tuple.Create("Schedule Board", "Schedule Board"),
+                Tuple.Create("Resource Planner", "Resource Planner"),
+                Tuple.Create("Reports", "Reports")
+            };
+            foreach (var action in actions)
+            {
+                string command = action.Item2;
+                menu.Items.Add(action.Item1, null, async (s, e) => await HandleDashboardQuickAction(command));
+            }
+            menu.Show(anchor, new Point(0, anchor.Height));
         }
 
         private Panel BuildJobsByAssigneeCard()
@@ -1013,26 +1038,40 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawLine(pen, left.Width - 1, 0, left.Width - 1, left.Height);
             };
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 118, BackColor = White, Padding = new Padding(14, 10, 14, 10) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 144, BackColor = White, Padding = new Padding(14, 10, 14, 10) };
             header.Controls.Add(new Label
             {
                 Text = "Jobs",
                 Location = new Point(14, 10),
-                Size = new Size(260, 28),
-                Font = new Font("Segoe UI", 15f, FontStyle.Regular),
+                Size = new Size(260, 26),
+                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
                 ForeColor = TextPrimary,
                 TextAlign = ContentAlignment.MiddleLeft
             });
-            FlowLayoutPanel leftActions = new FlowLayoutPanel
+            header.Controls.Add(new Label
             {
-                Location = new Point(14, 50),
-                Size = new Size(340, 96),
+                Text = "Dispatch queue and field work orders",
+                Location = new Point(14, 38),
+                Size = new Size(320, 18),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 8.2f),
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
+            });
+            TableLayoutPanel leftActions = new TableLayoutPanel
+            {
+                Location = new Point(14, 66),
+                Size = new Size(340, 66),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = White,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                Padding = new Padding(0, 8, 0, 0)
+                ColumnCount = 2,
+                RowCount = 2,
+                Padding = new Padding(0)
             };
+            leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            leftActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            leftActions.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+            leftActions.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
             Button btnTemplate = MakeHeaderButton("Template", Blue, White, 82);
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Jobs, FindForm());
             Button btnImport = MakeHeaderButton("Import", Amber, White, 74);
@@ -1043,10 +1082,19 @@ namespace HVAC_Pro_Desktop.UI
             btnFormsLeft.Click += (s, e) => OpenJobForms();
             Button btnNew = MakeHeaderButton("+ New Job", Teal, White, 104);
             btnNew.Click += async (s, e) => await BeginNewJobAsync();
-            leftActions.Controls.Add(btnTemplate);
-            leftActions.Controls.Add(btnImport);
-            leftActions.Controls.Add(btnFormsLeft);
-            leftActions.Controls.Add(btnNew);
+            foreach (Button actionButton in new[] { btnTemplate, btnImport, btnFormsLeft, btnNew })
+            {
+                actionButton.Dock = DockStyle.Fill;
+                actionButton.Margin = new Padding(0, 0, 8, 8);
+                actionButton.Height = 30;
+            }
+            btnImport.Margin = new Padding(0, 0, 0, 8);
+            btnNew.Margin = new Padding(0);
+            btnFormsLeft.Margin = new Padding(0, 0, 8, 0);
+            leftActions.Controls.Add(btnTemplate, 0, 0);
+            leftActions.Controls.Add(btnImport, 1, 0);
+            leftActions.Controls.Add(btnFormsLeft, 0, 1);
+            leftActions.Controls.Add(btnNew, 1, 1);
             header.Controls.Add(leftActions);
 
             Panel searchWrap = new Panel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(16, 8, 16, 8), BackColor = White };
