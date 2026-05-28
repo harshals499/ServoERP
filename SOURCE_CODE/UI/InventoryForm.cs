@@ -364,39 +364,50 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CreateModernCard("QUICK ACTIONS");
             card.Dock = DockStyle.Top;
             card.Height = 200;
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 36, 0, 0) };
-            for (int i = 0; i < 2; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            for (int i = 0; i < 3; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(0, 36, 0, 0) };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Button adjust = MakeBtn("Stock Adjustment", Color.White, 140); adjust.ForeColor = InfoBlue; adjust.FlatAppearance.BorderColor = DS.BorderStrong;
             Button reorder = MakeBtn("Reorder Suggestions", Color.White, 150); reorder.ForeColor = DS.Primary600; reorder.FlatAppearance.BorderColor = DS.BorderStrong; _btnReorder = reorder;
-            Button transfer = MakeBtn("Stock Transfer", Color.White, 130); transfer.ForeColor = InfoBlue; transfer.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button bulk = MakeBtn("Bulk Update", Color.White, 120); bulk.ForeColor = InfoBlue; bulk.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button print = MakeBtn("Print Stock Report", Color.White, 150); print.ForeColor = InfoBlue; print.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button value = MakeBtn("Stock Valuation", Color.White, 135); value.ForeColor = SaveGreen; value.FlatAppearance.BorderColor = DS.BorderStrong;
-            foreach (Button button in new[] { adjust, reorder, transfer, bulk, print, value })
+            Button open = MakeBtn("Open Stock Actions", Color.White, 150); open.ForeColor = InfoBlue; open.FlatAppearance.BorderColor = DS.BorderStrong;
+            foreach (Button button in new[] { adjust, reorder, open })
             {
                 button.Dock = DockStyle.Fill;
-                button.Margin = new Padding(4, 5, 4, 5);
-                button.MinimumSize = new Size(166, 34);
+                button.Margin = new Padding(4, 3, 4, 5);
+                button.MinimumSize = new Size(190, 30);
                 button.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
             }
             adjust.Click += (s, e) => FocusStockAdjustment();
             reorder.Click += (s, e) => ShowReorderSuggestions();
-            transfer.Click += (s, e) => ShowStockTransferDialog();
-            bulk.Click += async (s, e) => await ImportInventoryCsvAsync();
-            print.Click += (s, e) => PreviewStockReport();
-            value.Click += (s, e) => PreviewStockValuation();
+            open.Click += (s, e) => ShowInventoryActionsMenu(open);
             _toolTip.SetToolTip(adjust, "Select an item, adjust Current Stock, then save.");
             _toolTip.SetToolTip(reorder, "Load low-stock items. Select one to create a purchase order.");
-            _toolTip.SetToolTip(transfer, "Transfer selected item stock between operational locations.");
-            _toolTip.SetToolTip(bulk, "Import a CSV file to create or update inventory items.");
-            _toolTip.SetToolTip(print, "Open a printable stock report preview.");
-            _toolTip.SetToolTip(value, "Open current stock valuation summary.");
-            grid.Controls.Add(adjust, 0, 0); grid.Controls.Add(reorder, 1, 0);
-            grid.Controls.Add(transfer, 0, 1); grid.Controls.Add(bulk, 1, 1);
-            grid.Controls.Add(print, 0, 2); grid.Controls.Add(value, 1, 2);
+            _toolTip.SetToolTip(open, "Open transfer, bulk update, report, and valuation actions.");
+            grid.Controls.Add(adjust, 0, 0);
+            grid.Controls.Add(reorder, 0, 1);
+            grid.Controls.Add(open, 0, 2);
             card.Controls.Add(grid);
             return card;
+        }
+
+        private void ShowInventoryActionsMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddInventoryAction(menu, "Stock Transfer", (s, e) => ShowStockTransferDialog());
+            AddInventoryAction(menu, "Bulk Update", async (s, e) => await ImportInventoryCsvAsync());
+            AddInventoryAction(menu, "Print Stock Report", (s, e) => PreviewStockReport());
+            AddInventoryAction(menu, "Stock Valuation", (s, e) => PreviewStockValuation());
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddInventoryAction(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private void BuildDetailPanel()
