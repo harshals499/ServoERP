@@ -48,6 +48,8 @@ Vendors document-card polish brief: validation of the Vendor dashboard action re
 
 Inventory action-card redesign brief: the Inventory reference shows the right-side Quick Actions grid clipping Reorder Suggestions in the narrow detail rail. Replace the cramped two-column grid with full-width Stock Adjustment and Reorder Suggestions actions plus an Open Stock Actions menu for transfer, bulk update, print report, and valuation. This preserves low-stock button state logic while removing visible clipping.
 
+Clients activity-action completion brief: the Clients command center reference is visually strong, but source recon found sample activity links that only showed dead-end toasts for service request and service summary actions. Route those actions to the existing Jobs module instead, matching the operational meaning of the cards and avoiding fake-open feedback.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -61,6 +63,7 @@ Inventory action-card redesign brief: the Inventory reference shows the right-si
 - Vendors GENESIS redesign: the dashboard Quick Actions card now uses a compact Vendor Actions menu instead of a dense six-tile grid.
 - Vendors polish: the expiring-documents dashboard card title now fits its narrow sidebar card without clipping.
 - Inventory GENESIS redesign: the Quick Actions card now avoids clipped labels by using full-width primary stock actions and a compact stock-actions menu.
+- Clients GENESIS completion: sample activity cards now navigate to Jobs for service request and service summary actions instead of showing dead-end opened toasts.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -75,6 +78,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Vendors dashboard action redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-075717.txt`.
 - Enterprise UI smoke test passed after Vendors document-title polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080044.txt`.
 - Enterprise UI smoke test passed after Inventory action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080500.txt`.
+- Enterprise UI smoke test passed after Clients activity-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080812.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 

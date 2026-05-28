@@ -1440,9 +1440,9 @@ namespace HVAC_Pro_Desktop.UI
         private IEnumerable<ActivityTimelineItem> BuildSampleActivities()
         {
             var items = new List<ActivityTimelineItem>();
-            items.Add(new ActivityTimelineItem { Icon = "SR", IconBackColor = DS.Primary600, Title = "Service Request in need", When = "15 May 2026  -  10:30 AM", Description = "Industrial HVAC inspection requested for " + SelectedName(), ActionText = "View Details", Action = () => ShowToast("Service request opened") });
+            items.Add(new ActivityTimelineItem { Icon = "SR", IconBackColor = DS.Primary600, Title = "Service Request in need", When = "15 May 2026  -  10:30 AM", Description = "Industrial HVAC inspection requested for " + SelectedName(), ActionText = "View Details", Action = () => OnNavigate?.Invoke(15) });
             items.Add(new ActivityTimelineItem { Icon = "PR", IconBackColor = DS.Green600, Title = "Proposal in need", When = "19 Apr 2026  -  02:15 PM", Description = "AMC renewal proposal pending approval.", ActionText = "View Proposal", Action = () => OnNavigate?.Invoke(6) });
-            items.Add(new ActivityTimelineItem { Icon = "IN", IconBackColor = DS.Amber600, Title = "Service Summary", When = "28 Mar 2026  -  03:20 PM", Description = "Preventive maintenance visit completed at Mumbai site.", ActionText = "View Summary", Action = () => ShowToast("Summary opened") });
+            items.Add(new ActivityTimelineItem { Icon = "IN", IconBackColor = DS.Amber600, Title = "Service Summary", When = "28 Mar 2026  -  03:20 PM", Description = "Preventive maintenance visit completed at Mumbai site.", ActionText = "View Summary", Action = () => OnNavigate?.Invoke(15) });
             items.Add(new ActivityTimelineItem { Icon = "PM", IconBackColor = DS.Teal600, Title = "Payment follow-up", When = "13 Mar 2026  -  11:45 AM", Description = "Accounts team requested invoice ledger copy.", ActionText = "View Ledger", Action = () => OnNavigate?.Invoke(4) });
             return items;
         }
