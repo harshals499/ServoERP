@@ -22,6 +22,7 @@ Added the autonomous agent command/mode framework to `AGENTS.md`.
 ## GENESIS Ideas
 
 GENESIS mode activated for autonomous creative engineering.
+GENESIS mode reactivated on 2026-05-28.
 
 Full-run design brief: improve ServoERP by first stabilizing obvious defects and unfinished surfaces, then add only small, safe user-benefiting polish that fits the existing HVAC ERP workflows. UI redesign work remains constrained to pages with matching reference screenshots and must preserve the sidebar, shell, routing, data contracts, services, and business rules.
 
@@ -35,6 +36,12 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-062657.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
+
+Artifact policy cleanup completed on 2026-05-28:
+
+- Generated QA screenshots, UI baseline image captures, local validation screenshots, and update package zips were moved out of Git tracking while remaining on disk locally.
+- `.gitignore` now blocks generated deployment output, QA captures, local tool runtimes, recovered data folders, and website update zips from future commits.
+- Source code, project docs, tests, website source, and release scripts remain trackable.
 
 Validation completed:
 

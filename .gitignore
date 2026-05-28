@@ -11,9 +11,15 @@
 /release/
 /CLIENT_INSTALLER_KIT/
 /TEST_RESULTS/
+/QA_VALIDATION/
+/DIAGNOSTICS/
 /qa_screens*/
 /tmp/
 /temp/
+/update_output/
+/UPDATES/
+/outputs/
+/artifacts/
 
 # Local QA screenshots and smoke-test captures
 /*.png
@@ -22,6 +28,9 @@
 /audit_*.png
 /*_check*.png
 /*_capture*.png
+/Docs/UI_QA_Baselines/current/
+/Docs/UI_QA_Baselines/debug/
+/Docs/UI_QA_Screenshots/
 
 # Logs and temporary scripts generated during manual QA
 *.log
@@ -62,8 +71,32 @@
 # Generated package archives
 /HVAC_Pro_Desktop_*Client*.zip
 /DOWNLOADS/*.zip
+/*.zip
 
 # Website-hosted installer binaries are generated release artifacts
 /marketing_site/download/*.exe
 /marketing_site/node_modules/
 /marketing_site/data/
+/marketing_site/.wrangler/
+/marketing_site/updates/*.zip
+
+# Local tool runtimes and downloaded binaries
+/TOOLS/PortableGit/
+/TOOLS/dotnet/
+/TOOLS/node/
+/TOOLS/sqlcmd/
+/TOOLS/downloads/
+/TOOLS/OllamaSetup.exe
+
+# Local workspace scratch / recovered data
+/.wrangler/
+/DATABASE/
+/DADS_PC_CLIENT_SYNC/
+/RECOVERED_CLIENT_SYNC/
+/FORM_TEMPLATE_WORKING_COPIES/
+/TEST_DATA/
+/client_upload_letterhead/
+/issued_licenses/
+/research_downloads/
+/runtimes/runtimes/
+/whatsapp-integration-service/node_modules/
