@@ -1013,15 +1013,15 @@ namespace HVAC_Pro_Desktop.UI
             Color accent = UploadAccent(key);
             card.Controls.Add(ModernIconSystem.Badge(iconKind, 38, DS.Lighten(accent, 0.84f), accent, 10));
             card.Controls[0].Location = new Point(14, 14);
-            card.Controls.Add(new Label { Text = title, Location = new Point(60, 14), Size = new Size(118, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            card.Controls.Add(new Label { Text = count.ToString("N0") + " records", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22) });
+            card.Controls.Add(new Label { Text = ShortUploadTitle(title), Location = new Point(60, 14), Size = new Size(92, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            card.Controls.Add(new Label { Text = count.ToString("N0") + " recs", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22) });
             card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600 });
 
-            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, 102), Size = new Size(88, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
+            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, 102), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
             primary.FlatAppearance.BorderSize = 0;
             DS.Rounded(primary, DS.RadiusSm);
             primary.Click += (s, e) => RunCardAction(module, key);
-            Button map = new Button { Text = "Map", Location = new Point(112, 102), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
+            Button map = new Button { Text = "Map", Location = new Point(128, 102), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
             map.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(map, DS.RadiusSm);
             map.Click += (s, e) => ShowMappingHint(title);
@@ -1034,6 +1034,17 @@ namespace HVAC_Pro_Desktop.UI
             };
             card.Click += (s, e) => RunCardAction(module, key);
             return card;
+        }
+
+        private static string ShortUploadTitle(string title)
+        {
+            switch ((title ?? string.Empty).Trim())
+            {
+                case "Equipment / Assets": return "Equipment";
+                case "Documents / PDFs": return "Documents";
+                case "Company Document": return "Company";
+                default: return title;
+            }
         }
 
         private Control BuildActionTile(string title, string subtitle, ModernIconKind iconKind, Color color, Action action)

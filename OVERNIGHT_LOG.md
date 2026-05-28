@@ -67,6 +67,8 @@ Reports action-queue completion brief: the Reports reference surfaces an Owner a
 
 WhatsApp Hub filtered-empty workflow brief: the WhatsApp Hub reference shows 40 contacts available while the current search/filter state can leave the conversation list visually blank. Add a clear filtered-empty state with a recovery button so users understand the list is filtered, not missing, while preserving the manual-only WhatsApp safety model.
 
+Master Data upload-card polish brief: the Master Data reference exposes cramped upload cards where long titles and Configure buttons can wrap or clip in the fixed card width. Shorten display-only card titles and widen the primary action buttons without changing the underlying import, configure, upload, open, or map workflows.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -89,6 +91,7 @@ WhatsApp Hub filtered-empty workflow brief: the WhatsApp Hub reference shows 40 
 - Quotations GENESIS redesign: the Quick Actions rail now keeps Save Draft and Send for Approval visible while grouping PDF, supplier PO, invoice, dispatch job, WhatsApp, and delete operations into a compact Quote Actions menu.
 - Reports GENESIS completion: Owner action queue rows now open the matching detailed report instead of remaining passive status tiles.
 - WhatsApp Hub GENESIS workflow polish: the conversation list now shows an actionable filtered-empty state with Clear Filters when search or tabs hide all contacts.
+- Master Data GENESIS polish: smart upload cards now use shorter display titles and safer action button sizing so labels do not clip in the fixed grid.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -113,6 +116,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Quotations action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-084400.txt`.
 - Enterprise UI smoke test passed after Reports action-queue completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-084606.txt`.
 - Enterprise UI smoke test passed after WhatsApp Hub filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-084850.txt`.
+- Enterprise UI smoke test passed after Master Data upload-card polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-085110.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -161,6 +165,7 @@ Validation completed:
 - Captured Quotations action-menu render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-quotations-action-menu-fixed-20260528-084421.png`.
 - Captured Reports action-queue render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-reports-action-queue-20260528-084631.png`.
 - Captured WhatsApp Hub filtered-empty render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-whatsapp-filter-empty-20260528-084917.png`.
+- Captured Master Data upload-card render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-masterdata-upload-cards-fixed-20260528-085328.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
