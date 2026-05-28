@@ -804,12 +804,18 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (action == "Add New Job")
                 await BeginNewJobAsync();
+            else if (action == "Job Templates")
+                OpenJobForms();
             else if (action == "Bulk Create")
                 ImportUiHelper.RunImport(ExcelImportModule.Jobs, FindForm());
+            else if (action == "Schedule Board")
+                ShowDashboardMessage("Schedule Board", BuildScheduleBoardText());
+            else if (action == "Resource Planner")
+                ShowDashboardMessage("Resource Planner", BuildResourcePlannerText());
             else if (action == "Reports")
                 ShowDashboardMessage("Reports", BuildActivityText());
             else
-                ShowDashboardMessage(action, action + " coming soon.");
+                ShowDashboardMessage(action, "No dashboard action is configured for " + action + ".");
         }
 
         private void AddRankRows(Panel card, List<Tuple<string, int>> rows, Color color)
@@ -833,6 +839,89 @@ namespace HVAC_Pro_Desktop.UI
         private string BuildLocationText() => string.Join(Environment.NewLine, _allJobs.GroupBy(j => string.IsNullOrWhiteSpace(j.SiteName) ? "No site" : j.SiteName).OrderByDescending(g => g.Count()).Select(g => g.Key + ": " + g.Count()));
         private IEnumerable<string> BuildActivityLines() => _allJobs.OrderByDescending(j => j.ScheduledDate).Select(j => "Job " + j.JobNumber + " " + DashboardStatus(j).ToLowerInvariant() + " - " + (j.JobTitle ?? "Untitled job"));
         private string BuildActivityText() => string.Join(Environment.NewLine, BuildActivityLines().Take(12));
+
+        private string BuildScheduleBoardText()
+        {
+            List<JobSummaryDto> jobs = _allJobs ?? new List<JobSummaryDto>();
+            if (jobs.Count == 0)
+                return "No jobs are available for scheduling.";
+
+            DateTime today = DateTime.Today;
+            List<string> lines = new List<string>();
+            int overdue = jobs.Count(j => j.ScheduledDate.Date < today && !IsClosedDashboardStatus(j));
+            int todayCount = jobs.Count(j => j.ScheduledDate.Date == today && !IsClosedDashboardStatus(j));
+            int weekCount = jobs.Count(j => j.ScheduledDate.Date >= today && j.ScheduledDate.Date <= today.AddDays(7) && !IsClosedDashboardStatus(j));
+
+            lines.Add("Dispatch snapshot");
+            lines.Add("Overdue: " + overdue + " | Today: " + todayCount + " | Next 7 days: " + weekCount);
+            lines.Add(string.Empty);
+
+            List<JobSummaryDto> upcoming = jobs
+                .Where(j => j.ScheduledDate.Date >= today && !IsClosedDashboardStatus(j))
+                .OrderBy(j => j.ScheduledDate)
+                .ThenBy(j => j.JobNumber)
+                .Take(10)
+                .ToList();
+
+            if (upcoming.Count == 0)
+            {
+                lines.Add("No upcoming open jobs.");
+            }
+            else
+            {
+                lines.Add("Next scheduled jobs:");
+                lines.AddRange(upcoming.Select(j =>
+                    IndiaFormatHelper.FormatDate(j.ScheduledDate) + " - " +
+                    FirstNonEmpty(j.JobNumber, "Job") + " - " +
+                    FirstNonEmpty(j.ClientName, "No client") + " - " +
+                    (string.IsNullOrWhiteSpace(j.TechnicianName) ? "Unassigned" : j.TechnicianName)));
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private string BuildResourcePlannerText()
+        {
+            List<JobSummaryDto> jobs = _allJobs ?? new List<JobSummaryDto>();
+            if (jobs.Count == 0)
+                return "No jobs are available for resource planning.";
+
+            DateTime today = DateTime.Today;
+            List<string> lines = new List<string>();
+            lines.Add("Technician workload");
+
+            var workload = jobs
+                .Where(j => !IsClosedDashboardStatus(j))
+                .GroupBy(j => string.IsNullOrWhiteSpace(j.TechnicianName) ? "Unassigned" : j.TechnicianName)
+                .Select(g => new
+                {
+                    Name = g.Key,
+                    Open = g.Count(),
+                    Overdue = g.Count(j => j.ScheduledDate.Date < today),
+                    NextDate = g.Where(j => j.ScheduledDate.Date >= today).Select(j => (DateTime?)j.ScheduledDate.Date).OrderBy(d => d).FirstOrDefault()
+                })
+                .OrderByDescending(x => x.Open)
+                .ThenByDescending(x => x.Overdue)
+                .ThenBy(x => x.Name)
+                .Take(10)
+                .ToList();
+
+            if (workload.Count == 0)
+            {
+                lines.Add("No open technician workload.");
+            }
+            else
+            {
+                foreach (var row in workload)
+                {
+                    string next = row.NextDate.HasValue ? IndiaFormatHelper.FormatDate(row.NextDate.Value) : "No upcoming date";
+                    lines.Add(row.Name + ": " + row.Open + " open, " + row.Overdue + " overdue, next " + next);
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
         private void ShowDashboardMessage(string title, string text) => MessageBox.Show(this, string.IsNullOrWhiteSpace(text) ? "No records available." : text, BrandingService.WindowTitle(title), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         private void ShowDashboardColumnsMenu(Control anchor)

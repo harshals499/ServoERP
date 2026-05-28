@@ -26,14 +26,18 @@ GENESIS mode reactivated on 2026-05-28.
 
 Full-run design brief: improve ServoERP by first stabilizing obvious defects and unfinished surfaces, then add only small, safe user-benefiting polish that fits the existing HVAC ERP workflows. UI redesign work remains constrained to pages with matching reference screenshots and must preserve the sidebar, shell, routing, data contracts, services, and business rules.
 
+Jobs quick-action completion brief: replace remaining "coming soon" dashboard actions with useful, data-backed operations. Job Templates should open the existing field-service forms workflow, while Schedule Board and Resource Planner should surface live upcoming/overdue work and technician workload summaries from the already-loaded job data. This improves dispatch usefulness without redesigning the page, touching navigation, or changing service behavior.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
+- Jobs dashboard quick actions: Job Templates now opens the existing forms workflow, while Schedule Board and Resource Planner show live dispatch and technician workload summaries instead of dead-end "coming soon" messages.
 
 Deployment preparation completed on 2026-05-28:
 
 - Debug build passed.
 - Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-062657.txt`.
+- Enterprise UI smoke test passed after Jobs quick-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-064628.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -55,6 +59,7 @@ Validation completed:
 - Captured Clients page screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-clients-validation-20260527-221805.png`.
 - Captured Jobs Columns menu screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-columns-menu-20260527-221830.png`.
 - Captured final fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-final-launch-20260527-222215.png`.
+- Captured Jobs quick-action fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-quick-actions-visible-20260528-064837.png`.
 - UI reference folder `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing, so no page redesign was attempted.
 
 ## What Still Needs Human Input
@@ -70,3 +75,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `7906396` chore: package servoerp genesis release.
 - `90cb9cf` chore: record release commit in overnight log.
 - `6e2fc56` chore: move generated artifacts out of git tracking.
+- `54a9e95` chore: ignore local workspace artifacts.
