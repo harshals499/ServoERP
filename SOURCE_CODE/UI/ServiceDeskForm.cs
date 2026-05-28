@@ -39,7 +39,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblSla;
         private Label _lblLinkedJob;
         private Label _lblStatus;
-        private SplitContainer _split;
+        private TableLayoutPanel _workspace;
         private TextBox _txtCaller;
         private TextBox _txtPhone;
         private TextBox _txtShortDescription;
@@ -63,6 +63,10 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnStart;
         private Button _btnResolve;
         private Button _btnClose;
+        private Panel _emptyIncidentsPanel;
+        private Label _lblMeta;
+        private Label _lblBreadcrumb;
+        private Panel _incidentTabContent;
 
         private List<ServiceDeskIncident> _incidents = new List<ServiceDeskIncident>();
         private List<B2BClient> _clients = new List<B2BClient>();
@@ -89,55 +93,90 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            _split = new SplitContainer
+            Controls.Clear();
+            _workspace = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                FixedPanel = FixedPanel.Panel1,
-                BackColor = Border,
-                SplitterWidth = 1,
-                BorderStyle = BorderStyle.None
+                BackColor = PageBg,
+                ColumnCount = 2,
+                RowCount = 1
             };
-            BuildLeft(_split.Panel1);
-            BuildRight(_split.Panel2);
-            Controls.Add(_split);
-            Resize += (s, e) => EnsureSplitWidth();
-            HandleCreated += (s, e) => BeginInvoke((Action)EnsureSplitWidth);
+            _workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
+            _workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
+            _workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            Panel leftHost = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, MinimumSize = new Size(320, 0) };
+            Panel rightHost = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, MinimumSize = new Size(520, 0) };
+            BuildLeft(leftHost);
+            BuildRight(rightHost);
+            _workspace.Controls.Add(leftHost, 0, 0);
+            _workspace.Controls.Add(rightHost, 1, 0);
+            Controls.Add(_workspace);
         }
 
         private void BuildLeft(Control parent)
         {
-            Panel left = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(16, 18, 14, 16) };
+            Panel left = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(18, 22, 12, 18) };
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = White, Padding = new Padding(16, 0, 16, 0) };
-            header.Paint += (s, e) => PaintCardBorder(e.Graphics, header.ClientRectangle, 10);
-            DS.Rounded(header, 10);
+            Panel overviewCard = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(14, 14, 14, 14) };
+            overviewCard.Paint += (s, e) => PaintCardBorder(e.Graphics, overviewCard.ClientRectangle, 10);
+            DS.Rounded(overviewCard, 10);
+
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = White };
             header.Controls.Add(new Label { Text = "INCIDENT OVERVIEW", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
+            Label collapse = ModernIconSystem.Icon(ModernIconKind.ChevronDown, 11, DS.Slate700);
+            collapse.Dock = DockStyle.Right;
+            collapse.Width = 24;
+            header.Controls.Add(collapse);
 
-            TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 94, Padding = new Padding(14, 10, 14, 12), ColumnCount = 4, BackColor = White };
+            TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 76, Padding = new Padding(0, 4, 0, 10), ColumnCount = 4, BackColor = White };
             for (int i = 0; i < 4; i++)
                 kpis.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
             _lblOpen = AddKpi(kpis, 0, "Open", Blue);
             _lblCritical = AddKpi(kpis, 1, "Critical", Red);
             _lblBreached = AddKpi(kpis, 2, "SLA Breached", Amber);
-            _lblResolvedToday = AddKpi(kpis, 3, "Resolved Today", Teal);
+            _lblResolvedToday = AddKpi(kpis, 3, "Resolved", Teal);
 
-            Panel filters = new Panel { Dock = DockStyle.Top, Height = 64, Padding = new Padding(12, 10, 12, 10), BackColor = White };
-            _txtSearch = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle };
-            _txtSearch.TextChanged += (s, e) => BindGrid();
-            _cmbFilter = new ComboBox { Dock = DockStyle.Left, Width = 92, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f) };
+            Panel filterRow = new Panel { Dock = DockStyle.Top, Height = 48, Padding = new Padding(0, 6, 0, 8), BackColor = White };
+            TableLayoutPanel filterLayout = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 1 };
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82f));
+            filterLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            Panel comboWrap = MakeInputHost();
+            comboWrap.Dock = DockStyle.Fill;
+            comboWrap.Margin = new Padding(0, 0, 8, 0);
+            _cmbFilter = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), FlatStyle = FlatStyle.Flat };
             _cmbFilter.Items.AddRange(new object[] { "All", "Open", "My Work", "Critical", "SLA Breached", "Resolved", "Closed" });
             _cmbFilter.SelectedIndex = 0;
             _cmbFilter.SelectedIndexChanged += (s, e) => BindGrid();
-            Button filterButton = MakeButton("Filter", White, DS.Slate700, 58);
-            filterButton.Dock = DockStyle.Right;
+            Button filterButton = MakeButton("Filter", White, DS.Slate700, 76);
+            filterButton.Dock = DockStyle.Fill;
+            filterButton.Margin = new Padding(0);
+            ModernIconSystem.AddButtonIcon(filterButton, ModernIconKind.Filter);
             filterButton.Click += (s, e) =>
             {
                 _cmbFilter.Focus();
                 _cmbFilter.DroppedDown = true;
             };
-            filters.Controls.Add(_txtSearch);
-            filters.Controls.Add(_cmbFilter);
-            filters.Controls.Add(filterButton);
+            comboWrap.Controls.Add(_cmbFilter);
+            filterLayout.Controls.Add(comboWrap, 0, 0);
+            filterLayout.Controls.Add(filterButton, 1, 0);
+            filterRow.Controls.Add(filterLayout);
+
+            Panel recentHeader = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = White, Padding = new Padding(0, 8, 0, 8) };
+            recentHeader.Controls.Add(new Label { Text = "RECENT INCIDENTS", Dock = DockStyle.Left, Width = 160, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
+            Panel searchWrap = MakeInputHost();
+            searchWrap.Dock = DockStyle.Right;
+            searchWrap.Width = 172;
+            searchWrap.Padding = new Padding(34, 6, 10, 4);
+            Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 12, DS.Slate500);
+            searchIcon.Location = new Point(10, 7);
+            searchIcon.Size = new Size(18, 20);
+            searchWrap.Controls.Add(searchIcon);
+            _txtSearch = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.None, ForeColor = DS.Slate700, Text = "" };
+            _txtSearch.TextChanged += (s, e) => BindGrid();
+            searchWrap.Controls.Add(_txtSearch);
+            recentHeader.Controls.Add(searchWrap);
 
             _grid = new DataGridView
             {
@@ -150,97 +189,221 @@ namespace HVAC_Pro_Desktop.UI
                 MultiSelect = false,
                 ReadOnly = true,
                 AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false
+                AllowUserToDeleteRows = false,
+                ScrollBars = ScrollBars.None,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "No", DataPropertyName = "IncidentNumber", Width = 92 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Priority", DataPropertyName = "Priority", Width = 76 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = "Status", Width = 92 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client", DataPropertyName = "ClientName", Width = 150 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Issue", DataPropertyName = "ShortDescription", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IncidentNumber", HeaderText = "No", DataPropertyName = "IncidentNumber", FillWeight = 17 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Priority", HeaderText = "Priority", DataPropertyName = "Priority", FillWeight = 18 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", DataPropertyName = "Status", FillWeight = 18 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ClientName", HeaderText = "Client", DataPropertyName = "ClientName", FillWeight = 22 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ShortDescription", HeaderText = "Issue", DataPropertyName = "ShortDescription", FillWeight = 25 });
             _grid.SelectionChanged += (s, e) => SelectCurrentGridIncident();
             _grid.CellFormatting += GridCellFormatting;
             StyleGrid(_grid);
+            GridTheme.ApplyColumnPolicy(_grid, new[]
+            {
+                new GridColumnPolicy("IncidentNumber", 92, GridColumnPriority.Required),
+                new GridColumnPolicy("Priority", 92, GridColumnPriority.Required),
+                new GridColumnPolicy("Status", 92, GridColumnPriority.Required),
+                new GridColumnPolicy("ClientName", 150, GridColumnPriority.Required),
+                new GridColumnPolicy("ShortDescription", 260, GridColumnPriority.Required)
+            });
 
-            Panel gridCard = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(12) };
-            gridCard.Paint += (s, e) => PaintCardBorder(e.Graphics, gridCard.ClientRectangle, 10);
-            DS.Rounded(gridCard, 10);
-            gridCard.Controls.Add(_grid);
-            gridCard.Controls.Add(new Label { Text = "Recent Incidents", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900 });
-            left.Controls.Add(gridCard);
-            left.Controls.Add(filters);
-            left.Controls.Add(kpis);
-            left.Controls.Add(header);
+            Panel gridHost = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            gridHost.Controls.Add(_grid);
+            _emptyIncidentsPanel = BuildEmptyIncidentsPanel();
+            gridHost.Controls.Add(_emptyIncidentsPanel);
+            _emptyIncidentsPanel.BringToFront();
+
+            overviewCard.Controls.Add(gridHost);
+            overviewCard.Controls.Add(recentHeader);
+            overviewCard.Controls.Add(filterRow);
+            overviewCard.Controls.Add(kpis);
+            overviewCard.Controls.Add(header);
+            left.Controls.Add(overviewCard);
             parent.Controls.Add(left);
         }
 
         private void BuildRight(Control parent)
         {
-            Panel right = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(18, 18, 18, 14) };
+            Panel right = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(8, 18, 18, 16) };
 
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = White, Padding = new Padding(20, 14, 20, 12) };
-            top.Paint += (s, e) => PaintCardBorder(e.Graphics, top.ClientRectangle, 10);
-            DS.Rounded(top, 10);
-            Panel titleBlock = new Panel { Dock = DockStyle.Fill, BackColor = White };
-            Label breadcrumb = new Label { Text = "Incidents  >  Current Incident", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue, TextAlign = ContentAlignment.MiddleLeft };
-            _lblIncidentNumber = new Label { Text = "New Incident", Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft };
-            _lblSla = new Label { Text = "Create a new service incident and assign it to the right team.", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.TopLeft };
-            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 520, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+            Panel pageTop = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = PageBg, Padding = new Padding(0, 0, 0, 6) };
+            _lblBreadcrumb = new Label { Text = "Incidents  >  INC000001", Dock = DockStyle.Left, Width = 260, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = Blue, TextAlign = ContentAlignment.MiddleLeft };
+            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 710, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
             _btnSave = MakeButton("Save", Teal, White, 90);
             _btnCreateJob = MakeButton("Create Job", Blue, White, 110);
             _btnStart = MakeButton("Start Work", White, Blue, 100);
             _btnResolve = MakeButton("Resolve", White, Teal, 92);
             _btnClose = MakeButton("Close", White, Red, 82);
-            actions.Controls.AddRange(new Control[] { _btnSave, _btnCreateJob, _btnClose, _btnResolve, _btnStart });
+            Button btnForms = MakeButton("Forms", White, Blue, 88);
+            ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
+            btnForms.Click += (s, e) => OpenIncidentForms();
+            actions.Controls.AddRange(new Control[] { _btnSave, _btnCreateJob, _btnClose, _btnResolve, _btnStart, btnForms });
+            UIHelper.ApplyActionButton(_btnCreateJob, UiActionVariant.Primary);
+            UIHelper.ApplyActionButton(_btnClose, UiActionVariant.Danger);
             _btnSave.Click += (s, e) => SaveIncident();
             _btnCreateJob.Click += (s, e) => CreateJob();
             _btnStart.Click += (s, e) => ChangeStatus("In Progress");
             _btnResolve.Click += (s, e) => ChangeStatus("Resolved");
             _btnClose.Click += (s, e) => ChangeStatus("Closed");
-            titleBlock.Controls.Add(_lblSla);
-            titleBlock.Controls.Add(_lblIncidentNumber);
-            titleBlock.Controls.Add(breadcrumb);
-            top.Controls.Add(titleBlock);
-            top.Controls.Add(actions);
+            pageTop.Controls.Add(actions);
+            pageTop.Controls.Add(_lblBreadcrumb);
 
-            TabControl tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), Appearance = TabAppearance.Normal };
-            tabs.TabPages.Add(BuildIncidentTab());
-            tabs.TabPages.Add(BuildNotesTab());
-            tabs.TabPages.Add(BuildEmailTab());
+            Panel mainCard = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(0) };
+            mainCard.Paint += (s, e) => PaintCardBorder(e.Graphics, mainCard.ClientRectangle, 10);
+            DS.Rounded(mainCard, 10);
 
-            _lblStatus = new Label { Dock = DockStyle.Bottom, Height = 24, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
-            right.Controls.Add(tabs);
-            right.Controls.Add(_lblStatus);
-            right.Controls.Add(top);
+            Panel incidentHeader = new Panel { Dock = DockStyle.Top, Height = 88, BackColor = White, Padding = new Padding(20, 12, 20, 0) };
+            Control alertIcon = ModernIconSystem.Badge(ModernIconKind.Alert, 38, DS.Primary100, DS.Primary600, 16);
+            alertIcon.Location = new Point(20, 18);
+            _lblIncidentNumber = new Label { Text = "New Incident", Location = new Point(68, 16), Size = new Size(280, 30), Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft };
+            _lblSla = new Label { Text = "Create a new service incident and assign it to the right team.", Location = new Point(70, 48), Size = new Size(420, 20), Font = new Font("Segoe UI", 8.75f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            incidentHeader.Controls.Add(alertIcon);
+            incidentHeader.Controls.Add(_lblIncidentNumber);
+            incidentHeader.Controls.Add(_lblSla);
+
+            Panel tabShell = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            Panel tabStrip = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = White, Padding = new Padding(18, 0, 18, 0) };
+            tabStrip.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, tabStrip.Height - 1, tabStrip.Width, tabStrip.Height - 1);
+            FlowLayoutPanel tabButtons = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 470, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = White };
+            _incidentTabContent = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            string[] tabNames = { "Incident", "Work notes", "Emails", "History", "Attachments" };
+            List<Label> tabLabels = new List<Label>();
+            for (int i = 0; i < tabNames.Length; i++)
+            {
+                int tabIndex = i;
+                Label tabLabel = new Label
+                {
+                    Text = tabNames[i],
+                    Width = i == 4 ? 104 : 88,
+                    Height = 38,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                    ForeColor = TextPrimary,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Cursor = Cursors.Hand,
+                    Margin = Padding.Empty,
+                    BackColor = White
+                };
+                tabLabel.Paint += (s, e) =>
+                {
+                    if (tabLabel.Tag as string == "active")
+                    {
+                        using (Pen pen = new Pen(Blue, 2))
+                            e.Graphics.DrawLine(pen, 12, tabLabel.Height - 2, tabLabel.Width - 12, tabLabel.Height - 2);
+                    }
+                };
+                tabLabel.Click += (s, e) => SelectIncidentTab(tabIndex, tabLabels);
+                tabLabels.Add(tabLabel);
+                tabButtons.Controls.Add(tabLabel);
+            }
+            Control[] tabPages =
+            {
+                ExtractTabContent(BuildIncidentTab()),
+                ExtractTabContent(BuildNotesTab()),
+                ExtractTabContent(BuildEmailTab()),
+                new Panel { Dock = DockStyle.Fill, BackColor = White },
+                new Panel { Dock = DockStyle.Fill, BackColor = White }
+            };
+            for (int i = tabPages.Length - 1; i >= 0; i--)
+            {
+                tabPages[i].Dock = DockStyle.Fill;
+                tabPages[i].Tag = i;
+                tabPages[i].Visible = false;
+                _incidentTabContent.Controls.Add(tabPages[i]);
+            }
+            tabStrip.Controls.Add(tabButtons);
+            tabShell.Controls.Add(_incidentTabContent);
+            tabShell.Controls.Add(tabStrip);
+            SelectIncidentTab(0, tabLabels);
+
+            Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 28, BackColor = PageBg };
+            _lblStatus = new Label { Dock = DockStyle.Left, Width = 360, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            _lblMeta = new Label { Dock = DockStyle.Right, Width = 520, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleRight };
+            footer.Controls.Add(_lblMeta);
+            footer.Controls.Add(_lblStatus);
+
+            mainCard.Controls.Add(tabShell);
+            mainCard.Controls.Add(incidentHeader);
+            right.Controls.Add(mainCard);
+            right.Controls.Add(footer);
+            right.Controls.Add(pageTop);
             parent.Controls.Add(right);
+        }
+
+        private Control ExtractTabContent(TabPage tabPage)
+        {
+            if (tabPage.Controls.Count == 0)
+                return new Panel { Dock = DockStyle.Fill, BackColor = White };
+
+            Control content = tabPage.Controls[0];
+            tabPage.Controls.Remove(content);
+            content.Dock = DockStyle.Fill;
+            return content;
+        }
+
+        private void SelectIncidentTab(int index, List<Label> tabLabels)
+        {
+            for (int i = 0; i < tabLabels.Count; i++)
+            {
+                tabLabels[i].Tag = i == index ? "active" : null;
+                tabLabels[i].Font = new Font("Segoe UI", 9f, i == index ? FontStyle.Bold : FontStyle.Regular);
+                tabLabels[i].ForeColor = i == index ? Blue : TextPrimary;
+                tabLabels[i].Invalidate();
+            }
+
+            if (_incidentTabContent == null)
+                return;
+
+            foreach (Control content in _incidentTabContent.Controls)
+            {
+                bool selected = content.Tag is int tabIndex && tabIndex == index;
+                content.Visible = selected;
+                if (selected)
+                    content.BringToFront();
+            }
         }
 
         private TabPage BuildIncidentTab()
         {
             TabPage page = new TabPage("Incident");
-            Panel host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PageBg, Padding = new Padding(0, 14, 0, 0) };
+            Panel host = new Panel { Dock = DockStyle.Fill, AutoScroll = false, BackColor = White, Padding = new Padding(16, 8, 16, 8) };
 
-            Panel descriptionCard = MakeFormSection("Description", 330, out Panel descriptionBody);
-            TableLayoutPanel descriptionForm = MakeTwoColumnForm();
+            Panel descriptionCard = MakeFormSection("Description", ModernIconKind.Document, 282, out Panel descriptionBody);
+            TableLayoutPanel descriptionForm = MakeFormGrid(1);
+            descriptionForm.RowCount = 3;
+            descriptionForm.RowStyles.Clear();
+            descriptionForm.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f));
+            descriptionForm.RowStyles.Add(new RowStyle(SizeType.Absolute, 88f));
+            descriptionForm.RowStyles.Add(new RowStyle(SizeType.Absolute, 72f));
             _txtShortDescription = AddText(descriptionForm, 0, 0, "Short description");
-            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 0), 2);
             _txtDescription = AddMultiText(descriptionForm, 0, 1, "Description");
-            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 1), 2);
             _txtRootCause = AddMultiText(descriptionForm, 0, 2, "Root cause / resolution");
-            descriptionForm.SetColumnSpan(descriptionForm.GetControlFromPosition(0, 2), 2);
             descriptionBody.Controls.Add(descriptionForm);
 
-            Panel detailsCard = MakeFormSection("Details", 260, out Panel detailsBody);
-            TableLayoutPanel detailsForm = MakeTwoColumnForm();
+            Panel detailsCard = MakeFormSection("Details", ModernIconKind.Checklist, 176, out Panel detailsBody);
+            TableLayoutPanel detailsForm = MakeFormGrid(4);
+            detailsForm.RowCount = 2;
+            detailsForm.RowStyles.Clear();
+            detailsForm.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            detailsForm.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
             _cmbCategory = AddCombo(detailsForm, 0, 0, "Category");
             _cmbEquipment = AddCombo(detailsForm, 1, 0, "Equipment");
-            _cmbPriority = AddCombo(detailsForm, 0, 1, "Priority");
-            _cmbStatus = AddCombo(detailsForm, 1, 1, "Status");
-            _cmbAssigned = AddCombo(detailsForm, 0, 2, "Assigned technician");
-            _txtSerial = AddText(detailsForm, 1, 2, "Asset / serial number");
+            _cmbPriority = AddCombo(detailsForm, 2, 0, "Priority");
+            _cmbStatus = AddCombo(detailsForm, 3, 0, "Status");
+            _cmbAssigned = AddCombo(detailsForm, 0, 1, "Assigned technician");
+            detailsForm.SetColumnSpan(detailsForm.GetControlFromPosition(0, 1), 2);
+            _txtSerial = AddText(detailsForm, 2, 1, "Asset / serial number");
+            detailsForm.SetColumnSpan(detailsForm.GetControlFromPosition(2, 1), 2);
             detailsBody.Controls.Add(detailsForm);
 
-            Panel callerCard = MakeFormSection("Caller & Location", 200, out Panel callerBody);
-            TableLayoutPanel callerForm = MakeTwoColumnForm();
+            Panel callerCard = MakeFormSection("Caller && Location", ModernIconKind.User, 176, out Panel callerBody);
+            TableLayoutPanel callerForm = MakeFormGrid(2);
+            callerForm.RowCount = 2;
+            callerForm.RowStyles.Clear();
+            callerForm.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            callerForm.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
             _cmbClient = AddCombo(callerForm, 0, 0, "Client");
             _cmbSite = AddCombo(callerForm, 1, 0, "Site");
             _txtCaller = AddText(callerForm, 0, 1, "Caller name");
@@ -250,13 +413,14 @@ namespace HVAC_Pro_Desktop.UI
             _lblLinkedJob = new Label
             {
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 34,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 ForeColor = Blue,
-                BackColor = SoftInfo,
+                BackColor = Color.FromArgb(241, 245, 255),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(16, 0, 0, 0)
+                Padding = new Padding(34, 0, 0, 0)
             };
+            _lblLinkedJob.Paint += (s, e) => DrawInfoIcon(e.Graphics, new Point(12, 11), Blue);
 
             _cmbClient.SelectedIndexChanged += (s, e) => LoadSitesForClient();
             _cmbPriority.SelectedIndexChanged += (s, e) => RefreshSlaPreview();
@@ -270,20 +434,21 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = "Provide as much detail as possible to help the team resolve this issue faster.",
                 Dock = DockStyle.Top,
-                Height = 34,
-                BackColor = SoftInfo,
+                Height = 32,
+                BackColor = Color.FromArgb(241, 245, 255),
                 ForeColor = Blue,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(14, 0, 0, 0)
+                Padding = new Padding(34, 0, 0, 0)
             };
+            info.Paint += (s, e) => DrawInfoIcon(e.Graphics, new Point(12, 10), Blue);
             host.Controls.Add(info);
             host.Controls.Add(descriptionCard);
-            host.Controls.Add(MakeSpacer(10));
+            host.Controls.Add(MakeSpacer(8));
             host.Controls.Add(detailsCard);
-            host.Controls.Add(MakeSpacer(10));
+            host.Controls.Add(MakeSpacer(8));
             host.Controls.Add(callerCard);
-            host.Controls.Add(MakeSpacer(10));
+            host.Controls.Add(MakeSpacer(8));
             host.Controls.Add(_lblLinkedJob);
             page.Controls.Add(host);
             return page;
@@ -441,7 +606,10 @@ namespace HVAC_Pro_Desktop.UI
             else if (filter == "Closed")
                 query = query.Where(i => string.Equals(i.Status, "Closed", StringComparison.OrdinalIgnoreCase));
 
-            _grid.DataSource = query.ToList();
+            List<ServiceDeskIncident> rows = query.ToList();
+            _grid.DataSource = rows;
+            if (_emptyIncidentsPanel != null)
+                _emptyIncidentsPanel.Visible = rows.Count == 0;
         }
 
         private void NewIncident()
@@ -490,6 +658,8 @@ namespace HVAC_Pro_Desktop.UI
 
             _binding = true;
             _lblIncidentNumber.Text = _current.IncidentNumber;
+            if (_lblBreadcrumb != null)
+                _lblBreadcrumb.Text = "Incidents  >  " + _current.IncidentNumber;
             SelectComboById(_cmbClient, _current.ClientId ?? 0);
             LoadSitesForClient();
             SelectComboById(_cmbSite, _current.SiteId ?? 0);
@@ -505,6 +675,8 @@ namespace HVAC_Pro_Desktop.UI
             _txtSerial.Text = _current.AssetSerialNumber;
             _txtRootCause.Text = _current.RootCause;
             _lblLinkedJob.Text = _current.LinkedJobId.HasValue ? "Linked work order: JOB-" + _current.LinkedJobId.Value : "No linked work order yet.";
+            if (_lblMeta != null)
+                _lblMeta.Text = "Created by " + (string.IsNullOrWhiteSpace(_current.CreatedByName) ? "Admin" : _current.CreatedByName) + "   |   " + _current.OpenedAt.ToString("dd MMM yyyy, HH:mm");
             RefreshSlaPreview();
             _binding = false;
         }
@@ -791,6 +963,20 @@ namespace HVAC_Pro_Desktop.UI
             _current.SlaDueAt = ServiceDeskService.ComputeSlaDue(_current.Priority, _current.OpenedAt);
         }
 
+        private void OpenIncidentForms()
+        {
+            string query = string.Join(" ", new[]
+            {
+                "incident service report breakdown service call troubleshooting corrective action customer sign-off",
+                _cmbCategory == null ? null : _cmbCategory.Text,
+                _cmbEquipment == null ? null : _cmbEquipment.Text,
+                _cmbPriority == null ? null : _cmbPriority.Text,
+                _txtShortDescription == null ? null : _txtShortDescription.Text
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            FormTemplateWorkflowLauncher.Open(this, "Service Desk / Incidents", "Service Desk", "HVAC", query);
+        }
+
         private void LoadSitesForClient()
         {
             if (_binding)
@@ -830,9 +1016,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private TextBox AddText(TableLayoutPanel grid, int col, int row, string label)
         {
-            Panel panel = FieldPanel(label, 74);
-            TextBox txt = new TextBox { Dock = DockStyle.Top, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle };
-            panel.Controls.Add(txt);
+            Panel panel = FieldPanel(label, 64);
+            Panel input = MakeInputHost();
+            input.Dock = DockStyle.Top;
+            input.Height = 34;
+            input.Padding = label == "Caller phone" ? new Padding(34, 7, 10, 4) : new Padding(10, 7, 10, 4);
+            if (label == "Caller phone")
+            {
+                Label phone = ModernIconSystem.Icon(ModernIconKind.Phone, 12, DS.Slate500);
+                phone.Location = new Point(10, 7);
+                phone.Size = new Size(18, 18);
+                input.Controls.Add(phone);
+            }
+            TextBox txt = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.None, BackColor = White, ForeColor = TextPrimary };
+            input.Controls.Add(txt);
+            panel.Controls.Add(input);
             panel.Controls.Add(MakeFieldLabel(label));
             grid.Controls.Add(panel, col, row);
             return txt;
@@ -840,9 +1038,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private TextBox AddMultiText(TableLayoutPanel grid, int col, int row, string label)
         {
-            Panel panel = FieldPanel(label, 118);
-            TextBox txt = new TextBox { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9.5f), BorderStyle = BorderStyle.FixedSingle, ScrollBars = ScrollBars.Vertical };
-            panel.Controls.Add(txt);
+            int height = label == "Description" ? 96 : 72;
+            Panel panel = FieldPanel(label, height + 30);
+            Panel input = MakeInputHost();
+            input.Dock = DockStyle.Fill;
+            input.Padding = new Padding(10, 7, 10, 7);
+            TextBox txt = new TextBox { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.None, ScrollBars = ScrollBars.None, BackColor = White, ForeColor = TextPrimary };
+            input.Controls.Add(txt);
+            panel.Controls.Add(input);
             panel.Controls.Add(MakeFieldLabel(label));
             grid.Controls.Add(panel, col, row);
             return txt;
@@ -850,15 +1053,20 @@ namespace HVAC_Pro_Desktop.UI
 
         private ComboBox AddCombo(TableLayoutPanel grid, int col, int row, string label)
         {
-            Panel panel = FieldPanel(label, 74);
-            ComboBox cmb = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5f) };
-            panel.Controls.Add(cmb);
+            Panel panel = FieldPanel(label, 64);
+            Panel input = MakeInputHost();
+            input.Dock = DockStyle.Top;
+            input.Height = 34;
+            input.Padding = new Padding(8, 4, 8, 4);
+            ComboBox cmb = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), FlatStyle = FlatStyle.Flat, BackColor = White, ForeColor = TextPrimary };
+            input.Controls.Add(cmb);
+            panel.Controls.Add(input);
             panel.Controls.Add(MakeFieldLabel(label));
             grid.Controls.Add(panel, col, row);
             return cmb;
         }
 
-        private Panel MakeFormSection(string title, int height, out Panel body)
+        private Panel MakeFormSection(string title, ModernIconKind iconKind, int height, out Panel body)
         {
             Panel card = new Panel
             {
@@ -870,10 +1078,12 @@ namespace HVAC_Pro_Desktop.UI
             card.Paint += (s, e) => PaintCardBorder(e.Graphics, card.ClientRectangle, 10);
             DS.Rounded(card, 10);
 
+            Control icon = ModernIconSystem.Badge(iconKind, 24, DS.Primary50, DS.Primary600, 8);
+            icon.Location = new Point(16, 12);
             Label heading = new Label
             {
                 Text = title,
-                Location = new Point(16, 14),
+                Location = new Point(48, 14),
                 Size = new Size(360, 20),
                 Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                 ForeColor = TextPrimary,
@@ -882,23 +1092,24 @@ namespace HVAC_Pro_Desktop.UI
 
             body = new Panel { Dock = DockStyle.Fill, BackColor = White };
             card.Controls.Add(body);
+            card.Controls.Add(icon);
             card.Controls.Add(heading);
             heading.BringToFront();
             return card;
         }
 
-        private TableLayoutPanel MakeTwoColumnForm()
+        private TableLayoutPanel MakeFormGrid(int columns)
         {
             TableLayoutPanel form = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                AutoSize = true,
-                ColumnCount = 2,
+                AutoSize = false,
+                ColumnCount = columns,
                 Padding = Padding.Empty,
                 BackColor = White
             };
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            for (int i = 0; i < columns; i++)
+                form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / columns));
             return form;
         }
 
@@ -909,7 +1120,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel FieldPanel(string label, int height)
         {
-            Panel panel = new Panel { Height = height, Dock = DockStyle.Top, Margin = new Padding(8), BackColor = White };
+            Panel panel = new Panel { Height = height, Dock = DockStyle.Fill, Margin = new Padding(8, 4, 8, 6), BackColor = White };
             return panel;
         }
 
@@ -923,45 +1134,82 @@ namespace HVAC_Pro_Desktop.UI
 
         private void EnsureSplitWidth()
         {
-            if (_split == null || _split.Width <= 0)
+            if (_workspace == null || _workspace.Width <= 0)
                 return;
-
-            if (_split.Width > 900)
-            {
-                _split.Panel1MinSize = 260;
-                _split.Panel2MinSize = 420;
-            }
-
-            int desired = Math.Min(520, Math.Max(420, _split.Width / 3));
-            int maxAllowed = Math.Max(_split.Panel1MinSize, _split.Width - _split.Panel2MinSize);
-            desired = Math.Min(desired, maxAllowed);
-            desired = Math.Max(_split.Panel1MinSize, desired);
-            if (desired >= _split.Panel1MinSize && desired <= _split.Width - _split.Panel2MinSize
-                && (_split.SplitterDistance < 300 || Math.Abs(_split.SplitterDistance - desired) > 80))
-            {
-                try { _split.SplitterDistance = desired; } catch { }
-            }
         }
 
         private Label AddKpi(TableLayoutPanel table, int col, string title, Color color)
         {
-            Panel card = new Panel { Dock = DockStyle.Fill, Margin = new Padding(col == 0 ? 0 : 8, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(12) };
+            Panel card = new Panel { Dock = DockStyle.Fill, Margin = new Padding(col == 0 ? 0 : 6, 0, 0, 0), BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(10, 8, 10, 8) };
             card.Paint += (s, e) => PaintCardBorder(e.Graphics, card.ClientRectangle, 8);
-            Label value = new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = color };
+            Label value = new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = color };
             card.Controls.Add(value);
             card.Controls.Add(new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TextSecondary });
             table.Controls.Add(card, col, 0);
             return value;
         }
 
+        private Panel MakeInputHost()
+        {
+            Panel panel = new Panel { BackColor = White, Padding = new Padding(10, 7, 10, 4) };
+            panel.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 6))
+                using (Pen pen = new Pen(DS.BorderStrong))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            DS.Rounded(panel, 6);
+            return panel;
+        }
+
+        private Panel BuildEmptyIncidentsPanel()
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = White, Visible = false };
+            Panel content = new Panel { Size = new Size(190, 150), BackColor = Color.Transparent };
+            content.Anchor = AnchorStyles.None;
+            content.Location = new Point(95, 210);
+            Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Document, 70, Color.FromArgb(241, 245, 255), DS.Primary600);
+            icon.Location = new Point(60, 0);
+            Label text = new Label { Text = "No records found.", Location = new Point(0, 92), Size = new Size(190, 28), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter };
+            content.Controls.Add(icon);
+            content.Controls.Add(text);
+            panel.Controls.Add(content);
+            panel.Resize += (s, e) =>
+            {
+                content.Location = new Point(Math.Max(0, (panel.ClientSize.Width - content.Width) / 2), Math.Max(70, (panel.ClientSize.Height - content.Height) / 2));
+            };
+            return panel;
+        }
+
+        private void DrawIncidentTab(object sender, DrawItemEventArgs e)
+        {
+            TabControl tabs = (TabControl)sender;
+            bool selected = e.Index == tabs.SelectedIndex;
+            Rectangle bounds = e.Bounds;
+            using (SolidBrush brush = new SolidBrush(White))
+                e.Graphics.FillRectangle(brush, bounds);
+            TextRenderer.DrawText(e.Graphics, tabs.TabPages[e.Index].Text, new Font("Segoe UI", 9f, selected ? FontStyle.Bold : FontStyle.Regular), bounds, selected ? Blue : TextPrimary, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            if (selected)
+            {
+                using (SolidBrush accent = new SolidBrush(Blue))
+                    e.Graphics.FillRectangle(accent, bounds.Left + 12, bounds.Bottom - 3, bounds.Width - 24, 2);
+            }
+        }
+
+        private void DrawInfoIcon(Graphics graphics, Point location, Color color)
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(location, new Size(14, 14));
+            using (SolidBrush brush = new SolidBrush(color))
+                graphics.FillEllipse(brush, rect);
+            TextRenderer.DrawText(graphics, "i", new Font("Segoe UI", 7f, FontStyle.Bold), rect, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
         private Button MakeButton(string text, Color back, Color fore, int width)
         {
             Button button = new Button { Text = text, Width = width, Height = 34, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Margin = new Padding(6, 0, 0, 0), Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
-            button.FlatAppearance.BorderColor = Border;
-            button.FlatAppearance.BorderSize = back == White ? 1 : 0;
-            button.FlatAppearance.MouseOverBackColor = back == White ? DS.Slate50 : DS.Lighten(back, 0.08f);
-            button.FlatAppearance.MouseDownBackColor = back == White ? DS.Slate100 : DS.Darken(back, 0.10f);
-            DS.Rounded(button, 6);
+            UIHelper.ApplyActionButton(button);
             return button;
         }
 

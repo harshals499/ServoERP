@@ -51,6 +51,21 @@ namespace HVAC_Pro_Desktop.Tests
             }), "invoice total mismatch");
             passed.Add("invoice total mismatch rejected");
 
+            var discountedInvoice = new Invoice
+            {
+                ClientID = 1,
+                SiteID = 1,
+                InvoiceDate = DateTime.Today,
+                DueDate = DateTime.Today,
+                SubTotal = 90m,
+                TaxAmount = 16.2m,
+                TotalAmount = 106.2m,
+                LineItems = new List<InvoiceLineItem> { new InvoiceLineItem { Description = "Service", Quantity = 1m, Rate = 100m, DiscountPercent = 10m, GSTPercent = 18m, Amount = 90m, TaxAmount = 16.2m } }
+            };
+            if (calc.VerifyInvoice(discountedInvoice).HasErrors || calc.VerifyInvoice(discountedInvoice).HasWarnings)
+                throw new InvalidOperationException("Expected discounted invoice totals to verify cleanly.");
+            passed.Add("invoice discount totals verified");
+
             ExpectError(calc.VerifyPurchaseOrder(new PurchaseOrder { VendorID = 1, PONumber = "PO-1", PODate = DateTime.Today, PayByDate = DateTime.Today, TotalAmount = 100m, PaidAmount = 101m }), "PO paid exceeds total");
             passed.Add("PO paid amount rejected");
 

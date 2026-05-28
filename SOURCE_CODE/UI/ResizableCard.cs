@@ -46,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Timer _animateTimer;
 
         private bool _isResizing;
+        private bool _allowResize = true;
         private bool _showGrip;
         private bool _suppressAutoSave;
         private ResizeDirection _resizeDirection = ResizeDirection.None;
@@ -211,7 +212,17 @@ namespace HVAC_Pro_Desktop.UI
             set { _titleLabel.Text = value ?? string.Empty; }
         }
         public bool ShowHeader { get; set; } = true;
-        public bool AllowResize { get; set; } = true;
+        public bool AllowResize
+        {
+            get { return _allowResize; }
+            set
+            {
+                if (_allowResize == value)
+                    return;
+                _allowResize = value;
+                UpdateLayoutState();
+            }
+        }
         public Color BorderColor { get; set; } = DefaultBorder;
         public Color BackgroundColor { get; set; } = DS.White;
         public Panel ContentPanel => _contentPanel;
@@ -616,7 +627,7 @@ namespace HVAC_Pro_Desktop.UI
         private void UpdateLayoutState()
         {
             _headerPanel.Visible = ShowHeader;
-            _menuButton.Visible = ShowHeader;
+            _menuButton.Visible = ShowHeader && AllowResize;
             _savedLabel.Visible = _savedLabel.Visible && ShowHeader;
             _overflowLabel.Visible = _overflowLabel.Visible && ShowHeader;
             _rightZone.Visible = AllowResize && ResizeAxes != CardResizeAxes.HeightOnly;

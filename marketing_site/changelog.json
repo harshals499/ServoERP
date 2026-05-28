@@ -1,13 +1,113 @@
 ﻿{
     "product":  "ServoERP",
-    "latestVersion":  "1.0.22.0",
-    "updatedAt":  "2026-05-09",
+    "latestVersion":  "1.0.30.0",
+    "updatedAt":  "2026-05-26",
     "download":  {
                      "url":  "/download/",
-                     "installer":  "ServoERP.Setup.1.0.22.0.exe",
-                     "packageUrl":  "/updates/ServoERP_Update_1.0.22.0.zip"
+                     "installer":  "ServoERP_Setup_1.0.30.0.exe",
+                     "packageUrl":  "/updates/ServoERP_Update_1.0.30.0.zip"
                  },
     "versions":  [
+                     {
+                         "version":  "1.0.30.0",
+                         "date":  "2026-05-26",
+                         "title":  "Quotation Dashboard Polish and Login Window Fixes",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Polished the quotation dashboard layout with compact responsive cards, cleaner resize controls, and intentional empty states after dummy quotation data removal.,Fixed login window title-bar controls and password visibility toggle so they remain visible at runtime.,Cleaned client dashboard icon fallback artifacts and verified module dashboard navigation, quotations, invoices, and page construction smoke tests."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.29.0",
+                         "date":  "2026-05-21",
+                         "title":  "Startup Update Cleanup and Quotation UI Fixes",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "App startup now removes stale ServoERP/HVAC_PRO instances before opening so the newly updated build is shown.",
+                                                           "Quotation module now opens dashboard first and New Quotation opens the existing quotation form.",
+                                                           "Added Back to Dashboard inside the quotation editor.",
+                                                           "Fixed quotation line-item empty message overlap and quote summary layout issues."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.28.0",
+                         "date":  "2026-05-20",
+                         "title":  "Company Template Dialog Layout Fix",
+                         "changes":  [
+                                         {
+                                             "type":  "ui",
+                                             "items":  [
+                                                           "Fixed Company Document Templates dialog layout so the upload area, template list, mapping fields, toggles, and preview title remain visible and aligned.",
+                                                           "Improved template list scrolling for long template names.",
+                                                           "Preserved existing letterhead rendering behavior and client template files."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.27.0",
+                         "date":  "2026-05-20",
+                         "title":  "Letterhead Rendering Fix",
+                         "changes":  [
+                                         {
+                                             "type":  "document",
+                                             "items":  [
+                                                           "Generated invoices, quotations, purchase orders, and reports now render the uploaded default Letterhead image as the document header.",
+                                                           "Image-based company templates no longer show the blue template label inside generated documents.",
+                                                           "Existing client PC template files under CompanyTemplates are preserved during update."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.26.0",
+                         "date":  "2026-05-20",
+                         "title":  "Global UI Line Cleanup",
+                         "changes":  [
+                                         {
+                                             "type":  "ui",
+                                             "items":  [
+                                                           "Removed global inline input outlines that were drawing dark borders across the app.",
+                                                           "Removed global panel resize grip rendering that was adding corner lines to panels and cards.",
+                                                           "Preserved the app shell, sidebar, navigation, workflows, and updater behavior."
+                                                       ]
+                                         }
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.25.0",
+                         "date":  "2026-05-11",
+                         "changes":  [
+                                         "Fixed startup failure on older customer databases missing licensing schema tables.",
+                                         "Added defensive license schema self-healing during startup and license persistence.",
+                                         "Prepared fresh update package for client rollout.",
+                                         "Updated the installer Terms and Conditions shown during setup.",
+                                         "Refreshed the downloadable setup installer so client installs no longer depend on a changing WebView2 web payload."
+                                     ]
+                     },
+                     {
+                         "version":  "1.0.23.0",
+                         "date":  "2026-05-11",
+                         "title":  "Current UI and updater release",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Publishes the latest ServoERP UI build through the in-app updater.",
+                                                           "Improves the package updater so client installs reliably copy the downloaded app files before restart.",
+                                                           "Includes the current support, WhatsApp Hub, icon system, and modernized page updates in the release package."
+                                                       ]
+                                         }
+                                     ]
+                     },
                      {
                          "version":  "1.0.22.0",
                          "date":  "2026-05-09",

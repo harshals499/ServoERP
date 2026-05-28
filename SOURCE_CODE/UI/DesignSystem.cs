@@ -50,7 +50,6 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color BorderStrong = Color.FromArgb(212, 212, 216);
         public static readonly Color FocusBlue = Color.FromArgb(129, 140, 248);
         public static readonly Color Shadow = Color.FromArgb(205, 216, 232);
-
         public static readonly Color Indigo600 = Primary700;
         public static readonly Color Indigo500 = Primary600;
         public static readonly Color Indigo100 = Primary100;

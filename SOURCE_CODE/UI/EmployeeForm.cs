@@ -11,6 +11,7 @@ using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.Services.Integrations;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -142,53 +143,47 @@ namespace HVAC_Pro_Desktop.UI
         {
             Controls.Clear();
 
-            Panel header = DS.PageHeader("Employee management");
-
-            Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 50, BackColor = Color.White, Padding = new Padding(20, 8, 20, 8) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = PageBg, Padding = new Padding(24, 16, 24, 12) };
+            Panel titleStack = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
+            titleStack.Controls.Add(new Label { Text = "Employees > Workforce profile > Payroll readiness", Font = new Font("Segoe UI", 8.5F), ForeColor = TextSecondary, Dock = DockStyle.Bottom, Height = 24, TextAlign = ContentAlignment.MiddleLeft });
+            titleStack.Controls.Add(new Label { Text = "Employee Operations", Font = new Font("Segoe UI", 19F, FontStyle.Bold), ForeColor = TextPrimary, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft });
             _btnNew = MakeButton("New Employee", Teal, Color.White, 120);
             _btnSave = MakeButton("Save", Teal, Color.White, 90);
             _btnDelete = MakeButton("Delete", Color.White, Red, 90);
             _btnExport = MakeButton("Export", Color.White, TextPrimary, 90);
             _btnImport = MakeButton("Import", Color.White, TextPrimary, 90);
             _btnTemplate = MakeButton("Template", Color.White, TextPrimary, 96);
+            Button btnForms = MakeButton("Forms", Color.White, Blue, 86);
+            ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             _btnWhatsapp = MakeButton("WhatsApp", Color.White, Blue, 100);
-
-            TableLayoutPanel toolbarLayout = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 1,
-                Margin = Padding.Empty,
-                Padding = Padding.Empty
-            };
-            toolbarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 800));
-            toolbarLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            toolbarLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             _lblStatus = new Label
             {
-                Dock = DockStyle.Fill,
+                AutoSize = false,
+                Width = 180,
+                Height = 36,
                 ForeColor = TextSecondary,
-                Font = new Font("Segoe UI", 9F),
-                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleRight,
                 AutoEllipsis = true,
-                Margin = new Padding(14, 0, 0, 0)
+                Margin = new Padding(8, 0, 0, 0)
             };
             FlowLayoutPanel actions = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Right,
+                Width = 924,
                 AutoSize = false,
                 WrapContents = false,
                 AutoScroll = true,
-                FlowDirection = FlowDirection.LeftToRight,
+                FlowDirection = FlowDirection.RightToLeft,
                 Margin = Padding.Empty,
                 Padding = Padding.Empty,
-                MinimumSize = new Size(760, 34)
+                MinimumSize = new Size(760, 36),
+                BackColor = Color.Transparent
             };
-            actions.Controls.AddRange(new Control[] { _btnNew, _btnSave, _btnDelete, _btnImport, _btnTemplate, _btnExport, _btnWhatsapp });
-            toolbarLayout.Controls.Add(actions, 0, 0);
-            toolbarLayout.Controls.Add(_lblStatus, 1, 0);
-            toolbar.Controls.Add(toolbarLayout);
+            actions.Controls.AddRange(new Control[] { _lblStatus, _btnWhatsapp, _btnExport, _btnTemplate, btnForms, _btnImport, _btnDelete, _btnSave, _btnNew });
+            header.Controls.Add(titleStack);
+            header.Controls.Add(actions);
 
             _lnkExpiringBanner = new LinkLabel
             {
@@ -231,7 +226,6 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(split);
             Controls.Add(kpiStrip);
             Controls.Add(_lnkExpiringBanner);
-            Controls.Add(toolbar);
             Controls.Add(header);
 
             _btnNew.Click += (s, e) => NewEmployee();
@@ -239,6 +233,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnDelete.Click += (s, e) => DeleteCurrentEmployee();
             _btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Employees, FindForm());
             _btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Employees, FindForm());
+            btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Employees", "Employees", null, "technician attendance leave request skill certification customer sign-off service report workforce");
             _btnExport.Click += (s, e) => ExportEmployees();
             _btnWhatsapp.Click += (s, e) => OpenWhatsapp();
         }
@@ -342,13 +337,14 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(18, 18)
             };
             Button btnUploadPhoto = MakeButton("Upload Photo", Color.White, Blue, 120);
-            btnUploadPhoto.Location = new Point(18, 208);
             btnUploadPhoto.Click += (s, e) => UploadPhoto();
             _picPhoto.Click += (s, e) => UploadPhoto();
-            photoCard.Height = 250;
+            photoCard.Height = 238;
             Panel photoBody = GetCardBody(photoCard);
             photoBody.Controls.Add(_picPhoto);
             photoBody.Controls.Add(btnUploadPhoto);
+            photoBody.Resize += (s, e) => LayoutProfilePhotoSection(photoBody, btnUploadPhoto);
+            LayoutProfilePhotoSection(photoBody, btnUploadPhoto);
             flow.Controls.Add(photoCard);
 
             Panel fieldsCard = MakeCard("Employee profile");
@@ -1297,6 +1293,20 @@ namespace HVAC_Pro_Desktop.UI
             return card.Controls["BodyHost"] as Panel ?? card;
         }
 
+        private void LayoutProfilePhotoSection(Panel photoBody, Button uploadButton)
+        {
+            if (photoBody == null || uploadButton == null || _picPhoto == null)
+                return;
+
+            int top = 18;
+            int left = 18;
+            _picPhoto.SetBounds(left, top, 180, 180);
+
+            int buttonLeft = _picPhoto.Right + 18;
+            int availableWidth = photoBody.ClientSize.Width - buttonLeft - 18;
+            uploadButton.SetBounds(buttonLeft, top, Math.Max(120, Math.Min(150, availableWidth)), 32);
+        }
+
         private Label CreateMiniStat(Control parent, int x, string title)
         {
             Label lblTitle = new Label { Text = title.ToUpperInvariant(), AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8F, FontStyle.Bold), Location = new Point(x, 10) };
@@ -1796,7 +1806,9 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            Process.Start(new ProcessStartInfo("https://wa.me/" + digits) { UseShellExecute = true });
+            string text = "Hello " + (_currentEmployee.Name ?? "Team") + ", this is a ServoERP message from " + BrandingService.AppName + ".";
+            Process.Start(new ProcessStartInfo("https://wa.me/" + digits + "?text=" + Uri.EscapeDataString(text)) { UseShellExecute = true });
+            SetStatus("WhatsApp opened. Review and send manually.", Teal);
         }
 
         private void UploadPhoto()
@@ -1932,13 +1944,21 @@ namespace HVAC_Pro_Desktop.UI
             button.FlatAppearance.BorderSize = backColor == Color.White ? 1 : 0;
             button.FlatAppearance.MouseOverBackColor = backColor == Color.White ? Surface : ControlPaint.Light(backColor);
             button.FlatAppearance.MouseDownBackColor = backColor == Color.White ? Border : ControlPaint.Dark(backColor);
+            DS.Rounded(button, 8);
             return button;
         }
 
         private Label AddKpiCard(TableLayoutPanel table, int column, string title, Color valueColor)
         {
             Panel card = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Margin = new Padding(column == 0 ? 0 : 10, 0, 0, 0), Padding = new Padding(14, 12, 14, 12) };
-            card.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, card.Width - 1, card.Height - 1);
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
+                using (Pen pen = new Pen(Border))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            DS.Rounded(card, 8);
             Label lblTitle = new Label { Text = title.ToUpperInvariant(), ForeColor = TextSecondary, Font = new Font("Segoe UI", 8F, FontStyle.Bold), AutoSize = true, Location = new Point(14, 12) };
             Label lblValue = new Label { Text = "0", ForeColor = valueColor, Font = new Font("Segoe UI", 18F, FontStyle.Bold), AutoSize = true, Location = new Point(14, 30) };
             card.Controls.Add(lblTitle);

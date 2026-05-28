@@ -1,20 +1,22 @@
 using System;
 using System.IO;
 using System.Net;
+using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.Services
 {
     public static class DocumentBranding
     {
         public const string OfficialHeaderFileName = "official_invoice_header.png";
+        public const string PreferredLetterheadPath = @"C:\Users\Administrator\Pictures\LETTERHEAD.png";
         public const string AuthorizedSignaturePath = @"C:\HVAC_PRO_MSE\Resources\Branding\authorized_signature.png";
-        public const string DefaultCompanyName = "New Client";
-        public const string DefaultShopLicense = "";
-        public const string DefaultPfNumber = "";
-        public const string DefaultEsicNumber = "";
-        public const string DefaultProfTaxNumber = "";
-        public const string DefaultPanNumber = "";
-        public const string DefaultGstNumber = "";
+        public const string DefaultCompanyName = "Madhusuman Enterprises";
+        public const string DefaultShopLicense = "12612200000003717626.";
+        public const string DefaultPfNumber = "TH/THA/0205548/000/01/25.";
+        public const string DefaultEsicNumber = "34000284380001001.";
+        public const string DefaultProfTaxNumber = "99752039470P.";
+        public const string DefaultPanNumber = "AMTPS9540G";
+        public const string DefaultGstNumber = "27AMTPS9540G1ZA";
         public const string DefaultMsmeNumber = "";
 
         public static string BuildOfficialHeaderCss()
@@ -156,12 +158,44 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         private static string ResolveOfficialHeaderPath()
         {
+            string templatePath = TryResolveDefaultLetterheadPath();
+            if (!string.IsNullOrWhiteSpace(templatePath))
+                return templatePath;
+
+            if (File.Exists(PreferredLetterheadPath))
+                return PreferredLetterheadPath;
+
             string baseDir = AppDomain.CurrentDomain.BaseDirectory;
             string installedPath = Path.Combine(baseDir, "Resources", "Branding", OfficialHeaderFileName);
             if (File.Exists(installedPath))
                 return installedPath;
 
+            string rootPath = Path.Combine(@"C:\HVAC_PRO_MSE\Resources\Branding", OfficialHeaderFileName);
+            if (File.Exists(rootPath))
+                return rootPath;
+
             return Path.Combine(@"C:\HVAC_PRO_MSE\SOURCE_CODE\Resources\Branding", OfficialHeaderFileName);
+        }
+
+        private static string TryResolveDefaultLetterheadPath()
+        {
+            try
+            {
+                CompanyDocumentTemplate template = new TemplateStorageService().GetDefault(CompanyDocumentTemplateType.Letterhead);
+                if (template != null && IsImageFile(template.StoredFilePath) && File.Exists(template.StoredFilePath))
+                    return template.StoredFilePath;
+            }
+            catch
+            {
+            }
+
+            return string.Empty;
+        }
+
+        private static bool IsImageFile(string path)
+        {
+            string ext = Path.GetExtension(path ?? string.Empty).ToLowerInvariant();
+            return ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".bmp";
         }
     }
 }

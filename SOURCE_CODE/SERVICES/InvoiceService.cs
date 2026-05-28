@@ -259,6 +259,21 @@ namespace HVAC_Pro_Desktop.Services
         }
 
         // ── AGING REPORT ─────────────────────────────────────
+        public void DeleteInvoice(int invoiceId)
+        {
+            SessionManager.DemandPermission("Invoices", "Delete");
+            Invoice inv = GetInvoiceById(invoiceId);
+            if (inv == null)
+                throw new Exception("Invoice not found.");
+
+            _invoiceInventorySvc.CancelReservations(invoiceId);
+            _invoiceRepo.Delete(invoiceId);
+            AppDataCache.RemovePrefix("invoices:");
+            AppDataCache.RemovePrefix("jobs:");
+            SessionManager.LogAction("DELETE", "Invoices", invoiceId, "Invoice deleted");
+            _audit.Record("DELETE", "Invoices", invoiceId, "Invoice and child records deleted");
+        }
+
         public Invoice CreateCreditNoteForInvoice(int invoiceId, decimal creditAmount, string reason)
         {
             SessionManager.DemandPermission("Invoices", "Edit");
@@ -386,8 +401,13 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     item.GSTPercent = item.GSTPercent <= 0 ? (inv.GSTPercent <= 0 ? 18m : inv.GSTPercent) : item.GSTPercent;
                     item.Quantity = item.Quantity <= 0 ? 1m : item.Quantity;
-                    item.Amount = item.IsBillable ? Math.Round(item.Quantity * item.Rate, 2) : 0m;
-                    item.TaxAmount = item.IsBillable ? Math.Round(item.Amount * (item.GSTPercent / 100m), 2) : 0m;
+                    item.Category = string.IsNullOrWhiteSpace(item.Category) ? (item.IsStockItem ? "Material" : "Service") : item.Category.Trim();
+                    item.TaxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim();
+                    item.DiscountPercent = Math.Min(Math.Max(item.DiscountPercent, 0m), 100m);
+                    decimal gross = Math.Round(item.Quantity * item.Rate, 2);
+                    item.Amount = item.IsBillable ? Math.Round(gross - (gross * item.DiscountPercent / 100m), 2) : 0m;
+                    bool taxable = item.IsBillable && !string.Equals(item.TaxType, "Exempt", StringComparison.OrdinalIgnoreCase) && !string.Equals(item.TaxType, "Nil Rated", StringComparison.OrdinalIgnoreCase);
+                    item.TaxAmount = taxable ? Math.Round(item.Amount * (item.GSTPercent / 100m), 2) : 0m;
                     sub += item.Amount;
                     tax += item.TaxAmount;
                 }
@@ -799,10 +819,12 @@ namespace HVAC_Pro_Desktop.Services
             {
                 Description = description,
                 HSNCode = hsnSac,
+                Category = InferInvoiceLineCategory(description, false),
                 Unit = string.IsNullOrWhiteSpace(unit) ? "Nos" : unit,
                 Quantity = quantity <= 0 ? 1m : quantity,
                 Rate = rate,
                 GSTPercent = gstPercent <= 0 ? 18m : gstPercent,
+                TaxType = gstPercent <= 0 ? "Nil Rated" : "Taxable",
                 IsBillable = isBillable,
                 IsStockItem = false,
                 CoverageNote = coverageNote,
@@ -819,16 +841,28 @@ namespace HVAC_Pro_Desktop.Services
             {
                 Description = stock?.ItemName ?? description,
                 HSNCode = "9987",
+                Category = InferInvoiceLineCategory(stock?.Category ?? description, true),
                 Unit = stock?.Unit ?? "Nos",
                 Quantity = quantity <= 0 ? 1m : quantity,
                 Rate = rate,
                 GSTPercent = 18m,
+                TaxType = "Taxable",
                 StockItemID = stock?.ItemID,
                 IsStockItem = stock != null,
                 IsBillable = isBillable,
                 CoverageNote = coverageNote,
                 Amount = isBillable ? Math.Round(quantity * rate, 2) : 0m
             };
+        }
+
+        private static string InferInvoiceLineCategory(string value, bool materialFallback)
+        {
+            string probe = (value ?? string.Empty).ToLowerInvariant();
+            if (probe.Contains("labour") || probe.Contains("labor") || probe.Contains("technician")) return "Labour";
+            if (probe.Contains("amc") || probe.Contains("contract")) return "AMC";
+            if (probe.Contains("service") || probe.Contains("visit") || probe.Contains("charging") || probe.Contains("commission")) return "Service";
+            if (probe.Contains("spare") || probe.Contains("capacitor") || probe.Contains("contactor")) return "Spare";
+            return materialFallback ? "Material" : "Service";
         }
 
         private bool IsPreventiveInvoice(Invoice invoice)

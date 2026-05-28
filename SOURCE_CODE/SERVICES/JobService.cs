@@ -123,6 +123,21 @@ namespace HVAC_Pro_Desktop.Services
             LogActivity(job.JobID, "Job details updated by " + GetCurrentUserLabel(), "Info");
         }
 
+        public void Delete(int jobId)
+        {
+            SessionManager.DemandPermission("WorkOrders", "Delete");
+            Job existing = _repo.GetById(jobId);
+            if (existing == null)
+                throw new Exception("Job not found.");
+
+            _repo.Delete(jobId);
+            AppDataCache.RemovePrefix("jobs:");
+            AppDataCache.RemovePrefix("purchases:");
+            AppDataCache.RemovePrefix("invoices:");
+            SessionManager.LogAction("DELETE", "WorkOrders", jobId, "Work order deleted");
+            _audit.Record("DELETE", "WorkOrders", jobId, "Work order and child records deleted");
+        }
+
         public int CreateJobFromContract(int contractId, string visitType)
         {
             SessionManager.DemandPermission("WorkOrders", "Create");

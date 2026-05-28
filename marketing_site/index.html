@@ -3,80 +3,510 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>404 - ServoERP</title>
-    <style>
-      :root {
-        color-scheme: light;
-        font-family: "Segoe UI", Arial, sans-serif;
-        background: #0b1f47;
-        color: #0f172a;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        background:
-          radial-gradient(circle at 18% 18%, rgba(37, 99, 235, 0.45), transparent 30%),
-          linear-gradient(135deg, #071634 0%, #0b1f47 48%, #123d88 100%);
-      }
-
-      main {
-        width: min(92vw, 620px);
-        padding: 44px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
-      }
-
-      .code {
-        margin: 0 0 8px;
-        color: #f97316;
-        font-size: 14px;
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-      }
-
-      h1 {
-        margin: 0;
-        color: #08163d;
-        font-size: clamp(36px, 7vw, 64px);
-        line-height: 1;
-      }
-
-      p {
-        margin: 18px 0 0;
-        color: #475569;
-        font-size: 17px;
-        line-height: 1.6;
-      }
-
-      .brand {
-        margin-top: 28px;
-        padding-top: 20px;
-        border-top: 1px solid #dbe3ef;
-        color: #0b2f72;
-        font-weight: 800;
-      }
-    </style>
+    <title>ServoERP | Service Business Management Software for Indian SMEs</title>
+    <meta
+      name="description"
+      content="ServoERP is a modern service business ERP for Indian HVAC, electrical, plumbing, AMC, and field-service SMEs with dispatch, AMC, GST invoicing, inventory, CRM, reports, and local-first licensing."
+    />
+    <link rel="icon" href="./assets/servoerp-logo.png" />
+    <link rel="preload" href="./assets/servoerp-logo.png" as="image" />
+    <link rel="stylesheet" href="./styles.css?v=hero-side-stretch20260512" />
   </head>
   <body>
-    <main>
-      <p class="code">404</p>
-      <h1>Page not found</h1>
-      <p>
-        ServoERP is being updated. The site will be available again after the
-        final release page is complete.
-      </p>
-      <div class="brand">ServoERP</div>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="ServoERP home">
+        <img src="./assets/servoerp-logo.png" alt="" />
+        <span>ServoERP</span>
+      </a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Open navigation">
+        <span></span><span></span><span></span>
+      </button>
+      <nav id="site-nav" class="site-nav" aria-label="Primary navigation">
+        <a href="#modules">Modules</a>
+        <a href="./modules.html">Module Pages</a>
+        <a href="#features">Features</a>
+        <a href="#industries">Industries</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#licensing">Licensing</a>
+      </nav>
+      <a class="button button-primary" href="#contact">Book Demo</a>
+    </header>
+
+    <main id="top">
+      <section class="hero section-pad">
+        <div class="hero-side-gallery hero-side-gallery-left" aria-hidden="true">
+          <img class="is-active" src="./assets/hero-side-slideshow/hvac-service.jpg" alt="" />
+          <img src="./assets/hero-side-slideshow/electrical-service.png" alt="" />
+          <img src="./assets/hero-side-slideshow/field-technician.jpg" alt="" />
+        </div>
+        <div class="hero-copy reveal">
+          <h1>Service Business ERP for Indian HVAC, AMC, and field teams.</h1>
+          <p>
+            ServoERP brings dispatch, AMC renewals, GST invoicing, purchase orders,
+            inventory, CRM, technician work, and reports into one local-first business system.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary button-large" href="#contact">Request Demo</a>
+            <a class="button button-outline button-large" href="#showcase">View Product</a>
+          </div>
+          <div class="trust-strip" aria-label="ServoERP trust indicators">
+            <span>Built for Indian SMEs</span>
+            <span>Offline-ready Windows ERP</span>
+            <span>AMC and GST workflows</span>
+          </div>
+        </div>
+        <div class="hero-side-gallery hero-side-gallery-right" aria-hidden="true">
+          <img class="is-active" src="./assets/hero-side-slideshow/office-operations.jpg" alt="" />
+          <img src="./assets/hero-side-slideshow/invoice-workflow.jpg" alt="" />
+          <img src="./assets/hero-side-slideshow/service-team.jpg" alt="" />
+        </div>
+      </section>
+
+      <section class="proof-band">
+        <div><strong>₹10k/year</strong><span>entry AMC plan</span></div>
+        <div><strong>15 PCs</strong><span>business device limit</span></div>
+        <div><strong>Local-first</strong><span>runs even when internet is unstable</span></div>
+        <div><strong>GST-ready</strong><span>billing and tax summaries</span></div>
+      </section>
+
+      <section class="section-pad split-section">
+        <div class="section-heading reveal">
+          <h2>Built for the daily operating rhythm of service SMEs.</h2>
+          <p>
+            ServoERP is not a generic CRM with a few service fields added. It follows how
+            Indian maintenance businesses actually work: enquiry, quotation, AMC, job,
+            technician, parts, invoice, payment, and renewal.
+          </p>
+        </div>
+        <div class="workflow-lane reveal">
+          <span>Lead</span><span>Quotation</span><span>AMC</span><span>Job</span><span>Dispatch</span><span>Parts</span><span>GST Invoice</span><span>Collection</span>
+        </div>
+      </section>
+
+      <section class="section-pad modules-section" id="modules">
+        <div class="section-heading centered reveal">
+          <h2>Complete service business modules.</h2>
+          <p>Each module is framed around a real business workflow, not a disconnected data screen.</p>
+        </div>
+        <div class="module-index">
+          <a href="#dispatch-center">Dispatch Center</a>
+          <a href="#amc-management">AMC Management</a>
+          <a href="#quotations">Quotations</a>
+          <a href="#gst-invoicing">GST Invoicing</a>
+          <a href="#inventory">Inventory</a>
+          <a href="#crm">CRM</a>
+          <a href="#service-jobs">Service Jobs</a>
+          <a href="#technician-tracking">Technician Tracking</a>
+          <a href="#whatsapp-integration">WhatsApp Integration</a>
+          <a href="#reports-analytics">Reports & Analytics</a>
+          <a href="#purchase-orders">Purchase Orders</a>
+          <a href="#vendor-management">Vendor Management</a>
+        </div>
+
+        <div class="module-showcase" id="showcase">
+          <article class="module-panel reveal" id="dispatch-center">
+            <div class="module-copy">
+              <span class="module-number">01</span>
+              <h3>Dispatch Center</h3>
+              <p>Assign calls, balance technician load, prioritize SLA work, and keep office staff aligned on today’s field schedule.</p>
+              <ul>
+                <li>Job queue by urgency, client, site, and technician.</li>
+                <li>Status visibility from incoming call to closure.</li>
+                <li>Designed for dispatch desks handling many technicians.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/dispatch-center.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/dispatch-center.png?v=appshots20260514" alt="ServoERP Dispatch Center screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="amc-management">
+            <div class="module-copy">
+              <span class="module-number">02</span>
+              <h3>AMC Management</h3>
+              <p>Track annual maintenance contracts, SLA terms, renewal dates, contract value, preventive visits, and invoice creation.</p>
+              <ul>
+                <li>Active, expired, expiring-soon, on-hold, and cancelled contract states.</li>
+                <li>Monthly and annual contract value with SLA parameters.</li>
+                <li>Renew, create invoice, and review SLA logs from one screen.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/amc-contracts.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/amc-contracts.png?v=appshots20260514" alt="ServoERP contract management screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reveal" id="quotations">
+            <div class="module-copy">
+              <span class="module-number">03</span>
+              <h3>Quotations</h3>
+              <p>Create service, installation, AMC, and parts quotations that can move into jobs, purchases, and invoices without rework.</p>
+              <ul>
+                <li>Client, site, scope, item, tax, and approval readiness.</li>
+                <li>Quote-to-job and quote-to-invoice handoff.</li>
+                <li>Cleaner follow-up for open proposals.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/quotations.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/quotations.png?v=appshots20260514" alt="ServoERP Quotations screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="gst-invoicing">
+            <div class="module-copy">
+              <span class="module-number">04</span>
+              <h3>GST Invoicing</h3>
+              <p>Raise GST invoices with contract linkage, site details, tax summary, workflow notes, approval actions, and receivable tracking.</p>
+              <ul>
+                <li>CGST, SGST, IGST, discount, round-off, and balance due.</li>
+                <li>Invoice activity timeline and quick actions.</li>
+                <li>Operational invoice context before accounting export.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/gst-invoicing.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/gst-invoicing.png?v=appshots20260514" alt="ServoERP GST invoicing screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reveal" id="inventory">
+            <div class="module-copy">
+              <span class="module-number">05</span>
+              <h3>Inventory</h3>
+              <p>Control stock used in service jobs, identify low stock, manage reorder levels, and connect preferred vendors to items.</p>
+              <ul>
+                <li>Total items, in-stock, low-stock, out-of-stock, and value KPIs.</li>
+                <li>Stock adjustment, transfer, bulk update, and valuation actions.</li>
+                <li>Fast item search, filters, and column controls.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/inventory.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/inventory.png?v=appshots20260514" alt="ServoERP inventory screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="crm">
+            <div class="module-copy">
+              <span class="module-number">06</span>
+              <h3>CRM</h3>
+              <p>Maintain clients, sites, contacts, service history, GST details, and follow-ups in the same system used by operations.</p>
+              <ul>
+                <li>Client and site records tied to contracts and jobs.</li>
+                <li>Service history for faster support conversations.</li>
+                <li>Better renewal and receivable follow-up context.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/crm.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/crm.png?v=appshots20260514" alt="ServoERP clients and CRM screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reveal" id="service-jobs">
+            <div class="module-copy">
+              <span class="module-number">07</span>
+              <h3>Service Jobs</h3>
+              <p>Convert incidents and customer requests into work orders with equipment, technician, priority, notes, and resolution tracking.</p>
+              <ul>
+                <li>Caller, client, site, equipment, priority, and asset capture.</li>
+                <li>Work notes, emails, attachments, and history tabs.</li>
+                <li>Closure and job creation actions for the service desk.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/service-jobs.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/service-jobs.png?v=appshots20260514" alt="ServoERP service jobs screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="technician-tracking">
+            <div class="module-copy">
+              <span class="module-number">08</span>
+              <h3>Technician Tracking</h3>
+              <p>Know who is assigned, overloaded, delayed, or available before customers start calling for updates.</p>
+              <ul>
+                <li>Technician load and open job visibility.</li>
+                <li>Dispatch handoff from office to field execution.</li>
+                <li>Useful for HVAC, electrical, plumbing, and facility teams.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/technician-tracking.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/technician-tracking.png?v=appshots20260514" alt="ServoERP Technician Tracking screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reveal" id="whatsapp-integration">
+            <div class="module-copy">
+              <span class="module-number">09</span>
+              <h3>WhatsApp Integration</h3>
+              <p>Keep customer communication close to operations for job updates, invoice reminders, AMC renewal messages, and support follow-ups.</p>
+              <ul>
+                <li>Send workflow-aware messages from service context.</li>
+                <li>Support renewal and collection reminders.</li>
+                <li>Planned for Indian SME communication habits.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/whatsapp-integration.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/whatsapp-integration.png?v=appshots20260514" alt="ServoERP WhatsApp Integration screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="reports-analytics">
+            <div class="module-copy">
+              <span class="module-number">10</span>
+              <h3>Reports & Analytics</h3>
+              <p>Review revenue, overdue receivables, SLA risk, technician load, stock risk, collections, contracts, jobs, and vendors.</p>
+              <ul>
+                <li>Command center KPIs for owners and managers.</li>
+                <li>Receivable aging, service load, and revenue trends.</li>
+                <li>Report library across operational modules.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/reports-analytics.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/reports-analytics.png?v=appshots20260514" alt="ServoERP reports and analytics screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reveal" id="purchase-orders">
+            <div class="module-copy">
+              <span class="module-number">11</span>
+              <h3>Purchase Orders</h3>
+              <p>Manage vendor purchase orders, delivery notes, GST treatment, internal approvals, attachments, and conversion to bills.</p>
+              <ul>
+                <li>PO information, vendor details, delivery mode, and project linkage.</li>
+                <li>Approval, print PDF, clone, cancel, and conversion actions.</li>
+                <li>Vendor payables and purchase history context.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/purchase-orders.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/purchase-orders.png?v=appshots20260514" alt="ServoERP purchase order screenshot" />
+            </a>
+          </article>
+
+          <article class="module-panel reverse reveal" id="vendor-management">
+            <div class="module-copy">
+              <span class="module-number">12</span>
+              <h3>Vendor Management</h3>
+              <p>Track suppliers, GSTIN, contact details, advances, purchases, payables, and supplier performance for service material control.</p>
+              <ul>
+                <li>Vendor master linked to purchase and inventory workflows.</li>
+                <li>Payment and advance tracking.</li>
+                <li>Useful for compressor parts, electrical panels, consumables, and outsourced service work.</li>
+              </ul>
+            </div>
+            <a class="screen-frame" href="./assets/screenshots/vendor-management.png?v=appshots20260514" target="_blank" rel="noopener">
+              <img src="./assets/screenshots/vendor-management.png?v=appshots20260514" alt="ServoERP vendor management screenshot" />
+            </a>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-pad features-section" id="features">
+        <div class="section-heading reveal">
+          <h2>Operational improvements your team can actually feel.</h2>
+          <p>ServoERP focuses on the work that decides margin, cash flow, and service quality.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="reveal"><strong>Renewal discipline</strong><p>See expiring AMCs before revenue leaks and convert renewal follow-ups into work.</p></article>
+          <article class="reveal"><strong>Cleaner handoffs</strong><p>Move from quotation to job to invoice with the same client, site, asset, and contract context.</p></article>
+          <article class="reveal"><strong>Parts accountability</strong><p>Connect purchase orders, inventory, preferred vendors, and service job material usage.</p></article>
+          <article class="reveal"><strong>Receivable follow-up</strong><p>Keep invoice totals, GST, balance due, and recent activity visible to the accounts team.</p></article>
+          <article class="reveal"><strong>Owner visibility</strong><p>Reports surface overdue collections, SLA risk, job load, stock risk, and revenue trends.</p></article>
+          <article class="reveal"><strong>Office reliability</strong><p>Local-first operation supports SME offices where connectivity and cloud access can be inconsistent.</p></article>
+        </div>
+      </section>
+
+      <section class="section-pad industries-section" id="industries">
+        <div class="section-heading centered reveal">
+          <h2>Purpose-built for maintenance and field-service companies.</h2>
+          <p>ServoERP fits teams that manage customers, sites, service visits, parts, vendors, and recurring contracts.</p>
+        </div>
+        <div class="industry-grid">
+          <article class="reveal"><span>HVAC</span><p>AC service, chillers, VRV/VRF, installation, preventive visits, compressor parts, and AMC renewals.</p></article>
+          <article class="reveal"><span>Electrical</span><p>Panel maintenance, wiring jobs, breakdown calls, material purchases, and site-level service history.</p></article>
+          <article class="reveal"><span>Plumbing</span><p>Complaint tracking, technician assignment, material usage, quotations, and recurring maintenance.</p></article>
+          <article class="reveal"><span>Maintenance</span><p>Multi-site service contracts, SLA follow-ups, technician workloads, and operational reports.</p></article>
+          <article class="reveal"><span>Facility Management</span><p>Sites, vendors, recurring visits, invoices, reports, and escalation visibility for managers.</p></article>
+        </div>
+      </section>
+
+      <section class="section-pad pricing-section" id="pricing">
+        <div class="section-heading centered reveal">
+          <h2>Simple annual AMC pricing.</h2>
+          <p>Choose a plan based on office PCs and operational scale. All plans are designed for Indian service SMEs.</p>
+        </div>
+        <div class="pricing-grid">
+          <article class="price-card reveal">
+            <h3>Starter AMC</h3>
+            <p class="price">₹10,000<span>/year</span></p>
+            <p>For small service teams formalizing AMC, jobs, billing, and stock.</p>
+            <ul>
+              <li>Up to 3 PCs</li>
+              <li>Core service workflows</li>
+              <li>License activation support</li>
+            </ul>
+            <a class="button button-outline" href="#contact">Enquire</a>
+          </article>
+          <article class="price-card featured reveal">
+            <h3>Growth AMC</h3>
+            <p class="price">₹18,000<span>/year</span></p>
+            <p>For growing teams with more dispatch, accounts, purchase, and service PCs.</p>
+            <ul>
+              <li>Up to 7 PCs</li>
+              <li>Field-service ERP modules</li>
+              <li>Recommended for growing SMEs</li>
+            </ul>
+            <a class="button button-primary" href="#contact">Choose Growth</a>
+          </article>
+          <article class="price-card reveal">
+            <h3>Business AMC</h3>
+            <p class="price">₹30,000<span>/year</span></p>
+            <p>For established service companies with larger operating teams and controls.</p>
+            <ul>
+              <li>Up to 15 PCs</li>
+              <li>All operational modules</li>
+              <li>Best for multi-user offices</li>
+            </ul>
+            <a class="button button-outline" href="#contact">Enquire</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-pad licensing-section" id="licensing">
+        <div class="license-panel reveal">
+          <div>
+            <h2>Local-first installation with controlled licensing.</h2>
+            <p>
+              ServoERP is designed for business offices that need dependable Windows operation,
+              device limits, subscription control, and optional cloud sync without losing local working ability.
+            </p>
+          </div>
+          <div class="license-grid">
+            <article><strong>Offline support</strong><span>Continue core office work when internet connectivity is unstable.</span></article>
+            <article><strong>License activation</strong><span>Activate devices with signed license files and plan-based limits.</span></article>
+            <article><strong>Subscription management</strong><span>Manage annual AMC renewal, expiry, and device entitlement.</span></article>
+            <article><strong>Device limits</strong><span>Starter, Growth, and Business plans map to 3, 7, and 15 PCs.</span></article>
+            <article><strong>Cloud sync</strong><span>Support controlled sync scenarios while keeping the local app usable.</span></article>
+            <article><strong>Local-first operation</strong><span>Designed for SQL-backed desktop reliability in Indian SME offices.</span></article>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-pad testimonials-section">
+        <div class="section-heading centered reveal">
+          <h2>What service business owners expect from ServoERP.</h2>
+          <p>Representative Indian SME-style feedback based on common HVAC and maintenance workflows.</p>
+        </div>
+        <div class="testimonial-grid">
+          <article class="reveal">
+            <p>“Earlier our AMC renewal follow-up was in Excel and WhatsApp. ServoERP gives the office a proper contract view with jobs and invoices connected.”</p>
+            <strong>Operations Head</strong><span>HVAC service company, Pune</span>
+          </article>
+          <article class="reveal">
+            <p>“Purchase orders, inventory, and service calls being in one system helps us understand where parts are going and what is pending from vendors.”</p>
+            <strong>Managing Partner</strong><span>Electrical contractor, Nashik</span>
+          </article>
+          <article class="reveal">
+            <p>“The local installation matters for our office. Accounts, dispatch, and service desk can continue working without depending on a browser all day.”</p>
+            <strong>Service Manager</strong><span>Facility maintenance provider, Mumbai</span>
+          </article>
+        </div>
+      </section>
+
+      <section class="section-pad contact-section" id="contact">
+        <div class="contact-panel reveal">
+          <div class="contact-copy">
+            <span class="contact-kicker">Demo and licensing</span>
+            <h2>Get ServoERP mapped to your service workflow.</h2>
+            <p>
+              Tell us how your office handles AMC renewals, dispatch, technician work,
+              inventory, GST invoices, and collections. We will recommend the right plan
+              and installation path for your team.
+            </p>
+            <div class="contact-proof">
+              <div><strong>15 min</strong><span>workflow fit call</span></div>
+              <div><strong>3-15 PCs</strong><span>plan-based activation</span></div>
+              <div><strong>Local-first</strong><span>Windows ERP setup</span></div>
+            </div>
+            <div class="contact-steps" aria-label="ServoERP demo process">
+              <div><b>1</b><span>Share company and device details</span></div>
+              <div><b>2</b><span>Review modules and AMC plan fit</span></div>
+              <div><b>3</b><span>Install, activate, and start operations</span></div>
+            </div>
+            <span class="contact-email">support@servoerp.in</span>
+          </div>
+          <div class="contact-form-card">
+            <div class="form-card-header">
+              <div>
+                <strong>Request a ServoERP demo</strong>
+                <span>For HVAC, electrical, plumbing, AMC, and maintenance SMEs</span>
+              </div>
+              <em>Response by email</em>
+            </div>
+            <form class="lead-form" data-lead-form>
+              <label>Company Name<input name="companyName" autocomplete="organization" placeholder="ABC Cooling Solutions Pvt. Ltd." required /></label>
+              <label>Name<input name="name" autocomplete="name" placeholder="Your name" required /></label>
+              <label>Phone Number<input name="phoneNumber" autocomplete="tel" placeholder="+91 98765 43210" required /></label>
+              <label>Email<input name="email" type="email" autocomplete="email" placeholder="you@company.com" required /></label>
+              <label>Business Type
+                <select name="businessType" required>
+                  <option>HVAC</option>
+                  <option>Electrical</option>
+                  <option>Plumbing</option>
+                  <option>Maintenance</option>
+                  <option>Facility Management</option>
+                </select>
+              </label>
+              <label>Office PCs / users<input name="users" placeholder="Example: 7 PCs, 12 staff" /></label>
+              <label>Plan interest
+                <select name="plan">
+                  <option>Growth AMC</option>
+                  <option>Starter AMC</option>
+                  <option>Business AMC</option>
+                  <option>Need recommendation</option>
+                </select>
+              </label>
+              <label>Primary workflow
+                <select name="workflow">
+                  <option>AMC renewals and service jobs</option>
+                  <option>Dispatch and technician tracking</option>
+                  <option>GST invoicing and collections</option>
+                  <option>Inventory, purchases, and vendors</option>
+                  <option>Complete ERP rollout</option>
+                </select>
+              </label>
+              <label class="wide">Message/Requirements<textarea name="message" rows="5" minlength="10" placeholder="Example: 250 AMCs, 9 technicians, 2 office branches, GST invoicing in-house, stock handled by purchase team." required></textarea></label>
+              <label class="lead-form-honeypot" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off" /></label>
+              <p class="form-status" data-form-status hidden aria-live="polite"></p>
+              <button class="button button-primary" type="submit">Send Demo Request</button>
+            </form>
+          </div>
+        </div>
+      </section>
     </main>
+
+    <footer class="site-footer">
+      <div>
+        <a class="brand footer-brand" href="#top">
+          <img src="./assets/servoerp-logo.png" alt="" />
+          <span>ServoERP</span>
+        </a>
+        <p>Service Business Management Software for Indian SMEs.</p>
+      </div>
+      <nav aria-label="Footer product links">
+        <a href="#modules">Product</a>
+        <a href="./modules.html">Modules</a>
+        <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#licensing">Licensing</a>
+        <a href="/download/">Download</a>
+      </nav>
+      <nav aria-label="Footer support links">
+        <a href="#contact">Contact</a>
+        <a href="./changelog.json">Changelog</a>
+        <a href="./version.txt">Version</a>
+        <a href="#contact">Support</a>
+        <a href="./404.html">Documentation</a>
+      </nav>
+    </footer>
+
+    <script src="./script.js?v=demo-api20260515"></script>
   </body>
 </html>

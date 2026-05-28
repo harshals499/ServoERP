@@ -12,6 +12,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly string _html;
         private readonly string _title;
         private readonly string _tempHtmlPath;
+        private readonly bool _fitDocumentToPreview;
 
         public HtmlPreviewDialog(string title, string html)
         {
@@ -21,6 +22,7 @@ namespace HVAC_Pro_Desktop.UI
             _tempHtmlPath = Path.Combine(Path.GetTempPath(), "servo-preview-" + Guid.NewGuid().ToString("N") + ".html");
 
             Text = _title;
+            _fitDocumentToPreview = _title.IndexOf("Quotation Preview", StringComparison.OrdinalIgnoreCase) >= 0;
             Width = 1120;
             Height = 780;
             StartPosition = FormStartPosition.CenterParent;
@@ -40,6 +42,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _browser.Dock = DockStyle.Fill;
             _browser.ScriptErrorsSuppressed = true;
+            _browser.DocumentCompleted += BrowserDocumentCompleted;
 
             Controls.Add(_browser);
             Controls.Add(toolbar);
@@ -70,6 +73,23 @@ namespace HVAC_Pro_Desktop.UI
         {
             File.WriteAllText(_tempHtmlPath, _html);
             _browser.Navigate(new Uri(_tempHtmlPath));
+        }
+
+        private void BrowserDocumentCompleted(object sender, WebBrowserDocumentCompletedEventArgs e)
+        {
+            if (!_fitDocumentToPreview || _browser.Document == null || _browser.Document.Body == null)
+                return;
+
+            try
+            {
+                int viewportWidth = Math.Max(1, _browser.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
+                int documentWidth = Math.Max(1, _browser.Document.Body.ScrollRectangle.Width);
+                int zoomPercent = Math.Min(100, Math.Max(75, (int)Math.Floor((viewportWidth * 100m) / documentWidth)));
+                _browser.Document.Body.Style = "zoom:" + zoomPercent.ToString() + "%; transform-origin: top center;";
+            }
+            catch
+            {
+            }
         }
 
         private void SaveHtml(object sender, EventArgs e)

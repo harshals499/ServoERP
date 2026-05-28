@@ -12,6 +12,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
         private readonly LicenseService _licenseService = new LicenseService();
         private readonly DeviceFingerprintService _fingerprint = new DeviceFingerprintService();
         private TextBox _txtLicenseKey;
+        private TextBox _txtCompanyCode;
         private TextBox _txtCompany;
         private Label _lblStatus;
 
@@ -42,18 +43,22 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
             Controls.Add(new Label
             {
-                Text = "Start a 14-day trial, use online activation when available, or import a signed offline license file from ServoERP.",
+                Text = "Activate with your company code and license key, start a trial, or import a signed offline license file from ServoERP.",
                 Location = new Point(30, 66),
                 Size = new Size(560, 46),
                 ForeColor = DS.Slate600
             });
 
-            Controls.Add(Label("License Key", 32, 128));
-            _txtLicenseKey = new TextBox { Location = new Point(32, 150), Size = new Size(260, 30) };
+            Controls.Add(Label("Company Code", 32, 128));
+            _txtCompanyCode = new TextBox { Location = new Point(32, 150), Size = new Size(168, 30) };
+            Controls.Add(_txtCompanyCode);
+
+            Controls.Add(Label("License Key", 214, 128));
+            _txtLicenseKey = new TextBox { Location = new Point(214, 150), Size = new Size(178, 30) };
             Controls.Add(_txtLicenseKey);
 
-            Controls.Add(Label("Company Name", 318, 128));
-            _txtCompany = new TextBox { Location = new Point(318, 150), Size = new Size(260, 30) };
+            Controls.Add(Label("Company Name", 406, 128));
+            _txtCompany = new TextBox { Location = new Point(406, 150), Size = new Size(172, 30) };
             Controls.Add(_txtCompany);
 
             var fingerprintLabel = new Label
@@ -112,6 +117,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
         {
             var result = _licenseService.ActivateOnline(new LicenseActivationRequest
             {
+                CompanyCode = _txtCompanyCode.Text.Trim(),
                 LicenseKey = _txtLicenseKey.Text.Trim(),
                 CompanyName = _txtCompany.Text.Trim()
             });

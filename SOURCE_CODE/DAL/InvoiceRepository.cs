@@ -133,10 +133,13 @@ namespace HVAC_Pro_Desktop.DAL
                                 StockItemID = r["StockItemID"] != DBNull.Value ? (int?)r["StockItemID"] : null,
                                 Description = r["Description"].ToString(),
                                 HSNCode     = r["HSNCode"] == DBNull.Value ? "" : r["HSNCode"].ToString(),
+                                Category    = HasColumn(r, "Category") && r["Category"] != DBNull.Value ? r["Category"].ToString() : "Service",
                                 Unit        = r["Unit"] == DBNull.Value ? "Nos" : r["Unit"].ToString(),
                                 Quantity    = (decimal)r["Quantity"],
                                 Rate        = (decimal)r["Rate"],
+                                DiscountPercent = HasColumn(r, "DiscountPercent") && r["DiscountPercent"] != DBNull.Value ? (decimal)r["DiscountPercent"] : 0m,
                                 GSTPercent  = r["GSTPercent"] != DBNull.Value ? (decimal)r["GSTPercent"] : 18m,
+                                TaxType     = HasColumn(r, "TaxType") && r["TaxType"] != DBNull.Value ? r["TaxType"].ToString() : "Taxable",
                                 TaxAmount   = r["TaxAmount"] != DBNull.Value ? (decimal)r["TaxAmount"] : 0m,
                                 IsStockItem = r["IsStockItem"] != DBNull.Value && (bool)r["IsStockItem"],
                                 IsBillable  = r["IsBillable"] == DBNull.Value || (bool)r["IsBillable"],
@@ -170,18 +173,21 @@ namespace HVAC_Pro_Desktop.DAL
                         {
                             using (var ins = new SqlCommand(@"
                                 INSERT INTO InvoiceLineItems
-                                    (InvoiceID,StockItemID,Description,HSNCode,Unit,Quantity,Rate,GSTPercent,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
+                                    (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                 VALUES
-                                    (@inv,@stockItemId,@desc,@hsn,@unit,@qty,@rate,@gst,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
+                                    (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
                             {
                                 ins.Parameters.AddWithValue("@inv",  invoiceId);
                                 ins.Parameters.AddWithValue("@stockItemId", item.StockItemID.HasValue ? (object)item.StockItemID.Value : DBNull.Value);
                                 ins.Parameters.AddWithValue("@desc", item.Description ?? "");
                                 ins.Parameters.AddWithValue("@hsn",  string.IsNullOrWhiteSpace(item.HSNCode) ? (object)DBNull.Value : item.HSNCode.Trim());
+                                ins.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim());
                                 ins.Parameters.AddWithValue("@unit", string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim());
                                 ins.Parameters.AddWithValue("@qty",  item.Quantity);
                                 ins.Parameters.AddWithValue("@rate", item.Rate);
+                                ins.Parameters.AddWithValue("@discount", item.DiscountPercent);
                                 ins.Parameters.AddWithValue("@gst",  item.GSTPercent);
+                                ins.Parameters.AddWithValue("@taxType", string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim());
                                 ins.Parameters.AddWithValue("@tax",  item.TaxAmount);
                                 ins.Parameters.AddWithValue("@isStockItem", item.IsStockItem);
                                 ins.Parameters.AddWithValue("@isBillable", item.IsBillable);
@@ -277,18 +283,21 @@ namespace HVAC_Pro_Desktop.DAL
                             {
                                 using (var ins = new SqlCommand(@"
                                     INSERT INTO InvoiceLineItems
-                                        (InvoiceID,StockItemID,Description,HSNCode,Unit,Quantity,Rate,GSTPercent,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
+                                        (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                     VALUES
-                                        (@inv,@stockItemId,@desc,@hsn,@unit,@qty,@rate,@gst,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
+                                        (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
                                 {
                                     ins.Parameters.AddWithValue("@inv",  newId);
                                     ins.Parameters.AddWithValue("@stockItemId", item.StockItemID.HasValue ? (object)item.StockItemID.Value : DBNull.Value);
                                     ins.Parameters.AddWithValue("@desc", item.Description ?? "");
                                     ins.Parameters.AddWithValue("@hsn",  string.IsNullOrWhiteSpace(item.HSNCode) ? (object)DBNull.Value : item.HSNCode.Trim());
+                                    ins.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim());
                                     ins.Parameters.AddWithValue("@unit", string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim());
                                     ins.Parameters.AddWithValue("@qty",  item.Quantity);
                                     ins.Parameters.AddWithValue("@rate", item.Rate);
+                                    ins.Parameters.AddWithValue("@discount", item.DiscountPercent);
                                     ins.Parameters.AddWithValue("@gst",  item.GSTPercent);
+                                    ins.Parameters.AddWithValue("@taxType", string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim());
                                     ins.Parameters.AddWithValue("@tax",  item.TaxAmount);
                                     ins.Parameters.AddWithValue("@isStockItem", item.IsStockItem);
                                     ins.Parameters.AddWithValue("@isBillable", item.IsBillable);
@@ -430,6 +439,41 @@ namespace HVAC_Pro_Desktop.DAL
         }
 
         // ── INVOICE NUMBER GENERATION ────────────────────────
+        public void Delete(int invoiceId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        ExecuteDelete(conn, tx, "DELETE FROM Payments WHERE InvoiceID=@id", invoiceId);
+                        ExecuteDelete(conn, tx, "DELETE FROM InvoiceInventoryReservations WHERE InvoiceID=@id", invoiceId);
+                        ExecuteDelete(conn, tx, "UPDATE InventoryUsageLog SET InvoiceID=NULL WHERE InvoiceID=@id", invoiceId);
+                        ExecuteDelete(conn, tx, "UPDATE Jobs SET InvoiceId=NULL WHERE InvoiceId=@id", invoiceId);
+                        ExecuteDelete(conn, tx, "DELETE FROM InvoiceLineItems WHERE InvoiceID=@id", invoiceId);
+                        ExecuteDelete(conn, tx, "DELETE FROM Invoices WHERE InvoiceID=@id", invoiceId);
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
+        {
+            using (var cmd = new SqlCommand(sql, conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         public string GenerateInvoiceNumber()
         {
             using (var conn = _db.GetConnection())
@@ -491,28 +535,28 @@ namespace HVAC_Pro_Desktop.DAL
         {
             var inv = new Invoice
             {
-                InvoiceID     = (int)r["InvoiceID"],
-                ContractID    = r["ContractID"] != DBNull.Value ? (int)r["ContractID"] : 0,
+                InvoiceID     = ToInt(r["InvoiceID"]),
+                ContractID    = r["ContractID"] != DBNull.Value ? ToInt(r["ContractID"]) : 0,
                 InvoiceNumber = r["InvoiceNumber"].ToString(),
-                InvoiceDate   = (DateTime)r["InvoiceDate"],
-                DueDate       = (DateTime)r["DueDate"],
-                SubTotal      = (decimal)r["SubTotal"],
-                TaxAmount     = (decimal)r["TaxAmount"],
-                TotalAmount   = (decimal)r["TotalAmount"],
-                PaidAmount    = (decimal)r["PaidAmount"],
+                InvoiceDate   = ToDate(r["InvoiceDate"]),
+                DueDate       = ToDate(r["DueDate"]),
+                SubTotal      = ToDecimal(r["SubTotal"]),
+                TaxAmount     = ToDecimal(r["TaxAmount"]),
+                TotalAmount   = ToDecimal(r["TotalAmount"]),
+                PaidAmount    = ToDecimal(r["PaidAmount"]),
                 PaymentStatus = r["PaymentStatus"].ToString(),
-                PaymentDate   = r["PaymentDate"] != DBNull.Value ? (DateTime?)r["PaymentDate"] : null
+                PaymentDate   = r["PaymentDate"] != DBNull.Value ? (DateTime?)ToDate(r["PaymentDate"]) : null
             };
-            try { inv.ClientID    = r["ClientID"] != DBNull.Value ? (int)r["ClientID"] : 0; }    catch { }
-            try { inv.SiteID      = r["SiteID"] != DBNull.Value ? (int)r["SiteID"] : 0; }        catch { }
-            try { inv.QuotationBidID = r["QuotationBidID"] != DBNull.Value ? (int?)r["QuotationBidID"] : null; } catch { }
-            try { inv.GSTPercent  = r["GSTPercent"] != DBNull.Value ? (decimal)r["GSTPercent"] : 18; } catch { }
-            try { inv.BalanceDue  = r["BalanceDue"] != DBNull.Value ? (decimal)r["BalanceDue"] : inv.TotalAmount - inv.PaidAmount; } catch { }
+            try { inv.ClientID    = r["ClientID"] != DBNull.Value ? ToInt(r["ClientID"]) : 0; }    catch { }
+            try { inv.SiteID      = r["SiteID"] != DBNull.Value ? ToInt(r["SiteID"]) : 0; }        catch { }
+            try { inv.QuotationBidID = r["QuotationBidID"] != DBNull.Value ? (int?)ToInt(r["QuotationBidID"]) : null; } catch { }
+            try { inv.GSTPercent  = r["GSTPercent"] != DBNull.Value ? ToDecimal(r["GSTPercent"]) : 18; } catch { }
+            try { inv.BalanceDue  = r["BalanceDue"] != DBNull.Value ? ToDecimal(r["BalanceDue"]) : inv.TotalAmount - inv.PaidAmount; } catch { }
             try { inv.Notes       = r["Notes"].ToString(); }       catch { }
             try { inv.InvoiceTitle = r["InvoiceTitle"].ToString(); } catch { }
             try { inv.Subject = r["Subject"] == DBNull.Value ? "" : r["Subject"].ToString(); } catch { }
             try { inv.PONumber = r["PONumber"] == DBNull.Value ? "" : r["PONumber"].ToString(); } catch { }
-            try { inv.PODate = r["PODate"] != DBNull.Value ? (DateTime?)r["PODate"] : null; } catch { }
+            try { inv.PODate = r["PODate"] != DBNull.Value ? (DateTime?)ToDate(r["PODate"]) : null; } catch { }
             try { inv.SendInvoiceTo = r["SendInvoiceTo"] == DBNull.Value ? "" : r["SendInvoiceTo"].ToString(); } catch { }
             try { inv.CertificationNote = r["CertificationNote"] == DBNull.Value ? "" : r["CertificationNote"].ToString(); } catch { }
             try { inv.TemplateCode = r["TemplateCode"] == DBNull.Value ? "" : r["TemplateCode"].ToString(); } catch { }
@@ -520,26 +564,49 @@ namespace HVAC_Pro_Desktop.DAL
             try { inv.GSTMode = r["GSTMode"] == DBNull.Value ? "IGST" : r["GSTMode"].ToString(); } catch { }
             try { inv.PaymentTerms = r["PaymentTerms"] == DBNull.Value ? "" : r["PaymentTerms"].ToString(); } catch { }
             try { inv.PlaceOfSupply = r["PlaceOfSupply"] == DBNull.Value ? "" : r["PlaceOfSupply"].ToString(); } catch { }
-            try { inv.RoundOff = r["RoundOff"] != DBNull.Value ? (decimal)r["RoundOff"] : 0m; } catch { }
-            try { inv.CGSTAmount = r["CGSTAmount"] != DBNull.Value ? (decimal)r["CGSTAmount"] : 0m; } catch { }
-            try { inv.SGSTAmount = r["SGSTAmount"] != DBNull.Value ? (decimal)r["SGSTAmount"] : 0m; } catch { }
-            try { inv.IGSTAmount = r["IGSTAmount"] != DBNull.Value ? (decimal)r["IGSTAmount"] : 0m; } catch { }
+            try { inv.RoundOff = r["RoundOff"] != DBNull.Value ? ToDecimal(r["RoundOff"]) : 0m; } catch { }
+            try { inv.CGSTAmount = r["CGSTAmount"] != DBNull.Value ? ToDecimal(r["CGSTAmount"]) : 0m; } catch { }
+            try { inv.SGSTAmount = r["SGSTAmount"] != DBNull.Value ? ToDecimal(r["SGSTAmount"]) : 0m; } catch { }
+            try { inv.IGSTAmount = r["IGSTAmount"] != DBNull.Value ? ToDecimal(r["IGSTAmount"]) : 0m; } catch { }
             try { inv.ContractCoverageType = r["ContractCoverageType"] == DBNull.Value ? "" : r["ContractCoverageType"].ToString(); } catch { }
             try { inv.ServiceChecklist = r["ServiceChecklist"] == DBNull.Value ? "" : r["ServiceChecklist"].ToString(); } catch { }
             try { inv.AssetDetails = r["AssetDetails"] == DBNull.Value ? "" : r["AssetDetails"].ToString(); } catch { }
             try { inv.WarrantyStatus = r["WarrantyStatus"] == DBNull.Value ? "" : r["WarrantyStatus"].ToString(); } catch { }
-            try { inv.WarrantyExpiry = r["WarrantyExpiry"] != DBNull.Value ? (DateTime?)r["WarrantyExpiry"] : null; } catch { }
-            try { inv.PreventiveVisitDate = r["PreventiveVisitDate"] != DBNull.Value ? (DateTime?)r["PreventiveVisitDate"] : null; } catch { }
-            try { inv.NextServiceDueDate = r["NextServiceDueDate"] != DBNull.Value ? (DateTime?)r["NextServiceDueDate"] : null; } catch { }
+            try { inv.WarrantyExpiry = r["WarrantyExpiry"] != DBNull.Value ? (DateTime?)ToDate(r["WarrantyExpiry"]) : null; } catch { }
+            try { inv.PreventiveVisitDate = r["PreventiveVisitDate"] != DBNull.Value ? (DateTime?)ToDate(r["PreventiveVisitDate"]) : null; } catch { }
+            try { inv.NextServiceDueDate = r["NextServiceDueDate"] != DBNull.Value ? (DateTime?)ToDate(r["NextServiceDueDate"]) : null; } catch { }
             try { inv.InventoryReservationStatus = r["InventoryReservationStatus"] == DBNull.Value ? "" : r["InventoryReservationStatus"].ToString(); } catch { }
-            try { inv.CreatedByUserId = r["CreatedByUserId"] != DBNull.Value ? (int?)r["CreatedByUserId"] : null; } catch { }
+            try { inv.CreatedByUserId = r["CreatedByUserId"] != DBNull.Value ? (int?)ToInt(r["CreatedByUserId"]) : null; } catch { }
             try { inv.CreatedByName = r["CreatedByName"] == DBNull.Value ? null : r["CreatedByName"].ToString(); } catch { }
-            try { inv.ModifiedByUserId = r["ModifiedByUserId"] != DBNull.Value ? (int?)r["ModifiedByUserId"] : null; } catch { }
+            try { inv.ModifiedByUserId = r["ModifiedByUserId"] != DBNull.Value ? (int?)ToInt(r["ModifiedByUserId"]) : null; } catch { }
             try { inv.ModifiedByName = r["ModifiedByName"] == DBNull.Value ? null : r["ModifiedByName"].ToString(); } catch { }
-            try { inv.ModifiedDate = r["ModifiedDate"] != DBNull.Value ? (DateTime?)r["ModifiedDate"] : null; } catch { }
+            try { inv.ModifiedDate = r["ModifiedDate"] != DBNull.Value ? (DateTime?)ToDate(r["ModifiedDate"]) : null; } catch { }
             try { inv.ClientName  = r["ClientName"].ToString(); }  catch { }
             try { inv.SiteName    = r["SiteName"].ToString(); }    catch { }
             return inv;
+        }
+
+        private static int ToInt(object value)
+        {
+            return value == null || value == DBNull.Value ? 0 : Convert.ToInt32(value);
+        }
+
+        private static decimal ToDecimal(object value)
+        {
+            return value == null || value == DBNull.Value ? 0m : Convert.ToDecimal(value);
+        }
+
+        private static DateTime ToDate(object value)
+        {
+            return value == null || value == DBNull.Value ? DateTime.Today : Convert.ToDateTime(value);
+        }
+
+        private static bool HasColumn(SqlDataReader reader, string columnName)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+                if (string.Equals(reader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
     }
 }

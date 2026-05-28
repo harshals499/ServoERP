@@ -77,13 +77,13 @@ namespace HVAC_Pro_Desktop.Services
                              Status,ClientName,RequirementCategory,ItemName,RequiredQuantity,Unit,InventoryAvailable,ShortfallQuantity,
                              EstimatedInternalRate,EstimatedSupplierRate,EstimatedInternalCost,EstimatedExternalCost,
                              RecommendedVendorID,ComparisonSummary,AnalysisStatus,Notes,IsMultiLine,TotalTaxableValue,TotalGSTAmount,
-                             TotalWithGST,AverageMarginPct,TemplateId,ClientPriceMemoryApplied,SuggestionsJson)
+                             TotalWithGST,AverageMarginPct,TemplateId,ClientPriceMemoryApplied,SuggestionsJson,CommercialFlow,CustomerDocumentStatus,SupplierDocumentStatus,FlowNotes)
                             VALUES
                             (@QuotationNumber,@TenderName,@ClientID,@SiteID,@SystemCount,@BidValue,@DueDate,@SubmittedDate,@RequiredByDate,
                              @Status,@ClientName,@RequirementCategory,@ItemName,@RequiredQuantity,@Unit,@InventoryAvailable,@ShortfallQuantity,
                              @EstimatedInternalRate,@EstimatedSupplierRate,@EstimatedInternalCost,@EstimatedExternalCost,
                              @RecommendedVendorID,@ComparisonSummary,@AnalysisStatus,@Notes,@IsMultiLine,@TotalTaxableValue,@TotalGSTAmount,
-                             @TotalWithGST,@AverageMarginPct,@TemplateId,@ClientPriceMemoryApplied,@SuggestionsJson);
+                             @TotalWithGST,@AverageMarginPct,@TemplateId,@ClientPriceMemoryApplied,@SuggestionsJson,@CommercialFlow,@CustomerDocumentStatus,@SupplierDocumentStatus,@FlowNotes);
                             SELECT CAST(SCOPE_IDENTITY() AS INT);";
                         using (SqlCommand cmd = new SqlCommand(insertSql, conn, tx))
                         {
@@ -127,7 +127,11 @@ namespace HVAC_Pro_Desktop.Services
                                 AverageMarginPct=@AverageMarginPct,
                                 TemplateId=@TemplateId,
                                 ClientPriceMemoryApplied=@ClientPriceMemoryApplied,
-                                SuggestionsJson=@SuggestionsJson
+                                SuggestionsJson=@SuggestionsJson,
+                                CommercialFlow=@CommercialFlow,
+                                CustomerDocumentStatus=@CustomerDocumentStatus,
+                                SupplierDocumentStatus=@SupplierDocumentStatus,
+                                FlowNotes=@FlowNotes
                             WHERE BidID=@BidID";
                         using (SqlCommand cmd = new SqlCommand(updateSql, conn, tx))
                         {
@@ -310,6 +314,9 @@ namespace HVAC_Pro_Desktop.Services
                 .ToList();
 
             AnalyseTenderDraft(bid);
+            bid.CommercialFlow = "Revenue + Procurement";
+            bid.SupplierDocumentStatus = "PO Sent";
+            bid.FlowNotes = BuildCommercialFlowSummary(bid);
             SaveTenderBid(bid);
             return GetByIdDetailed(bid.BidID);
         }
@@ -400,6 +407,9 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Quotation not found.");
 
             AnalyseTenderDraft(bid);
+            bid.CommercialFlow = string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow;
+            bid.CustomerDocumentStatus = "Invoice Created";
+            bid.FlowNotes = BuildCommercialFlowSummary(bid);
             SaveTenderBid(bid);
 
             var poNumbers = new List<string>();
@@ -419,6 +429,9 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Quotation not found.");
 
             AnalyseTenderDraft(bid);
+            bid.CommercialFlow = string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow;
+            bid.CustomerDocumentStatus = "Job Created";
+            bid.FlowNotes = BuildCommercialFlowSummary(bid);
             SaveTenderBid(bid);
 
             B2BClient client = _clientRepo.GetById(bid.ClientID);
@@ -594,6 +607,7 @@ namespace HVAC_Pro_Desktop.Services
             if (bid == null)
                 throw new ArgumentNullException(nameof(bid));
 
+            bid.LineItems = bid.LineItems ?? new List<TenderBidLineItem>();
             ApplyTenderTotals(bid);
             bid.Suggestions = GenerateSuggestions(bid);
 
@@ -601,7 +615,7 @@ namespace HVAC_Pro_Desktop.Services
             ClientSite site = bid.SiteID > 0 ? _siteRepo.GetAll().FirstOrDefault(s => s.SiteID == bid.SiteID) : null;
             Dictionary<string, string> settings = _settingsSvc.GetAll();
             string companyState = GetTenderSetting(settings, "CompanyState", "Maharashtra");
-            string companyName = GetTenderSetting(settings, "CompanyName", "New Client");
+            string companyName = NormalizeMseSetting(GetTenderSetting(settings, "CompanyName", DocumentBranding.DefaultCompanyName), DocumentBranding.DefaultCompanyName);
             string companyGstin = GetTenderSetting(settings, "CompanyGSTIN", GetTenderSetting(settings, "CompanyGST", DocumentBranding.DefaultGstNumber));
             string companyPan = GetTenderSetting(settings, "CompanyPAN", DocumentBranding.DefaultPanNumber);
             string shopLicense = GetTenderSetting(settings, "CompanyShopLicense", DocumentBranding.DefaultShopLicense);
@@ -614,57 +628,165 @@ namespace HVAC_Pro_Desktop.Services
             decimal cgst = intraState ? Math.Round(bid.TotalGSTAmount / 2m, 2) : 0m;
             decimal sgst = intraState ? bid.TotalGSTAmount - cgst : 0m;
             decimal igst = intraState ? 0m : bid.TotalGSTAmount;
-            int validityDays = Math.Max(1, (bid.DueDate.Date - (bid.SubmittedDate ?? DateTime.Today).Date).Days);
+            int validityDays = 5;
 
             var rows = new StringBuilder();
             int sr = 1;
+            int actualLineCount = bid.LineItems.Count;
+            string itemRowClass = actualLineCount > 8 ? "item-row dense-item-row" : actualLineCount > 4 ? "item-row compact-item-row" : "item-row";
             foreach (TenderBidLineItem line in bid.LineItems)
             {
-                rows.Append("<tr>");
+                rows.Append("<tr class='" + itemRowClass + "'>");
                 rows.AppendFormat("<td class='center'>{0}</td>", sr++);
                 rows.AppendFormat("<td class='desc'>{0}</td>", HtmlTender(line.ItemDescription));
                 rows.AppendFormat("<td class='center'>{0}</td>", HtmlTender(line.HsnSacCode));
                 rows.AppendFormat("<td class='center'>{0}</td>", HtmlTender(line.Unit));
                 rows.AppendFormat("<td class='center'>{0}</td>", line.Quantity.ToString("0.###", CultureInfo.InvariantCulture));
-                rows.AppendFormat("<td class='num'>{0}</td>", line.SellPricePerUnit.ToString("N2"));
-                rows.AppendFormat("<td class='num'><strong>{0}</strong></td>", line.TaxableLineTotal.ToString("N2"));
+                rows.AppendFormat("<td class='num'>{0}</td>", FormatTenderAmount(line.SellPricePerUnit));
+                rows.AppendFormat("<td class='num'>{0}</td>", FormatTenderAmount(line.TaxableLineTotal));
+                rows.Append("</tr>");
+            }
+
+            while (sr <= 2)
+            {
+                rows.Append("<tr class='item-row'>");
+                rows.AppendFormat("<td class='center'>{0}</td>", sr++);
+                rows.Append("<td class='desc'>&nbsp;</td><td class='center'>&nbsp;</td><td class='center'>&nbsp;</td><td class='center'>&nbsp;</td><td class='num'>&nbsp;</td><td class='num'>&nbsp;</td>");
                 rows.Append("</tr>");
             }
 
             string taxRows = intraState
-                ? "<tr><td colspan='6'>Add: CGST 9%</td><td class='total-value'>" + cgst.ToString("N2") + "</td></tr><tr><td colspan='6'>Add: SGST 9%</td><td class='total-value'>" + sgst.ToString("N2") + "</td></tr>"
-                : "<tr><td colspan='6'>Add: IGST 18%</td><td class='total-value'>" + igst.ToString("N2") + "</td></tr>";
+                ? "<tr><td class='total-label' colspan='6'>Add: CGST @ 9%</td><td class='total-value'>" + FormatTenderAmount(cgst) + "</td></tr><tr><td class='total-label' colspan='6'>Add: SGST @ 9%</td><td class='total-value'>" + FormatTenderAmount(sgst) + "</td></tr>"
+                : "<tr><td class='total-label' colspan='6'>Add: IGST @ 18%</td><td class='total-value'>" + FormatTenderAmount(igst) + "</td></tr>";
 
-            string amountWords = "Rupees " + ToTenderWords((long)Math.Round(bid.TotalWithGST)) + " Only";
+            string amountWords = "Rupees :- " + ToTenderWords((long)Math.Round(bid.TotalWithGST)) + " Only.";
             string clientAddress = !string.IsNullOrWhiteSpace(site?.Address) ? site.Address : client?.BillingAddress;
-            string subject = string.IsNullOrWhiteSpace(bid.TenderName) ? "Supply / service quotation." : bid.TenderName;
+            string subject = string.IsNullOrWhiteSpace(bid.TenderName) ? "Quotation for HVAC supply / service work at your site." : bid.TenderName;
+            string customerName = client?.CompanyName ?? bid.ClientName;
+            string customerGst = client?.GSTNumber;
+            string submittedDate = IndiaFormatHelper.FormatDate(bid.SubmittedDate ?? DateTime.Today);
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
             + DocumentBranding.BuildOfficialHeaderCss()
-            + DocumentBranding.BuildOfficialPrintCss()
+            + BuildMseQuotationCss()
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
-            + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.Quotation)
-            + "<div class='print-frame'><div class='doc-title'>QUOTATION</div>"
-            + "<table class='doc-grid'><tr><td class='client-cell'>To,<br/>" + HtmlTender(client?.CompanyName ?? bid.ClientName) + "<br/>" + HtmlTender(clientAddress).Replace("\n", "<br/>") + "<br/>GST No. " + HtmlTender(client?.GSTNumber) + "</td>"
-            + "<td class='meta-cell'>Date : " + HtmlTender(IndiaFormatHelper.FormatDate(bid.SubmittedDate ?? DateTime.Today)) + "</td></tr>"
-            + "<tr><td></td><td class='meta-cell'>Quotation No. " + HtmlTender(bid.QuotationNumber) + "</td></tr>"
-            + "<tr class='subject-row'><td colspan='2'>Sub : " + HtmlTender(subject) + "</td></tr>"
-            + "<tr class='po-row'><td colspan='2'>Validity : " + validityDays + " Days. Place of Supply : " + HtmlTender(placeOfSupply) + "</td></tr>"
-            + "<tr class='blank-row'><td colspan='2'></td></tr></table>"
-            + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN Code</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
+            + "<div class='quote-frame'><div class='quote-title'>::Quotation ::</div>"
+            + "<table class='quote-grid quote-head'><tr>"
+            + "<td class='to-cell' rowspan='4'><div class='cell-title'>To,</div><div class='client-lines'>"
+            + HtmlTender(customerName) + "<br/>" + HtmlTender(clientAddress).Replace("\n", "<br/>")
+            + (string.IsNullOrWhiteSpace(customerGst) ? "" : "<br/>GST No. " + HtmlTender(customerGst))
+            + "</div></td>"
+            + "<td class='meta-row'><span>Quotation No</span><span>: " + HtmlTender(bid.QuotationNumber) + "</span></td></tr>"
+            + "<tr><td class='meta-row'><span>Quotation Date</span><span>: " + HtmlTender(submittedDate) + "</span></td></tr>"
+            + "<tr><td class='from-label'>From:</td></tr>"
+            + "<tr><td class='from-cell'><strong>" + HtmlTender(companyName) + "</strong><br/>"
+            + "Shop Lic.No&nbsp;&nbsp; : " + HtmlTender(shopLicense) + "<br/>"
+            + "P.F.No.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : " + HtmlTender(pfNumber) + "<br/>"
+            + "ESIC Code No. : " + HtmlTender(esicNumber) + "<br/>"
+            + "Prof. Tax No.&nbsp;&nbsp; : " + HtmlTender(profTax) + "<br/>"
+            + "PAN CARD NO. : " + HtmlTender(companyPan) + "<br/>"
+            + "GST NUMBER&nbsp;&nbsp;&nbsp;: " + HtmlTender(companyGstin) + "</td></tr>"
+            + "</table>"
+            + "<div class='subject-line'><strong>Sub:</strong> " + HtmlTender(subject) + "</div>"
+            + "<table class='quote-grid items'><thead><tr><th style='width:48px'>Sr No.</th><th>Description</th><th style='width:84px'>HSN / SAC<br/>Code</th><th style='width:54px'>Unit</th><th style='width:46px'>Qty</th><th style='width:96px'>Rate<br/>(Rs.)</th><th style='width:112px'>Amount<br/>(Rs.)</th></tr></thead><tbody>"
             + rows
-            + "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td class='total-value'>-</td></tr>"
-            + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + bid.TotalTaxableValue.ToString("N2") + "</td></tr>"
+            + "<tr><td class='total-label' colspan='6'>Total Rs.</td><td class='total-value'>" + FormatTenderAmount(bid.TotalTaxableValue) + "</td></tr>"
             + taxRows
-            + "<tr><td colspan='6' class='total-label'>Grand Total Amount</td><td class='total-value'>" + bid.TotalWithGST.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='7' class='words'>" + HtmlTender(amountWords) + ".</td></tr></tbody></table>"
-            + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
-            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false) + "</td>"
-            + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
-            + "<tr><td class='certification'>" + DocumentBranding.BuildCertificationTextHtml() + "</td>"
-            + "<td class='footer-right'><span class='send-title'>Customer / Site : </span><br/>" + HtmlTender(site?.SiteName) + "<br/>" + HtmlTender(clientAddress).Replace("\n", "<br/>") + "</td></tr>"
+            + "<tr><td class='total-label grand' colspan='6'>Total Amount</td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr>"
+            + "<tr><td colspan='7' class='words'>" + HtmlTender(amountWords) + "</td></tr></tbody></table>"
+            + "<table class='quote-grid terms'><tr><td class='terms-left'>"
+            + "<div>&#8226; Quotation is Valid Upto " + validityDays + " days.</div>"
+            + "<div>&#8226; If any Extra Work Required Charge We be Extra at<br/>Actual</div>"
+            + "</td><td class='terms-right'></td></tr>"
+            + "<tr><td class='comments'>Comments &amp; Special Instructions, if any.</td>"
+            + "<td class='contact'>For any querries about this Quotation, please contact Mr. Santosh<br/>Sonawane on 9967604066 or at <strong>msentp.info@gmail.com</strong></td></tr>"
             + "</table></div></div></body></html>";
+        }
+
+        private static string BuildMseQuotationCss()
+        {
+            return @"
+@page{size:A4;margin:12mm;}
+body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
+.page{width:100%;max-width:760px;margin:0 auto;background:#fff;}
+.mse-official-header{margin:0 0 10px 0;padding:0;border-bottom:0;}
+.mse-official-header-logo img{max-width:760px;width:100%;height:auto;}
+.quote-frame{border:1px solid #000;margin-top:6px;}
+.quote-title{text-align:center;font-size:17px;font-weight:700;line-height:1.1;border-bottom:1px solid #000;padding:4px 0 5px 0;}
+.quote-grid{width:100%;border-collapse:collapse;table-layout:fixed;}
+.quote-grid td,.quote-grid th{border:1px solid #000;padding:3px 5px;vertical-align:top;font-size:14px;line-height:1.16;}
+.quote-head{border-left:0;border-right:0;}
+.quote-head td{border-top:0;}
+.quote-head tr td:first-child{border-left:0;}
+.quote-head tr td:last-child{border-right:0;}
+.to-cell{width:47%;height:142px;font-size:15px;}
+.cell-title{font-weight:700;margin-bottom:8px;}
+.client-lines{font-size:14px;line-height:1.25;min-height:108px;}
+.meta-row{height:23px;font-weight:700;}
+.meta-row span:first-child{display:inline-block;width:112px;}
+.from-label{height:20px;font-weight:700;}
+.from-cell{height:86px;font-size:13px;line-height:1.15;}
+.subject-line{border-top:0;border-bottom:1px solid #000;padding:4px 6px;font-size:14px;line-height:1.2;min-height:20px;}
+.items th{text-align:center;font-weight:700;font-size:13px;line-height:1.12;padding:4px 3px;}
+.items td{font-size:13px;padding:4px 5px;}
+.items .center{text-align:center;}
+.items .num{text-align:right;}
+.items .desc{line-height:1.2;}
+.item-row td{height:56px;}
+.compact-item-row td{height:32px;}
+.dense-item-row td{height:24px;font-size:12px;}
+.total-label{text-align:left;font-weight:700;font-size:14px;}
+.total-value{text-align:right;font-weight:700;font-size:14px;}
+.grand{font-size:15px;}
+.words{font-weight:700;font-size:14px;line-height:1.25;height:24px;}
+.terms td{height:58px;font-size:13px;line-height:1.22;}
+.terms tr:first-child td{border-top:0;}
+.terms-left{width:47%;}
+.terms-right{width:53%;}
+.comments{font-weight:700;height:38px;}
+.contact{font-size:12px;line-height:1.22;}
+@media screen{
+body{background:#fff;}
+.page{max-width:760px;}
+.mse-official-header{margin-bottom:6px;}
+.mse-official-header-logo img{max-width:760px;}
+.quote-frame{margin-top:3px;}
+.quote-title{font-size:16px;padding:3px 0;}
+.quote-grid td,.quote-grid th{font-size:12px;line-height:1.1;padding:2px 4px;}
+.to-cell{height:118px;font-size:13px;}
+.client-lines{font-size:12px;min-height:82px;}
+.meta-row{height:20px;}
+.from-label{height:18px;}
+.from-cell{height:76px;font-size:12px;line-height:1.08;}
+.subject-line{font-size:12px;padding:3px 5px;min-height:16px;}
+.items th{font-size:12px;padding:3px 2px;}
+.items td{font-size:12px;padding:3px 4px;}
+.item-row td{height:42px;}
+.compact-item-row td{height:28px;}
+.dense-item-row td{height:22px;font-size:11px;}
+.total-label,.total-value{font-size:12px;}
+.grand{font-size:13px;}
+.words{font-size:12px;height:20px;}
+.terms td{height:42px;font-size:12px;}
+.comments{height:30px;}
+.contact{font-size:11px;}
+}
+@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page{max-width:none;}.quote-frame{break-inside:avoid;page-break-inside:avoid;}}
+";
+        }
+
+        private static string FormatTenderAmount(decimal value)
+        {
+            return value == 0m ? string.Empty : value.ToString("N2");
+        }
+
+        private static string NormalizeMseSetting(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), "New Client", StringComparison.OrdinalIgnoreCase))
+                return fallback;
+
+            return value.Trim();
         }
 
         private static string SerializeSuggestions(IEnumerable<string> values)
@@ -694,6 +816,7 @@ namespace HVAC_Pro_Desktop.Services
             ValidateTenderForSave(bid);
             bid.Suggestions = GenerateSuggestions(bid);
             bid.SuggestionsJson = SerializeSuggestions(bid.Suggestions);
+            PrepareCommercialFlow(bid);
         }
 
         private void ValidateTenderForSave(TenderBid bid)
@@ -871,6 +994,11 @@ namespace HVAC_Pro_Desktop.Services
             cmd.Parameters.AddWithValue("@TemplateId", bid.TemplateId.HasValue ? (object)bid.TemplateId.Value : DBNull.Value);
             cmd.Parameters.AddWithValue("@ClientPriceMemoryApplied", bid.ClientPriceMemoryApplied);
             cmd.Parameters.AddWithValue("@SuggestionsJson", (object)(bid.SuggestionsJson ?? "[]"));
+            PrepareCommercialFlow(bid);
+            cmd.Parameters.AddWithValue("@CommercialFlow", (object)(bid.CommercialFlow ?? "Revenue"));
+            cmd.Parameters.AddWithValue("@CustomerDocumentStatus", (object)(bid.CustomerDocumentStatus ?? "Quote Draft"));
+            cmd.Parameters.AddWithValue("@SupplierDocumentStatus", (object)(bid.SupplierDocumentStatus ?? "Not Required"));
+            cmd.Parameters.AddWithValue("@FlowNotes", string.IsNullOrWhiteSpace(bid.FlowNotes) ? (object)DBNull.Value : bid.FlowNotes);
         }
 
         private TenderBid MapDetailedBid(IDataRecord r)
@@ -1009,7 +1137,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static string GetTenderSetting(Dictionary<string, string> settings, string key, string fallback)
         {
-            return settings != null && settings.TryGetValue(key, out string value) ? value : fallback;
+            return settings != null && settings.TryGetValue(key, out string value) && !string.IsNullOrWhiteSpace(value) ? value : fallback;
         }
 
         private static string HtmlTender(string value)

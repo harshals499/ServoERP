@@ -65,3 +65,5 @@
 
 # Website-hosted installer binaries are generated release artifacts
 /marketing_site/download/*.exe
+/marketing_site/node_modules/
+/marketing_site/data/

@@ -114,6 +114,21 @@ namespace HVAC_Pro_Desktop.Services
             _audit.Record("EDIT", "Contracts", contract.ContractID, "Contract saved with data-quality validation");
         }
 
+        public void DeleteContract(int contractId)
+        {
+            SessionManager.DemandPermission("Contracts", "Delete");
+            if (contractId <= 0)
+                throw new Exception("Select a saved contract to delete.");
+
+            _contractRepo.Delete(contractId);
+            AppDataCache.RemovePrefix("contracts:");
+            AppDataCache.RemovePrefix("invoices:");
+            AppDataCache.RemovePrefix("jobs:");
+            AppDataCache.RemovePrefix("purchases:");
+            SessionManager.LogAction("DELETE", "Contracts", contractId, "Contract deleted");
+            _audit.Record("DELETE", "Contracts", contractId, "Contract deleted");
+        }
+
         public string GetContractStatusLabel(AMCContract contract)
         {
             int daysUntilExpiry = (contract.EndDate - DateTime.Now).Days;

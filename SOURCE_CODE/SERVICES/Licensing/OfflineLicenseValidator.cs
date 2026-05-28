@@ -4,13 +4,14 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Web.Script.Serialization;
 using HVAC_Pro_Desktop.Models;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.Services.Licensing
 {
     public sealed class OfflineLicenseValidator : IOfflineLicenseValidator
     {
         private const string PublicKeyXml =
-            "<RSAKeyValue><Modulus>6xNXuf1FWXUCj7S5gwawdFNJLbOmJjK5m/5vWqrsX2dtOQt6WGwXKc4fN7a9f7Efg2xrPv03RKvS7O4AZlIwrT/UnaXcUqM+vQMnk6un6yJU0kxur6oyUxFMWTdU5Lm3LM6QsXrlV5baTURt7ZbHBOT2cRYPtZOjDjnE0P3izW4UPIrowEd4Z4XiKE7GxlCj3bruk5ynyp5xBnPKy8aAfKw3GfLAvJul/AX4BsThOnsPRzK0hADt77TxnSzy0F1+iOgOBnOvY0JS/h9rhRuApwp4VnaEoNV+CL7bmqaNQm57cevnlPqpKOZHQfbxBPlK1ZczPi3bv3pkdsZSMEhsDQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
+            "<RSAKeyValue><Modulus>7rKnCt2zsJpmG2xlBr2gnuaPFz9KnufX1I8wCls29YDQkaktNtxJJvRcTh7ibwBr0TrwCdTRzVwbvcNtgars28k7UjZzpLv2/AacMOkktmHNDVY153BthnGrIik3QfsCcwMzfj2D/kaxgSYcs6brP2l//MWHCm87xFevmVIwiWCP1DCjFZCWypDTlhs8nVPkAzuNg3iQdv0tPhhQ3ihIYFElb5EUOdkV+BH05pNvxHfGWUTD6jgWC2a8UXWqJjKMdGL+IgGjSMaEoREHnVcAzkj4N1XzhQ/WBRnQFm+zAvrak2io8JQTapHu4H4C5fqg2rt2K+zzcgE/fInFCTgnZQ==</Modulus><Exponent>AQAB</Exponent></RSAKeyValue>";
 
         private readonly JavaScriptSerializer _serializer = new JavaScriptSerializer();
 
@@ -42,30 +43,35 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                     && !string.Equals(payload.MachineFingerprintHash, expectedMachineFingerprintHash, StringComparison.Ordinal))
                     return Fail("License is not activated for this machine.", true);
 
-                LicensePlanType plan;
-                if (!Enum.TryParse(payload.PlanType ?? string.Empty, true, out plan))
-                    return Fail("License plan is invalid.", true);
+                LicensePlanType plan = LicensePlanCatalog.ParsePlan(
+                    string.IsNullOrWhiteSpace(payload.PlanName) ? payload.PlanType : payload.PlanName);
 
                 var snapshot = new LicenseSnapshot
                 {
-                    LicenseKey = payload.LicenseKey,
+                    LicenseKey = SecurityHelpers.HashToken(payload.LicenseKey),
+                    CompanyId = payload.CompanyId,
+                    CompanyCode = payload.CompanyCode,
                     PlanType = plan,
                     CompanyName = payload.CompanyName,
+                    SubscriptionStartDateUtc = EnsureUtc(payload.SubscriptionStartDateUtc == default(DateTime) ? payload.IssueDateUtc : payload.SubscriptionStartDateUtc),
+                    SubscriptionEndDateUtc = EnsureUtc(payload.SubscriptionEndDateUtc == default(DateTime) ? payload.ExpiryDateUtc : payload.SubscriptionEndDateUtc),
+                    SubscriptionStatus = string.IsNullOrWhiteSpace(payload.SubscriptionStatus) ? "Active" : payload.SubscriptionStatus,
                     MaxCompanies = payload.MaxCompanies <= 0 ? 1 : payload.MaxCompanies,
-                    MaxDevices = payload.MaxDevices <= 0 ? DefaultMaxDevices(plan) : payload.MaxDevices,
-                    MaxUsers = payload.MaxUsers <= 0 ? DefaultMaxDevices(plan) : payload.MaxUsers,
+                    MaxDevices = payload.MaxDevices <= 0 ? LicensePlanCatalog.GetMaxDevices(plan) : payload.MaxDevices,
+                    MaxUsers = payload.MaxUsers <= 0 ? LicensePlanCatalog.GetMaxDevices(plan) : payload.MaxUsers,
                     IssueDateUtc = EnsureUtc(payload.IssueDateUtc),
                     ExpiryDateUtc = EnsureUtc(payload.ExpiryDateUtc),
                     GracePeriodDays = payload.GracePeriodDays < 0 ? 0 : payload.GracePeriodDays,
                     MachineFingerprintHash = string.IsNullOrWhiteSpace(payload.MachineFingerprintHash) ? expectedMachineFingerprintHash : payload.MachineFingerprintHash,
                     ActivatedDeviceId = string.IsNullOrWhiteSpace(payload.ActivatedDeviceId) ? expectedMachineFingerprintHash : payload.ActivatedDeviceId,
                     ActivatedDeviceCount = payload.ActivatedDeviceCount <= 0 ? 1 : payload.ActivatedDeviceCount,
+                    OnlineValidationRequired = payload.OnlineValidationRequired,
                     SupportLevel = payload.SupportLevel,
-                    PlanName = string.IsNullOrWhiteSpace(payload.PlanName) ? plan.ToString() : payload.PlanName,
+                    PlanName = string.IsNullOrWhiteSpace(payload.PlanName) ? LicensePlanCatalog.GetDisplayName(plan) : payload.PlanName,
                     BillingCycle = string.IsNullOrWhiteSpace(payload.BillingCycle) ? DefaultBillingCycle(plan) : payload.BillingCycle,
                     Currency = string.IsNullOrWhiteSpace(payload.Currency) ? "INR" : payload.Currency,
-                    PriceAmount = payload.PriceAmount < 0 ? 0 : payload.PriceAmount,
-                    RenewalPriceAmount = payload.RenewalPriceAmount < 0 ? 0 : payload.RenewalPriceAmount,
+                    PriceAmount = payload.PriceAmount <= 0 ? LicensePlanCatalog.GetAnnualPrice(plan) : payload.PriceAmount,
+                    RenewalPriceAmount = payload.RenewalPriceAmount <= 0 ? LicensePlanCatalog.GetAnnualPrice(plan) : payload.RenewalPriceAmount,
                     IsLaunchOffer = payload.IsLaunchOffer,
                     EnabledModules = payload.EnabledModules ?? LicenseFeatureCatalog.GetModulesForPlan(plan),
                     LastSuccessfulValidationUtc = DateTime.UtcNow,
@@ -110,13 +116,6 @@ namespace HVAC_Pro_Desktop.Services.Licensing
             if (value == default(DateTime))
                 return DateTime.UtcNow;
             return value.Kind == DateTimeKind.Utc ? value : DateTime.SpecifyKind(value, DateTimeKind.Utc);
-        }
-
-        private static int DefaultMaxDevices(LicensePlanType plan)
-        {
-            if (plan == LicensePlanType.Trial) return 1;
-            if (plan == LicensePlanType.Standard) return 3;
-            return 10;
         }
 
         private static string DefaultBillingCycle(LicensePlanType plan)

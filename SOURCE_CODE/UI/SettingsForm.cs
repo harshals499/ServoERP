@@ -5,11 +5,14 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Globalization;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.AI;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.Services.Integrations;
 using HVAC_Pro_Desktop.Services.Licensing;
 using HVAC_Pro_Desktop.UI.Licensing;
 using HVAC_Pro_Desktop.UI.Helpers;
@@ -63,7 +66,13 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblInstalledVersion;
         private ComboBox _cmbDisplayFitMode;
         private ComboBox _cmbUiScale;
-        private FlowLayoutPanel _generalFlow;
+        private CheckBox _chkAiEnabled;
+        private ComboBox _cmbAiProvider;
+        private TextBox _txtAiEndpoint;
+        private TextBox _txtAiModel;
+        private NumericUpDown _numAiMaxTokens;
+        private NumericUpDown _numAiTemperature;
+        private Panel _generalFlow;
         private Label _lblUserTotal;
         private Label _lblUserActive;
         private Label _lblUserAdmins;
@@ -79,7 +88,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color SectionBg = DS.Slate50;
         private static readonly Color SaveGreen = DS.Teal600;
         private static readonly Color InfoBlue = DS.Primary600;
-        private const int GeneralCanvasWidth = 1180;
+        private const int GeneralCanvasWidth = 1540;
 
         private sealed class SectionCardState
         {
@@ -113,16 +122,24 @@ namespace HVAC_Pro_Desktop.UI
 
             Button btnSave = MakeBtn("Save Settings", SaveGreen, 146);
             btnSave.Location = new Point(0, 0);
+            ModernIconSystem.AddButtonIcon(btnSave, ModernIconKind.Save);
             btnSave.Click += (s, e) => Save();
             Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 148);
             btnResetDefaults.ForeColor = DS.Slate700;
             btnResetDefaults.FlatAppearance.BorderSize = 1;
             btnResetDefaults.FlatAppearance.BorderColor = DS.Slate300;
+            ModernIconSystem.AddButtonIcon(btnResetDefaults, ModernIconKind.Preference);
             btnResetDefaults.Click += (s, e) => ResetGeneralDefaults();
             Button btnToolbarCheckUpdates = MakeBtn("Check Update Notification", InfoBlue, 190);
             btnToolbarCheckUpdates.Location = new Point(0, 0);
-            btnToolbarCheckUpdates.Visible = IsAdminUser();
+            ModernIconSystem.AddButtonIcon(btnToolbarCheckUpdates, ModernIconKind.Refresh);
             btnToolbarCheckUpdates.Click += async (s, e) => await CheckVersionNowAsync();
+            Button btnFormsLibrary = MakeBtn("Forms Library", Color.White, 132);
+            btnFormsLibrary.ForeColor = DS.Primary600;
+            btnFormsLibrary.FlatAppearance.BorderSize = 1;
+            btnFormsLibrary.FlatAppearance.BorderColor = DS.BorderStrong;
+            ModernIconSystem.AddButtonIcon(btnFormsLibrary, ModernIconKind.Document);
+            btnFormsLibrary.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Settings / Master Data", "Master Data", null, "company document templates import validation backup compliance settings forms library");
             _lblStatus = new Label
             {
                 AutoSize = false,
@@ -133,27 +150,26 @@ namespace HVAC_Pro_Desktop.UI
                 Height = 22,
                 TextAlign = ContentAlignment.MiddleLeft
             };
-            Panel toolbar = BuildModernActionBar(btnSave, btnResetDefaults, btnToolbarCheckUpdates);
+            Panel toolbar = BuildModernActionBar(btnSave, btnResetDefaults, btnToolbarCheckUpdates, btnFormsLibrary);
 
             _tabs = new TabControl
             {
                 Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                Padding = new Point(22, 8),
+                Padding = new Point(18, 7),
                 SizeMode = TabSizeMode.Fixed,
-                ItemSize = new Size(132, 34),
-                DrawMode = TabDrawMode.OwnerDrawFixed
+                ItemSize = new Size(140, 36),
+                DrawMode = TabDrawMode.OwnerDrawFixed,
+                Appearance = TabAppearance.FlatButtons
             };
             _tabs.DrawItem += DrawModernSettingsTab;
             TabPage generalTab = new TabPage("General") { BackColor = DS.BgPage };
             Panel body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage };
             _generalCanvas = new Panel { Width = GeneralCanvasWidth, BackColor = DS.BgPage, Padding = new Padding(0, 0, 0, 24) };
-            _generalFlow = new FlowLayoutPanel
+            _generalFlow = new Panel
             {
                 Dock = DockStyle.Top,
                 AutoSize = false,
-                WrapContents = true,
-                FlowDirection = FlowDirection.LeftToRight,
                 BackColor = DS.BgPage,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
@@ -187,41 +203,42 @@ namespace HVAC_Pro_Desktop.UI
             if (IsAdminUser())
                 BuildLoginAccessSection(parent);
 
-            if (IsAdminUser())
-                BuildUpdateNotificationsCard(parent);
+            BuildUpdateNotificationsCard(parent);
 
-            Panel companyBody = AddModernSettingsCard(parent, "Company Information", "Profile, compliance, and office location details used across the platform.", 410);
+            Panel companyBody = AddModernSettingsCard(parent, "Company Information", "Profile, compliance, and office location details used across the platform.", 430);
             _txtCompanyName = new TextBox();
-            PlaceLabeledControl(companyBody, "Company Name *", _txtCompanyName, 0, 0, 190);
+            PlaceLabeledControl(companyBody, "Company Name *", _txtCompanyName, 0, 0, 210);
             _txtGST = new TextBox { CharacterCasing = CharacterCasing.Upper };
-            PlaceLabeledControl(companyBody, "GSTIN", _txtGST, 210, 0, 170);
+            PlaceLabeledControl(companyBody, "GSTIN", _txtGST, 226, 0, 190);
             new ToolTip().SetToolTip(_txtGST, "Format: 22ABCDE1234F1Z5");
             _txtPAN = new TextBox { CharacterCasing = CharacterCasing.Upper };
-            PlaceLabeledControl(companyBody, "PAN", _txtPAN, 400, 0, 150);
+            PlaceLabeledControl(companyBody, "PAN", _txtPAN, 432, 0, 150);
             _txtTAN = new TextBox { CharacterCasing = CharacterCasing.Upper };
-            PlaceLabeledControl(companyBody, "TAN", _txtTAN, 0, 72, 170);
+            PlaceLabeledControl(companyBody, "TAN", _txtTAN, 0, 64, 170);
             _txtPhone = new TextBox();
-            PlaceLabeledControl(companyBody, "Phone", _txtPhone, 190, 72, 170);
+            PlaceLabeledControl(companyBody, "Phone", _txtPhone, 190, 64, 170);
             _txtEmail = new TextBox();
-            PlaceLabeledControl(companyBody, "Email", _txtEmail, 380, 72, 170);
+            PlaceLabeledControl(companyBody, "Email", _txtEmail, 380, 64, 202);
             _txtAddress = new TextBox();
-            PlaceLabeledControl(companyBody, "Address / City", _txtAddress, 0, 144, 420);
+            PlaceLabeledControl(companyBody, "Address / City", _txtAddress, 0, 128, 442);
 
             Button btnLocateOffice = MakeBtn("Locate", InfoBlue, 112);
-            btnLocateOffice.Location = new Point(438, 164);
+            btnLocateOffice.Location = new Point(458, 148);
             btnLocateOffice.Click += async (s, e) => await LocateOfficeAsync();
             companyBody.Controls.Add(btnLocateOffice);
 
             _txtOfficeLatitude = new TextBox { ReadOnly = true };
-            PlaceLabeledControl(companyBody, "Office Latitude", _txtOfficeLatitude, 0, 216, 170);
+            PlaceLabeledControl(companyBody, "Office Latitude", _txtOfficeLatitude, 0, 192, 170);
             _txtOfficeLongitude = new TextBox { ReadOnly = true };
-            PlaceLabeledControl(companyBody, "Office Longitude", _txtOfficeLongitude, 190, 216, 170);
+            PlaceLabeledControl(companyBody, "Office Longitude", _txtOfficeLongitude, 190, 192, 170);
             _cmbState = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbState.Items.AddRange(IndiaStateCatalog.Names.Cast<object>().ToArray());
-            PlaceLabeledControl(companyBody, "State / UT", _cmbState, 380, 216, 170);
+            PlaceLabeledControl(companyBody, "State / UT", _cmbState, 380, 192, 202);
             _cmbGstRegistrationType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbGstRegistrationType.Items.AddRange(new object[] { "Regular", "Composition", "Unregistered" });
-            PlaceLabeledControl(companyBody, "GST Registration Type", _cmbGstRegistrationType, 0, 288, 190);
+            PlaceLabeledControl(companyBody, "GST Registration Type", _cmbGstRegistrationType, 0, 256, 220);
+            companyBody.Resize += (s, e) => LayoutCompanyInformationCard(companyBody, btnLocateOffice);
+            LayoutCompanyInformationCard(companyBody, btnLocateOffice);
 
             Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 340);
             _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
@@ -278,6 +295,8 @@ namespace HVAC_Pro_Desktop.UI
             currentScreen.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             displayBody.Controls.Add(currentScreen);
 
+            BuildLocalAiCard(parent);
+
             Panel defaultsBody = AddModernSettingsCard(parent, "India Defaults", "Set default financial and taxation preferences.", 360);
             _txtPrefix = new TextBox { CharacterCasing = CharacterCasing.Upper };
             PlaceLabeledControl(defaultsBody, "Invoice Prefix", _txtPrefix, 0, 0, 150);
@@ -318,18 +337,36 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate500
             };
             defaultsBody.Controls.Add(_lblMoneyPreview);
+            defaultsBody.Resize += (s, e) => LayoutIndiaDefaultsCard(defaultsBody);
+            LayoutIndiaDefaultsCard(defaultsBody);
 
-            Panel hsnBody = AddModernSettingsCard(parent, "HSN / SAC Master", "Manage HSN / SAC codes and tax rates.", 360);
+            Panel hsnBody = AddModernSettingsCard(parent, "HSN / SAC Master", "Manage HSN / SAC codes and tax rates.", 384);
             _gridHsnSac = BuildHsnSacGrid();
-            _gridHsnSac.Location = new Point(0, 0);
-            _gridHsnSac.Size = new Size(526, 246);
-            _gridHsnSac.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            hsnBody.Controls.Add(_gridHsnSac);
+            Panel hsnGridHost = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(526, 258),
+                BackColor = Color.White,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            _gridHsnSac.Location = Point.Empty;
+            _gridHsnSac.Size = new Size(hsnGridHost.Width, hsnGridHost.Height + SystemInformation.HorizontalScrollBarHeight + 2);
+            hsnGridHost.Controls.Add(_gridHsnSac);
+            hsnBody.Controls.Add(hsnGridHost);
 
             Button btnAddRow = MakeBtn("Add HSN/SAC Row", InfoBlue, 150);
-            btnAddRow.Location = new Point(0, 266);
+            btnAddRow.Location = new Point(0, 272);
             btnAddRow.Click += (s, e) => _gridHsnSac.Rows.Add(0, "HSN", "", "", "", 18m, 9m, 9m, 18m, false, true, "");
             hsnBody.Controls.Add(btnAddRow);
+            hsnBody.Resize += (s, e) =>
+            {
+                btnAddRow.Top = Math.Max(210, hsnBody.ClientSize.Height - btnAddRow.Height - 2);
+                hsnGridHost.Width = Math.Max(260, hsnBody.ClientSize.Width);
+                hsnGridHost.Height = Math.Max(150, btnAddRow.Top - 14);
+                _gridHsnSac.Width = hsnGridHost.Width;
+                _gridHsnSac.Height = hsnGridHost.Height + SystemInformation.HorizontalScrollBarHeight + 2;
+                LayoutHsnSacColumns(_gridHsnSac);
+            };
 
             Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection and saved card layout controls.", 330);
             _lblDbStatus = new Label { Location = new Point(0, 0), Size = new Size(520, 24), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate700 };
@@ -354,14 +391,14 @@ namespace HVAC_Pro_Desktop.UI
                 Panel backupBody = AddModernSettingsCard(parent, "Backup & Restore", "Create recoverable SQL backups and restore safely after corruption or mistakes.", 300);
                 BuildBackupRestoreSection(backupBody);
 
-                Panel dataBody = AddModernSettingsCard(parent, "Data Management", "Fresh Start clears transactional records, master data, and settings.", 240);
+                Panel dataBody = AddModernSettingsCard(parent, "Data Management", "Fresh Start clears transactional records, master data, and settings.", 300);
                 BuildFreshStartSection(dataBody);
             }
         }
 
         private void BuildLoginAccessSection(Panel parent)
         {
-            Panel cardBody = AddModernSettingsCard(parent, "User Logins", "Create and manage staff logins from Settings.", 238);
+            Panel cardBody = AddModernSettingsCard(parent, "User Logins", "Create and manage staff logins from Settings.", 300);
 
             cardBody.Controls.Add(new Label
             {
@@ -400,7 +437,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildUpdateNotificationsCard(Panel parent)
         {
-            Panel updatesBody = AddModernSettingsCard(parent, "Update Notifications", "Configure update checks and version information.", 238);
+            Panel updatesBody = AddModernSettingsCard(parent, "Update Notifications", "Configure update checks and version information.", 300);
             _txtVersionCheckUrl = new TextBox();
             PlaceLabeledControl(updatesBody, "Version File URL", _txtVersionCheckUrl, 0, 0, 444);
             Button btnCopy = MakeBtn("Copy", Color.White, 72);
@@ -449,6 +486,53 @@ namespace HVAC_Pro_Desktop.UI
             updatesBody.Controls.Add(btnCheckNow);
         }
 
+        private void BuildLocalAiCard(Panel parent)
+        {
+            Panel aiBody = AddModernSettingsCard(parent, "Local AI Assistant", "Configure the inbuilt ServoERP Copilot. Ollama on localhost is used by default.", 410);
+
+            _chkAiEnabled = new CheckBox
+            {
+                Text = "Enable Local AI Assistant",
+                Location = new Point(0, 0),
+                Size = new Size(240, 26),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate700,
+                BackColor = Color.White
+            };
+            aiBody.Controls.Add(_chkAiEnabled);
+
+            _cmbAiProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAiProvider.Items.AddRange(new object[] { "Ollama", "OpenAI-compatible future" });
+            PlaceLabeledControl(aiBody, "Provider", _cmbAiProvider, 0, 52, 190);
+
+            _txtAiEndpoint = new TextBox();
+            PlaceLabeledControl(aiBody, "Endpoint URL", _txtAiEndpoint, 210, 52, 318);
+
+            _txtAiModel = new TextBox();
+            PlaceLabeledControl(aiBody, "Model name", _txtAiModel, 0, 124, 190);
+
+            _numAiMaxTokens = MakeDecimalBox(Point.Empty, 0, 64m, 4096m, 700m, 0, 50m);
+            PlaceLabeledControl(aiBody, "Max tokens", _numAiMaxTokens, 210, 124, 150);
+
+            _numAiTemperature = MakeDecimalBox(Point.Empty, 0, 0m, 2m, 0.2m, 2, 0.05m);
+            PlaceLabeledControl(aiBody, "Temperature", _numAiTemperature, 378, 124, 150);
+
+            Label help = new Label
+            {
+                Text = "No API keys are stored here. Keep provider as Ollama for local-only AI. Install Ollama, then pull llama3.1 or qwen2.5 before using Copilot.",
+                Location = new Point(0, 204),
+                Size = new Size(528, 48),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            aiBody.Controls.Add(help);
+
+            Button test = MakeBtn("Test Local AI", InfoBlue, 126);
+            test.Location = new Point(0, 266);
+            test.Click += async (s, e) => await TestLocalAiAsync();
+            aiBody.Controls.Add(test);
+        }
+
         private void LoadSettings()
         {
             try
@@ -481,6 +565,7 @@ namespace HVAC_Pro_Desktop.UI
                     _lblInstalledVersion.Text = "Installed version: " + ConfigService.GetAppVersion();
                 LoadDisplayFitSetting();
                 LoadUiScaleSetting();
+                LoadAiSettings();
 
                 LoadHsnSacGrid(_hsnSacSvc.GetAll());
                 RefreshIndiaDefaultsPreview();
@@ -527,7 +612,7 @@ namespace HVAC_Pro_Desktop.UI
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
                 BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.None,
                 RowHeadersVisible = false,
@@ -912,6 +997,7 @@ namespace HVAC_Pro_Desktop.UI
                 _hsnSacSvc.SaveAll(CollectHsnSacRows());
                 SaveDisplayFitSetting();
                 SaveUiScaleSetting();
+                SaveAiSettings();
                 if (_txtVersionCheckUrl != null)
                 {
                     ConfigService.Set("App", "VersionCheckUrl", _txtVersionCheckUrl.Text.Trim());
@@ -966,6 +1052,57 @@ namespace HVAC_Pro_Desktop.UI
             string selected = LayoutScaler.GetUiScalePercent().ToString(CultureInfo.InvariantCulture) + "%";
             int index = _cmbUiScale.Items.IndexOf(selected);
             _cmbUiScale.SelectedIndex = index >= 0 ? index : Math.Max(0, _cmbUiScale.Items.IndexOf("100%"));
+        }
+
+        private void LoadAiSettings()
+        {
+            if (_chkAiEnabled == null)
+                return;
+
+            AiProviderConfig config = AiProviderConfig.Load();
+            _chkAiEnabled.Checked = config.Enabled;
+            SelectCombo(_cmbAiProvider, config.Provider, "Ollama");
+            _txtAiEndpoint.Text = config.EndpointUrl;
+            _txtAiModel.Text = config.ModelName;
+            _numAiMaxTokens.Value = Clamp(_numAiMaxTokens, config.MaxTokens);
+            _numAiTemperature.Value = Clamp(_numAiTemperature, config.Temperature);
+        }
+
+        private void SaveAiSettings()
+        {
+            if (_chkAiEnabled == null)
+                return;
+
+            var config = new AiProviderConfig
+            {
+                Enabled = _chkAiEnabled.Checked,
+                Provider = _cmbAiProvider.SelectedItem == null ? "Ollama" : _cmbAiProvider.SelectedItem.ToString(),
+                EndpointUrl = _txtAiEndpoint.Text.Trim(),
+                ModelName = _txtAiModel.Text.Trim(),
+                MaxTokens = (int)_numAiMaxTokens.Value,
+                Temperature = _numAiTemperature.Value
+            };
+            config.Save();
+        }
+
+        private async Task TestLocalAiAsync()
+        {
+            try
+            {
+                SaveAiSettings();
+                _lblStatus.Text = "Testing Local AI connection...";
+                _lblStatus.ForeColor = InfoBlue;
+                bool ok = await new AiAssistantService().IsLocalAiReachableAsync(CancellationToken.None);
+                _lblStatus.Text = ok
+                    ? "Local AI connected."
+                    : "Local AI is not running. Please install/start Ollama and pull a model like llama3.1 or qwen2.5.";
+                _lblStatus.ForeColor = ok ? SaveGreen : DS.Amber600;
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = "Local AI test failed: " + ex.Message;
+                _lblStatus.ForeColor = Color.Red;
+            }
         }
 
         private void SaveUiScaleSetting()
@@ -1048,31 +1185,51 @@ namespace HVAC_Pro_Desktop.UI
         {
             var grid = new DataGridView
             {
-                Width = 992,
-                Height = 336,
+                Width = 526,
+                Height = 258,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 RowHeadersVisible = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 8.5f)
+                BorderStyle = BorderStyle.None,
+                Font = new Font("Segoe UI", 8.5f),
+                ScrollBars = ScrollBars.None
             };
             StyleDataGrid(grid);
+            grid.ScrollBars = ScrollBars.None;
 
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MasterID", Visible = false });
             grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "CodeType", HeaderText = "Type", DataSource = new[] { "HSN", "SAC" }, FillWeight = 50, Visible = false });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Code", HeaderText = "HSN / SAC", FillWeight = 78 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", HeaderText = "Description", FillWeight = 190 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Code", HeaderText = "HSN / SAC", FillWeight = 78, MinimumWidth = 82 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", HeaderText = "Description", FillWeight = 190, MinimumWidth = 130 });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "BusinessCategory", HeaderText = "Category", FillWeight = 120, Visible = false });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaxRate", HeaderText = "GST %", FillWeight = 55 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CGSTRate", HeaderText = "CGST %", FillWeight = 55 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SGSTRate", HeaderText = "SGST %", FillWeight = 55 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IGSTRate", HeaderText = "IGST %", FillWeight = 55 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaxRate", HeaderText = "GST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CGSTRate", HeaderText = "CGST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SGSTRate", HeaderText = "SGST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IGSTRate", HeaderText = "IGST %", FillWeight = 52, MinimumWidth = 58, Visible = false });
             grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsDefault", HeaderText = "Default", FillWeight = 50, Visible = false });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsActive", HeaderText = "Active", FillWeight = 45 });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsActive", HeaderText = "Active", FillWeight = 45, MinimumWidth = 54, Visible = false });
             grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Notes", HeaderText = "Notes", FillWeight = 140, Visible = false });
+            grid.Resize += (s, e) => LayoutHsnSacColumns(grid);
+            LayoutHsnSacColumns(grid);
             return grid;
+        }
+
+        private void LayoutHsnSacColumns(DataGridView grid)
+        {
+            if (grid == null || grid.Columns.Count == 0)
+                return;
+
+            int taxWidth = 58;
+            int codeWidth = 76;
+            int available = Math.Max(320, grid.ClientSize.Width - 34);
+            int descriptionWidth = Math.Max(128, available - codeWidth - (taxWidth * 3));
+            if (grid.Columns["Code"] != null) grid.Columns["Code"].Width = codeWidth;
+            if (grid.Columns["Description"] != null) grid.Columns["Description"].Width = descriptionWidth;
+            if (grid.Columns["TaxRate"] != null) grid.Columns["TaxRate"].Width = taxWidth;
+            if (grid.Columns["CGSTRate"] != null) grid.Columns["CGSTRate"].Width = taxWidth;
+            if (grid.Columns["SGSTRate"] != null) grid.Columns["SGSTRate"].Width = taxWidth;
         }
 
         private void LoadHsnSacGrid(IEnumerable<HsnSacMasterEntry> rows)
@@ -1200,15 +1357,19 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = text,
                 Width = width,
-                Height = 28,
+                Height = 34,
                 BackColor = bg,
-                ForeColor = Color.White,
+                ForeColor = bg == Color.White ? DS.Slate700 : Color.White,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
-                Cursor = Cursors.Hand
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false
             };
-            button.FlatAppearance.BorderSize = 0;
-            DS.Rounded(button, 6);
+            button.FlatAppearance.BorderSize = bg == Color.White ? 1 : 0;
+            button.FlatAppearance.BorderColor = DS.Slate300;
+            button.FlatAppearance.MouseOverBackColor = bg == Color.White ? DS.Slate50 : ControlPaint.Light(bg);
+            button.FlatAppearance.MouseDownBackColor = bg == Color.White ? DS.Slate100 : ControlPaint.Dark(bg);
+            DS.Rounded(button, 8);
             return button;
         }
 
@@ -1277,23 +1438,26 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildModernActionBar(params Button[] buttons)
         {
-            Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 76, BackColor = DS.BgPage, Padding = new Padding(28, 14, 28, 12) };
+            Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = DS.BgPage, Padding = new Padding(28, 10, 28, 10) };
             FlowLayoutPanel flow = new FlowLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Right,
+                Width = 560,
                 BackColor = DS.BgPage,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false
             };
-            foreach (Button button in buttons)
+            foreach (Button button in buttons.Reverse())
             {
                 button.Height = 36;
-                button.Margin = new Padding(0, 0, 12, 8);
+                button.Margin = new Padding(10, 0, 0, 0);
                 flow.Controls.Add(button);
             }
-            _lblStatus.Margin = new Padding(6, 7, 0, 0);
-            flow.Controls.Add(_lblStatus);
+            _lblStatus.Dock = DockStyle.Fill;
+            _lblStatus.Margin = Padding.Empty;
+            _lblStatus.TextAlign = ContentAlignment.MiddleLeft;
             toolbar.Controls.Add(flow);
+            toolbar.Controls.Add(_lblStatus);
             return toolbar;
         }
 
@@ -1314,7 +1478,7 @@ namespace HVAC_Pro_Desktop.UI
                 new Font("Segoe UI", 9f, selected ? FontStyle.Bold : FontStyle.Regular),
                 bounds,
                 textColor,
-                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix);
             if (selected)
             {
                 using (Pen pen = new Pen(InfoBlue, 2))
@@ -1325,14 +1489,14 @@ namespace HVAC_Pro_Desktop.UI
         private Panel AddModernSettingsCard(Panel parent, string title, string subtitle, int height)
         {
             Panel body;
-            Panel wrapper = DS.MakeCard(out body, 14, new Padding(24, 24, 24, 20));
+            Panel wrapper = DS.MakeCard(out body, 14, new Padding(22, 22, 22, 18));
             wrapper.Size = new Size(560, height);
-            wrapper.Margin = new Padding(0, 0, 16, 16);
+            wrapper.Margin = new Padding(0, 0, 14, 14);
             wrapper.Tag = "settings-card";
             body.Controls.Add(new Label
             {
                 Text = title,
-                Location = new Point(64, 4),
+                Location = new Point(60, 2),
                 Size = new Size(410, 24),
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 ForeColor = DS.Slate900
@@ -1340,26 +1504,18 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(new Label
             {
                 Text = subtitle,
-                Location = new Point(64, 32),
-                Size = new Size(420, 34),
+                Location = new Point(60, 29),
+                Size = new Size(420, 38),
                 Font = new Font("Segoe UI", 8.7f),
                 ForeColor = DS.Slate500
             });
-            Panel icon = new Panel { Location = new Point(0, 4), Size = new Size(44, 44), BackColor = DS.Primary600 };
-            DS.Rounded(icon, 22);
-            icon.Controls.Add(new Label
-            {
-                Text = title.Length > 0 ? title.Substring(0, 1).ToUpperInvariant() : "S",
-                Dock = DockStyle.Fill,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleCenter
-            });
+            Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconSystem.KindForTitle(title), 44, DS.Indigo50, DS.Primary600);
+            icon.Location = new Point(0, 2);
             body.Controls.Add(icon);
             Panel content = new Panel
             {
-                Location = new Point(0, 82),
-                Size = new Size(530, Math.Max(90, height - 114)),
+                Location = new Point(0, 76),
+                Size = new Size(530, Math.Max(90, height - 108)),
                 BackColor = Color.White,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
@@ -1367,6 +1523,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int availableWidth = Math.Max(280, body.ClientSize.Width);
                 content.Width = Math.Max(260, availableWidth);
+                content.Height = Math.Max(90, body.ClientSize.Height - content.Top);
                 foreach (Label label in body.Controls.OfType<Label>())
                 {
                     if (label.Left >= 60)
@@ -1387,23 +1544,38 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label AddSummaryCard(FlowLayoutPanel parent, string title, string value, Color accent)
         {
-            Panel inner;
-            Panel card = DS.MakeCard(out inner, 12, new Padding(14, 10, 14, 10));
-            card.Size = new Size(178, 74);
-            card.Margin = new Padding(0, 0, 14, 12);
+            Panel card = new Panel
+            {
+                BackColor = Color.White,
+                Size = new Size(178, 74),
+                Margin = new Padding(0, 0, 14, 12),
+                Padding = new Padding(14, 10, 14, 10)
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 10))
+                using (Pen pen = new Pen(DS.Slate200))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            DS.Rounded(card, 10);
+            Panel inner = card;
             inner.Controls.Add(new Label
             {
                 Text = title,
-                Location = new Point(0, 0),
-                Size = new Size(146, 18),
+                Location = new Point(36, 0),
+                Size = new Size(110, 18),
                 Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
                 ForeColor = DS.Slate500
             });
+            Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 26, DS.Indigo50, accent, 8);
+            icon.Location = new Point(0, 2);
+            inner.Controls.Add(icon);
             Label valueLabel = new Label
             {
                 Text = value,
-                Location = new Point(0, 24),
-                Size = new Size(146, 28),
+                Location = new Point(36, 24),
+                Size = new Size(110, 28),
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = accent,
                 AutoEllipsis = true
@@ -1433,17 +1605,40 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             int viewportWidth = _generalCanvas.Parent == null ? GeneralCanvasWidth : _generalCanvas.Parent.ClientSize.Width;
-            int canvasWidth = Math.Min(GeneralCanvasWidth, Math.Max(520, viewportWidth - 42));
+            int canvasWidth = Math.Min(GeneralCanvasWidth, Math.Max(420, viewportWidth - 42));
             _generalCanvas.Width = canvasWidth;
             _generalFlow.Width = canvasWidth;
-            bool singleColumn = canvasWidth < 1080;
-            int cardWidth = singleColumn ? canvasWidth - 4 : (canvasWidth - 48) / 2;
+            int columns = canvasWidth >= 1220 ? 3 : (canvasWidth >= 820 ? 2 : 1);
+            int gap = 14;
+            int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
+            int[] columnHeights = new int[columns];
+            Panel[] cards = _generalFlow.Controls
+                .OfType<Panel>()
+                .Where(p => Equals(p.Tag, "settings-card"))
+                .ToArray();
 
-            foreach (Panel card in _generalFlow.Controls.OfType<Panel>().Where(p => Equals(p.Tag, "settings-card")))
-                card.Width = Math.Max(500, cardWidth);
+            _generalFlow.SuspendLayout();
+            foreach (Panel card in cards)
+            {
+                card.Width = Math.Max(390, cardWidth);
+                card.Margin = Padding.Empty;
 
-            Size preferred = _generalFlow.GetPreferredSize(new Size(canvasWidth, 0));
-            _generalFlow.Height = preferred.Height;
+                int column = 0;
+                for (int i = 1; i < columns; i++)
+                {
+                    if (columnHeights[i] < columnHeights[column])
+                        column = i;
+                }
+
+                card.Location = new Point(column * (card.Width + gap), columnHeights[column]);
+                columnHeights[column] += card.Height + gap;
+            }
+            _generalFlow.ResumeLayout(false);
+
+            int contentHeight = columnHeights.Length == 0 ? 0 : columnHeights.Max();
+            if (contentHeight > 0)
+                contentHeight -= gap;
+            _generalFlow.Height = contentHeight;
             _generalCanvas.Height = Math.Max(_generalCanvas.Parent == null ? 0 : _generalCanvas.Parent.ClientSize.Height - 40, _generalFlow.Height + 32);
         }
 
@@ -1461,12 +1656,65 @@ namespace HVAC_Pro_Desktop.UI
             _lblStatus.ForeColor = SaveGreen;
         }
 
+        private void LayoutCompanyInformationCard(Panel parent, Button locateButton)
+        {
+            if (parent == null)
+                return;
+
+            int gap = 14;
+            int width = Math.Max(320, parent.ClientSize.Width);
+            int col = Math.Max(142, (width - gap) / 2);
+            int rightX = col + gap;
+            int full = width;
+
+            SetLabeledControlBounds(parent, "Company Name *", _txtCompanyName, 0, 0, col);
+            SetLabeledControlBounds(parent, "GSTIN", _txtGST, rightX, 0, col);
+            SetLabeledControlBounds(parent, "PAN", _txtPAN, 0, 52, col);
+            SetLabeledControlBounds(parent, "TAN", _txtTAN, rightX, 52, col);
+            SetLabeledControlBounds(parent, "Phone", _txtPhone, 0, 104, col);
+            SetLabeledControlBounds(parent, "Email", _txtEmail, rightX, 104, col);
+
+            int locateWidth = locateButton == null ? 0 : locateButton.Width;
+            SetLabeledControlBounds(parent, "Address / City", _txtAddress, 0, 156, Math.Max(170, full - locateWidth - gap));
+            if (locateButton != null)
+                locateButton.Location = new Point(Math.Max(0, full - locateButton.Width), 176);
+
+            SetLabeledControlBounds(parent, "Office Latitude", _txtOfficeLatitude, 0, 208, col);
+            SetLabeledControlBounds(parent, "Office Longitude", _txtOfficeLongitude, rightX, 208, col);
+            SetLabeledControlBounds(parent, "State / UT", _cmbState, 0, 260, col);
+            SetLabeledControlBounds(parent, "GST Registration Type", _cmbGstRegistrationType, rightX, 260, col);
+        }
+
+        private void LayoutIndiaDefaultsCard(Panel parent)
+        {
+            if (parent == null)
+                return;
+
+            int gap = 14;
+            int width = Math.Max(320, parent.ClientSize.Width);
+            int col = Math.Max(142, (width - gap) / 2);
+            int rightX = col + gap;
+
+            SetLabeledControlBounds(parent, "Invoice Prefix", _txtPrefix, 0, 0, col);
+            SetLabeledControlBounds(parent, "Default GST %", _numGSTRate, rightX, 0, col);
+            SetLabeledControlBounds(parent, "Payment Terms (days)", _numPayTerms, 0, 58, col);
+            SetLabeledControlBounds(parent, "Default Markup %", _numMarkupPct, rightX, 58, col);
+            SetLabeledControlBounds(parent, "Annual Turnover", _numAnnualTurnover, 0, 116, col);
+            SetLabeledControlBounds(parent, "E-Invoice Threshold", _numEInvoiceThreshold, rightX, 116, col);
+            SetLabeledControlBounds(parent, "Currency", _txtCurrency, 0, 174, col);
+            SetLabeledControlBounds(parent, "Financial Year", _txtFinancialYear, rightX, 174, col);
+            _chkEInvoiceEligible.Location = new Point(0, 236);
+            _chkEInvoiceEligible.Width = col;
+            _lblMoneyPreview.Location = new Point(rightX, 232);
+            _lblMoneyPreview.Size = new Size(col, 54);
+        }
+
         private void CenterCanvas(Panel viewport, Panel canvas)
         {
             if (viewport == null || canvas == null)
                 return;
 
-            canvas.Left = Math.Max(20, (viewport.ClientSize.Width - canvas.Width) / 2);
+            canvas.Left = 20;
             canvas.Top = 20;
             ReflowSettingsCards();
         }
@@ -1666,7 +1914,7 @@ namespace HVAC_Pro_Desktop.UI
             int availableWidth = Math.Max(300, parent.ClientSize.Width);
             foreach (string pageKey in pageKeys)
             {
-                Button button = MakeBtn("Reset " + pageKey.Replace("Analysis", " Analysis"), InfoBlue, 220);
+                Button button = MakeBtn("Reset " + pageKey.Replace("Analysis", " Analysis"), InfoBlue, 174);
                 if (x > 0 && x + button.Width > availableWidth)
                 {
                     x = 0;
@@ -1675,7 +1923,7 @@ namespace HVAC_Pro_Desktop.UI
                 button.Location = new Point(x, y);
                 button.Click += (s, e) => ResetLayout(pageKey);
                 parent.Controls.Add(button);
-                x += 236;
+                x += 188;
             }
 
             Button resetAll = MakeBtn("Reset all layouts", SaveGreen, 180);
@@ -1711,11 +1959,12 @@ namespace HVAC_Pro_Desktop.UI
             parent.Controls.Add(new Label
             {
                 Text = "Type CONFIRM in the next dialog to unlock the delete action.",
-                Location = new Point(152, 68),
-                Width = 520,
+                Location = new Point(0, 112),
+                Width = Math.Max(240, parent.ClientSize.Width),
                 Height = 24,
                 Font = new Font("Segoe UI", 9),
-                ForeColor = DS.Slate500
+                ForeColor = DS.Slate500,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             });
         }
 
@@ -1747,6 +1996,20 @@ namespace HVAC_Pro_Desktop.UI
             btnOpenFolder.Location = new Point(280, 78);
             btnOpenFolder.Click += (s, e) => OpenBackupFolder();
             parent.Controls.Add(btnOpenFolder);
+
+            Button btnCloudBackup = MakeBtn("Cloud Backup", Color.FromArgb(79, 70, 229), 124);
+            btnCloudBackup.Location = new Point(420, 78);
+            btnCloudBackup.Click += async (s, e) => await CreateCloudBackupAsync();
+            parent.Controls.Add(btnCloudBackup);
+            parent.Resize += (s, e) =>
+            {
+                int gap = 10;
+                int buttonWidth = Math.Max(92, (parent.ClientSize.Width - (gap * 3)) / 4);
+                btnBackupNow.SetBounds(0, 78, buttonWidth, 34);
+                btnRestoreFile.SetBounds(btnBackupNow.Right + gap, 78, buttonWidth, 34);
+                btnOpenFolder.SetBounds(btnRestoreFile.Right + gap, 78, buttonWidth, 34);
+                btnCloudBackup.SetBounds(btnOpenFolder.Right + gap, 78, buttonWidth, 34);
+            };
 
             parent.Controls.Add(new Label
             {
@@ -1791,6 +2054,14 @@ namespace HVAC_Pro_Desktop.UI
             copyFingerprint.Location = new Point(308, 104);
             copyFingerprint.Click += (s, e) => CopyLicenseDeviceFingerprint();
             parent.Controls.Add(copyFingerprint);
+            parent.Resize += (s, e) =>
+            {
+                int gap = 10;
+                int buttonWidth = Math.Max(104, (parent.ClientSize.Width - (gap * 2)) / 3);
+                activate.SetBounds(0, 104, buttonWidth, 34);
+                refresh.SetBounds(activate.Right + gap, 104, buttonWidth, 34);
+                copyFingerprint.SetBounds(refresh.Right + gap, 104, buttonWidth, 34);
+            };
 
             parent.Controls.Add(new Label
             {
@@ -1811,30 +2082,36 @@ namespace HVAC_Pro_Desktop.UI
             if (s == null || string.IsNullOrWhiteSpace(s.LicenseKey))
                 return "License: activation required.";
 
+            string displayPlan = LicensePlanCatalog.GetDisplayName(s);
             string price = BuildLicensePriceText(s);
+            string companyCode = string.IsNullOrWhiteSpace(s.CompanyCode) ? string.Empty : " | Code: " + s.CompanyCode;
+            string mode = s.OnlineValidationRequired ? "Online subscription" : "Offline/local license";
             return "License: " + s.Status
-                + "\r\nPlan: " + (string.IsNullOrWhiteSpace(s.PlanName) ? s.PlanType.ToString() : s.PlanName) + " | Company: " + s.CompanyName
+                + "\r\nPlan: " + displayPlan + " | Company: " + s.CompanyName + companyCode
                 + "\r\nExpires: " + s.ExpiryDateUtc.ToLocalTime().ToString("dd MMM yyyy")
-                + " | Devices: " + Math.Max(1, s.ActivatedDeviceCount) + "/" + s.MaxDevices
+                + " | Devices: " + Math.Max(1, s.ActivatedDeviceCount) + "/" + LicensePlanCatalog.GetDisplayMaxDevices(s) + " | Grace: " + s.GracePeriodDays + " day(s)"
+                + "\r\nMode: " + mode
                 + "\r\n" + price + (string.IsNullOrWhiteSpace(price) ? string.Empty : " | ") + (s.StatusMessage ?? result.Message);
         }
 
         private static string BuildLicensePriceText(LicenseSnapshot s)
         {
-            if (s == null || s.PriceAmount <= 0)
+            if (s == null)
                 return string.Empty;
 
             string currency = string.IsNullOrWhiteSpace(s.Currency) ? "INR" : s.Currency;
-            string billing = string.IsNullOrWhiteSpace(s.BillingCycle) ? "Annual" : s.BillingCycle;
-            decimal renewal = s.RenewalPriceAmount > 0 ? s.RenewalPriceAmount : s.PriceAmount;
+            decimal price = LicensePlanCatalog.GetDisplayAnnualPrice(s);
+            if (price <= 0)
+                return string.Empty;
+            decimal renewal = price;
             string offer = s.IsLaunchOffer ? " launch offer" : string.Empty;
-            return "Price: " + FormatLicenseMoney(currency, s.PriceAmount) + " / " + billing
-                + " | Renewal: " + FormatLicenseMoney(currency, renewal) + offer;
+            return "Price: " + FormatLicenseMoney(currency, price) + "/year"
+                + " | Renewal: " + FormatLicenseMoney(currency, renewal) + "/year" + offer;
         }
 
         private static string FormatLicenseMoney(string currency, decimal amount)
         {
-            string symbol = string.Equals(currency, "INR", StringComparison.OrdinalIgnoreCase) ? "Rs. " : currency + " ";
+            string symbol = string.Equals(currency, "INR", StringComparison.OrdinalIgnoreCase) ? "₹" : currency + " ";
             return symbol + amount.ToString("N0", CultureInfo.GetCultureInfo("en-IN"));
         }
 
@@ -1894,6 +2171,26 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AppLogger.LogError("SettingsForm.CreateBackupAsync", ex);
                 SetBackupStatus("Backup failed: " + ex.Message, Color.Red);
+            }
+        }
+
+        private async Task CreateCloudBackupAsync()
+        {
+            SetBackupStatus("Creating cloud backup...", DS.Slate700);
+            try
+            {
+                IntegrationOperationResult result = await new CloudBackupIntegrationService().CreateAndUploadBackupAsync(System.Threading.CancellationToken.None);
+                SetBackupStatus(result.Success ? "Cloud backup complete: " + result.ReferenceId : "Cloud backup failed: " + result.Message, result.Success ? SaveGreen : Color.Red);
+                MessageBox.Show(
+                    result.Success ? "Cloud backup completed:\r\n" + result.LocalPath : "Cloud backup failed:\r\n" + result.Message,
+                    result.Success ? "Cloud Backup Complete" : "Cloud Backup Failed",
+                    MessageBoxButtons.OK,
+                    result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SettingsForm.CreateCloudBackupAsync", ex);
+                SetBackupStatus("Cloud backup failed: " + ex.Message, Color.Red);
             }
         }
 
@@ -2058,6 +2355,24 @@ namespace HVAC_Pro_Desktop.UI
             parent.Height = Math.Max(parent.Height, y + height + 36);
         }
 
+        private void SetLabeledControlBounds(Panel parent, string label, Control control, int x, int y, int width, int height = 34)
+        {
+            if (parent == null || control == null)
+                return;
+
+            Label labelControl = parent.Controls
+                .OfType<Label>()
+                .FirstOrDefault(l => string.Equals(l.Text, label, StringComparison.Ordinal));
+            if (labelControl != null)
+            {
+                labelControl.Location = new Point(x, y);
+                labelControl.Width = width;
+                labelControl.Height = 18;
+            }
+
+            control.SetBounds(x, y + 20, width, height);
+        }
+
         private void StyleInputControl(Control control)
         {
             control.Font = new Font("Segoe UI", 9.5f);
@@ -2200,15 +2515,17 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                VersionCheckResult result = await VersionCheckService.CheckForUpdateAsync(true);
+                UpdateCheckResult result = await UpdateService.CheckForUpdatesAsync();
 
                 if (result.IsUpdateAvailable)
                 {
-                    MessageBox.Show(
-                        "Version " + result.LatestVersion + " is available.\r\nCurrent version: " + result.CurrentVersion + ".\r\nContact your administrator to update.",
+                    DialogResult install = MessageBox.Show(
+                        "Version " + result.LatestVersion + " is available.\r\nCurrent version: " + result.CurrentVersion + ".\r\n\r\nInstall the update now?",
                         "Update available",
-                        MessageBoxButtons.OK,
+                        MessageBoxButtons.OKCancel,
                         MessageBoxIcon.Information);
+                    if (install == DialogResult.OK)
+                        await InstallUpdateAsync(result);
                 }
                 else
                 {
@@ -2228,6 +2545,84 @@ namespace HVAC_Pro_Desktop.UI
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
+        }
+
+        private Task InstallUpdateAsync(UpdateCheckResult result)
+        {
+            if (result == null || !result.IsUpdateAvailable)
+                return Task.CompletedTask;
+
+            using (var progressForm = new Form
+            {
+                Text = "Downloading ServoERP update",
+                StartPosition = FormStartPosition.CenterParent,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                Size = new Size(420, 150),
+                BackColor = DS.BgPage,
+                Font = new Font("Segoe UI", 9f)
+            })
+            using (var cancelSource = new CancellationTokenSource())
+            {
+                var status = new Label
+                {
+                    Text = "Downloading update package...",
+                    Dock = DockStyle.Top,
+                    Height = 36,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    Padding = new Padding(18, 8, 18, 0),
+                    ForeColor = DS.Slate800
+                };
+                var progress = new ProgressBar
+                {
+                    Dock = DockStyle.Top,
+                    Height = 20,
+                    Minimum = 0,
+                    Maximum = 100
+                };
+                var cancel = DS.GhostBtn("Cancel", 90, 30);
+                cancel.Dock = DockStyle.Bottom;
+                cancel.Click += (s, e) => cancelSource.Cancel();
+                progressForm.Controls.Add(cancel);
+                progressForm.Controls.Add(progress);
+                progressForm.Controls.Add(status);
+
+                var progressReporter = new Progress<int>(value =>
+                {
+                    progress.Value = Math.Max(0, Math.Min(100, value));
+                    status.Text = "Downloading update package... " + progress.Value + "%";
+                });
+
+                progressForm.Shown += async (s, e) =>
+                {
+                    try
+                    {
+                        string packagePath = await UpdateService.DownloadUpdatePackageAsync(result, progressReporter, cancelSource.Token);
+                        progressForm.Close();
+                        UpdateService.StartPackageUpdater(packagePath);
+                        Application.Exit();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        progressForm.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        progressForm.Close();
+                        AppLogger.LogError("SettingsForm.InstallUpdate", ex);
+                        MessageBox.Show(
+                            "Automatic update could not complete.\r\n\r\n" + ex.Message + "\r\n\r\nPlease try again in a few minutes.",
+                            "Install update",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                    }
+                };
+
+                progressForm.ShowDialog(this);
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

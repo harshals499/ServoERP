@@ -202,6 +202,41 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void Delete(int contractId)
+        {
+            using (SqlConnection conn = _dbManager.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        ExecuteDelete(conn, tx, "UPDATE Invoices SET ContractID=NULL WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "DELETE FROM SLALogs WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "UPDATE Jobs SET LinkedContractId=NULL WHERE LinkedContractId=@id", contractId);
+                        ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET RelatedContractID=NULL WHERE RelatedContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET LinkedToId=NULL WHERE LinkedToType='Contract' AND LinkedToId=@id", contractId);
+                        ExecuteDelete(conn, tx, "DELETE FROM AMCContracts WHERE ContractID=@id", contractId);
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         private AMCContract MapContract(SqlDataReader reader)
         {
             return new AMCContract

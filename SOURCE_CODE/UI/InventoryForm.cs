@@ -68,11 +68,13 @@ namespace HVAC_Pro_Desktop.UI
             Label sub = new Label { Text = "Monitor and manage your inventory items, stock levels, and pricing.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(560, 22) };
             Button btnExport = MakeBtn("Export", Color.White, 92); btnExport.ForeColor = DS.Slate700; btnExport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnImport = MakeBtn("Import", Color.White, 92); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button btnForms = MakeBtn("Forms", Color.White, 86); btnForms.ForeColor = InfoBlue; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
+            ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             Button btnNew = MakeBtn("+ Add Item", InfoBlue, 118);
             FlowLayoutPanel headerActions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 342,
+                Width = 440,
                 Height = 44,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
@@ -82,8 +84,9 @@ namespace HVAC_Pro_Desktop.UI
             };
             btnExport.Margin = new Padding(0, 0, 12, 0);
             btnImport.Margin = new Padding(0, 0, 12, 0);
+            btnForms.Margin = new Padding(0, 0, 12, 0);
             btnNew.Margin = new Padding(0);
-            headerActions.Controls.AddRange(new Control[] { btnExport, btnImport, btnNew });
+            headerActions.Controls.AddRange(new Control[] { btnExport, btnImport, btnForms, btnNew });
             header.Resize += (s, e) =>
             {
                 int reserved = headerActions.Width + 48;
@@ -93,24 +96,28 @@ namespace HVAC_Pro_Desktop.UI
             btnNew.Click += (s, e) => NewRecord();
             btnImport.Click += async (s, e) => await ImportInventoryCsvAsync();
             btnExport.Click += (s, e) => ExportInventoryCsv();
+            btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Inventory", "Inventory", null, "spare parts requisition stock issue return goods received note inventory equipment asset parts usage");
             header.Controls.AddRange(new Control[] { title, sub, headerActions });
 
             TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 112, BackColor = DS.BgPage, Padding = new Padding(24, 8, 24, 14), ColumnCount = 5, RowCount = 1 };
             for (int i = 0; i < 5; i++) kpis.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
             kpis.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            kpis.Controls.Add(CreateInventoryMetric("Total Items", "0", "□", InfoBlue, out _lblTotalItems), 0, 0);
-            kpis.Controls.Add(CreateInventoryMetric("In Stock Items", "0", "▣", SaveGreen, out _lblInStockItems), 1, 0);
-            kpis.Controls.Add(CreateInventoryMetric("Low Stock Items", "0", "◱", WarnOrange, out _lblLowStockItems), 2, 0);
-            kpis.Controls.Add(CreateInventoryMetric("Out of Stock Items", "0", "!", DelRed, out _lblOutStockItems), 3, 0);
-            kpis.Controls.Add(CreateInventoryMetric("Total Stock Value", "₹ 0", "₹", InfoBlue, out _lblTotalStockValue), 4, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Total Items", "0", ModernIconKind.Inventory, InfoBlue, out _lblTotalItems), 0, 0);
+            kpis.Controls.Add(CreateInventoryMetric("In Stock Items", "0", ModernIconKind.Checklist, SaveGreen, out _lblInStockItems), 1, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Low Stock Items", "0", ModernIconKind.Alert, WarnOrange, out _lblLowStockItems), 2, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Out of Stock Items", "0", ModernIconKind.Alert, DelRed, out _lblOutStockItems), 3, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Total Stock Value", "₹ 0", ModernIconKind.Payment, InfoBlue, out _lblTotalStockValue), 4, 0);
 
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 0, 24, 16) };
-            Panel right = CreateModernCard("ITEM DETAILS & FILTERS");
+            Panel right = CreateModernCard("ITEM DETAILS");
             right.Dock = DockStyle.Right;
-            right.Width = 365;
+            right.Width = 390;
+            right.MinimumSize = new Size(390, 0);
             right.Padding = new Padding(18, 44, 18, 14);
 
-            _detail = new Panel { Dock = DockStyle.Top, Height = 465, AutoScroll = true, BackColor = Color.White };
+            _detail = new Panel { Dock = DockStyle.Top, Height = 360, AutoScroll = true, BackColor = Color.White };
+            _detail.HorizontalScroll.Enabled = false;
+            _detail.HorizontalScroll.Visible = false;
             BuildDetailPanel();
             Button saveItem = MakeBtn("Save Item", SaveGreen, 104);
             Button clearItem = MakeBtn("Clear", Color.White, 82);
@@ -129,7 +136,7 @@ namespace HVAC_Pro_Desktop.UI
             mainCard.Dock = DockStyle.Fill;
             mainCard.Padding = new Padding(16);
 
-            Panel filters = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
+            Panel filters = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
             TableLayoutPanel filterLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -165,7 +172,7 @@ namespace HVAC_Pro_Desktop.UI
             chips.Controls.AddRange(new Control[] { btnAll, btnLow, btnOut, btnHealthy });
 
             Panel searchPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Margin = new Padding(0), Padding = new Padding(0) };
-            _txtSearch = new TextBox { Width = 310, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
+            _txtSearch = new TextBox { Width = 310, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "" };
             _txtSearch.TextChanged += (s, e) => ApplyInventoryFilter();
             _cboListMode = new ComboBox { Visible = false };
             _cboListMode.Items.AddRange(new object[] { "All", "Low Stock", "Out of Stock", "Healthy" });
@@ -199,6 +206,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             Panel listWrap = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
             listWrap.Controls.Add(_itemFlow);
+            mainCard.Controls.Add(BuildInventoryFooter());
             mainCard.Controls.Add(listWrap);
             mainCard.Controls.Add(BuildInventoryTableHeader());
             mainCard.Controls.Add(filters);
@@ -302,22 +310,13 @@ namespace HVAC_Pro_Desktop.UI
             return card;
         }
 
-        private Panel CreateInventoryMetric(string label, string value, string icon, Color accent, out Label valueLabel)
+        private Panel CreateInventoryMetric(string label, string value, ModernIconKind icon, Color accent, out Label valueLabel)
         {
             Panel card = CreateModernCard(null);
             card.Dock = DockStyle.Fill;
             card.Margin = new Padding(0, 0, 10, 0);
-            Label iconLabel = new Label
-            {
-                Text = icon,
-                Location = new Point(18, 22),
-                Size = new Size(42, 42),
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 15, FontStyle.Bold),
-                ForeColor = accent,
-                BackColor = DS.Lighten(accent, 0.72f)
-            };
-            DS.Rounded(iconLabel, 18);
+            Label iconLabel = ModernIconSystem.Badge(icon, 42, DS.Lighten(accent, 0.72f), accent, 14);
+            iconLabel.Location = new Point(18, 22);
             valueLabel = new Label { Text = value, Location = new Point(74, 20), Size = new Size(170, 28), Font = new Font("Segoe UI", 15, FontStyle.Bold), ForeColor = DS.Slate900 };
             Label caption = new Label { Text = label, Location = new Point(74, 50), Size = new Size(180, 22), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
             card.Controls.AddRange(new Control[] { iconLabel, valueLabel, caption });
@@ -336,8 +335,8 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildInventoryTableHeader()
         {
             Panel header = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = DS.Slate50, Padding = new Padding(12, 8, 12, 0) };
-            string[] cols = { "ITEM DETAILS", "UNIT", "CURRENT STOCK", "VALUE (₹)", "STATUS" };
-            int[] widths = { 420, 100, 150, 150, 130 };
+            string[] cols = { "ITEM DETAILS", "UNIT", "CURRENT STOCK", "VALUE (₹)", "STATUS", "ACTIONS" };
+            int[] widths = { 420, 100, 150, 150, 130, 120 };
             int x = 8;
             for (int i = 0; i < cols.Length; i++)
             {
@@ -345,6 +344,19 @@ namespace HVAC_Pro_Desktop.UI
                 x += widths[i];
             }
             return header;
+        }
+
+        private Panel BuildInventoryFooter()
+        {
+            Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 46, BackColor = DS.Slate50, Padding = new Padding(16, 8, 16, 8) };
+            footer.Controls.Add(new Label { Text = "Rows per page", Location = new Point(0, 10), Size = new Size(92, 20), Font = DS.Small, ForeColor = DS.Slate600 });
+            ComboBox rows = new ComboBox { Location = new Point(100, 7), Size = new Size(62, 26), DropDownStyle = ComboBoxStyle.DropDownList, Font = DS.Small };
+            rows.Items.AddRange(new object[] { "25", "50", "100" });
+            rows.SelectedIndex = 0;
+            footer.Controls.Add(rows);
+            Label showing = new Label { Text = "Showing 0 of 0 items", Dock = DockStyle.Right, Width = 180, Font = DS.Small, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleRight };
+            footer.Controls.Add(showing);
+            return footer;
         }
 
         private Panel BuildInventoryQuickActions()
@@ -361,6 +373,13 @@ namespace HVAC_Pro_Desktop.UI
             Button bulk = MakeBtn("Bulk Update", Color.White, 120); bulk.ForeColor = InfoBlue; bulk.FlatAppearance.BorderColor = DS.BorderStrong;
             Button print = MakeBtn("Print Stock Report", Color.White, 150); print.ForeColor = InfoBlue; print.FlatAppearance.BorderColor = DS.BorderStrong;
             Button value = MakeBtn("Stock Valuation", Color.White, 135); value.ForeColor = SaveGreen; value.FlatAppearance.BorderColor = DS.BorderStrong;
+            foreach (Button button in new[] { adjust, reorder, transfer, bulk, print, value })
+            {
+                button.Dock = DockStyle.Fill;
+                button.Margin = new Padding(4, 5, 4, 5);
+                button.MinimumSize = new Size(166, 34);
+                button.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+            }
             adjust.Click += (s, e) => FocusStockAdjustment();
             reorder.Click += (s, e) => ShowReorderSuggestions();
             transfer.Click += (s, e) => ShowStockTransferDialog();
@@ -404,7 +423,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(MakeLabel("Current Stock", new Point(0, y + 3)));
             _numStock = new NumericUpDown
             {
-                Location = new Point(160, y), Width = 120,
+                Location = new Point(138, y), Width = 132,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 99999
             };
             _detail.Controls.Add(_numStock);
@@ -413,7 +432,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(MakeLabel("Last Purchase Rate", new Point(0, y + 3)));
             _numRate = new NumericUpDown
             {
-                Location = new Point(160, y), Width = 120,
+                Location = new Point(138, y), Width = 132,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 999999
             };
             _detail.Controls.Add(_numRate);
@@ -422,7 +441,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(MakeLabel("Reorder Level", new Point(0, y + 3)));
             _numReorder = new NumericUpDown
             {
-                Location = new Point(160, y), Width = 120,
+                Location = new Point(138, y), Width = 132,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 99999
             };
             _detail.Controls.Add(_numReorder);
@@ -430,7 +449,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblStockValue = new Label
             {
-                Location = new Point(160, y), AutoSize = true,
+                Location = new Point(138, y), AutoSize = true,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = InfoBlue
             };
             _detail.Controls.Add(_lblStockValue);
@@ -443,7 +462,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(MakeLabel("Vendor", new Point(0, y + 3)));
             _cboVendor = new ComboBox
             {
-                Location = new Point(160, y), Width = 280,
+                Location = new Point(138, y), Width = 132,
                 Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList
             };
             _cboVendor.Items.Add(new Vendor { VendorID = 0, VendorName = "(None)" });
@@ -599,6 +618,10 @@ namespace HVAC_Pro_Desktop.UI
             int end = Math.Min(start + ItemBatchSize, _listSource.Count);
 
             _itemFlow.SuspendLayout();
+            if (reset && _listSource.Count == 0)
+            {
+                _itemFlow.Controls.Add(BuildInventoryEmptyState());
+            }
             for (int i = start; i < end; i++)
                 _itemFlow.Controls.Add(MakeItemCard(_listSource[i], forceWarn));
             _renderedCount = end;
@@ -612,6 +635,35 @@ namespace HVAC_Pro_Desktop.UI
                     BeginInvoke((Action)(() => RenderItemBatch(false, forceWarn)));
                 });
             _itemFlow.ResumeLayout();
+        }
+
+        private Panel BuildInventoryEmptyState()
+        {
+            Panel panel = new Panel
+            {
+                Width = Math.Max(760, _itemFlow?.ClientSize.Width > 20 ? _itemFlow.ClientSize.Width - 8 : 880),
+                Height = 420,
+                BackColor = Color.White,
+                Margin = new Padding(0)
+            };
+            Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Inventory, 72, Color.FromArgb(238, 242, 255), InfoBlue);
+            icon.Location = new Point((panel.Width - icon.Width) / 2, 130);
+            panel.Controls.Add(icon);
+            panel.Controls.Add(new Label { Text = "No items found", Location = new Point(0, 218), Size = new Size(panel.Width, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleCenter });
+            panel.Controls.Add(new Label { Text = "Add your first inventory item to get started.", Location = new Point(0, 248), Size = new Size(panel.Width, 24), Font = DS.Body, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter });
+            Button add = MakeBtn("+  Add Item", InfoBlue, 118);
+            add.Location = new Point((panel.Width - add.Width) / 2, 294);
+            add.Click += (s, e) => NewRecord();
+            panel.Controls.Add(add);
+            panel.Resize += (s, e) =>
+            {
+                icon.Left = (panel.Width - icon.Width) / 2;
+                foreach (Control child in panel.Controls.OfType<Label>())
+                    if (child != icon)
+                        child.Width = panel.Width;
+                add.Left = (panel.Width - add.Width) / 2;
+            };
+            return panel;
         }
 
         private void AddLoadMoreCard(FlowLayoutPanel host, bool show, Action onClick)
@@ -1320,7 +1372,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(MakeLabel(label, new Point(0, y + 3)));
             var combo = new ComboBox
             {
-                Location = new Point(160, y), Width = 320,
+                Location = new Point(138, y), Width = 132,
                 Font = new Font("Segoe UI", 9), DropDownStyle = style
             };
             _detail.Controls.Add(combo);
@@ -1345,7 +1397,7 @@ namespace HVAC_Pro_Desktop.UI
             var lbl = new Label
             {
                 Text = text, Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                ForeColor = InfoBlue, Location = new Point(0, y), Width = 500, Height = 22,
+                ForeColor = InfoBlue, Location = new Point(0, y), Width = 270, Height = 22,
                 BackColor = SectionBg, TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(4, 0, 0, 0)
             };
@@ -1356,7 +1408,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label MakeLabel(string text, System.Drawing.Point loc) => new Label
         {
             Text = text, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray,
-            Location = loc, Width = 155, TextAlign = ContentAlignment.MiddleRight
+            Location = loc, Width = 126, TextAlign = ContentAlignment.MiddleRight
         };
 
         private Button MakeBtn(string text, Color bg, int width)

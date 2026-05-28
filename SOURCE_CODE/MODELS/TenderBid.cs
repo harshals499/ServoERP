@@ -33,6 +33,10 @@ namespace HVAC_Pro_Desktop.Models
         public string ComparisonSummary { get; set; }
         public string AnalysisStatus { get; set; }
         public string Notes { get; set; }
+        public string CommercialFlow { get; set; } = "Revenue";
+        public string CustomerDocumentStatus { get; set; } = "Quote Draft";
+        public string SupplierDocumentStatus { get; set; } = "Not Required";
+        public string FlowNotes { get; set; }
         public bool IsMultiLine { get; set; }
         public decimal TotalTaxableValue { get; set; }
         public decimal TotalGSTAmount { get; set; }

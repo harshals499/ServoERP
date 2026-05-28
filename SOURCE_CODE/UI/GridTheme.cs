@@ -6,6 +6,27 @@ using System.Windows.Forms;
 
 namespace HVAC_Pro_Desktop.UI
 {
+    public enum GridColumnPriority
+    {
+        Required,
+        Secondary,
+        Optional
+    }
+
+    public sealed class GridColumnPolicy
+    {
+        public GridColumnPolicy(string columnName, int minimumWidth, GridColumnPriority priority)
+        {
+            ColumnName = columnName;
+            MinimumWidth = minimumWidth;
+            Priority = priority;
+        }
+
+        public string ColumnName { get; private set; }
+        public int MinimumWidth { get; private set; }
+        public GridColumnPriority Priority { get; private set; }
+    }
+
     public static class GridTheme
     {
         public static readonly Color HeaderBack = Color.FromArgb(18, 57, 183);
@@ -19,6 +40,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static readonly HashSet<DataGridView> BoundGrids = new HashSet<DataGridView>();
         private static readonly HashSet<DataGridView> StyledGrids = new HashSet<DataGridView>();
+        private static readonly Dictionary<DataGridView, GridColumnPolicy[]> ColumnPolicies = new Dictionary<DataGridView, GridColumnPolicy[]>();
 
         public static void Apply(DataGridView dgv, bool fillWidth = true, bool alternateRows = true, int rowHeight = 34)
         {
@@ -33,6 +55,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 StyledGrids.Remove(dgv);
                 BoundGrids.Remove(dgv);
+                ColumnPolicies.Remove(dgv);
             };
 
             dgv.Dock = DockStyle.Fill;
@@ -87,14 +110,18 @@ namespace HVAC_Pro_Desktop.UI
                 BoundGrids.Add(dgv);
                 dgv.DataBindingComplete += (s, e) =>
                 {
-                    if (fillWidth)
+                    if (ColumnPolicies.ContainsKey(dgv))
+                        ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
+                    else if (fillWidth)
                         FillColumns(dgv);
                     FormatColumns(dgv);
                     dgv.Invalidate();
                 };
                 dgv.ColumnAdded += (s, e) =>
                 {
-                    if (fillWidth)
+                    if (ColumnPolicies.ContainsKey(dgv))
+                        ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
+                    else if (fillWidth)
                         FillColumns(dgv);
                     FormatColumns(dgv);
                 };
@@ -135,6 +162,71 @@ namespace HVAC_Pro_Desktop.UI
                 if (col.Visible)
                     col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             }
+        }
+
+        public static void ApplyColumnPolicy(DataGridView dgv, IEnumerable<GridColumnPolicy> policies)
+        {
+            if (dgv == null)
+                return;
+
+            GridColumnPolicy[] policySnapshot = (policies ?? Enumerable.Empty<GridColumnPolicy>())
+                .Where(p => p != null)
+                .ToArray();
+            ColumnPolicies[dgv] = policySnapshot;
+            dgv.Disposed -= DataGridViewPolicyDisposed;
+            dgv.Disposed += DataGridViewPolicyDisposed;
+
+            ApplyColumnPolicyCore(dgv, policySnapshot);
+        }
+
+        private static void ApplyColumnPolicyCore(DataGridView dgv, IEnumerable<GridColumnPolicy> policies)
+        {
+            dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            dgv.ScrollBars = ScrollBars.Both;
+            dgv.ColumnHeadersHeight = Math.Max(dgv.ColumnHeadersHeight, 38);
+
+            var byName = (policies ?? Enumerable.Empty<GridColumnPolicy>())
+                .GroupBy(p => Normalize(p.ColumnName))
+                .ToDictionary(g => g.Key, g => g.Last());
+
+            using (Graphics g = dgv.CreateGraphics())
+            {
+                Font headerFont = dgv.ColumnHeadersDefaultCellStyle.Font ?? dgv.Font;
+                foreach (DataGridViewColumn column in dgv.Columns)
+                {
+                    string key = Normalize(column.Name);
+                    GridColumnPolicy policy;
+                    int measured = (int)g.MeasureString(column.HeaderText ?? column.Name, headerFont).Width + 30;
+                    int min = Math.Max(70, measured);
+                    if (byName.TryGetValue(key, out policy))
+                        min = Math.Max(min, policy.MinimumWidth);
+
+                    column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                    column.MinimumWidth = min;
+                    column.Width = Math.Max(column.Width, min);
+                }
+            }
+
+            dgv.Resize -= DataGridViewPolicyResize;
+            dgv.Resize += DataGridViewPolicyResize;
+        }
+
+        private static void DataGridViewPolicyDisposed(object sender, EventArgs e)
+        {
+            DataGridView dgv = sender as DataGridView;
+            if (dgv != null)
+                ColumnPolicies.Remove(dgv);
+        }
+
+        private static void DataGridViewPolicyResize(object sender, EventArgs e)
+        {
+            DataGridView dgv = sender as DataGridView;
+            if (dgv == null)
+                return;
+
+            int visibleWidth = dgv.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).Sum(c => c.Width);
+            dgv.HorizontalScrollingOffset = 0;
+            dgv.ScrollBars = visibleWidth > dgv.ClientSize.Width ? ScrollBars.Both : ScrollBars.Vertical;
         }
 
         public static void FormatColumns(DataGridView dgv)

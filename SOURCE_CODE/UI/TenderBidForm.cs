@@ -12,7 +12,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class TenderBidForm : DeferredPageControl
+    public partial class TenderBidForm : DeferredPageControl
     {
         private readonly TenderService _svc = new TenderService();
         private readonly ClientService _clientSvc = new ClientService();
@@ -29,6 +29,9 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cboSite;
         private ComboBox _cboValidity;
         private ComboBox _cboStatus;
+        private ComboBox _cboCommercialFlow;
+        private ComboBox _cboCustomerDocStatus;
+        private ComboBox _cboSupplierDocStatus;
         private DateTimePicker _dtpDate;
         private DateTimePicker _dtpDue;
         private DateTimePicker _dtpRequiredBy;
@@ -50,6 +53,23 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblAlertSupplier;
         private Label _lblAlertSite;
         private NumericUpDown _numDiscount;
+        private Label _lblLineItemsEmptyState;
+        private Label _lblKpiQuoteValue;
+        private Label _lblKpiMargin;
+        private Label _lblKpiMarginSub;
+        private Label _lblKpiApproval;
+        private Label _lblKpiApprovalSub;
+        private Label _lblKpiProbability;
+        private Label _lblKpiProbabilitySub;
+        private Label _lblKpiValidity;
+        private Label _lblKpiValiditySub;
+        private Label _lblKpiSaved;
+        private Label _lblKpiSavedSub;
+        private Label _quoteDetailsStatusPill;
+        private Panel _workflowPanel;
+
+        private readonly List<Button> _filledQuoteButtons = new List<Button>();
+        private readonly List<Button> _secondaryQuoteButtons = new List<Button>();
 
         private readonly List<B2BClient> _clients = new List<B2BClient>();
         private readonly List<StockItem> _inventoryItems = new List<StockItem>();
@@ -65,6 +85,8 @@ namespace HVAC_Pro_Desktop.UI
         public Action<int> OnNavigate { get; set; }
         private Button _btnNewQuote;
         private Button _btnSaveQuote;
+        private Button _btnBackToQuoteDashboard;
+        private Panel _quotationWorkspacePanel;
 
         private static readonly Color QuotePageBg = Color.FromArgb(246, 248, 251);
         private static readonly Color QuoteSurface = Color.White;
@@ -76,6 +98,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color WarnOrange = Color.FromArgb(245, 158, 11);
         private static readonly Color CargoPurple = Color.FromArgb(79, 70, 229);
         private static readonly Color BorderColor = Color.FromArgb(221, 227, 234);
+        private static readonly Color InputFill = Color.FromArgb(248, 250, 252);
 
         public TenderBidForm()
         {
@@ -83,13 +106,22 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = QuotePageBg;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            ApplyQuotationVisualFixes();
             ApplyPermissions();
-            HandleCreated += (s, e) => BeginInvoke((Action)ApplyLineItemsGridLayout);
+            HandleCreated += (s, e) => BeginInvoke((Action)(() =>
+            {
+                ApplyLineItemsGridLayout();
+                ApplyQuotationVisualFixes();
+            }));
             HandleCreated += async (s, e) => await InitializeAsync();
             ParentChanged += async (s, e) => await InitializeAsync();
             Load += async (s, e) =>
             {
-                BeginInvoke((Action)ApplyLineItemsGridLayout);
+                BeginInvoke((Action)(() =>
+                {
+                    ApplyLineItemsGridLayout();
+                    ApplyQuotationVisualFixes();
+                }));
                 await InitializeAsync();
             };
         }
@@ -130,7 +162,7 @@ namespace HVAC_Pro_Desktop.UI
                 var quotes = await quotesTask;
                 BindQuoteList(quotes);
                 BindRenewalAlerts();
-                NewRecord();
+                NewRecord(false);
                 SetStatus("Quotation workspace ready.", DS.Slate500);
             }
             catch (Exception ex)
@@ -155,36 +187,60 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(hiddenDataHost);
 
             Panel header = BuildErpHeader();
-            Panel kpiRow = BuildKpiRow();
+            Panel quotationDashboard = BuildQuotationDashboardPanel();
 
-            SplitContainer workspace = new SplitContainer
+            _quotationWorkspacePanel = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Visible = false };
+            TableLayoutPanel workspace = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 BackColor = QuotePageBg,
-                SplitterWidth = 14,
-                FixedPanel = FixedPanel.Panel2
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(24, 4, 24, 24)
             };
-            workspace.Panel1.BackColor = QuotePageBg;
-            workspace.Panel2.BackColor = QuotePageBg;
-            workspace.Panel1.Padding = new Padding(24, 4, 4, 24);
-            workspace.Panel2.Padding = new Padding(8, 4, 24, 24);
-            workspace.Layout += (s, e) =>
-            {
-                if (workspace.Width <= 0) return;
-                workspace.Panel1MinSize = Math.Min(650, Math.Max(25, workspace.Width / 2));
-                workspace.Panel2MinSize = Math.Min(285, Math.Max(25, workspace.Width / 4));
-                int rightWidth = Math.Max(285, Math.Min(360, workspace.Width / 4));
-                int split = Math.Max(650, workspace.Width - rightWidth - workspace.SplitterWidth);
-                if (split > workspace.Panel1MinSize && split < workspace.Width - workspace.Panel2MinSize)
-                    workspace.SplitterDistance = split;
-            };
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72f));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
+            workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            workspace.Panel1.Controls.Add(BuildMainWorkspace());
-            workspace.Panel2.Controls.Add(BuildRightSummaryPanel());
+            Panel mainHost = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Margin = new Padding(0, 0, 12, 0), MinimumSize = new Size(650, 0) };
+            Panel summaryHost = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Margin = new Padding(12, 0, 0, 0), MinimumSize = new Size(330, 0) };
+            mainHost.Controls.Add(BuildMainWorkspace());
+            summaryHost.Controls.Add(BuildRightSummaryPanel());
+            workspace.Controls.Add(mainHost, 0, 0);
+            workspace.Controls.Add(summaryHost, 1, 0);
 
-            Controls.Add(workspace);
-            Controls.Add(kpiRow);
+            _quotationWorkspacePanel.Controls.Add(workspace);
+            Controls.Add(_quotationWorkspacePanel);
+            Controls.Add(quotationDashboard);
             Controls.Add(header);
+            ShowQuotationDashboard();
+        }
+
+        private void ShowQuotationDashboard()
+        {
+            if (_quotationDashboardPanel != null)
+            {
+                _quotationDashboardPanel.Dock = DockStyle.Fill;
+                _quotationDashboardPanel.Visible = true;
+                _quotationDashboardPanel.BringToFront();
+            }
+            if (_quotationWorkspacePanel != null)
+                _quotationWorkspacePanel.Visible = false;
+            if (_btnBackToQuoteDashboard != null)
+                _btnBackToQuoteDashboard.Visible = false;
+        }
+
+        private void ShowQuotationEditor()
+        {
+            if (_quotationDashboardPanel != null)
+                _quotationDashboardPanel.Visible = false;
+            if (_quotationWorkspacePanel != null)
+            {
+                _quotationWorkspacePanel.Visible = true;
+                _quotationWorkspacePanel.BringToFront();
+            }
+            if (_btnBackToQuoteDashboard != null)
+                _btnBackToQuoteDashboard.Visible = true;
         }
 
         private Panel BuildLeftPanel()
@@ -292,17 +348,19 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildErpHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = QuotePageBg, Padding = new Padding(24, 18, 24, 10) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 112, BackColor = QuotePageBg, Padding = new Padding(24, 16, 24, 10) };
             header.Paint += (s, e) =>
             {
                 using (Pen p = new Pen(BorderColor))
                     e.Graphics.DrawLine(p, 24, header.Height - 1, header.Width - 24, header.Height - 1);
             };
 
-            Label title = new Label { Text = "Quotations", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(24, 18), AutoSize = true };
-            Label subtitle = new Label { Text = "Create, price, approve, and convert customer quotations.", Font = new Font("Segoe UI", 9), ForeColor = QuoteMuted, Location = new Point(25, 52), AutoSize = true };
+            Label title = new Label { Text = "Quotations", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(24, 12), AutoSize = true };
+            Label subtitle = new Label { Text = "Create, price, approve, and convert customer quotations.", Font = new Font("Segoe UI", 9), ForeColor = QuoteMuted, Location = new Point(25, 45), AutoSize = true };
+            Label breadcrumb = new Label { Text = "Dashboard   >   Quotations   >   New Quotation", Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Location = new Point(25, 74), AutoSize = true };
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
+            header.Controls.Add(breadcrumb);
 
             _lblStatus = new Label { Text = "", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(760, 56) };
             header.Controls.Add(_lblStatus);
@@ -313,61 +371,85 @@ namespace HVAC_Pro_Desktop.UI
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 Height = 42,
-                Width = 720,
-                Location = new Point(Math.Max(420, Width - 760), 18),
+                Width = 900,
+                Location = new Point(Math.Max(300, Width - 890), 18),
                 BackColor = Color.Transparent
             };
             header.Resize += (s, e) => actions.Location = new Point(Math.Max(420, header.Width - actions.Width - 24), 18);
 
-            _btnNewQuote = MakeBtn("+  New Quote", InfoBlue, 118);
+            _btnBackToQuoteDashboard = MakeOutlineBtn("< Back to Dashboard", 150);
+            _btnNewQuote = MakeBtn("+  New Quotation", InfoBlue, 142);
             Button btnPreview = MakeOutlineBtn("Preview", 86);
             Button btnImport = MakeOutlineBtn("Import", 86);
             Button btnUploadDoc = MakeOutlineBtn("Upload PDF", 104);
             Button btnOpenDoc = MakeOutlineBtn("Open PDF", 96);
-            Button btnSignature = MakeOutlineBtn("Signature", 92);
             Button btnMore = MakeOutlineBtn("...", 36);
+            RegisterFilledButton(_btnNewQuote, CargoPurple);
+            RegisterSecondaryButton(btnPreview);
+            RegisterSecondaryButton(btnImport);
+            RegisterSecondaryButton(btnUploadDoc);
+            RegisterSecondaryButton(btnOpenDoc);
+            RegisterSecondaryButton(btnMore);
+            RegisterSecondaryButton(_btnBackToQuoteDashboard);
+            _btnBackToQuoteDashboard.Visible = false;
+            _btnBackToQuoteDashboard.Click += (s, e) => ShowQuotationDashboard();
             _btnNewQuote.Click += (s, e) => NewRecord();
             btnPreview.Click += (s, e) => PreviewQuotation();
             btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Quotations, FindForm());
             btnUploadDoc.Click += (s, e) => UploadCompanyPdf();
             btnOpenDoc.Click += (s, e) => OpenCompanyPdf();
-            btnSignature.Click += (s, e) => UploadDigitalSignature();
             btnMore.Click += (s, e) => CompareQuotation();
-            actions.Controls.AddRange(new Control[] { _btnNewQuote, btnPreview, btnImport, btnUploadDoc, btnOpenDoc, btnSignature, btnMore });
+            actions.Controls.AddRange(new Control[] { _btnBackToQuoteDashboard, _btnNewQuote, btnPreview, btnImport, btnUploadDoc, btnOpenDoc, btnMore });
             header.Controls.Add(actions);
             return header;
         }
 
         private Panel BuildKpiRow()
         {
-            Panel row = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = QuotePageBg, Padding = new Padding(24, 20, 24, 12) };
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 5, RowCount = 1, BackColor = QuotePageBg };
-            for (int i = 0; i < 5; i++)
-                grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
-            grid.Controls.Add(BuildKpiCard("DOC", "Total Quote Value", IndiaFormatHelper.FormatCurrency(124850m), InfoBlue), 0, 0);
-            grid.Controls.Add(BuildKpiCard("UP", "Gross Margin %", "28.65%", SaveGreen), 1, 0);
-            grid.Controls.Add(BuildKpiCard("OK", "Pending Approval", "2", WarnOrange), 2, 0);
-            grid.Controls.Add(BuildKpiCard("BOX", "Stock Shortfall", IndiaFormatHelper.FormatCurrency(12500m), DS.Red600), 3, 0);
-            grid.Controls.Add(BuildKpiCard("CAL", "Expiring Soon", "5 Quotes", CargoPurple), 4, 0);
-            row.Controls.Add(grid);
+            Panel row = new Panel { Height = 104, BackColor = QuotePageBg, Margin = new Padding(0, 0, 0, 12) };
+            FlowLayoutPanel flow = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, BackColor = QuotePageBg, Padding = new Padding(0, 0, 0, 6) };
+            flow.Controls.Add(BuildLiveKpiCard("₹", "Quote Value (Incl. GST)", out _lblKpiQuoteValue, out Label quoteSub, CargoPurple));
+            quoteSub.Text = "View breakdown →";
+            flow.Controls.Add(BuildLiveKpiCard("↗", "Expected Margin", out _lblKpiMargin, out _lblKpiMarginSub, SaveGreen));
+            flow.Controls.Add(BuildLiveKpiCard("CLIP", "Approval Status", out _lblKpiApproval, out _lblKpiApprovalSub, WarnOrange));
+            flow.Controls.Add(BuildLiveKpiCard("◎", "Probability to Close", out _lblKpiProbability, out _lblKpiProbabilitySub, InfoBlue));
+            flow.Controls.Add(BuildLiveKpiCard("CAL", "Validity", out _lblKpiValidity, out _lblKpiValiditySub, CargoPurple));
+            flow.Controls.Add(BuildLiveKpiCard("CLK", "Last Saved", out _lblKpiSaved, out _lblKpiSavedSub, CargoPurple));
+            row.Controls.Add(flow);
             return row;
         }
 
-        private Panel BuildKpiCard(string icon, string caption, string value, Color accent)
+        private Panel BuildLiveKpiCard(string icon, string caption, out Label valueLabel, out Label subLabel, Color accent)
         {
-            Panel card = MakeCard(220, 68);
-            card.Margin = new Padding(0, 0, 18, 0);
+            Panel card = MakeCard(178, 86);
+            card.Margin = new Padding(0, 0, 10, 0);
             Label iconLabel = new Label { Text = icon, Location = new Point(12, 13), Size = new Size(42, 42), BackColor = DS.Lighten(accent, 0.82f), ForeColor = accent, Font = new Font("Segoe UI", 8, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
             DS.Rounded(iconLabel, 8);
             card.Controls.Add(iconLabel);
-            card.Controls.Add(new Label { Text = caption, Location = new Point(68, 14), AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted });
-            card.Controls.Add(new Label { Text = value, Location = new Point(68, 35), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
+            card.Controls.Add(new Label { Text = caption, Location = new Point(64, 12), Size = new Size(102, 18), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = QuoteMuted, AutoEllipsis = true });
+            valueLabel = new Label { Text = "₹0.00", Location = new Point(64, 31), Size = new Size(104, 22), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText, AutoEllipsis = true };
+            subLabel = new Label { Text = "", Location = new Point(64, 56), Size = new Size(104, 18), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
+            card.Controls.Add(valueLabel);
+            card.Controls.Add(subLabel);
+            return card;
+        }
+
+        private Panel BuildQuotationWorkflowCard()
+        {
+            Panel card = MakeCard(900, 132);
+            card.Margin = new Padding(0, 0, 0, 12);
+            card.Controls.Add(new Label { Text = "Quotation Workflow", Location = new Point(18, 14), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText });
+            _workflowPanel = new Panel { Location = new Point(18, 42), Size = new Size(card.Width - 36, 82), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top, BackColor = QuoteSurface };
+            card.Controls.Add(_workflowPanel);
+            card.Resize += (s, e) => { _workflowPanel.Width = card.Width - 36; RenderWorkflowStepper(); };
             return card;
         }
 
         private Panel BuildMainWorkspace()
         {
             FlowLayoutPanel flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = QuotePageBg };
+            flow.Controls.Add(BuildKpiRow());
+            flow.Controls.Add(BuildQuotationWorkflowCard());
             flow.Controls.Add(BuildQuoteDetailsCard());
             flow.Controls.Add(BuildModernLineItemsCard());
             flow.Controls.Add(BuildFollowUpCard());
@@ -382,20 +464,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildQuoteDetailsCard()
         {
-            Panel card = MakeCard(900, 290);
+            Panel card = MakeCard(900, 224);
             card.Margin = new Padding(0, 0, 0, 16);
             Label title = new Label { Text = "Quote Details", Location = new Point(18, 16), AutoSize = true, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = QuoteText };
-            Label pill = new Label { Text = "DRAFT", Location = new Point(130, 17), Size = new Size(54, 22), BackColor = Color.FromArgb(220, 252, 231), ForeColor = Color.FromArgb(22, 101, 52), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            DS.Rounded(pill, 7);
+            _quoteDetailsStatusPill = new Label { Text = "DRAFT", Location = new Point(130, 17), Size = new Size(70, 22), BackColor = Color.FromArgb(219, 234, 254), ForeColor = InfoBlue, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            DS.Rounded(_quoteDetailsStatusPill, 7);
             card.Controls.Add(title);
-            card.Controls.Add(pill);
+            card.Controls.Add(_quoteDetailsStatusPill);
 
-            TableLayoutPanel fields = new TableLayoutPanel { Location = new Point(18, 52), Width = card.Width - 36, Height = 104, ColumnCount = 5, RowCount = 2, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
+            TableLayoutPanel fields = new TableLayoutPanel { Location = new Point(18, 52), Width = card.Width - 36, Height = 156, ColumnCount = 5, RowCount = 3, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 19));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
             fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15));
+            fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
             fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
             fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
 
@@ -407,19 +490,29 @@ namespace HVAC_Pro_Desktop.UI
             _txtTitle = MakeTextBox(false);
             _txtTitle.Text = string.Empty;
             _cboValidity = MakeCombo(true);
-            _cboValidity.Items.AddRange(new object[] { "10 Days", "30 Days", "60 Days", "90 Days" });
+            _cboValidity.Items.AddRange(new object[] { "15 Days", "30 Days", "45 Days", "60 Days", "90 Days" });
             _cboValidity.SelectedIndex = 1;
             _cboValidity.SelectedIndexChanged += (s, e) => UpdateDueDate();
             _cboStatus = MakeCombo(true);
-            _cboStatus.Items.AddRange(new object[] { "Draft", "Analysed", "Sent", "Won", "Lost" });
+            _cboStatus.Items.AddRange(new object[] { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" });
             _cboStatus.SelectedIndex = 0;
+            _cboStatus.SelectedIndexChanged += (s, e) => { RefreshSummary(); RenderWorkflowStepper(); };
+            _cboCommercialFlow = MakeCombo(true);
+            _cboCommercialFlow.Items.AddRange(new object[] { "Revenue", "Revenue + Procurement", "Procurement Only" });
+            _cboCommercialFlow.SelectedIndex = 0;
+            _cboCustomerDocStatus = MakeCombo(true);
+            _cboCustomerDocStatus.Items.AddRange(new object[] { "Quote Draft", "Quote Sent", "PO Received", "Quote Accepted", "Invoice Created", "Invoice Sent", "Payment Received", "Job Created", "Closed" });
+            _cboCustomerDocStatus.SelectedIndex = 0;
+            _cboSupplierDocStatus = MakeCombo(true);
+            _cboSupplierDocStatus.Items.AddRange(new object[] { "Not Required", "Supplier Quote Needed", "Supplier Quote Sent", "Supplier Quote Received", "PO Draft", "PO Sent", "Materials Received", "Vendor Paid", "Closed" });
+            _cboSupplierDocStatus.SelectedIndex = 0;
             _dtpDate = MakeDatePicker();
-            _dtpDate.Value = new DateTime(2026, 5, 5);
+            _dtpDate.Value = DateTime.Today;
             _dtpDate.ValueChanged += (s, e) => UpdateDueDate();
             _dtpDue = MakeDatePicker();
-            _dtpDue.Value = new DateTime(2026, 6, 4);
+            _dtpDue.Value = DateTime.Today.AddDays(30);
             _dtpRequiredBy = MakeDatePicker();
-            _dtpRequiredBy.Value = new DateTime(2026, 5, 12);
+            _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
 
             AddLabeledControl(fields, 0, 0, "Quote Number", _txtQuoteNo);
             AddLabeledControl(fields, 1, 0, "Client", _cboClient);
@@ -430,17 +523,15 @@ namespace HVAC_Pro_Desktop.UI
             AddLabeledControl(fields, 2, 1, "Validity", _cboValidity);
             AddLabeledControl(fields, 3, 1, "Required By", _dtpRequiredBy);
             AddLabeledControl(fields, 4, 1, "Status", _cboStatus);
+            AddLabeledControl(fields, 0, 2, "Commercial Flow", _cboCommercialFlow);
+            AddLabeledControl(fields, 1, 2, "Customer Side", _cboCustomerDocStatus);
+            AddLabeledControl(fields, 2, 2, "Supplier Side", _cboSupplierDocStatus);
+            fields.SetColumnSpan(fields.GetControlFromPosition(2, 2), 2);
             card.Controls.Add(fields);
 
-            Panel tracker = BuildWorkflowTracker();
-            tracker.Location = new Point(18, 172);
-            tracker.Width = card.Width - 36;
-            tracker.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top;
-            card.Controls.Add(tracker);
             card.Resize += (s, e) =>
             {
                 fields.Width = card.Width - 36;
-                tracker.Width = card.Width - 36;
             };
             return card;
         }
@@ -449,7 +540,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel panel = MakeCard(820, 92);
             string[] titles = { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" };
-            string[] subtitles = { "Quote created", "Verify stock & prices", "Internal approval", "Sent to customer", "Customer accepted", "PO / Invoice / Job" };
+            string[] subtitles = { "Quote created", "Verify stock \u00B7 prices", "Internal approval", "Sent to customer", "Customer accepted", "PO / Invoice / Job" };
             panel.Paint += (s, e) =>
             {
                 using (Pen pen = new Pen(Color.FromArgb(203, 213, 225), 2))
@@ -478,6 +569,73 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void RenderWorkflowStepper()
+        {
+            if (_workflowPanel == null)
+                return;
+
+            _workflowPanel.Controls.Clear();
+            string[] titles = { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" };
+            string[] subtitles = { "Quote created", "Check stock + cost", "Approval", "Customer quote sent", "Customer PO received", "Invoice / PO / Job" };
+            int active = ResolveWorkflowStep(_cboStatus?.SelectedItem?.ToString());
+            int width = Math.Max(640, _workflowPanel.ClientSize.Width);
+            int usable = Math.Max(560, width - 90);
+            for (int i = 0; i < titles.Length - 1; i++)
+            {
+                int x1 = 45 + usable * i / (titles.Length - 1);
+                int x2 = 45 + usable * (i + 1) / (titles.Length - 1);
+                Panel line = new Panel
+                {
+                    Location = new Point(x1 + 18, 16),
+                    Size = new Size(Math.Max(20, x2 - x1 - 36), 2),
+                    BackColor = i < active ? InfoBlue : Color.FromArgb(203, 213, 225)
+                };
+                _workflowPanel.Controls.Add(line);
+            }
+
+            for (int i = 0; i < titles.Length; i++)
+            {
+                int x = 45 + usable * i / (titles.Length - 1);
+                bool complete = i < active;
+                bool current = i == active;
+                Label dot = new Label
+                {
+                    Text = (i + 1).ToString(CultureInfo.InvariantCulture),
+                    Size = new Size(30, 30),
+                    Location = new Point(x - 15, 2),
+                    BackColor = complete || current ? InfoBlue : Color.White,
+                    ForeColor = complete || current ? Color.White : QuoteMuted,
+                    Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                    TextAlign = ContentAlignment.MiddleCenter
+                };
+                DS.Rounded(dot, 15);
+                dot.Paint += (s, e) =>
+                {
+                    if (!complete && !current)
+                    {
+                        using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                            e.Graphics.DrawEllipse(pen, 1, 1, dot.Width - 3, dot.Height - 3);
+                    }
+                };
+                _workflowPanel.Controls.Add(dot);
+                _workflowPanel.Controls.Add(new Label { Text = titles[i], Location = new Point(x - 52, 34), Size = new Size(104, 16), Font = new Font("Segoe UI", 7.4f, FontStyle.Bold), ForeColor = current ? InfoBlue : QuoteText, TextAlign = ContentAlignment.MiddleCenter });
+                _workflowPanel.Controls.Add(new Label { Text = subtitles[i], Location = new Point(x - 64, 50), Size = new Size(128, 16), Font = new Font("Segoe UI", 6.8f), ForeColor = QuoteMuted, TextAlign = ContentAlignment.MiddleCenter });
+            }
+        }
+
+        private static int ResolveWorkflowStep(string status)
+        {
+            switch ((status ?? "Draft").Trim())
+            {
+                case "Material Check": return 1;
+                case "Approval": return 2;
+                case "Sent": return 3;
+                case "Accepted": return 4;
+                case "Converted": return 5;
+                default: return 0;
+            }
+        }
+
         private Panel BuildModernLineItemsCard()
         {
             Panel card = MakeCard(900, 520);
@@ -499,7 +657,7 @@ namespace HVAC_Pro_Desktop.UI
             addItem.Location = new Point(14, 16);
             addLabour.Location = new Point(156, 16);
             bulk.Location = new Point(358, 16);
-            filterLabel.Location = new Point(searchPanel.Left - 290, 29);
+            filterLabel.Location = new Point(searchPanel.Left - 158, 4);
             _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
             addItem.Click += (s, e) => AddLineItem();
             addLabour.Click += (s, e) => AddServiceLabourLine();
@@ -529,26 +687,28 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.None,
                 AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                ScrollBars = ScrollBars.None,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+                ScrollBars = ScrollBars.Both,
                 ColumnHeadersHeight = 58,
                 RowTemplate = { Height = 62 }
             };
             StyleQuotationGrid(_grid);
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sr", HeaderText = "#", Width = 44, MinimumWidth = 44, ReadOnly = true });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item / Service", Width = 160, MinimumWidth = 125, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 94, MinimumWidth = 78 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 54, MinimumWidth = 46 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 64, MinimumWidth = 52, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 118, MinimumWidth = 94, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost (" + "\u20B9" + ")", Width = 82, MinimumWidth = 70 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price (" + "\u20B9" + ")", Width = 92, MinimumWidth = 78 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MarginPct", HeaderText = "Margin %", Width = 78, MinimumWidth = 68 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gst", HeaderText = "GST %", Width = 62, MinimumWidth = 54 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stock", HeaderText = "Stock", Width = 62, MinimumWidth = 54 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Shortfall", HeaderText = "Shortfall", Width = 76, MinimumWidth = 66 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LineTotal", HeaderText = "Total (" + "\u20B9" + ")", Width = 92, MinimumWidth = 80 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Actions", HeaderText = "Actions", Width = 70, MinimumWidth = 64, ReadOnly = true });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sr", HeaderText = "#", Width = 36, MinimumWidth = 34, ReadOnly = true });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item / Service", Width = 170, MinimumWidth = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, DisplayStyleForCurrentCellOnly = true, FlatStyle = FlatStyle.Standard });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 70, MinimumWidth = 66 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 42, MinimumWidth = 40 });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 80, MinimumWidth = 72, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost (" + "\u20B9" + ")", Width = 66, MinimumWidth = 62 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price (" + "\u20B9" + ")", Width = 74, MinimumWidth = 68 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MarginPct", HeaderText = "Margin %", Width = 62, MinimumWidth = 58 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gst", HeaderText = "GST %", Width = 48, MinimumWidth = 46 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stock", HeaderText = "Stock", Width = 50, MinimumWidth = 48 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Shortfall", HeaderText = "Shortfall", Width = 64, MinimumWidth = 60 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LineTotal", HeaderText = "Total (" + "\u20B9" + ")", Width = 76, MinimumWidth = 72 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Actions", HeaderText = "Actions", Width = 50, MinimumWidth = 48, ReadOnly = true });
+            foreach (DataGridViewColumn column in _grid.Columns)
+                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             foreach (string name in new[] { "Qty", "CostPerUnit", "SellPrice", "MarginPct", "Gst", "Stock", "Shortfall", "LineTotal" })
                 _grid.Columns[name].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
             _grid.Columns["Sr"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
@@ -566,13 +726,16 @@ namespace HVAC_Pro_Desktop.UI
             SetFillWeight("Gst", 54);
             SetFillWeight("Stock", 54);
             SetFillWeight("Shortfall", 66);
-            SetFillWeight("LineTotal", 82);
-            SetFillWeight("Actions", 76);
+            SetFillWeight("LineTotal", 94);
+            SetFillWeight("Actions", 70);
+            ApplyQuotationGridColumnSizing();
             _grid.CellEndEdit += async (s, e) => await HandleGridCellEndEditAsync(e.RowIndex, e.ColumnIndex);
             _grid.CellValueChanged += (s, e) => HandleGridValueChange(e.RowIndex, e.ColumnIndex);
             _grid.CellContentClick += (s, e) => HandleGridButtonClick(e.RowIndex, e.ColumnIndex);
             _grid.CellClick += (s, e) =>
             {
+                if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "ItemDescription")
+                    BeginEditItemCell(e.RowIndex, true);
                 if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "Actions")
                     HandleGridButtonClick(e.RowIndex, e.ColumnIndex);
             };
@@ -584,6 +747,19 @@ namespace HVAC_Pro_Desktop.UI
             };
             _grid.DataError += (s, e) => { e.ThrowException = false; e.Cancel = false; };
             gridHost.Controls.Add(_grid);
+            _lblLineItemsEmptyState = new Label
+            {
+                Text = "No more items. Click + Add Item to continue.",
+                AutoSize = false,
+                Height = 24,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = QuoteMuted,
+                BackColor = Color.White,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+            };
+            gridHost.Controls.Add(_lblLineItemsEmptyState);
+            _lblLineItemsEmptyState.BringToFront();
 
             _lblLineItemCount = new Label { Text = "Showing 0 to 0 of 0 items", Location = new Point(24, 476), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
             ComboBox pageSize = new ComboBox { Width = 86, Height = 34, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Bottom };
@@ -611,7 +787,7 @@ namespace HVAC_Pro_Desktop.UI
                 int searchWidth = Math.Min(220, Math.Max(160, card.Width / 5));
                 searchPanel.Size = new Size(searchWidth, 42);
                 searchPanel.Location = new Point(card.Width - searchWidth - 14, 16);
-                filterLabel.Location = new Point(searchPanel.Left - 290, 29);
+                filterLabel.Location = new Point(searchPanel.Left - 158, 4);
                 _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
                 ApplyLineItemsGridLayout();
                 _lblLineItemCount.Location = new Point(24, card.Height - 42);
@@ -640,6 +816,7 @@ namespace HVAC_Pro_Desktop.UI
                 host.Size = new Size(Math.Max(300, card.ClientSize.Width - 28), Math.Max(220, card.ClientSize.Height - 182));
                 _grid.Dock = DockStyle.Fill;
                 _grid.Location = Point.Empty;
+                LayoutLineItemsEmptyState(host);
             }
             else
             {
@@ -648,7 +825,31 @@ namespace HVAC_Pro_Desktop.UI
                 _grid.Width = Math.Max(300, card.ClientSize.Width - 28);
                 _grid.Height = Math.Max(220, card.ClientSize.Height - 182);
                 _grid.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom;
+                LayoutLineItemsEmptyState(card);
             }
+        }
+
+        private void LayoutLineItemsEmptyState(Control host)
+        {
+            if (_lblLineItemsEmptyState == null || host == null)
+                return;
+
+            int y = Math.Min(Math.Max(82, _grid.ColumnHeadersHeight + (_grid.RowTemplate?.Height ?? 30) + 22), Math.Max(82, host.Height - 50));
+            _lblLineItemsEmptyState.Location = new Point(16, y);
+            _lblLineItemsEmptyState.Width = Math.Max(200, host.ClientSize.Width - 32);
+            _lblLineItemsEmptyState.BringToFront();
+        }
+
+        private void UpdateLineItemsEmptyState()
+        {
+            if (_lblLineItemsEmptyState == null)
+                return;
+
+            bool show = _lineItems.Count <= 1;
+            _lblLineItemsEmptyState.Visible = show;
+            if (show)
+                LayoutLineItemsEmptyState(_lblLineItemsEmptyState.Parent);
+            _grid?.Invalidate();
         }
 
         private Panel CreateSearchPanel()
@@ -714,10 +915,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildFollowUpCard()
         {
-            Panel card = MakeCard(900, 126);
+            Panel card = MakeCard(900, 150);
             card.Margin = new Padding(0, 0, 0, 20);
             card.Controls.Add(new Label { Text = "Customer Follow-up", Location = new Point(18, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(18, 50), Width = card.Width - 36, Height = 56, ColumnCount = 5, RowCount = 1, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(18, 50), Width = card.Width - 36, Height = 80, ColumnCount = 5, RowCount = 1, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             for (int i = 0; i < 5; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, i == 4 ? 32 : 17));
             AddReadonlyField(grid, 0, "Follow-up Date", "20/05/2026");
@@ -732,74 +933,142 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildRightSummaryPanel()
         {
-            FlowLayoutPanel panel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = QuotePageBg };
-            panel.Controls.Add(BuildQuoteSummaryCard());
-            panel.Controls.Add(BuildSmartAlertsCard());
-            panel.Controls.Add(BuildQuickActionsCard());
-            _lblLastSaved = new Label { Text = "Last saved: 05/05/2026 11:30 AM        Refresh", Width = 310, Height = 30, Font = new Font("Segoe UI", 8.5f), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight, Cursor = Cursors.Hand };
-            _lblLastSaved.Click += async (s, e) => await InitializeAsync();
-            panel.Controls.Add(_lblLastSaved);
-            panel.Resize += (s, e) =>
+            TableLayoutPanel panel = new TableLayoutPanel
             {
-                int width = Math.Max(280, panel.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
-                foreach (Control control in panel.Controls)
-                    control.Width = width;
+                Dock = DockStyle.Fill,
+                BackColor = QuotePageBg,
+                ColumnCount = 1,
+                RowCount = 4
             };
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 27f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 22f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 46f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 5f));
+
+            Panel summary = BuildQuoteSummaryCard();
+            Panel alerts = BuildSmartAlertsCard();
+            Panel actions = BuildQuickActionsCard();
+            summary.Dock = DockStyle.Fill;
+            alerts.Dock = DockStyle.Fill;
+            actions.Dock = DockStyle.Fill;
+            summary.Margin = new Padding(0, 0, 0, 10);
+            alerts.Margin = new Padding(0, 0, 0, 10);
+            actions.Margin = new Padding(0, 0, 0, 8);
+
+            _lblLastSaved = new Label { Text = "Last saved: 05/05/2026 11:30 AM        Refresh", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight, Cursor = Cursors.Hand };
+            _lblLastSaved.Click += async (s, e) => await InitializeAsync();
+            panel.Controls.Add(summary, 0, 0);
+            panel.Controls.Add(alerts, 0, 1);
+            panel.Controls.Add(actions, 0, 2);
+            panel.Controls.Add(_lblLastSaved, 0, 3);
             return panel;
         }
 
         private Panel BuildQuoteSummaryCard()
         {
-            Panel card = MakeCard(310, 218);
-            card.Margin = new Padding(0, 0, 0, 14);
-            card.Controls.Add(new Label { Text = "Quote Summary", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            _lblTaxable = AddSummaryRow(card, "Subtotal (Excl. GST)", IndiaFormatHelper.FormatCurrency(105805.08m), 48, false);
-            _lblGst = AddSummaryRow(card, "GST (18%)", IndiaFormatHelper.FormatCurrency(19044.92m), 76, false);
-            card.Controls.Add(new Label { Text = "Discount (%)", Location = new Point(16, 108), AutoSize = false, Width = 90, Height = 18, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteText });
-            _numDiscount = new NumericUpDown { Location = new Point(160, 102), Width = 118, DecimalPlaces = 2, Maximum = 9999999, Font = new Font("Segoe UI", 8.5f), TextAlign = HorizontalAlignment.Right };
+            Panel card = MakeCard(310, 188);
+            card.Margin = new Padding(0);
+            card.Controls.Add(new Label { Text = "Quote Summary", Location = new Point(16, 12), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText });
+            _lblTaxable = AddSummaryRow(card, "Subtotal (Excl. GST)", IndiaFormatHelper.FormatCurrency(105805.08m), 36, false);
+            _lblGst = AddSummaryRow(card, "GST (18%)", IndiaFormatHelper.FormatCurrency(19044.92m), 58, false);
+            card.Controls.Add(new Label { Text = "Discount (%)", Location = new Point(16, 82), AutoSize = false, Width = 118, Height = 20, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteText });
+            _numDiscount = new NumericUpDown { Location = new Point(150, 78), Width = 128, DecimalPlaces = 2, Maximum = 9999999, Font = new Font("Segoe UI", 8.5f), TextAlign = HorizontalAlignment.Right, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _numDiscount.ValueChanged += (s, e) => RefreshSummary();
             card.Controls.Add(_numDiscount);
-            _lblTotal = AddSummaryRow(card, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(124850m), 145, true);
-            _lblMargin = AddSummaryRow(card, "Gross Margin", "28.65%", 180, false);
+            _lblTotal = AddSummaryRow(card, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(124850m), 110, true);
+            _lblMargin = AddSummaryRow(card, "Gross Margin", "28.65%", 136, false);
             _lblMargin.ForeColor = SaveGreen;
+            card.Resize += (s, e) =>
+            {
+                if (_numDiscount != null)
+                {
+                    _numDiscount.Width = Math.Max(112, card.ClientSize.Width - 182);
+                    _numDiscount.Left = Math.Max(150, card.ClientSize.Width - _numDiscount.Width - 32);
+                }
+            };
             return card;
         }
 
         private Panel BuildSmartAlertsCard()
         {
-            Panel card = MakeCard(310, 200);
-            card.Margin = new Padding(0, 0, 0, 14);
-            card.Controls.Add(new Label { Text = "Smart Alerts", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            _lblAlertShortfall = AddAlert(card, 48, "!", "1 item has stock shortfall", WarnOrange);
-            _lblAlertMargin = AddAlert(card, 76, "!", "Low margin on 1 item", WarnOrange);
-            _lblAlertExpiry = AddAlert(card, 104, "i", "Quote validity expires in 30 days", InfoBlue);
-            _lblAlertSupplier = AddAlert(card, 132, "OK", "All items have supplier prices", SaveGreen);
-            _lblAlertSite = AddAlert(card, 160, "OK", "Client site is selected", SaveGreen);
+            Panel card = MakeCard(310, 142);
+            card.Margin = new Padding(0);
+            card.Controls.Add(new Label { Text = "Smart Alerts", Location = new Point(16, 12), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText });
+            _lblAlertShortfall = AddAlert(card, 34, "!", "1 item has stock shortfall", WarnOrange);
+            _lblAlertMargin = AddAlert(card, 52, "!", "Low margin on 1 item", WarnOrange);
+            _lblAlertExpiry = AddAlert(card, 70, "i", "Quote validity expires in 30 days", InfoBlue);
+            _lblAlertSupplier = AddAlert(card, 88, "OK", "All items have supplier prices", SaveGreen);
+            _lblAlertSite = AddAlert(card, 106, "OK", "Client site is selected", SaveGreen);
             return card;
         }
 
         private Panel BuildQuickActionsCard()
         {
-            Panel card = MakeCard(310, 260);
+            Panel card = MakeCard(310, 362);
             card.Margin = new Padding(0, 0, 0, 14);
             card.Controls.Add(new Label { Text = "Quick Actions", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            _btnSaveQuote = MakeBtn("Save Draft", InfoBlue, 270);
+            _btnSaveQuote = MakeBtn("Save Draft", SaveGreen, 270);
             Button approval = MakeBtn("Send for Approval", InfoBlue, 270);
-            Button pdf = MakeOutlineBtn("Generate PDF", 270);
-            Button po = MakeOutlineBtn("Convert to Purchase Order", 270);
-            Button invoice = MakeOutlineBtn("Convert to Invoice", 270);
-            Button dispatch = MakeOutlineBtn("Create Dispatch Job", 270);
-            Button[] buttons = { _btnSaveQuote, approval, pdf, po, invoice, dispatch };
+            Button pdf = MakeBtn("Generate PDF", CargoPurple, 270);
+            Button po = MakeOutlineBtn("Send Supplier PO", 270);
+            Button invoice = MakeOutlineBtn("Create Customer Invoice", 270);
+            Button dispatch = MakeBtn("Create Revenue Job", CargoPurple, 270);
+            Button whatsapp = MakeOutlineBtn("WhatsApp Follow-up", 270);
+            Button delete = MakeBtn("Delete Quote", Color.FromArgb(220, 38, 38), 270);
+            Button[] buttons = { _btnSaveQuote, approval, pdf, po, invoice, dispatch, whatsapp, delete };
             for (int i = 0; i < buttons.Length; i++)
-                buttons[i].Location = new Point(18, 52 + (i * 34));
+            {
+                buttons[i].Height = 30;
+                buttons[i].Location = new Point(18, 40 + (i * 33));
+            }
+            RegisterFilledButton(_btnSaveQuote, SaveGreen);
+            RegisterFilledButton(approval, InfoBlue);
+            RegisterFilledButton(pdf, CargoPurple);
+            RegisterFilledButton(dispatch, CargoPurple);
+            RegisterSecondaryButton(po);
+            RegisterSecondaryButton(invoice);
+            RegisterSecondaryButton(whatsapp);
             _btnSaveQuote.Click += async (s, e) => await SaveAsync();
             approval.Click += (s, e) => SendForApproval();
             pdf.Click += (s, e) => PrintQuotationToPdf();
             po.Click += async (s, e) => await CreatePurchaseOrdersAsync();
             invoice.Click += async (s, e) => await CreateInvoiceAsync();
             dispatch.Click += async (s, e) => await CreateDispatchJobAsync();
+            whatsapp.Click += (s, e) => ShowQuotationWhatsAppAction();
+            delete.Click += async (s, e) => await DeleteCurrentQuoteAsync();
             card.Controls.AddRange(buttons);
+            card.Resize += (s, e) =>
+            {
+                int width = Math.Max(180, card.ClientSize.Width - 36);
+                foreach (Button button in buttons)
+                    button.Width = width;
+            };
             return card;
+        }
+
+        private void ShowQuotationWhatsAppAction()
+        {
+            TenderBid bid = _current ?? BuildDraftHeaderOnly();
+            ComboItem selectedClient = _cboClient.SelectedItem as ComboItem;
+            B2BClient client = selectedClient == null ? null : selectedClient.Tag as B2BClient;
+            string clientName = !string.IsNullOrWhiteSpace(bid.ClientName) ? bid.ClientName : (selectedClient == null ? "Customer" : selectedClient.Text);
+            string quoteNo = string.IsNullOrWhiteSpace(bid.QuotationNumber) ? "the quotation" : bid.QuotationNumber;
+            string amount = IndiaFormatHelper.FormatCurrency(bid.TotalWithGST > 0 ? bid.TotalWithGST : bid.BidValue);
+            string message = "Hi " + clientName + ",\r\n\r\nFollowing up on quotation " + quoteNo + " for " + amount + ". Please review and confirm if we should proceed.\r\n\r\nRegards,\r\nServoERP";
+
+            WhatsAppQuickActionDialog.ShowFor(this, new WhatsAppQuickActionContext
+            {
+                Module = "Quotations",
+                SourceId = bid.BidID,
+                ContactName = clientName,
+                Phone = client == null ? string.Empty : client.Phone,
+                TemplateType = "Quotation follow-up",
+                Message = message,
+                LinkedRecordType = "Quotation",
+                LinkedRecord = quoteNo,
+                LinkedRecordId = bid.BidID
+            });
         }
 
         private Panel BuildRightPanel()
@@ -1013,6 +1282,7 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "HsnSac", HeaderText = "HSN/SAC", Width = 65 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gst", HeaderText = "GST%", Width = 50 });
             _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Width = 30, Text = "X", UseColumnTextForButtonValue = true });
+            ApplyQuotationGridColumnSizing();
             _grid.CellEndEdit += async (s, e) => await HandleGridCellEndEditAsync(e.RowIndex, e.ColumnIndex);
             _grid.CellValueChanged += (s, e) => HandleGridValueChange(e.RowIndex, e.ColumnIndex);
             _grid.CellContentClick += (s, e) => HandleGridButtonClick(e.RowIndex, e.ColumnIndex);
@@ -1148,8 +1418,11 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int bidId = await EnsureSavedAsync();
                 List<string> poNumbers = await Task.Run(() => _svc.CreatePOsFromQuotation(bidId));
-                MessageBox.Show(poNumbers.Count == 0 ? "No supplier PO was required." : "Created PO(s):\n\n" + string.Join("\n", poNumbers), "Create PO", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                SetStatus(poNumbers.Count == 0 ? "No shortfall PO required." : "Purchase orders created.", SaveGreen);
+                _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                PopulateCurrent(_current);
+                await RefreshListsAsync();
+                MessageBox.Show(poNumbers.Count == 0 ? "No supplier PO was required." : "Supplier PO sent/created:\n\n" + string.Join("\n", poNumbers), "Supplier Purchase Order", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SetStatus(poNumbers.Count == 0 ? "No supplier-side PO required." : "Supplier-side purchase order created.", SaveGreen);
             }
             catch (Exception ex)
             {
@@ -1164,9 +1437,12 @@ namespace HVAC_Pro_Desktop.UI
                 int bidId = await EnsureSavedAsync();
                 Invoice invoice = await Task.Run(() => _svc.CreateInvoiceFromQuotation(bidId));
                 string templateCopy = _docTemplateSvc.CopyQuotationTemplateForDocument(invoice.InvoiceNumber, ResolveDocumentOutputFolder());
+                _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                PopulateCurrent(_current);
+                await RefreshListsAsync();
                 string templateLine = string.IsNullOrWhiteSpace(templateCopy) ? "" : "\n\nCompany PDF copy:\n" + templateCopy;
-                MessageBox.Show("Invoice generated.\n\nInvoice: " + invoice.InvoiceNumber + "\nAmount: " + IndiaFormatHelper.FormatCurrency(invoice.TotalAmount) + templateLine, "Create Invoice", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                SetStatus("Invoice draft generated from quotation.", SaveGreen);
+                MessageBox.Show("Customer invoice generated.\n\nInvoice: " + invoice.InvoiceNumber + "\nAmount: " + IndiaFormatHelper.FormatCurrency(invoice.TotalAmount) + templateLine, "Customer Invoice", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SetStatus("Customer-side invoice draft generated from quotation.", SaveGreen);
             }
             catch (Exception ex)
             {
@@ -1210,6 +1486,39 @@ namespace HVAC_Pro_Desktop.UI
             var quotes = await Task.Run(() => _svc.GetAll().OrderByDescending(q => q.RequiredByDate ?? q.DueDate).Take(80).ToList());
             BindQuoteList(quotes);
             BindRenewalAlerts();
+            RefreshQuotationDashboardSafe();
+        }
+
+        private async Task DeleteCurrentQuoteAsync()
+        {
+            if (_current == null || _current.BidID <= 0)
+            {
+                SetStatus("Select a saved quotation to delete.", WarnOrange);
+                return;
+            }
+
+            string quoteNo = string.IsNullOrWhiteSpace(_current.QuotationNumber) ? "this quotation" : _current.QuotationNumber;
+            DialogResult confirm = MessageBox.Show(
+                "Permanently delete " + quoteNo + " including quotation line items and links from generated invoices or POs?\r\n\r\nThis cannot be undone.",
+                "Delete Quotation",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                SetStatus("Deleting quotation...", InfoBlue);
+                await Task.Run(() => _svc.Delete(_current.BidID));
+                NewRecord();
+                await RefreshListsAsync();
+                SetStatus("Quotation deleted.", Color.FromArgb(220, 38, 38));
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Delete failed: " + ex.Message, Color.Firebrick);
+                MessageBox.Show("Delete quotation failed: " + ex.Message, "Delete Quotation", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void BindClients()
@@ -1315,6 +1624,7 @@ namespace HVAC_Pro_Desktop.UI
             SetStatus("Loading quotation...", InfoBlue);
             _current = await Task.Run(() => _svc.GetByIdDetailed(quote.BidID));
             PopulateCurrent(_current);
+            ShowQuotationEditor();
             SetStatus("Quotation loaded.", DS.Slate500);
         }
 
@@ -1354,7 +1664,10 @@ namespace HVAC_Pro_Desktop.UI
             SelectCombo(_cboClient, bid.ClientID);
             LoadSites();
             SelectCombo(_cboSite, bid.SiteID);
-            SelectComboByText(_cboStatus, bid.Status);
+            SelectComboByText(_cboStatus, NormalizeWorkflowStatus(bid.Status));
+            SelectComboByText(_cboCommercialFlow, string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow);
+            SelectComboByText(_cboCustomerDocStatus, string.IsNullOrWhiteSpace(bid.CustomerDocumentStatus) ? "Quote Draft" : bid.CustomerDocumentStatus);
+            SelectComboByText(_cboSupplierDocStatus, string.IsNullOrWhiteSpace(bid.SupplierDocumentStatus) ? "Not Required" : bid.SupplierDocumentStatus);
             SelectComboByText(_cboValidity, Math.Max(1, (bid.DueDate.Date - (bid.SubmittedDate ?? DateTime.Today).Date).Days) + " Days");
             _dtpDate.Value = bid.SubmittedDate ?? DateTime.Today;
             _dtpDue.Value = bid.DueDate == default(DateTime) ? DateTime.Today.AddDays(30) : bid.DueDate;
@@ -1369,7 +1682,7 @@ namespace HVAC_Pro_Desktop.UI
             RefreshSuggestions(bid.Suggestions ?? _svc.GenerateSuggestions(bid));
         }
 
-        private void NewRecord()
+        private void NewRecord(bool showEditor = true)
         {
             _current = null;
             if (_selectedCard != null)
@@ -1382,6 +1695,10 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboSite.Items.Count > 0) _cboSite.SelectedIndex = 0;
             _cboValidity.SelectedIndex = 1;
             _cboStatus.SelectedIndex = 0;
+            if (_cboCommercialFlow != null) _cboCommercialFlow.SelectedIndex = 0;
+            if (_cboCustomerDocStatus != null) _cboCustomerDocStatus.SelectedIndex = 0;
+            if (_cboSupplierDocStatus != null) _cboSupplierDocStatus.SelectedIndex = 0;
+            _txtQuoteNo.Text = GenerateNextQuoteNumber();
             _dtpDate.Value = DateTime.Today;
             UpdateDueDate();
             _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
@@ -1392,6 +1709,8 @@ namespace HVAC_Pro_Desktop.UI
             RefreshGrid();
             RefreshSummary();
             RefreshSuggestions();
+            if (showEditor)
+                ShowQuotationEditor();
             SetStatus("New quotation ready.", DS.Slate500);
         }
 
@@ -1451,6 +1770,9 @@ namespace HVAC_Pro_Desktop.UI
             bid.DueDate = _dtpDue.Value.Date;
             bid.RequiredByDate = _dtpRequiredBy.Value.Date;
             bid.Status = _cboStatus.SelectedItem?.ToString() ?? "Draft";
+            bid.CommercialFlow = _cboCommercialFlow?.SelectedItem?.ToString() ?? "Revenue";
+            bid.CustomerDocumentStatus = _cboCustomerDocStatus?.SelectedItem?.ToString() ?? "Quote Draft";
+            bid.SupplierDocumentStatus = _cboSupplierDocStatus?.SelectedItem?.ToString() ?? "Not Required";
             bid.Notes = _txtNotes.Text.Trim();
             bid.TemplateId = _current?.TemplateId;
             bid.LineItems = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
@@ -1636,6 +1958,32 @@ namespace HVAC_Pro_Desktop.UI
             SyncGridToModel();
             _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
             RefreshGrid();
+            BeginEditItemCell(_lineItems.Count - 1, true);
+        }
+
+        private void BeginEditItemCell(int rowIndex, bool openDropdown)
+        {
+            if (_grid == null || rowIndex < 0 || rowIndex >= _grid.Rows.Count || !_grid.Columns.Contains("ItemDescription"))
+                return;
+
+            BeginInvoke((Action)(() =>
+            {
+                if (_grid == null || _grid.IsDisposed || rowIndex < 0 || rowIndex >= _grid.Rows.Count)
+                    return;
+
+                EnsureInventoryComboCell(rowIndex);
+                _grid.CurrentCell = _grid.Rows[rowIndex].Cells["ItemDescription"];
+                _grid.BeginEdit(true);
+
+                if (!openDropdown || !(_grid.EditingControl is ComboBox combo))
+                    return;
+
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
+                combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+                if (combo.Items.Count > 0)
+                    combo.DroppedDown = true;
+            }));
         }
 
         private void RefreshGrid()
@@ -1654,6 +2002,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 if (_lblLineItemCount != null)
                     _lblLineItemCount.Text = string.Format(CultureInfo.InvariantCulture, "Showing 1 to {0} of {0} items", _lineItems.Count);
+                UpdateLineItemsEmptyState();
             }
             finally
             {
@@ -1791,18 +2140,71 @@ namespace HVAC_Pro_Desktop.UI
                 SetMetric(_lblGst, "GST", IndiaFormatHelper.FormatCurrency(0));
                 SetMetric(_lblTotal, "Total incl. GST", IndiaFormatHelper.FormatCurrency(0));
                 SetMetric(_lblMargin, "Avg Margin %", "0.00%");
+                UpdateLiveQuotationHeaderStats(0m, 0m, 0m, 0m);
                 RefreshSmartAlerts(bid);
                 return;
             }
             bid = _svc.AnalyseTenderDraft(bid);
-            decimal discount = _numDiscount == null ? 0m : _numDiscount.Value;
+            decimal discountPercent = _numDiscount == null ? 0m : _numDiscount.Value;
+            decimal discountAmount = Math.Round(bid.TotalTaxableValue * (discountPercent / 100m), 2);
+            decimal total = Math.Max(0m, bid.TotalTaxableValue - discountAmount + bid.TotalGSTAmount);
             SetMetric(_lblTaxable, "Subtotal (Excl. GST)", IndiaFormatHelper.FormatCurrency(bid.TotalTaxableValue));
             SetMetric(_lblGst, "GST (18%)", IndiaFormatHelper.FormatCurrency(bid.TotalGSTAmount));
-            SetMetric(_lblTotal, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(Math.Max(0m, bid.TotalWithGST - discount)));
+            SetMetric(_lblTotal, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(total));
             SetMetric(_lblMargin, "Gross Margin", bid.AverageMarginPct.ToString("0.##", CultureInfo.InvariantCulture) + "%");
             if (_lblMargin != null)
                 _lblMargin.ForeColor = bid.AverageMarginPct >= 25m ? SaveGreen : bid.AverageMarginPct >= 15m ? WarnOrange : DS.Red600;
+            UpdateLiveQuotationHeaderStats(total, bid.TotalTaxableValue, bid.TotalGSTAmount, bid.AverageMarginPct);
             RefreshSmartAlerts(bid);
+        }
+
+        private void UpdateLiveQuotationHeaderStats(decimal total, decimal subtotal, decimal gst, decimal margin)
+        {
+            if (_lblKpiQuoteValue != null)
+                _lblKpiQuoteValue.Text = IndiaFormatHelper.FormatCurrency(total);
+            if (_lblKpiMargin != null)
+                _lblKpiMargin.Text = margin.ToString("0.##", CultureInfo.InvariantCulture) + "%";
+            if (_lblKpiMarginSub != null)
+            {
+                decimal cost = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Sum(li => li.CostPerUnit * li.Quantity);
+                _lblKpiMarginSub.Text = IndiaFormatHelper.FormatCurrency(Math.Max(0m, subtotal - cost));
+                _lblKpiMarginSub.ForeColor = margin >= 20m ? SaveGreen : margin >= 10m ? WarnOrange : DS.Red600;
+            }
+            string status = _cboStatus?.SelectedItem?.ToString() ?? "Draft";
+            if (_lblKpiApproval != null)
+                _lblKpiApproval.Text = status;
+            if (_lblKpiApprovalSub != null)
+            {
+                _lblKpiApprovalSub.Text = status == "Draft" ? "Not Sent" : status;
+                _lblKpiApprovalSub.ForeColor = ResolveQuoteStatusColor(status);
+            }
+            if (_quoteDetailsStatusPill != null)
+            {
+                _quoteDetailsStatusPill.Text = status.ToUpperInvariant();
+                _quoteDetailsStatusPill.ForeColor = ResolveQuoteStatusColor(status);
+                _quoteDetailsStatusPill.BackColor = DS.Lighten(ResolveQuoteStatusColor(status), 0.86f);
+                _quoteDetailsStatusPill.Width = Math.Max(70, TextRenderer.MeasureText(_quoteDetailsStatusPill.Text, _quoteDetailsStatusPill.Font).Width + 18);
+            }
+            decimal probability = ResolveCloseProbability(status, margin);
+            if (_lblKpiProbability != null)
+                _lblKpiProbability.Text = probability.ToString("0", CultureInfo.InvariantCulture) + "%";
+            if (_lblKpiProbabilitySub != null)
+            {
+                _lblKpiProbabilitySub.Text = probability >= 70m ? "High" : probability >= 35m ? "Medium" : "Low";
+                _lblKpiProbabilitySub.ForeColor = probability >= 70m ? SaveGreen : probability >= 35m ? WarnOrange : DS.Red600;
+            }
+            int days = Math.Max(0, (_dtpDue?.Value.Date ?? DateTime.Today).Subtract(_dtpDate?.Value.Date ?? DateTime.Today).Days);
+            if (_lblKpiValidity != null)
+                _lblKpiValidity.Text = days + " Days";
+            if (_lblKpiValiditySub != null)
+                _lblKpiValiditySub.Text = "Expires on " + (_dtpDue?.Value.Date ?? DateTime.Today).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            if (_lblKpiSaved != null)
+                _lblKpiSaved.Text = _current == null ? "Just now" : "Saved";
+            if (_lblKpiSavedSub != null)
+                _lblKpiSavedSub.Text = "by " + (SessionManager.CurrentUser?.DisplayName ?? Environment.UserName);
+            if (_lblLastSaved != null)
+                _lblLastSaved.Text = "Last saved: Just now        Help & Support";
+            RenderWorkflowStepper();
         }
 
         private void BindInventoryItems()
@@ -1831,9 +2233,15 @@ namespace HVAC_Pro_Desktop.UI
 
         private string GetItemSearchText()
         {
-            if (_txtItemSearch == null || _txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search items...")
+            if (_txtItemSearch == null)
                 return string.Empty;
-            return (_txtItemSearch.Text ?? string.Empty).Trim();
+
+            string text = (_txtItemSearch.Text ?? string.Empty).Trim();
+            if (string.Equals(text, "Search items...", StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+            if (_txtItemSearch.ForeColor == QuoteMuted)
+                return string.Empty;
+            return text;
         }
 
         private void BindSupplierColumn()
@@ -1975,7 +2383,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SendForApproval()
         {
             if (_cboStatus != null)
-                SelectComboByText(_cboStatus, "Analysed");
+                SelectComboByText(_cboStatus, "Approval");
             SetStatus("Quotation marked for approval review.", InfoBlue);
         }
 
@@ -2043,8 +2451,11 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int bidId = await EnsureSavedAsync();
                 Job job = await Task.Run(() => _svc.CreateDispatchJobFromQuotation(bidId));
-                SetStatus("Dispatch job created: " + job.JobNumber, SaveGreen);
-                if (MessageBox.Show("Dispatch job created.\r\n\r\n" + job.JobNumber + "\r\n\r\nOpen Jobs now?", "Create Dispatch Job", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                PopulateCurrent(_current);
+                await RefreshListsAsync();
+                SetStatus("Revenue job created: " + job.JobNumber, SaveGreen);
+                if (MessageBox.Show("Revenue job created.\r\n\r\n" + job.JobNumber + "\r\n\r\nOpen Jobs now?", "Create Revenue Job", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                     OnNavigate?.Invoke(15);
             }
             catch (Exception ex)
@@ -2355,6 +2766,9 @@ namespace HVAC_Pro_Desktop.UI
                 DueDate = _dtpDue?.Value.Date ?? quoteDate.AddDays(30),
                 RequiredByDate = _dtpRequiredBy?.Value.Date,
                 Status = _cboStatus?.SelectedItem?.ToString() ?? "Draft",
+                CommercialFlow = _cboCommercialFlow?.SelectedItem?.ToString() ?? "Revenue",
+                CustomerDocumentStatus = _cboCustomerDocStatus?.SelectedItem?.ToString() ?? "Quote Draft",
+                SupplierDocumentStatus = _cboSupplierDocStatus?.SelectedItem?.ToString() ?? "Not Required",
                 Notes = (_txtNotes?.Text ?? string.Empty).Trim(),
                 TemplateId = _current?.TemplateId
             };
@@ -2424,12 +2838,73 @@ namespace HVAC_Pro_Desktop.UI
                     combo.SelectedIndex = i;
         }
 
+        private string GenerateNextQuoteNumber()
+        {
+            string prefix = "QT-" + DateTime.Today.ToString("ddMM", CultureInfo.InvariantCulture) + "-";
+            int count = 0;
+            try
+            {
+                count = _svc.GetAll().Count(q => !string.IsNullOrWhiteSpace(q.QuotationNumber) && q.QuotationNumber.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            }
+            catch { }
+            return prefix + (count + 1).ToString("0000", CultureInfo.InvariantCulture);
+        }
+
+        private static string NormalizeWorkflowStatus(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status)) return "Draft";
+            if (status.Equals("Analysed", StringComparison.OrdinalIgnoreCase)) return "Material Check";
+            if (status.Equals("Submitted", StringComparison.OrdinalIgnoreCase)) return "Sent";
+            if (status.Equals("Won", StringComparison.OrdinalIgnoreCase)) return "Accepted";
+            if (status.Equals("Lost", StringComparison.OrdinalIgnoreCase)) return "Draft";
+            return status;
+        }
+
+        private static Color ResolveQuoteStatusColor(string status)
+        {
+            switch ((status ?? "Draft").Trim())
+            {
+                case "Material Check": return WarnOrange;
+                case "Approval": return Color.FromArgb(217, 119, 6);
+                case "Sent": return CargoPurple;
+                case "Accepted": return SaveGreen;
+                case "Converted": return InfoBlue;
+                default: return InfoBlue;
+            }
+        }
+
+        private static decimal ResolveCloseProbability(string status, decimal margin)
+        {
+            decimal baseScore;
+            switch ((status ?? "Draft").Trim())
+            {
+                case "Converted": baseScore = 100m; break;
+                case "Accepted": baseScore = 85m; break;
+                case "Sent": baseScore = 55m; break;
+                case "Approval": baseScore = 35m; break;
+                case "Material Check": baseScore = 20m; break;
+                default: baseScore = 10m; break;
+            }
+            if (margin >= 25m) baseScore += 8m;
+            else if (margin < 10m) baseScore -= 8m;
+            return Math.Max(0m, Math.Min(100m, baseScore));
+        }
+
         private void ApplyMarginStyle(DataGridViewCell cell, TenderBidLineItem line)
         {
+            if (IsEmptyQuotationLine(line) || (line.CostPerUnit <= 0m && line.SellPricePerUnit <= 0m))
+            {
+                cell.Style.BackColor = Color.White;
+                cell.Style.ForeColor = DS.Slate500;
+                cell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+                return;
+            }
+
             if (line.AnalysisStatus == "Failed")
             {
                 cell.Style.BackColor = Color.White;
                 cell.Style.ForeColor = Color.FromArgb(220, 38, 38);
+                cell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 return;
             }
             if (line.MarginPct >= 25m)
@@ -2452,10 +2927,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ApplyStockStyle(DataGridViewCell stockCell, DataGridViewCell shortfallCell, TenderBidLineItem line)
         {
-            stockCell.Style.ForeColor = line.StockAvailable >= line.Quantity ? Color.FromArgb(22, 163, 74) : Color.FromArgb(220, 38, 38);
-            shortfallCell.Style.ForeColor = line.Shortfall > 0m ? Color.FromArgb(220, 38, 38) : DS.Slate500;
-            stockCell.Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-            shortfallCell.Style.Font = new Font("Segoe UI", 9f, line.Shortfall > 0m ? FontStyle.Bold : FontStyle.Regular);
+            bool empty = IsEmptyQuotationLine(line);
+            bool hasShortfall = !empty && line.Shortfall > 0m;
+            bool stockWarning = !empty && line.StockAvailable < line.Quantity;
+            stockCell.Style.ForeColor = stockWarning ? Color.FromArgb(220, 38, 38) : (empty ? DS.Slate500 : Color.FromArgb(22, 163, 74));
+            shortfallCell.Style.ForeColor = hasShortfall ? Color.FromArgb(220, 38, 38) : DS.Slate500;
+            stockCell.Style.Font = new Font("Segoe UI", 9f, stockWarning ? FontStyle.Bold : FontStyle.Regular);
+            shortfallCell.Style.Font = new Font("Segoe UI", 9f, hasShortfall ? FontStyle.Bold : FontStyle.Regular);
+        }
+
+        private static bool IsEmptyQuotationLine(TenderBidLineItem line)
+        {
+            return line == null
+                || (!line.InventoryItemId.HasValue
+                    && string.IsNullOrWhiteSpace(line.ItemDescription)
+                    && line.CostPerUnit <= 0m
+                    && line.SellPricePerUnit <= 0m
+                    && line.StockAvailable <= 0m
+                    && line.Shortfall <= 0m);
         }
 
         private static void ApplyCategoryStyle(DataGridViewCell cell, string category)
@@ -2527,27 +3016,45 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label AddSummaryRow(Control parent, string label, string value, int y, bool total)
         {
-            parent.Controls.Add(new Label { Text = label == "Discount" ? "Discount (%)" : label, Location = new Point(16, y), AutoSize = false, Width = 90, Height = 18, Font = new Font("Segoe UI", 8.5f, total ? FontStyle.Bold : FontStyle.Regular), ForeColor = total ? InfoBlue : QuoteText });
-            Label valueLabel = new Label { Text = value, Location = new Point(138, y), Size = new Size(152, 20), Font = new Font("Segoe UI", total ? 11f : 8.5f, total ? FontStyle.Bold : FontStyle.Regular), ForeColor = total ? InfoBlue : QuoteText, TextAlign = ContentAlignment.MiddleRight };
+            parent.Controls.Add(new Label { Text = label == "Discount" ? "Discount (%)" : label, Location = new Point(16, y), AutoSize = false, Width = 126, Height = 20, Font = new Font("Segoe UI", 8.5f, total ? FontStyle.Bold : FontStyle.Regular), ForeColor = total ? InfoBlue : QuoteText });
+            Label valueLabel = new Label { Text = value, Location = new Point(150, y), Size = new Size(Math.Max(112, parent.ClientSize.Width - 182), 22), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", total ? 11f : 8.5f, total ? FontStyle.Bold : FontStyle.Regular), ForeColor = total ? InfoBlue : QuoteText, TextAlign = ContentAlignment.MiddleRight };
             parent.Controls.Add(valueLabel);
             return valueLabel;
         }
 
         private static Label AddAlert(Control parent, int y, string mark, string text, Color color)
         {
-            Label icon = new Label { Text = mark, Location = new Point(16, y), Size = new Size(22, 22), BackColor = DS.Lighten(color, 0.86f), ForeColor = color, Font = new Font("Segoe UI", 8, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            DS.Rounded(icon, 6);
+            Label icon = new Label { Text = mark, Location = new Point(16, y), Size = new Size(18, 18), BackColor = DS.Lighten(color, 0.86f), ForeColor = color, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            DS.Rounded(icon, 5);
             parent.Controls.Add(icon);
-            Label label = new Label { Text = text, Location = new Point(48, y + 2), Size = new Size(230, 18), Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteText };
+            Label label = new Label { Text = text, Location = new Point(44, y + 1), Size = new Size(234, 16), Font = new Font("Segoe UI", 8.2f), ForeColor = QuoteText };
             parent.Controls.Add(label);
             return label;
         }
 
-        private static void AddReadonlyField(TableLayoutPanel grid, int col, string label, string value)
+        private void AddReadonlyField(TableLayoutPanel grid, int col, string label, string value)
         {
             Panel wrap = new Panel { Dock = DockStyle.Fill };
             wrap.Controls.Add(new Label { Text = label, Location = new Point(0, 0), AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted });
-            TextBox box = new TextBox { Text = value, Location = new Point(0, 20), Width = 190, Height = 26, ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f) };
+            bool notes = string.Equals(label, "Notes", StringComparison.OrdinalIgnoreCase);
+            TextBox box = new TextBox
+            {
+                Text = value,
+                Location = new Point(0, 20),
+                Width = notes ? 280 : 190,
+                Height = notes ? 50 : 30,
+                ReadOnly = true,
+                Multiline = notes,
+                WordWrap = notes,
+                ScrollBars = notes ? ScrollBars.Vertical : ScrollBars.None,
+                BorderStyle = BorderStyle.None,
+                Font = new Font("Segoe UI", 8.5f),
+                BackColor = InputFill,
+                ForeColor = QuoteText,
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right
+            };
+            _toolTip.SetToolTip(box, value);
+            _toolTip.SetToolTip(wrap, value);
             wrap.Controls.Add(box);
             grid.Controls.Add(wrap, col, 0);
         }
@@ -2571,7 +3078,7 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawRectangle(p, 0, 0, card.Width - 1, card.Height - 1);
             };
             card.Controls.Add(new Label { Text = caption, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted, Location = new Point(10, 7), AutoSize = true });
-            Label value = new Label { Text = IndiaFormatHelper.FormatCurrency(0), Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(10, 24), AutoSize = true };
+            Label value = new Label { Text = IndiaFormatHelper.FormatCurrency(0), Tag = "MetricValue", Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(10, 24), AutoSize = true };
             card.Controls.Add(value);
             parent.Controls.Add(card);
             return value;
@@ -2580,7 +3087,7 @@ namespace HVAC_Pro_Desktop.UI
         private static void SetMetric(Label valueLabel, string caption, string value)
         {
             valueLabel.Text = value;
-            if (valueLabel.Parent != null && valueLabel.Parent.Controls.Count > 0 && valueLabel.Parent.Controls[0] is Label captionLabel)
+            if (Equals(valueLabel.Tag, "MetricValue") && valueLabel.Parent != null && valueLabel.Parent.Controls.Count > 0 && valueLabel.Parent.Controls[0] is Label captionLabel)
                 captionLabel.Text = caption;
         }
 
@@ -2595,12 +3102,12 @@ namespace HVAC_Pro_Desktop.UI
 
         private static TextBox MakeTextBox(bool readOnly)
         {
-            return new TextBox { Width = 250, ReadOnly = readOnly, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9), BackColor = readOnly ? Color.FromArgb(248, 250, 252) : QuoteSurface, ForeColor = QuoteText };
+            return new TextBox { Width = 250, ReadOnly = readOnly, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 9), BackColor = InputFill, ForeColor = QuoteText };
         }
 
         private static ComboBox MakeCombo(bool dropDownList)
         {
-            return new ComboBox { Width = 250, DropDownStyle = dropDownList ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown, Font = new Font("Segoe UI", 9), BackColor = QuoteSurface, ForeColor = QuoteText, FlatStyle = FlatStyle.System };
+            return new ComboBox { Width = 250, DropDownStyle = dropDownList ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown, Font = new Font("Segoe UI", 9), BackColor = InputFill, ForeColor = QuoteText, FlatStyle = FlatStyle.Flat };
         }
 
         private static DateTimePicker MakeDatePicker()
@@ -2608,23 +3115,122 @@ namespace HVAC_Pro_Desktop.UI
             return new DateTimePicker { Width = 250, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Short };
         }
 
+        private void RegisterFilledButton(Button button, Color color)
+        {
+            if (button == null)
+                return;
+
+            button.Tag = color;
+            if (!_filledQuoteButtons.Contains(button))
+                _filledQuoteButtons.Add(button);
+        }
+
+        private void RegisterSecondaryButton(Button button)
+        {
+            if (button == null)
+                return;
+
+            if (!_secondaryQuoteButtons.Contains(button))
+                _secondaryQuoteButtons.Add(button);
+        }
+
+        private void ApplyQuotationVisualFixes()
+        {
+            ApplyInputFillRecursive(this);
+            foreach (Button button in _filledQuoteButtons)
+            {
+                Color color = button.Tag is Color ? (Color)button.Tag : CargoPurple;
+                ApplyFilledButton(button, color);
+            }
+
+            foreach (Button button in _secondaryQuoteButtons)
+                ApplySecondaryButton(button);
+
+            if (_grid != null)
+            {
+                _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+                _grid.ScrollBars = ScrollBars.Both;
+                ApplyQuotationGridColumnSizing();
+            }
+
+            UpdateLineItemsEmptyState();
+        }
+
+        private void ApplyQuotationGridColumnSizing()
+        {
+            if (_grid == null || _grid.Columns.Count == 0)
+                return;
+
+            GridTheme.ApplyColumnPolicy(_grid, new[]
+            {
+                new GridColumnPolicy("Sr", 44, GridColumnPriority.Required),
+                new GridColumnPolicy("ItemDescription", 150, GridColumnPriority.Required),
+                new GridColumnPolicy("Category", 90, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Qty", 56, GridColumnPriority.Required),
+                new GridColumnPolicy("Unit", 64, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Supplier", 120, GridColumnPriority.Secondary),
+                new GridColumnPolicy("CostPerUnit", 90, GridColumnPriority.Required),
+                new GridColumnPolicy("SellPrice", 100, GridColumnPriority.Required),
+                new GridColumnPolicy("MarginPct", 86, GridColumnPriority.Required),
+                new GridColumnPolicy("Gst", 70, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Stock", 72, GridColumnPriority.Required),
+                new GridColumnPolicy("Shortfall", 92, GridColumnPriority.Required),
+                new GridColumnPolicy("LineTotal", 105, GridColumnPriority.Required),
+                new GridColumnPolicy("Actions", 80, GridColumnPriority.Optional),
+                new GridColumnPolicy("HsnSac", 86, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Delete", 58, GridColumnPriority.Optional)
+            });
+        }
+
+        private static void ApplyInputFillRecursive(Control root)
+        {
+            foreach (Control child in root.Controls)
+            {
+                if (child is TextBox textBox)
+                {
+                    textBox.BorderStyle = BorderStyle.None;
+                    textBox.BackColor = InputFill;
+                    textBox.ForeColor = QuoteText;
+                }
+                else if (child is ComboBox comboBox)
+                {
+                    comboBox.FlatStyle = FlatStyle.Flat;
+                    comboBox.BackColor = InputFill;
+                    comboBox.ForeColor = QuoteText;
+                }
+                else if (child is NumericUpDown numeric)
+                {
+                    numeric.BorderStyle = BorderStyle.None;
+                    numeric.BackColor = InputFill;
+                    numeric.ForeColor = QuoteText;
+                }
+
+                if (child.HasChildren)
+                    ApplyInputFillRecursive(child);
+            }
+        }
+
+        private static void ApplyFilledButton(Button button, Color color)
+        {
+            UIHelper.ApplyActionButton(button);
+        }
+
+        private static void ApplySecondaryButton(Button button)
+        {
+            UIHelper.ApplyActionButton(button, UiActionVariant.Secondary);
+        }
+
         private Button MakeBtn(string text, Color bg, int width)
         {
             Button button = new Button { Text = text, Width = width, Height = 34, BackColor = bg, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9, FontStyle.Bold), Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
-            button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.MouseOverBackColor = DS.Lighten(bg, 0.08f);
-            button.FlatAppearance.MouseDownBackColor = DS.Darken(bg, 0.12f);
-            DS.Rounded(button, 9);
+            UIHelper.ApplyActionButton(button);
             return button;
         }
 
         private Button MakeOutlineBtn(string text, int width)
         {
             Button button = new Button { Text = text, Width = width, Height = 34, BackColor = Color.White, ForeColor = QuoteText, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
-            button.FlatAppearance.BorderSize = 1;
-            button.FlatAppearance.BorderColor = BorderColor;
-            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(248, 250, 252);
-            DS.Rounded(button, 9);
+            UIHelper.ApplyActionButton(button, UiActionVariant.Secondary);
             return button;
         }
 

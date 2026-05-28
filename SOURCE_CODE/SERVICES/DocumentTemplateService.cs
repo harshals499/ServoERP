@@ -62,7 +62,14 @@ namespace HVAC_Pro_Desktop.Services
             if (!File.Exists(source))
                 throw new FileNotFoundException("No company quotation document has been uploaded yet.", source);
 
-            Process.Start(new ProcessStartInfo(source) { UseShellExecute = true });
+            try
+            {
+                Process.Start(new ProcessStartInfo(source) { UseShellExecute = true });
+            }
+            catch
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + source + "\"") { UseShellExecute = true });
+            }
         }
 
         public static string UploadQuotationTemplateWithDialog(IWin32Window owner)

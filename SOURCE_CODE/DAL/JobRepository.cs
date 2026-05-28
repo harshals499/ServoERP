@@ -519,6 +519,41 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void Delete(int jobId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        ExecuteDelete(conn, tx, "DELETE FROM PendingCharges WHERE WorkOrderId=@id", jobId);
+                        ExecuteDelete(conn, tx, "UPDATE PurchaseLineItems SET LinkedWorkOrderId=NULL WHERE LinkedWorkOrderId=@id", jobId);
+                        ExecuteDelete(conn, tx, "DELETE FROM JobActivityLog WHERE JobId=@id", jobId);
+                        ExecuteDelete(conn, tx, "DELETE FROM JobPartsUsed WHERE JobId=@id", jobId);
+                        ExecuteDelete(conn, tx, "DELETE FROM JobChecklistItems WHERE JobId=@id", jobId);
+                        ExecuteDelete(conn, tx, "DELETE FROM Jobs WHERE JobID=@id", jobId);
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         public int GetCountByStatus(string status)
         {
             using (SqlConnection conn = _db.GetConnection())

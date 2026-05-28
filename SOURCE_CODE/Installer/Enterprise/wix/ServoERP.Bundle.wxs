@@ -16,8 +16,8 @@
 
     <BootstrapperApplication>
       <bal:WixStandardBootstrapperApplication
-          Theme="hyperlinkLicense"
-          LicenseUrl="https://servoerp.in"
+          Theme="rtfLicense"
+          LicenseFile="$(var.LicenseRtf)"
           LogoFile="$(var.AppSource)\app.ico"
           SuppressOptionsUI="no"
           SuppressDowngradeFailure="no" />

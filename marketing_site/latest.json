@@ -1,0 +1,10 @@
+﻿{
+    "latestVersion":  "1.0.30.0",
+    "minimumSupportedVersion":  "1.0.0.0",
+    "updatedAt":  "2026-05-26T21:04:06Z",
+    "versionUrl":  "https://servoerp.in/version.txt",
+    "packageUrl":  "https://servoerp.in/updates/ServoERP_Update_1.0.30.0.zip",
+    "installerUrl":  "https://servoerp.in/download/",
+    "checksumSha256":  "77D1D27CA238EE30CC11386A1A7CB2CD932D4F523C3D01E224D8F79C5544187F",
+    "notes":  "Quotation dashboard polish, login window controls/password visibility fix, client dashboard glyph cleanup, and smoke-tested release build."
+}

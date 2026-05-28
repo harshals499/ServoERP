@@ -6,7 +6,9 @@ namespace HVAC_Pro_Desktop.Models
     public enum LicensePlanType
     {
         Trial,
+        Basic,
         Standard,
+        Pro,
         Enterprise
     }
 
@@ -17,6 +19,7 @@ namespace HVAC_Pro_Desktop.Models
         Warning,
         Grace,
         Expired,
+        Suspended,
         Frozen,
         Tampered
     }
@@ -24,8 +27,13 @@ namespace HVAC_Pro_Desktop.Models
     public sealed class LicenseSnapshot
     {
         public string LicenseKey { get; set; }
+        public string CompanyId { get; set; }
+        public string CompanyCode { get; set; }
         public LicensePlanType PlanType { get; set; }
         public string CompanyName { get; set; }
+        public DateTime SubscriptionStartDateUtc { get; set; }
+        public DateTime SubscriptionEndDateUtc { get; set; }
+        public string SubscriptionStatus { get; set; }
         public int MaxCompanies { get; set; }
         public int MaxDevices { get; set; }
         public int MaxUsers { get; set; }
@@ -34,11 +42,13 @@ namespace HVAC_Pro_Desktop.Models
         public DateTime? LastSuccessfulValidationUtc { get; set; }
         public DateTime? LastAppOpenUtc { get; set; }
         public DateTime? LastTrustedServerTimeUtc { get; set; }
+        public DateTime? LastServerValidationAttemptUtc { get; set; }
         public int GracePeriodDays { get; set; }
         public LicenseStatus Status { get; set; }
         public string MachineFingerprintHash { get; set; }
         public string ActivatedDeviceId { get; set; }
         public int ActivatedDeviceCount { get; set; }
+        public bool OnlineValidationRequired { get; set; }
         public string SupportLevel { get; set; }
         public string PlanName { get; set; }
         public string BillingCycle { get; set; }
@@ -70,8 +80,13 @@ namespace HVAC_Pro_Desktop.Models
     public sealed class LicensePayload
     {
         public string LicenseKey { get; set; }
+        public string CompanyId { get; set; }
+        public string CompanyCode { get; set; }
         public string PlanType { get; set; }
         public string CompanyName { get; set; }
+        public DateTime SubscriptionStartDateUtc { get; set; }
+        public DateTime SubscriptionEndDateUtc { get; set; }
+        public string SubscriptionStatus { get; set; }
         public int MaxCompanies { get; set; }
         public int MaxDevices { get; set; }
         public int MaxUsers { get; set; }
@@ -81,6 +96,7 @@ namespace HVAC_Pro_Desktop.Models
         public string MachineFingerprintHash { get; set; }
         public string ActivatedDeviceId { get; set; }
         public int ActivatedDeviceCount { get; set; }
+        public bool OnlineValidationRequired { get; set; }
         public string SupportLevel { get; set; }
         public string PlanName { get; set; }
         public string BillingCycle { get; set; }
@@ -93,9 +109,11 @@ namespace HVAC_Pro_Desktop.Models
 
     public sealed class LicenseActivationRequest
     {
+        public string CompanyCode { get; set; }
         public string LicenseKey { get; set; }
         public string CompanyName { get; set; }
         public string MachineFingerprintHash { get; set; }
         public string DeviceName { get; set; }
+        public string AppVersion { get; set; }
     }
 }

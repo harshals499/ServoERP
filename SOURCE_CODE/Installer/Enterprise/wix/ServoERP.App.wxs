@@ -26,6 +26,7 @@
     <Property Id="ARPPRODUCTICON" Value="ServoERPIcon" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
 
     <ui:WixUI Id="WixUI_InstallDir" />
 

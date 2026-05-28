@@ -88,12 +88,12 @@ namespace HVAC_Pro_Desktop.Services
                     (QuotationNumber,TenderName,ClientID,SiteID,SystemCount,BidValue,DueDate,SubmittedDate,RequiredByDate,
                      Status,ClientName,RequirementCategory,ItemName,RequiredQuantity,Unit,InventoryAvailable,ShortfallQuantity,
                      EstimatedInternalRate,EstimatedSupplierRate,EstimatedInternalCost,EstimatedExternalCost,
-                     RecommendedVendorID,ComparisonSummary,AnalysisStatus,Notes,CreatedByUserId,CreatedByName)
+                     RecommendedVendorID,ComparisonSummary,AnalysisStatus,Notes,CommercialFlow,CustomerDocumentStatus,SupplierDocumentStatus,FlowNotes,CreatedByUserId,CreatedByName)
                     VALUES
                     (@quoteNo,@name,@clientId,@siteId,@sc,@bv,@due,@sub,@reqBy,
                      @st,@cl,@cat,@item,@qty,@unit,@available,@shortfall,
                      @internalRate,@supplierRate,@internalCost,@externalCost,
-                     @vendorId,@compare,@analysis,@notes,@createdByUserId,@createdByName);
+                     @vendorId,@compare,@analysis,@notes,@commercialFlow,@customerDocStatus,@supplierDocStatus,@flowNotes,@createdByUserId,@createdByName);
                     SELECT SCOPE_IDENTITY();";
 
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
@@ -147,6 +147,10 @@ namespace HVAC_Pro_Desktop.Services
                         ComparisonSummary=@compare,
                         AnalysisStatus=@analysis,
                         Notes=@notes,
+                        CommercialFlow=@commercialFlow,
+                        CustomerDocumentStatus=@customerDocStatus,
+                        SupplierDocumentStatus=@supplierDocStatus,
+                        FlowNotes=@flowNotes,
                         ModifiedByUserId=@modifiedByUserId,
                         ModifiedByName=@modifiedByName,
                         ModifiedDate=@modifiedDate
@@ -159,6 +163,50 @@ namespace HVAC_Pro_Desktop.Services
                     AppDataCache.RemovePrefix("tenders:");
                     SessionManager.LogAction("EDIT", "Quotations", t.BidID, "Quotation saved");
                 }
+            }
+        }
+
+        public void Delete(int bidId)
+        {
+            SessionManager.DemandPermission("Quotations", "Delete");
+            TenderBid existing = GetById(bidId);
+            if (existing == null)
+                throw new Exception("Quotation not found.");
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET RecommendedByBidID=NULL WHERE RecommendedByBidID=@id", bidId);
+                        ExecuteDelete(conn, tx, "UPDATE Invoices SET QuotationBidID=NULL WHERE QuotationBidID=@id", bidId);
+                        ExecuteDelete(conn, tx, "DELETE FROM TenderBidLineItems WHERE TenderBidId=@id", bidId);
+                        ExecuteDelete(conn, tx, "DELETE FROM TenderBids WHERE BidID=@id", bidId);
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+
+            AppDataCache.RemovePrefix("tenders:");
+            AppDataCache.RemovePrefix("purchases:");
+            AppDataCache.RemovePrefix("invoices:");
+            SessionManager.LogAction("DELETE", "Quotations", bidId, "Quotation deleted");
+            _audit.Record("DELETE", "Quotations", bidId, "Quotation and child records deleted");
+        }
+
+        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
             }
         }
 
@@ -411,91 +459,27 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (bid == null) throw new ArgumentNullException(nameof(bid));
 
-            var client = bid.ClientID > 0 ? _clientRepo.GetById(bid.ClientID) : null;
-            var site = bid.SiteID > 0 ? _siteRepo.GetAll().Find(s => s.SiteID == bid.SiteID) : null;
-            var settings = _settingsSvc.GetAll();
+            if (bid.LineItems == null || bid.LineItems.Count == 0)
+            {
+                decimal quantity = bid.RequiredQuantity > 0m ? bid.RequiredQuantity : 1m;
+                decimal amount = bid.BidValue > 0m ? bid.BidValue : 0m;
+                bid.LineItems = new List<TenderBidLineItem>
+                {
+                    new TenderBidLineItem
+                    {
+                        SortOrder = 1,
+                        Category = bid.RequirementCategory,
+                        ItemDescription = string.IsNullOrWhiteSpace(bid.ItemName) ? bid.TenderName : bid.ItemName,
+                        Quantity = quantity,
+                        Unit = string.IsNullOrWhiteSpace(bid.Unit) ? "Nos" : bid.Unit,
+                        HsnSacCode = string.Empty,
+                        GSTRatePct = 18m,
+                        SellPricePerUnit = quantity > 0m ? Math.Round(amount / quantity, 2) : amount
+                    }
+                };
+            }
 
-            string companyName = GetSetting(settings, "CompanyName", "New Client");
-            string companyGst = GetSetting(settings, "CompanyGST", DocumentBranding.DefaultGstNumber);
-            string companyPan = GetSetting(settings, "CompanyPAN", DocumentBranding.DefaultPanNumber);
-            string companyAddress = GetSetting(settings, "CompanyAddress", "");
-            string shopLicense = GetSetting(settings, "CompanyShopLicense", DocumentBranding.DefaultShopLicense);
-            string pfNumber = GetSetting(settings, "CompanyPFNumber", DocumentBranding.DefaultPfNumber);
-            string esicNumber = GetSetting(settings, "CompanyESICNumber", DocumentBranding.DefaultEsicNumber);
-            string profTax = GetSetting(settings, "CompanyProfTax", GetSetting(settings, "CompanyProfessionalTax", DocumentBranding.DefaultProfTaxNumber));
-            string msmeNumber = GetSetting(settings, "CompanyMSMENumber", DocumentBranding.DefaultMsmeNumber);
-
-            decimal gst = Math.Round(bid.BidValue * 0.18m, 2);
-            decimal total = bid.BidValue + gst;
-            decimal quotedRate = bid.RequiredQuantity > 0 ? Math.Round(bid.BidValue / bid.RequiredQuantity, 2) : bid.BidValue;
-            string siteLine = site == null ? "" : WebUtility.HtmlEncode(site.SiteName + (string.IsNullOrWhiteSpace(site.Address) ? "" : ", " + site.Address));
-
-            string analysis = string.IsNullOrWhiteSpace(bid.ComparisonSummary)
-                ? (string.IsNullOrWhiteSpace(bid.AnalysisStatus) ? "Analysis pending." : bid.AnalysisStatus)
-                : bid.ComparisonSummary;
-
-            string terms = string.IsNullOrWhiteSpace(bid.Notes)
-                ? "1. Rates are subject to GST as applicable.\n2. Delivery is subject to stock and supplier availability.\n3. Approval of quotation authorises procurement for any analysed shortfall.\n4. Payment terms to follow client agreement."
-                : bid.Notes;
-
-            return @"<!DOCTYPE html>
-<html><head><meta charset='utf-8'/>
-<style>
-body{font-family:'Segoe UI',sans-serif;color:#1f2937;margin:20px;}
-.page{max-width:980px;margin:0 auto;}"
-            + DocumentBranding.BuildOfficialHeaderCss()
-            + @"
-.title{text-align:center;font-size:22px;font-weight:700;letter-spacing:1px;margin-bottom:16px;}
-.top{width:100%;border-collapse:collapse;margin-bottom:14px;}
-.top td{vertical-align:top;padding:4px 6px;}
-.right{text-align:right;}
-.sub{font-size:13px;line-height:1.45;}
-.box{border:1px solid #d1d5db;padding:10px 12px;margin-bottom:12px;}
-.label{font-weight:700;}
-table.items{width:100%;border-collapse:collapse;margin-top:8px;}
-table.items th,table.items td{border:1px solid #d1d5db;padding:8px 6px;font-size:12px;}
-table.items th{background:#f8fafc;text-align:left;}
-.num{text-align:right;}
-.summary{width:340px;margin-left:auto;margin-top:12px;border-collapse:collapse;}
-.summary td{border:1px solid #d1d5db;padding:8px 10px;font-size:12px;}
-.summary .head{background:#f8fafc;font-weight:700;}
-.footer-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:18px;}
-.small{font-size:12px;line-height:1.45;}
-.muted{color:#6b7280;}
-.signature img{display:block;max-width:190px;max-height:70px;margin:8px auto 4px auto;object-fit:contain;}
-.signature .blank-space{display:block;height:58px;}
-pre{white-space:pre-wrap;margin:0;font-family:'Segoe UI',sans-serif;}
-</style></head><body><div class='page'>"
-            + DocumentBranding.BuildOfficialHeaderHtml()
-            + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.Quotation)
-            + "<div class='title'>QUOTATION</div>"
-            + "<table class='top'><tr><td style='width:58%'><div class='sub'><span class='label'>To,</span><br/>"
-            + Html(client?.CompanyName ?? bid.ClientName) + "<br/>"
-            + Html(client?.BillingAddress) + "<br/>"
-            + Html(siteLine)
-            + "</div></td><td class='right sub'><div><span class='label'>Date :</span> " + DateTime.Today.ToString("dd/MM/yyyy") + "</div>"
-            + "<div><span class='label'>Quotation No.</span> " + Html(bid.QuotationNumber) + "</div>"
-            + "<div><span class='label'>Status :</span> " + Html(bid.Status ?? "Draft") + "</div>"
-            + "<div><span class='label'>Due Date :</span> " + bid.DueDate.ToString("dd/MM/yyyy") + "</div>"
-            + "<div><span class='label'>Required By :</span> " + (bid.RequiredByDate.HasValue ? bid.RequiredByDate.Value.ToString("dd/MM/yyyy") : "-") + "</div></td></tr></table>"
-            + "<div class='box'><span class='label'>Sub :</span> " + Html(bid.TenderName) + "<br/>"
-            + "<span class='label'>Requirement Category :</span> " + Html(bid.RequirementCategory) + "</div>"
-            + "<table class='items'><thead><tr><th style='width:50px'>Sr No.</th><th>Description</th><th style='width:90px'>Unit</th><th style='width:80px'>Qty</th><th style='width:120px'>Rate (Rs.)</th><th style='width:130px'>Amount (Rs.)</th></tr></thead><tbody>"
-            + "<tr><td>1</td><td>" + Html(bid.ItemName) + "</td><td>" + Html(bid.Unit) + "</td><td class='num'>" + bid.RequiredQuantity.ToString("N2") + "</td><td class='num'>" + quotedRate.ToString("N2") + "</td><td class='num'>" + bid.BidValue.ToString("N2") + "</td></tr>"
-            + "</tbody></table>"
-            + "<table class='summary'>"
-            + "<tr><td class='head'>Quoted Amount</td><td class='num'>" + bid.BidValue.ToString("N2") + "</td></tr>"
-            + "<tr><td>Indicative GST @ 18%</td><td class='num'>" + gst.ToString("N2") + "</td></tr>"
-            + "<tr><td class='head'>Grand Total Amount</td><td class='num'><strong>" + total.ToString("N2") + "</strong></td></tr>"
-            + "</table>"
-            + "<div class='footer-grid'><div class='box'><span class='label'>Procurement and Cost Analysis</span><pre>" + Html(analysis) + "</pre></div>"
-            + "<div class='box'><span class='label'>Commercial Notes</span><pre>" + Html(terms) + "</pre></div></div>"
-            + "<div class='footer-grid'><div class='small'><div class='label'>Compliance Details</div>"
-            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGst, msmeNumber, false) + "</div>"
-            + "<div class='small signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</div></div>"
-            + "<div class='box small'>" + DocumentBranding.BuildCertificationTextHtml() + "</div>"
-            + "<div class='small muted'>" + Html(companyName) + (string.IsNullOrWhiteSpace(companyAddress) ? "" : " | " + Html(companyAddress)) + "</div>"
-            + "</div></body></html>";
+            return BuildQuotationDocumentHtml(bid);
         }
 
         public string BuildQuotationComparison(TenderBid bid)
@@ -574,6 +558,11 @@ pre{white-space:pre-wrap;margin:0;font-family:'Segoe UI',sans-serif;}
             cmd.Parameters.AddWithValue("@compare", (object)t.ComparisonSummary ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@analysis", (object)t.AnalysisStatus ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@notes", t.Notes ?? "");
+            PrepareCommercialFlow(t);
+            cmd.Parameters.AddWithValue("@commercialFlow", t.CommercialFlow ?? "Revenue");
+            cmd.Parameters.AddWithValue("@customerDocStatus", t.CustomerDocumentStatus ?? "Quote Draft");
+            cmd.Parameters.AddWithValue("@supplierDocStatus", t.SupplierDocumentStatus ?? "Not Required");
+            cmd.Parameters.AddWithValue("@flowNotes", string.IsNullOrWhiteSpace(t.FlowNotes) ? (object)DBNull.Value : t.FlowNotes);
             if (cmd.CommandText.IndexOf("@createdByUserId", StringComparison.OrdinalIgnoreCase) >= 0)
                 cmd.Parameters.AddWithValue("@createdByUserId", t.CreatedByUserId.HasValue ? (object)t.CreatedByUserId.Value : DBNull.Value);
             if (cmd.CommandText.IndexOf("@createdByName", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -618,12 +607,71 @@ pre{white-space:pre-wrap;margin:0;font-family:'Segoe UI',sans-serif;}
                 ComparisonSummary = r["ComparisonSummary"] as string,
                 AnalysisStatus = r["AnalysisStatus"] as string,
                 Notes = r["Notes"] as string,
+                CommercialFlow = ReadString(r, "CommercialFlow", "Revenue"),
+                CustomerDocumentStatus = ReadString(r, "CustomerDocumentStatus", "Quote Draft"),
+                SupplierDocumentStatus = ReadString(r, "SupplierDocumentStatus", "Not Required"),
+                FlowNotes = ReadString(r, "FlowNotes", string.Empty),
                 CreatedByUserId = r["CreatedByUserId"] == DBNull.Value ? (int?)null : (int)r["CreatedByUserId"],
                 CreatedByName = r["CreatedByName"] as string,
                 ModifiedByUserId = r["ModifiedByUserId"] == DBNull.Value ? (int?)null : (int)r["ModifiedByUserId"],
                 ModifiedByName = r["ModifiedByName"] as string,
                 ModifiedDate = r["ModifiedDate"] == DBNull.Value ? (DateTime?)null : (DateTime)r["ModifiedDate"],
             };
+        }
+
+        private static string ReadString(IDataRecord r, string columnName, string fallback)
+        {
+            try
+            {
+                int ordinal = r.GetOrdinal(columnName);
+                return r.IsDBNull(ordinal) ? fallback : Convert.ToString(r.GetValue(ordinal));
+            }
+            catch
+            {
+                return fallback;
+            }
+        }
+
+        public static void PrepareCommercialFlow(TenderBid bid)
+        {
+            if (bid == null)
+                return;
+
+            bool hasSupplierShortfall = bid.ShortfallQuantity > 0m || (bid.LineItems != null && bid.LineItems.Any(li => li != null && li.Shortfall > 0m));
+            bool supplierSelected = bid.RecommendedVendorID.HasValue || (bid.LineItems != null && bid.LineItems.Any(li => li != null && li.BestSupplierId.HasValue));
+            string status = (bid.Status ?? string.Empty).Trim();
+
+            if (string.IsNullOrWhiteSpace(bid.CommercialFlow))
+                bid.CommercialFlow = hasSupplierShortfall ? "Revenue + Procurement" : "Revenue";
+
+            if (string.IsNullOrWhiteSpace(bid.CustomerDocumentStatus))
+            {
+                if (status.Equals("Converted", StringComparison.OrdinalIgnoreCase))
+                    bid.CustomerDocumentStatus = "Invoice Created";
+                else if (status.Equals("Accepted", StringComparison.OrdinalIgnoreCase) || status.Equals("Won", StringComparison.OrdinalIgnoreCase))
+                    bid.CustomerDocumentStatus = "Quote Accepted";
+                else if (status.Equals("Sent", StringComparison.OrdinalIgnoreCase) || status.Equals("Submitted", StringComparison.OrdinalIgnoreCase))
+                    bid.CustomerDocumentStatus = "Quote Sent";
+                else
+                    bid.CustomerDocumentStatus = "Quote Draft";
+            }
+
+            if (string.IsNullOrWhiteSpace(bid.SupplierDocumentStatus))
+                bid.SupplierDocumentStatus = hasSupplierShortfall ? (supplierSelected ? "Supplier Quote Received" : "Supplier Quote Needed") : "Not Required";
+
+            if (string.IsNullOrWhiteSpace(bid.FlowNotes))
+                bid.FlowNotes = BuildCommercialFlowSummary(bid);
+        }
+
+        public static string BuildCommercialFlowSummary(TenderBid bid)
+        {
+            if (bid == null)
+                return string.Empty;
+
+            decimal customerValue = bid.TotalWithGST > 0m ? bid.TotalWithGST : bid.BidValue;
+            decimal supplierCost = bid.LineItems == null ? bid.EstimatedExternalCost : bid.LineItems.Sum(li => Math.Round(Math.Max(0m, li.Shortfall) * li.CostPerUnit, 2));
+            decimal margin = Math.Max(0m, customerValue - supplierCost);
+            return "Income: " + customerValue.ToString("0.##") + " | Supplier cost: " + supplierCost.ToString("0.##") + " | Expected margin: " + margin.ToString("0.##");
         }
 
         private static StockItem MapStock(IDataRecord r)

@@ -22,6 +22,7 @@ $appWxs = Join-Path $wixDir 'ServoERP.App.wxs'
 $bundleWxs = Join-Path $wixDir 'ServoERP.Bundle.wxs'
 $toolsDir = Join-Path $enterpriseRoot 'tools'
 $sqlPrereqHelperSource = Join-Path $toolsDir 'SqlExpressPrereqInstaller.cs'
+$licenseRtf = Join-Path $installerRoot 'ServoERP-Terms.rtf'
 
 function Assert-File([string]$Path, [string]$Purpose) {
     if (-not (Test-Path -LiteralPath $Path)) {
@@ -80,6 +81,7 @@ if (-not $SkipPrerequisiteDownload) {
 Assert-File (Join-Path $prereqDir 'NDP472-KB4054530-x86-x64-AllOS-ENU.exe') '.NET Framework prerequisite'
 Assert-File (Join-Path $prereqDir 'SQLEXPR_x64_ENU.exe') 'SQL Server Express prerequisite'
 Assert-File (Join-Path $prereqDir 'MicrosoftEdgeWebView2RuntimeInstallerX64.exe') 'WebView2 prerequisite'
+Assert-File $licenseRtf 'ServoERP installer terms'
 
 Write-Host "Building ServoERP Release..."
 dotnet build $solution -c Release
@@ -118,6 +120,7 @@ dotnet wix build $appWxs `
     -d AppVersion=$version `
     -d AppSource=$stageDir `
     -d DefaultConfig=$defaultConfigPath `
+    -d LicenseRtf=$licenseRtf `
     -out $msiPath
 if ($LASTEXITCODE -ne 0) {
     throw "MSI build failed."
@@ -133,6 +136,7 @@ if (-not $MsiOnly) {
         -d PrereqDir=$prereqDir `
         -d SqlPrereqHelper=$sqlPrereqHelperPath `
         -d MsiPath=$msiPath `
+        -d LicenseRtf=$licenseRtf `
         -out $bundlePath
     if ($LASTEXITCODE -ne 0) {
         throw "Burn bundle build failed."

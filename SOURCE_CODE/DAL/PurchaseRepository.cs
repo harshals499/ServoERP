@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -338,6 +340,39 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void Delete(int poId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        ExecuteDelete(conn, tx, "DELETE FROM PendingCharges WHERE SourcePoId=@id", poId);
+                        ExecuteDelete(conn, tx, "UPDATE VendorAdvancePayments SET POID=NULL WHERE POID=@id", poId);
+                        ExecuteDelete(conn, tx, "DELETE FROM PurchaseLineItems WHERE POID=@id", poId);
+                        ExecuteDelete(conn, tx, "DELETE FROM PurchaseOrders WHERE POID=@id", poId);
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", id);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
         public void UpdateContractLink(int poId, int contractId)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -465,6 +500,7 @@ namespace HVAC_Pro_Desktop.DAL
             AddToClientInvoice = r["AddToClientInvoice"] != DBNull.Value && Convert.ToBoolean(r["AddToClientInvoice"]),
             PendingChargeCreated = r["PendingChargeCreated"] != DBNull.Value && Convert.ToBoolean(r["PendingChargeCreated"]),
             ReceiptImagePath = r["ReceiptImagePath"] == DBNull.Value ? null : r["ReceiptImagePath"] as string,
+            PdfPath = ResolvePurchaseOrderPdfPath(r["ReceiptImagePath"] == DBNull.Value ? null : r["ReceiptImagePath"] as string, r["Notes"] as string),
             PriceVarianceFlag = r["PriceVarianceFlag"] != DBNull.Value && Convert.ToBoolean(r["PriceVarianceFlag"]),
             CreatedByUserId = r["CreatedByUserId"] == DBNull.Value ? (int?)null : (int)r["CreatedByUserId"],
             CreatedByName = r["CreatedByName"] == DBNull.Value ? null : r["CreatedByName"] as string,
@@ -480,6 +516,30 @@ namespace HVAC_Pro_Desktop.DAL
             Notes       = r["Notes"]      as string,
             CreatedDate = (DateTime)r["CreatedDate"],
         };
+
+        private static string ResolvePurchaseOrderPdfPath(string receiptImagePath, string notes)
+        {
+            if (IsPdfPath(receiptImagePath))
+                return receiptImagePath.Trim();
+
+            string sourcePath = ExtractArchiveSourcePath(notes);
+            return IsPdfPath(sourcePath) ? sourcePath.Trim() : null;
+        }
+
+        private static string ExtractArchiveSourcePath(string notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes))
+                return null;
+
+            Match match = Regex.Match(notes, @"Source\s+Path:\s*(?<path>.+?)(\s+\|\s+|$)", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups["path"].Value.Trim() : null;
+        }
+
+        private static bool IsPdfPath(string path)
+        {
+            return !string.IsNullOrWhiteSpace(path)
+                && string.Equals(Path.GetExtension(path.Trim()), ".pdf", StringComparison.OrdinalIgnoreCase);
+        }
 
         private static PurchaseLineItem MapLine(SqlDataReader r) => new PurchaseLineItem
         {

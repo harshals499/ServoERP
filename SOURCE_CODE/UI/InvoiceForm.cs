@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
-using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -32,6 +30,9 @@ namespace HVAC_Pro_Desktop.UI
         private readonly SiteService     _siteSvc     = new SiteService();
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly PaymentService _paymentSvc = new PaymentService();
+        private readonly MasterDataService _masterDataSvc = new MasterDataService();
+        private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
+        private readonly InvoiceAnalyticsService _invoiceAnalyticsSvc = new InvoiceAnalyticsService();
         private readonly ToolTip _toolTip = new ToolTip();
 
         // â”€â”€ List panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -47,7 +48,15 @@ namespace HVAC_Pro_Desktop.UI
 
         // â”€â”€ Line items grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private DataGridView _grid;
+        private DataGridView _gridChecklist, _gridAssets, _gridPaymentHistory;
         private List<StockItem> _inventoryItems = new List<StockItem>();
+        private List<ServiceRateCard> _serviceRateCards = new List<ServiceRateCard>();
+        private List<ClientAsset> _clientAssets = new List<ClientAsset>();
+        private List<HsnSacMasterEntry> _hsnSacEntries = new List<HsnSacMasterEntry>();
+        private List<InvoiceCatalogItem> _invoiceCatalog = new List<InvoiceCatalogItem>();
+        private FlowLayoutPanel _itemSourceTabs;
+        private string _activeItemSource = "All";
+        private Button _btnAddInvoiceLine, _btnAddChecklistRow, _btnAddAssetRow, _btnRecordWorkflowPayment;
 
         // â”€â”€ GST controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private NumericUpDown _numGST;
@@ -73,6 +82,13 @@ namespace HVAC_Pro_Desktop.UI
         private List<InvoiceTemplate> _templates = new List<InvoiceTemplate>();
         private Button _btnNewInvoice;
         private Button _btnSaveInvoice;
+        private Panel _invoiceDashboardPanel;
+        private Panel _invoiceWorkspacePanel;
+        private DateTimePicker _invoiceDashFromPicker;
+        private DateTimePicker _invoiceDashToPicker;
+        private ComboBox _invoiceDashGroupingCombo;
+        private InvoiceDashboardSnapshot _invoiceDashboardSnapshot;
+        private bool _invoiceDashboardRefreshing;
 
         // â”€â”€ Colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private static readonly Color HeaderBg = DS.White;
@@ -88,8 +104,10 @@ namespace HVAC_Pro_Desktop.UI
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
             ApplyInvoicePreviewSkin(Controls);
+            RestoreModernInvoiceInputStyles(Controls);
             ApplyPermissions();
             ClearForm();
+            RecordDeletionUi.BindDeleteShortcut(this, () => { DeleteCurrentInvoice(); return Task.FromResult(0); }, () => _current != null && _current.InvoiceID > 0);
             HandleCreated += (s, e) => QueueInitialLoad();
             ParentChanged += (s, e) => QueueInitialLoad();
             Load += (s, e) => QueueInitialLoad();
@@ -124,6 +142,9 @@ namespace HVAC_Pro_Desktop.UI
 
                     var templates = _invSvc.GetActiveTemplates();
                     var inventory = _inventorySvc.GetAll();
+                    var rateCards = _masterDataSvc.GetRateCards();
+                    var assets = _masterDataSvc.GetAssets();
+                    var hsnSac = _hsnSvc.GetAll();
                     var invoices = _invSvc.GetAllInvoices()
                         .OrderByDescending(i => i.InvoiceDate)
                         .Take(120)
@@ -135,9 +156,14 @@ namespace HVAC_Pro_Desktop.UI
                     dispatcher.Invoke((Action)(() =>
                     {
                         _inventoryItems = inventory ?? new List<StockItem>();
+                        _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
+                        _clientAssets = assets ?? new List<ClientAsset>();
+                        _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
+                        RebuildInvoiceCatalog();
                         _clients = clients ?? _clients ?? new List<B2BClient>();
                         _templates = templates ?? new List<InvoiceTemplate>();
                         BindInventoryItems();
+                        BindWorkflowPickers();
                         LoadClientDropdowns();
                         BindTemplateDropdown();
                         BindInvoiceList(invoices);
@@ -161,8 +187,160 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             descColumn.Items.Clear();
-            foreach (var item in _inventoryItems.Select(i => i.ItemName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n))
+            IEnumerable<string> names = GetCatalogForActiveSource()
+                .Select(i => i.Description)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(n => n);
+            foreach (string item in names)
                 descColumn.Items.Add(item);
+        }
+
+        private IEnumerable<InvoiceCatalogItem> GetCatalogForActiveSource()
+        {
+            if (string.Equals(_activeItemSource, "All", StringComparison.OrdinalIgnoreCase))
+                return _invoiceCatalog;
+            return _invoiceCatalog.Where(i => string.Equals(i.Source, _activeItemSource, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(i.Category, _activeItemSource, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void RebuildInvoiceCatalog()
+        {
+            var items = new List<InvoiceCatalogItem>();
+            foreach (StockItem stock in _inventoryItems ?? new List<StockItem>())
+            {
+                if (string.IsNullOrWhiteSpace(stock.ItemName))
+                    continue;
+                string category = NormalizeItemCategory(stock.Category, "Material");
+                items.Add(new InvoiceCatalogItem
+                {
+                    Source = "Materials",
+                    Description = stock.ItemName,
+                    Category = category,
+                    HsnSacCode = ResolveHsnSac(stock.ItemName, category, true),
+                    Unit = string.IsNullOrWhiteSpace(stock.Unit) ? "Nos" : stock.Unit,
+                    Rate = stock.LastPurchaseRate,
+                    GstPercent = ResolveGstPercent(stock.ItemName, category, true),
+                    TaxType = "Taxable",
+                    Notes = BuildStockNote(stock),
+                    StockItemId = stock.ItemID,
+                    IsStockItem = true
+                });
+            }
+
+            foreach (ServiceRateCard rate in (_serviceRateCards ?? new List<ServiceRateCard>()).Where(r => r.IsActive))
+            {
+                string category = NormalizeItemCategory(rate.Category, "Service");
+                items.Add(new InvoiceCatalogItem
+                {
+                    Source = category == "Labour" ? "Labour" : "Services",
+                    Description = rate.ServiceName,
+                    Category = category,
+                    HsnSacCode = ResolveHsnSac(rate.ServiceName, category, false),
+                    Unit = string.IsNullOrWhiteSpace(rate.Unit) ? "Job" : rate.Unit,
+                    Rate = rate.Rate,
+                    GstPercent = rate.GstPercent <= 0 ? ResolveGstPercent(rate.ServiceName, category, false) : rate.GstPercent,
+                    TaxType = rate.GstPercent <= 0 ? "Nil Rated" : "Taxable",
+                    Notes = rate.Notes,
+                    IsStockItem = false
+                });
+            }
+
+            AddFallbackCatalogItems(items);
+            _invoiceCatalog = items
+                .Where(i => !string.IsNullOrWhiteSpace(i.Description))
+                .GroupBy(i => i.Description.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .OrderBy(i => i.Source)
+                .ThenBy(i => i.Description)
+                .ToList();
+        }
+
+        private void AddFallbackCatalogItems(List<InvoiceCatalogItem> items)
+        {
+            AddFallbackCatalogItem(items, "Materials", "Split AC Indoor Unit", "Material", "8415", "Nos", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Split AC Outdoor Unit", "Material", "8415", "Nos", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Copper Pipe", "Material", "7411", "Mtr", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Drain Pipe", "Material", "3917", "Mtr", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Insulation", "Material", "4009", "Mtr", 0m, 18m);
+            AddFallbackCatalogItem(items, "Spare", "Capacitor replacement", "Spare", "8532", "Nos", 0m, 18m);
+            AddFallbackCatalogItem(items, "Spare", "Contactor relay", "Spare", "8536", "Nos", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Service charge", "Service", "998719", "Visit", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Gas refill / charging", "Service", "998719", "Job", 0m, 18m);
+            AddFallbackCatalogItem(items, "Labour", "Installation labour", "Labour", "998519", "Job", 0m, 18m);
+            AddFallbackCatalogItem(items, "AMC / Contract", "AMC preventive visit", "AMC", "998719", "Visit", 0m, 18m);
+        }
+
+        private static void AddFallbackCatalogItem(List<InvoiceCatalogItem> items, string source, string description, string category, string hsnSac, string unit, decimal rate, decimal gst)
+        {
+            if (items.Any(i => string.Equals(i.Description, description, StringComparison.OrdinalIgnoreCase)))
+                return;
+            items.Add(new InvoiceCatalogItem
+            {
+                Source = source,
+                Description = description,
+                Category = category,
+                HsnSacCode = hsnSac,
+                Unit = unit,
+                Rate = rate,
+                GstPercent = gst,
+                TaxType = gst <= 0 ? "Nil Rated" : "Taxable",
+                Notes = source
+            });
+        }
+
+        private string ResolveHsnSac(string description, string category, bool material)
+        {
+            HsnSacMasterEntry entry = FindHsnSacEntry(description, category, material);
+            if (entry != null)
+                return entry.Code;
+            if (string.Equals(category, "Labour", StringComparison.OrdinalIgnoreCase)) return "998519";
+            if (string.Equals(category, "AMC", StringComparison.OrdinalIgnoreCase) || string.Equals(category, "Service", StringComparison.OrdinalIgnoreCase)) return "998719";
+            return material ? "8415" : "998719";
+        }
+
+        private decimal ResolveGstPercent(string description, string category, bool material)
+        {
+            HsnSacMasterEntry entry = FindHsnSacEntry(description, category, material);
+            return entry == null || entry.TaxRate <= 0 ? 18m : entry.TaxRate;
+        }
+
+        private HsnSacMasterEntry FindHsnSacEntry(string description, string category, bool material)
+        {
+            IEnumerable<HsnSacMasterEntry> entries = (_hsnSacEntries ?? new List<HsnSacMasterEntry>()).Where(e => e.IsActive);
+            string probe = ((description ?? string.Empty) + " " + (category ?? string.Empty)).ToLowerInvariant();
+            HsnSacMasterEntry match = entries.FirstOrDefault(e =>
+                (!string.IsNullOrWhiteSpace(e.BusinessCategory) && probe.Contains(e.BusinessCategory.ToLowerInvariant())) ||
+                (!string.IsNullOrWhiteSpace(FirstWord(e.Description)) && probe.Contains(FirstWord(e.Description).ToLowerInvariant())));
+            if (match != null)
+                return match;
+            return entries.FirstOrDefault(e => string.Equals(e.CodeType, material ? "HSN" : "SAC", StringComparison.OrdinalIgnoreCase) && e.IsDefault)
+                ?? entries.FirstOrDefault(e => string.Equals(e.CodeType, material ? "HSN" : "SAC", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string FirstWord(string value)
+        {
+            return (value ?? string.Empty).Split(new[] { ' ', ',', '/', '-' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
+        }
+
+        private static string NormalizeItemCategory(string category, string fallback)
+        {
+            string value = (category ?? string.Empty).Trim();
+            if (value.Length == 0)
+                return fallback;
+            string probe = value.ToLowerInvariant();
+            if (probe.Contains("labour") || probe.Contains("labor")) return "Labour";
+            if (probe.Contains("amc") || probe.Contains("contract")) return "AMC";
+            if (probe.Contains("service")) return "Service";
+            if (probe.Contains("spare")) return "Spare";
+            return fallback == "Service" ? "Service" : "Material";
+        }
+
+        private static string BuildStockNote(StockItem stock)
+        {
+            if (stock == null)
+                return string.Empty;
+            return "Available: " + stock.AvailableStock.ToString("0.###") + " " + (stock.Unit ?? "Nos");
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -173,38 +351,46 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BackColor = DS.BgPage;
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 88, BackColor = DS.BgPage, Padding = new Padding(24, 14, 24, 8) };
-            header.Controls.Add(new Label { Text = "Invoice Management", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(24, 16), Size = new Size(420, 28) });
-            header.Controls.Add(new Label { Text = "Create, manage and track customer invoices.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(24, 48), Size = new Size(420, 20) });
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 94, BackColor = DS.BgPage, Padding = new Padding(28, 18, 28, 10) };
+            header.Controls.Add(new Label { Text = "Invoice Management", Font = new Font("Segoe UI", 18.5f, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(28, 18), Size = new Size(440, 30) });
+            header.Controls.Add(new Label { Text = "Create, manage and track customer invoices.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(28, 52), Size = new Size(440, 20) });
             _btnNewInvoice = MakeBtn("+  New Invoice", InfoBlue, 138);
             _btnNewInvoice.MinimumSize = new Size(110, 0);
             Button btnSettings = MakeBtn("⚙", Color.White, 42); btnSettings.ForeColor = DS.Slate700; btnSettings.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnPreview = MakeBtn("Preview", Color.White, 98); btnPreview.ForeColor = DS.Slate700; btnPreview.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button btnForms = MakeBtn("Forms", Color.White, 86); btnForms.ForeColor = DS.Primary600; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
+            ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             Button btnImport = MakeBtn("Import", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnTemplate = MakeBtn("Template", Color.White, 112); btnTemplate.ForeColor = DS.Slate700; btnTemplate.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnMore = MakeBtn("⋮", Color.White, 42); btnMore.ForeColor = DS.Slate700; btnMore.FlatAppearance.BorderColor = DS.BorderStrong;
-            _btnNewInvoice.Anchor = btnSettings.Anchor = btnPreview.Anchor = btnImport.Anchor = btnTemplate.Anchor = btnMore.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            header.Resize += (s, e) =>
+            _btnNewInvoice.Anchor = btnSettings.Anchor = btnPreview.Anchor = btnForms.Anchor = btnImport.Anchor = btnTemplate.Anchor = btnMore.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            Action layoutHeaderActions = () =>
             {
-                _btnNewInvoice.Location = new Point(header.Width - _btnNewInvoice.Width - 24, 22);
-                btnSettings.Location = new Point(_btnNewInvoice.Left - 58, 22);
-                btnMore.Location = new Point(btnSettings.Left - 58, 22);
+                _btnNewInvoice.Location = new Point(header.Width - _btnNewInvoice.Width - 28, 24);
+                btnSettings.Location = new Point(_btnNewInvoice.Left - 60, 24);
+                btnForms.Location = new Point(btnSettings.Left - btnForms.Width - 12, 24);
+                btnMore.Location = new Point(btnForms.Left - 58, 22);
                 btnTemplate.Location = new Point(btnMore.Left - 120, 22);
                 btnImport.Location = new Point(btnTemplate.Left - 112, 22);
             };
+            header.Resize += (s, e) => layoutHeaderActions();
             _btnNewInvoice.Click += BtnNew_Click;
             btnSettings.Click += (s, e) => MessageBox.Show("Invoice settings are available from Settings and Templates.", "Invoice Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
             btnPreview.Click += BtnPreview_Click;
+            btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Invoice Management", "Finance / Payments", null, "invoice payment receipt credit note GST approval customer sign-off");
             btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Invoices, FindForm());
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Invoices, FindForm());
             btnMore.Click += (s, e) => LoadInvoiceList();
             btnImport.Visible = false;
             btnTemplate.Visible = false;
             btnMore.Visible = false;
-            header.Controls.AddRange(new Control[] { _btnNewInvoice, btnSettings, btnImport, btnTemplate, btnMore });
+            header.Controls.AddRange(new Control[] { _btnNewInvoice, btnSettings, btnForms, btnImport, btnTemplate, btnMore });
+            layoutHeaderActions();
 
-            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 0, 24, 14) };
-            Panel workspace = new Panel { BackColor = DS.BgPage };
+            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 0, 24, 16) };
+            _invoiceDashboardPanel = BuildInvoiceModuleDashboard();
+            _invoiceDashboardPanel.Dock = DockStyle.Top;
+            _invoiceWorkspacePanel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Visible = false };
             TableLayoutPanel layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -214,11 +400,11 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = Padding.Empty,
                 Padding = Padding.Empty
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 74f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 26f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430f));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            Panel rightPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(0, 16), BackColor = DS.BgPage, Padding = new Padding(10, 0, 0, 0) };
+            Panel rightPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(0, 16), BackColor = DS.BgPage, Padding = new Padding(18, 0, 0, 0) };
             rightPanel.MouseEnter += (s, e) => rightPanel.Focus();
             rightPanel.Controls.Add(BuildInvoiceFooterCard());
             rightPanel.Controls.Add(BuildRecentActivityCard());
@@ -239,20 +425,38 @@ namespace HVAC_Pro_Desktop.UI
 
             layout.Controls.Add(_documentHost, 0, 0);
             layout.Controls.Add(rightPanel, 1, 0);
-            workspace.Controls.Add(layout);
-            body.Controls.Add(workspace);
-            body.Resize += (s, e) =>
-            {
-                int availableWidth = Math.Max(0, body.ClientSize.Width - body.Padding.Horizontal);
-                int availableHeight = Math.Max(0, body.ClientSize.Height - body.Padding.Vertical);
-                int targetWidth = Math.Min(availableWidth, 1340);
-                workspace.SetBounds(body.Padding.Left, body.Padding.Top, targetWidth, availableHeight);
-            };
+            _invoiceWorkspacePanel.Controls.Add(layout);
+            body.Controls.Add(_invoiceWorkspacePanel);
+            body.Controls.Add(_invoiceDashboardPanel);
 
             _invoiceFlow = new FlowLayoutPanel { Visible = false };
             Controls.Add(_invoiceFlow);
             Controls.Add(body);
             Controls.Add(header);
+            ShowInvoiceDashboard();
+        }
+
+        private void ShowInvoiceDashboard()
+        {
+            if (_invoiceDashboardPanel != null)
+            {
+                _invoiceDashboardPanel.Dock = DockStyle.Fill;
+                _invoiceDashboardPanel.Visible = true;
+                _invoiceDashboardPanel.BringToFront();
+            }
+            if (_invoiceWorkspacePanel != null)
+                _invoiceWorkspacePanel.Visible = false;
+        }
+
+        private void ShowInvoiceEditor()
+        {
+            if (_invoiceDashboardPanel != null)
+                _invoiceDashboardPanel.Visible = false;
+            if (_invoiceWorkspacePanel != null)
+            {
+                _invoiceWorkspacePanel.Visible = true;
+                _invoiceWorkspacePanel.BringToFront();
+            }
         }
 
         private Panel BuildInvoiceActionBar()
@@ -280,25 +484,30 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.Transparent
             };
 
+            Button btnBackToDashboard = MakeBtn("<- Back to Dashboard", Color.White, 142);
+            btnBackToDashboard.ForeColor = DS.Slate700;
+            btnBackToDashboard.FlatAppearance.BorderColor = DS.Border;
             _btnSaveInvoice = MakeBtn("Save Draft", Color.FromArgb(52, 152, 219), 110);
             Button btnFinalise = MakeBtn("Finalise", SaveGreen, 100);
             Button btnPayment = MakeBtn("Record Payment", Color.FromArgb(142, 68, 173), 130);
             Button btnPreview = MakeBtn("Preview", InfoBlue, 100);
             Button btnCompare = MakeBtn("Compare Format", Color.FromArgb(15, 118, 110), 125);
 
+            btnBackToDashboard.Margin = new Padding(0, 0, 10, 0);
             _btnSaveInvoice.Margin = new Padding(0, 0, 10, 0);
             btnFinalise.Margin = new Padding(0, 0, 10, 0);
             btnPayment.Margin = new Padding(0, 0, 10, 0);
             btnPreview.Margin = new Padding(0, 0, 10, 0);
             btnCompare.Margin = new Padding(0);
 
+            btnBackToDashboard.Click += (s, e) => ShowInvoiceDashboard();
             _btnSaveInvoice.Click += BtnSave_Click;
             btnFinalise.Click += BtnFinalise_Click;
             btnPayment.Click += BtnRecordPayment_Click;
             btnPreview.Click += BtnPreview_Click;
             btnCompare.Click += BtnCompare_Click;
 
-            flow.Controls.AddRange(new Control[] { _btnSaveInvoice, btnFinalise, btnPayment, btnPreview, btnCompare });
+            flow.Controls.AddRange(new Control[] { btnBackToDashboard, _btnSaveInvoice, btnFinalise, btnPayment, btnPreview, btnCompare });
 
             Label hint = new Label
             {
@@ -316,13 +525,300 @@ namespace HVAC_Pro_Desktop.UI
             return actionBar;
         }
 
+        private Panel BuildInvoiceModuleDashboard()
+        {
+            DateTime today = DateTime.Today;
+            _invoiceDashboardSnapshot = _invoiceAnalyticsSvc.BuildSnapshot(new InvoiceAnalyticsFilter
+            {
+                DateFrom = new DateTime(today.Year, today.Month, 1),
+                DateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
+                Grouping = InvoiceAnalyticsGrouping.Week
+            });
+
+            Panel host = new Panel
+            {
+                Height = 430,
+                BackColor = DS.BgPage,
+                Padding = new Padding(0, 0, 0, 12)
+            };
+            host.Resize += (s, e) => LayoutInvoiceDashboard(host);
+
+            Label title = new Label
+            {
+                Text = "Invoice Dashboard",
+                Font = new Font("Segoe UI", 13.5f, FontStyle.Bold),
+                ForeColor = DS.Slate900,
+                Location = new Point(0, 4),
+                Size = new Size(260, 26)
+            };
+            Label subtitle = new Label
+            {
+                Text = "Live invoice KPIs, receivables, workflow, and recent billing activity.",
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = DS.Slate600,
+                Location = new Point(1, 31),
+                Size = new Size(520, 20)
+            };
+
+            Button create = MakeBtn("Create Invoice", InfoBlue, 132);
+            create.Tag = "dash-create";
+            create.Click += BtnNew_Click;
+            Button refresh = MakeBtn("Refresh", Color.White, 90);
+            refresh.Tag = "dash-refresh";
+            refresh.ForeColor = DS.Primary700;
+            refresh.FlatAppearance.BorderColor = DS.BorderStrong;
+            refresh.Click += (s, e) => RefreshInvoiceModuleDashboard(host);
+
+            _invoiceDashFromPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateFrom, Width = 126, Tag = "dash-filter" };
+            _invoiceDashToPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateTo, Width = 126, Tag = "dash-filter" };
+            _invoiceDashGroupingCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 86, Tag = "dash-filter" };
+            _invoiceDashGroupingCombo.Items.AddRange(new object[] { "Day", "Week", "Month" });
+            _invoiceDashGroupingCombo.SelectedItem = _invoiceDashboardSnapshot.Grouping.ToString();
+            _invoiceDashFromPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
+            _invoiceDashToPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
+            _invoiceDashGroupingCombo.SelectedIndexChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
+
+            host.Controls.AddRange(new Control[] { title, subtitle, create, refresh, _invoiceDashFromPicker, _invoiceDashToPicker, _invoiceDashGroupingCombo });
+            PopulateInvoiceDashboardCards(host);
+            LayoutInvoiceDashboard(host);
+            return host;
+        }
+
+        private void RefreshInvoiceModuleDashboard(Panel host)
+        {
+            if (_invoiceDashboardRefreshing || host == null || _invoiceDashFromPicker == null || _invoiceDashToPicker == null)
+                return;
+
+            _invoiceDashboardRefreshing = true;
+            try
+            {
+                InvoiceAnalyticsGrouping grouping = InvoiceAnalyticsGrouping.Week;
+                string selected = _invoiceDashGroupingCombo?.SelectedItem?.ToString() ?? "Week";
+                if (selected.Equals("Day", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Day;
+                if (selected.Equals("Month", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Month;
+
+                _invoiceDashboardSnapshot = _invoiceAnalyticsSvc.BuildSnapshot(new InvoiceAnalyticsFilter
+                {
+                    DateFrom = _invoiceDashFromPicker.Value.Date,
+                    DateTo = _invoiceDashToPicker.Value.Date,
+                    Grouping = grouping
+                });
+
+                foreach (Control child in host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList())
+                    host.Controls.Remove(child);
+                PopulateInvoiceDashboardCards(host);
+                LayoutInvoiceDashboard(host);
+            }
+            finally
+            {
+                _invoiceDashboardRefreshing = false;
+            }
+        }
+
+        private void PopulateInvoiceDashboardCards(Panel host)
+        {
+            InvoiceKpi[] kpis =
+            {
+                _invoiceDashboardSnapshot.Kpis.TotalInvoices,
+                _invoiceDashboardSnapshot.Kpis.TotalAmount,
+                _invoiceDashboardSnapshot.Kpis.PaidAmount,
+                _invoiceDashboardSnapshot.Kpis.PendingAmount,
+                _invoiceDashboardSnapshot.Kpis.OverdueAmount
+            };
+            Color[] accents = { DS.Primary600, DS.Green600, DS.Teal600, DS.Amber500, DS.Red600 };
+            string[] icons = { "INV", "Rs", "OK", "P", "!" };
+            for (int i = 0; i < kpis.Length; i++)
+                host.Controls.Add(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0));
+
+            Panel overview = MakeInvoiceDashCard();
+            overview.Tag = "dash-card";
+            overview.Controls.Add(new Label { Text = "Invoice Overview", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            overview.Controls.Add(new InvoiceOverviewChart { Snapshot = _invoiceDashboardSnapshot, Location = new Point(12, 42), Size = new Size(520, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
+            host.Controls.Add(overview);
+
+            Panel status = MakeInvoiceDashCard();
+            status.Tag = "dash-card";
+            status.Controls.Add(new Label { Text = "Invoices by Status", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            status.Controls.Add(new InvoiceStatusDonut { Snapshot = _invoiceDashboardSnapshot, Location = new Point(10, 42), Size = new Size(390, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
+            host.Controls.Add(status);
+
+            Panel recent = MakeInvoiceDashCard();
+            recent.Tag = "dash-card";
+            recent.Controls.Add(new Label { Text = "Recent Invoices", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            DataGridView grid = BuildInvoiceDashRecentGrid();
+            recent.Controls.Add(grid);
+            host.Controls.Add(recent);
+
+            Panel side = MakeInvoiceDashCard();
+            side.Tag = "dash-card";
+            side.Controls.Add(new Label { Text = "Receivables & Actions", Location = new Point(16, 12), Size = new Size(220, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            decimal overdue = _invoiceDashboardSnapshot.AgingBuckets.Sum(b => b.Amount);
+            side.Controls.Add(new Label { Text = "Total overdue", Location = new Point(18, 45), Size = new Size(160, 18), Font = new Font("Segoe UI", 8.25f), ForeColor = DS.Slate600 });
+            side.Controls.Add(new Label { Text = IndiaFormatHelper.FormatCurrency(overdue), Location = new Point(18, 66), Size = new Size(220, 28), Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = DS.Red600 });
+            Button action = MakeBtn("Create Invoice", InfoBlue, 132);
+            action.Location = new Point(18, 122);
+            action.Click += BtnNew_Click;
+            side.Controls.Add(action);
+            int y = 168;
+            foreach (string reminder in _invoiceDashboardSnapshot.Reminders.Take(3))
+            {
+                side.Controls.Add(new Label { Text = "• " + reminder, Location = new Point(18, y), Size = new Size(310, 20), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate700 });
+                y += 22;
+            }
+            host.Controls.Add(side);
+        }
+
+        private Panel BuildInvoiceDashKpiCard(InvoiceKpi kpi, Color accent, string icon, bool numberOnly)
+        {
+            Panel card = MakeInvoiceDashCard();
+            card.Tag = "dash-card";
+            card.Height = 92;
+            card.Controls.Add(new Label { Text = kpi.Title, Location = new Point(14, 14), Size = new Size(160, 18), Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = DS.Slate600 });
+            card.Controls.Add(new Label { Text = numberOnly ? ((int)kpi.Value).ToString("N0") : IndiaFormatHelper.FormatCurrency(kpi.Value), Location = new Point(14, 38), Size = new Size(190, 24), Font = new Font("Segoe UI", 12.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            card.Controls.Add(new Label { Text = (kpi.MonthOverMonthPercent >= 0 ? "+ " : "- ") + Math.Abs(kpi.MonthOverMonthPercent).ToString("0.#") + "% from last period", Location = new Point(14, 66), Size = new Size(180, 18), Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), ForeColor = kpi.MonthOverMonthPercent >= 0 ? DS.Green600 : DS.Red600 });
+            Label badge = new Label { Text = icon, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(card.Width - 54, 25), Size = new Size(40, 40), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = DS.Primary50, ForeColor = accent, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+            DS.Rounded(badge, 20);
+            card.Controls.Add(badge);
+            return card;
+        }
+
+        private DataGridView BuildInvoiceDashRecentGrid()
+        {
+            DataGridView grid = new DataGridView
+            {
+                Location = new Point(0, 42),
+                Height = 170,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                RowHeadersVisible = false,
+                BorderStyle = BorderStyle.None,
+                BackgroundColor = Color.White,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                Cursor = Cursors.Hand,
+                ColumnHeadersHeight = 34,
+                RowTemplate = { Height = 30 }
+            };
+            grid.CellClick += InvoiceDashRecentGrid_CellClick;
+            grid.CellContentClick += InvoiceDashRecentGrid_CellContentClick;
+            grid.CellDoubleClick += InvoiceDashRecentGrid_CellDoubleClick;
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "InvoiceId", HeaderText = "Id", Visible = false });
+            grid.Columns.Add("Invoice", "Invoice No.");
+            grid.Columns.Add("Client", "Client");
+            grid.Columns.Add("Date", "Date");
+            grid.Columns.Add("Amount", "Amount");
+            grid.Columns.Add("Status", "Status");
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Pdf", HeaderText = "", Text = "PDF", UseColumnTextForButtonValue = true, FillWeight = 45 });
+            foreach (InvoiceRecentRow row in _invoiceDashboardSnapshot.RecentInvoices.Take(5))
+                grid.Rows.Add(row.InvoiceId, row.InvoiceNumber, row.ClientName, row.InvoiceDate.ToString("dd/MM/yyyy"), IndiaFormatHelper.FormatCurrency(row.Amount), row.Status);
+            GridTheme.Apply(grid);
+            grid.Dock = DockStyle.None;
+            return grid;
+        }
+
+        private void InvoiceDashRecentGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            DataGridView grid = sender as DataGridView;
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf")
+                return;
+
+            OpenRecentInvoicePdf(grid, e.RowIndex);
+        }
+
+        private void InvoiceDashRecentGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            DataGridView grid = sender as DataGridView;
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name != "Pdf")
+                return;
+            OpenRecentInvoicePdf(grid, e.RowIndex);
+        }
+
+        private void InvoiceDashRecentGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            DataGridView grid = sender as DataGridView;
+            if (grid == null || e.RowIndex < 0)
+                return;
+            OpenRecentInvoicePdf(grid, e.RowIndex);
+        }
+
+        private void OpenRecentInvoicePdf(DataGridView grid, int rowIndex)
+        {
+            int invoiceId;
+            if (grid == null || rowIndex < 0 || rowIndex >= grid.Rows.Count || !int.TryParse(Convert.ToString(grid.Rows[rowIndex].Cells["InvoiceId"].Value), out invoiceId) || invoiceId <= 0)
+                return;
+            RecentDocumentOpenService.OpenInvoicePdf(this, invoiceId);
+        }
+
+        private Panel MakeInvoiceDashCard()
+        {
+            Panel card = new Panel { BackColor = Color.White };
+            card.Paint += (s, e) =>
+            {
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            DS.Rounded(card, 8);
+            return card;
+        }
+
+        private void LayoutInvoiceDashboard(Panel host)
+        {
+            if (host == null || _invoiceDashboardSnapshot == null)
+                return;
+
+            bool compact = host.Width < 1100;
+            int gap = 10;
+            int top = 64;
+
+            Control create = host.Controls.Cast<Control>().FirstOrDefault(c => Convert.ToString(c.Tag) == "dash-create");
+            Control refresh = host.Controls.Cast<Control>().FirstOrDefault(c => Convert.ToString(c.Tag) == "dash-refresh");
+            if (refresh != null) refresh.Location = new Point(host.Width - refresh.Width, 18);
+            if (create != null) create.Location = new Point(refresh.Left - create.Width - 10, 18);
+            if (_invoiceDashGroupingCombo != null) _invoiceDashGroupingCombo.Location = new Point(create.Left - _invoiceDashGroupingCombo.Width - 10, 20);
+            if (_invoiceDashToPicker != null) _invoiceDashToPicker.Location = new Point(_invoiceDashGroupingCombo.Left - _invoiceDashToPicker.Width - 8, 20);
+            if (_invoiceDashFromPicker != null) _invoiceDashFromPicker.Location = new Point(_invoiceDashToPicker.Left - _invoiceDashFromPicker.Width - 8, 20);
+
+            var cards = host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList();
+            int kpiCols = compact ? 3 : 5;
+            int kpiWidth = Math.Max(170, (host.Width - gap * (kpiCols - 1)) / kpiCols);
+            for (int i = 0; i < Math.Min(5, cards.Count); i++)
+            {
+                cards[i].SetBounds((i % kpiCols) * (kpiWidth + gap), top + (i / kpiCols) * 102, kpiWidth, 92);
+            }
+
+            int chartTop = top + (compact ? 204 : 104);
+            int leftW = compact ? host.Width : (int)((host.Width - gap) * 0.58);
+            int rightW = compact ? host.Width : host.Width - leftW - gap;
+            if (cards.Count > 5) cards[5].SetBounds(0, chartTop, leftW, 232);
+            if (cards.Count > 6) cards[6].SetBounds(compact ? 0 : leftW + gap, compact ? chartTop + 242 : chartTop, rightW, 232);
+            int lowerTop = compact ? chartTop + 484 : chartTop + 242;
+            if (cards.Count > 7) cards[7].SetBounds(0, lowerTop, leftW, 222);
+            if (cards.Count > 8) cards[8].SetBounds(compact ? 0 : leftW + gap, compact ? lowerTop + 232 : lowerTop, rightW, 222);
+
+            foreach (Panel card in cards.OfType<Panel>())
+            {
+                foreach (Control child in card.Controls)
+                {
+                    if (child is InvoiceOverviewChart || child is InvoiceStatusDonut)
+                        child.Size = new Size(card.Width - 24, card.Height - 54);
+                    if (child is DataGridView grid)
+                        grid.Size = new Size(card.Width, card.Height - 52);
+                }
+            }
+
+            host.Height = compact ? 1220 : 646;
+        }
+
         private void ApplyInvoicePreviewSkin(Control.ControlCollection controls)
         {
             foreach (Control child in controls.Cast<Control>().ToList())
             {
                 if (child is TextBox || child is ComboBox || child is DateTimePicker || child is NumericUpDown)
                 {
-                    WrapPreviewInput(child);
+                    if (!ShouldSkipPreviewWrap(child))
+                        WrapPreviewInput(child);
                     continue;
                 }
 
@@ -337,6 +833,62 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 ApplyInvoicePreviewSkin(child.Controls);
+            }
+        }
+
+        private bool ShouldSkipPreviewWrap(Control input)
+        {
+            Control parent = input.Parent;
+            while (parent != null)
+            {
+                string tag = parent.Tag as string;
+                if (tag == "invoice-content-surface" || tag == "invoice-no-preview-wrap")
+                    return true;
+                parent = parent.Parent;
+            }
+            return false;
+        }
+
+        private void RestoreModernInvoiceInputStyles(Control.ControlCollection controls)
+        {
+            foreach (Control child in controls.Cast<Control>().ToList())
+            {
+                if (ShouldSkipPreviewWrap(child))
+                    RestoreInvoiceContentSurfaceControl(child);
+
+                if (child.Parent != null && child.Parent.Tag as string == "invoice-input-host")
+                {
+                    StyleModernInput(child);
+                    child.Margin = Padding.Empty;
+                    child.Dock = DockStyle.Fill;
+                }
+
+                RestoreModernInvoiceInputStyles(child.Controls);
+            }
+        }
+
+        private void RestoreInvoiceContentSurfaceControl(Control child)
+        {
+            if (child is TextBox textBox)
+            {
+                textBox.BorderStyle = BorderStyle.None;
+                textBox.BackColor = child.Parent != null && child.Parent.Tag as string == "invoice-no-preview-wrap"
+                    ? child.Parent.BackColor
+                    : Color.FromArgb(248, 250, 252);
+                textBox.ForeColor = DS.Slate900;
+                textBox.Margin = Padding.Empty;
+            }
+
+            if (child is ComboBox combo)
+            {
+                combo.FlatStyle = FlatStyle.Flat;
+                combo.BackColor = Color.White;
+            }
+
+            if (child is NumericUpDown numeric)
+            {
+                numeric.BorderStyle = BorderStyle.None;
+                numeric.BackColor = Color.White;
             }
         }
 
@@ -461,7 +1013,7 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Top,
                 Height = height,
                 BackColor = Color.White,
-                Padding = new Padding(16),
+                Padding = new Padding(20),
                 Margin = new Padding(0, 0, 0, 12)
             };
             card.Paint += (s, e) =>
@@ -474,56 +1026,152 @@ namespace HVAC_Pro_Desktop.UI
             DS.Rounded(card, 10);
             if (!string.IsNullOrWhiteSpace(title))
             {
+                Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 24, DS.Indigo50, InfoBlue, 8);
+                titleIcon.Location = new Point(20, 16);
+                card.Controls.Add(titleIcon);
                 card.Controls.Add(new Label
                 {
-                    Text = title,
-                    Dock = DockStyle.Top,
-                    Height = 30,
-                    Font = new Font("Segoe UI", 9, FontStyle.Bold),
-                    ForeColor = InfoBlue,
+                    Text = ToInvoiceCardTitle(title),
+                    Location = new Point(52, 17),
+                    Size = new Size(260, 24),
+                    Font = new Font("Segoe UI", 9.25f, FontStyle.Bold),
+                    ForeColor = DS.Slate900,
                     TextAlign = ContentAlignment.MiddleLeft
                 });
             }
             return card;
         }
 
+        private string ToInvoiceCardTitle(string title)
+        {
+            if (string.Equals(title, "QUICK ACTIONS", StringComparison.OrdinalIgnoreCase))
+                return "Quick Actions";
+            if (string.Equals(title, "INVOICE SUMMARY", StringComparison.OrdinalIgnoreCase))
+                return "Invoice Summary";
+            if (string.Equals(title, "RECENT ACTIVITY", StringComparison.OrdinalIgnoreCase))
+                return "Recent Activity";
+            return title;
+        }
+
         private Panel BuildQuickActionsCard()
         {
-            Panel card = CreateInvoiceCard("QUICK ACTIONS", 258);
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 42, 0, 8) };
+            Panel card = CreateInvoiceCard("QUICK ACTIONS", 308);
+            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 4, Padding = new Padding(0, 46, 0, 6) };
             for (int i = 0; i < 2; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            for (int i = 0; i < 3; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25f));
             _btnSaveInvoice = MakeSoftAction("Save Draft", InfoBlue);
             Button approve = MakeSoftAction("Send for Approval", SaveGreen);
             Button pdf = MakeSoftAction("Generate PDF", DS.Red600);
             Button email = MakeSoftAction("Email Invoice", DS.Primary600);
             Button receipt = MakeSoftAction("Convert to Receipt", SaveGreen);
             Button credit = MakeSoftAction("Create Credit Note", OrangeCol);
+            Button whatsapp = MakeSoftAction("WhatsApp Reminder", SaveGreen);
+            Button delete = MakeSoftAction("Delete Invoice", DS.Red600);
+            ModernIconSystem.AddButtonIcon(_btnSaveInvoice, ModernIconKind.Save);
+            ModernIconSystem.AddButtonIcon(approve, ModernIconKind.Status);
+            ModernIconSystem.AddButtonIcon(pdf, ModernIconKind.Document);
+            ModernIconSystem.AddButtonIcon(email, ModernIconKind.Email);
+            ModernIconSystem.AddButtonIcon(receipt, ModernIconKind.Payment);
+            ModernIconSystem.AddButtonIcon(credit, ModernIconKind.Invoice);
+            ModernIconSystem.AddButtonIcon(whatsapp, ModernIconKind.Phone);
             _btnSaveInvoice.Click += BtnSave_Click;
             approve.Click += BtnFinalise_Click;
             pdf.Click += BtnPreview_Click;
             email.Click += (s, e) => EmailInvoiceFromCurrent();
             receipt.Click += BtnRecordPayment_Click;
             credit.Click += BtnCreateCreditNote_Click;
+            whatsapp.Click += (s, e) => ShowInvoiceWhatsAppAction();
+            delete.Click += (s, e) => DeleteCurrentInvoice();
             grid.Controls.Add(_btnSaveInvoice, 0, 0); grid.Controls.Add(approve, 1, 0);
             grid.Controls.Add(pdf, 0, 1); grid.Controls.Add(email, 1, 1);
             grid.Controls.Add(receipt, 0, 2); grid.Controls.Add(credit, 1, 2);
+            grid.Controls.Add(whatsapp, 0, 3); grid.Controls.Add(delete, 1, 3);
             card.Controls.Add(grid);
             foreach (Label label in card.Controls.OfType<Label>())
                 label.BringToFront();
             return card;
         }
 
+        private void ShowInvoiceWhatsAppAction()
+        {
+            Invoice invoice = _current ?? CollectForm();
+            string clientName = invoice.ClientName;
+            if (string.IsNullOrWhiteSpace(clientName) && _cmbClient != null && _cmbClient.SelectedItem is ComboItem selectedClient)
+                clientName = selectedClient.Text;
+            if (string.IsNullOrWhiteSpace(clientName))
+                clientName = "Customer";
+
+            B2BClient client = _clients.FirstOrDefault(c => c.ClientID == invoice.ClientID);
+            string invoiceNo = string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? "the invoice" : invoice.InvoiceNumber;
+            string amount = IndiaFormatHelper.FormatCurrency(invoice.TotalAmount > 0 ? invoice.TotalAmount : invoice.BalanceDue);
+            string message = "Hi " + clientName + ",\r\n\r\nThis is a reminder for invoice " + invoiceNo + " amount " + amount + " due on " + invoice.DueDate.ToString("dd MMM yyyy") + ". Please arrange payment when possible.\r\n\r\nRegards,\r\nServoERP";
+
+            WhatsAppQuickActionDialog.ShowFor(this, new WhatsAppQuickActionContext
+            {
+                Module = "Invoices",
+                SourceId = invoice.InvoiceID,
+                ContactName = clientName,
+                Phone = client == null ? string.Empty : client.Phone,
+                TemplateType = "Invoice reminder",
+                Message = message,
+                LinkedRecordType = "Invoice",
+                LinkedRecord = invoiceNo,
+                LinkedRecordId = invoice.InvoiceID
+            });
+        }
+
+        private void DeleteCurrentInvoice()
+        {
+            DeleteInvoice(_current, true);
+        }
+
+        private void DeleteInvoice(Invoice target, bool clearIfCurrent)
+        {
+            if (target == null || target.InvoiceID <= 0)
+            {
+                ShowStatus("Select a saved invoice to delete.", OrangeCol);
+                return;
+            }
+
+            string invoiceNo = string.IsNullOrWhiteSpace(target.InvoiceNumber) ? "this invoice" : "invoice " + target.InvoiceNumber;
+            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
+                FindForm(),
+                "Invoice",
+                invoiceNo,
+                "Line items, payments, inventory reservations, and record links for this invoice will also be removed.");
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                SetBusy("Deleting invoice...");
+                int deletedId = target.InvoiceID;
+                _invSvc.DeleteInvoice(deletedId);
+                if (clearIfCurrent || (_current != null && _current.InvoiceID == deletedId))
+                    ClearForm();
+                LoadInvoiceList();
+                ShowStatus("Invoice deleted.", DS.Red600);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Delete invoice failed: " + ex.Message, "Delete Invoice", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                ShowStatus("Delete failed: " + ex.Message, Color.Firebrick);
+            }
+            finally
+            {
+                SetBusy(null);
+            }
+        }
+
         private Button MakeSoftAction(string text, Color accent)
         {
             Button button = MakeBtn(text, DS.Lighten(accent, 0.82f), 120);
-            button.Height = 62;
+            button.Height = 58;
             button.Dock = DockStyle.Fill;
-            button.Margin = new Padding(5);
-            button.ForeColor = accent;
-            button.FlatAppearance.BorderColor = DS.Lighten(accent, 0.62f);
+            button.Margin = new Padding(6, 5, 6, 5);
             button.TextAlign = ContentAlignment.MiddleCenter;
-            button.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            button.Font = new Font("Segoe UI", 8.4f, FontStyle.Bold);
+            UIHelper.ApplyActionButton(button);
             return button;
         }
 
@@ -533,7 +1181,7 @@ namespace HVAC_Pro_Desktop.UI
             card.AutoScroll = true;
             card.AutoScrollMargin = new Size(0, 10);
             card.MouseEnter += (s, e) => card.Focus();
-            int y = 42;
+            int y = 48;
             _lblRightSubTotal = AddSummaryRow(card, "Sub Total (Excl. GST)", "₹0.00", ref y, DS.Slate900);
             AddDiscountRow(card, ref y);
             _lblTaxableSummary = AddSummaryRow(card, "Taxable Amount", "₹0.00", ref y, DS.Slate900);
@@ -553,14 +1201,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddDividerLine(Panel card, int y)
         {
-            Panel line = new Panel { Location = new Point(16, y), Size = new Size(246, 1), BackColor = DS.Slate200 };
+            Panel line = new Panel { Location = new Point(20, y), Size = new Size(310, 1), BackColor = DS.Slate200 };
             card.Controls.Add(line);
         }
 
         private Label AddSummaryRow(Panel card, string label, string value, ref int y, Color color, bool bold = false)
         {
-            card.Controls.Add(new Label { Text = label, Location = new Point(16, y), Size = new Size(130, 18), Font = new Font("Segoe UI", 8.5f, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = DS.Slate700 });
-            Label val = new Label { Text = value, Location = new Point(142, y), Size = new Size(120, 18), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", bold ? 10f : 8.5f, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = color };
+            card.Controls.Add(new Label { Text = label, Location = new Point(20, y), Size = new Size(170, 18), Font = new Font("Segoe UI", 8.5f, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = DS.Slate700 });
+            Label val = new Label { Text = value, Location = new Point(190, y), Size = new Size(140, 18), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", bold ? 10f : 8.5f, bold ? FontStyle.Bold : FontStyle.Regular), ForeColor = color };
             card.Controls.Add(val);
             y += bold ? 28 : 24;
             return val;
@@ -568,8 +1216,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddDiscountRow(Panel card, ref int y)
         {
-            card.Controls.Add(new Label { Text = "Discount", Location = new Point(16, y), Size = new Size(90, 18), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700 });
-            TextBox discount = new TextBox { Text = "0.00", Location = new Point(178, y - 3), Size = new Size(82, 24), Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Right };
+            card.Controls.Add(new Label { Text = "Discount", Location = new Point(20, y), Size = new Size(120, 18), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700 });
+            TextBox discount = new TextBox { Text = "0.00", Location = new Point(230, y - 3), Size = new Size(100, 24), Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, TextAlign = HorizontalAlignment.Right };
             card.Controls.Add(discount);
             y += 28;
         }
@@ -579,15 +1227,13 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CreateInvoiceCard("RECENT ACTIVITY", 180);
             string[] rows =
             {
-                "Invoice created\r\n05/05/2026 11:30 AM by Admin",
-                "Draft saved\r\n05/05/2026 11:32 AM by Admin",
-                "Client selected\r\n05/05/2026 11:35 AM by Admin"
+                "No recent invoice activity yet."
             };
-            int y = 42;
+            int y = 48;
             foreach (string row in rows)
             {
-                card.Controls.Add(new Label { Text = "●", Location = new Point(18, y + 2), Size = new Size(16, 18), ForeColor = SaveGreen });
-                card.Controls.Add(new Label { Text = row, Location = new Point(40, y), Size = new Size(215, 34), Font = new Font("Segoe UI", 8), ForeColor = DS.Slate700 });
+                card.Controls.Add(new Label { Text = "●", Location = new Point(22, y + 2), Size = new Size(16, 18), ForeColor = SaveGreen });
+                card.Controls.Add(new Label { Text = row, Location = new Point(46, y), Size = new Size(270, 34), Font = new Font("Segoe UI", 8.1f), ForeColor = DS.Slate700 });
                 y += 42;
             }
             return card;
@@ -597,10 +1243,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = DS.BgPage };
             _lblStatus = new Label { Text = "Last saved: " + DateTime.Now.ToString("dd/MM/yyyy hh:mm tt"), Dock = DockStyle.Left, Width = 190, Font = new Font("Segoe UI", 8), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleLeft };
-            Button refresh = MakeBtn("↻ Refresh", DS.BgPage, 90);
+            Button refresh = MakeBtn("Refresh", DS.BgPage, 90);
             refresh.ForeColor = InfoBlue;
             refresh.FlatAppearance.BorderSize = 0;
             refresh.Dock = DockStyle.Right;
+            ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             refresh.Click += (s, e) => LoadInvoiceList();
             card.Controls.Add(refresh);
             card.Controls.Add(_lblStatus);
@@ -678,7 +1325,7 @@ namespace HVAC_Pro_Desktop.UI
             _documentPage = new ModernCard
             {
                 Width = Math.Max(720, container.ClientSize.Width - 18),
-                Height = 1020,
+                Height = 1180,
                 BackColor = Color.White,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
@@ -687,33 +1334,31 @@ namespace HVAC_Pro_Desktop.UI
             container.Resize += (s, e) =>
             {
                 _documentPage.Width = Math.Max(720, container.ClientSize.Width - 18);
-                container.AutoScrollMinSize = new Size(_documentPage.Width + 8, _documentPage.Height + 24);
+                _documentPage.Left = 0;
+                container.AutoScrollPosition = new Point(0, Math.Abs(container.AutoScrollPosition.Y));
+                container.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
             };
 
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 54, BackColor = Color.White, Padding = new Padding(18, 12, 18, 8) };
             Button back = MakeGhostAction("←  Back to Invoices", 132);
             back.Dock = DockStyle.Left;
             back.Click += (s, e) => LoadInvoiceList();
-            Label saved = new Label { Text = "Last saved a few seconds ago  ✓", Dock = DockStyle.Right, Width = 190, Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight };
+            Label saved = new Label { Text = "Last saved a few seconds ago", Dock = DockStyle.Right, Width = 190, Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight };
             StatusChip chip = new StatusChip { Text = "DRAFT", Dock = DockStyle.Right, Margin = new Padding(8, 0, 0, 0) };
             topBar.Controls.Add(back);
             topBar.Controls.Add(saved);
             topBar.Controls.Add(chip);
 
-            FlowLayoutPanel content = new FlowLayoutPanel
+            Panel content = new Panel
             {
                 Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = false,
                 BackColor = Color.White,
-                Padding = new Padding(18, 10, 18, 18)
+                Padding = new Padding(20, 12, 20, 18)
             };
-            content.Resize += (s, e) => ResizeModernInvoiceSections(content);
 
-            Panel titleRow = new Panel { Height = 34, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
-            Label titleIcon = new Label { Text = "▣", Location = new Point(0, 5), Size = new Size(26, 24), Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = InfoBlue, BackColor = Color.FromArgb(239, 246, 255), TextAlign = ContentAlignment.MiddleCenter };
-            DS.Rounded(titleIcon, 12);
+            Panel titleRow = new Panel { Height = 36, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
+            Label titleIcon = ModernIconSystem.Badge(ModernIconKind.Invoice, 26, Color.FromArgb(239, 246, 255), InfoBlue, 10);
+            titleIcon.Location = new Point(0, 5);
             titleRow.Controls.Add(titleIcon);
             titleRow.Controls.Add(new Label { Text = "Invoice Details", Location = new Point(34, 3), Size = new Size(240, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
 
@@ -729,8 +1374,9 @@ namespace HVAC_Pro_Desktop.UI
             };
             for (int i = 0; i < 4; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            for (int i = 0; i < 7; i++)
-                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, i == 6 ? 60 : 62));
+            int[] rowHeights = { 58, 58, 58, 56, 56, 56, 90 };
+            foreach (int rowHeight in rowHeights)
+                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, rowHeight));
 
             CreateInvoiceControls();
             AddModernField(grid, "Invoice Number", _txtInvNo, 0, 0, false, 1);
@@ -751,42 +1397,52 @@ namespace HVAC_Pro_Desktop.UI
             AddModernField(grid, "Workflow Notes", _txtInventorySummary, 3, 4, false, 1);
             AddModernField(grid, "PO Number", _txtPONumber, 0, 5, false, 1);
             AddModernField(grid, "PO Date", _dtpPODate, 1, 5, false, 1);
-            AddModernField(grid, "Notes", _txtNotes, 2, 5, false, 2);
+            AddModernField(grid, "Notes", _txtNotes, 2, 5, false, 2, 2);
             AddModernField(grid, "Send Invoice To", _txtSendInvoiceTo, 0, 6, false, 2);
 
             _txtNudges = new TextBox { Text = "All required details look good. You can generate and send the invoice.", ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255) };
-            Panel smartBar = new Panel { Height = 28, BackColor = Color.FromArgb(238, 242, 255), Margin = new Padding(0, 0, 0, 12), Padding = new Padding(12, 6, 12, 4), Tag = "invoice-responsive-width" };
+            Panel smartBar = new Panel { Height = 28, BackColor = Color.FromArgb(238, 242, 255), Margin = new Padding(0, 0, 0, 12), Padding = new Padding(12, 6, 12, 4), Tag = "invoice-no-preview-wrap" };
             DS.Rounded(smartBar, 8);
             smartBar.Controls.Add(_txtNudges);
             _txtNudges.Dock = DockStyle.Fill;
 
+            BuildHiddenLineGrid();
             Panel workflow = BuildModernWorkflowSection();
             Panel tax = BuildModernTaxSection();
-            BuildHiddenLineGrid();
 
-            content.Controls.Add(titleRow);
-            content.Controls.Add(grid);
-            content.Controls.Add(smartBar);
-            content.Controls.Add(workflow);
-            content.Controls.Add(tax);
+            DockInvoiceSection(content, tax);
+            DockInvoiceGap(content, 12);
+            DockInvoiceSection(content, workflow);
+            DockInvoiceGap(content, 12);
+            DockInvoiceSection(content, smartBar);
+            DockInvoiceGap(content, 8);
+            DockInvoiceSection(content, grid);
+            DockInvoiceGap(content, 6);
+            DockInvoiceSection(content, titleRow);
             _documentPage.Controls.Add(content);
             _documentPage.Controls.Add(topBar);
-            ResizeModernInvoiceSections(content);
-            container.AutoScrollMinSize = new Size(_documentPage.Width + 8, _documentPage.Height + 24);
+            container.AutoScrollPosition = new Point(0, 0);
+            container.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
         }
 
-        private void ResizeModernInvoiceSections(FlowLayoutPanel content)
+        private void DockInvoiceSection(Panel parent, Control section)
         {
-            int width = Math.Max(500, content.ClientSize.Width - content.Padding.Horizontal - 4);
-            foreach (Control child in content.Controls)
-                child.Width = width;
+            section.Dock = DockStyle.Top;
+            section.Margin = Padding.Empty;
+            parent.Controls.Add(section);
+        }
+
+        private void DockInvoiceGap(Panel parent, int height)
+        {
+            parent.Controls.Add(new Panel { Dock = DockStyle.Top, Height = height, BackColor = Color.White });
         }
 
         private void CreateInvoiceControls()
         {
-            _txtInvNo = new TextBox { ReadOnly = true, Text = "INV-2026-05-0001" };
+            _txtInvNo = new TextBox { ReadOnly = true, Text = "(auto-generated)" };
             _cmbStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbStatus.Items.AddRange(new object[] { "Draft", "Pending", "Partial", "Paid", "Overdue" });
+            _cmbStatus.Items.AddRange(new object[] { "Draft", "Pending", "Approved", "Partial", "Paid", "Overdue" });
+            _cmbStatus.SelectedIndexChanged += (s, e) => ApplyInvoiceEditability();
             _dtpInvDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
             _dtpDueDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(30) };
             _cmbClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
@@ -814,26 +1470,28 @@ namespace HVAC_Pro_Desktop.UI
             EnsureTaxControls();
         }
 
-        private void AddModernField(TableLayoutPanel grid, string label, Control input, int column, int row, bool required, int columnSpan)
+        private void AddModernField(TableLayoutPanel grid, string label, Control input, int column, int row, bool required, int columnSpan, int rowSpan = 1)
         {
             Panel field = BuildModernField(label, input, required);
             grid.Controls.Add(field, column, row);
             if (columnSpan > 1)
                 grid.SetColumnSpan(field, columnSpan);
+            if (rowSpan > 1)
+                grid.SetRowSpan(field, rowSpan);
         }
 
         private Panel BuildModernField(string label, Control input, bool required)
         {
-            Panel field = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Margin = new Padding(0, 0, 12, 9) };
+            Panel field = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Margin = new Padding(0, 0, 14, 10) };
             Label lbl = new Label
             {
                 Text = required ? label + " *" : label,
                 Dock = DockStyle.Top,
-                Height = 18,
-                Font = new Font("Segoe UI", 7.75f, FontStyle.Bold),
+                Height = 19,
+                Font = new Font("Segoe UI", 7.9f, FontStyle.Bold),
                 ForeColor = required ? Color.FromArgb(185, 28, 28) : DS.Slate700
             };
-            Panel host = new Panel { Tag = "invoice-input-host", Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(9, 4, 8, 4) };
+            Panel host = new Panel { Tag = "invoice-input-host", Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(10, 5, 9, 5) };
             host.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -860,7 +1518,7 @@ namespace HVAC_Pro_Desktop.UI
             if (input is ComboBox combo)
             {
                 combo.FlatStyle = FlatStyle.Flat;
-                combo.DropDownStyle = ComboBoxStyle.DropDown;
+                combo.DropDownStyle = ComboBoxStyle.DropDownList;
             }
             if (input is NumericUpDown numeric)
                 numeric.BorderStyle = BorderStyle.None;
@@ -876,37 +1534,71 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700,
                 FlatStyle = FlatStyle.Flat
             };
-            button.FlatAppearance.BorderSize = 0;
+            UIHelper.ApplyActionButton(button, UiActionVariant.Secondary);
             return button;
         }
 
         private Panel BuildModernWorkflowSection()
         {
-            ModernCard card = new ModernCard { Height = 146, Padding = new Padding(14), Tag = "invoice-responsive-width" };
-            card.Controls.Add(new Label { Text = "⌄", Dock = DockStyle.Right, Width = 28, Font = new Font("Segoe UI", 10f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.TopCenter });
-            card.Controls.Add(new Label { Text = "HVAC WORKFLOW", Dock = DockStyle.Top, Height = 24, Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = InfoBlue });
-            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
+            ModernCard card = new ModernCard { Height = 232, Padding = new Padding(16), Tag = "invoice-no-preview-wrap" };
+            Panel workflowTitle = BuildInvoiceSectionTitle("HVAC WORKFLOW", ModernIconKind.Service);
+            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = Color.White, Padding = new Padding(0, 6, 0, 0) };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.4f));
-            _txtChecklist = CreateModernReadOnlyMultiline("✓  Site Survey Completed\r\n✓  Material Delivered\r\n✓  Installation Completed");
-            _txtAssetDetails = CreateModernReadOnlyMultiline("•  Daikin VRV IV System\r\n•  4 x Indoor Units\r\n•  1 x Outdoor Unit");
-            _txtPaymentHistory = CreateModernReadOnlyMultiline("Last Payment                                      ₹0.00\r\nTotal Invoices                                          3\r\nOutstanding                                      ₹0.00");
-            table.Controls.Add(BuildMiniInfoCard("Checklist / Tasks", _txtChecklist), 0, 0);
-            table.Controls.Add(BuildMiniInfoCard("Asset / Equipment", _txtAssetDetails), 1, 0);
-            table.Controls.Add(BuildMiniInfoCard("Payment History", _txtPaymentHistory), 2, 0);
+            _txtChecklist = new TextBox { Visible = false };
+            _txtAssetDetails = new TextBox { Visible = false };
+            _txtPaymentHistory = new TextBox { Visible = false };
+            _gridChecklist = CreateWorkflowGrid("Task");
+            _gridAssets = CreateWorkflowGrid("Asset / Equipment");
+            _gridPaymentHistory = CreateWorkflowGrid("Payment");
+            _gridPaymentHistory.ReadOnly = true;
+            _gridPaymentHistory.AllowUserToAddRows = false;
+            if (_gridPaymentHistory.Columns["Delete"] != null)
+                _gridPaymentHistory.Columns["Delete"].Visible = false;
+            table.Controls.Add(BuildMiniInfoCard("Checklist / Tasks", _gridChecklist, ModernIconKind.Checklist, out _btnAddChecklistRow), 0, 0);
+            table.Controls.Add(BuildMiniInfoCard("Asset / Equipment", _gridAssets, ModernIconKind.Inventory, out _btnAddAssetRow), 1, 0);
+            table.Controls.Add(BuildMiniInfoCard("Payment History", _gridPaymentHistory, ModernIconKind.Payment, out _btnRecordWorkflowPayment), 2, 0);
+            _btnAddChecklistRow.Click += (s, e) => AddWorkflowRow(_gridChecklist, "New task");
+            _btnAddAssetRow.Click += (s, e) => AddWorkflowRow(_gridAssets, "New equipment");
+            _btnRecordWorkflowPayment.Text = "Record";
+            _btnRecordWorkflowPayment.Click += BtnRecordPayment_Click;
             card.Controls.Add(table);
+            card.Controls.Add(workflowTitle);
+            card.Controls.Add(_txtChecklist);
+            card.Controls.Add(_txtAssetDetails);
+            card.Controls.Add(_txtPaymentHistory);
             return card;
         }
 
-        private TextBox CreateModernReadOnlyMultiline(string text)
+        private DataGridView CreateWorkflowGrid(string textHeader)
         {
-            return new TextBox { Text = text, Multiline = true, ReadOnly = true, BorderStyle = BorderStyle.None, BackColor = Color.FromArgb(248, 250, 252), Font = new Font("Segoe UI", 8.25f), ForeColor = DS.Slate900, Dock = DockStyle.Fill };
+            DataGridView grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.FromArgb(248, 250, 252),
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToResizeRows = false,
+                AllowUserToAddRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                SelectionMode = DataGridViewSelectionMode.CellSelect,
+                Font = new Font("Segoe UI", 8.25f),
+                ColumnHeadersHeight = 22,
+                RowTemplate = { Height = 24 }
+            };
+            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Text", HeaderText = textHeader, FillWeight = 84, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "X", UseColumnTextForButtonValue = true, FillWeight = 16 });
+            grid.CellContentClick += WorkflowGrid_CellContentClick;
+            grid.EditingControlShowing += WorkflowGrid_EditingControlShowing;
+            grid.DataError += Grid_DataError;
+            GridTheme.Apply(grid);
+            return grid;
         }
 
-        private Panel BuildMiniInfoCard(string title, TextBox body)
+        private Panel BuildMiniInfoCard(string title, DataGridView body, ModernIconKind iconKind, out Button actionButton)
         {
-            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 0, 10, 0), Padding = new Padding(10, 6, 10, 6) };
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 0, 12, 0), Padding = new Padding(12, 8, 12, 8) };
             panel.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -914,17 +1606,32 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
                     e.Graphics.DrawPath(pen, path);
             };
-            panel.Controls.Add(body);
-            panel.Controls.Add(new Label { Text = title, Dock = DockStyle.Top, Height = 18, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), ForeColor = DS.Slate700 });
+            TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.Transparent, ColumnCount = 1, RowCount = 2, Padding = Padding.Empty, Margin = Padding.Empty };
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            Panel titleRow = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = Padding.Empty };
+            Label icon = ModernIconSystem.Icon(iconKind, 14, InfoBlue);
+            icon.Dock = DockStyle.Left;
+            icon.Width = 18;
+            actionButton = MakeGhostAction("+ Add", 58);
+            actionButton.Dock = DockStyle.Right;
+            actionButton.Height = 22;
+            actionButton.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            titleRow.Controls.Add(actionButton);
+            titleRow.Controls.Add(new Label { Text = title, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 7.9f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft });
+            titleRow.Controls.Add(icon);
+            layout.Controls.Add(titleRow, 0, 0);
+            layout.Controls.Add(body, 0, 1);
+            panel.Controls.Add(layout);
             return panel;
         }
 
         private Panel BuildModernTaxSection()
         {
-            ModernCard card = new ModernCard { Height = 224, Padding = new Padding(14), Tag = "invoice-responsive-width" };
-            card.Controls.Add(new Label { Text = "TAX SUMMARY (GST)", Dock = DockStyle.Top, Height = 24, Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = InfoBlue });
+            ModernCard card = new ModernCard { Height = 430, Padding = new Padding(16), Tag = "invoice-no-preview-wrap" };
+            Panel title = BuildInvoiceSectionTitle("TAX SUMMARY (GST)", ModernIconKind.Tax);
 
-            FlowLayoutPanel metrics = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 124, WrapContents = true, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
+            FlowLayoutPanel metrics = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 66, WrapContents = true, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
             _lblSubTotal = AddModernTaxBox(metrics, "Sub Total", "₹0.00", DS.Slate900);
             _lblCGSTAmt = AddModernTaxBox(metrics, "CGST (18%)", "₹0.00", DS.Slate900);
             _lblSGSTAmt = AddModernTaxBox(metrics, "SGST (18%)", "₹0.00", DS.Slate900);
@@ -933,31 +1640,102 @@ namespace HVAC_Pro_Desktop.UI
             _lblTotal = AddModernTaxBox(metrics, "Grand Total", "₹0.00", InfoBlue);
             _lblBalance = AddModernTaxBox(metrics, "Balance Due", "₹0.00", OrangeCol);
 
-            TableLayoutPanel controls = new TableLayoutPanel { Dock = DockStyle.Top, Height = 58, ColumnCount = 6, BackColor = Color.White, Padding = new Padding(0, 10, 0, 0) };
+            TableLayoutPanel controls = new TableLayoutPanel { Dock = DockStyle.Top, Height = 46, ColumnCount = 6, BackColor = Color.White, Padding = new Padding(0, 6, 0, 0) };
             for (int i = 0; i < 6; i++)
-                controls.ColumnStyles.Add(new ColumnStyle(i % 2 == 0 ? SizeType.Absolute : SizeType.Percent, i % 2 == 0 ? 95 : 33f));
-            controls.Controls.Add(new Label { Text = "GST Mode", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft }, 0, 0);
+                controls.ColumnStyles.Add(new ColumnStyle(i % 2 == 0 ? SizeType.Absolute : SizeType.Percent, i % 2 == 0 ? 96 : 33f));
+            controls.Controls.Add(new Label { Text = "GST Mode", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 0, 4, 0) }, 0, 0);
             controls.Controls.Add(BuildTaxInputHost(_cmbGstMode), 1, 0);
-            controls.Controls.Add(new Label { Text = "Default GST %", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft }, 2, 0);
+            controls.Controls.Add(new Label { Text = "Default GST %", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 0, 4, 0) }, 2, 0);
             controls.Controls.Add(BuildTaxInputHost(_numGST), 3, 0);
-            controls.Controls.Add(new Label { Text = "Round Off", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft }, 4, 0);
+            controls.Controls.Add(new Label { Text = "Round Off", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleLeft, Margin = new Padding(0, 0, 4, 0) }, 4, 0);
             controls.Controls.Add(BuildTaxInputHost(_numRoundOff), 5, 0);
 
+            _itemSourceTabs = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, BackColor = Color.White, WrapContents = false, Padding = new Padding(0, 3, 0, 2) };
+            foreach (string source in new[] { "All", "Materials", "Services", "Labour", "AMC / Contract", "Custom Item" })
+                _itemSourceTabs.Controls.Add(MakeItemSourceTab(source));
+
+            Panel actionRow = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White, Padding = new Padding(0, 4, 0, 4) };
+            _btnAddInvoiceLine = MakeGhostAction("+ Add Material", 116);
+            _btnAddInvoiceLine.Dock = DockStyle.Left;
+            _btnAddInvoiceLine.Click += (s, e) => AddLineRowForSource("Materials");
+            Button addService = MakeGhostAction("+ Add Service", 112);
+            addService.Dock = DockStyle.Left;
+            addService.Click += (s, e) => AddLineRowForSource("Services");
+            Button addLabour = MakeGhostAction("+ Add Labour", 108);
+            addLabour.Dock = DockStyle.Left;
+            addLabour.Click += (s, e) => AddLineRowForSource("Labour");
+            Button addCustom = MakeGhostAction("+ Add Custom Item", 140);
+            addCustom.Dock = DockStyle.Left;
+            addCustom.Click += (s, e) => AddLineRowForSource("Custom Item");
+            actionRow.Controls.Add(addCustom);
+            actionRow.Controls.Add(addLabour);
+            actionRow.Controls.Add(addService);
+            actionRow.Controls.Add(_btnAddInvoiceLine);
+
+            if (_grid != null)
+            {
+                _grid.Dock = DockStyle.Fill;
+                _grid.Visible = true;
+                card.Controls.Add(_grid);
+            }
             card.Controls.Add(controls);
             card.Controls.Add(metrics);
+            card.Controls.Add(actionRow);
+            card.Controls.Add(_itemSourceTabs);
+            card.Controls.Add(title);
+            RefreshItemSourceTabs();
             return card;
+        }
+
+        private Button MakeItemSourceTab(string source)
+        {
+            Button button = MakeGhostAction(source, source == "AMC / Contract" ? 124 : 96);
+            button.Height = 26;
+            button.Margin = new Padding(0, 0, 8, 0);
+            button.Tag = source;
+            button.Click += (s, e) =>
+            {
+                _activeItemSource = source;
+                RefreshItemSourceTabs();
+                BindInventoryItems();
+                ShowStatus("Invoice item source: " + source, InfoBlue);
+            };
+            return button;
+        }
+
+        private void RefreshItemSourceTabs()
+        {
+            if (_itemSourceTabs == null)
+                return;
+            foreach (Button button in _itemSourceTabs.Controls.OfType<Button>())
+            {
+                bool active = string.Equals(button.Tag?.ToString(), _activeItemSource, StringComparison.OrdinalIgnoreCase);
+                button.BackColor = active ? DS.Indigo50 : Color.White;
+                button.ForeColor = active ? DS.Indigo600 : DS.Slate700;
+            }
+        }
+
+        private Panel BuildInvoiceSectionTitle(string text, ModernIconKind iconKind)
+        {
+            Panel row = new Panel { Dock = DockStyle.Top, Height = 24, BackColor = Color.Transparent };
+            Label icon = ModernIconSystem.Icon(iconKind, 15, InfoBlue);
+            icon.Dock = DockStyle.Left;
+            icon.Width = 20;
+            row.Controls.Add(new Label { Text = text, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleLeft });
+            row.Controls.Add(icon);
+            return row;
         }
 
         private Label AddModernTaxBox(FlowLayoutPanel parent, string title, string value, Color color)
         {
-            TaxSummaryBox box = new TaxSummaryBox(title, value, color) { Margin = new Padding(0, 0, 10, 0) };
+            TaxSummaryBox box = new TaxSummaryBox(title, value, color) { Margin = new Padding(0, 0, 12, 0) };
             parent.Controls.Add(box);
             return box.ValueLabel;
         }
 
         private Panel BuildTaxInputHost(Control input)
         {
-            Panel host = new Panel { Tag = "invoice-input-host", Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(8, 4, 8, 4), Margin = new Padding(0, 0, 12, 0) };
+            Panel host = new Panel { Tag = "invoice-input-host", Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(8, 5, 8, 5), Margin = new Padding(0, 0, 14, 0) };
             host.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -973,335 +1751,63 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildHiddenLineGrid()
         {
-            _grid = new DataGridView { Visible = false, AllowUserToAddRows = false, AllowUserToDeleteRows = false };
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", HeaderText = "Description" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "HSNCode", HeaderText = "HSN Code" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = "Unit" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Quantity", HeaderText = "Qty" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = "Rate (INR)" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "GSTPercent", HeaderText = "GST %" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "BillingType", HeaderText = "Type" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Amount", HeaderText = "Amount (INR)" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CoverageNote", HeaderText = "Coverage / Note" });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "StockItemID", HeaderText = "StockItemID", Visible = false });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IsStockItem", HeaderText = "IsStockItem", Visible = false });
-            _grid.CellEndEdit += Grid_CellEndEdit;
-            _grid.EditingControlShowing += Grid_EditingControlShowing;
-            _documentPage.Controls.Add(_grid);
-        }
-
-        private void BuildInvoiceDocumentLegacy(Panel container)
-        {
-            int pad = 10;
-            _documentPage = new Panel
-            {
-                Width = 900,
-                Height = 842,
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.None,
-                Padding = new Padding(18)
-            };
-            container.Controls.Add(_documentPage);
-            container.Resize += (s, e) => CenterDocumentPage(container);
-            CenterDocumentPage(container);
-
-            // â”€â”€ Section: GST Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            GroupBox grpGST = MakeGroup("TAX SUMMARY (GST)");
-            grpGST.Dock = DockStyle.Top; grpGST.Height = 92;
-            grpGST.Controls.Add(new Label
-            {
-                Text = "Live GST totals stay pinned below the page so Save Draft, Finalise, Record Payment, and Preview remain fully clickable.",
-                Location = new Point(8, 28),
-                Size = new Size(790, 34),
-                Font = new Font("Segoe UI", 9),
-                ForeColor = DS.Slate500
-            });
-
-            // â”€â”€ Section: Line Items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Panel grpLines = new Panel { Dock = DockStyle.Top, Height = 280, BackColor = SectionBg, Padding = new Padding(8) };
-            Label lblLinesHdr = new Label { Text = "LINE ITEMS", Dock = DockStyle.Top, Height = 26, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = InfoBlue, BackColor = SectionBg, TextAlign = ContentAlignment.MiddleLeft };
-
-            Panel lineBtns = new Panel { Dock = DockStyle.Top, Height = 30, BackColor = SectionBg };
-            Button btnAddLine = MakeBtn("+ Add Row", InfoBlue,  100);
-            Button btnDelLine = MakeBtn("- Remove",  OrangeCol,  90);
-            btnAddLine.Location = new Point(0, 2); btnDelLine.Location = new Point(108, 2);
-            btnAddLine.Click += (s, e) => AddLineRow();
-            btnDelLine.Click += (s, e) => RemoveLineRow();
-            lineBtns.Controls.AddRange(new Control[] { btnAddLine, btnDelLine });
-
             _grid = new DataGridView
             {
-                Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false,
-                ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                Font = new Font("Segoe UI", 9), BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None, GridColor = Color.FromArgb(245, 247, 250),
+                Visible = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
                 RowHeadersVisible = false,
-                CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal,
-                EnableHeadersVisualStyles = false
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                SelectionMode = DataGridViewSelectionMode.CellSelect,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
             };
-            _grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
-            _grid.ColumnHeadersDefaultCellStyle.ForeColor = DS.Slate700;
-            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-            _grid.DefaultCellStyle.SelectionBackColor = Color.FromArgb(238, 242, 255);
-            _grid.DefaultCellStyle.SelectionForeColor = DS.Slate900;
-            _grid.DefaultCellStyle.BackColor = Color.White;
-            _grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(250, 252, 255);
-            _grid.DataError += Grid_DataError;
-            var descColumn = new DataGridViewComboBoxColumn
-            {
-                Name = "Description",
-                HeaderText = "Description",
-                FillWeight = 34,
-                DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox,
-                FlatStyle = FlatStyle.Standard
-            };
-            foreach (var item in _inventoryItems.Select(i => i.ItemName).Distinct().OrderBy(n => n))
-                descColumn.Items.Add(item);
-            _grid.Columns.Add(descColumn);
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "HSNCode",     HeaderText = "HSN Code",     FillWeight = 16 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", FillWeight = 10, DataSource = new[] { "Nos", "No", "RM", "Set", "Kg", "Ltr" }, FlatStyle = FlatStyle.Standard });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Quantity",    HeaderText = "Qty",          FillWeight = 10, DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate",        HeaderText = "Rate (INR)",   FillWeight = 15, DefaultCellStyle = new DataGridViewCellStyle { Format = "₹#,##0.00", Alignment = DataGridViewContentAlignment.MiddleRight } });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "GSTPercent",  HeaderText = "GST %",        FillWeight = 10 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "BillingType", HeaderText = "Type", FillWeight = 12, DataSource = new[] { "Billable", "Included" }, FlatStyle = FlatStyle.Standard });
-            DataGridViewTextBoxColumn colAmt = new DataGridViewTextBoxColumn { Name = "Amount", HeaderText = "Amount (INR)", FillWeight = 15 };
-            colAmt.DefaultCellStyle.BackColor = Color.FromArgb(248, 252, 248);
-            colAmt.DefaultCellStyle.Format = "₹#,##0.00";
-            colAmt.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
-            _grid.Columns.Add(colAmt);
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CoverageNote", HeaderText = "Coverage / Note", FillWeight = 22 });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Description", HeaderText = "Description", FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "HSNCode", HeaderText = "HSN/SAC" });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Category", HeaderText = "Category", FlatStyle = FlatStyle.Flat });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", FlatStyle = FlatStyle.Flat });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Quantity", HeaderText = "Qty" });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = "Rate (INR)" });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "DiscountPercent", HeaderText = "Discount %" });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "GSTPercent", HeaderText = "GST %" });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "TaxType", HeaderText = "Tax Type", FlatStyle = FlatStyle.Flat });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Amount", HeaderText = "Amount (INR)" });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CoverageNote", HeaderText = "Notes" });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "StockItemID", HeaderText = "StockItemID", Visible = false });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IsStockItem", HeaderText = "IsStockItem", Visible = false });
-            GridTheme.Apply(_grid);
-            _grid.CellEndEdit += Grid_CellEndEdit;
-            _grid.EditingControlShowing += Grid_EditingControlShowing;
-
-            grpLines.Controls.Add(_grid);
-            grpLines.Controls.Add(lineBtns);
-            grpLines.Controls.Add(lblLinesHdr);
-
-            // â”€â”€ Section: Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            GroupBox grpHdr = MakeGroup("INVOICE HEADER");
-            grpHdr.Dock = DockStyle.None; grpHdr.Location = new Point(0, 0); grpHdr.Width = 872; grpHdr.Height = 770;
-            Panel grpHdrHost = new Panel
+            _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true });
+            _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Duplicate", HeaderText = "", Text = "Copy", UseColumnTextForButtonValue = true });
+            SeedLineGridCombos();
+            GridTheme.ApplyColumnPolicy(_grid, new[]
             {
-                Dock = DockStyle.Top,
-                Height = 540,
-                BackColor = Color.White,
-                AutoScroll = true,
-                AutoScrollMargin = new Size(0, 12),
-                Padding = new Padding(0)
-            };
-            grpHdrHost.MouseEnter += (s, e) => grpHdrHost.Focus();
-            grpHdrHost.Controls.Add(grpHdr);
-
-            // Row 1: Invoice No (read-only) + Status
-            AddLabel(grpHdr, "Invoice Number", 8, 14);
-            _txtInvNo = new TextBox { Location = new Point(8, 30), Width = 180, ReadOnly = true, Font = new Font("Segoe UI", 9), BackColor = Color.FromArgb(240, 240, 240), BorderStyle = BorderStyle.FixedSingle };
-            AddLabel(grpHdr, "Status", 200, 14);
-            _cmbStatus = new ComboBox { Location = new Point(200, 30), Width = 130, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbStatus.Items.AddRange(new object[] { "Draft", "Pending", "Partial", "Paid", "Overdue" });
-            grpHdr.Controls.AddRange(new Control[] { _txtInvNo, _cmbStatus });
-
-            // Row 2: Invoice Date + Due Date
-            AddLabel(grpHdr, "Invoice Date *", 8, 72);
-            _dtpInvDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9), Location = new Point(8, 88), Width = 160, Height = 26, Value = DateTime.Today };
-            AddLabel(grpHdr, "Due Date *", 180, 72);
-            _dtpDueDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9), Location = new Point(180, 88), Width = 160, Height = 26, Value = DateTime.Today.AddDays(30) };
-            grpHdr.Controls.AddRange(new Control[] { _dtpInvDate, _dtpDueDate });
-
-            // Row 3: Client dropdown
-            AddLabel(grpHdr, "Client *", 8, 128);
-            _cmbClient = new ComboBox { Location = new Point(8, 144), Width = 360, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbClient.SelectedIndexChanged += CmbClient_Changed;
-            grpHdr.Controls.Add(_cmbClient);
-
-            // Row 4: Site dropdown
-            AddLabel(grpHdr, "Site *", 8, 180);
-            _cmbSite = new ComboBox { Location = new Point(8, 196), Width = 360, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            grpHdr.Controls.Add(_cmbSite);
-
-            // Row 5: Contract dropdown (filtered by client)
-            AddLabel(grpHdr, "Contract (optional)", 8, 228);
-            _cmbContract = new ComboBox { Location = new Point(8, 244), Width = 360, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            grpHdr.Controls.Add(_cmbContract);
-
-            AddLabel(grpHdr, "Use Template", 8, 278);
-            _cmbTemplate = new ComboBox { Location = new Point(8, 294), Width = 230, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbTemplate.SelectedIndexChanged += CmbTemplate_Changed;
-            AddLabel(grpHdr, "Coverage", 250, 278);
-            _cmbCoverageType = new ComboBox { Location = new Point(250, 294), Width = 180, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbCoverageType.Items.AddRange(new object[] { "Billable Service", "Comprehensive AMC", "Non-Comprehensive AMC", "Warranty" });
-            _cmbCoverageType.SelectedIndex = 0;
-            AddLabel(grpHdr, "Warranty", 442, 278);
-            _cmbWarrantyStatus = new ComboBox { Location = new Point(442, 294), Width = 160, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbWarrantyStatus.Items.AddRange(new object[] { "Out of Warranty", "Under Warranty", "Under Contract" });
-            _cmbWarrantyStatus.SelectedIndex = 0;
-            AddLabel(grpHdr, "Warranty Expiry", 614, 278);
-            _dtpWarrantyExpiry = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9), Location = new Point(614, 294), Width = 174, Value = DateTime.Today.AddYears(1), ShowCheckBox = true };
-            grpHdr.Controls.AddRange(new Control[] { _cmbTemplate, _cmbCoverageType, _cmbWarrantyStatus, _dtpWarrantyExpiry });
-
-            AddLabel(grpHdr, "Subject", 8, 334);
-            _txtSubject = new TextBox { Location = new Point(8, 350), Width = 780, Height = 42, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            grpHdr.Controls.Add(_txtSubject);
-
-            AddLabel(grpHdr, "Payment Terms", 8, 404);
-            _txtPaymentTerms = new TextBox { Location = new Point(8, 420), Width = 180, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "30 Days" };
-            AddLabel(grpHdr, "Place of Supply", 200, 404);
-            _txtPlaceOfSupply = new TextBox { Location = new Point(200, 420), Width = 180, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "Maharashtra" };
-            _txtPlaceOfSupply.TextChanged += (s, e) => AutoSelectGstModeFromPlaceOfSupply();
-            AddLabel(grpHdr, "Next Service Due", 392, 404);
-            _dtpNextServiceDue = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9), Location = new Point(392, 420), Width = 160, Value = DateTime.Today.AddMonths(3), ShowCheckBox = true };
-            AddLabel(grpHdr, "Workflow Notes", 564, 404);
-            _txtInventorySummary = new TextBox { Location = new Point(564, 420), Width = 224, Height = 56, Multiline = true, ReadOnly = true, Font = new Font("Segoe UI", 8.5f), BackColor = Color.FromArgb(248, 250, 252), BorderStyle = BorderStyle.FixedSingle };
-            grpHdr.Controls.AddRange(new Control[] { _txtPaymentTerms, _txtPlaceOfSupply, _dtpNextServiceDue, _txtInventorySummary });
-
-            AddLabel(grpHdr, "PO Number", 8, 490);
-            _txtPONumber = new TextBox { Location = new Point(8, 506), Width = 220, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            AddLabel(grpHdr, "PO Date", 240, 490);
-            _dtpPODate = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9), Location = new Point(240, 506), Width = 140, Value = DateTime.Today };
-            grpHdr.Controls.AddRange(new Control[] { _txtPONumber, _dtpPODate });
-
-            AddLabel(grpHdr, "Send Invoice To", 8, 548);
-            _txtSendInvoiceTo = new TextBox { Location = new Point(8, 564), Width = 380, Height = 84, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            grpHdr.Controls.Add(_txtSendInvoiceTo);
-
-            AddLabel(grpHdr, "Notes", 408, 490);
-            _txtNotes = new TextBox { Location = new Point(408, 506), Width = 380, Height = 142, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            grpHdr.Controls.Add(_txtNotes);
-
-            AddLabel(grpHdr, "Smart Assistant", 8, 664);
-            _txtNudges = new TextBox { Location = new Point(8, 680), Width = 780, Height = 64, Multiline = true, ReadOnly = true, BackColor = Color.FromArgb(240, 253, 250), ForeColor = Color.FromArgb(15, 118, 110), Font = new Font("Segoe UI", 9, FontStyle.Bold), BorderStyle = BorderStyle.FixedSingle };
-            grpHdr.Controls.Add(_txtNudges);
-
-            GroupBox grpWorkflow = MakeGroup("HVAC WORKFLOW");
-            grpWorkflow.Dock = DockStyle.Top; grpWorkflow.Height = 220;
-            AddLabel(grpWorkflow, "Checklist / Tasks", 8, 20);
-            _txtChecklist = new TextBox { Location = new Point(8, 36), Width = 252, Height = 156, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            AddLabel(grpWorkflow, "Asset / Equipment", 274, 20);
-            _txtAssetDetails = new TextBox { Location = new Point(274, 36), Width = 252, Height = 156, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            AddLabel(grpWorkflow, "Payment History", 540, 20);
-            _txtPaymentHistory = new TextBox { Location = new Point(540, 36), Width = 248, Height = 156, Multiline = true, ReadOnly = true, BackColor = Color.FromArgb(248, 250, 252), Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle };
-            grpWorkflow.Controls.AddRange(new Control[] { _txtChecklist, _txtAssetDetails, _txtPaymentHistory });
-
-            Panel spacer = new Panel { Dock = DockStyle.Top, Height = pad, BackColor = DS.BgPage };
-
-            // Stack (DockStyle.Top â€” add in reverse visual order)
-            _documentPage.Controls.Add(grpGST);
-            _documentPage.Controls.Add(grpLines);
-            _documentPage.Controls.Add(grpWorkflow);
-            _documentPage.Controls.Add(grpHdrHost);
-            _documentPage.Controls.Add(spacer);
-            ApplyInvoicePreviewLayout(grpHdrHost, grpHdr, grpWorkflow, grpGST, grpLines, spacer);
-            container.AutoScrollMinSize = new Size(_documentPage.Width + 48, _documentPage.Height + 48);
+                new GridColumnPolicy("Description", 220, GridColumnPriority.Required),
+                new GridColumnPolicy("HSNCode", 90, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Category", 96, GridColumnPriority.Required),
+                new GridColumnPolicy("Unit", 64, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Quantity", 70, GridColumnPriority.Required),
+                new GridColumnPolicy("Rate", 100, GridColumnPriority.Required),
+                new GridColumnPolicy("DiscountPercent", 82, GridColumnPriority.Required),
+                new GridColumnPolicy("GSTPercent", 78, GridColumnPriority.Secondary),
+                new GridColumnPolicy("TaxType", 92, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Amount", 120, GridColumnPriority.Required),
+                new GridColumnPolicy("CoverageNote", 180, GridColumnPriority.Optional),
+                new GridColumnPolicy("Delete", 72, GridColumnPriority.Required),
+                new GridColumnPolicy("Duplicate", 72, GridColumnPriority.Required)
+            });
+            _grid.CellEndEdit += Grid_CellEndEdit;
+            _grid.CellValueChanged += (s, e) => { if (!_updating && e.RowIndex >= 0) RecalculateLineRow(_grid.Rows[e.RowIndex]); };
+            _grid.CellContentClick += Grid_CellContentClick;
+            _grid.CellValidating += Grid_CellValidating;
+            _grid.EditingControlShowing += Grid_EditingControlShowing;
+            _grid.DataError += Grid_DataError;
+            GridTheme.Apply(_grid);
         }
 
-        private void ApplyInvoicePreviewLayout(Panel grpHdrHost, GroupBox grpHdr, GroupBox grpWorkflow, GroupBox grpGST, Panel grpLines, Panel spacer)
+        private void SeedLineGridCombos()
         {
-            EnsureTaxControls();
-            spacer.Visible = false;
-            grpLines.Visible = false;
-            grpLines.Height = 0;
-
-            grpHdrHost.Dock = DockStyle.None;
-            grpHdrHost.SetBounds(14, 12, 872, 520);
-            grpHdrHost.BackColor = Color.White;
-            grpHdrHost.AutoScroll = true;
-            grpHdr.Dock = DockStyle.None;
-            grpHdr.SetBounds(0, 0, 854, 558);
-            grpHdr.BackColor = Color.White;
-            grpHdr.ForeColor = InfoBlue;
-
-            SetLabelPosition(grpHdr, "Invoice Number", 16, 24, 150);
-            SetControlBounds(_txtInvNo, 16, 42, 220, 26);
-            _txtInvNo.BackColor = Color.White;
-            SetLabelPosition(grpHdr, "Status", 258, 24, 150);
-            SetControlBounds(_cmbStatus, 258, 42, 150, 26);
-            SetLabelPosition(grpHdr, "Invoice Date *", 520, 24, 150);
-            SetControlBounds(_dtpInvDate, 520, 42, 160, 26);
-            SetLabelPosition(grpHdr, "Due Date *", 714, 24, 150);
-            SetControlBounds(_dtpDueDate, 714, 42, 140, 26);
-
-            SetLabelPosition(grpHdr, "Client *", 16, 88, 150);
-            SetControlBounds(_cmbClient, 16, 106, 300, 26);
-            SetLabelPosition(grpHdr, "Site *", 332, 88, 150);
-            SetControlBounds(_cmbSite, 332, 106, 280, 26);
-            SetLabelPosition(grpHdr, "Contract (optional)", 628, 88, 160);
-            SetControlBounds(_cmbContract, 628, 106, 226, 26);
-
-            SetLabelPosition(grpHdr, "Use Template", 16, 152, 150);
-            SetControlBounds(_cmbTemplate, 16, 170, 220, 26);
-            SetLabelPosition(grpHdr, "Coverage", 258, 152, 150);
-            SetControlBounds(_cmbCoverageType, 258, 170, 204, 26);
-            SetLabelPosition(grpHdr, "Warranty", 482, 152, 150);
-            SetControlBounds(_cmbWarrantyStatus, 482, 170, 170, 26);
-            SetLabelPosition(grpHdr, "Warranty Expiry", 672, 152, 150);
-            SetControlBounds(_dtpWarrantyExpiry, 672, 170, 182, 26);
-
-            SetLabelPosition(grpHdr, "Subject", 16, 216, 150);
-            SetControlBounds(_txtSubject, 16, 234, 838, 26);
-            _txtSubject.Multiline = false;
-
-            SetLabelPosition(grpHdr, "Payment Terms", 16, 280, 150);
-            SetControlBounds(_txtPaymentTerms, 16, 298, 220, 26);
-            SetLabelPosition(grpHdr, "Place of Supply", 258, 280, 150);
-            SetControlBounds(_txtPlaceOfSupply, 258, 298, 204, 26);
-            SetLabelPosition(grpHdr, "Next Service Due", 482, 280, 150);
-            SetControlBounds(_dtpNextServiceDue, 482, 298, 170, 26);
-            SetLabelPosition(grpHdr, "Workflow Notes", 672, 280, 150);
-            SetControlBounds(_txtInventorySummary, 672, 298, 182, 38);
-            _txtInventorySummary.ReadOnly = false;
-
-            SetLabelPosition(grpHdr, "PO Number", 16, 344, 150);
-            SetControlBounds(_txtPONumber, 16, 362, 220, 26);
-            SetLabelPosition(grpHdr, "PO Date", 258, 344, 150);
-            SetControlBounds(_dtpPODate, 258, 362, 190, 26);
-
-            SetLabelPosition(grpHdr, "Send Invoice To", 16, 408, 150);
-            SetControlBounds(_txtSendInvoiceTo, 16, 426, 440, 58);
-            SetLabelPosition(grpHdr, "Notes", 482, 344, 150);
-            SetControlBounds(_txtNotes, 482, 362, 372, 122);
-
-            SetLabelPosition(grpHdr, "Smart Assistant", 16, 490, 150);
-            SetControlBounds(_txtNudges, 16, 508, 838, 26);
-            _txtNudges.BackColor = Color.FromArgb(239, 246, 255);
-            _txtNudges.ForeColor = Color.FromArgb(30, 64, 175);
-            _txtNudges.Multiline = false;
-
-            grpWorkflow.Dock = DockStyle.None;
-            grpWorkflow.SetBounds(14, 546, 872, 104);
-            grpWorkflow.BackColor = Color.White;
-            SetLabelPosition(grpWorkflow, "Checklist / Tasks", 16, 22, 160);
-            SetControlBounds(_txtChecklist, 16, 40, 260, 54);
-            SetLabelPosition(grpWorkflow, "Asset / Equipment", 302, 22, 160);
-            SetControlBounds(_txtAssetDetails, 302, 40, 260, 54);
-            SetLabelPosition(grpWorkflow, "Payment History", 588, 22, 160);
-            SetControlBounds(_txtPaymentHistory, 588, 40, 266, 54);
-
-            grpGST.Dock = DockStyle.None;
-            grpGST.SetBounds(14, 664, 872, 150);
-            grpGST.BackColor = Color.White;
-            grpGST.Controls.Clear();
-            _lblSubTotal = AddGstMetric(grpGST, "Sub Total", 16, 32, DS.Slate900);
-            _lblGSTAmt = AddGstMetric(grpGST, "GST (18%)", 140, 32, DS.Slate900);
-            _lblCGSTAmt = AddGstMetric(grpGST, "CGST", 264, 32, DS.Slate900);
-            _lblSGSTAmt = AddGstMetric(grpGST, "SGST", 388, 32, DS.Slate900);
-            _lblIGSTAmt = AddGstMetric(grpGST, "IGST", 512, 32, DS.Slate900);
-            _lblRoundOffAmt = AddGstMetric(grpGST, "Round Off", 636, 32, DS.Slate900);
-            _lblTotal = AddGstMetric(grpGST, "Grand Total", 760, 32, InfoBlue);
-            _lblBalance = AddGstMetric(grpGST, "Balance Due", 760, 84, OrangeCol);
-
-            AddLabel(grpGST, "GST Mode", 18, 104);
-            SetControlBounds(_cmbGstMode, 88, 100, 116, 28);
-            grpGST.Controls.Add(_cmbGstMode);
-            AddLabel(grpGST, "Default GST %", 240, 104);
-            SetControlBounds(_numGST, 338, 100, 96, 28);
-            grpGST.Controls.Add(_numGST);
-            AddLabel(grpGST, "Round Off", 470, 104);
-            SetControlBounds(_numRoundOff, 548, 100, 112, 28);
-            grpGST.Controls.Add(_numRoundOff);
+            EnsureComboItems("Category", new[] { "Material", "Service", "Labour", "AMC", "Spare", "Custom" });
+            EnsureComboItems("Unit", new[] { "Nos", "Mtr", "Kg", "Ltr", "Job", "Visit", "Hour", "Day", "Set", "Lot" });
+            EnsureComboItems("TaxType", new[] { "Taxable", "Nil Rated", "Exempt", "Out of Scope" });
         }
 
         private void EnsureTaxControls()
@@ -1323,42 +1829,6 @@ namespace HVAC_Pro_Desktop.UI
                 _numRoundOff = new NumericUpDown { Font = new Font("Segoe UI", 8.5f), Minimum = -99999, Maximum = 99999, DecimalPlaces = 2, Increment = 0.01m, BorderStyle = BorderStyle.FixedSingle };
                 _numRoundOff.ValueChanged += (s, e) => RecalculateSummary();
             }
-        }
-
-        private Label AddGstMetric(Control parent, string title, int x, int y, Color color)
-        {
-            Panel box = new Panel { Location = new Point(x, y), Size = new Size(112, 46), BackColor = Color.FromArgb(248, 250, 252) };
-            box.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawRectangle(pen, 0, 0, box.Width - 1, box.Height - 1);
-            };
-            box.Controls.Add(new Label { Text = title, Location = new Point(8, 5), Size = new Size(98, 15), Font = new Font("Segoe UI", 7.5f), ForeColor = DS.Slate600 });
-            Label value = new Label { Text = "₹0.00", Location = new Point(8, 21), Size = new Size(98, 19), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = color };
-            box.Controls.Add(value);
-            parent.Controls.Add(box);
-            return value;
-        }
-
-        private void SetLabelPosition(Control parent, string text, int x, int y, int width)
-        {
-            foreach (Label label in parent.Controls.OfType<Label>())
-            {
-                if (string.Equals(label.Text, text, StringComparison.OrdinalIgnoreCase))
-                {
-                    label.Location = new Point(x, y);
-                    label.Size = new Size(width, 16);
-                    label.ForeColor = DS.Slate700;
-                    return;
-                }
-            }
-        }
-
-        private void SetControlBounds(Control control, int x, int y, int width, int height)
-        {
-            if (control == null)
-                return;
-            control.SetBounds(x, y, width, height);
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1434,6 +1904,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
+                ShowInvoiceDashboard();
                 var invoices = _invSvc.GetAllInvoices()
                     .OrderByDescending(i => i.InvoiceDate)
                     .Take(120)
@@ -1502,6 +1973,7 @@ namespace HVAC_Pro_Desktop.UI
             HighlightCard(card, true);
             _current = _invSvc.GetInvoiceById(invoice.InvoiceID);
             PopulateForm(_current);
+            ShowInvoiceEditor();
         }
 
         private void PopulateForm(Invoice inv)
@@ -1525,6 +1997,8 @@ namespace HVAC_Pro_Desktop.UI
             _numRoundOff.Value = inv.RoundOff;
             _txtChecklist.Text = inv.ServiceChecklist ?? "";
             _txtAssetDetails.Text = inv.AssetDetails ?? "";
+            PopulateWorkflowGrid(_gridChecklist, inv.ServiceChecklist);
+            PopulateWorkflowGrid(_gridAssets, inv.AssetDetails);
 
             // GST %
             decimal gstPct = inv.GSTPercent > 0 ? inv.GSTPercent : 18m;
@@ -1554,11 +2028,13 @@ namespace HVAC_Pro_Desktop.UI
             _dtpPODate.Value = inv.PODate ?? inv.InvoiceDate;
             _txtSendInvoiceTo.Text = inv.SendInvoiceTo ?? "";
             _txtPaymentHistory.Text = BuildPaymentHistory(inv.InvoiceID);
+            PopulatePaymentHistoryGrid(_txtPaymentHistory.Text);
             _txtInventorySummary.Text = _invSvc.GetInventorySummary(inv);
             _txtNudges.Text = _invSvc.GetBehavioralNudges(inv);
 
             _updating = false;
             RecalculateSummary();
+            ApplyInvoiceEditability();
             ShowStatus("Loaded: " + inv.InvoiceNumber, InfoBlue);
         }
 
@@ -1583,8 +2059,10 @@ namespace HVAC_Pro_Desktop.UI
             inv.WarrantyStatus = _cmbWarrantyStatus.SelectedItem?.ToString() ?? "Out of Warranty";
             inv.WarrantyExpiry = _dtpWarrantyExpiry.Checked ? _dtpWarrantyExpiry.Value.Date : (DateTime?)null;
             inv.NextServiceDueDate = _dtpNextServiceDue.Checked ? _dtpNextServiceDue.Value.Date : (DateTime?)null;
-            inv.ServiceChecklist = _txtChecklist.Text.Trim();
-            inv.AssetDetails = _txtAssetDetails.Text.Trim();
+            inv.ServiceChecklist = CollectWorkflowRows(_gridChecklist);
+            inv.AssetDetails = CollectWorkflowRows(_gridAssets);
+            _txtChecklist.Text = inv.ServiceChecklist;
+            _txtAssetDetails.Text = inv.AssetDetails;
 
             ComboItem ci = (ComboItem)_cmbClient.SelectedItem;
             inv.ClientID = ci?.Id ?? 0;
@@ -1597,7 +2075,47 @@ namespace HVAC_Pro_Desktop.UI
 
             inv.GSTPercent = _numGST.Value;
             inv.LineItems  = CollectLineItems();
+            ApplyCurrentTotalsToInvoice(inv);
             return inv;
+        }
+
+        private void ApplyCurrentTotalsToInvoice(Invoice inv)
+        {
+            if (inv == null)
+                return;
+
+            decimal sub = 0m;
+            decimal tax = 0m;
+            foreach (InvoiceLineItem item in inv.LineItems ?? new List<InvoiceLineItem>())
+            {
+                item.GSTPercent = item.GSTPercent <= 0 ? (_numGST?.Value ?? 18m) : item.GSTPercent;
+                item.Quantity = item.Quantity <= 0 ? 1m : item.Quantity;
+                item.DiscountPercent = Math.Min(Math.Max(item.DiscountPercent, 0m), 100m);
+                decimal gross = Math.Round(item.Quantity * item.Rate, 2);
+                item.Amount = item.IsBillable ? Math.Round(gross - (gross * item.DiscountPercent / 100m), 2) : 0m;
+                item.TaxAmount = item.IsBillable ? Math.Round(item.Amount * (item.GSTPercent / 100m), 2) : 0m;
+                sub += item.Amount;
+                tax += item.TaxAmount;
+            }
+
+            inv.SubTotal = sub;
+            inv.TaxAmount = tax;
+            inv.RoundOff = _numRoundOff?.Value ?? inv.RoundOff;
+            inv.GSTMode = _cmbGstMode?.SelectedItem?.ToString() ?? inv.GSTMode ?? "IGST";
+            if (string.Equals(inv.GSTMode, "CGST+SGST", StringComparison.OrdinalIgnoreCase))
+            {
+                inv.CGSTAmount = Math.Round(tax / 2m, 2);
+                inv.SGSTAmount = tax - inv.CGSTAmount;
+                inv.IGSTAmount = 0m;
+            }
+            else
+            {
+                inv.CGSTAmount = 0m;
+                inv.SGSTAmount = 0m;
+                inv.IGSTAmount = tax;
+            }
+            inv.TotalAmount = inv.SubTotal + inv.TaxAmount + inv.RoundOff;
+            inv.BalanceDue = Math.Max(inv.TotalAmount - inv.PaidAmount, 0m);
         }
 
         private List<InvoiceLineItem> CollectLineItems()
@@ -1608,38 +2126,34 @@ namespace HVAC_Pro_Desktop.UI
                 string desc = row.Cells["Description"].Value?.ToString().Trim() ?? "";
                 if (string.IsNullOrEmpty(desc)) continue;
                 string hsn  = row.Cells["HSNCode"].Value?.ToString().Trim() ?? "";
+                string category = row.Cells["Category"].Value?.ToString().Trim() ?? "Service";
                 string unit = row.Cells["Unit"].Value?.ToString().Trim() ?? "Nos";
                 decimal qty  = TryParseDecimal(row.Cells["Quantity"].Value);
                 decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
+                decimal discount = TryParseDecimal(row.Cells["DiscountPercent"].Value);
                 decimal gst = TryParseDecimal(row.Cells["GSTPercent"].Value);
-                bool isBillable = !string.Equals(row.Cells["BillingType"].Value?.ToString(), "Included", StringComparison.OrdinalIgnoreCase);
+                string taxType = row.Cells["TaxType"].Value?.ToString().Trim() ?? "Taxable";
+                bool isBillable = !string.Equals(taxType, "Out of Scope", StringComparison.OrdinalIgnoreCase);
+                decimal gross = Math.Round((qty > 0 ? qty : 1m) * rate, 2);
+                decimal amount = isBillable ? Math.Round(gross - (gross * Math.Min(Math.Max(discount, 0m), 100m) / 100m), 2) : 0m;
                 list.Add(new InvoiceLineItem
                 {
                     Description = desc,
                     HSNCode     = hsn,
+                    Category    = category,
                     Unit        = unit,
                     Quantity    = qty > 0 ? qty : 1,
                     Rate        = rate,
+                    DiscountPercent = Math.Min(Math.Max(discount, 0m), 100m),
                     GSTPercent  = gst > 0 ? gst : _numGST.Value,
+                    TaxType     = taxType,
                     IsBillable  = isBillable,
                     CoverageNote = row.Cells["CoverageNote"].Value?.ToString().Trim(),
                     StockItemID = TryParseInt(row.Cells["StockItemID"].Value),
                     IsStockItem = string.Equals(row.Cells["IsStockItem"].Value?.ToString(), "1", StringComparison.OrdinalIgnoreCase),
-                    Amount      = isBillable ? Math.Round((qty > 0 ? qty : 1m) * rate, 2) : 0m
+                    Amount      = amount
                 });
             }
-            if (list.Count == 0)
-                list.Add(new InvoiceLineItem
-                {
-                    Description = "HVAC installation service - May 2026",
-                    HSNCode = "9987",
-                    Unit = "Job",
-                    Quantity = 1m,
-                    Rate = 105805.08m,
-                    GSTPercent = _numGST?.Value > 0 ? _numGST.Value : 18m,
-                    IsBillable = true,
-                    Amount = 105805.08m
-                });
             return list;
         }
 
@@ -1647,26 +2161,23 @@ namespace HVAC_Pro_Desktop.UI
         {
             _updating = true;
             _current = null;
-            _txtInvNo.Text = "INV-2026-05-0001";
-            _dtpInvDate.Value = new DateTime(2026, 5, 5);
-            _dtpDueDate.Value = new DateTime(2026, 6, 4);
-            _txtNotes.Text = "Thank you for your business." + Environment.NewLine + Environment.NewLine + "Please call us for any queries.";
-            _txtSubject.Text = "Invoice for HVAC Installation - May 2026";
+            _txtInvNo.Text = "(auto-generated)";
+            _dtpInvDate.Value = DateTime.Today;
+            _dtpDueDate.Value = DateTime.Today.AddDays(30);
+            _txtNotes.Text = string.Empty;
+            _txtSubject.Text = string.Empty;
             _txtPONumber.Text = string.Empty;
-            _dtpPODate.Value = new DateTime(2026, 5, 5);
-            _txtSendInvoiceTo.Text = "Accounts Payable" + Environment.NewLine + "ABC Cooling Solutions Pvt. Ltd." + Environment.NewLine + "accounts@abccooling.com";
+            _dtpPODate.Value = DateTime.Today;
+            _txtSendInvoiceTo.Text = string.Empty;
             _txtPaymentTerms.Text = "30 Days";
             _txtPlaceOfSupply.Text = "Maharashtra";
-            _txtChecklist.Text = "☑  Site Survey Completed" + Environment.NewLine + "☑  Material Delivered" + Environment.NewLine + "☑  Installation Completed" + Environment.NewLine + "☑  Testing & Commissioning Done";
-            _txtAssetDetails.Text = "•  Daikin VRV IV System" + Environment.NewLine + "•  4 x Indoor Units" + Environment.NewLine + "•  1 x Outdoor Unit" + Environment.NewLine + "•  Control Panel";
-            _txtPaymentHistory.Text = "Last Payment                                      ₹0.00" + Environment.NewLine + "Total Invoices                                          3" + Environment.NewLine + "Outstanding                                      ₹0.00" + Environment.NewLine + "Credit Limit                              ₹5,00,000.00";
-            _txtInventorySummary.Text = "Installation completed successfully.";
-            EnsurePreviewComboItem(_cmbClient, "ABC Cooling Solutions Pvt. Ltd.", true);
-            EnsurePreviewComboItem(_cmbSite, "Main Site - Pune", true);
-            EnsurePreviewComboItem(_cmbContract, "Annual HVAC Maintenance Contract", true);
-            EnsurePreviewComboItem(_cmbTemplate, "Select Template", false);
-            EnsurePreviewComboItem(_cmbCoverageType, "Billable Service", false);
-            EnsurePreviewComboItem(_cmbWarrantyStatus, "Out of Warranty", false);
+            _txtChecklist.Text = string.Empty;
+            _txtAssetDetails.Text = string.Empty;
+            _txtPaymentHistory.Text = "No payments recorded yet.";
+            PopulateWorkflowGrid(_gridChecklist, string.Empty);
+            PopulateWorkflowGrid(_gridAssets, string.Empty);
+            PopulatePaymentHistoryGrid("No payments recorded yet.");
+            _txtInventorySummary.Text = "No stock reservation yet.";
             if (_cmbTemplate.Items.Count > 0) _cmbTemplate.SelectedIndex = 0;
             if (_cmbCoverageType.Items.Count > 0) _cmbCoverageType.SelectedIndex = 0;
             if (_cmbWarrantyStatus.Items.Count > 0) _cmbWarrantyStatus.SelectedIndex = 0;
@@ -1675,21 +2186,206 @@ namespace HVAC_Pro_Desktop.UI
             _dtpNextServiceDue.Checked = false;
             _numRoundOff.Value = 0;
             if (_cmbStatus.Items.Count > 0) _cmbStatus.SelectedIndex = 0;   // Draft
-            if (_cmbClient.Items.Count > 0 && _cmbClient.SelectedIndex < 0) _cmbClient.SelectedIndex = 0;
-            EnsurePreviewComboItem(_cmbSite, "Main Site - Pune", true);
-            EnsurePreviewComboItem(_cmbContract, "Annual HVAC Maintenance Contract", true);
+            if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
+            if (_cmbSite.Items.Count > 0) _cmbSite.SelectedIndex = 0;
+            if (_cmbContract.Items.Count > 0) _cmbContract.SelectedIndex = 0;
             _numGST.Value = 18m;
             _grid.Rows.Clear();
-            AddLineRow(new InvoiceLineItem { Description = "HVAC installation service - May 2026", HSNCode = "9987", Unit = "Job", Quantity = 1m, Rate = 105805.08m, GSTPercent = 18m, IsBillable = true, Amount = 105805.08m });
+            AddLineRow();
             RecalculateSummary();
-            _txtInventorySummary.Text = "Installation completed successfully.";
-            _txtNudges.Text = "ⓘ  All required details look good. You can generate and send the invoice.";
+            _txtNudges.Text = "Select a client, site, and invoice line items before saving.";
             if (_selectedCard != null)
             {
                 HighlightCard(_selectedCard, false);
                 _selectedCard = null;
             }
             _updating = false;
+            ApplyInvoiceEditability();
+        }
+
+        private void PopulateWorkflowGrid(DataGridView grid, string serializedRows)
+        {
+            if (grid == null)
+                return;
+
+            grid.Rows.Clear();
+            foreach (string line in SplitWorkflowRows(serializedRows))
+            {
+                EnsureWorkflowComboValue(grid, line);
+                grid.Rows.Add(line);
+            }
+            if (grid.Rows.Count == 0)
+                grid.Rows.Add(string.Empty);
+        }
+
+        private void BindWorkflowPickers()
+        {
+            BindWorkflowCombo(_gridChecklist, BuildChecklistSuggestions());
+            BindWorkflowCombo(_gridAssets, BuildAssetSuggestions());
+        }
+
+        private void BindWorkflowCombo(DataGridView grid, IEnumerable<string> suggestions)
+        {
+            if (grid == null || !(grid.Columns["Text"] is DataGridViewComboBoxColumn combo))
+                return;
+
+            combo.Items.Clear();
+            foreach (string value in (suggestions ?? Enumerable.Empty<string>()).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(v => v))
+                combo.Items.Add(value);
+        }
+
+        private IEnumerable<string> BuildChecklistSuggestions()
+        {
+            var rows = new List<string>();
+            foreach (string jobType in new[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" })
+            {
+                try
+                {
+                    rows.AddRange(new JobService().GetChecklistTemplates(jobType).Select(t => t.ItemText));
+                }
+                catch { }
+            }
+            rows.AddRange(new[]
+            {
+                "Site Survey Completed",
+                "Material Delivered",
+                "Installation Completed",
+                "Testing & Commissioning Done",
+                "Filter cleaning completed",
+                "Gas pressure checked",
+                "Client sign-off pending"
+            });
+            return rows;
+        }
+
+        private IEnumerable<string> BuildAssetSuggestions()
+        {
+            var rows = new List<string>();
+            foreach (ClientAsset asset in _clientAssets ?? new List<ClientAsset>())
+            {
+                string label = string.Join(" ", new[] { asset.AssetTag, asset.Brand, asset.ModelNumber, asset.EquipmentType, asset.Capacity }
+                    .Where(v => !string.IsNullOrWhiteSpace(v)));
+                if (!string.IsNullOrWhiteSpace(label))
+                    rows.Add(label);
+            }
+            rows.AddRange(new[]
+            {
+                "Daikin VRV IV System",
+                "Split AC indoor unit",
+                "Split AC outdoor unit",
+                "Control panel",
+                "Copper pipe run",
+                "Ductable unit"
+            });
+            return rows;
+        }
+
+        private IEnumerable<string> SplitWorkflowRows(string serializedRows)
+        {
+            return (serializedRows ?? string.Empty)
+                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)
+                .Select(row => row.Trim())
+                .Where(row => row.Length > 0);
+        }
+
+        private string CollectWorkflowRows(DataGridView grid)
+        {
+            if (grid == null)
+                return string.Empty;
+
+            List<string> rows = new List<string>();
+            foreach (DataGridViewRow row in grid.Rows)
+            {
+                if (row.IsNewRow)
+                    continue;
+                string text = row.Cells["Text"].Value?.ToString().Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(text))
+                    rows.Add(text);
+            }
+            return string.Join(Environment.NewLine, rows);
+        }
+
+        private void AddWorkflowRow(DataGridView grid, string defaultText)
+        {
+            if (grid == null || IsInvoiceLocked())
+                return;
+
+            EnsureWorkflowComboValue(grid, defaultText);
+            int index = grid.Rows.Add(defaultText);
+            grid.CurrentCell = grid.Rows[index].Cells["Text"];
+            grid.BeginEdit(true);
+        }
+
+        private void EnsureWorkflowComboValue(DataGridView grid, string value)
+        {
+            if (grid == null || string.IsNullOrWhiteSpace(value) || !(grid.Columns["Text"] is DataGridViewComboBoxColumn combo))
+                return;
+            bool exists = combo.Items.Cast<object>().Any(i => string.Equals(i?.ToString(), value, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+                combo.Items.Add(value);
+        }
+
+        private void WorkflowGrid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
+        {
+            if (e.Control is ComboBox combo)
+            {
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
+                combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+            }
+        }
+
+        private void WorkflowGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            DataGridView grid = sender as DataGridView;
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || IsInvoiceLocked())
+                return;
+
+            if (grid.Columns[e.ColumnIndex].Name == "Delete")
+            {
+                if (grid.Rows.Count > 1)
+                    grid.Rows.RemoveAt(e.RowIndex);
+                else
+                    grid.Rows[e.RowIndex].Cells["Text"].Value = string.Empty;
+            }
+        }
+
+        private void PopulatePaymentHistoryGrid(string historyText)
+        {
+            if (_gridPaymentHistory == null)
+                return;
+
+            _gridPaymentHistory.Rows.Clear();
+            IEnumerable<string> rows = SplitWorkflowRows(historyText);
+            foreach (string row in rows)
+                _gridPaymentHistory.Rows.Add(row);
+            if (_gridPaymentHistory.Rows.Count == 0)
+                _gridPaymentHistory.Rows.Add("No payments recorded yet.");
+        }
+
+        private bool IsInvoiceLocked()
+        {
+            string status = _cmbStatus?.SelectedItem?.ToString() ?? _current?.PaymentStatus ?? "Draft";
+            return string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ApplyInvoiceEditability()
+        {
+            bool locked = IsInvoiceLocked();
+            foreach (DataGridView grid in new[] { _gridChecklist, _gridAssets, _grid })
+            {
+                if (grid == null)
+                    continue;
+                grid.ReadOnly = locked;
+                grid.AllowUserToDeleteRows = !locked;
+            }
+            if (_btnAddChecklistRow != null) _btnAddChecklistRow.Enabled = !locked;
+            if (_btnAddAssetRow != null) _btnAddAssetRow.Enabled = !locked;
+            if (_btnAddInvoiceLine != null) _btnAddInvoiceLine.Enabled = !locked;
+            if (_numGST != null) _numGST.Enabled = !locked;
+            if (_numRoundOff != null) _numRoundOff.Enabled = !locked;
+            if (_cmbGstMode != null) _cmbGstMode.Enabled = !locked;
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1700,26 +2396,85 @@ namespace HVAC_Pro_Desktop.UI
             AddLineRow(null);
         }
 
+        private void AddLineRowForSource(string source)
+        {
+            _activeItemSource = source == "Custom Item" ? "Custom Item" : source;
+            RefreshItemSourceTabs();
+            BindInventoryItems();
+            InvoiceCatalogItem pick = null;
+            if (!string.Equals(source, "Custom Item", StringComparison.OrdinalIgnoreCase))
+                pick = GetCatalogForActiveSource().FirstOrDefault();
+            AddLineRow(pick == null ? null : CatalogToLineItem(pick));
+            BeginEditDescriptionCell(_grid.Rows.Count - 1);
+        }
+
         private void AddLineRow(InvoiceLineItem item)
         {
             string description = item?.Description ?? "";
+            string category = string.IsNullOrWhiteSpace(item?.Category) ? "Service" : item.Category;
             string unit = string.IsNullOrWhiteSpace(item?.Unit) ? "Nos" : item.Unit;
             EnsureComboValue("Description", description);
+            EnsureComboValue("Category", category);
             EnsureComboValue("Unit", unit);
-            EnsureComboValue("BillingType", item != null && !item.IsBillable ? "Included" : "Billable");
+            EnsureComboValue("TaxType", string.IsNullOrWhiteSpace(item?.TaxType) ? "Taxable" : item.TaxType);
             _grid.Rows.Add(
                 description,
                 item?.HSNCode ?? "",
+                category,
                 unit,
                 (item?.Quantity ?? 1m).ToString("G"),
                 (item?.Rate ?? 0m).ToString("0.00"),
+                (item?.DiscountPercent ?? 0m).ToString("0.##"),
                 (item?.GSTPercent ?? (_numGST?.Value ?? 18m)).ToString("0.##"),
-                item != null && !item.IsBillable ? "Included" : "Billable",
+                string.IsNullOrWhiteSpace(item?.TaxType) ? "Taxable" : item.TaxType,
                 (item?.Amount ?? 0m).ToString("N2"),
                 item?.CoverageNote ?? "",
                 item?.StockItemID?.ToString() ?? "",
                 item?.IsStockItem == true ? "1" : "0");
             RecalculateSummary();
+        }
+
+        private InvoiceLineItem CatalogToLineItem(InvoiceCatalogItem item)
+        {
+            if (item == null)
+                return null;
+
+            decimal gst = item.GstPercent <= 0 ? (_numGST?.Value ?? 18m) : item.GstPercent;
+            decimal amount = Math.Round(item.Rate, 2);
+            return new InvoiceLineItem
+            {
+                Description = item.Description,
+                HSNCode = item.HsnSacCode,
+                Category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category,
+                Unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit,
+                Quantity = 1m,
+                Rate = item.Rate,
+                DiscountPercent = 0m,
+                GSTPercent = gst,
+                TaxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType,
+                TaxAmount = string.Equals(item.TaxType, "Taxable", StringComparison.OrdinalIgnoreCase) ? Math.Round(amount * gst / 100m, 2) : 0m,
+                IsStockItem = item.IsStockItem,
+                StockItemID = item.StockItemId,
+                IsBillable = !string.Equals(item.TaxType, "Out of Scope", StringComparison.OrdinalIgnoreCase),
+                CoverageNote = item.Notes,
+                Amount = amount
+            };
+        }
+
+        private void BeginEditDescriptionCell(int rowIndex)
+        {
+            if (_grid == null || rowIndex < 0 || rowIndex >= _grid.Rows.Count)
+                return;
+
+            BeginInvoke((Action)(() =>
+            {
+                if (_grid == null || _grid.IsDisposed || rowIndex < 0 || rowIndex >= _grid.Rows.Count)
+                    return;
+                _grid.CurrentCell = _grid.Rows[rowIndex].Cells["Description"];
+                _grid.BeginEdit(true);
+                if (_grid.EditingControl is ComboBox combo)
+                    combo.DroppedDown = true;
+            }));
         }
 
         private void AutoSelectGstModeFromPlaceOfSupply()
@@ -1746,23 +2501,140 @@ namespace HVAC_Pro_Desktop.UI
             if (_updating) return;
             DataGridViewRow row = _grid.Rows[e.RowIndex];
             string description = row.Cells["Description"].Value?.ToString() ?? "";
-            StockItem stock = _inventoryItems.FirstOrDefault(i => string.Equals(i.ItemName, description, StringComparison.OrdinalIgnoreCase));
-            if (stock != null)
-            {
-                if (string.IsNullOrWhiteSpace(row.Cells["HSNCode"].Value?.ToString()))
-                    row.Cells["HSNCode"].Value = "9987";
-                if (string.IsNullOrWhiteSpace(row.Cells["Unit"].Value?.ToString()))
-                    row.Cells["Unit"].Value = stock.Unit;
-                if (TryParseDecimal(row.Cells["Rate"].Value) <= 0)
-                    row.Cells["Rate"].Value = stock.LastPurchaseRate.ToString("0.00");
-                row.Cells["StockItemID"].Value = stock.ItemID;
-                row.Cells["IsStockItem"].Value = "1";
-            }
+            InvoiceCatalogItem catalog = _invoiceCatalog.FirstOrDefault(i => string.Equals(i.Description, description, StringComparison.OrdinalIgnoreCase));
+            if (catalog != null)
+                ApplyCatalogItemToRow(row, catalog);
             decimal qty  = TryParseDecimal(row.Cells["Quantity"].Value);
             decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
-            bool isBillable = !string.Equals(row.Cells["BillingType"].Value?.ToString(), "Included", StringComparison.OrdinalIgnoreCase);
-            row.Cells["Amount"].Value = (isBillable ? Math.Round(qty * rate, 2) : 0m).ToString("N2");
+            string taxType = row.Cells["TaxType"].Value?.ToString() ?? "Taxable";
+            bool isBillable = !string.Equals(taxType, "Out of Scope", StringComparison.OrdinalIgnoreCase);
+            decimal discount = Math.Min(Math.Max(TryParseDecimal(row.Cells["DiscountPercent"].Value), 0m), 100m);
+            decimal gross = Math.Round((qty > 0 ? qty : 1m) * rate, 2);
+            _updating = true;
+            row.Cells["DiscountPercent"].Value = discount.ToString("0.##");
+            row.Cells["Amount"].Value = (isBillable ? Math.Round(gross - (gross * discount / 100m), 2) : 0m).ToString("N2");
+            _updating = false;
             RecalculateSummary();
+        }
+
+        private void Grid_CellValidating(object sender, DataGridViewCellValidatingEventArgs e)
+        {
+            if (_grid == null || e.RowIndex < 0 || e.ColumnIndex < 0)
+                return;
+
+            string column = _grid.Columns[e.ColumnIndex].Name;
+            if (column == "Description" || column == "Category" || column == "Unit" || column == "TaxType")
+                EnsureComboValue(column, Convert.ToString(e.FormattedValue));
+        }
+
+        private void ApplyCatalogItemToRow(DataGridViewRow row, InvoiceCatalogItem item)
+        {
+            if (row == null || item == null)
+                return;
+
+            _updating = true;
+            try
+            {
+                EnsureComboValue("Description", item.Description);
+                EnsureComboValue("Category", item.Category);
+                EnsureComboValue("Unit", item.Unit);
+                EnsureComboValue("TaxType", item.TaxType);
+                row.Cells["Description"].Value = item.Description;
+                row.Cells["HSNCode"].Value = item.HsnSacCode;
+                row.Cells["Category"].Value = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category;
+                row.Cells["Unit"].Value = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit;
+                if (TryParseDecimal(row.Cells["Rate"].Value) <= 0)
+                    row.Cells["Rate"].Value = item.Rate.ToString("0.00");
+                row.Cells["GSTPercent"].Value = (item.GstPercent <= 0 ? (_numGST?.Value ?? 18m) : item.GstPercent).ToString("0.##");
+                row.Cells["TaxType"].Value = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType;
+                row.Cells["CoverageNote"].Value = item.Notes ?? string.Empty;
+                row.Cells["StockItemID"].Value = item.StockItemId?.ToString() ?? string.Empty;
+                row.Cells["IsStockItem"].Value = item.IsStockItem ? "1" : "0";
+            }
+            finally
+            {
+                _updating = false;
+            }
+        }
+
+        private void RecalculateLineRow(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow || _updating)
+                return;
+
+            decimal qty = TryParseDecimal(row.Cells["Quantity"].Value);
+            decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
+            decimal discount = Math.Min(Math.Max(TryParseDecimal(row.Cells["DiscountPercent"].Value), 0m), 100m);
+            string taxType = row.Cells["TaxType"].Value?.ToString() ?? "Taxable";
+            bool isBillable = !string.Equals(taxType, "Out of Scope", StringComparison.OrdinalIgnoreCase);
+            decimal gross = Math.Round((qty > 0 ? qty : 1m) * rate, 2);
+            row.Cells["Amount"].Value = (isBillable ? Math.Round(gross - (gross * discount / 100m), 2) : 0m).ToString("N2");
+            RecalculateSummary();
+        }
+
+        private void Grid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || _grid == null || e.ColumnIndex < 0)
+                return;
+
+            if (_grid.Columns[e.ColumnIndex].Name == "Delete")
+            {
+                if (_grid.Rows.Count > 1)
+                    _grid.Rows.RemoveAt(e.RowIndex);
+                else
+                    ClearInvoiceLineRow(_grid.Rows[e.RowIndex]);
+                RecalculateSummary();
+            }
+            else if (_grid.Columns[e.ColumnIndex].Name == "Duplicate")
+            {
+                InvoiceLineItem copy = RowToLineItem(_grid.Rows[e.RowIndex]);
+                AddLineRow(copy);
+            }
+        }
+
+        private InvoiceLineItem RowToLineItem(DataGridViewRow row)
+        {
+            if (row == null)
+                return null;
+            decimal qty = TryParseDecimal(row.Cells["Quantity"].Value);
+            decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
+            decimal discount = Math.Min(Math.Max(TryParseDecimal(row.Cells["DiscountPercent"].Value), 0m), 100m);
+            decimal amount = TryParseDecimal(row.Cells["Amount"].Value);
+            return new InvoiceLineItem
+            {
+                Description = row.Cells["Description"].Value?.ToString() ?? string.Empty,
+                HSNCode = row.Cells["HSNCode"].Value?.ToString() ?? string.Empty,
+                Category = row.Cells["Category"].Value?.ToString() ?? "Service",
+                Unit = row.Cells["Unit"].Value?.ToString() ?? "Nos",
+                Quantity = qty <= 0 ? 1m : qty,
+                Rate = rate,
+                DiscountPercent = discount,
+                GSTPercent = TryParseDecimal(row.Cells["GSTPercent"].Value),
+                TaxType = row.Cells["TaxType"].Value?.ToString() ?? "Taxable",
+                CoverageNote = row.Cells["CoverageNote"].Value?.ToString() ?? string.Empty,
+                StockItemID = TryParseInt(row.Cells["StockItemID"].Value),
+                IsStockItem = string.Equals(row.Cells["IsStockItem"].Value?.ToString(), "1", StringComparison.OrdinalIgnoreCase),
+                IsBillable = !string.Equals(row.Cells["TaxType"].Value?.ToString(), "Out of Scope", StringComparison.OrdinalIgnoreCase),
+                Amount = amount
+            };
+        }
+
+        private void ClearInvoiceLineRow(DataGridViewRow row)
+        {
+            if (row == null)
+                return;
+
+            foreach (DataGridViewCell cell in row.Cells)
+                if (cell.OwningColumn.Name != "Delete")
+                    cell.Value = null;
+            row.Cells["Unit"].Value = "Nos";
+            row.Cells["Category"].Value = "Service";
+            row.Cells["Quantity"].Value = "1";
+            row.Cells["Rate"].Value = "0.00";
+            row.Cells["DiscountPercent"].Value = "0";
+            row.Cells["GSTPercent"].Value = (_numGST?.Value ?? 18m).ToString("0.##");
+            row.Cells["TaxType"].Value = "Taxable";
+            row.Cells["Amount"].Value = "0.00";
         }
 
         private void Grid_DataError(object sender, DataGridViewDataErrorEventArgs e)
@@ -1782,8 +2654,10 @@ namespace HVAC_Pro_Desktop.UI
             {
                 decimal amount = TryParseDecimal(row.Cells["Amount"].Value);
                 decimal gstPct = TryParseDecimal(row.Cells["GSTPercent"].Value);
+                string taxType = row.Cells["TaxType"].Value?.ToString() ?? "Taxable";
                 sub += amount;
-                decimal rawTax = amount * ((gstPct <= 0 ? (_numGST?.Value ?? 18m) : gstPct) / 100m);
+                bool taxable = string.Equals(taxType, "Taxable", StringComparison.OrdinalIgnoreCase);
+                decimal rawTax = taxable ? amount * ((gstPct <= 0 ? (_numGST?.Value ?? 18m) : gstPct) / 100m) : 0m;
                 tax += Math.Ceiling(rawTax * 100m) / 100m;
             }
 
@@ -1825,6 +2699,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BtnNew_Click(object sender, EventArgs e)
         {
             ClearForm();
+            ShowInvoiceEditor();
             _cmbClient.Focus();
             ShowStatus("New invoice â€” fill the form and click Save Draft.", Color.Gray);
         }
@@ -2169,6 +3044,8 @@ namespace HVAC_Pro_Desktop.UI
                 _txtNotes.Text = templateInvoice.Notes ?? _txtNotes.Text;
                 _txtChecklist.Text = templateInvoice.ServiceChecklist ?? "";
                 _txtAssetDetails.Text = templateInvoice.AssetDetails ?? "";
+                PopulateWorkflowGrid(_gridChecklist, templateInvoice.ServiceChecklist);
+                PopulateWorkflowGrid(_gridAssets, templateInvoice.AssetDetails);
                 _txtPaymentTerms.Text = templateInvoice.PaymentTerms ?? _txtPaymentTerms.Text;
                 _txtPlaceOfSupply.Text = templateInvoice.PlaceOfSupply ?? _txtPlaceOfSupply.Text;
                 SelectComboByText(_cmbCoverageType, templateInvoice.ContractCoverageType);
@@ -2304,6 +3181,8 @@ namespace HVAC_Pro_Desktop.UI
                 errors.Add("Send Invoice To contains an invalid email address.");
 
             Invoice preview = BuildPreviewInvoiceSafe();
+            if (preview.LineItems == null || preview.LineItems.Count == 0)
+                errors.Add("Add at least one invoice line item.");
             if (preview.TotalAmount < 0 || preview.BalanceDue < 0)
                 errors.Add("Invoice total cannot be negative.");
 
@@ -2401,8 +3280,8 @@ namespace HVAC_Pro_Desktop.UI
             invoice.BalanceDue = Math.Max(invoice.TotalAmount - invoice.PaidAmount, 0);
             if (string.IsNullOrWhiteSpace(invoice.Subject) && !string.IsNullOrWhiteSpace(invoice.ClientName))
                 invoice.Subject = "Supply / service invoice for " + invoice.ClientName + (string.IsNullOrWhiteSpace(invoice.SiteName) ? "" : " - " + invoice.SiteName);
-            invoice.AssetDetails = _txtAssetDetails.Text.Trim();
-            invoice.ServiceChecklist = _txtChecklist.Text.Trim();
+            invoice.AssetDetails = CollectWorkflowRows(_gridAssets);
+            invoice.ServiceChecklist = CollectWorkflowRows(_gridChecklist);
             invoice.PaymentTerms = _txtPaymentTerms.Text.Trim();
             invoice.PlaceOfSupply = _txtPlaceOfSupply.Text.Trim();
             if (_txtNudges != null)
@@ -2432,6 +3311,12 @@ namespace HVAC_Pro_Desktop.UI
             bool exists = comboColumn.Items.Cast<object>().Any(i => string.Equals(i?.ToString(), value, StringComparison.OrdinalIgnoreCase));
             if (!exists)
                 comboColumn.Items.Add(value);
+        }
+
+        private void EnsureComboItems(string columnName, IEnumerable<string> values)
+        {
+            foreach (string value in values ?? Enumerable.Empty<string>())
+                EnsureComboValue(columnName, value);
         }
 
         private void EnsurePreviewComboItem(ComboBox combo, string text, bool useComboItem)
@@ -2524,6 +3409,13 @@ namespace HVAC_Pro_Desktop.UI
                 control.Click += (s, e) => SelectInvoice(invoice, card);
             }
 
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Open", null, (s, e) => SelectInvoice(invoice, card));
+            RecordDeletionUi.AddDeleteMenuItem(menu, (s, e) => DeleteInvoice(invoice, _current != null && _current.InvoiceID == invoice.InvoiceID));
+            card.ContextMenuStrip = menu;
+            foreach (Control control in new Control[] { lblNumber, lblClient, lblAmount, lblStatus })
+                control.ContextMenuStrip = menu;
+
             card.Controls.Add(lblNumber);
             card.Controls.Add(lblClient);
             card.Controls.Add(lblAmount);
@@ -2539,32 +3431,6 @@ namespace HVAC_Pro_Desktop.UI
                 if (child is Label label && label.Font.Bold)
                     label.ForeColor = selected ? DS.Indigo600 : DS.Slate900;
             }
-        }
-
-        private GroupBox MakeGroup(string title)
-        {
-            return new ModernInvoiceGroupBox
-            {
-                Text = title,
-                Font = new Font("Segoe UI", 8.25f, FontStyle.Bold),
-                ForeColor = InfoBlue,
-                BackColor = Color.White,
-                Padding = new Padding(8)
-            };
-        }
-
-        private Label MakeSummaryRow(GroupBox parent, string text, int x, int y, bool bold = false, Color? color = null)
-        {
-            Label lbl = new Label
-            {
-                Text      = text,
-                AutoSize  = true,
-                Location  = new Point(x, y),
-                Font      = new Font("Segoe UI", bold ? 11 : 9, bold ? FontStyle.Bold : FontStyle.Regular),
-                ForeColor = color ?? (bold ? DS.Indigo600 : Color.FromArgb(50, 50, 50))
-            };
-            parent.Controls.Add(lbl);
-            return lbl;
         }
 
         private Label MakeStickyValue(Panel parent, string title, int x, int y, bool bold = false, Color? accent = null)
@@ -2603,16 +3469,10 @@ namespace HVAC_Pro_Desktop.UI
             return value;
         }
 
-        private void AddLabel(GroupBox parent, string text, int x, int y)
-        {
-            parent.Controls.Add(new Label { Text = text, AutoSize = true, Location = new Point(x, y), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.FromArgb(80, 80, 80) });
-        }
-
         private Button MakeBtn(string text, Color bg, int width)
         {
             Button b = new Button { Text = text, Width = width, Height = 32, BackColor = bg, ForeColor = Color.White, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, UseVisualStyleBackColor = false };
-            b.FlatAppearance.BorderSize = 0;
-            DS.Rounded(b, 5);
+            UIHelper.ApplyActionButton(b);
             return b;
         }
 
@@ -2625,90 +3485,21 @@ namespace HVAC_Pro_Desktop.UI
             public override string ToString() => Text;
         }
 
-        private sealed class ModernInvoiceGroupBox : GroupBox
+        private class InvoiceCatalogItem
         {
-            protected override void OnPaint(PaintEventArgs e)
-            {
-                e.Graphics.Clear(BackColor);
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                Rectangle rect = new Rectangle(0, 8, Width - 1, Height - 9);
-                using (GraphicsPath path = DS.RoundedRect(rect, 8))
-                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
-                    e.Graphics.DrawPath(pen, path);
-
-                Size textSize = TextRenderer.MeasureText(Text ?? string.Empty, Font);
-                Rectangle textRect = new Rectangle(10, 0, Math.Max(80, textSize.Width + 16), 18);
-                using (Brush brush = new SolidBrush(BackColor))
-                    e.Graphics.FillRectangle(brush, textRect);
-                TextRenderer.DrawText(
-                    e.Graphics,
-                    Text ?? string.Empty,
-                    Font,
-                    new Rectangle(14, 0, Math.Max(60, textSize.Width + 4), 18),
-                    ForeColor,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-            }
+            public string Source { get; set; }
+            public string Description { get; set; }
+            public string HsnSacCode { get; set; }
+            public string Category { get; set; }
+            public string Unit { get; set; }
+            public decimal Rate { get; set; }
+            public decimal GstPercent { get; set; }
+            public string TaxType { get; set; }
+            public string Notes { get; set; }
+            public int? StockItemId { get; set; }
+            public bool IsStockItem { get; set; }
         }
 
-        private class InvoicePreviewDialog : Form
-        {
-            private readonly WebBrowser _browser = new WebBrowser();
-            private readonly string _html;
-
-            public InvoicePreviewDialog(string title, string html)
-            {
-                AutoScaleMode = AutoScaleMode.Dpi;
-                _html = html;
-                Text = "Invoice Preview - " + title;
-                Width = 1100;
-                Height = 760;
-                StartPosition = FormStartPosition.CenterParent;
-
-                Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Color.White };
-                Button btnPrint = new Button { Text = "Print", Width = 90, Height = 28, Location = new Point(10, 8), BackColor = Color.FromArgb(39, 174, 96), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                Button btnSave = new Button { Text = "Save As", Width = 90, Height = 28, Location = new Point(110, 8), BackColor = Color.FromArgb(52, 152, 219), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                Button btnMail = new Button { Text = "Email", Width = 90, Height = 28, Location = new Point(210, 8), BackColor = Color.FromArgb(15, 118, 110), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                Button btnWhatsApp = new Button { Text = "WhatsApp", Width = 100, Height = 28, Location = new Point(310, 8), BackColor = Color.FromArgb(22, 163, 74), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                Button btnRefresh = new Button { Text = "Refresh", Width = 90, Height = 28, Location = new Point(420, 8), BackColor = Color.FromArgb(99, 102, 241), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
-                btnPrint.FlatAppearance.BorderSize = 0;
-                btnSave.FlatAppearance.BorderSize = 0;
-                btnMail.FlatAppearance.BorderSize = 0;
-                btnWhatsApp.FlatAppearance.BorderSize = 0;
-                btnRefresh.FlatAppearance.BorderSize = 0;
-                btnPrint.Click += (s, e) => _browser.ShowPrintDialog();
-                btnRefresh.Click += (s, e) => _browser.DocumentText = _html;
-                btnSave.Click += SaveHtml;
-                btnMail.Click += (s, e) => OpenLink("mailto:?subject=" + Uri.EscapeDataString(title) + "&body=" + Uri.EscapeDataString("Please find the invoice preview attached / generated from " + BrandingService.AppName + "."));
-                btnWhatsApp.Click += (s, e) => OpenLink("https://wa.me/?text=" + Uri.EscapeDataString(title + " is ready. Please review the invoice shared from " + BrandingService.AppName + "."));
-                toolbar.Controls.AddRange(new Control[] { btnPrint, btnSave, btnMail, btnWhatsApp, btnRefresh });
-
-                _browser.Dock = DockStyle.Fill;
-                _browser.DocumentText = _html;
-
-                Controls.Add(_browser);
-                Controls.Add(toolbar);
-            }
-
-            private void SaveHtml(object sender, EventArgs e)
-            {
-                using (var dlg = new SaveFileDialog())
-                {
-                    dlg.Filter = "HTML Files (*.html)|*.html";
-                    dlg.DefaultExt = "html";
-                    dlg.AddExtension = true;
-                    if (dlg.ShowDialog(this) == DialogResult.OK)
-                    {
-                        File.WriteAllText(dlg.FileName, _html);
-                        MessageBox.Show("Preview saved to " + dlg.FileName, "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    }
-                }
-            }
-
-            private void OpenLink(string url)
-            {
-                try { Process.Start(url); } catch { }
-            }
-        }
     }
 }
 

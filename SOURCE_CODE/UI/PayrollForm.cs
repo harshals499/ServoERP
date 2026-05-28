@@ -31,6 +31,11 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblSummaryGross;
         private Label _lblSummaryNet;
         private Label _lblSummaryLiability;
+        private Label _lblKpiEmployees;
+        private Label _lblKpiGross;
+        private Label _lblKpiDeductions;
+        private Label _lblKpiNet;
+        private Label _lblKpiLiability;
         private Button _btnGeneratePayslips;
 
         private TextBox _txtSalarySearch;
@@ -77,32 +82,110 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLayout()
         {
             _isInitializing = true;
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 54, BackColor = Color.FromArgb(26, 82, 118) };
-            header.Controls.Add(new Label
+            Controls.Clear();
+            BackColor = DS.BgPage;
+
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = DS.BgPage, Padding = new Padding(22, 14, 22, 10) };
+            Label title = new Label
             {
                 Text = "PAYROLL",
-                Dock = DockStyle.Fill,
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 14, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(16, 0, 0, 0)
-            });
+                Location = new Point(22, 12),
+                Size = new Size(360, 30),
+                ForeColor = DS.Slate900,
+                Font = new Font("Segoe UI", 18, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Label subtitle = new Label
+            {
+                Text = "Manage and process employee payroll.",
+                Location = new Point(23, 47),
+                Size = new Size(440, 22),
+                ForeColor = DS.Slate600,
+                Font = DS.Body,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
 
-            Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 46, BackColor = Color.White };
-            _cmbMonth = NewCombo(new Point(10, 10), 120, Enumerable.Range(1, 12).Select(i => new DateTime(2000, i, 1).ToString("MMMM")).ToArray());
-            _cmbMonth.SelectedIndex = DateTime.Today.Month - 1;
-            _cmbYear = NewCombo(new Point(138, 10), 84, Enumerable.Range(DateTime.Today.Year - 3, 7).Select(y => y.ToString()).ToArray());
-            _cmbYear.SelectedItem = DateTime.Today.Year.ToString();
-            Button btnRun = NewButton("Run Payroll", new Point(230, 8), 104, Color.FromArgb(39, 174, 96));
-            Button btnLock = NewButton("Lock", new Point(340, 8), 72, Color.FromArgb(192, 57, 43));
-            _btnImport = NewButton("Import Historical Data", new Point(418, 8), 154, Color.FromArgb(41, 128, 185));
-            _lblStatus = new Label { AutoSize = true, ForeColor = Color.Gray, Location = new Point(588, 14), Font = new Font("Segoe UI", 9) };
-
+            FlowLayoutPanel headerActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                Width = 654,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 8, 0, 0)
+            };
+            Button btnMore = NewButton("More", Point.Empty, 92, Color.White);
+            btnMore.ForeColor = DS.Slate700;
+            btnMore.FlatAppearance.BorderSize = 1;
+            btnMore.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnImport = NewButton("Import Historical Data", Point.Empty, 172, Color.White);
+            _btnImport.ForeColor = DS.Slate700;
+            _btnImport.FlatAppearance.BorderSize = 1;
+            _btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button btnForms = NewButton("Forms", Point.Empty, 86, Color.White);
+            btnForms.ForeColor = DS.Primary600;
+            btnForms.FlatAppearance.BorderSize = 1;
+            btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
+            ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
+            Button btnLock = NewButton("Lock Payroll", Point.Empty, 118, Color.White);
+            btnLock.ForeColor = DS.Slate700;
+            btnLock.FlatAppearance.BorderSize = 1;
+            btnLock.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button btnRun = NewButton("Run Payroll", Point.Empty, 118, DS.Primary600);
+            foreach (Button button in new[] { btnMore, _btnImport, btnForms, btnLock, btnRun })
+                button.Margin = new Padding(8, 0, 0, 0);
             btnRun.Click += (s, e) => RunPayroll();
             btnLock.Click += (s, e) => LockCurrentPayroll();
             _btnImport.Click += (s, e) => ImportHistoricalData();
+            btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payroll", "Payroll", null, "technician attendance leave request salary approval payroll job costing sheet payment receipt");
+            btnMore.Click += (s, e) => MessageBox.Show("Payroll actions are available from the active tab.", "Payroll", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            headerActions.Controls.AddRange(new Control[] { btnMore, _btnImport, btnForms, btnLock, btnRun });
+            header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
 
-            toolbar.Controls.AddRange(new Control[] { _cmbMonth, _cmbYear, btnRun, btnLock, _btnImport, _lblStatus });
+            Panel workspace = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(18, 0, 18, 18) };
+            Panel shell = MakePayrollCard();
+            shell.Dock = DockStyle.Fill;
+            shell.Padding = new Padding(0);
+
+            Panel periodStrip = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = Color.White, Padding = new Padding(18, 14, 18, 14) };
+            periodStrip.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawLine(pen, 0, periodStrip.Height - 1, periodStrip.Width, periodStrip.Height - 1);
+            };
+            Label monthLabel = new Label { Text = "Payroll Month *", Location = new Point(18, 12), Size = new Size(160, 20), Font = DS.SmallBold, ForeColor = DS.Slate600 };
+            _cmbMonth = NewCombo(new Point(18, 38), 150, Enumerable.Range(1, 12).Select(i => new DateTime(2000, i, 1).ToString("MMMM")).ToArray());
+            _cmbMonth.SelectedIndex = DateTime.Today.Month - 1;
+            _cmbYear = NewCombo(new Point(176, 38), 92, Enumerable.Range(DateTime.Today.Year - 3, 7).Select(y => y.ToString()).ToArray());
+            _cmbYear.SelectedItem = DateTime.Today.Year.ToString();
+            Label openBadge = new Label
+            {
+                Text = "Open",
+                Location = new Point(286, 39),
+                Size = new Size(74, 30),
+                Font = DS.BodyBold,
+                ForeColor = DS.Green600,
+                BackColor = DS.Green50,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            DS.Rounded(openBadge, 8);
+            _lblStatus = new Label
+            {
+                Text = "Run payroll to calculate salaries for the selected month.",
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Location = new Point(420, 35),
+                Size = new Size(Math.Max(320, periodStrip.Width - 450), 36),
+                Font = DS.Body,
+                ForeColor = DS.Primary700,
+                BackColor = DS.Primary50,
+                Padding = new Padding(14, 8, 12, 0)
+            };
+            DS.Rounded(_lblStatus, 6);
+            periodStrip.Resize += (s, e) =>
+            {
+                _lblStatus.Width = Math.Max(260, periodStrip.ClientSize.Width - _lblStatus.Left - 18);
+            };
+            periodStrip.Controls.AddRange(new Control[] { monthLabel, _cmbMonth, _cmbYear, openBadge, _lblStatus });
 
             _tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9) };
             _tabs.TabPages.Add(BuildProcessTab());
@@ -111,24 +194,48 @@ namespace HVAC_Pro_Desktop.UI
             _tabs.TabPages.Add(BuildStatutoryTab());
             _tabs.TabPages.Add(BuildDetailsTab());
 
-            Controls.Add(_tabs);
-            Controls.Add(toolbar);
+            shell.Controls.Add(_tabs);
+            shell.Controls.Add(periodStrip);
+            workspace.Controls.Add(shell);
+            Controls.Add(workspace);
             Controls.Add(header);
             _isInitializing = false;
         }
 
         private TabPage BuildProcessTab()
         {
-            var tab = new TabPage("Process Payroll") { BackColor = BackColor };
-            Panel topButtons = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = BackColor };
-            _btnGeneratePayslips = NewButton("Generate Payslip", new Point(10, 6), 140, Color.FromArgb(52, 152, 219));
+            var tab = new TabPage("Process Payroll") { BackColor = DS.BgPage, Padding = new Padding(14) };
+
+            Panel summary = new Panel { Dock = DockStyle.Bottom, Height = 92, BackColor = Color.White, Padding = new Padding(18, 16, 18, 16) };
+            summary.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawLine(pen, 0, 0, summary.Width, 0);
+            };
+            _lblSummaryEmployees = AddSummary(summary, "Total Employees", new Point(20, 24));
+            _lblSummaryGross = AddSummary(summary, "Total Gross", new Point(280, 24));
+            _lblSummaryNet = AddSummary(summary, "Total Net Pay", new Point(560, 24));
+            _lblSummaryLiability = AddSummary(summary, "Total Employer Liability", new Point(860, 24));
+
+            Panel topButtons = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = DS.BgPage, Padding = new Padding(0, 8, 0, 10) };
+            _btnGeneratePayslips = NewButton("Generate Payslip", new Point(0, 8), 148, DS.Primary600);
             _btnGeneratePayslips.AutoSize = false;
-            Button btnExport = NewButton("Export Payroll Register", new Point(196, 6), 188, Color.FromArgb(46, 204, 113));
-            Button btnRecalc = NewButton("Recalculate Selected", new Point(392, 6), 174, Color.FromArgb(142, 68, 173));
+            Button btnExport = NewButton("Export Payroll Register", new Point(160, 8), 190, DS.Green600);
+            Button btnRecalc = NewButton("Recalculate Selected", new Point(362, 8), 178, DS.Primary600);
             _btnGeneratePayslips.Click += (s, e) => GenerateAllPayslips();
             btnExport.Click += (s, e) => ExportPayrollRegister();
             btnRecalc.Click += (s, e) => RecalculateSelected();
             topButtons.Controls.AddRange(new Control[] { _btnGeneratePayslips, btnExport, btnRecalc });
+
+            TableLayoutPanel kpis = new TableLayoutPanel { Dock = DockStyle.Top, Height = 104, BackColor = DS.BgPage, ColumnCount = 5, RowCount = 1, Padding = new Padding(0, 0, 0, 10) };
+            for (int i = 0; i < 5; i++)
+                kpis.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+            kpis.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            kpis.Controls.Add(MakePayrollKpi("Total Employees", "0", "Active Employees", DS.Primary600, out _lblKpiEmployees), 0, 0);
+            kpis.Controls.Add(MakePayrollKpi("Total Gross", "₹0.00", "Gross payroll", DS.Green600, out _lblKpiGross), 1, 0);
+            kpis.Controls.Add(MakePayrollKpi("Total Deductions", "₹0.00", "Statutory + other", DS.Amber500, out _lblKpiDeductions), 2, 0);
+            kpis.Controls.Add(MakePayrollKpi("Total Net Pay", "₹0.00", "Payable to staff", DS.Primary600, out _lblKpiNet), 3, 0);
+            kpis.Controls.Add(MakePayrollKpi("Employer Liability", "₹0.00", "Company contribution", Color.FromArgb(124, 58, 237), out _lblKpiLiability), 4, 0);
 
             _gridProcess = NewGrid();
             _gridProcess.Dock = DockStyle.Fill;
@@ -140,15 +247,15 @@ namespace HVAC_Pro_Desktop.UI
             _gridProcess.Columns["ESI(Emp)"].DefaultCellStyle.Format = "₹#,##0.00";
             _gridProcess.Columns["Net Pay"].DefaultCellStyle.Font = new Font(_gridProcess.Font, FontStyle.Bold);
 
-            Panel summary = new Panel { Dock = DockStyle.Bottom, Height = 64, BackColor = Color.White };
-            _lblSummaryEmployees = AddSummary(summary, "Total Employees", new Point(20, 12));
-            _lblSummaryGross = AddSummary(summary, "Total Gross", new Point(280, 12));
-            _lblSummaryNet = AddSummary(summary, "Total Net Pay", new Point(540, 12));
-            _lblSummaryLiability = AddSummary(summary, "Total Employer Liability", new Point(800, 12));
+            Panel gridWrap = MakePayrollCard();
+            gridWrap.Dock = DockStyle.Fill;
+            gridWrap.Padding = new Padding(0);
+            gridWrap.Controls.Add(_gridProcess);
 
-            tab.Controls.Add(_gridProcess);
+            tab.Controls.Add(gridWrap);
             tab.Controls.Add(summary);
             tab.Controls.Add(topButtons);
+            tab.Controls.Add(kpis);
             return tab;
         }
 
@@ -382,6 +489,18 @@ namespace HVAC_Pro_Desktop.UI
             _lblSummaryGross.Text = "Total Gross\n" + IndiaFormatHelper.FormatCurrency(summary.TotalGross);
             _lblSummaryNet.Text = "Total Net Pay\n" + IndiaFormatHelper.FormatCurrency(summary.TotalNet);
             _lblSummaryLiability.Text = "Total Employer Liability\n" + IndiaFormatHelper.FormatCurrency(summary.TotalEmployerLiability);
+
+            decimal totalDeductions = Math.Max(0, summary.TotalGross - summary.TotalNet);
+            if (_lblKpiEmployees != null)
+                _lblKpiEmployees.Text = summary.TotalEmployees.ToString();
+            if (_lblKpiGross != null)
+                _lblKpiGross.Text = IndiaFormatHelper.FormatCurrency(summary.TotalGross);
+            if (_lblKpiDeductions != null)
+                _lblKpiDeductions.Text = IndiaFormatHelper.FormatCurrency(totalDeductions);
+            if (_lblKpiNet != null)
+                _lblKpiNet.Text = IndiaFormatHelper.FormatCurrency(summary.TotalNet);
+            if (_lblKpiLiability != null)
+                _lblKpiLiability.Text = IndiaFormatHelper.FormatCurrency(summary.TotalEmployerLiability);
         }
 
         private void RunPayroll()
@@ -742,9 +861,75 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button NewButton(string text, Point location, int width, Color backColor)
         {
-            var button = new Button { Text = text, Location = location, Width = width, Height = 30, BackColor = backColor, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
-            button.FlatAppearance.BorderSize = 0;
+            bool light = backColor == Color.White || backColor.GetBrightness() > 0.92f;
+            var button = new Button
+            {
+                Text = text,
+                Location = location,
+                Width = width,
+                Height = 34,
+                BackColor = backColor,
+                ForeColor = light ? DS.Slate700 : Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.75f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                UseVisualStyleBackColor = false
+            };
+            button.FlatAppearance.BorderSize = light ? 1 : 0;
+            button.FlatAppearance.BorderColor = light ? DS.BorderStrong : backColor;
+            button.FlatAppearance.MouseOverBackColor = light ? DS.BgCardHov : DS.Lighten(backColor, 0.08f);
+            button.FlatAppearance.MouseDownBackColor = light ? DS.Slate100 : DS.Darken(backColor, 0.10f);
+            DS.Rounded(button, DS.RadiusSm);
             return button;
+        }
+
+        private Panel MakePayrollCard()
+        {
+            Panel panel = new Panel
+            {
+                BackColor = Color.White,
+                Padding = new Padding(16),
+                Margin = new Padding(0, 0, 0, 12)
+            };
+            panel.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+            };
+            DS.Rounded(panel, DS.RadiusLg);
+            return panel;
+        }
+
+        private Panel MakePayrollKpi(string title, string value, string subtitle, Color accent, out Label valueLabel)
+        {
+            Panel card = MakePayrollCard();
+            card.Dock = DockStyle.Fill;
+            card.Margin = new Padding(0, 0, 10, 0);
+            card.Padding = new Padding(14, 10, 14, 10);
+
+            Panel icon = new Panel { Location = new Point(14, 16), Size = new Size(40, 40), BackColor = DS.Lighten(accent, 0.82f) };
+            DS.Rounded(icon, 10);
+            icon.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (Font font = new Font("Segoe UI", 14f, FontStyle.Bold))
+                using (Brush brush = new SolidBrush(accent))
+                    e.Graphics.DrawString("•", font, brush, new PointF(13, 8));
+            };
+
+            Label titleLabel = new Label { Text = title, Location = new Point(68, 12), Size = new Size(160, 18), Font = DS.Small, ForeColor = DS.Slate600, AutoEllipsis = true };
+            Label metricValue = new Label { Text = value, Location = new Point(68, 32), Size = new Size(180, 28), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            valueLabel = metricValue;
+            Label subLabel = new Label { Text = subtitle, Location = new Point(68, 61), Size = new Size(180, 18), Font = DS.Small, ForeColor = DS.Slate500, AutoEllipsis = true };
+            card.Resize += (s, e) =>
+            {
+                int textWidth = Math.Max(80, card.ClientSize.Width - 82);
+                titleLabel.Width = textWidth;
+                metricValue.Width = textWidth;
+                subLabel.Width = textWidth;
+            };
+            card.Controls.AddRange(new Control[] { icon, titleLabel, metricValue, subLabel });
+            return card;
         }
 
         private DataGridView NewGrid()
@@ -767,7 +952,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label AddSummary(Control parent, string title, Point location)
         {
-            var label = new Label { Location = location, Size = new Size(220, 40), Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42) };
+            var label = new Label { Location = location, Size = new Size(240, 46), Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42) };
             parent.Controls.Add(label);
             return label;
         }

@@ -697,6 +697,10 @@ namespace HVAC_Pro_Desktop.DAL
                 // schemas have them before the data migration runs.
                 AddColumn(conn, "Invoices", "SiteID", "INT NULL");
                 AddColumn(conn, "TenderBids", "SiteID", "INT NULL");
+                AddColumn(conn, "TenderBids", "CommercialFlow", "NVARCHAR(30) NOT NULL DEFAULT 'Revenue'");
+                AddColumn(conn, "TenderBids", "CustomerDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Quote Draft'");
+                AddColumn(conn, "TenderBids", "SupplierDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Not Required'");
+                AddColumn(conn, "TenderBids", "FlowNotes", "NVARCHAR(500) NULL");
                 AddColumn(conn, "ServiceDeskIncidents", "SiteId", "INT NULL");
                 Exec(conn, @"
                     IF OBJECT_ID('Jobs', 'U') IS NOT NULL
@@ -865,8 +869,11 @@ namespace HVAC_Pro_Desktop.DAL
                 );");
                 AddColumn(conn, "InvoiceLineItems", "HSNCode", "NVARCHAR(50) NULL");
                 AddColumn(conn, "InvoiceLineItems", "Unit",    "NVARCHAR(50) NOT NULL DEFAULT 'Nos'");
+                AddColumn(conn, "InvoiceLineItems", "Category", "NVARCHAR(50) NOT NULL DEFAULT 'Service'");
                 AddColumn(conn, "InvoiceLineItems", "StockItemID", "INT NULL");
+                AddColumn(conn, "InvoiceLineItems", "DiscountPercent", "DECIMAL(5,2) NOT NULL DEFAULT 0");
                 AddColumn(conn, "InvoiceLineItems", "GSTPercent", "DECIMAL(5,2) NOT NULL DEFAULT 18");
+                AddColumn(conn, "InvoiceLineItems", "TaxType", "NVARCHAR(30) NOT NULL DEFAULT 'Taxable'");
                 AddColumn(conn, "InvoiceLineItems", "TaxAmount", "DECIMAL(12,2) NOT NULL DEFAULT 0");
                 AddColumn(conn, "InvoiceLineItems", "IsStockItem", "BIT NOT NULL DEFAULT 0");
                 AddColumn(conn, "InvoiceLineItems", "IsBillable", "BIT NOT NULL DEFAULT 1");
@@ -2184,7 +2191,8 @@ namespace HVAC_Pro_Desktop.DAL
                         "B2BClients", "ClientSites", "AMCContracts", "Vendors", "PurchaseOrders",
                         "StockItems", "Employees", "Jobs", "InvoiceTemplates", "SupplierItemPrices",
                         "RolePermissions", "AppUsers", "ClientAssets", "ClientDocuments",
-                        "ServiceRateCards", "PrivateServerConnections", "DataImportBatches", "DataImportErrors"
+                        "ServiceRateCards", "PrivateServerConnections", "DataImportBatches", "DataImportErrors",
+                        "LicenseState", "LicenseEvents", "ActivatedDevices", "FeatureEntitlements"
                     };
 
                     return IsNormalStartupReady(conn, requiredTables);
@@ -3465,8 +3473,13 @@ THEN 1 ELSE 0 END";
             CREATE TABLE LicenseState (
                 LicenseStateId INT IDENTITY(1,1) PRIMARY KEY,
                 LicenseKey NVARCHAR(100) NOT NULL UNIQUE,
+                CompanyId NVARCHAR(80) NULL,
+                CompanyCode NVARCHAR(80) NULL,
                 PlanType NVARCHAR(30) NOT NULL,
                 CompanyName NVARCHAR(200) NOT NULL,
+                SubscriptionStartDateUtc DATETIME NULL,
+                SubscriptionEndDateUtc DATETIME NULL,
+                SubscriptionStatus NVARCHAR(30) NULL,
                 MaxCompanies INT NOT NULL DEFAULT 1,
                 MaxDevices INT NOT NULL DEFAULT 1,
                 MaxUsers INT NOT NULL DEFAULT 1,
@@ -3475,9 +3488,11 @@ THEN 1 ELSE 0 END";
                 LastSuccessfulValidationUtc DATETIME NULL,
                 LastAppOpenUtc DATETIME NULL,
                 LastTrustedServerTimeUtc DATETIME NULL,
+                LastServerValidationAttemptUtc DATETIME NULL,
                 GracePeriodDays INT NOT NULL DEFAULT 3,
                 Status NVARCHAR(30) NOT NULL,
                 MachineFingerprintHash NVARCHAR(200) NULL,
+                OnlineValidationRequired BIT NOT NULL DEFAULT 0,
                 SupportLevel NVARCHAR(80) NULL,
                 PlanName NVARCHAR(80) NULL,
                 BillingCycle NVARCHAR(40) NULL,
@@ -3495,6 +3510,13 @@ THEN 1 ELSE 0 END";
             AddColumn(conn, "LicenseState", "PriceAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0");
             AddColumn(conn, "LicenseState", "RenewalPriceAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0");
             AddColumn(conn, "LicenseState", "IsLaunchOffer", "BIT NOT NULL DEFAULT 0");
+            AddColumn(conn, "LicenseState", "CompanyId", "NVARCHAR(80) NULL");
+            AddColumn(conn, "LicenseState", "CompanyCode", "NVARCHAR(80) NULL");
+            AddColumn(conn, "LicenseState", "SubscriptionStartDateUtc", "DATETIME NULL");
+            AddColumn(conn, "LicenseState", "SubscriptionEndDateUtc", "DATETIME NULL");
+            AddColumn(conn, "LicenseState", "SubscriptionStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "LicenseState", "LastServerValidationAttemptUtc", "DATETIME NULL");
+            AddColumn(conn, "LicenseState", "OnlineValidationRequired", "BIT NOT NULL DEFAULT 0");
 
             Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='LicenseEvents')
             CREATE TABLE LicenseEvents (

@@ -82,6 +82,14 @@ namespace HVAC_Pro_Desktop.Services
                 Dictionary<string, int> map = BuildColumnMap(sheet);
                 ValidationResult headerReview = _importReview.ReviewHeaders(module.ToString(), map.Keys, GetRequiredHeaders(module));
                 _validation.EnsureValid(headerReview, "Import header validation failed");
+
+                ImportPreflightResult preflight = ImportPreflightService.ValidateRows(
+                    module,
+                    ExtractRows(sheet, map),
+                    ImportPreflightService.LoadReferenceSnapshot(conn));
+                if (!preflight.CanImport)
+                    throw new InvalidOperationException(preflight.ToUserMessage());
+
                 for (int row = 2; row <= sheet.Dimension.End.Row; row++)
                 {
                     try
@@ -134,6 +142,23 @@ namespace HVAC_Pro_Desktop.Services
 
             AppLogger.LogInfo("Excel import completed for " + module + " | success=" + result.SuccessCount + " | skipped=" + result.SkippedCount);
             return result;
+        }
+
+        private static IEnumerable<IDictionary<string, string>> ExtractRows(ExcelWorksheet sheet, Dictionary<string, int> map)
+        {
+            if (sheet == null || sheet.Dimension == null || map == null)
+                yield break;
+
+            for (int row = 2; row <= sheet.Dimension.End.Row; row++)
+            {
+                if (IsRowEmpty(sheet, row, map.Values))
+                    continue;
+
+                var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, int> entry in map)
+                    values[entry.Key] = Convert.ToString(sheet.Cells[row, entry.Value].Value, CultureInfo.InvariantCulture) ?? string.Empty;
+                yield return values;
+            }
         }
 
         private static Dictionary<string, int> BuildColumnMap(ExcelWorksheet sheet)
@@ -598,7 +623,13 @@ VALUES (@jobNumber,@clientId,@siteId,@title,@title,@description,@employeeId,@sch
             string city = GetCell(sheet, row, map, "City");
             string state = GetCell(sheet, row, map, "State");
             string gstin = GetCell(sheet, row, map, "GSTIN");
-            string notes = GetCell(sheet, row, map, "Notes");
+            string rawType = GetCell(sheet, row, map, "ClientType");
+            if (string.IsNullOrWhiteSpace(rawType)) rawType = GetCell(sheet, row, map, "Client Type");
+            if (string.IsNullOrWhiteSpace(rawType)) rawType = GetCell(sheet, row, map, "Type");
+            if (string.IsNullOrWhiteSpace(rawType)) rawType = GetCell(sheet, row, map, "IndustryType");
+            if (string.IsNullOrWhiteSpace(rawType)) rawType = GetCell(sheet, row, map, "Industry");
+            string clientType = NormalizeClientType(rawType);
+            bool hasClientType = !string.IsNullOrWhiteSpace(rawType);
 
             if (string.IsNullOrWhiteSpace(clientName))
                 return AddError(result, row, "Missing required field: ClientName");
@@ -609,7 +640,8 @@ VALUES (@jobNumber,@clientId,@siteId,@title,@title,@description,@employeeId,@sch
             {
                 Execute(conn, @"
 UPDATE B2BClients
-SET PrimaryContact=@contact, Phone=@phone, Email=@email, BillingAddress=@address, City=@city, GSTNumber=@gstin, IndustryType=COALESCE(NULLIF(@notes,''), IndustryType)
+SET PrimaryContact=@contact, Phone=@phone, Email=@email, BillingAddress=@address, City=@city, GSTNumber=@gstin,
+    IndustryType=CASE WHEN @hasClientType=1 THEN @clientType ELSE IndustryType END
 WHERE ClientID=@id",
                     new SqlParameter("@contact", (object)contactPerson ?? DBNull.Value),
                     new SqlParameter("@phone", (object)phone ?? DBNull.Value),
@@ -617,15 +649,17 @@ WHERE ClientID=@id",
                     new SqlParameter("@address", (object)finalAddress ?? DBNull.Value),
                     new SqlParameter("@city", (object)city ?? DBNull.Value),
                     new SqlParameter("@gstin", (object)gstin ?? DBNull.Value),
-                    new SqlParameter("@notes", (object)notes ?? DBNull.Value),
+                    new SqlParameter("@clientType", clientType),
+                    new SqlParameter("@hasClientType", hasClientType ? 1 : 0),
                     new SqlParameter("@id", existingId.Value));
             }
             else
             {
                 Execute(conn, @"
-INSERT INTO B2BClients (CompanyName, PrimaryContact, Phone, Email, BillingAddress, City, GSTNumber, IsActive, CustomerSince)
-VALUES (@name,@contact,@phone,@email,@address,@city,@gstin,1,GETDATE())",
+INSERT INTO B2BClients (CompanyName, IndustryType, PrimaryContact, Phone, Email, BillingAddress, City, GSTNumber, IsActive, CustomerSince)
+VALUES (@name,@clientType,@contact,@phone,@email,@address,@city,@gstin,1,GETDATE())",
                     new SqlParameter("@name", clientName),
+                    new SqlParameter("@clientType", clientType),
                     new SqlParameter("@contact", (object)contactPerson ?? DBNull.Value),
                     new SqlParameter("@phone", (object)phone ?? DBNull.Value),
                     new SqlParameter("@email", (object)email ?? DBNull.Value),
@@ -635,6 +669,18 @@ VALUES (@name,@contact,@phone,@email,@address,@city,@gstin,1,GETDATE())",
             }
 
             return true;
+        }
+
+        private static string NormalizeClientType(string raw)
+        {
+            string value = (raw ?? string.Empty).Trim().ToLowerInvariant();
+            if (value.Length == 0) return "Other";
+            if (value.Contains("res") || value.Contains("home") || value.Contains("apartment")) return "Residential";
+            if (value.Contains("gov") || value.Contains("public") || value.Contains("municipal")) return "Government";
+            if (value.Contains("industrial") || value.Contains("manufact") || value.Contains("plant") || value.Contains("factory") || value.Contains("pharma")) return "Industrial";
+            if (value.Contains("commercial") || value.Contains("office") || value.Contains("bank") || value.Contains("hotel") || value.Contains("hospital") || value.Contains("health") || value.Contains("retail") || value == "it") return "Commercial";
+            if (value.Contains("other")) return "Other";
+            return "Other";
         }
 
         private bool ImportEmployeeRow(SqlConnection conn, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result)

@@ -9,20 +9,24 @@ using HVAC_Pro_Desktop.UI.Controls;
 
 namespace HVAC_Pro_Desktop.UI
 {
+    public enum UiActionVariant
+    {
+        Primary,
+        Secondary,
+        Success,
+        Warning,
+        Danger,
+        Ghost
+    }
+
     public static class UIHelper
     {
-        private static readonly HashSet<ComboBox> OutlinedComboBoxes = new HashSet<ComboBox>();
-        private static readonly HashSet<Control> ComboOutlineParents = new HashSet<Control>();
         private static readonly HashSet<Control> ScrollResizeConfiguredControls = new HashSet<Control>();
         private static readonly HashSet<Control> ScrollConfiguredControls = new HashSet<Control>();
         private static readonly HashSet<Control> ModernizedControls = new HashSet<Control>();
         private static readonly HashSet<Panel> ModernCardPanels = new HashSet<Panel>();
-        private static readonly Dictionary<Control, PanelResizeState> ResizablePanels = new Dictionary<Control, PanelResizeState>();
         private static readonly HashSet<string> EmptyClientMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> EmptyVendorMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private const int ResizeGripSize = 10;
-        private const int MinPanelResizeWidth = 180;
-        private const int MinPanelResizeHeight = 90;
 
         public static void ApplyInputStyles(Control.ControlCollection controls)
         {
@@ -44,7 +48,7 @@ namespace HVAC_Pro_Desktop.UI
 
             if (ctrl is TextBox tb)
             {
-                tb.BorderStyle = BorderStyle.FixedSingle;
+                tb.BorderStyle = BorderStyle.None;
                 tb.BackColor = tb.ReadOnly ? DS.Slate50 : Color.White;
                 tb.ForeColor = DS.Slate900;
                 tb.Font = DS.Body;
@@ -53,14 +57,13 @@ namespace HVAC_Pro_Desktop.UI
             }
             else if (ctrl is ComboBox cb)
             {
-                cb.FlatStyle = FlatStyle.System;
+                cb.FlatStyle = FlatStyle.Flat;
                 cb.BackColor = Color.White;
                 cb.ForeColor = DS.Slate900;
                 cb.Font = DS.Body;
                 cb.Height = Math.Max(cb.Height, 30);
                 cb.AutoCompleteSource = AutoCompleteSource.ListItems;
                 cb.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                AttachComboOutline(cb);
             }
             else if (ctrl is DateTimePicker dtp)
             {
@@ -75,10 +78,11 @@ namespace HVAC_Pro_Desktop.UI
             }
             else if (ctrl is NumericUpDown nud)
             {
-                nud.BorderStyle = BorderStyle.FixedSingle;
+                nud.BorderStyle = BorderStyle.None;
                 nud.BackColor = Color.White;
                 nud.ForeColor = DS.Slate900;
                 nud.Font = DS.Body;
+                nud.Height = Math.Max(nud.Height, 30);
             }
         }
 
@@ -108,7 +112,6 @@ namespace HVAC_Pro_Desktop.UI
             if (ctrl is FlowLayoutPanel flow)
             {
                 flow.BackColor = flow.BackColor == SystemColors.Control ? Color.Transparent : flow.BackColor;
-                flow.WrapContents = true;
                 flow.Padding = flow.Padding == Padding.Empty ? new Padding(0) : flow.Padding;
                 return;
             }
@@ -172,6 +175,86 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             DS.Rounded(button, DS.RadiusSm);
+        }
+
+        public static UiActionVariant ResolveActionVariant(string text)
+        {
+            string key = (text ?? string.Empty).ToLowerInvariant();
+            if (ContainsAny(key, "delete", "void", "remove", "close job"))
+                return UiActionVariant.Danger;
+            if (ContainsAny(key, "convert to purchase order", "convert to invoice", "whatsapp follow-up"))
+                return UiActionVariant.Secondary;
+            if (ContainsAny(key, "save", "approve", "record payment", "post", "finalise", "finalize", "resolve"))
+                return UiActionVariant.Success;
+            if (ContainsAny(key, "new", "create", "generate", "dispatch", "send for approval"))
+                return UiActionVariant.Primary;
+            if (ContainsAny(key, "hold", "renew", "remind", "warning"))
+                return UiActionVariant.Warning;
+            if (ContainsAny(key, "preview", "import", "template", "forms", "open", "upload", "refresh", "clear", "compare"))
+                return UiActionVariant.Secondary;
+            return UiActionVariant.Secondary;
+        }
+
+        public static void ApplyActionButton(Button button, UiActionVariant variant)
+        {
+            if (button == null)
+                return;
+
+            button.FlatStyle = FlatStyle.Flat;
+            button.UseVisualStyleBackColor = false;
+            button.Cursor = Cursors.Hand;
+            button.Font = new Font("Segoe UI", Math.Max(8.75f, button.Font.Size), FontStyle.Bold);
+            button.Height = Math.Max(button.Height, 32);
+            button.Padding = button.Padding == Padding.Empty ? new Padding(12, 0, 12, 0) : button.Padding;
+
+            Color bg;
+            Color fg = Color.White;
+            Color border = Color.Transparent;
+
+            switch (variant)
+            {
+                case UiActionVariant.Success:
+                    bg = ModernERPTheme.Success;
+                    break;
+                case UiActionVariant.Warning:
+                    bg = ModernERPTheme.Warning;
+                    fg = Color.FromArgb(69, 26, 3);
+                    break;
+                case UiActionVariant.Danger:
+                    bg = ModernERPTheme.Danger;
+                    break;
+                case UiActionVariant.Ghost:
+                    bg = Color.Transparent;
+                    fg = DS.Slate700;
+                    border = DS.BorderStrong;
+                    break;
+                case UiActionVariant.Secondary:
+                    bg = Color.White;
+                    fg = DS.Slate700;
+                    border = DS.BorderStrong;
+                    break;
+                default:
+                    bg = ModernERPTheme.Primary;
+                    break;
+            }
+
+            button.BackColor = bg;
+            button.ForeColor = fg;
+            button.FlatAppearance.BorderSize = border == Color.Transparent ? 0 : 1;
+            button.FlatAppearance.BorderColor = border == Color.Transparent ? bg : border;
+            button.FlatAppearance.MouseOverBackColor = variant == UiActionVariant.Secondary || variant == UiActionVariant.Ghost
+                ? DS.BgCardHov
+                : ModernERPTheme.Lighten(bg, 0.08f);
+            button.FlatAppearance.MouseDownBackColor = variant == UiActionVariant.Secondary || variant == UiActionVariant.Ghost
+                ? DS.Slate100
+                : ModernERPTheme.Darken(bg, 0.10f);
+
+            DS.Rounded(button, DS.RadiusSm);
+        }
+
+        public static void ApplyActionButton(Button button)
+        {
+            ApplyActionButton(button, ResolveActionVariant(button == null ? string.Empty : button.Text));
         }
 
         private static Color ResolveActionColor(Button button)
@@ -241,46 +324,6 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void AttachComboOutline(ComboBox comboBox)
         {
-            if (comboBox == null || OutlinedComboBoxes.Contains(comboBox))
-                return;
-
-            OutlinedComboBoxes.Add(comboBox);
-            comboBox.ParentChanged += (s, e) => AttachComboParentPainter(comboBox.Parent);
-            comboBox.LocationChanged += (s, e) => comboBox.Parent?.Invalidate(comboBox.Bounds);
-            comboBox.SizeChanged += (s, e) => comboBox.Parent?.Invalidate(comboBox.Bounds);
-            comboBox.VisibleChanged += (s, e) => comboBox.Parent?.Invalidate(comboBox.Bounds);
-            comboBox.Disposed += (s, e) => OutlinedComboBoxes.Remove(comboBox);
-            AttachComboParentPainter(comboBox.Parent);
-        }
-
-        private static void AttachComboParentPainter(Control parent)
-        {
-            if (parent == null || ComboOutlineParents.Contains(parent))
-                return;
-
-            ComboOutlineParents.Add(parent);
-            parent.Paint += (s, e) =>
-            {
-                Control host = s as Control;
-                if (host == null)
-                    return;
-
-                using (Pen pen = new Pen(DS.BorderStrong, 1))
-                {
-                    foreach (Control child in host.Controls)
-                    {
-                        if (!(child is ComboBox combo) || !combo.Visible)
-                            continue;
-
-                        Rectangle bounds = combo.Bounds;
-                        bounds.Width -= 1;
-                        bounds.Height -= 1;
-                        e.Graphics.DrawRectangle(pen, bounds);
-                    }
-                }
-            };
-            parent.Disposed += (s, e) => ComboOutlineParents.Remove(parent);
-            parent.Invalidate();
         }
 
         public static void ApplyGlobalScrollAndResize(Control root)
@@ -305,7 +348,6 @@ namespace HVAC_Pro_Desktop.UI
             ConfigureScrollableControl(control);
             ConfigureDataGrid(control);
             ConfigureResizableCard(control);
-            ConfigureResizablePanel(control);
 
             control.ControlAdded -= ControlAddedForScrollAndResize;
             control.ControlAdded += ControlAddedForScrollAndResize;
@@ -343,7 +385,7 @@ namespace HVAC_Pro_Desktop.UI
                 return true;
 
             if (control is FlowLayoutPanel flow)
-                return flow.Dock == DockStyle.Fill || flow.AutoScroll;
+                return !IsChromeOrToolbarControl(control) && (flow.Dock == DockStyle.Fill || flow.AutoScroll);
 
             if (control is TableLayoutPanel)
                 return false;
@@ -362,6 +404,38 @@ namespace HVAC_Pro_Desktop.UI
                 || ContainsAny(name, "CONTENT", "BODY", "MAIN", "PAGE", "WORKSPACE", "SCROLL", "CONTAINER");
 
             return likelyPageContainer;
+        }
+
+        private static bool IsChromeOrToolbarControl(Control control)
+        {
+            if (control == null)
+                return false;
+
+            string name = (control.Name ?? string.Empty).ToUpperInvariant();
+            if (ContainsAny(name, "SIDEBAR", "NAV", "TOOLBAR", "HEADER", "FOOTER", "STRIP", "MENU", "BREADCRUMB", "TABBAR"))
+                return true;
+
+            Control parent = control.Parent;
+            string parentName = parent == null ? string.Empty : (parent.Name ?? string.Empty).ToUpperInvariant();
+            if (ContainsAny(parentName, "SIDEBAR", "NAV", "TOOLBAR", "HEADER", "FOOTER", "STRIP", "MENU", "BREADCRUMB", "TABBAR"))
+                return true;
+
+            bool compactToolbar = control.Height > 0 && control.Height <= 72 && ContainsToolbarChild(control);
+            return compactToolbar && control.Dock != DockStyle.Fill;
+        }
+
+        private static bool ContainsToolbarChild(Control control)
+        {
+            if (control == null)
+                return false;
+
+            foreach (Control child in control.Controls)
+            {
+                if (child is Button || child is TextBox || child is ComboBox || child is DateTimePicker || child is CheckBox)
+                    return true;
+            }
+
+            return false;
         }
 
         private static void ConfigureDataGrid(Control control)
@@ -385,216 +459,6 @@ namespace HVAC_Pro_Desktop.UI
             card.MaximumSize = new Size(6000, 3000);
         }
 
-        private static void ConfigureResizablePanel(Control control)
-        {
-            if (!(control is Panel panel) || panel is FlowLayoutPanel || panel is TableLayoutPanel)
-                return;
-
-            if (IsInsideDashboard(panel))
-                return;
-
-            if (ResizablePanels.ContainsKey(panel) || !ShouldAttachPanelResize(panel))
-                return;
-
-            var state = new PanelResizeState(panel, ResolveResizeAxes(panel));
-            ResizablePanels[panel] = state;
-            panel.Disposed += (s, e) => ResizablePanels.Remove(panel);
-            panel.MouseDown += ResizablePanelMouseDown;
-            panel.MouseMove += ResizablePanelMouseMove;
-            panel.MouseUp += ResizablePanelMouseUp;
-            panel.MouseLeave += ResizablePanelMouseLeave;
-            panel.Paint += ResizablePanelPaint;
-        }
-
-        private static bool ShouldAttachPanelResize(Panel panel)
-        {
-            if (panel.Parent == null || !panel.Visible || !panel.HasChildren)
-                return false;
-
-            if (panel.Width < MinPanelResizeWidth || panel.Height < MinPanelResizeHeight)
-                return false;
-
-            if (panel.Dock == DockStyle.Fill)
-                return false;
-
-            string name = (panel.Name ?? string.Empty).ToUpperInvariant();
-            if (ContainsAny(name, "SIDEBAR", "NAV", "TOOLBAR", "HEADER", "FOOTER", "STRIP", "MENU", "BUTTON", "TABS", "TABBAR"))
-                return false;
-
-            bool whiteSurface = panel.BackColor == Color.White
-                || panel.BackColor == DS.White
-                || panel.BackColor == SystemColors.Window
-                || panel.BackColor == Color.Empty;
-
-            bool cardName = ContainsAny(name, "CARD", "PANEL", "SECTION", "SUMMARY", "DETAIL", "DETAILS", "KPI", "WIDGET", "FORM", "LIST");
-            return whiteSurface || cardName;
-        }
-
-        private static PanelResizeAxes ResolveResizeAxes(Panel panel)
-        {
-            switch (panel.Dock)
-            {
-                case DockStyle.Top:
-                case DockStyle.Bottom:
-                    return PanelResizeAxes.HeightOnly;
-                case DockStyle.Left:
-                case DockStyle.Right:
-                    return PanelResizeAxes.WidthOnly;
-                default:
-                    return PanelResizeAxes.Both;
-            }
-        }
-
-        private static void ResizablePanelMouseDown(object sender, MouseEventArgs e)
-        {
-            if (!(sender is Panel panel) || e.Button != MouseButtons.Left)
-                return;
-
-            if (!ResizablePanels.TryGetValue(panel, out PanelResizeState state))
-                return;
-
-            PanelResizeDirection direction = HitTestPanelResize(panel, e.Location, state.Axes);
-            if (direction == PanelResizeDirection.None)
-                return;
-
-            state.IsResizing = true;
-            state.Direction = direction;
-            state.StartMouse = Control.MousePosition;
-            state.StartSize = panel.Size;
-            panel.Capture = true;
-        }
-
-        private static void ResizablePanelMouseMove(object sender, MouseEventArgs e)
-        {
-            if (!(sender is Panel panel) || !ResizablePanels.TryGetValue(panel, out PanelResizeState state))
-                return;
-
-            if (!state.IsResizing)
-            {
-                PanelResizeDirection hover = HitTestPanelResize(panel, e.Location, state.Axes);
-                panel.Cursor = CursorForPanelDirection(hover);
-                return;
-            }
-
-            Point current = Control.MousePosition;
-            int deltaX = current.X - state.StartMouse.X;
-            int deltaY = current.Y - state.StartMouse.Y;
-            int maxWidth = GetPanelMaxWidth(panel);
-            int maxHeight = GetPanelMaxHeight(panel);
-
-            int width = state.StartSize.Width;
-            int height = state.StartSize.Height;
-
-            if (state.Direction == PanelResizeDirection.Right || state.Direction == PanelResizeDirection.BottomRight)
-                width = Math.Max(MinPanelResizeWidth, Math.Min(maxWidth, state.StartSize.Width + deltaX));
-
-            if (state.Direction == PanelResizeDirection.Bottom || state.Direction == PanelResizeDirection.BottomRight)
-                height = Math.Max(MinPanelResizeHeight, Math.Min(maxHeight, state.StartSize.Height + deltaY));
-
-            if (state.Axes == PanelResizeAxes.HeightOnly)
-                width = panel.Width;
-            if (state.Axes == PanelResizeAxes.WidthOnly)
-                height = panel.Height;
-
-            panel.MinimumSize = new Size(Math.Min(panel.MinimumSize.Width, width), Math.Min(panel.MinimumSize.Height, height));
-            panel.Size = new Size(width, height);
-            panel.Parent?.PerformLayout();
-            panel.Invalidate();
-        }
-
-        private static void ResizablePanelMouseUp(object sender, MouseEventArgs e)
-        {
-            FinishResizablePanel(sender as Panel);
-        }
-
-        private static void ResizablePanelMouseLeave(object sender, EventArgs e)
-        {
-            if (!(sender is Panel panel) || !ResizablePanels.TryGetValue(panel, out PanelResizeState state) || state.IsResizing)
-                return;
-
-            panel.Cursor = Cursors.Default;
-        }
-
-        private static void FinishResizablePanel(Panel panel)
-        {
-            if (panel == null || !ResizablePanels.TryGetValue(panel, out PanelResizeState state) || !state.IsResizing)
-                return;
-
-            state.IsResizing = false;
-            state.Direction = PanelResizeDirection.None;
-            panel.Capture = false;
-            panel.Cursor = Cursors.Default;
-        }
-
-        private static void ResizablePanelPaint(object sender, PaintEventArgs e)
-        {
-            if (!(sender is Panel panel) || !ResizablePanels.ContainsKey(panel))
-                return;
-
-            using (Pen pen = new Pen(DS.Slate300, 1f))
-            {
-                int right = panel.Width - 6;
-                int bottom = panel.Height - 6;
-                e.Graphics.DrawLine(pen, right - 8, bottom, right, bottom - 8);
-                e.Graphics.DrawLine(pen, right - 5, bottom, right, bottom - 5);
-                e.Graphics.DrawLine(pen, right - 2, bottom, right, bottom - 2);
-            }
-        }
-
-        private static PanelResizeDirection HitTestPanelResize(Panel panel, Point location, PanelResizeAxes axes)
-        {
-            bool nearRight = location.X >= panel.Width - ResizeGripSize;
-            bool nearBottom = location.Y >= panel.Height - ResizeGripSize;
-
-            if (axes == PanelResizeAxes.Both && nearRight && nearBottom)
-                return PanelResizeDirection.BottomRight;
-            if (axes != PanelResizeAxes.HeightOnly && nearRight)
-                return PanelResizeDirection.Right;
-            if (axes != PanelResizeAxes.WidthOnly && nearBottom)
-                return PanelResizeDirection.Bottom;
-
-            return PanelResizeDirection.None;
-        }
-
-        private static Cursor CursorForPanelDirection(PanelResizeDirection direction)
-        {
-            switch (direction)
-            {
-                case PanelResizeDirection.Right:
-                    return Cursors.SizeWE;
-                case PanelResizeDirection.Bottom:
-                    return Cursors.SizeNS;
-                case PanelResizeDirection.BottomRight:
-                    return Cursors.SizeNWSE;
-                default:
-                    return Cursors.Default;
-            }
-        }
-
-        private static int GetPanelMaxWidth(Panel panel)
-        {
-            Control parent = panel.Parent;
-            if (parent == null)
-                return Math.Max(MinPanelResizeWidth, panel.Width);
-
-            bool parentScrolls = parent is ScrollableControl scrollable && scrollable.AutoScroll;
-            int viewport = parent.ClientSize.Width > 0 ? parent.ClientSize.Width : 1600;
-            int max = parentScrolls ? viewport * 2 : viewport - panel.Margin.Horizontal - 8;
-            return Math.Max(MinPanelResizeWidth, Math.Min(6000, Math.Max(800, max)));
-        }
-
-        private static int GetPanelMaxHeight(Panel panel)
-        {
-            Control parent = panel.Parent;
-            if (parent == null)
-                return Math.Max(MinPanelResizeHeight, panel.Height);
-
-            bool parentScrolls = parent is ScrollableControl scrollable && scrollable.AutoScroll;
-            int viewport = parent.ClientSize.Height > 0 ? parent.ClientSize.Height : 1200;
-            int max = parentScrolls ? viewport * 2 : viewport - panel.Margin.Vertical - 8;
-            return Math.Max(MinPanelResizeHeight, Math.Min(3000, Math.Max(900, max)));
-        }
-
         private static bool ContainsAny(string value, params string[] tokens)
         {
             if (string.IsNullOrEmpty(value) || tokens == null)
@@ -604,20 +468,6 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (!string.IsNullOrEmpty(token) && value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
                     return true;
-            }
-
-            return false;
-        }
-
-        private static bool IsInsideDashboard(Control control)
-        {
-            Control current = control;
-            while (current != null)
-            {
-                if (current is DashboardForm)
-                    return true;
-
-                current = current.Parent;
             }
 
             return false;
@@ -649,23 +499,5 @@ namespace HVAC_Pro_Desktop.UI
             AppLogger.LogInfo("No suppliers/vendors found while loading " + key + ".");
         }
 
-        private enum PanelResizeAxes { Both, HeightOnly, WidthOnly }
-        private enum PanelResizeDirection { None, Right, Bottom, BottomRight }
-
-        private sealed class PanelResizeState
-        {
-            public PanelResizeState(Panel panel, PanelResizeAxes axes)
-            {
-                Panel = panel;
-                Axes = axes;
-            }
-
-            public Panel Panel { get; }
-            public PanelResizeAxes Axes { get; }
-            public bool IsResizing { get; set; }
-            public PanelResizeDirection Direction { get; set; }
-            public Point StartMouse { get; set; }
-            public Size StartSize { get; set; }
-        }
     }
 }

@@ -18,7 +18,9 @@ namespace HVAC_Pro_Desktop.Services.Validation
             decimal tax = 0m;
             foreach (InvoiceLineItem item in invoice.LineItems ?? new List<InvoiceLineItem>())
             {
-                decimal expectedAmount = item.IsBillable ? Math.Round(item.Quantity * item.Rate, 2) : 0m;
+                decimal discountPercent = Math.Min(Math.Max(item.DiscountPercent, 0m), 100m);
+                decimal gross = Math.Round(item.Quantity * item.Rate, 2);
+                decimal expectedAmount = item.IsBillable ? Math.Round(gross - (gross * discountPercent / 100m), 2) : 0m;
                 decimal expectedTax = item.IsBillable ? Math.Round(expectedAmount * (item.GSTPercent / 100m), 2) : 0m;
                 subtotal += expectedAmount;
                 tax += expectedTax;

@@ -16,10 +16,13 @@ Required paths after upload:
 - `/assets/servoerp-logo.png`
 - `/assets/field-service-van.png`
 - `/download/index.html`
-- `/download/ServoERP.Setup.1.0.20.0.exe`
 - `/version.txt`
 - `/changelog.json`
-- `/updates/ServoERP_Update_1.0.20.0/`
+- `/updates/ServoERP_Update_1.0.25.0.zip`
+
+Upload the Windows setup EXE to the `servoerp-downloads` R2 bucket:
+
+- `ServoERP.Setup.1.0.25.0.exe`
 
 ## Hosting Requirements
 
@@ -36,7 +39,7 @@ Open these URLs in a browser:
 
 - `https://servoerp.in/`
 - `https://servoerp.in/download/`
-- `https://servoerp.in/download/ServoERP.Setup.1.0.20.0.exe`
+- `https://downloads.servoerp.in/ServoERP.Setup.1.0.25.0.exe`
 - `https://servoerp.in/version.txt`
 - `https://servoerp.in/changelog.json`
 
@@ -44,15 +47,14 @@ Expected results:
 
 - Home page loads the ServoERP sales website.
 - Download page redirects to the installer.
-- Installer starts downloading.
-- `version.txt` shows `1.0.20.0`.
+- Installer starts downloading from R2.
+- `version.txt` shows `1.0.25.0`.
 - `changelog.json` returns valid JSON.
 
 ## Sales Funnel Checks
 
 - Header `Download Trial` downloads the installer.
-- Pricing `Start Standard` opens an email to `harshalsonawane@servoerp.com`.
-- Pricing `Talk to Sales` opens an email to `harshalsonawane@servoerp.com`.
+- Pricing plan CTAs open an email to `support@servoerp.in`.
 - Support form opens a prepared email with company/contact details.
 
 ## Release Notes
@@ -60,8 +62,9 @@ Expected results:
 Current public pricing:
 
 - Trial: free for 14 days.
-- Standard: Rs. 10,000 for the first year.
-- Enterprise: Rs. 25,000 per year.
+- Starter AMC: ₹10,000/year, up to 3 PCs.
+- Growth AMC: ₹18,000/year, up to 7 PCs.
+- Business AMC: ₹30,000/year, up to 15 PCs.
 
 Before uploading a new release:
 

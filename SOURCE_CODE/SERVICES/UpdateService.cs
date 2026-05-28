@@ -316,13 +316,45 @@ try {
   New-Item -ItemType Directory -Force -Path $stage | Out-Null
   Expand-Archive -LiteralPath $PackagePath -DestinationPath $stage -Force
 
-  Get-ChildItem -LiteralPath $stage -Force | ForEach-Object {
+  $sourceDir = $stage
+  $expectedExe = Join-Path $stage $ExeName
+  if (-not (Test-Path -LiteralPath $expectedExe)) {
+    $exeMatch = Get-ChildItem -LiteralPath $stage -Recurse -Filter $ExeName -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exeMatch) {
+      $exeMatch = Get-ChildItem -LiteralPath $stage -Recurse -Filter 'HVAC_Pro_Desktop.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    }
+    if ($exeMatch) {
+      $sourceDir = Split-Path -Parent $exeMatch.FullName
+      Write-UpdateLog ('Using package source directory: ' + $sourceDir)
+    } else {
+      throw ('Update package does not contain ' + $ExeName)
+    }
+  }
+
+  $backupDir = Join-Path (Split-Path -Parent $PackagePath) ('backup-' + (Get-Date).ToString('yyyyMMdd-HHmmss'))
+  New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+  foreach ($name in @($ExeName, 'HVAC_Pro_Desktop.exe.config')) {
+    $existing = Join-Path $AppDir $name
+    if (Test-Path -LiteralPath $existing) {
+      Copy-Item -LiteralPath $existing -Destination (Join-Path $backupDir $name) -Force -ErrorAction SilentlyContinue
+    }
+  }
+
+  Get-ChildItem -LiteralPath $sourceDir -Force | ForEach-Object {
     if ($_.Name -ieq 'HVACPro.config') { return }
+    if ($_.Name -ieq 'LOGS') { return }
+    if ($_.Name -ieq 'UPDATES') { return }
+    if ($_.Name -ieq 'BACKUPS') { return }
     $dest = Join-Path $AppDir $_.Name
     Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
   }
 
-  Write-UpdateLog 'Update copied successfully.'
+  $updatedExe = Join-Path $AppDir $ExeName
+  if (-not (Test-Path -LiteralPath $updatedExe)) {
+    throw ('Updated executable was not found after copy: ' + $updatedExe)
+  }
+  $fileVersion = (Get-Item -LiteralPath $updatedExe).VersionInfo.FileVersion
+  Write-UpdateLog ('Update copied successfully. Installed file version: ' + $fileVersion)
   Start-Process -FilePath (Join-Path $AppDir $ExeName)
 } catch {
   Write-UpdateLog ('FAILED: ' + $_.Exception.Message)

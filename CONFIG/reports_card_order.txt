@@ -1,1 +1,1 @@
-client_profitability,action_queue,receivables_aging,service_workload,revenue_trend
+action_queue,client_profitability,receivables_aging,service_workload,revenue_trend

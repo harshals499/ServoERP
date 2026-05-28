@@ -483,7 +483,7 @@ namespace HVAC_Pro_Desktop.DAL
                 PrimaryContact  = r["PrimaryContact"].ToString(),
                 SecondaryContact= r["SecondaryContact"].ToString(),
                 Phone           = r["Phone"].ToString(),
-                CustomerSince   = r["CustomerSince"] != DBNull.Value ? (DateTime)r["CustomerSince"] : DateTime.Now
+                CustomerSince   = r["CustomerSince"] != DBNull.Value ? (DateTime)r["CustomerSince"] : default(DateTime)
             };
 
             // New columns (may not exist yet on first run)

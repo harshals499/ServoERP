@@ -76,6 +76,22 @@ namespace HVAC_Pro_Desktop.Services
             _audit.Record("EDIT", "Purchases", po.POID, "Purchase order saved with data-quality validation");
         }
 
+        public void Delete(int poId)
+        {
+            SessionManager.DemandPermission("Purchases", "Delete");
+            PurchaseOrder existing = _repo.GetById(poId);
+            if (existing == null)
+                throw new Exception("Purchase order not found.");
+
+            _repo.Delete(poId);
+            _vendorService.RefreshVendorPurchaseTotals(existing.VendorID);
+            AppDataCache.RemovePrefix("purchases:");
+            AppDataCache.RemovePrefix("invoices:");
+            AppDataCache.RemovePrefix("jobs:");
+            SessionManager.LogAction("DELETE", "Purchases", poId, "Purchase order deleted");
+            _audit.Record("DELETE", "Purchases", poId, "Purchase order and child records deleted");
+        }
+
         public PurchaseOrder CreatePO(int supplierId, IEnumerable<TenderBidLineItem> lineItems, TenderBid tenderBid)
         {
             SessionManager.DemandPermission("Purchases", "Create");

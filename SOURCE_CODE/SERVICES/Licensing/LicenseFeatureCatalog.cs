@@ -23,7 +23,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                 };
             }
 
-            if (plan == LicensePlanType.Standard)
+            if (plan == LicensePlanType.Basic || plan == LicensePlanType.Standard)
             {
                 return new List<string>
                 {
@@ -31,6 +31,9 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                     "Settings", "Vendors", "Purchases", "Inventory", "Employees", "WorkOrders", "ServiceDesk", "MasterData"
                 };
             }
+
+            if (plan == LicensePlanType.Pro)
+                return new List<string>(AllModules);
 
             return new List<string>(AllModules);
         }

@@ -33,7 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private DataGridView _clientGrid, _detailGrid;
         private FlowLayoutPanel _actionQueue;
         private FlowLayoutPanel _reportLibrary;
-        private FlowLayoutPanel _dashboardFlow;
+        private Panel _dashboardFlow;
         private readonly Dictionary<string, ResizableCard> _dashboardCards = new Dictionary<string, ResizableCard>(StringComparer.OrdinalIgnoreCase);
         private ResizableCard _dragCard;
 
@@ -123,34 +123,70 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildHeader()
         {
-            Panel header = DS.PageHeader("Reports Command Center");
+            Panel header = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 78,
+                BackColor = PageBg,
+                Padding = new Padding(0, 8, 0, 12)
+            };
+
+            Label title = new Label
+            {
+                Text = "Reports Command Center",
+                Location = new Point(0, 4),
+                Size = new Size(420, 30),
+                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                ForeColor = TextDark,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Label subtitle = new Label
+            {
+                Text = "Real-time insights and analytics across your business.",
+                Location = new Point(1, 38),
+                Size = new Size(520, 22),
+                Font = DS.Body,
+                ForeColor = TextMid,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
 
             FlowLayoutPanel actions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 260,
+                Width = 372,
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false,
-                Padding = new Padding(0, 13, 0, 0),
+                Padding = new Padding(0, 12, 0, 0),
                 BackColor = header.BackColor
             };
             Button export = MakeButton("Export", Green, 94);
             Button refresh = MakeButton("Refresh", Blue, 94);
+            Button forms = MakeButton("Forms", Color.White, 86);
+            forms.ForeColor = Blue;
+            forms.FlatAppearance.BorderColor = DS.BorderStrong;
+            ModernIconSystem.AddButtonIcon(export, ModernIconKind.Export);
+            ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
+            ModernIconSystem.AddButtonIcon(forms, ModernIconKind.Document);
             export.Click += (s, e) => ExportCurrentReport();
             refresh.Click += async (s, e) => await RefreshAllAsync();
+            forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Reports", "Reports", null, "service completion report AMC visit report compliance audit job costing sheet export analytics");
             actions.Controls.Add(export);
+            actions.Controls.Add(forms);
             actions.Controls.Add(refresh);
 
             _lblStatus = new Label
             {
                 Text = "Loading reports...",
                 Dock = DockStyle.Right,
-                Width = 360,
+                Width = 320,
                 Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Color.White,
-                TextAlign = ContentAlignment.MiddleRight
+                ForeColor = Green,
+                TextAlign = ContentAlignment.MiddleRight,
+                Padding = new Padding(0, 22, 12, 0)
             };
 
+            header.Controls.Add(title);
+            header.Controls.Add(subtitle);
             header.Controls.Add(_lblStatus);
             header.Controls.Add(actions);
             return header;
@@ -170,9 +206,9 @@ namespace HVAC_Pro_Desktop.UI
                 strip.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.666f));
 
             _lblRevenue = AddKpi(strip, 0, "Revenue", Green, out _lblRevenueSub);
-            _lblReceivable = AddKpi(strip, 1, "Receivables", Red, out _lblReceivableSub);
+            _lblReceivable = AddKpi(strip, 1, "Overdue Receivables", Red, out _lblReceivableSub);
             _lblSla = AddKpi(strip, 2, "SLA Risk", Amber, out _lblSlaSub);
-            _lblMargin = AddKpi(strip, 3, "Job Margin", Blue, out _lblMarginSub);
+            _lblMargin = AddKpi(strip, 3, "Live Margin", Blue, out _lblMarginSub);
             _lblPayroll = AddKpi(strip, 4, "Tech Load", Teal, out _lblPayrollSub);
             _lblInventory = AddKpi(strip, 5, "Stock Risk", Amber, out _lblInventorySub);
             return strip;
@@ -180,20 +216,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildCommandSection()
         {
-            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 492, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
-            _dashboardFlow = new FlowLayoutPanel
+            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 520, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
+            _dashboardFlow = new Panel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
                 BackColor = PageBg,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                AutoScroll = true,
                 AllowDrop = true,
                 Padding = new Padding(0)
             };
             _dashboardFlow.DragEnter += DashboardFlow_DragEnter;
             _dashboardFlow.DragDrop += DashboardFlow_DragDrop;
-            _dashboardFlow.Resize += (s, e) => EnsureDashboardCardWidths();
+            _dashboardFlow.Resize += (s, e) => LayoutDashboardCards();
             wrapper.Controls.Add(_dashboardFlow);
 
             _revenueChart = MakeChart("Monthly revenue", SeriesChartType.Line, Green);
@@ -226,6 +259,7 @@ namespace HVAC_Pro_Desktop.UI
             AddDashboardCard("client_profitability", "Top client profitability", _clientGrid, 680, 220, "Large");
             ApplySavedCardOrder();
             new CardLayoutService().ApplyLayoutToPage(this, PageKey, CardLayoutService.ResolveCurrentUserId());
+            LayoutDashboardCards();
             return wrapper;
         }
 
@@ -269,7 +303,7 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _lblStatus.Text = "Refreshing...";
-                _lblStatus.ForeColor = Color.White;
+                _lblStatus.ForeColor = Blue;
                 await Task.Run(() => LoadData());
                 if (IsDisposed)
                     return;
@@ -563,14 +597,17 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Margin = new Padding(column == 0 ? 0 : 5, 0, column == 5 ? 0 : 5, 0), Padding = new Padding(14, 10, 10, 8) };
             card.Paint += (s, e) => DrawBorder(e.Graphics, card);
-            Panel accentBar = new Panel { Dock = DockStyle.Left, Width = 4, BackColor = accent };
+            Panel icon = new Panel { Dock = DockStyle.Left, Width = 38, BackColor = CardBg, Padding = new Padding(0, 3, 8, 0) };
+            Label badge = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 30, DS.Lighten(accent, 0.82f), accent, 10);
+            badge.Dock = DockStyle.Top;
+            icon.Controls.Add(badge);
             Label titleLabel = new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 18, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = TextMid };
             Label valueLabel = new Label { Text = "-", Dock = DockStyle.Top, Height = 31, Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = accent };
             subLabel = new Label { Text = "Loading...", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.2f), ForeColor = TextMid };
             card.Controls.Add(subLabel);
             card.Controls.Add(valueLabel);
             card.Controls.Add(titleLabel);
-            card.Controls.Add(accentBar);
+            card.Controls.Add(icon);
             host.Controls.Add(card, column, 0);
             return valueLabel;
         }
@@ -592,7 +629,7 @@ namespace HVAC_Pro_Desktop.UI
             content.Dock = DockStyle.Fill;
             card.ContentPanel.Controls.Add(content);
             card.CardDragRequested += DashboardCard_DragRequested;
-            card.CardResizeComplete += (s, e) => EnsureDashboardCardWidths();
+            card.CardResizeComplete += (s, e) => LayoutDashboardCards();
             _dashboardCards[key] = card;
             _dashboardFlow.Controls.Add(card);
             CardLayoutService.RegisterDefaultSize(PageKey, key, card.Size, preset);
@@ -679,17 +716,48 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void EnsureDashboardCardWidths()
+        private void LayoutDashboardCards()
         {
             if (_dashboardFlow == null || _dashboardFlow.ClientSize.Width <= 0)
                 return;
 
-            int maxWidth = Math.Max(300, _dashboardFlow.ClientSize.Width - 28);
-            foreach (ResizableCard card in _dashboardFlow.Controls.OfType<ResizableCard>())
+            int gap = 12;
+            int availableWidth = Math.Max(320, _dashboardFlow.ClientSize.Width);
+            int columns = availableWidth >= 1160 ? 3 : (availableWidth >= 780 ? 2 : 1);
+            int cardWidth = columns == 1 ? availableWidth : (availableWidth - (gap * (columns - 1))) / columns;
+            int[] columnHeights = new int[columns];
+            ResizableCard[] cards = _dashboardFlow.Controls
+                .OfType<ResizableCard>()
+                .ToArray();
+
+            _dashboardFlow.SuspendLayout();
+            foreach (ResizableCard card in cards)
             {
-                if (card.Width > maxWidth)
-                    card.Width = maxWidth;
+                bool actionQueue = string.Equals(card.CardKey, "action_queue", StringComparison.OrdinalIgnoreCase);
+                card.Width = Math.Max(300, cardWidth);
+                card.Height = actionQueue ? 452 : 220;
+                card.Margin = Padding.Empty;
+
+                int column = 0;
+                for (int i = 1; i < columns; i++)
+                {
+                    if (columnHeights[i] < columnHeights[column])
+                        column = i;
+                }
+
+                card.Location = new Point(column * (card.Width + gap), columnHeights[column]);
+                columnHeights[column] += card.Height + gap;
             }
+            _dashboardFlow.ResumeLayout(false);
+
+            int contentHeight = columnHeights.Length == 0 ? 0 : columnHeights.Max();
+            if (contentHeight > 0)
+                contentHeight -= gap;
+            _dashboardFlow.Height = contentHeight;
+
+            Panel wrapper = _dashboardFlow.Parent as Panel;
+            if (wrapper != null)
+                wrapper.Height = Math.Max(220, contentHeight + wrapper.Padding.Vertical + 12);
         }
 
         private Panel MakeCard(string title, Control content)
@@ -702,10 +770,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel MakePlainCard(string title)
         {
-            Panel card = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Margin = new Padding(0, 0, 10, 10), Padding = new Padding(12, 42, 12, 12) };
+            Panel card = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Margin = new Padding(0, 0, 12, 12), Padding = new Padding(14, 44, 14, 14) };
             card.Paint += (s, e) => DrawBorder(e.Graphics, card);
-            Label titleLabel = new Label { Text = title, Location = new Point(12, 10), AutoSize = true, Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg };
+            Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 24, DS.Indigo50, Blue, 8);
+            titleIcon.Location = new Point(12, 9);
+            Label titleLabel = new Label { Text = title, Location = new Point(44, 10), AutoSize = true, Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg };
             card.Controls.Add(titleLabel);
+            card.Controls.Add(titleIcon);
             titleLabel.BringToFront();
             return card;
         }
@@ -716,14 +787,18 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Tag = index,
                 Text = title,
-                Width = 148,
+                Image = ModernIconSystem.IconBitmap(ModernIconSystem.KindForTitle(title), 18, Blue),
+                ImageAlign = ContentAlignment.MiddleLeft,
+                TextImageRelation = TextImageRelation.ImageBeforeText,
+                Width = 160,
                 Height = 62,
-                Margin = new Padding(0, 0, 10, 0),
+                Margin = new Padding(0, 0, 12, 0),
                 BackColor = CardBg,
                 ForeColor = TextDark,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
+                Padding = new Padding(10, 0, 8, 0),
                 Cursor = Cursors.Hand
             };
             tile.FlatAppearance.BorderColor = Border;
@@ -736,12 +811,13 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel item = new Panel { Width = 300, Height = 62, BackColor = Color.FromArgb(249, 250, 251), Margin = new Padding(0, 0, 0, 8), Padding = new Padding(10, 8, 8, 6) };
             item.Paint += (s, e) => DrawBorder(e.Graphics, item);
-            Panel bar = new Panel { Dock = DockStyle.Left, Width = 4, BackColor = accent };
+            Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 26, DS.Lighten(accent, 0.82f), accent, 8);
+            icon.Dock = DockStyle.Left;
             Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark };
             Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid };
             item.Controls.Add(bodyLabel);
             item.Controls.Add(titleLabel);
-            item.Controls.Add(bar);
+            item.Controls.Add(icon);
             _actionQueue.Controls.Add(item);
         }
 

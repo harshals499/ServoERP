@@ -113,6 +113,7 @@ namespace HVAC_Pro_Desktop
     static class Program
     {
         private const string SingleInstanceMutexName = "Global\\HVAC_PRO_MSE_ServoERP_SingleInstance";
+        private static readonly string[] AppProcessNames = { "HVAC_Pro_Desktop", "ServoERP" };
 
         [DllImport("user32.dll")]
         private static extern bool SetProcessDPIAware();
@@ -121,6 +122,7 @@ namespace HVAC_Pro_Desktop
         static void Main()
         {
             SetProcessDPIAware();
+            ShutdownExistingAppInstances();
 
             using (var singleInstance = new Mutex(true, SingleInstanceMutexName, out bool isFirstInstance))
             {
@@ -136,6 +138,103 @@ namespace HVAC_Pro_Desktop
 
                 RunApplication();
                 GC.KeepAlive(singleInstance);
+            }
+        }
+
+        private static void ShutdownExistingAppInstances()
+        {
+            try
+            {
+                int currentPid = Process.GetCurrentProcess().Id;
+                string currentPath = GetCurrentExecutablePath();
+                foreach (string processName in AppProcessNames)
+                {
+                    foreach (Process process in Process.GetProcessesByName(processName))
+                        ShutdownExistingAppInstance(process, currentPid, currentPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("Startup instance cleanup", ex);
+            }
+        }
+
+        private static void ShutdownExistingAppInstance(Process process, int currentPid, string currentPath)
+        {
+            using (process)
+            {
+                try
+                {
+                    string processPath = TryGetProcessPath(process);
+                    if (!ShouldTerminateExistingAppInstance(process.Id, process.ProcessName, processPath, currentPid, currentPath))
+                        return;
+
+                    try
+                    {
+                        if (process.MainWindowHandle != IntPtr.Zero)
+                        {
+                            process.CloseMainWindow();
+                            if (process.WaitForExit(2500))
+                                return;
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        process.WaitForExit(2500);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("Startup instance cleanup process", ex);
+                }
+            }
+        }
+
+        internal static bool ShouldTerminateExistingAppInstance(int processId, string processName, string processPath, int currentProcessId, string currentProcessPath)
+        {
+            if (processId == currentProcessId)
+                return false;
+
+            bool knownName = AppProcessNames.Any(name => string.Equals(name, processName, StringComparison.OrdinalIgnoreCase));
+            if (!knownName)
+                return false;
+
+            if (string.IsNullOrWhiteSpace(processPath) || string.IsNullOrWhiteSpace(currentProcessPath))
+                return true;
+
+            return !string.Equals(
+                Path.GetFullPath(processPath).TrimEnd(Path.DirectorySeparatorChar),
+                Path.GetFullPath(currentProcessPath).TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase)
+                || knownName;
+        }
+
+        private static string GetCurrentExecutablePath()
+        {
+            try
+            {
+                return Process.GetCurrentProcess().MainModule.FileName;
+            }
+            catch
+            {
+                return Application.ExecutablePath;
+            }
+        }
+
+        private static string TryGetProcessPath(Process process)
+        {
+            try
+            {
+                return process.MainModule.FileName;
+            }
+            catch
+            {
+                return string.Empty;
             }
         }
 

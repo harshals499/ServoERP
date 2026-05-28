@@ -2,4 +2,5 @@
 /changelog.json /changelog.json 200
 /download/* /download/:splat 200
 /updates/* /updates/:splat 200
+/ /index.html 200
 /* /404.html 404

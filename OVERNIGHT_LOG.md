@@ -29,6 +29,13 @@ Full-run design brief: improve ServoERP by first stabilizing obvious defects and
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
 
+Deployment preparation completed on 2026-05-28:
+
+- Debug build passed.
+- Enterprise UI smoke test passed: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-062657.txt`.
+- Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
+- Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
+
 Validation completed:
 
 - Debug build passed.
@@ -52,3 +59,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 ## All Commits This Session
 
 - `0dd91a9` chore: add autonomous agent core and genesis log.
+- `afc16a1` chore: record genesis validation results.

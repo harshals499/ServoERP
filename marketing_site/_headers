@@ -1,8 +1,7 @@
+/*
+  X-Robots-Tag: noindex, nofollow
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 /version.txt
-  Cache-Control: no-store
-
-/changelog.json
-  Cache-Control: no-store
-
-/download/*
-  Cache-Control: no-store
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+/latest.json
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0

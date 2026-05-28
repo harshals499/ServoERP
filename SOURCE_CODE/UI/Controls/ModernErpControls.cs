@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.UI;
 
 namespace HVAC_Pro_Desktop.UI.Controls
 {
@@ -106,7 +107,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Height = 36;
             MinimumSize = new Size(32, 30);
             Padding = new Padding(14, 0, 14, 0);
-            FlatStyle = FlatStyle.Flat;
+            FlatStyle = FlatStyle.System;
             UseVisualStyleBackColor = false;
             Cursor = Cursors.Hand;
             Font = ModernERPTheme.BodyBold;
@@ -365,6 +366,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Margin = new Padding(0);
             GrowStyle = TableLayoutPanelGrowStyle.AddRows;
             AutoSize = false;
+            AutoScroll = false;
         }
 
         public void UseEqualColumns(int columnCount)
@@ -567,23 +569,39 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
     public class ModernERPEmptyState : ModernERPCard
     {
+        private readonly Panel _iconHost;
         private readonly Label _title;
         private readonly Label _message;
 
         public ModernERPEmptyState()
         {
-            Height = 150;
+            Height = 190;
             Padding = new Padding(26);
+            _iconHost = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.Transparent };
             _title = new Label { Dock = DockStyle.Top, Height = 30, Font = ModernERPTheme.Heading, ForeColor = ModernERPTheme.Text, TextAlign = ContentAlignment.MiddleCenter };
             _message = new Label { Dock = DockStyle.Fill, Font = ModernERPTheme.Body, ForeColor = ModernERPTheme.MutedText, TextAlign = ContentAlignment.TopCenter };
             Controls.Add(_message);
             Controls.Add(_title);
+            Controls.Add(_iconHost);
             Title = "No records yet";
             Message = "Create a record or adjust filters to see results here.";
+            IconKind = ModernIconKind.EmptyBox;
         }
 
         public string Title { get { return _title.Text; } set { _title.Text = value; } }
         public string Message { get { return _message.Text; } set { _message.Text = value; } }
+        public ModernIconKind IconKind
+        {
+            set
+            {
+                _iconHost.Controls.Clear();
+                Panel icon = ModernIconSystem.EmptyStateIcon(value, 48, Color.FromArgb(238, 242, 255), ModernERPTheme.Primary);
+                icon.Location = new Point((_iconHost.Width - icon.Width) / 2, 4);
+                icon.Anchor = AnchorStyles.Top;
+                _iconHost.Controls.Add(icon);
+                _iconHost.Resize += (s, e) => icon.Left = (_iconHost.Width - icon.Width) / 2;
+            }
+        }
     }
 
     public class ModernERPToast : Label

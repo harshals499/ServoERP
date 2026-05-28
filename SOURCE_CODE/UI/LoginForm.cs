@@ -27,6 +27,7 @@ namespace HVAC_Pro_Desktop.UI
         private ModernTextBox _txtUsername;
         private ModernTextBox _txtPassword;
         private Button _btnPasswordToggle;
+        private Button _btnMaximizeToggle;
         private CheckBox _chkRememberMe;
         private Button _btnSignIn;
         private Label _lblError;
@@ -40,6 +41,13 @@ namespace HVAC_Pro_Desktop.UI
         private bool _paintingBrandCache;
         private Size _lastWindowRegionSize;
         private FormWindowState _lastWindowRegionState;
+
+        private enum WindowButtonKind
+        {
+            Minimize,
+            Maximize,
+            Close
+        }
 
         [DllImport("user32.dll")]
         private static extern bool ReleaseCapture();
@@ -104,7 +112,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             base.OnResize(e);
             ApplyRoundedWindow();
+            LayoutTitleBarControls();
             LayoutMainAreas();
+            UpdateWindowControlState();
         }
 
         protected override void OnFormClosed(FormClosedEventArgs e)
@@ -150,30 +160,73 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Color.FromArgb(15, 23, 42)
             });
 
-            AddWindowButton("X", 0, Close);
+            AddWindowButton(WindowButtonKind.Close, 0, Close, "Close window");
             AddWindowButton("□", 1, ToggleMaximize);
-            AddWindowButton("-", 2, () => WindowState = FormWindowState.Minimized);
+            AddWindowButton("\u2212", 2, () => WindowState = FormWindowState.Minimized, "Minimize window", false);
         }
 
-        private void AddWindowButton(string text, int slot, Action action)
+        private void LayoutTitleBarControls()
+        {
+            if (_titleBar == null)
+                return;
+
+            foreach (Control control in _titleBar.Controls)
+            {
+                var button = control as Button;
+                if (button == null || !(button.Tag is WindowButtonKind))
+                    continue;
+
+                WindowButtonKind kind = (WindowButtonKind)button.Tag;
+                int slot = kind == WindowButtonKind.Close ? 0 : kind == WindowButtonKind.Maximize ? 1 : 2;
+                button.Size = new Size(38, 34);
+                button.Location = new Point(Math.Max(0, _titleBar.Width - 52 - (slot * 46)), 10);
+            }
+        }
+
+        private Button AddWindowButton(string text, int slot, Action action, string accessibleName, bool closeButton)
+        {
+            WindowButtonKind kind = closeButton ? WindowButtonKind.Close : (slot == 2 ? WindowButtonKind.Minimize : WindowButtonKind.Maximize);
+            return AddWindowButton(kind, slot, action, accessibleName);
+        }
+
+        private Button AddWindowButton(WindowButtonKind kind, int slot, Action action, string accessibleName)
         {
             var button = new Button
             {
-                Text = text,
+                Text = string.Empty,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(ClientSize.Width - 52 - (slot * 46), 10),
                 Size = new Size(38, 34),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.Transparent,
                 ForeColor = Color.FromArgb(15, 23, 42),
-                Font = new Font("Segoe UI", 11f),
-                TabStop = false
+                AccessibleName = accessibleName,
+                AccessibleDescription = accessibleName,
+                TabStop = false,
+                Tag = kind
             };
             button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.MouseOverBackColor = text == "X" ? Color.FromArgb(254, 226, 226) : Color.FromArgb(226, 232, 240);
-            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(203, 213, 225);
+            button.FlatAppearance.MouseOverBackColor = Color.Transparent;
+            button.FlatAppearance.MouseDownBackColor = Color.Transparent;
+            button.Paint += DrawWindowControlButton;
+            button.MouseEnter += (s, e) => button.Invalidate();
+            button.MouseLeave += (s, e) => button.Invalidate();
+            button.MouseDown += (s, e) => button.Invalidate();
+            button.MouseUp += (s, e) => button.Invalidate();
             button.Click += (s, e) => action();
             _titleBar.Controls.Add(button);
+            return button;
+        }
+
+        private void AddWindowButton(string text, int slot, Action action)
+        {
+            if (slot == 1)
+            {
+                _btnMaximizeToggle = AddWindowButton(WindowButtonKind.Maximize, slot, action, "Maximize window");
+                return;
+            }
+
+            AddWindowButton(slot == 2 ? WindowButtonKind.Minimize : WindowButtonKind.Close, slot, action, slot == 2 ? "Minimize window" : "Close window");
         }
 
         private void BuildLoginCardV2()
@@ -224,9 +277,11 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.Padding = new Padding(52, 0, 78, 0);
             _loginCard.Controls.Add(_txtPassword);
 
-            _btnPasswordToggle = GhostButton("Show", 424, 270, 58, 32);
+            _btnPasswordToggle = GhostButton(string.Empty, 424, 270, 58, 32);
+            ConfigurePasswordToggleButton(_btnPasswordToggle);
             _btnPasswordToggle.Click += (s, e) => TogglePasswordVisibility();
             _loginCard.Controls.Add(_btnPasswordToggle);
+            _btnPasswordToggle.BringToFront();
 
             _chkRememberMe = new CheckBox
             {
@@ -720,6 +775,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_leftPanel == null || _rightPanel == null)
                 return;
 
+            LayoutTitleBarControls();
             int availableTop = TitleBarHeight;
             int availableHeight = Math.Max(300, ClientSize.Height - TitleBarHeight - _footer.Height);
             int leftWidth = Math.Max(410, (int)(ClientSize.Width * 0.40));
@@ -729,6 +785,17 @@ namespace HVAC_Pro_Desktop.UI
             int cardWidth = Math.Min(560, Math.Max(520, _rightPanel.Width - 128));
             int cardHeight = Math.Min(620, Math.Max(540, _rightPanel.Height - 28));
             _loginCard.Bounds = new Rectangle((_rightPanel.Width - cardWidth) / 2, (_rightPanel.Height - cardHeight) / 2, cardWidth, cardHeight);
+            LayoutPasswordToggle();
+        }
+
+        private void LayoutPasswordToggle()
+        {
+            if (_txtPassword == null || _btnPasswordToggle == null)
+                return;
+
+            _btnPasswordToggle.Size = new Size(46, 32);
+            _btnPasswordToggle.Location = new Point(_txtPassword.Right - _btnPasswordToggle.Width - 12, _txtPassword.Top + (_txtPassword.Height - _btnPasswordToggle.Height) / 2);
+            _btnPasswordToggle.BringToFront();
         }
 
         private async Task TryAutoLoginAsync()
@@ -872,7 +939,99 @@ namespace HVAC_Pro_Desktop.UI
         {
             _passwordVisible = !_passwordVisible;
             _txtPassword.UseSystemPasswordChar = !_passwordVisible;
-            _btnPasswordToggle.Text = _passwordVisible ? "Hide" : "Show";
+            if (_btnPasswordToggle != null)
+            {
+                _btnPasswordToggle.AccessibleName = _passwordVisible ? "Hide password" : "Show password";
+                _btnPasswordToggle.AccessibleDescription = _btnPasswordToggle.AccessibleName;
+                _btnPasswordToggle.Invalidate();
+            }
+        }
+
+        private void ConfigurePasswordToggleButton(Button button)
+        {
+            if (button == null)
+                return;
+
+            button.Text = string.Empty;
+            button.TabStop = false;
+            button.AccessibleName = "Show password";
+            button.AccessibleDescription = "Show password";
+            button.MouseEnter += (s, e) => button.Invalidate();
+            button.MouseLeave += (s, e) => button.Invalidate();
+            button.Paint += (s, e) => DrawPasswordVisibilityIcon(e.Graphics, button.ClientRectangle, _passwordVisible, button.ClientRectangle.Contains(button.PointToClient(Cursor.Position)));
+        }
+
+        private void DrawPasswordVisibilityIcon(Graphics graphics, Rectangle bounds, bool hidden, bool hot)
+        {
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Color color = hot ? Color.FromArgb(30, 58, 138) : Color.FromArgb(100, 116, 139);
+            Rectangle eye = new Rectangle(bounds.Left + 13, bounds.Top + 7, bounds.Width - 26, bounds.Height - 14);
+
+            using (Pen pen = new Pen(color, 1.6f))
+            using (SolidBrush brush = new SolidBrush(color))
+            {
+                Point left = new Point(eye.Left, eye.Top + eye.Height / 2);
+                Point right = new Point(eye.Right, eye.Top + eye.Height / 2);
+                Point top = new Point(eye.Left + eye.Width / 2, eye.Top);
+                graphics.DrawBezier(pen, left, new Point(eye.Left + 5, eye.Top), new Point(eye.Right - 5, eye.Top), right);
+                graphics.DrawBezier(pen, left, new Point(eye.Left + 5, eye.Bottom), new Point(eye.Right - 5, eye.Bottom), right);
+                graphics.FillEllipse(brush, new Rectangle(top.X - 3, top.Y + 6, 7, 7));
+                if (hidden)
+                    graphics.DrawLine(pen, eye.Left - 2, eye.Bottom + 2, eye.Right + 2, eye.Top - 2);
+            }
+        }
+
+        private void DrawWindowControlButton(object sender, PaintEventArgs e)
+        {
+            var button = sender as Button;
+            if (button == null)
+                return;
+
+            WindowButtonKind kind = button.Tag is WindowButtonKind ? (WindowButtonKind)button.Tag : WindowButtonKind.Maximize;
+            bool hot = button.ClientRectangle.Contains(button.PointToClient(Cursor.Position));
+            bool pressed = (Control.MouseButtons & MouseButtons.Left) == MouseButtons.Left && hot;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Color back = kind == WindowButtonKind.Close && hot
+                ? Color.FromArgb(232, 17, 35)
+                : hot
+                    ? Color.FromArgb(226, 232, 240)
+                    : Color.Transparent;
+            Color icon = kind == WindowButtonKind.Close && hot
+                ? Color.White
+                : Color.FromArgb(15, 23, 42);
+
+            if (pressed && kind != WindowButtonKind.Close)
+                back = Color.FromArgb(203, 213, 225);
+
+            using (SolidBrush fill = new SolidBrush(back))
+            using (GraphicsPath path = Rounded(new Rectangle(2, 2, button.Width - 4, button.Height - 4), 8))
+                e.Graphics.FillPath(fill, path);
+
+            Rectangle r = new Rectangle((button.Width - 12) / 2, (button.Height - 12) / 2, 12, 12);
+            using (Pen pen = new Pen(icon, 1.7f))
+            {
+                pen.StartCap = LineCap.Round;
+                pen.EndCap = LineCap.Round;
+                if (kind == WindowButtonKind.Minimize)
+                {
+                    e.Graphics.DrawLine(pen, r.Left + 1, r.Top + 8, r.Right - 1, r.Top + 8);
+                }
+                else if (kind == WindowButtonKind.Close)
+                {
+                    e.Graphics.DrawLine(pen, r.Left + 2, r.Top + 2, r.Right - 2, r.Bottom - 2);
+                    e.Graphics.DrawLine(pen, r.Right - 2, r.Top + 2, r.Left + 2, r.Bottom - 2);
+                }
+                else if (WindowState == FormWindowState.Maximized)
+                {
+                    e.Graphics.DrawRectangle(pen, r.Left + 3, r.Top + 1, 7, 7);
+                    e.Graphics.DrawRectangle(pen, r.Left + 1, r.Top + 4, 7, 7);
+                }
+                else
+                {
+                    e.Graphics.DrawRectangle(pen, r.Left + 1, r.Top + 1, 10, 10);
+                }
+            }
         }
 
         private void WireEvents()
@@ -898,6 +1057,18 @@ namespace HVAC_Pro_Desktop.UI
         private void ToggleMaximize()
         {
             WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
+            UpdateWindowControlState();
+        }
+
+        private void UpdateWindowControlState()
+        {
+            if (_btnMaximizeToggle == null)
+                return;
+
+            bool maximized = WindowState == FormWindowState.Maximized;
+            _btnMaximizeToggle.AccessibleName = maximized ? "Restore window" : "Maximize window";
+            _btnMaximizeToggle.AccessibleDescription = _btnMaximizeToggle.AccessibleName;
+            _btnMaximizeToggle.Invalidate();
         }
 
         private void FitToWorkingArea()

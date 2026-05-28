@@ -101,6 +101,16 @@ namespace HVAC_Pro_Desktop.Services
             return int.TryParse(Get("App", "VersionCheckIntervalHours", "24"), out hours) && hours > 0 ? hours : 24;
         }
 
+        public static string GetLicenseActivationUrl()
+        {
+            return Get("Licensing", "ActivationUrl", "https://servoerp.in/api/license/activate");
+        }
+
+        public static string GetLicenseValidationUrl()
+        {
+            return Get("Licensing", "ValidationUrl", "https://servoerp.in/api/license/validate");
+        }
+
         private static string ResolveConfigPath()
         {
             string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config");

@@ -20,6 +20,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ClientService _clientSvc = new ClientService();
         private readonly SiteService _siteSvc = new SiteService();
         private readonly CompanyTemplateManager _templateManager = new CompanyTemplateManager();
+        private readonly FormTemplateLibraryService _formTemplateLibrary = new FormTemplateLibraryService();
 
         private TabControl _tabs;
         private DataGridView _statusGrid, _assetGrid, _docGrid, _rateGrid, _serverGrid, _importGrid;
@@ -69,7 +70,7 @@ namespace HVAC_Pro_Desktop.UI
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
                 BackColor = DS.BgPage,
-                Padding = new Padding(18, 16, 18, 24)
+                Padding = new Padding(18, 18, 18, 18)
             };
             _hubFlow.Resize += (s, e) => ResizeHubRows();
 
@@ -81,30 +82,54 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = Color.White, Padding = new Padding(18, 12, 18, 10) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = Color.White, Padding = new Padding(28, 12, 28, 10) };
             header.Paint += (s, e) =>
             {
                 using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
-            header.Controls.Add(new Label
+            Label title = new Label
             {
                 Text = "Master Data",
-                Dock = DockStyle.Top,
-                Height = 30,
+                Location = new Point(28, 15),
+                Size = new Size(460, 32),
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
                 ForeColor = DS.Slate900,
-                TextAlign = ContentAlignment.MiddleLeft,
-            });
-            header.Controls.Add(new Label
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Label subtitle = new Label
             {
                 Text = "Upload, validate, map, sync, and use business data across ServoERP.",
-                Dock = DockStyle.Bottom,
-                Height = 20,
+                Location = new Point(30, 50),
+                Size = new Size(620, 22),
                 Font = new Font("Segoe UI", 9.5f),
                 ForeColor = DS.Slate500,
                 TextAlign = ContentAlignment.MiddleLeft
-            });
+            };
+            Button upload = MakeButton("Upload Data", Color.White, 138);
+            upload.Click += (s, e) => ShowBulkImportMenu(upload);
+            upload.ForeColor = DS.Slate800;
+            upload.FlatAppearance.BorderSize = 1;
+            upload.FlatAppearance.BorderColor = DS.BorderStrong;
+            upload.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            upload.Location = new Point(header.Width - 320, 24);
+            ModernIconSystem.AddButtonIcon(upload, ModernIconKind.Import);
+
+            Button validate = MakeButton("Run Validation", DS.Primary600, 150, async (s, e) => await LoadAllAsync());
+            validate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            validate.Location = new Point(header.Width - 164, 24);
+            ModernIconSystem.AddButtonIcon(validate, ModernIconKind.Security);
+
+            header.Resize += (s, e) =>
+            {
+                upload.Location = new Point(header.ClientSize.Width - 320, 24);
+                validate.Location = new Point(header.ClientSize.Width - 164, 24);
+            };
+
+            header.Controls.Add(title);
+            header.Controls.Add(subtitle);
+            header.Controls.Add(upload);
+            header.Controls.Add(validate);
             return header;
         }
 
@@ -325,8 +350,7 @@ namespace HVAC_Pro_Desktop.UI
             _hubFlow.Controls.Add(BuildHeroDropZone());
             _hubFlow.Controls.Add(BuildWorkflowStrip());
             _hubFlow.Controls.Add(BuildHubMainRow(snapshot));
-            _hubFlow.Controls.Add(BuildRecentAndWarningsRow(snapshot));
-            _hubFlow.Controls.Add(BuildOperationalFooter(snapshot));
+            _hubFlow.Controls.Add(BuildTipBar());
 
             _hubFlow.ResumeLayout(true);
             ResizeHubRows();
@@ -337,104 +361,176 @@ namespace HVAC_Pro_Desktop.UI
             if (_hubFlow == null)
                 return;
 
-            int width = Math.Max(980, _hubFlow.ClientSize.Width - 40);
+            int width = Math.Max(720, _hubFlow.ClientSize.Width - _hubFlow.Padding.Left - _hubFlow.Padding.Right - 6);
             foreach (Control control in _hubFlow.Controls)
                 control.Width = width;
         }
 
         private Control BuildHeroDropZone()
         {
-            Panel panel = CreateHubCard(112);
+            Panel panel = CreateHubCard(120);
             panel.AllowDrop = true;
             panel.DragEnter += HubDragEnter;
             panel.DragDrop += HubDragDrop;
             panel.Cursor = Cursors.Hand;
             panel.Click += (s, e) => ShowBulkImportMenu(panel);
 
-            Label title = new Label
+            TableLayoutPanel layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                Padding = new Padding(20, 14, 20, 14),
+                ColumnCount = 4,
+                RowCount = 1
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270f));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            Panel heroIcon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Backup, 74, DS.Primary50, DS.Primary700);
+            heroIcon.Anchor = AnchorStyles.Left;
+            layout.Controls.Add(heroIcon, 0, 0);
+
+            Panel textBlock = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 6, 0, 0) };
+            textBlock.Controls.Add(new Label
             {
                 Text = "Data Control Center",
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
-                ForeColor = DS.Slate900,
-                Location = new Point(24, 18),
-                AutoSize = true
-            };
-            Label subtitle = new Label
+                Location = new Point(0, 0),
+                Size = new Size(520, 34),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 17f, FontStyle.Bold),
+                ForeColor = DS.Slate900
+            });
+            textBlock.Controls.Add(new Label
             {
-                Text = "Drop Excel, CSV, PDF, or vendor/client data exports here. ServoERP validates, maps, and syncs usable records into modules.",
-                Font = new Font("Segoe UI", 9.5f),
-                ForeColor = DS.Slate600,
-                Location = new Point(24, 54),
-                Size = new Size(760, 42)
-            };
-            Button upload = MakeButton("Upload data", DS.Primary600, 126, (s, e) => ShowBulkImportMenu(panel));
-            upload.Location = new Point(panel.Width - 340, 34);
-            upload.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            Button validate = MakeButton("Run validation", SaveGreen, 136, async (s, e) => await LoadAllAsync());
-            validate.Location = new Point(panel.Width - 196, 34);
-            validate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                Text = "Drop Excel, CSV, PDF, or vendor/client data exports here.\r\nServoERP validates, maps, and syncs usable records into modules.",
+                Location = new Point(0, 44),
+                Size = new Size(560, 54),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 9.25f),
+                ForeColor = DS.Slate600
+            });
+            layout.Controls.Add(textBlock, 1, 0);
 
-            panel.Controls.Add(title);
-            panel.Controls.Add(subtitle);
-            panel.Controls.Add(upload);
-            panel.Controls.Add(validate);
+            TableLayoutPanel mini = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.Transparent };
+            mini.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            mini.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            mini.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Security, "Data Integrity", "Validate before you upload", DS.Green50, DS.Green600), 0, 0);
+            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Refresh, "Smart Sync", "Map once, reuse everywhere", Color.FromArgb(245, 243, 255), Color.FromArgb(124, 58, 237)), 1, 0);
+            layout.Controls.Add(mini, 2, 0);
+
+            Control visual = BuildHeroVisual();
+            layout.Controls.Add(visual, 3, 0);
+            panel.Controls.Add(layout);
             return panel;
         }
 
         private Control BuildWorkflowStrip()
         {
-            Panel panel = CreateHubCard(100);
+            Panel panel = CreateHubCard(104);
             string[] steps = { "Upload", "Validate", "Map", "Sync", "Use Across App" };
-            string[] captions = { "Excel, CSV, PDF, APIs", "required fields, duplicates", "columns to ERP modules", "clients, vendors, jobs", "quotes, invoices, PO" };
+            string[] captions = { "Excel, CSV, PDF, APIs", "Required fields, duplicates", "ERP modules", "Clients, vendors, jobs", "Quotes, invoices, POs" };
+            ModernIconKind[] icons = { ModernIconKind.Import, ModernIconKind.Security, ModernIconKind.Analytics, ModernIconKind.Refresh, ModernIconKind.Status };
+
+            TableLayoutPanel strip = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 5, RowCount = 1, Padding = new Padding(18, 12, 18, 12), BackColor = Color.Transparent };
             for (int i = 0; i < steps.Length; i++)
             {
-                int x = 24 + (i * 190);
-                Panel badge = new Panel { Location = new Point(x, 22), Size = new Size(44, 44), BackColor = DS.Primary50 };
-                DS.Rounded(badge, 22);
-                badge.Controls.Add(new Label { Text = (i + 1).ToString(), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = DS.Primary700 });
-                Label step = new Label { Text = steps[i], Location = new Point(x + 54, 20), Size = new Size(128, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
-                Label caption = new Label { Text = captions[i], Location = new Point(x + 54, 44), Size = new Size(132, 34), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 };
-                panel.Controls.Add(badge);
-                panel.Controls.Add(step);
-                panel.Controls.Add(caption);
-                if (i < steps.Length - 1)
-                    panel.Controls.Add(new Label { Text = "->", Location = new Point(x + 164, 34), Size = new Size(26, 24), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate400 });
+                strip.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+                strip.Controls.Add(BuildWorkflowStep(i + 1, steps[i], captions[i], icons[i]), i, 0);
             }
+            strip.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            panel.Controls.Add(strip);
             return panel;
         }
 
         private Control BuildHubMainRow(MasterDataSnapshot snapshot)
         {
-            TableLayoutPanel row = new TableLayoutPanel { Height = 430, ColumnCount = 2, RowCount = 1, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 16) };
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72f));
-            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
+            TableLayoutPanel row = new TableLayoutPanel { Height = 420, ColumnCount = 2, RowCount = 1, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 14), Padding = new Padding(0) };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 67f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33f));
             row.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            FlowLayoutPanel uploads = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(18), AutoScroll = true };
-            uploads.Paint += (s, e) => DrawHubBorder(uploads, e);
-            uploads.Controls.Add(SectionTitle("Smart upload cards", "Choose what you are onboarding. ServoERP will validate and route records to the right module."));
-            uploads.Controls.Add(BuildUploadCard("Clients", Count(snapshot?.Clients), "Company lists, contact details, GST, city", ExcelImportModule.Clients, "clients"));
-            uploads.Controls.Add(BuildUploadCard("Vendors", CountVendors(), "Supplier master, GST, payment terms, contact", ExcelImportModule.Vendors, "vendors"));
-            uploads.Controls.Add(BuildUploadCard("Invoices", CountTable("Invoices"), "Past invoices, balances, due dates", ExcelImportModule.Invoices, "invoices"));
-            uploads.Controls.Add(BuildUploadCard("Inventory", CountTable("StockItems"), "Parts, stock, reorder levels", null, "inventory"));
-            uploads.Controls.Add(BuildUploadCard("Contracts", CountTable("AMCContracts"), "AMC terms, renewal dates, SLA data", null, "contracts"));
-            uploads.Controls.Add(BuildUploadCard("Equipment / Assets", Count(snapshot?.Assets), "Client HVAC assets, serials, warranty", null, "assets"));
-            uploads.Controls.Add(BuildUploadCard("Rate Cards", Count(snapshot?.Rates), "Labour, service pricing, emergency rates", null, "rates"));
-            uploads.Controls.Add(BuildUploadCard("Documents / PDFs", Count(snapshot?.Documents), "Contracts, POs, manuals, certificates", null, "documents"));
-            uploads.Controls.Add(BuildUploadCard("Company Document Templates", CountCompanyTemplates(), "Invoice, quotation, PO, letterhead, terms", null, "company-templates"));
+            Panel uploads = CreateSurfaceCard(new Padding(18));
+            TableLayoutPanel uploadGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                ColumnCount = 4,
+                RowCount = 3,
+                Padding = new Padding(0),
+                Margin = Padding.Empty
+            };
+            for (int i = 0; i < 4; i++)
+                uploadGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+            uploadGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));
+            uploadGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            uploadGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            Control uploadTitle = SectionTitle("Smart upload cards", "Choose what you are onboarding. ServoERP will validate and route records to the right module.");
+            uploadTitle.Dock = DockStyle.Fill;
+            uploadGrid.Controls.Add(uploadTitle, 0, 0);
+            uploadGrid.SetColumnSpan(uploadTitle, 4);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Vendors", CountVendors(), "Supplier master, GST, payment terms, contact", ExcelImportModule.Vendors, "vendors"), 0, 1);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Invoices", CountTable("Invoices"), "Past invoices, balances, due dates", ExcelImportModule.Invoices, "invoices"), 1, 1);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Inventory", CountTable("StockItems"), "Parts, stock, reorder levels", null, "inventory"), 2, 1);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Contracts", CountTable("AMCContracts"), "AMC terms, renewal dates, SLA data", null, "contracts"), 3, 1);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Equipment / Assets", Count(snapshot?.Assets), "Client HVAC assets, serials, warranty", null, "assets"), 0, 2);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Rate Cards", Count(snapshot?.Rates), "Labour, service pricing, emergency rates", null, "rates"), 1, 2);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Documents / PDFs", Count(snapshot?.Documents), "Contracts, POs, manuals, certificates", null, "documents"), 2, 2);
+            AddUploadGridCard(uploadGrid, BuildUploadCard("Company Document", CountCompanyTemplates(), "Invoice, quotation, PO, letterhead", null, "company-templates"), 3, 2);
+            uploads.Controls.Add(uploadGrid);
 
-            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(18), FlowDirection = FlowDirection.TopDown, WrapContents = false };
-            actions.Paint += (s, e) => DrawHubBorder(actions, e);
-            actions.Controls.Add(SectionTitle("Sync command center", "One-click checks before data is used across the ERP."));
-            actions.Controls.Add(BuildActionTile("Refresh all data", "Reload counts and integration status", DS.Primary600, async () => await LoadAllAsync()));
-            actions.Controls.Add(BuildActionTile("Download templates", "Get Excel formats for clean imports", ActionBlue, () => ShowTemplateMenu(actions)));
-            actions.Controls.Add(BuildActionTile("Duplicate check", "Find repeated clients, vendors, quotes", Color.FromArgb(249, 115, 22), () => ShowDuplicateCheck()));
-            actions.Controls.Add(BuildActionTile("Open import log", "Review recent sync batches", Color.FromArgb(124, 58, 237), () => ShowExistingTab(5)));
-            actions.Controls.Add(BuildActionTile("Configure API/server", "Private server or API sync settings", DS.Red600, () => ShowExistingTab(4)));
+            Panel actions = CreateSurfaceCard(new Padding(18)) as Panel;
+            actions.Margin = new Padding(14, 0, 0, 0);
+            TableLayoutPanel actionGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                ColumnCount = 1,
+                RowCount = 6,
+                Padding = new Padding(0),
+                Margin = Padding.Empty
+            };
+            actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            actionGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 66f));
+            for (int i = 0; i < 5; i++)
+                actionGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 20f));
+            Control actionTitle = SectionTitle("Sync command center", "One-click checks before data is used across the ERP.");
+            actionTitle.Dock = DockStyle.Fill;
+            actionGrid.Controls.Add(actionTitle, 0, 0);
+            AddActionGridTile(actionGrid, BuildActionTile("Refresh all data", "Reload counts and integration status", ModernIconKind.Refresh, DS.Primary600, async () => await LoadAllAsync()), 1);
+            AddActionGridTile(actionGrid, BuildActionTile("Download templates", "Get Excel formats for clean imports", ModernIconKind.Import, SaveGreen, () => ShowTemplateMenu(actions)), 2);
+            AddActionGridTile(actionGrid, BuildActionTile("Duplicate check", "Find repeated clients, vendors, quotes", ModernIconKind.Filter, Color.FromArgb(249, 115, 22), () => ShowDuplicateCheck()), 3);
+            AddActionGridTile(actionGrid, BuildActionTile("Open import log", "Review recent sync batches", ModernIconKind.Document, Color.FromArgb(124, 58, 237), () => ShowExistingTab(5)), 4);
+            AddActionGridTile(actionGrid, BuildActionTile("Integration status", "Check API and app connectivity", ModernIconKind.Status, DS.Teal600, () => ShowExistingTab(4)), 5);
+            actions.Controls.Add(actionGrid);
 
             row.Controls.Add(uploads, 0, 0);
             row.Controls.Add(actions, 1, 0);
             return row;
+        }
+
+        private Control BuildTipBar()
+        {
+            Panel panel = CreateHubCard(58);
+            panel.Margin = new Padding(0, 0, 0, 0);
+            TableLayoutPanel row = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, Padding = new Padding(18, 11, 18, 11), BackColor = Color.Transparent };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 34f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            row.Controls.Add(ModernIconSystem.Badge(ModernIconKind.Alert, 28, DS.Primary100, DS.Primary700, 14), 0, 0);
+            row.Controls.Add(new Label
+            {
+                Text = "Tip: Keep your master data clean and up to date for accurate reporting and smarter automation across ServoERP.",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate600
+            }, 1, 0);
+            panel.Controls.Add(row);
+            return panel;
         }
 
         private Control BuildRecentAndWarningsRow(MasterDataSnapshot snapshot)
@@ -673,8 +769,7 @@ namespace HVAC_Pro_Desktop.UI
             ClientDocument doc = CurrentRow<ClientDocument>(_docGrid);
             if (doc == null || string.IsNullOrWhiteSpace(doc.FilePath))
                 return;
-            try { Process.Start(doc.FilePath); }
-            catch (Exception ex) { AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Opening document", ex); }
+            RecentDocumentOpenService.OpenStoredFile(this, doc.FilePath, BrandingService.WindowTitle("Master Data"));
         }
 
         private void PreviewConnection()
@@ -884,6 +979,13 @@ namespace HVAC_Pro_Desktop.UI
             return panel;
         }
 
+        private static Panel CreateSurfaceCard(Padding padding)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = padding, Margin = new Padding(0) };
+            panel.Paint += (s, e) => DrawHubBorder(panel, e);
+            return panel;
+        }
+
         private static void DrawHubBorder(Control control, PaintEventArgs e)
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -894,49 +996,172 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Control SectionTitle(string title, string subtitle)
         {
-            Panel panel = new Panel { Width = 760, Height = 56, Margin = new Padding(0, 0, 0, 12), BackColor = Color.Transparent };
-            panel.Controls.Add(new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 24), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(0, 26), Size = new Size(720, 24), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate500 });
+            Panel panel = new Panel { Width = 760, Height = 60, Margin = new Padding(0, 0, 0, 10), BackColor = Color.Transparent, Tag = "SectionTitle" };
+            panel.Controls.Add(new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 26), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(0, 30), Size = new Size(720, 24), Font = new Font("Segoe UI", 8.75f), ForeColor = DS.Slate600 });
             return panel;
         }
 
         private Control BuildUploadCard(string title, int count, string description, ExcelImportModule? module, string key)
         {
-            Panel card = new Panel { Width = 250, Height = 142, BackColor = DS.BgPage, Margin = new Padding(0, 0, 12, 12), Cursor = Cursors.Hand, Tag = module };
+            Panel card = new Panel { Width = 220, Height = 146, BackColor = DS.Slate50, Margin = new Padding(0, 0, 12, 12), Cursor = Cursors.Hand, Tag = module };
             card.AllowDrop = true;
             card.DragEnter += HubDragEnter;
             card.DragDrop += HubDragDrop;
             card.Paint += (s, e) => DrawHubBorder(card, e);
-            card.Controls.Add(new Label { Text = title, Location = new Point(16, 14), Size = new Size(160, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            card.Controls.Add(new Label { Text = count.ToString("N0") + " records", Location = new Point(178, 16), Size = new Size(60, 18), TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22) });
-            card.Controls.Add(new Label { Text = description, Location = new Point(16, 42), Size = new Size(210, 38), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 });
+            ModernIconKind iconKind = ModernIconSystem.KindForTitle(title);
+            Color accent = UploadAccent(key);
+            card.Controls.Add(ModernIconSystem.Badge(iconKind, 38, DS.Lighten(accent, 0.84f), accent, 10));
+            card.Controls[0].Location = new Point(14, 14);
+            card.Controls.Add(new Label { Text = title, Location = new Point(60, 14), Size = new Size(118, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            card.Controls.Add(new Label { Text = count.ToString("N0") + " records", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22) });
+            card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600 });
 
-            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(16, 94), Size = new Size(94, 30), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
+            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, 102), Size = new Size(88, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
             primary.FlatAppearance.BorderSize = 0;
+            DS.Rounded(primary, DS.RadiusSm);
             primary.Click += (s, e) => RunCardAction(module, key);
-            Button map = new Button { Text = "Map / Validate", Location = new Point(118, 94), Size = new Size(112, 30), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Primary700, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
+            Button map = new Button { Text = "Map", Location = new Point(112, 102), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
             map.FlatAppearance.BorderColor = DS.Border;
+            DS.Rounded(map, DS.RadiusSm);
             map.Click += (s, e) => ShowMappingHint(title);
             card.Controls.Add(primary);
             card.Controls.Add(map);
+            card.Resize += (s, e) =>
+            {
+                primary.Location = new Point(14, card.Height - 44);
+                map.Location = new Point(card.Width - map.Width - 14, card.Height - 44);
+            };
             card.Click += (s, e) => RunCardAction(module, key);
             return card;
         }
 
-        private Control BuildActionTile(string title, string subtitle, Color color, Action action)
+        private Control BuildActionTile(string title, string subtitle, ModernIconKind iconKind, Color color, Action action)
         {
-            Panel tile = new Panel { Width = 300, Height = 72, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 12), Cursor = Cursors.Hand };
+            Panel tile = new Panel { Width = 300, Height = 58, BackColor = DS.Slate50, Margin = new Padding(0, 0, 0, 8), Cursor = Cursors.Hand, Tag = "ActionTile" };
             tile.Paint += (s, e) => DrawHubBorder(tile, e);
-            Panel mark = new Panel { Location = new Point(14, 18), Size = new Size(36, 36), BackColor = DS.Lighten(color, 0.82f) };
-            DS.Rounded(mark, 10);
-            mark.Controls.Add(new Label { Text = "↻", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = color });
+            Label mark = ModernIconSystem.Badge(iconKind, 34, DS.Lighten(color, 0.84f), color, 9);
+            mark.Location = new Point(14, 12);
             tile.Controls.Add(mark);
-            tile.Controls.Add(new Label { Text = title, Location = new Point(62, 14), Size = new Size(205, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            tile.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 38), Size = new Size(215, 22), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 });
+            tile.Controls.Add(new Label { Text = title, Location = new Point(62, 9), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            tile.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 31), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500 });
+            Label chevron = ModernIconSystem.Icon(ModernIconKind.ChevronDown, 14, DS.Slate500);
+            chevron.Text = ">";
+            chevron.Location = new Point(tile.Width - 28, 17);
+            chevron.Size = new Size(18, 24);
+            chevron.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            tile.Controls.Add(chevron);
             tile.Click += (s, e) => action?.Invoke();
             foreach (Control child in tile.Controls)
                 child.Click += (s, e) => action?.Invoke();
             return tile;
+        }
+
+        private Control BuildHeroMiniBlock(ModernIconKind iconKind, string title, string subtitle, Color backColor, Color foreColor)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(8, 20, 8, 20) };
+            Control icon = ModernIconSystem.Badge(iconKind, 42, backColor, foreColor, 12);
+            icon.Location = new Point(8, 28);
+            panel.Controls.Add(icon);
+            panel.Controls.Add(new Label { Text = title, Location = new Point(62, 24), Size = new Size(140, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 48), Size = new Size(142, 22), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 });
+            return panel;
+        }
+
+        private Control BuildHeroVisual()
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = new Padding(6, 0, 0, 0) };
+            Panel doc = new Panel { Size = new Size(104, 86), Location = new Point(66, 8), BackColor = DS.Primary50 };
+            DS.Rounded(doc, 12);
+            doc.Controls.Add(new Label { Text = "XLS", Location = new Point(10, 10), Size = new Size(42, 22), BackColor = SaveGreen, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) });
+            doc.Controls.Add(new Label { Text = "Data\nSync", Location = new Point(18, 38), Size = new Size(70, 38), ForeColor = DS.Primary700, Font = new Font("Segoe UI", 10f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
+            Panel cloud = ModernIconSystem.EmptyStateIcon(ModernIconKind.Import, 54, DS.Green50, SaveGreen);
+            cloud.Location = new Point(150, 48);
+            panel.Controls.Add(doc);
+            panel.Controls.Add(cloud);
+            return panel;
+        }
+
+        private Control BuildWorkflowStep(int number, string title, string caption, ModernIconKind iconKind)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = new Padding(0, 0, 10, 0) };
+            Panel numberBadge = new Panel { Size = new Size(30, 30), Location = new Point(2, 28), BackColor = Color.White };
+            numberBadge.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, 29, 29), 15))
+                using (Pen pen = new Pen(DS.Primary100))
+                    e.Graphics.DrawPath(pen, path);
+            };
+            numberBadge.Controls.Add(new Label { Text = number.ToString(), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Primary700 });
+            panel.Controls.Add(numberBadge);
+            Control icon = ModernIconSystem.Badge(iconKind, 48, number == 2 ? DS.Amber50 : number == 3 ? Color.FromArgb(245, 243, 255) : number == 5 ? DS.Green50 : DS.Primary50, number == 2 ? DS.Amber600 : number == 3 ? Color.FromArgb(124, 58, 237) : number == 5 ? SaveGreen : DS.Primary700, 14);
+            icon.Location = new Point(44, 20);
+            panel.Controls.Add(icon);
+            panel.Controls.Add(new Label { Text = title, Location = new Point(104, 20), Size = new Size(128, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            panel.Controls.Add(new Label { Text = caption, Location = new Point(104, 46), Size = new Size(142, 42), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 });
+            return panel;
+        }
+
+        private static void ResizeUploadCards(FlowLayoutPanel flow)
+        {
+            if (flow == null)
+                return;
+
+            int available = Math.Max(720, flow.ClientSize.Width - 4);
+            int columns = available >= 920 ? 4 : available >= 690 ? 3 : 2;
+            int gap = 12;
+            int cardWidth = Math.Max(190, (available - (columns - 1) * gap - 2) / columns);
+            foreach (Control control in flow.Controls)
+            {
+                if ((control.Tag as string) == "SectionTitle")
+                {
+                    control.Width = available;
+                    continue;
+                }
+
+                control.Width = cardWidth;
+            }
+        }
+
+        private static void ResizeActionTiles(FlowLayoutPanel flow)
+        {
+            if (flow == null)
+                return;
+
+            int width = Math.Max(260, flow.ClientSize.Width - 4);
+            foreach (Control control in flow.Controls)
+                control.Width = width;
+        }
+
+        private static void AddUploadGridCard(TableLayoutPanel grid, Control card, int column, int row)
+        {
+            card.Dock = DockStyle.Fill;
+            card.Margin = new Padding(0, 0, column == 3 ? 0 : 12, row == 2 ? 0 : 12);
+            grid.Controls.Add(card, column, row);
+        }
+
+        private static void AddActionGridTile(TableLayoutPanel grid, Control tile, int row)
+        {
+            tile.Dock = DockStyle.Fill;
+            tile.Margin = new Padding(0, 0, 0, row == 5 ? 0 : 8);
+            grid.Controls.Add(tile, 0, row);
+        }
+
+        private static Color UploadAccent(string key)
+        {
+            switch ((key ?? string.Empty).ToLowerInvariant())
+            {
+                case "vendors": return SaveGreen;
+                case "invoices": return DS.Primary600;
+                case "inventory": return Color.FromArgb(124, 58, 237);
+                case "contracts": return SaveGreen;
+                case "assets": return Color.FromArgb(249, 115, 22);
+                case "rates": return DS.Teal600;
+                case "documents": return DS.Red600;
+                case "company-templates": return DS.Primary700;
+                default: return DS.Primary600;
+            }
         }
 
         private Control BuildWarningRow(string title, string action)
@@ -1011,7 +1236,70 @@ namespace HVAC_Pro_Desktop.UI
             ContextMenuStrip menu = new ContextMenuStrip();
             foreach (ExcelImportModule module in new[] { ExcelImportModule.Clients, ExcelImportModule.Vendors, ExcelImportModule.Invoices, ExcelImportModule.Purchases, ExcelImportModule.Quotations, ExcelImportModule.Sites, ExcelImportModule.Jobs, ExcelImportModule.Employees })
                 menu.Items.Add(module + " template", null, (s, e) => ImportUiHelper.DownloadTemplate(module, FindForm()));
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Open field-service form library", null, (s, e) => OpenFieldServiceFormLibrary());
+            menu.Items.Add("Open field-service template ZIP", null, (s, e) => OpenFieldServiceTemplateZip());
+            menu.Items.Add("Show field-service library summary", null, (s, e) => ShowFieldServiceLibrarySummary());
             menu.Show(owner, new Point(12, 42));
+        }
+
+        private void OpenFieldServiceFormLibrary()
+        {
+            try
+            {
+                if (!_formTemplateLibrary.IsAvailable)
+                {
+                    MessageBox.Show(this, "Field-service form library was not found at:\r\n" + _formTemplateLibrary.RootFolder, "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo(_formTemplateLibrary.RootFolder) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Opening form template library", ex);
+            }
+        }
+
+        private void OpenFieldServiceTemplateZip()
+        {
+            try
+            {
+                if (!File.Exists(_formTemplateLibrary.ZipPath))
+                {
+                    MessageBox.Show(this, "Field-service template ZIP was not found at:\r\n" + _formTemplateLibrary.ZipPath, "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo(_formTemplateLibrary.ZipPath) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Opening form template ZIP", ex);
+            }
+        }
+
+        private void ShowFieldServiceLibrarySummary()
+        {
+            try
+            {
+                if (!_formTemplateLibrary.IsAvailable)
+                {
+                    MessageBox.Show(this, "Field-service form library has not been generated yet.", "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                string body = _formTemplateLibrary.BuildSummary() + Environment.NewLine + Environment.NewLine
+                    + string.Join(Environment.NewLine, _formTemplateLibrary.CountByTrade().Select(kv => kv.Key + ": " + kv.Value))
+                    + Environment.NewLine + Environment.NewLine
+                    + "Use these templates in Jobs, Service Desk, Contracts, Inventory, Purchases, Finance, and Compliance workflows.";
+
+                MessageBox.Show(this, body, "Field-Service Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Reading form template library", ex);
+            }
         }
 
         private void RunCardAction(ExcelImportModule? module, string key)
@@ -1136,8 +1424,8 @@ namespace HVAC_Pro_Desktop.UI
                 _manager = manager;
                 Text = "Company Document Templates";
                 StartPosition = FormStartPosition.CenterParent;
-                Size = new Size(1240, 780);
-                MinimumSize = new Size(1040, 680);
+                Size = new Size(1320, 820);
+                MinimumSize = new Size(1180, 720);
                 BackColor = DS.BgPage;
                 Font = new Font("Segoe UI", 9f);
                 Build();
@@ -1152,9 +1440,9 @@ namespace HVAC_Pro_Desktop.UI
                 Controls.Add(header);
 
                 TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(18), BackColor = DS.BgPage };
-                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
-                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
-                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38f));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320f));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 46f));
+                root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 54f));
                 Controls.Add(root);
 
                 root.Controls.Add(BuildUploadAndListPanel(), 0, 0);
@@ -1165,7 +1453,24 @@ namespace HVAC_Pro_Desktop.UI
             private Control BuildUploadAndListPanel()
             {
                 Panel panel = CardPanel();
-                Panel drop = new Panel { Dock = DockStyle.Top, Height = 154, BackColor = Color.White, AllowDrop = true, Cursor = Cursors.Hand, Padding = new Padding(16) };
+                panel.Padding = new Padding(12);
+
+                TableLayoutPanel layout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 4,
+                    BackColor = Color.White
+                };
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 146f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+                panel.Controls.Add(layout);
+
+                _status = new Label { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 0, 0), TextAlign = ContentAlignment.MiddleLeft, ForeColor = DS.Slate600 };
+
+                Panel drop = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, AllowDrop = true, Cursor = Cursors.Hand, Padding = new Padding(16) };
                 drop.Paint += (s, e) =>
                 {
                     e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -1175,24 +1480,22 @@ namespace HVAC_Pro_Desktop.UI
                 drop.DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
                 drop.DragDrop += (s, e) => UploadFiles((string[])e.Data.GetData(DataFormats.FileDrop));
                 drop.Click += (s, e) => PickAndUpload();
-                drop.Controls.Add(new Label { Text = "Drop company template here", Dock = DockStyle.Top, Height = 34, TextAlign = ContentAlignment.BottomCenter, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 });
                 drop.Controls.Add(new Label { Text = "PDF, Word, Excel, CSV, PNG, JPG, invoice/quotation samples", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate600 });
-                panel.Controls.Add(drop);
+                drop.Controls.Add(new Label { Text = "Drop company template here", Dock = DockStyle.Top, Height = 40, TextAlign = ContentAlignment.BottomCenter, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 });
 
-                FlowLayoutPanel row = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 58, Padding = new Padding(12, 12, 12, 8), BackColor = Color.White };
+                FlowLayoutPanel row = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 10, 0, 8), BackColor = Color.White, WrapContents = false };
                 _type = new ComboBox { Width = 176, DropDownStyle = ComboBoxStyle.DropDownList };
                 _type.Items.AddRange(Enum.GetNames(typeof(CompanyDocumentTemplateType)));
-                _type.SelectedItem = CompanyDocumentTemplateType.Invoice.ToString();
+                _type.SelectedItem = CompanyDocumentTemplateType.Other.ToString();
                 row.Controls.Add(_type);
                 row.Controls.Add(MakeButton("Upload", DS.Primary600, 96, (s, e) => PickAndUpload()));
-                panel.Controls.Add(row);
 
-                _list = new ListBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 10f), IntegralHeight = false };
+                _list = new ListBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false, HorizontalScrollbar = true };
                 _list.SelectedIndexChanged += (s, e) => SelectCurrent();
-                panel.Controls.Add(_list);
-
-                _status = new Label { Dock = DockStyle.Bottom, Height = 34, Padding = new Padding(12, 0, 12, 0), TextAlign = ContentAlignment.MiddleLeft, ForeColor = DS.Slate600 };
-                panel.Controls.Add(_status);
+                layout.Controls.Add(drop, 0, 0);
+                layout.Controls.Add(row, 0, 1);
+                layout.Controls.Add(_list, 0, 2);
+                layout.Controls.Add(_status, 0, 3);
                 return panel;
             }
 
@@ -1200,28 +1503,46 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Panel panel = CardPanel();
                 panel.Padding = new Padding(16);
-                panel.Controls.Add(new Label { Text = "Recognition and field mapping", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 });
-                _recognition = new Label { Dock = DockStyle.Top, Height = 150, ForeColor = DS.Slate600, Font = new Font("Segoe UI", 9f) };
-                panel.Controls.Add(_recognition);
 
-                FlowLayoutPanel toggles = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, FlowDirection = FlowDirection.TopDown, WrapContents = true };
-                _default = new CheckBox { Text = "Set as default for this document type", Width = 260 };
-                _useInvoice = new CheckBox { Text = "Use for Invoices", Width = 150 };
-                _useQuote = new CheckBox { Text = "Use for Quotations", Width = 150 };
-                _usePo = new CheckBox { Text = "Use for POs", Width = 150 };
-                _useReport = new CheckBox { Text = "Use for Reports", Width = 150 };
-                toggles.Controls.AddRange(new Control[] { _default, _useInvoice, _useQuote, _usePo, _useReport });
-                panel.Controls.Add(toggles);
+                TableLayoutPanel layout = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    ColumnCount = 1,
+                    RowCount = 6,
+                    BackColor = Color.White
+                };
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 76f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58f));
+                panel.Controls.Add(layout);
 
-                panel.Controls.Add(new Label { Text = "Manual mapping (Field=Placeholder per line)", Dock = DockStyle.Top, Height = 26, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 });
-                _mapping = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), BorderStyle = BorderStyle.FixedSingle };
-                panel.Controls.Add(_mapping);
-
-                FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 52, Padding = new Padding(0, 10, 0, 0) };
+                FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 12, 0, 0), WrapContents = false };
                 actions.Controls.Add(MakeButton("Save mapping", SaveGreen, 120, (s, e) => SaveSelected()));
                 actions.Controls.Add(MakeButton("Set default", DS.Primary600, 110, (s, e) => SetDefault()));
-                actions.Controls.Add(MakeButton("Open file", DS.Slate700, 92, (s, e) => OpenSelected()));
-                panel.Controls.Add(actions);
+                actions.Controls.Add(MakeButton("Open file", DS.Slate700, 96, (s, e) => OpenSelected()));
+
+                _mapping = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), BorderStyle = BorderStyle.FixedSingle };
+                Label mappingTitle = new Label { Text = "Manual mapping (Field=Placeholder per line)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 };
+
+                FlowLayoutPanel toggles = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new Padding(0, 8, 0, 4) };
+                _default = new CheckBox { Text = "Default for this document type", Width = 230, Height = 26 };
+                _useInvoice = new CheckBox { Text = "Use for Invoices", Width = 150, Height = 26 };
+                _useQuote = new CheckBox { Text = "Use for Quotations", Width = 170, Height = 26 };
+                _usePo = new CheckBox { Text = "Use for POs", Width = 130, Height = 26 };
+                _useReport = new CheckBox { Text = "Use for Reports", Width = 150, Height = 26 };
+                toggles.Controls.AddRange(new Control[] { _default, _useInvoice, _useQuote, _usePo, _useReport });
+
+                _recognition = new Label { Dock = DockStyle.Fill, ForeColor = DS.Slate600, Font = new Font("Segoe UI", 9f) };
+
+                layout.Controls.Add(new Label { Text = "Recognition and field mapping", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 }, 0, 0);
+                layout.Controls.Add(_recognition, 0, 1);
+                layout.Controls.Add(toggles, 0, 2);
+                layout.Controls.Add(mappingTitle, 0, 3);
+                layout.Controls.Add(_mapping, 0, 4);
+                layout.Controls.Add(actions, 0, 5);
                 return panel;
             }
 
@@ -1229,9 +1550,14 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Panel panel = CardPanel();
                 panel.Padding = new Padding(12);
-                panel.Controls.Add(new Label { Text = "Recognized template preview", Dock = DockStyle.Top, Height = 28, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 });
+                TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = Color.White };
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                panel.Controls.Add(layout);
+
+                layout.Controls.Add(new Label { Text = "Recognized template preview", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 }, 0, 0);
                 _preview = new WebBrowser { Dock = DockStyle.Fill, ScriptErrorsSuppressed = true };
-                panel.Controls.Add(_preview);
+                layout.Controls.Add(_preview, 0, 1);
                 return panel;
             }
 
@@ -1251,7 +1577,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 CompanyDocumentTemplateType selectedType = ParseType(_type?.SelectedItem?.ToString());
                 foreach (string file in files ?? new string[0])
-                    _manager.UploadTemplate(file, selectedType);
+                    _manager.UploadTemplate(file, ResolveUploadType(file, selectedType));
                 RefreshTemplates();
                 _status.Text = "Template uploaded, recognized, and ready for mapping.";
             }
@@ -1294,6 +1620,14 @@ namespace HVAC_Pro_Desktop.UI
                 _selected.UseForQuotations = _useQuote.Checked;
                 _selected.UseForPurchaseOrders = _usePo.Checked;
                 _selected.UseForReports = _useReport.Checked;
+                if (_selected.UseForQuotations && !_selected.UseForInvoices)
+                    _selected.DocumentType = CompanyDocumentTemplateType.Quotation;
+                else if (_selected.UseForInvoices && !_selected.UseForQuotations)
+                    _selected.DocumentType = CompanyDocumentTemplateType.Invoice;
+                else if (_selected.UseForPurchaseOrders)
+                    _selected.DocumentType = CompanyDocumentTemplateType.PurchaseOrder;
+                else if (_selected.UseForReports)
+                    _selected.DocumentType = CompanyDocumentTemplateType.Report;
                 _selected.Mapping.Fields.Clear();
                 foreach (string line in (_mapping.Text ?? string.Empty).Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
                 {
@@ -1337,6 +1671,28 @@ namespace HVAC_Pro_Desktop.UI
             {
                 CompanyDocumentTemplateType type;
                 return Enum.TryParse(value, out type) ? type : CompanyDocumentTemplateType.Other;
+            }
+
+            private static CompanyDocumentTemplateType ResolveUploadType(string file, CompanyDocumentTemplateType selectedType)
+            {
+                string name = Path.GetFileNameWithoutExtension(file) ?? string.Empty;
+                if (ContainsAny(name, "quotation", "quote", "tender")) return CompanyDocumentTemplateType.Quotation;
+                if (ContainsAny(name, "invoice", "tax invoice")) return CompanyDocumentTemplateType.Invoice;
+                if (ContainsAny(name, "purchase", "po")) return CompanyDocumentTemplateType.PurchaseOrder;
+                if (ContainsAny(name, "delivery", "challan")) return CompanyDocumentTemplateType.DeliveryNote;
+                if (ContainsAny(name, "letterhead", "header")) return CompanyDocumentTemplateType.Letterhead;
+                if (ContainsAny(name, "contract", "amc")) return CompanyDocumentTemplateType.Contract;
+                if (ContainsAny(name, "report")) return CompanyDocumentTemplateType.Report;
+                return selectedType;
+            }
+
+            private static bool ContainsAny(string value, params string[] needles)
+            {
+                value = value ?? string.Empty;
+                foreach (string needle in needles)
+                    if (value.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return true;
+                return false;
             }
 
             private static Panel CardPanel()

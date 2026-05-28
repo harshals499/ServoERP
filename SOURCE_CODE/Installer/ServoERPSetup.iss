@@ -13,6 +13,7 @@
 #define SqlInstaller "SQLEXPR_x64_ENU.exe"
 #define WebViewInstaller "MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
 #define AppIcon "..\Resources\Branding\servoerp_app.ico"
+#define TermsFile "ServoERP-Terms.rtf"
 
 [Setup]
 AppId={{7B23C9B1-21A0-47A8-9E27-5F3987C32026}
@@ -35,6 +36,7 @@ UninstallDisplayIcon={app}\{#AppExeName}
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
+LicenseFile={#TermsFile}
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible

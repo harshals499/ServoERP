@@ -3,14 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>404 - ServoERP</title>
+    <title>Page Not Found | ServoERP</title>
+    <meta name="description" content="The requested ServoERP website page could not be found." />
+    <link rel="icon" href="./assets/servoerp-logo.png" />
     <style>
       :root {
-        color-scheme: light;
-        font-family: "Segoe UI", Arial, sans-serif;
-        background: #0b1f47;
-        color: #0f172a;
+        --ink: #071b4f;
+        --text: #13234a;
+        --muted: #5f6f8f;
+        --line: #dbe5f4;
+        --blue: #075eea;
       }
 
       * {
@@ -22,61 +24,95 @@
         min-height: 100vh;
         display: grid;
         place-items: center;
+        padding: 24px;
+        color: var(--text);
         background:
-          radial-gradient(circle at 18% 18%, rgba(37, 99, 235, 0.45), transparent 30%),
-          linear-gradient(135deg, #071634 0%, #0b1f47 48%, #123d88 100%);
+          radial-gradient(circle at bottom left, rgba(255, 122, 24, 0.12), transparent 24rem),
+          radial-gradient(circle at top right, rgba(7, 94, 234, 0.14), transparent 30rem),
+          #f6f9fe;
+        font-family: "Segoe UI", Arial, sans-serif;
       }
 
       main {
-        width: min(92vw, 620px);
-        padding: 44px;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        width: min(100%, 760px);
+        padding: clamp(28px, 5vw, 56px);
+        border: 1px solid var(--line);
         border-radius: 18px;
-        background: rgba(255, 255, 255, 0.96);
-        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 24px 70px rgba(8, 22, 61, 0.13);
+        text-align: center;
       }
 
-      .code {
-        margin: 0 0 8px;
-        color: #f97316;
+      img {
+        width: 58px;
+        height: auto;
+        margin-bottom: 14px;
+      }
+
+      strong {
+        display: block;
+        color: var(--blue);
         font-size: 14px;
-        font-weight: 800;
-        letter-spacing: 0.12em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
       }
 
       h1 {
-        margin: 0;
-        color: #08163d;
-        font-size: clamp(36px, 7vw, 64px);
+        margin: 12px 0;
+        color: var(--ink);
+        font-size: clamp(34px, 6vw, 64px);
         line-height: 1;
       }
 
       p {
-        margin: 18px 0 0;
-        color: #475569;
+        margin: 0 auto 24px;
+        max-width: 560px;
+        color: var(--muted);
         font-size: 17px;
-        line-height: 1.6;
+        line-height: 1.7;
       }
 
-      .brand {
-        margin-top: 28px;
-        padding-top: 20px;
-        border-top: 1px solid #dbe3ef;
-        color: #0b2f72;
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+      }
+
+      a {
+        display: inline-flex;
+        min-height: 46px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 10px;
+        padding: 0 18px;
+        border: 1px solid var(--line);
+        color: var(--ink);
         font-weight: 800;
+        text-decoration: none;
+      }
+
+      a.primary {
+        border-color: var(--blue);
+        color: #ffffff;
+        background: var(--blue);
+        box-shadow: 0 12px 28px rgba(7, 94, 234, 0.22);
       }
     </style>
   </head>
   <body>
     <main>
-      <p class="code">404</p>
+      <img src="./assets/servoerp-logo.png" alt="" />
+      <strong>404</strong>
       <h1>Page not found</h1>
       <p>
-        ServoERP is being updated. The site will be available again after the
-        final release page is complete.
+        This ServoERP page is not available yet. Use the homepage for product,
+        pricing, licensing, and demo requests.
       </p>
-      <div class="brand">ServoERP</div>
+      <div class="actions">
+        <a class="primary" href="./index.html">Go to Homepage</a>
+        <a href="./index.html#contact">Contact Support</a>
+      </div>
     </main>
   </body>
 </html>

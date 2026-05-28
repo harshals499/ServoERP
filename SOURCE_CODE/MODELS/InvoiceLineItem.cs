@@ -7,10 +7,13 @@ namespace HVAC_Pro_Desktop.Models
         public int?   StockItemID { get; set; }
         public string Description { get; set; }
         public string HSNCode     { get; set; }
+        public string Category    { get; set; } = "Service";
         public string Unit        { get; set; } = "Nos";
         public decimal Quantity   { get; set; } = 1;
         public decimal Rate       { get; set; }
+        public decimal DiscountPercent { get; set; }
         public decimal GSTPercent { get; set; } = 18m;
+        public string TaxType     { get; set; } = "Taxable";
         public decimal TaxAmount  { get; set; }
         public bool   IsStockItem { get; set; }
         public bool   IsBillable  { get; set; } = true;

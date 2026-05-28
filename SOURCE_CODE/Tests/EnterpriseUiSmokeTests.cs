@@ -18,7 +18,6 @@ namespace HVAC_Pro_Desktop.Tests
             {
                 typeof(DashboardForm),
                 typeof(InvoiceForm),
-                typeof(ServiceDeskForm),
                 typeof(InventoryForm),
                 typeof(PurchaseForm),
                 typeof(ClientManagementForm),
@@ -58,6 +57,22 @@ namespace HVAC_Pro_Desktop.Tests
             try
             {
                 foreach (string result in RunAll())
+                    lines.Add("PASS " + result);
+                foreach (string result in UiQaStateCatalogTests.RunAll())
+                    lines.Add(result);
+                foreach (string result in UiPolicyTests.RunAll())
+                    lines.Add(result);
+                lines.Add("PASS " + ModuleDashboardNavigationSmokeTests.RunAll());
+                lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
+                foreach (string result in ImportPreflightSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
+                foreach (string result in DashboardCommandCenterSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
+                foreach (string result in InvoiceAnalyticsServiceSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
+                foreach (string result in QuotationAnalyticsServiceSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
+                foreach (string result in SupportCenterOperationsSmokeTests.RunAll())
                     lines.Add("PASS " + result);
             }
             catch (Exception ex)

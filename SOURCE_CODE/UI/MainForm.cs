@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.AI;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.Services.Licensing;
@@ -24,6 +25,9 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblUpdateMessage;
         private Label _lblLicenseMessage;
         private Button _btnDownloadUpdate;
+        private Button _btnSupportCenter;
+        private Button _btnAiCopilot;
+        private AiAssistantForm _aiAssistantForm;
         private bool _hideUpdateBannerForSession;
         private UpdateCheckResult _latestUpdateResult;
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
@@ -32,11 +36,12 @@ namespace HVAC_Pro_Desktop.UI
         private UserControl _transientPage;
         private int _currentIndex = -1;
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
-        private const int MaxCachedPages = 18;
+        private const int MaxCachedPages = 19;
         private const int ClientsPageIndex = 1;
         private const int JobsPageIndex = 15;
-        private const int ServiceDeskPageIndex = 16;
+        private const int RetiredServiceDeskPageIndex = 16;
         private const int MasterDataPageIndex = 17;
+        private const int WhatsAppHubPageIndex = 18;
 
         private static readonly Color SbBg = Color.FromArgb(13, 42, 170);
         private static readonly Color SbBgDeep = Color.FromArgb(28, 93, 245);
@@ -47,6 +52,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color SbActiveText = Color.White;
         private static readonly Color SbAccent = DS.Primary500;
         private static readonly Color Border = Color.FromArgb(28, 80, 220);
+        // Sidebar is intentionally word-based. Do not convert it to an icon-only rail.
         private const int SbWidth = 200;
         private const int CompactSbWidth = 155;
         private bool _compactShell;
@@ -69,13 +75,18 @@ namespace HVAC_Pro_Desktop.UI
             ("Payroll", "Y"),
             ("Dispatch Center", "D"),
             ("Jobs", "J"),
-            ("Service Desk", "K"),
+            ("Retired", "K"),
             ("Master Data", "M"),
+            ("WhatsApp Hub", "W"),
         };
 
-        private static readonly int[] RevenueItems = { 0, 6, 3 };
-        private static readonly int[] OperationsItems = { 16, 14, 11, 10, 1, 9, 4 };
-        private static readonly int[] AdminItems = { 17, 2, 15, 13, 12, 7, 8 };
+        private static readonly int[] DashboardItems = { 0 };
+        private static readonly int[] SalesItems = { 6, 3, 10, 4 };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15 };
+        private static readonly int[] HrPayrollItems = { 12, 13 };
+        private static readonly int[] DataComplianceItems = { 17, 2 };
+        private static readonly int[] ReportsItems = { 7 };
+        private static readonly int[] SettingsSupportItems = { 8, 18 };
 
         public MainForm()
         {
@@ -159,6 +170,8 @@ namespace HVAC_Pro_Desktop.UI
 
             BuildUpdateBanner();
             BuildLicenseBanner();
+            BuildAiCopilotLauncher();
+            BuildSupportLauncher();
         }
 
         private void AdjustForScreenSize()
@@ -182,12 +195,119 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (Button button in _navButtons.Values)
             {
-                button.Height = small ? 34 : 42;
-                button.Font = new Font(button.Font.FontFamily, small ? 8.5f : 9.5f, button.Font.Style);
+                button.Height = small ? 28 : 32;
+                button.Font = new Font(button.Font.FontFamily, small ? 8.3f : 9.4f, button.Font.Style);
                 button.Padding = new Padding(small ? 4 : 8, 0, 0, 0);
             }
 
             MinimumSize = new Size(1024, 600);
+            LayoutAiCopilotLauncher();
+            LayoutSupportLauncher();
+        }
+
+        private void BuildAiCopilotLauncher()
+        {
+            _btnAiCopilot = DS.PrimaryBtn("AI Copilot", 128, 38);
+            _btnAiCopilot.UseMnemonic = false;
+            _btnAiCopilot.Name = "btnAiCopilot";
+            _btnAiCopilot.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            ModernIconSystem.AddButtonIcon(_btnAiCopilot, ModernIconKind.Service);
+            _btnAiCopilot.Click += (s, e) => OpenAiCopilot();
+            Controls.Add(_btnAiCopilot);
+            _btnAiCopilot.BringToFront();
+            LayoutAiCopilotLauncher();
+        }
+
+        private void BuildSupportLauncher()
+        {
+            _btnSupportCenter = DS.PrimaryBtn("Help & Support", 148, 38);
+            _btnSupportCenter.UseMnemonic = false;
+            _btnSupportCenter.Name = "btnHelpSupport";
+            _btnSupportCenter.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            ModernIconSystem.AddButtonIcon(_btnSupportCenter, ModernIconKind.Service);
+            _btnSupportCenter.Click += (s, e) =>
+            {
+                _btnSupportCenter.Visible = false;
+                try
+                {
+                    using (var dialog = new SupportCenterDialog())
+                        dialog.ShowDialog(this);
+                }
+                finally
+                {
+                    _btnSupportCenter.Visible = true;
+                    LayoutSupportLauncher();
+                }
+            };
+            Controls.Add(_btnSupportCenter);
+            _btnSupportCenter.BringToFront();
+            LayoutSupportLauncher();
+        }
+
+        private void LayoutSupportLauncher()
+        {
+            if (_btnSupportCenter == null)
+                return;
+
+            int bottomOffset = 22;
+            if (_pnlUpdateBanner != null && _pnlUpdateBanner.Visible)
+                bottomOffset += _pnlUpdateBanner.Height;
+            if (_pnlLicenseBanner != null && _pnlLicenseBanner.Visible)
+                bottomOffset += _pnlLicenseBanner.Height;
+
+            _btnSupportCenter.Left = Math.Max((_sidebar == null ? 0 : _sidebar.Width) + 18, ClientSize.Width - _btnSupportCenter.Width - 24);
+            _btnSupportCenter.Top = Math.Max(20, ClientSize.Height - _btnSupportCenter.Height - bottomOffset);
+            _btnSupportCenter.BringToFront();
+        }
+
+        private void LayoutAiCopilotLauncher()
+        {
+            if (_btnAiCopilot == null)
+                return;
+
+            int bottomOffset = 68;
+            if (_pnlUpdateBanner != null && _pnlUpdateBanner.Visible)
+                bottomOffset += _pnlUpdateBanner.Height;
+            if (_pnlLicenseBanner != null && _pnlLicenseBanner.Visible)
+                bottomOffset += _pnlLicenseBanner.Height;
+
+            _btnAiCopilot.Left = Math.Max((_sidebar == null ? 0 : _sidebar.Width) + 18, ClientSize.Width - _btnAiCopilot.Width - 24);
+            _btnAiCopilot.Top = Math.Max(20, ClientSize.Height - _btnAiCopilot.Height - bottomOffset);
+            _btnAiCopilot.BringToFront();
+        }
+
+        private void OpenAiCopilot()
+        {
+            try
+            {
+                if (_aiAssistantForm == null || _aiAssistantForm.IsDisposed)
+                {
+                    _aiAssistantForm = new AiAssistantForm(GetCurrentAiModuleName);
+                    _aiAssistantForm.Owner = this;
+                    _aiAssistantForm.FormClosed += (s, e) => _aiAssistantForm = null;
+                }
+
+                Rectangle work = Screen.FromControl(this).WorkingArea;
+                int width = Math.Min(460, Math.Max(390, work.Width / 3));
+                _aiAssistantForm.Width = width;
+                _aiAssistantForm.Height = Math.Min(work.Height - 40, Math.Max(600, Height - 60));
+                _aiAssistantForm.Left = Math.Max(work.Left, work.Right - _aiAssistantForm.Width - 18);
+                _aiAssistantForm.Top = Math.Max(work.Top + 18, Top + 28);
+                _aiAssistantForm.Show(this);
+                _aiAssistantForm.BringToFront();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("MainForm.OpenAiCopilot", ex);
+                MessageBox.Show(this, "Unable to open ServoERP Copilot: " + ex.Message, BrandingService.WindowTitle("AI Copilot"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private string GetCurrentAiModuleName()
+        {
+            if (_currentIndex >= 0 && _currentIndex < NavItems.Length)
+                return NavItems[_currentIndex].label;
+            return "Dashboard";
         }
 
         private void BuildUpdateBanner()
@@ -400,29 +520,33 @@ namespace HVAC_Pro_Desktop.UI
             _sidebar.Controls.Add(_sidebarScroll);
 
             _sidebarScroll.Controls.Clear();
-            _sidebarScroll.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 8, BackColor = Color.Transparent });
-            AddNavGroup("SETTINGS", AdminItems);
-            AddNavGroup("OPERATIONS", OperationsItems);
-            AddNavGroup("REVENUE", RevenueItems);
+            _sidebarScroll.Controls.Add(new Panel { Dock = DockStyle.Top, Height = _compactShell ? 4 : 6, BackColor = Color.Transparent });
+            AddNavGroup("SETTINGS & SUPPORT", SettingsSupportItems, false);
+            AddNavGroup("REPORTS", ReportsItems, true);
+            AddNavGroup("DATA & COMPLIANCE", DataComplianceItems, true);
+            AddNavGroup("HR & PAYROLL", HrPayrollItems, true);
+            AddNavGroup("OPERATIONS", OperationsItems, true);
+            AddNavGroup("SALES", SalesItems, true);
+            AddNavGroup("DASHBOARD", DashboardItems, false);
             _sidebarScroll.Controls.Add(MakeSidebarBrandHeader());
             _sidebarScroll.AutoScrollPosition = new Point(0, 0);
         }
 
         private Panel MakeSidebarBrandHeader()
         {
-            int headerHeight = _compactShell ? 54 : 64;
+            int headerHeight = _compactShell ? 48 : 56;
             Panel header = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = headerHeight,
                 BackColor = Color.Transparent,
-                Padding = new Padding(_compactShell ? 12 : 18, _compactShell ? 13 : 18, 12, 8)
+                Padding = new Padding(_compactShell ? 12 : 18, _compactShell ? 10 : 14, 12, 6)
             };
 
             PictureBox logo = new PictureBox
             {
-                Size = new Size(_compactShell ? 28 : 34, _compactShell ? 28 : 34),
-                Location = new Point(header.Padding.Left, _compactShell ? 13 : 15),
+                Size = new Size(_compactShell ? 26 : 32, _compactShell ? 26 : 32),
+                Location = new Point(header.Padding.Left, _compactShell ? 10 : 12),
                 SizeMode = PictureBoxSizeMode.CenterImage,
                 BackColor = Color.Transparent
             };
@@ -444,8 +568,8 @@ namespace HVAC_Pro_Desktop.UI
             Label name = new Label
             {
                 Text = BrandingService.AppName,
-                Location = new Point(logo.Right + 10, _compactShell ? 13 : 16),
-                Size = new Size(Math.Max(60, GetSidebarWidth() - logo.Right - 24), _compactShell ? 28 : 32),
+                Location = new Point(logo.Right + 10, _compactShell ? 9 : 12),
+                Size = new Size(Math.Max(60, GetSidebarWidth() - logo.Right - 24), _compactShell ? 28 : 30),
                 Font = new Font("Segoe UI", _compactShell ? 10f : 11.5f, FontStyle.Bold),
                 ForeColor = Color.White,
                 TextAlign = ContentAlignment.MiddleLeft,
@@ -564,12 +688,12 @@ namespace HVAC_Pro_Desktop.UI
             button.FlatAppearance.BorderSize = 0;
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(35, 104, 148);
             button.FlatAppearance.MouseDownBackColor = Color.FromArgb(17, 57, 84);
-            button.Click += (s, e) => NavigateTo(ServiceDeskPageIndex);
+            button.Click += (s, e) => NavigateTo(JobsPageIndex);
             DS.Rounded(button, 6);
             return button;
         }
 
-        private void AddNavGroup(string label, int[] itemIndexes)
+        private void AddNavGroup(string label, int[] itemIndexes, bool showTopLine)
         {
             var visibleItems = new List<int>();
             foreach (int itemIndex in itemIndexes)
@@ -583,22 +707,44 @@ namespace HVAC_Pro_Desktop.UI
 
             for (int i = visibleItems.Count - 1; i >= 0; i--)
                 _sidebarScroll.Controls.Add(MakeNavBtn(visibleItems[i]));
-            _sidebarScroll.Controls.Add(MakeDivider(label));
+            _sidebarScroll.Controls.Add(MakeDivider(label, showTopLine));
         }
 
-        private Label MakeDivider(string text)
+        private Control MakeDivider(string text, bool showTopLine)
         {
-            return new Label
+            int height = _compactShell ? 24 : 28;
+            Panel wrapper = new Panel
             {
-                Text = "    " + text,
-                Font = new Font("Segoe UI", _compactShell ? 7.4f : 7.8f, FontStyle.Bold),
-                ForeColor = SbMutedText,
                 Dock = DockStyle.Top,
-                Height = _compactShell ? 23 : 26,
+                Height = height,
+                BackColor = Color.Transparent,
+            };
+            if (showTopLine)
+            {
+                Panel line = new Panel
+                {
+                    Height = 1,
+                    Width = Math.Max(1, GetSidebarWidth() - (_compactShell ? 34 : 46)),
+                    Location = new Point(_compactShell ? 17 : 23, 2),
+                    BackColor = Color.FromArgb(54, 103, 222)
+                };
+                wrapper.Controls.Add(line);
+            }
+
+            Label label = new Label
+            {
+                Text = text,
+                Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.2f, FontStyle.Bold),
+                ForeColor = SbMutedText,
+                Location = new Point(_compactShell ? 16 : 22, showTopLine ? 7 : 4),
+                Size = new Size(Math.Max(80, GetSidebarWidth() - (_compactShell ? 28 : 40)), 18),
                 TextAlign = ContentAlignment.MiddleLeft,
                 BackColor = Color.Transparent,
-                Padding = new Padding(_compactShell ? 4 : 8, _compactShell ? 6 : 8, 0, 0)
+                AutoEllipsis = true,
+                UseMnemonic = false
             };
+            wrapper.Controls.Add(label);
+            return wrapper;
         }
 
         private Button MakeNavBtn(int index)
@@ -609,10 +755,10 @@ namespace HVAC_Pro_Desktop.UI
                 Text = string.Empty,
                 AccessibleName = label,
                 Dock = DockStyle.Top,
-                Height = _compactShell ? 32 : 34,
+                Height = _compactShell ? 28 : 32,
                 BackColor = Color.Transparent,
                 ForeColor = SbText,
-                Font = new Font("Segoe UI", _compactShell ? 8.4f : 9.2f),
+                Font = new Font("Segoe UI", _compactShell ? 8.3f : 9.4f),
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand,
                 Tag = index,
@@ -635,7 +781,7 @@ namespace HVAC_Pro_Desktop.UI
             string label = index >= 0 && index < NavItems.Length ? NavItems[index].label : btn.AccessibleName ?? string.Empty;
             bool active = btn.BackColor.ToArgb() == SbActive.ToArgb();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            Rectangle pill = new Rectangle(_compactShell ? 8 : 10, 2, btn.Width - (_compactShell ? 16 : 20), btn.Height - 4);
+            Rectangle pill = new Rectangle(_compactShell ? 8 : 10, 3, btn.Width - (_compactShell ? 16 : 20), btn.Height - 6);
             if (active)
             {
                 using (var path = DS.RoundedRect(pill, 8))
@@ -650,21 +796,21 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             Color fg = active ? Color.White : SbText;
-            int iconX = _compactShell ? 18 : 20;
-            int textX = _compactShell ? 44 : 50;
+            int iconX = _compactShell ? 17 : 20;
+            int textX = _compactShell ? 43 : 51;
             Rectangle iconRect = new Rectangle(iconX, 0, 20, btn.Height);
             Rectangle textRect = new Rectangle(textX, 0, btn.Width - textX - 12, btn.Height);
             TextRenderer.DrawText(
                 e.Graphics,
                 GetNavGlyph(index),
-                new Font("Segoe MDL2 Assets", _compactShell ? 9.5f : 10.5f),
+                new Font("Segoe MDL2 Assets", _compactShell ? 9.6f : 11f),
                 iconRect,
                 Color.FromArgb(active ? 255 : 210, fg),
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             TextRenderer.DrawText(
                 e.Graphics,
                 label,
-                new Font("Segoe UI", _compactShell ? 8.1f : 8.5f, active ? FontStyle.Bold : FontStyle.Regular),
+                new Font("Segoe UI", _compactShell ? 8.15f : 9.5f, active ? FontStyle.Bold : FontStyle.Regular),
                 textRect,
                 fg,
                 TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
@@ -689,8 +835,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 13: return "\uE8C7"; // Payroll
                 case 14: return "\uE8A5"; // Dispatch
                 case 15: return "\uE8F1"; // Jobs
-                case 16: return "\uE90F"; // Service Desk
+                case 16: return "\uE90F"; // Retired
                 case 17: return "\uE8A5"; // Master Data
+                case 18: return "\uE717"; // WhatsApp Hub
                 default: return "\uE10F";
             }
         }
@@ -1011,8 +1158,8 @@ namespace HVAC_Pro_Desktop.UI
                 case 13: page = new PayrollForm(); break;
                 case 14: page = new GeoIntelligenceForm(); break;
                 case 15: page = new JobManagementForm(); break;
-                case 16: page = new ServiceDeskForm(); break;
                 case 17: page = new MasterDataForm(); break;
+                case 18: page = new WhatsAppHubForm(); break;
                 default:
                     var dash = new DashboardForm();
                     dash.OnNavigate = NavigateTo;
@@ -1170,16 +1317,26 @@ namespace HVAC_Pro_Desktop.UI
             var wrap = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = _compactShell ? 82 : 104,
+                Height = _compactShell ? 108 : 118,
                 BackColor = Color.Transparent,
-                Padding = new Padding(14, _compactShell ? 10 : 14, 14, 8)
+                Padding = new Padding(14, _compactShell ? 10 : 14, 14, 8),
+                TabStop = false
             };
 
             var avatar = new Panel
             {
-                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 16 : 20),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 14 : 18),
                 Size = new Size(_compactShell ? 34 : 40, _compactShell ? 34 : 40),
-                BackColor = Color.FromArgb(25, 55, 185)
+                BackColor = Color.Transparent,
+                TabStop = false
+            };
+            avatar.SizeChanged += (s, e) =>
+            {
+                try
+                {
+                    avatar.Region = new Region(new Rectangle(0, 0, avatar.Width, avatar.Height));
+                }
+                catch { }
             };
             avatar.Paint += (s, e) =>
             {
@@ -1188,24 +1345,26 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.FillEllipse(brush, 0, 0, avatar.Width - 1, avatar.Height - 1);
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                 using (Brush textBrush = new SolidBrush(Color.White))
+                using (Font avatarFont = new Font("Segoe UI", _compactShell ? 9.5f : 10.5f, FontStyle.Bold))
                 {
-                    e.Graphics.DrawString(GetUserInitials(), new Font("Segoe UI", 10, FontStyle.Bold), textBrush, new RectangleF(0, 0, avatar.Width - 1, avatar.Height - 1), sf);
+                    e.Graphics.DrawString(GetUserInitials(), avatarFont, textBrush, new RectangleF(0, 0, avatar.Width - 1, avatar.Height - 1), sf);
                 }
             };
 
             var lblName = new Label
             {
                 Text = SessionManager.CurrentUser?.DisplayName ?? "Guest",
-                Location = new Point(_compactShell ? 58 : 70, _compactShell ? 10 : 14),
-                Size = new Size(_compactShell ? 90 : 110, 18),
+                Location = new Point(_compactShell ? 58 : 72, _compactShell ? 10 : 14),
+                Size = new Size(_compactShell ? 82 : 104, 18),
                 Font = new Font("Segoe UI", _compactShell ? 8.25f : 9f, FontStyle.Bold),
-                ForeColor = Color.White
+                ForeColor = Color.White,
+                AutoEllipsis = true
             };
             var lblRole = new Label
             {
                 Text = SessionManager.CurrentUser?.RoleName ?? "No Role",
-                Location = new Point(_compactShell ? 58 : 70, _compactShell ? 30 : 35),
-                Size = new Size(_compactShell ? 68 : 74, 18),
+                Location = new Point(_compactShell ? 58 : 72, _compactShell ? 32 : 38),
+                Size = new Size(_compactShell ? 74 : 82, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8f),
                 ForeColor = Color.White,
                 BackColor = Color.FromArgb(22, 180, 92),
@@ -1215,12 +1374,13 @@ namespace HVAC_Pro_Desktop.UI
             var linkChange = new LinkLabel
             {
                 Text = "Change Password",
-                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 62 : 76),
-                Size = new Size(_compactShell ? 92 : 106, 18),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 82 : 92),
+                Size = new Size(_compactShell ? 110 : 124, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(218, 244, 252),
                 ActiveLinkColor = Color.White,
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                TabStop = false
             };
             linkChange.Click += (s, e) =>
             {
@@ -1233,12 +1393,13 @@ namespace HVAC_Pro_Desktop.UI
             var linkSearch = new LinkLabel
             {
                 Text = "Search",
-                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 45 : 56),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 60 : 70),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(218, 244, 252),
                 ActiveLinkColor = Color.White,
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                TabStop = false
             };
             linkSearch.Click += (s, e) =>
             {
@@ -1248,12 +1409,13 @@ namespace HVAC_Pro_Desktop.UI
             var linkAlerts = new LinkLabel
             {
                 Text = "Alerts",
-                Location = new Point(_compactShell ? 66 : 78, _compactShell ? 45 : 56),
+                Location = new Point(_compactShell ? 66 : 78, _compactShell ? 60 : 70),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(254, 240, 138),
                 ActiveLinkColor = Color.White,
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                TabStop = false
             };
             linkAlerts.Click += (s, e) =>
             {
@@ -1263,12 +1425,13 @@ namespace HVAC_Pro_Desktop.UI
             var linkLogout = new LinkLabel
             {
                 Text = "Logout",
-                Location = new Point(_compactShell ? 118 : 140, _compactShell ? 62 : 76),
-                Size = new Size(42, 18),
+                Location = new Point(_compactShell ? 110 : 148, _compactShell ? 60 : 70),
+                Size = new Size(_compactShell ? 42 : 44, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(248, 113, 113),
                 ActiveLinkColor = Color.FromArgb(254, 202, 202),
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                TabStop = false
             };
             linkLogout.Click += (s, e) =>
             {
@@ -1381,7 +1544,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool CanViewNavItem(int index)
         {
-            if (index < 0 || index >= NavItems.Length)
+            if (index < 0 || index >= NavItems.Length || index == RetiredServiceDeskPageIndex)
                 return false;
 
             string moduleKey = GetModuleKeyForNav(index);
@@ -1423,13 +1586,16 @@ namespace HVAC_Pro_Desktop.UI
                 case "SERVICEDESK":
                 case "SERVICE DESK":
                 case "INCIDENTS":
-                case "TICKETS": return ServiceDeskPageIndex;
+                case "TICKETS": return JobsPageIndex;
                 case "MASTERDATA":
                 case "MASTER DATA":
                 case "DATAUPLOAD":
                 case "DATA UPLOAD":
                 case "CLIENTSETUP":
                 case "CLIENT SETUP": return MasterDataPageIndex;
+                case "WHATSAPP":
+                case "WHATSAPPHUB":
+                case "WHATSAPP HUB": return WhatsAppHubPageIndex;
                 default: return 0;
             }
         }
@@ -1454,8 +1620,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 13: return "Payroll";
                 case 14: return "GeoIntelligence";
                 case 15: return "WorkOrders";
-                case 16: return "ServiceDesk";
+                case 16: return "WorkOrders";
                 case 17: return "MasterData";
+                case 18: return "Dashboard";
                 default: return "Dashboard";
             }
         }

@@ -29,6 +29,7 @@ namespace HVAC_Pro_Desktop.Models
         public bool     AddToClientInvoice { get; set; }
         public bool     PendingChargeCreated { get; set; }
         public string   ReceiptImagePath { get; set; }
+        public string   PdfPath { get; set; }
         public bool     PriceVarianceFlag { get; set; }
         public int?     CreatedByUserId { get; set; }
         public string   CreatedByName { get; set; }

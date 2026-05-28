@@ -1,0 +1,16 @@
+{
+  "name": "servoerp-marketing-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node ./src/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "nodemailer": "^8.0.7"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.60.0"
+  }
+}
