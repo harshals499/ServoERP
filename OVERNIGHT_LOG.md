@@ -36,6 +36,8 @@ Jobs left-pane redesign brief: the Jobs reference screenshots show the left acti
 
 GENESIS UI authority brief: user requested a durable GENESIS UI Agent rule that removes page/module/file restrictions for UI redesign. `AGENTS.md` now gives GENESIS full UI-layer authority, uses `JobManagementForm.cs` at commit `34c1511` as the canonical action-area reference, and keeps non-UI hard limits intact. The global UI QA ruleset was aligned so it does not override that GENESIS authority.
 
+Invoices action-rail redesign brief: the Invoices reference shows every operational action exposed as a fixed right-rail button grid, which makes the page feel dense and fragile at restored widths. Redesign the Quick Actions card to keep Save Draft prominent while moving secondary invoice operations into a Jobs-style menu. This preserves all invoice workflows and event handlers while making the right rail calmer, more scalable, and consistent with the GENESIS action-area pattern.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -43,6 +45,7 @@ GENESIS UI authority brief: user requested a durable GENESIS UI Agent rule that 
 - Clipboard resilience: shared UI copy helper now catches busy-clipboard failures, logs the issue, and shows an actionable warning instead of allowing Copy actions to crash the UI.
 - UI reference source unblocked: mandatory rules now point to the accessible repo-local baseline folder, and `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` links to the same 90-image reference set.
 - Jobs dashboard GENESIS redesign: the dashboard now fits restored-width workspaces better, keeps the right-rail Quick Actions reachable through a compact action menu, and gives the Jobs detail list header a clearer responsive action grid.
+- Invoices GENESIS redesign: the Quick Actions rail now keeps Save Draft as the primary action and groups secondary invoice actions into a compact menu instead of a crowded fixed button grid.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -51,6 +54,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Jobs quick-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-064628.txt`.
 - Enterprise UI smoke test passed after clipboard resilience fix: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-070136.txt`.
 - Enterprise UI smoke test passed after Jobs dashboard redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-072714.txt`.
+- Enterprise UI smoke test passed after Invoices action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-073915.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -75,6 +79,9 @@ Validation completed:
 - Captured Jobs quick-action fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-quick-actions-visible-20260528-064837.png`.
 - Captured clipboard resilience fresh-launch screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\clipboard-resilience-launch-20260528-070220.png`.
 - Captured Jobs dashboard redesign screenshot: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-jobs-redesign-validated5-20260528-072631.png`.
+- Captured Invoices dashboard render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-invoices-action-rail-render-20260528-074140.png`.
+- Captured Invoices workspace action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-invoices-action-rail-workspace-20260528-074218.png`.
+- Fresh Debug executable launch started a responsive `HVAC_Pro_Desktop` process after the Invoices redesign, but no visible main window handle was exposed in this desktop session. Direct form rendering was used for visual validation of the changed Invoices workspace.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
@@ -93,3 +100,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `54a9e95` chore: ignore local workspace artifacts.
 - `6d0787c` genesis: complete jobs dashboard quick actions.
 - `8ea94c2` fix: harden clipboard copy actions.
+- `2c1cc34` genesis: redesign invoice action rail.

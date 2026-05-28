@@ -1055,41 +1055,63 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildQuickActionsCard()
         {
-            Panel card = CreateInvoiceCard("QUICK ACTIONS", 308);
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 4, Padding = new Padding(0, 46, 0, 6) };
-            for (int i = 0; i < 2; i++) grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            for (int i = 0; i < 4; i++) grid.RowStyles.Add(new RowStyle(SizeType.Percent, 25f));
+            Panel card = CreateInvoiceCard("QUICK ACTIONS", 190);
+            card.Controls.Add(new Label
+            {
+                Text = "Save the draft, then open invoice operations when needed.",
+                Location = new Point(20, 48),
+                Size = new Size(card.Width - 40, 34),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 8.15f),
+                ForeColor = DS.Slate600
+            });
+
             _btnSaveInvoice = MakeSoftAction("Save Draft", InfoBlue);
-            Button approve = MakeSoftAction("Send for Approval", SaveGreen);
-            Button pdf = MakeSoftAction("Generate PDF", DS.Red600);
-            Button email = MakeSoftAction("Email Invoice", DS.Primary600);
-            Button receipt = MakeSoftAction("Convert to Receipt", SaveGreen);
-            Button credit = MakeSoftAction("Create Credit Note", OrangeCol);
-            Button whatsapp = MakeSoftAction("WhatsApp Reminder", SaveGreen);
-            Button delete = MakeSoftAction("Delete Invoice", DS.Red600);
+            _btnSaveInvoice.Location = new Point(20, 88);
+            _btnSaveInvoice.Size = new Size(card.Width - 40, 38);
+            _btnSaveInvoice.Dock = DockStyle.None;
+            _btnSaveInvoice.Margin = Padding.Empty;
+            _btnSaveInvoice.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            _btnSaveInvoice.Font = new Font("Segoe UI", 8.8f, FontStyle.Bold);
             ModernIconSystem.AddButtonIcon(_btnSaveInvoice, ModernIconKind.Save);
-            ModernIconSystem.AddButtonIcon(approve, ModernIconKind.Status);
-            ModernIconSystem.AddButtonIcon(pdf, ModernIconKind.Document);
-            ModernIconSystem.AddButtonIcon(email, ModernIconKind.Email);
-            ModernIconSystem.AddButtonIcon(receipt, ModernIconKind.Payment);
-            ModernIconSystem.AddButtonIcon(credit, ModernIconKind.Invoice);
-            ModernIconSystem.AddButtonIcon(whatsapp, ModernIconKind.Phone);
             _btnSaveInvoice.Click += BtnSave_Click;
-            approve.Click += BtnFinalise_Click;
-            pdf.Click += BtnPreview_Click;
-            email.Click += (s, e) => EmailInvoiceFromCurrent();
-            receipt.Click += BtnRecordPayment_Click;
-            credit.Click += BtnCreateCreditNote_Click;
-            whatsapp.Click += (s, e) => ShowInvoiceWhatsAppAction();
-            delete.Click += (s, e) => DeleteCurrentInvoice();
-            grid.Controls.Add(_btnSaveInvoice, 0, 0); grid.Controls.Add(approve, 1, 0);
-            grid.Controls.Add(pdf, 0, 1); grid.Controls.Add(email, 1, 1);
-            grid.Controls.Add(receipt, 0, 2); grid.Controls.Add(credit, 1, 2);
-            grid.Controls.Add(whatsapp, 0, 3); grid.Controls.Add(delete, 1, 3);
-            card.Controls.Add(grid);
+
+            Button openActions = MakeSoftAction("Open Invoice Actions", DS.Slate700);
+            openActions.Location = new Point(20, 134);
+            openActions.Size = new Size(card.Width - 40, 34);
+            openActions.Dock = DockStyle.None;
+            openActions.Margin = Padding.Empty;
+            openActions.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            openActions.Font = new Font("Segoe UI", 8.4f, FontStyle.Bold);
+            ModernIconSystem.AddButtonIcon(openActions, ModernIconKind.ChevronDown);
+            openActions.Click += (s, e) => ShowInvoiceQuickActionsMenu(openActions);
+
+            card.Controls.Add(_btnSaveInvoice);
+            card.Controls.Add(openActions);
             foreach (Label label in card.Controls.OfType<Label>())
                 label.BringToFront();
             return card;
+        }
+
+        private void ShowInvoiceQuickActionsMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddInvoiceActionMenuItem(menu, "Send for Approval", (s, e) => BtnFinalise_Click(s, e));
+            AddInvoiceActionMenuItem(menu, "Generate PDF", (s, e) => BtnPreview_Click(s, e));
+            AddInvoiceActionMenuItem(menu, "Email Invoice", (s, e) => EmailInvoiceFromCurrent());
+            AddInvoiceActionMenuItem(menu, "Convert to Receipt", (s, e) => BtnRecordPayment_Click(s, e));
+            AddInvoiceActionMenuItem(menu, "Create Credit Note", (s, e) => BtnCreateCreditNote_Click(s, e));
+            AddInvoiceActionMenuItem(menu, "WhatsApp Reminder", (s, e) => ShowInvoiceWhatsAppAction());
+            menu.Items.Add(new ToolStripSeparator());
+            AddInvoiceActionMenuItem(menu, "Delete Invoice", (s, e) => DeleteCurrentInvoice());
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddInvoiceActionMenuItem(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private void ShowInvoiceWhatsAppAction()
