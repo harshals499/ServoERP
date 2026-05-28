@@ -290,8 +290,20 @@ namespace HVAC_Pro_Desktop.UI
             if (!string.IsNullOrWhiteSpace(query) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase))
                 filtered = filtered.Where(c => (c.Name ?? string.Empty).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 || (c.Phone ?? string.Empty).Contains(query));
 
+            List<WhatsAppContact> visible = filtered.Take(18).ToList();
+            if (visible.Count == 0)
+            {
+                Panel empty = BuildConversationEmptyState(HasConversationFilters());
+                empty.Location = new Point(0, 14);
+                empty.Width = Math.Max(300, _conversationList.ClientSize.Width - 18);
+                empty.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                _conversationList.Controls.Add(empty);
+                _conversationList.ResumeLayout();
+                return;
+            }
+
             int y = 2;
-            foreach (WhatsAppContact contact in filtered.Take(18))
+            foreach (WhatsAppContact contact in visible)
             {
                 Panel row = ConversationRow(contact);
                 row.Location = new Point(0, y);
@@ -302,6 +314,53 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _conversationList.ResumeLayout();
+        }
+
+        private bool HasConversationFilters()
+        {
+            string query = (_conversationSearch.Text ?? string.Empty).Trim();
+            return !string.Equals(_activeTab, "All", StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(query) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private Panel BuildConversationEmptyState(bool filtered)
+        {
+            Panel panel = new Panel { Height = 176, BackColor = DS.White };
+            DS.Rounded(panel, 12);
+            panel.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
+            Label icon = ModernIconSystem.Badge(ModernIconKind.Phone, 42, WhatsAppGreenLight, WhatsAppGreen, 12);
+            icon.Location = new Point(22, 24);
+            Label title = new Label
+            {
+                Text = filtered ? "No contacts match" : "No WhatsApp contacts",
+                Location = new Point(76, 26),
+                Size = new Size(210, 22),
+                Font = DS.BodyBold,
+                ForeColor = DS.Slate900
+            };
+            Label hint = new Label
+            {
+                Text = filtered ? "Clear the current search or tab to return to the full contact list." : "Clients, vendors, and team contacts will appear here once available.",
+                Location = new Point(76, 52),
+                Size = new Size(210, 44),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            Button clear = DS.GhostBtn("Clear Filters", 120, 32);
+            clear.Location = new Point(76, 108);
+            clear.Visible = filtered;
+            clear.Click += (s, e) =>
+            {
+                _conversationSearch.Clear();
+                _activeTab = "All";
+                RenderTabs();
+                RenderConversations();
+            };
+            panel.Controls.Add(icon);
+            panel.Controls.Add(title);
+            panel.Controls.Add(hint);
+            panel.Controls.Add(clear);
+            return panel;
         }
 
         private Panel ConversationRow(WhatsAppContact contact)
