@@ -40,7 +40,7 @@ Deployment preparation completed on 2026-05-28:
 Artifact policy cleanup completed on 2026-05-28:
 
 - Generated QA screenshots, UI baseline image captures, local validation screenshots, and update package zips were moved out of Git tracking while remaining on disk locally.
-- `.gitignore` now blocks generated deployment output, QA captures, local tool runtimes, recovered data folders, and website update zips from future commits.
+- `.gitignore` now blocks generated deployment output, QA captures, local reports, local resource duplicates, local Codex config, local tool runtimes, recovered data folders, and website update artifacts from future commits.
 - Source code, project docs, tests, website source, and release scripts remain trackable.
 
 Validation completed:
@@ -68,3 +68,5 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `0dd91a9` chore: add autonomous agent core and genesis log.
 - `afc16a1` chore: record genesis validation results.
 - `7906396` chore: package servoerp genesis release.
+- `90cb9cf` chore: record release commit in overnight log.
+- `6e2fc56` chore: move generated artifacts out of git tracking.

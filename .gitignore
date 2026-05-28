@@ -34,6 +34,10 @@
 
 # Logs and temporary scripts generated during manual QA
 *.log
+/BACK_BUTTON_REPORT.md
+/BUTTON_WIRING_REPORT.md
+/UI_QA_REPORT.md
+/agent_log.md
 /audit_click.ps1
 /read_data.ps1
 /temp_verify.cs
@@ -42,6 +46,7 @@
 /*.dll
 /*.xml
 /*.exe
+/*.exe.bak_*
 /*.pdb
 /unins000.*
 /LOGS/
@@ -78,7 +83,7 @@
 /marketing_site/node_modules/
 /marketing_site/data/
 /marketing_site/.wrangler/
-/marketing_site/updates/*.zip
+/marketing_site/updates/
 
 # Local tool runtimes and downloaded binaries
 /TOOLS/PortableGit/
@@ -98,5 +103,7 @@
 /client_upload_letterhead/
 /issued_licenses/
 /research_downloads/
+/Resources/
+/SOURCE_CODE/.codex/
 /runtimes/runtimes/
 /whatsapp-integration-service/node_modules/
