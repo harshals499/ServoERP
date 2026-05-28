@@ -1010,41 +1010,64 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(new Label { Text = "Quick Actions", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
             _btnSaveQuote = MakeBtn("Save Draft", SaveGreen, 270);
             Button approval = MakeBtn("Send for Approval", InfoBlue, 270);
-            Button pdf = MakeBtn("Generate PDF", CargoPurple, 270);
-            Button po = MakeOutlineBtn("Send Supplier PO", 270);
-            Button invoice = MakeOutlineBtn("Create Customer Invoice", 270);
-            Button dispatch = MakeBtn("Create Revenue Job", CargoPurple, 270);
-            Button whatsapp = MakeOutlineBtn("WhatsApp Follow-up", 270);
-            Button delete = MakeBtn("Delete Quote", Color.FromArgb(220, 38, 38), 270);
-            Button[] buttons = { _btnSaveQuote, approval, pdf, po, invoice, dispatch, whatsapp, delete };
+            Button actions = MakeOutlineBtn("Open Quote Actions", 270);
+            Label hint = new Label
+            {
+                Text = "PDFs, supplier POs, invoices, jobs,\r\nWhatsApp follow-ups, and delete live here.",
+                Location = new Point(18, 150),
+                Size = new Size(270, 70),
+                Font = new Font("Segoe UI", 8.25f),
+                ForeColor = QuoteMuted
+            };
+            Button[] buttons = { _btnSaveQuote, approval, actions };
             for (int i = 0; i < buttons.Length; i++)
             {
-                buttons[i].Height = 30;
-                buttons[i].Location = new Point(18, 40 + (i * 33));
+                buttons[i].Height = 34;
+                buttons[i].Location = new Point(18, 44 + (i * 40));
             }
             RegisterFilledButton(_btnSaveQuote, SaveGreen);
             RegisterFilledButton(approval, InfoBlue);
-            RegisterFilledButton(pdf, CargoPurple);
-            RegisterFilledButton(dispatch, CargoPurple);
-            RegisterSecondaryButton(po);
-            RegisterSecondaryButton(invoice);
-            RegisterSecondaryButton(whatsapp);
+            RegisterSecondaryButton(actions);
             _btnSaveQuote.Click += async (s, e) => await SaveAsync();
             approval.Click += (s, e) => SendForApproval();
-            pdf.Click += (s, e) => PrintQuotationToPdf();
-            po.Click += async (s, e) => await CreatePurchaseOrdersAsync();
-            invoice.Click += async (s, e) => await CreateInvoiceAsync();
-            dispatch.Click += async (s, e) => await CreateDispatchJobAsync();
-            whatsapp.Click += (s, e) => ShowQuotationWhatsAppAction();
-            delete.Click += async (s, e) => await DeleteCurrentQuoteAsync();
+            actions.Click += (s, e) => ShowQuoteActionsMenu(actions);
             card.Controls.AddRange(buttons);
+            card.Controls.Add(hint);
             card.Resize += (s, e) =>
             {
                 int width = Math.Max(180, card.ClientSize.Width - 36);
                 foreach (Button button in buttons)
                     button.Width = width;
+                hint.Width = width;
             };
             return card;
+        }
+
+        private void ShowQuoteActionsMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddQuoteAction(menu, "Generate PDF", () => PrintQuotationToPdf());
+            AddQuoteAction(menu, "Send Supplier PO", CreatePurchaseOrdersAsync);
+            AddQuoteAction(menu, "Create Customer Invoice", CreateInvoiceAsync);
+            AddQuoteAction(menu, "Create Revenue Job", CreateDispatchJobAsync);
+            AddQuoteAction(menu, "WhatsApp Follow-up", () => ShowQuotationWhatsAppAction());
+            menu.Items.Add(new ToolStripSeparator());
+            AddQuoteAction(menu, "Delete Quote", DeleteCurrentQuoteAsync);
+            menu.Show(owner, new Point(0, owner.Height + 2));
+        }
+
+        private static void AddQuoteAction(ContextMenuStrip menu, string text, Action action)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += (s, e) => action();
+            menu.Items.Add(item);
+        }
+
+        private static void AddQuoteAction(ContextMenuStrip menu, string text, Func<Task> action)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += async (s, e) => await action();
+            menu.Items.Add(item);
         }
 
         private void ShowQuotationWhatsAppAction()

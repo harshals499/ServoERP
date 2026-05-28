@@ -61,6 +61,8 @@ Payroll More-menu completion brief: the Payroll reference includes a prominent M
 
 Service Desk filtered-empty workflow brief: the Service Desk reference shows active incident context and KPI counts while the left incident queue can collapse to a generic "No records found" message under search/filter state. Replace the dead-end empty state with a clear explanation and a Clear Filters recovery action so dispatch/support users can get back to the queue without guessing which filter hid the records.
 
+Quotations action-rail redesign brief: the Quotations reference shows a tall right-side Quick Actions stack with save, approval, PDF, conversion, dispatch, WhatsApp, and delete actions all competing visually. Keep Save Draft and Send for Approval visible as the high-frequency actions, then move secondary quote operations into an Open Quote Actions menu so the rail scans cleanly without removing any workflow.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -80,6 +82,7 @@ Service Desk filtered-empty workflow brief: the Service Desk reference shows act
 - Employees GENESIS workflow polish: the employee list now has a Clear Filters command and tells users when search/filter criteria produce no matches.
 - Payroll GENESIS completion: the header More button now opens a real Payroll Actions menu instead of a dead-end informational message.
 - Service Desk GENESIS workflow polish: the orphaned Service Desk form is back in the compiled app project, and its incident queue empty state now distinguishes true empty data from filtered-empty results with a Clear Filters action.
+- Quotations GENESIS redesign: the Quick Actions rail now keeps Save Draft and Send for Approval visible while grouping PDF, supplier PO, invoice, dispatch job, WhatsApp, and delete operations into a compact Quote Actions menu.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -101,6 +104,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Employees filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-082207.txt`.
 - Enterprise UI smoke test passed after Payroll More-menu completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-082656.txt`.
 - Enterprise UI smoke test passed after Service Desk compilation and filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-083734.txt`.
+- Enterprise UI smoke test passed after Quotations action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-084400.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -146,6 +150,7 @@ Validation completed:
 - Captured Employees direct render for clear-filter layout: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-employees-clear-filters-direct-20260528-082305.png`.
 - Captured Payroll More-menu completion render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payroll-more-menu-20260528-082722.png`.
 - Captured Service Desk filtered-empty render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-servicedesk-filter-empty-fixed-20260528-083758.png`.
+- Captured Quotations action-menu render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-quotations-action-menu-fixed-20260528-084421.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
