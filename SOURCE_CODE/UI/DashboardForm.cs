@@ -194,7 +194,7 @@ namespace HVAC_Pro_Desktop.UI
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.Client, "#eff6ff", "#2563eb", "Clients", Count(activeClients), "Active Clients", outstanding > 0 ? Money(outstanding) : "-", "Outstanding", null, 1, DS.Green600));
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.Inventory, "#faf5ff", "#9333ea", "Inventory / Materials", Count(lowStock), "Low Stock Items", Count(outStock), "Out of Stock Items", null, 11, lowStock > 0 ? Color.FromArgb(217, 119, 6) : (Color?)null, outStock > 0 ? DS.Red500 : (Color?)null));
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.User, "#eff6ff", "#2563eb", "Employees", Count(activeEmployees), "Active Employees", Count(leaveToday), "On Leave Today", null, 12, DS.Green600));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Service, "#eff6ff", "#2563eb", "Service Operations", Count(openTickets), "Open Service Tickets", Count(highTickets), "High Priority", null, 16, null, highTickets > 0 ? DS.Red500 : (Color?)null));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Service, "#eff6ff", "#2563eb", "Service Operations", Count(openTickets), "Open Service Tickets", Count(highTickets), "High Priority", null, 15, null, highTickets > 0 ? DS.Red500 : (Color?)null));
 
             _root.Controls.Add(row1);
             _root.Controls.Add(row2);
