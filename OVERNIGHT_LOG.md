@@ -100,4 +100,4 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `54a9e95` chore: ignore local workspace artifacts.
 - `6d0787c` genesis: complete jobs dashboard quick actions.
 - `8ea94c2` fix: harden clipboard copy actions.
-- `2c1cc34` genesis: redesign invoice action rail.
+- `689ac65` genesis: redesign invoice action rail.
