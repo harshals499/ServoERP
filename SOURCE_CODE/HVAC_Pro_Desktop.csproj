@@ -399,6 +399,9 @@
     <Compile Include="UI\GeoIntelligenceForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\ServiceDeskForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\JobManagementForm.cs">
       <SubType>UserControl</SubType>
     </Compile>

@@ -64,6 +64,9 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnResolve;
         private Button _btnClose;
         private Panel _emptyIncidentsPanel;
+        private Label _lblEmptyIncidentsTitle;
+        private Label _lblEmptyIncidentsHint;
+        private Button _btnClearIncidentFilters;
         private Label _lblMeta;
         private Label _lblBreadcrumb;
         private Panel _incidentTabContent;
@@ -609,7 +612,48 @@ namespace HVAC_Pro_Desktop.UI
             List<ServiceDeskIncident> rows = query.ToList();
             _grid.DataSource = rows;
             if (_emptyIncidentsPanel != null)
-                _emptyIncidentsPanel.Visible = rows.Count == 0;
+            {
+                bool empty = rows.Count == 0;
+                UpdateEmptyIncidentsPanel(empty);
+                _grid.Visible = !empty;
+                _emptyIncidentsPanel.Visible = empty;
+                if (empty)
+                    _emptyIncidentsPanel.BringToFront();
+            }
+        }
+
+        private bool HasIncidentFilters()
+        {
+            string search = (_txtSearch?.Text ?? string.Empty).Trim();
+            string filter = _cmbFilter?.SelectedItem as string ?? "All";
+            return !string.IsNullOrWhiteSpace(search) || !string.Equals(filter, "All", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ClearIncidentFilters()
+        {
+            if (_txtSearch == null || _cmbFilter == null)
+                return;
+
+            if (_txtSearch.TextLength > 0)
+                _txtSearch.Clear();
+            if (_cmbFilter.SelectedIndex != 0 && _cmbFilter.Items.Count > 0)
+                _cmbFilter.SelectedIndex = 0;
+            BindGrid();
+            SetStatus("Incident filters cleared.", Blue);
+        }
+
+        private void UpdateEmptyIncidentsPanel(bool visible)
+        {
+            if (!visible || _lblEmptyIncidentsTitle == null || _lblEmptyIncidentsHint == null)
+                return;
+
+            bool filtered = HasIncidentFilters();
+            _lblEmptyIncidentsTitle.Text = filtered ? "No matching incidents" : "No incidents yet";
+            _lblEmptyIncidentsHint.Text = filtered
+                ? "Clear the current search or filter to see the full queue."
+                : "New incidents will appear here once they are logged.";
+            if (_btnClearIncidentFilters != null)
+                _btnClearIncidentFilters.Visible = filtered;
         }
 
         private void NewIncident()
@@ -1166,14 +1210,21 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildEmptyIncidentsPanel()
         {
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = White, Visible = false };
-            Panel content = new Panel { Size = new Size(190, 150), BackColor = Color.Transparent };
+            Panel content = new Panel { Size = new Size(230, 195), BackColor = Color.Transparent };
             content.Anchor = AnchorStyles.None;
             content.Location = new Point(95, 210);
             Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Document, 70, Color.FromArgb(241, 245, 255), DS.Primary600);
-            icon.Location = new Point(60, 0);
-            Label text = new Label { Text = "No records found.", Location = new Point(0, 92), Size = new Size(190, 28), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter };
+            icon.Location = new Point(80, 0);
+            _lblEmptyIncidentsTitle = new Label { Text = "No incidents yet", Location = new Point(0, 84), Size = new Size(230, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate800, TextAlign = ContentAlignment.MiddleCenter };
+            _lblEmptyIncidentsHint = new Label { Text = "New incidents will appear here once they are logged.", Location = new Point(0, 110), Size = new Size(230, 38), Font = new Font("Segoe UI", 8.25f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.TopCenter };
+            _btnClearIncidentFilters = MakeButton("Clear Filters", Color.FromArgb(239, 246, 255), DS.Primary700, 128);
+            _btnClearIncidentFilters.Location = new Point(51, 154);
+            _btnClearIncidentFilters.Visible = false;
+            _btnClearIncidentFilters.Click += (s, e) => ClearIncidentFilters();
             content.Controls.Add(icon);
-            content.Controls.Add(text);
+            content.Controls.Add(_lblEmptyIncidentsTitle);
+            content.Controls.Add(_lblEmptyIncidentsHint);
+            content.Controls.Add(_btnClearIncidentFilters);
             panel.Controls.Add(content);
             panel.Resize += (s, e) =>
             {

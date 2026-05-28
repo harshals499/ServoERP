@@ -13,6 +13,7 @@ GENESIS full run requested. Deployment was explicitly requested by the user but 
 - Fixed typo and dead-end guidance in the Clients dashboard upcoming renewals toast.
 - Replaced a "coming soon" client revenue toast with actionable report navigation guidance.
 - Hardened optional invoice mapper fields to use safe conversion helpers instead of direct SQL value casts, addressing repeated `InvalidCastException` crashes seen in today's crash log.
+- Service Desk form was present in source but omitted from the desktop project compilation; added it back to the project so future builds validate the page.
 
 ## Features Completed
 
@@ -58,6 +59,8 @@ Employees filtered-empty workflow brief: the Employees reference shows a loaded 
 
 Payroll More-menu completion brief: the Payroll reference includes a prominent More button, but source recon showed it only displays a generic message instead of actions. Replace the dead-end toast with a real Payroll Actions menu wired to existing run, lock, import, forms, export register, and payslip generation workflows.
 
+Service Desk filtered-empty workflow brief: the Service Desk reference shows active incident context and KPI counts while the left incident queue can collapse to a generic "No records found" message under search/filter state. Replace the dead-end empty state with a clear explanation and a Clear Filters recovery action so dispatch/support users can get back to the queue without guessing which filter hid the records.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -76,6 +79,7 @@ Payroll More-menu completion brief: the Payroll reference includes a prominent M
 - Contracts GENESIS redesign: the right Actions rail now exposes Save Contract and a compact Contract Actions menu instead of passive guidance text.
 - Employees GENESIS workflow polish: the employee list now has a Clear Filters command and tells users when search/filter criteria produce no matches.
 - Payroll GENESIS completion: the header More button now opens a real Payroll Actions menu instead of a dead-end informational message.
+- Service Desk GENESIS workflow polish: the orphaned Service Desk form is back in the compiled app project, and its incident queue empty state now distinguishes true empty data from filtered-empty results with a Clear Filters action.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -96,6 +100,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Contracts header/action polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081735.txt`.
 - Enterprise UI smoke test passed after Employees filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-082207.txt`.
 - Enterprise UI smoke test passed after Payroll More-menu completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-082656.txt`.
+- Enterprise UI smoke test passed after Service Desk compilation and filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-083734.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -140,6 +145,7 @@ Validation completed:
 - Hosted Employees validation render closed itself in unauthenticated validation context due the existing permission/session helper.
 - Captured Employees direct render for clear-filter layout: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-employees-clear-filters-direct-20260528-082305.png`.
 - Captured Payroll More-menu completion render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-payroll-more-menu-20260528-082722.png`.
+- Captured Service Desk filtered-empty render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-servicedesk-filter-empty-fixed-20260528-083758.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input
@@ -159,3 +165,15 @@ Three source files touched by this GENESIS run already contained large pre-exist
 - `6d0787c` genesis: complete jobs dashboard quick actions.
 - `8ea94c2` fix: harden clipboard copy actions.
 - `689ac65` genesis: redesign invoice action rail.
+- `ec735cb` chore: record invoice action rail commit.
+- `ed32e9d` genesis: redesign purchase action rail.
+- `8285fa9` genesis: enrich payment action card.
+- `5b79a36` genesis: streamline vendor dashboard actions.
+- `7a5cd57` genesis: polish vendor document card title.
+- `b96825c` genesis: redesign inventory stock actions.
+- `25cc7b3` genesis: complete client activity navigation.
+- `69ead4e` genesis: complete client activity detail actions.
+- `ea71385` genesis: redesign contract action rail.
+- `c6a60bb` genesis: improve employee filtered empty state.
+- `84151cd` genesis: complete payroll more actions.
+- `d952f95` genesis: improve service desk filtered empty state.
