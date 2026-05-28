@@ -138,7 +138,7 @@ namespace HVAC_Pro_Desktop.UI
             btnLock.Click += (s, e) => LockCurrentPayroll();
             _btnImport.Click += (s, e) => ImportHistoricalData();
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payroll", "Payroll", null, "technician attendance leave request salary approval payroll job costing sheet payment receipt");
-            btnMore.Click += (s, e) => MessageBox.Show("Payroll actions are available from the active tab.", "Payroll", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            btnMore.Click += (s, e) => ShowPayrollActionsMenu(btnMore, btnRun, btnLock, btnForms);
             headerActions.Controls.AddRange(new Control[] { btnMore, _btnImport, btnForms, btnLock, btnRun });
             header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
 
@@ -200,6 +200,26 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(workspace);
             Controls.Add(header);
             _isInitializing = false;
+        }
+
+        private void ShowPayrollActionsMenu(Control anchor, Button runButton, Button lockButton, Button formsButton)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddPayrollAction(menu, "Run Payroll", (s, e) => runButton.PerformClick());
+            AddPayrollAction(menu, "Lock Payroll", (s, e) => lockButton.PerformClick());
+            menu.Items.Add(new ToolStripSeparator());
+            AddPayrollAction(menu, "Generate Payslip", (s, e) => GenerateAllPayslips());
+            AddPayrollAction(menu, "Export Payroll Register", (s, e) => ExportPayrollRegister());
+            AddPayrollAction(menu, "Import Historical Data", (s, e) => ImportHistoricalData());
+            AddPayrollAction(menu, "Open Payroll Forms", (s, e) => formsButton.PerformClick());
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void AddPayrollAction(ContextMenuStrip menu, string text, EventHandler handler)
+        {
+            ToolStripMenuItem item = new ToolStripMenuItem(text);
+            item.Click += handler;
+            menu.Items.Add(item);
         }
 
         private TabPage BuildProcessTab()
