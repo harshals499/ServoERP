@@ -54,6 +54,8 @@ Clients live-activity detail brief: broader unfinished-action scan found live cl
 
 Contracts action-rail redesign brief: the Contracts reference shows a right-side Actions card that only explains what can be done while the real contract operations are crowded into the top toolbar. Convert the rail into a useful action surface with a primary Save Contract button and an Open Contract Actions menu for WhatsApp, invoice, renewal, SLA log, refresh, and delete. This preserves existing handlers while making the form easier to operate at restored widths.
 
+Employees filtered-empty workflow brief: the Employees reference shows a loaded employee and populated metrics while the left employee list says no records found because the current search/filter state excludes the loaded employee. Add an explicit Clear Filters control and status feedback when filters produce no matches, so users can recover the list without guessing.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -70,6 +72,7 @@ Contracts action-rail redesign brief: the Contracts reference shows a right-side
 - Clients GENESIS completion: sample activity cards now navigate to Jobs for service request and service summary actions instead of showing dead-end opened toasts.
 - Clients GENESIS completion: live activity rows now open a detail modal instead of a placeholder toast.
 - Contracts GENESIS redesign: the right Actions rail now exposes Save Contract and a compact Contract Actions menu instead of passive guidance text.
+- Employees GENESIS workflow polish: the employee list now has a Clear Filters command and tells users when search/filter criteria produce no matches.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -88,6 +91,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Clients live-activity detail completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081103.txt`.
 - Enterprise UI smoke test passed after Contracts action-rail redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081412.txt`.
 - Enterprise UI smoke test passed after Contracts header/action polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081735.txt`.
+- Enterprise UI smoke test passed after Employees filtered-empty workflow polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-082207.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
@@ -129,6 +133,8 @@ Validation completed:
 - Captured Contracts action-rail render with clipped header/hint defect: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-action-rail-20260528-081502.png`.
 - Captured corrected Contracts action-rail render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-action-rail-fixed-20260528-081639.png`.
 - Captured corrected Contracts header/action render: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-contracts-header-actions-fixed-20260528-081817.png`.
+- Hosted Employees validation render closed itself in unauthenticated validation context due the existing permission/session helper.
+- Captured Employees direct render for clear-filter layout: `C:\HVAC_PRO_MSE\QA_VALIDATION\genesis-employees-clear-filters-direct-20260528-082305.png`.
 - Earlier UI redesign work was skipped because `C:\Users\harsh\Downloads\ServoERP_UI_Redesigns` was missing. That blocker is now fixed by switching the mandatory reference source to `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 
 ## What Still Needs Human Input

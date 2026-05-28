@@ -243,17 +243,21 @@ namespace HVAC_Pro_Desktop.UI
             parent.Controls.Clear();
 
             Panel top = new Panel { Dock = DockStyle.Top, Height = 112, BackColor = Color.White, Padding = new Padding(14, 14, 14, 10) };
-            _txtSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10F), Width = 320 };
+            _txtSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10F), Width = 228 };
+            Button clearFilters = MakeButton("Clear", Color.White, Blue, 80);
+            clearFilters.FlatAppearance.BorderColor = Border;
+            clearFilters.FlatAppearance.BorderSize = 1;
             _cmbDepartmentFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
             _cmbStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
 
             Label lblSearch = new Label { Text = "Search employees", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 6) };
             _txtSearch.Location = new Point(14, 24);
+            clearFilters.Location = new Point(252, 23);
             Label lblDept = new Label { Text = "Department", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 58) };
             _cmbDepartmentFilter.Location = new Point(14, 76);
             Label lblStatusFilter = new Label { Text = "Status", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(178, 58) };
             _cmbStatusFilter.Location = new Point(178, 76);
-            top.Controls.AddRange(new Control[] { lblSearch, _txtSearch, lblDept, _cmbDepartmentFilter, lblStatusFilter, _cmbStatusFilter });
+            top.Controls.AddRange(new Control[] { lblSearch, _txtSearch, clearFilters, lblDept, _cmbDepartmentFilter, lblStatusFilter, _cmbStatusFilter });
 
             _gridEmployees = new DataGridView
             {
@@ -284,6 +288,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtSearch.TextChanged += (s, e) => LoadEmployees();
             _cmbDepartmentFilter.SelectedIndexChanged += (s, e) => LoadEmployees();
             _cmbStatusFilter.SelectedIndexChanged += (s, e) => LoadEmployees();
+            clearFilters.Click += (s, e) => ClearEmployeeFilters();
             _gridEmployees.SelectionChanged += (s, e) => LoadSelectedEmployeeSafe();
             _gridEmployees.CellFormatting += GridEmployees_CellFormattingSafe;
         }
@@ -784,6 +789,8 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 _gridEmployees.DataSource = table;
+                if (table.Rows.Count == 0 && HasEmployeeFilters(search, department, status))
+                    SetStatus("No employees match current filters. Clear filters to show all employees.", Amber);
             }
             catch (Exception ex)
             {
@@ -1470,6 +1477,23 @@ namespace HVAC_Pro_Desktop.UI
         private void ApplyEmployeeFilter()
         {
             LoadEmployees();
+        }
+
+        private void ClearEmployeeFilters()
+        {
+            _txtSearch.Text = string.Empty;
+            if (_cmbDepartmentFilter.Items.Contains("All"))
+                _cmbDepartmentFilter.SelectedItem = "All";
+            if (_cmbStatusFilter.Items.Contains("All"))
+                _cmbStatusFilter.SelectedItem = "All";
+            LoadEmployees();
+        }
+
+        private static bool HasEmployeeFilters(string search, string department, string status)
+        {
+            return !string.IsNullOrWhiteSpace(search) ||
+                   (!string.IsNullOrWhiteSpace(department) && !string.Equals(department, "All", StringComparison.OrdinalIgnoreCase)) ||
+                   (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "All", StringComparison.OrdinalIgnoreCase));
         }
 
         private void LoadSelectedEmployee()
