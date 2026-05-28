@@ -1408,15 +1408,18 @@ namespace HVAC_Pro_Desktop.UI
                     foreach (ClientActivity activity in _clientService.GetActivities(clientId, "All").Take(8))
                     {
                         string type = activity.ActivityType;
+                        string title = Safe(activity.Title, type);
+                        string detail = Safe(activity.Detail, "Client activity logged.");
+                        string when = activity.CreatedAt.ToString("dd MMM yyyy  -  hh:mm tt");
                         items.Add(new ActivityTimelineItem
                         {
                             Icon = ActivityIcon(type),
                             IconBackColor = ActivityColor(type),
-                            Title = Safe(activity.Title, type),
-                            Description = Safe(activity.Detail, "Client activity logged."),
-                            When = activity.CreatedAt.ToString("dd MMM yyyy  -  hh:mm tt"),
+                            Title = title,
+                            Description = detail,
+                            When = when,
                             ActionText = "View Details",
-                            Action = () => ShowToast("Opening activity details")
+                            Action = () => ShowActivityDetails(title, type, when, detail)
                         });
                     }
                 }
@@ -1435,6 +1438,19 @@ namespace HVAC_Pro_Desktop.UI
                         RenderSelectedTab();
                 }));
             });
+        }
+
+        private void ShowActivityDetails(string title, string type, string when, string detail)
+        {
+            ShowDashboardListModal(
+                string.IsNullOrWhiteSpace(title) ? "Activity Details" : title,
+                new[]
+                {
+                    "Type: " + Safe(type, "Activity"),
+                    "When: " + Safe(when, "-"),
+                    "",
+                    Safe(detail, "No details recorded.")
+                });
         }
 
         private IEnumerable<ActivityTimelineItem> BuildSampleActivities()

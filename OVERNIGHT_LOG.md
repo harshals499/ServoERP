@@ -50,6 +50,8 @@ Inventory action-card redesign brief: the Inventory reference shows the right-si
 
 Clients activity-action completion brief: the Clients command center reference is visually strong, but source recon found sample activity links that only showed dead-end toasts for service request and service summary actions. Route those actions to the existing Jobs module instead, matching the operational meaning of the cards and avoiding fake-open feedback.
 
+Clients live-activity detail brief: broader unfinished-action scan found live client activity rows still displaying an "Opening activity details" toast instead of showing the selected activity. Wire the action to the existing modal pattern and display the activity title, type, timestamp, and detail text so users get the record context they clicked for.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.
@@ -64,6 +66,7 @@ Clients activity-action completion brief: the Clients command center reference i
 - Vendors polish: the expiring-documents dashboard card title now fits its narrow sidebar card without clipping.
 - Inventory GENESIS redesign: the Quick Actions card now avoids clipped labels by using full-width primary stock actions and a compact stock-actions menu.
 - Clients GENESIS completion: sample activity cards now navigate to Jobs for service request and service summary actions instead of showing dead-end opened toasts.
+- Clients GENESIS completion: live activity rows now open a detail modal instead of a placeholder toast.
 
 Deployment preparation completed on 2026-05-28:
 
@@ -79,6 +82,7 @@ Deployment preparation completed on 2026-05-28:
 - Enterprise UI smoke test passed after Vendors document-title polish: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080044.txt`.
 - Enterprise UI smoke test passed after Inventory action-card redesign: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080500.txt`.
 - Enterprise UI smoke test passed after Clients activity-action completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-080812.txt`.
+- Enterprise UI smoke test passed after Clients live-activity detail completion: `C:\HVAC_PRO_MSE\TEST_RESULTS\enterprise-ui-smoke-20260528-081103.txt`.
 - Local update deployment package created: `C:\HVAC_PRO_MSE\update_output\ServoERP_Update_1.0.30.0.zip`.
 - Production upload/deploy was not performed because the hard limit still forbids production deployment from the agent.
 
