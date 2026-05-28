@@ -34,6 +34,8 @@ UI reference source fix brief: the mandated `C:\Users\harsh\Downloads\ServoERP_U
 
 Jobs left-pane redesign brief: the Jobs reference screenshots show the left action row cramped, with the primary `+ New Job` action vulnerable to clipping in the fixed-width queue pane. Redesign only the Jobs page left header by giving it a clearer dispatch title/subtitle and a two-by-two responsive action grid so Template, Import, Forms, and New Job remain visible at normal and restored widths. Preserve the sidebar, split-pane routing, job services, filters, bindings, and detail workflow.
 
+GENESIS UI authority brief: user requested a durable GENESIS UI Agent rule that removes page/module/file restrictions for UI redesign. `AGENTS.md` now gives GENESIS full UI-layer authority, uses `JobManagementForm.cs` at commit `34c1511` as the canonical action-area reference, and keeps non-UI hard limits intact. The global UI QA ruleset was aligned so it does not override that GENESIS authority.
+
 ## What I Built in GENESIS Mode
 
 - Jobs dashboard productivity menu: the Columns action now helps users understand visible fields, copy the current filtered job list to the clipboard, and reset dashboard filters without leaving the dashboard.

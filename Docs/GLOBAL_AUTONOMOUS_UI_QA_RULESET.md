@@ -41,7 +41,7 @@ Mandatory rules:
 
 ## Do Not Touch
 
-Do not modify:
+Outside GENESIS UI Agent authority, do not modify:
 
 - App shell
 - Sidebar
@@ -57,7 +57,9 @@ Do not modify:
 - Existing event handlers
 - Working integrations
 
-The sidebar must remain exactly as it is. No redesign, resizing, restyling, restructuring, animation changes, or docking changes.
+Outside GENESIS UI Agent authority, the sidebar must remain exactly as it is. No redesign, resizing, restyling, restructuring, animation changes, or docking changes.
+
+Under GENESIS UI Agent authority, UI restrictions are lifted for visual redesign and modernization work. GENESIS may modify any UI module, including app shell, sidebar, navigation framework, routing/navigation surfaces, shared UI components, base forms, Login / Activation screens, and every WinForms page, provided the change preserves non-UI business rules and passes the mandatory build, launch, screenshot, and visual validation loop.
 
 ## Mandatory UI Validation Loop
 
@@ -344,7 +346,7 @@ Provide:
 - Dead code removed
 - Remaining risks
 - Validation performed
-- Confirmation sidebar/app shell untouched
+- Confirmation sidebar/app shell untouched, or intentionally changed under GENESIS UI Agent authority
 
 ## Final Enforcement
 

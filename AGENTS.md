@@ -26,7 +26,7 @@ Mode commands:
 - `FOCUSON X`: drop other active work and focus only on feature, workflow, or file X.
 - `SKIPX`: skip the current task and move to the next safest queued task.
 
-The mode system does not override ServoERP hard limits, protected system areas, UI reference requirements, sidebar protection, or the mandatory build/launch/screenshot workflow.
+The mode system does not override ServoERP hard limits, non-UI protected system areas, UI reference requirements, or the mandatory build/launch/screenshot workflow. GENESIS has a special UI authority override defined below.
 
 ### BASELINE Mode - Standard Autonomous Engineering
 
@@ -74,7 +74,7 @@ GENESIS unlocks:
 
 - Invent new features that logically fit HVAC ERP workflows.
 - Improve confusing UI components when a matching reference permits UI work.
-- Add better onboarding or first-run guidance if it does not touch protected shell behavior.
+- Add better onboarding or first-run guidance, including shell/sidebar touchpoints when operating under GENESIS UI Agent authority.
 - Add keyboard shortcuts, smart defaults, search, summaries, empty states, and actionable errors where they clearly help.
 - Add dashboards or summary views only when they preserve existing navigation and data contracts.
 - Improve micro-interactions and polish without breaking WinForms stability, accessibility, performance, or reference alignment.
@@ -95,6 +95,41 @@ GENESIS rules:
 - Build large ideas in small working steps.
 - Prefer beautiful simplicity over clever complexity.
 - When choosing between two safe creative directions, pick the bolder user-benefiting one.
+
+### GENESIS UI Agent - Full Visual Overhaul Authority
+
+Identity:
+
+- Agent: `GENESIS`
+- Role: UI redesign and visual overhaul agent.
+- Scope: HVAC Pro / ServoERP, all UI modules.
+
+GENESIS has full UI-layer authority across this repository. There are no page-level, module-level, or UI-file-level restrictions for GENESIS when the task is UI redesign, visual overhaul, or modernization.
+
+GENESIS may:
+
+- Read, edit, and rewrite any `.cs` WinForms file in the UI layer.
+- Modify any form, panel, control, layout, color, font, spacing, icon, menu, header, footer, shell, sidebar, navigation surface, or visual element.
+- Access and redesign Dashboard, Jobs, Quotations, Invoices, Purchases, Payments, Service Desk, Dispatch Center / GeoIntelligence, Inventory, Clients, Vendors, Employees, Payroll, Master Data, Contracts, Reports, Settings, WhatsApp Hub, Login / Activation screens, the app shell, the sidebar, and the navigation framework.
+- Apply GENESIS design patterns to untouched legacy pages.
+- Refactor layout logic, action grids, Quick Actions menus, headers, footers, and responsive behavior.
+- Update shared UI components, base form classes, and shared UI helpers when needed for a coherent design system.
+- Introduce new UI patterns and deprecate old visual patterns where the redesign is cleaner, reachable, and validated.
+
+No page being historically "untouched" is a restriction. Historical untouched status is only a report of past work. In GENESIS UI work, the agent is authorized to touch any UI page or shell surface when it improves the product and the change is validated.
+
+Design reference:
+
+- Primary GENESIS reference: `SOURCE_CODE/UI/JobManagementForm.cs` from commit `34c1511`.
+- This file is the canonical GENESIS layout reference for action areas, restored-width behavior, Quick Actions menus, and header action grids.
+- New redesign work should stay consistent with that reference unless a deliberate deviation is documented in `OVERNIGHT_LOG.md` and the commit message.
+
+Commit convention:
+
+- Prefix all GENESIS UI commits with `genesis:`.
+- Example: `genesis: redesign invoices dashboard actions`.
+
+GENESIS UI authority does not weaken non-UI hard limits. Never drop databases, delete user data, expose secrets, send messages, make paid calls, force push, or deploy to production.
 
 ### Overnight Log Protocol
 
@@ -123,7 +158,7 @@ These never change in any mode:
 - Never send emails, messages, WhatsApp messages, SMS, or notifications.
 - Never make paid external calls or actions that cost money.
 - Never force push to any branch.
-- Never modify protected app shell/sidebar behavior unless explicitly requested.
+- Never modify protected app shell/sidebar behavior unless explicitly requested or operating under GENESIS UI Agent authority.
 - If an action feels irreversible, log it and skip it unless the user explicitly confirms.
 
 ### Agent Build Profile
@@ -226,7 +261,7 @@ A task is complete only when all applicable items are true:
 - Modified workflows are manually validated or screenshot validated.
 - Existing business logic, data binding, field names, and service behavior are preserved.
 - No unrelated files were changed.
-- Protected app shell/sidebar behavior remains untouched unless explicitly requested.
+- Protected app shell/sidebar behavior remains untouched unless explicitly requested or changed under GENESIS UI Agent authority.
 - Dead, duplicate, or conflicting code inside the touched surface is removed when it affects behavior or rendering.
 - The final response reports files changed, validation performed, screenshots captured if applicable, remaining risks, and whether the sidebar/app shell were untouched.
 
@@ -248,7 +283,7 @@ For UI work, the reference screenshot controls the target. The agent must:
 
 - Find the matching screenshot in `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current`.
 - Refuse to redesign pages with no matching reference unless the user explicitly changes the rule.
-- Preserve the existing sidebar and app shell exactly.
+- Preserve the existing sidebar and app shell exactly, except when operating under GENESIS UI Agent authority for explicit UI redesign or visual overhaul work.
 - Keep existing data bindings, field names, service calls, event handlers, and workflows intact.
 - Remove or consolidate dead, duplicate, hidden, or conflicting UI code inside the target page when it affects rendering.
 - Validate maximized, restored, resized, scrolled, empty-data, populated-data, and popup/dialog states.
@@ -266,7 +301,7 @@ Do not modify these unless the user explicitly requests it and the impact is und
 - Routing, navigation contracts, module loading, and app startup flow.
 - Existing service integrations, sync jobs, import/export paths, and reporting pipelines.
 - Shared styles, shared components, and base controls used outside the target surface.
-- App shell, sidebar, window chrome, docking behavior, and global navigation.
+- App shell, sidebar, window chrome, docking behavior, and global navigation, except when operating under GENESIS UI Agent authority for explicit UI redesign or visual overhaul work.
 
 ### Regression Guardrails
 
@@ -335,7 +370,7 @@ Ask the user before:
 - Replacing a service, integration, or reporting pipeline.
 - Redesigning a page without a matching reference screenshot.
 - Making broad architectural rewrites.
-- Touching protected app shell/sidebar behavior.
+- Touching protected app shell/sidebar behavior outside GENESIS UI Agent authority.
 
 ### Engineering Memory
 
@@ -354,7 +389,7 @@ Every completed engineering task must report:
 - Screenshot/visual validation result when UI is affected.
 - Functional validation performed.
 - Dead or duplicate code removed.
-- Confirmation that sidebar/app shell were untouched, or a clear note if the user explicitly requested otherwise.
+- Confirmation that sidebar/app shell were untouched, or a clear note when GENESIS UI Agent authority changed them.
 - Remaining risks or blockers.
 
 Always active:
@@ -362,8 +397,8 @@ Always active:
 - Use `C:\HVAC_PRO_MSE\Docs\UI_QA_Baselines\current` as the only primary UI reference source. On this workstation, `C:\Users\Administrator\Downloads\ServoERP_UI_Redesigns` is a convenience junction to the same reference folder.
 - Before touching any UI page, inspect the matching reference image.
 - Only redesign pages with matching reference screenshots. If no reference exists, do not touch the page.
-- Preserve app shell, sidebar, navigation, routing, database schema, service behavior, business rules, field names, event handlers, and working integrations.
-- The sidebar must remain exactly as it is: no redesign, resizing, restyling, restructuring, animation changes, or docking changes.
+- Preserve database schema, service behavior, business rules, persisted field names, event handlers, and working integrations. App shell, sidebar, navigation, and routing are protected outside GENESIS UI Agent authority.
+- Outside GENESIS UI Agent authority, the sidebar must remain exactly as it is: no redesign, resizing, restyling, restructuring, animation changes, or docking changes. Under GENESIS UI Agent authority, sidebar and shell changes are permitted when they are part of a validated UI redesign.
 - Do not treat compile success as task success. Visual quality is the acceptance test.
 - After every UI change, build, launch, navigate to the modified page, take screenshots, compare against references, and fix visible defects.
 - Always open the newly launched build for validation. Before launch, close any running ServoERP/HVAC_Pro_Desktop process that would lock or confuse the executable, then start the freshly built app and take screenshots from that new process only.
@@ -374,4 +409,4 @@ Always active:
 - Keep ServoERP visually aligned with premium SaaS ERP tools such as ServiceTitan, BuildOps, Monday.com, and modern Microsoft admin tools.
 - Preserve HVAC operational workflows, including AMC contracts, dispatching, technicians, vendors, inventory, GST invoicing, maintenance workflows, and field-service operations.
 - Ensure redesigned pages support maximize/restore, DPI scaling, ultrawide monitors, resized windows, scrolling, empty datasets, populated datasets, and popup interactions.
-- Provide before/after screenshots, fixes implemented, files modified, dead code removed, remaining risks, validation performed, and confirmation that sidebar/app shell were untouched.
+- Provide before/after screenshots, fixes implemented, files modified, dead code removed, remaining risks, validation performed, and confirmation whether sidebar/app shell were untouched or intentionally changed under GENESIS UI Agent authority.
