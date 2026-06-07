@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -22,13 +23,27 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _userStrip;
         private Panel _pnlUpdateBanner;
         private Panel _pnlLicenseBanner;
+        private Panel _pnlAgentSimulationBanner;
+        private Panel _pnlDatabaseStatusBanner;
         private Label _lblUpdateMessage;
         private Label _lblLicenseMessage;
+        private Label _lblAgentSimulationMessage;
+        private Label _lblDatabaseStatusMessage;
         private Button _btnDownloadUpdate;
+        private Button _btnRenewLicense;
+        private Button _btnOpenAgentSimulation;
         private Button _btnSupportCenter;
+        private Button _btnResetLayout;
+        private SupportCenterDialog _supportCenterDrawer;
+        private AgentSimulationPanel _agentSimulationPanel;
         private Button _btnAiCopilot;
         private AiAssistantForm _aiAssistantForm;
+        private System.Windows.Forms.Timer _backupScheduleTimer;
+        private Label _lblExitBackupStatus;
+        private bool _scheduledBackupRunning;
+        private bool _closeBackupAttempted;
         private bool _hideUpdateBannerForSession;
+        private bool _silentUpdateApplyAttempted;
         private UpdateCheckResult _latestUpdateResult;
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
         private readonly LinkedList<int> _pageUsage = new LinkedList<int>();
@@ -36,25 +51,30 @@ namespace HVAC_Pro_Desktop.UI
         private UserControl _transientPage;
         private int _currentIndex = -1;
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
-        private const int MaxCachedPages = 19;
+        private const int MaxCachedPages = 20;
         private const int ClientsPageIndex = 1;
+        private const int InvoicesPageIndex = 3;
+        private const int QuotationsPageIndex = 6;
+        private const int SettingsPageIndex = 8;
         private const int JobsPageIndex = 15;
         private const int RetiredServiceDeskPageIndex = 16;
         private const int MasterDataPageIndex = 17;
         private const int WhatsAppHubPageIndex = 18;
+        private const int TallyIntegrationPageIndex = 19;
+        private const int VendorsPageIndex = 20;
 
-        private static readonly Color SbBg = Color.FromArgb(13, 42, 170);
-        private static readonly Color SbBgDeep = Color.FromArgb(28, 93, 245);
-        private static readonly Color SbActive = Color.FromArgb(55, 105, 255);
-        private static readonly Color SbHover = Color.FromArgb(35, 86, 224);
-        private static readonly Color SbText = Color.FromArgb(230, 238, 255);
-        private static readonly Color SbMutedText = Color.FromArgb(166, 190, 255);
+        private static readonly Color SbBg = DS.Primary700;
+        private static readonly Color SbBgDeep = DS.Darken(DS.Primary700, 0.12f);
+        private static readonly Color SbActive = Color.FromArgb(52, 255, 255, 255);
+        private static readonly Color SbHover = Color.FromArgb(28, 255, 255, 255);
+        private static readonly Color SbText = Color.FromArgb(231, 240, 255);
+        private static readonly Color SbMutedText = Color.FromArgb(191, 219, 254);
         private static readonly Color SbActiveText = Color.White;
-        private static readonly Color SbAccent = DS.Primary500;
-        private static readonly Color Border = Color.FromArgb(28, 80, 220);
+        private static readonly Color SbAccent = Color.FromArgb(147, 197, 253);
+        private static readonly Color Border = DS.Border;
         // Sidebar is intentionally word-based. Do not convert it to an icon-only rail.
         private const int SbWidth = 200;
-        private const int CompactSbWidth = 155;
+        private const int CompactSbWidth = 190;
         private bool _compactShell;
 
         private static readonly (string label, string icon)[] NavItems =
@@ -68,7 +88,7 @@ namespace HVAC_Pro_Desktop.UI
             ("Quotations", "Q"),
             ("Reports", "R"),
             ("Settings", "T"),
-            ("Vendors", "V"),
+            ("Suppliers", "S"),
             ("Purchases", "B"),
             ("Inventory", "N"),
             ("Employees", "E"),
@@ -78,15 +98,17 @@ namespace HVAC_Pro_Desktop.UI
             ("Retired", "K"),
             ("Master Data", "M"),
             ("WhatsApp Hub", "W"),
+            ("Tally", "T"),
+            ("Vendors", "V"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15 };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, VendorsPageIndex, 15 };
         private static readonly int[] HrPayrollItems = { 12, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
-        private static readonly int[] SettingsSupportItems = { 8, 18 };
+        private static readonly int[] SettingsSupportItems = { 8, 18, 19 };
 
         public MainForm()
         {
@@ -120,6 +142,14 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch { }
             BuildLayout();
+            AgentSimulationService.Instance.ProgressChanged += AgentSimulationProgressChanged;
+            DatabaseConnectionStateService.StateChanged += DatabaseConnectionStateChanged;
+            Disposed += (s, e) =>
+            {
+                AgentSimulationService.Instance.ProgressChanged -= AgentSimulationProgressChanged;
+                DatabaseConnectionStateService.StateChanged -= DatabaseConnectionStateChanged;
+                DatabaseConnectionStateService.StopBackgroundMonitor();
+            };
             UIHelper.ApplyInputStyles(Controls);
             UIHelper.ApplyGlobalScrollAndResize(this);
             Activated += (s, e) => { RefreshWindowTitle(); EnsureSessionOrClose(); };
@@ -132,6 +162,8 @@ namespace HVAC_Pro_Desktop.UI
                 AppWarmupService.StartBackgroundWarmup();
                 BeginVersionCheck();
                 RefreshLicenseBanner();
+                DatabaseConnectionStateService.StartBackgroundMonitor();
+                StartBackupScheduler();
             };
         }
 
@@ -142,9 +174,32 @@ namespace HVAC_Pro_Desktop.UI
             AdjustForScreenSize();
         }
 
+        /// <summary>Refreshes shell labels and fonts after the selected language changes.</summary>
+        protected override void ApplyLanguage()
+        {
+            base.ApplyLanguage();
+            Font = new Font(LanguageManager.GetUiFontFamily(), _compactShell ? 8.25f : 9f);
+
+            if (_btnAiCopilot != null)
+                _btnAiCopilot.Text = LanguageManager.Get("AI Copilot");
+            if (_btnSupportCenter != null)
+                _btnSupportCenter.Text = IsSupportDrawerOpen() ? LanguageManager.Get("Close Support") : LanguageManager.Get("Help & Support");
+            if (_btnDownloadUpdate != null)
+                _btnDownloadUpdate.Text = LanguageManager.Get("Install update");
+            if (_btnRenewLicense != null)
+                _btnRenewLicense.Text = LanguageManager.Get("Renew license");
+
+            if (_sidebar != null && _sidebarScroll != null)
+                BuildSidebar();
+
+            UpdateNavState(_currentIndex);
+            LayoutAiCopilotLauncher();
+            LayoutSupportLauncher();
+        }
+
         private void BuildLayout()
         {
-            _content = new Panel { Dock = DockStyle.None, BackColor = DS.BgPage };
+            _content = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage };
             Controls.Add(_content);
 
             _sidebar = new Panel { Dock = DockStyle.Left, Width = GetSidebarWidth(), BackColor = SbBg };
@@ -153,8 +208,10 @@ namespace HVAC_Pro_Desktop.UI
                 Rectangle bounds = _sidebar.ClientRectangle;
                 if (bounds.Width > 0 && bounds.Height > 0)
                 {
-                    using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(bounds, SbBg, SbBgDeep, 75f))
+                    using (var brush = new System.Drawing.Drawing2D.LinearGradientBrush(bounds, SbBg, SbBgDeep, 90f))
                         e.Graphics.FillRectangle(brush, bounds);
+                    using (var pen = new Pen(Color.FromArgb(40, 15, 23, 42)))
+                        e.Graphics.DrawLine(pen, bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom);
                 }
             };
             _sidebarScroll = new Panel
@@ -163,6 +220,8 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = SbBg,
                 AutoScroll = true
             };
+            _sidebarScroll.HorizontalScroll.Enabled = false;
+            _sidebarScroll.HorizontalScroll.Visible = false;
             _userStrip = BuildUserStrip();
             _sidebar.Controls.Add(_sidebarScroll);
             BuildSidebar();
@@ -170,8 +229,21 @@ namespace HVAC_Pro_Desktop.UI
 
             BuildUpdateBanner();
             BuildLicenseBanner();
-            BuildAiCopilotLauncher();
+            BuildAgentSimulationBanner();
+            BuildDatabaseStatusBanner();
             BuildSupportLauncher();
+        }
+
+        private int GetVisibleTopBannerHeight()
+        {
+            int height = 0;
+            if (_pnlLicenseBanner != null && _pnlLicenseBanner.Visible)
+                height += _pnlLicenseBanner.Height;
+            if (_pnlAgentSimulationBanner != null && _pnlAgentSimulationBanner.Visible)
+                height += _pnlAgentSimulationBanner.Height;
+            if (_pnlDatabaseStatusBanner != null && _pnlDatabaseStatusBanner.Visible)
+                height += _pnlDatabaseStatusBanner.Height;
+            return height;
         }
 
         private void AdjustForScreenSize()
@@ -187,11 +259,16 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _content.Dock = DockStyle.None;
                 _content.Left = _sidebar == null ? 0 : _sidebar.Width;
-                _content.Top = 0;
-                _content.Width = Math.Max(0, ClientSize.Width - _content.Left);
-                _content.Height = ClientSize.Height;
+                int topOffset = GetVisibleTopBannerHeight();
+                _content.Top = topOffset;
+                int drawerWidth = IsSupportDrawerOpen() ? _supportCenterDrawer.Width : 0;
+                _content.Width = Math.Max(0, ClientSize.Width - _content.Left - drawerWidth);
+                _content.Height = Math.Max(0, ClientSize.Height - topOffset);
                 _content.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
             }
+
+            if (IsSupportDrawerOpen())
+                _supportCenterDrawer.Width = GetSupportDrawerWidth();
 
             foreach (Button button in _navButtons.Values)
             {
@@ -203,14 +280,53 @@ namespace HVAC_Pro_Desktop.UI
             MinimumSize = new Size(1024, 600);
             LayoutAiCopilotLauncher();
             LayoutSupportLauncher();
+            LayoutResetLayoutLauncher();
+        }
+
+        private void BuildResetLayoutLauncher()
+        {
+            _btnResetLayout = null;
+        }
+
+        private void LayoutResetLayoutLauncher()
+        {
+            if (_btnResetLayout == null)
+                return;
+
+            _btnResetLayout.Visible = false;
+        }
+
+        private void ResetActivePageLayout()
+        {
+            Control page = null;
+            if (_content != null)
+            {
+                foreach (Control control in _content.Controls)
+                {
+                    if (control == _btnResetLayout)
+                        continue;
+                    if (control.Visible)
+                    {
+                        page = control;
+                        break;
+                    }
+                }
+            }
+
+            if (page == null)
+                return;
+
+            GlobalDashboardLayoutService.ResetPage(page);
+            LayoutResetLayoutLauncher();
+            ToastNotification.ShowToast("Layout reset for " + page.GetType().Name.Replace("Form", string.Empty) + ".", DS.Green600);
         }
 
         private void BuildAiCopilotLauncher()
         {
-            _btnAiCopilot = DS.PrimaryBtn("AI Copilot", 128, 38);
+            _btnAiCopilot = DS.PrimaryBtn(LanguageManager.Get("AI Copilot"), 128, 38);
             _btnAiCopilot.UseMnemonic = false;
             _btnAiCopilot.Name = "btnAiCopilot";
-            _btnAiCopilot.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            _btnAiCopilot.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
             ModernIconSystem.AddButtonIcon(_btnAiCopilot, ModernIconKind.Service);
             _btnAiCopilot.Click += (s, e) => OpenAiCopilot();
             Controls.Add(_btnAiCopilot);
@@ -220,28 +336,98 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildSupportLauncher()
         {
-            _btnSupportCenter = DS.PrimaryBtn("Help & Support", 148, 38);
+            _btnSupportCenter = DS.PrimaryBtn(LanguageManager.Get("Help & Support"), 148, 38);
             _btnSupportCenter.UseMnemonic = false;
             _btnSupportCenter.Name = "btnHelpSupport";
-            _btnSupportCenter.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            _btnSupportCenter.Anchor = AnchorStyles.Left | AnchorStyles.Bottom;
             ModernIconSystem.AddButtonIcon(_btnSupportCenter, ModernIconKind.Service);
-            _btnSupportCenter.Click += (s, e) =>
-            {
-                _btnSupportCenter.Visible = false;
-                try
-                {
-                    using (var dialog = new SupportCenterDialog())
-                        dialog.ShowDialog(this);
-                }
-                finally
-                {
-                    _btnSupportCenter.Visible = true;
-                    LayoutSupportLauncher();
-                }
-            };
+            _btnSupportCenter.Click += (s, e) => ToggleSupportCenterDrawer();
+            _btnSupportCenter.Visible = false;
             Controls.Add(_btnSupportCenter);
-            _btnSupportCenter.BringToFront();
             LayoutSupportLauncher();
+        }
+
+        private bool IsSupportDrawerOpen()
+        {
+            return _supportCenterDrawer != null && !_supportCenterDrawer.IsDisposed && _supportCenterDrawer.Visible;
+        }
+
+        private void ToggleSupportCenterDrawer()
+        {
+            if (IsSupportDrawerOpen())
+            {
+                CloseSupportCenterDrawer();
+                return;
+            }
+
+            OpenSupportCenterDrawer();
+        }
+
+        public void ShowSupportCenterDrawer()
+        {
+            OpenSupportCenterDrawer();
+        }
+
+        private void OpenSupportCenterDrawer()
+        {
+            if (_supportCenterDrawer != null && !_supportCenterDrawer.IsDisposed)
+                return;
+
+            _supportCenterDrawer = new SupportCenterDialog
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                ShowInTaskbar = false,
+                MinimumSize = Size.Empty,
+                Dock = DockStyle.Right,
+                Width = GetSupportDrawerWidth()
+            };
+            _supportCenterDrawer.CloseRequested += SupportCenterDrawerCloseRequested;
+            _supportCenterDrawer.FormClosed += SupportCenterDrawerClosed;
+
+            Controls.Add(_supportCenterDrawer);
+            _supportCenterDrawer.BringToFront();
+            _supportCenterDrawer.Show();
+            if (_btnSupportCenter != null)
+                _btnSupportCenter.Text = LanguageManager.Get("Close Support");
+            AdjustForScreenSize();
+        }
+
+        private void CloseSupportCenterDrawer()
+        {
+            if (_supportCenterDrawer == null)
+                return;
+
+            SupportCenterDialog drawer = _supportCenterDrawer;
+            _supportCenterDrawer = null;
+            drawer.CloseRequested -= SupportCenterDrawerCloseRequested;
+            drawer.FormClosed -= SupportCenterDrawerClosed;
+            if (!drawer.IsDisposed)
+                drawer.Close();
+            if (_btnSupportCenter != null)
+                _btnSupportCenter.Text = LanguageManager.Get("Help & Support");
+            AdjustForScreenSize();
+        }
+
+        private void SupportCenterDrawerCloseRequested(object sender, EventArgs e)
+        {
+            CloseSupportCenterDrawer();
+        }
+
+        private void SupportCenterDrawerClosed(object sender, FormClosedEventArgs e)
+        {
+            if (_supportCenterDrawer == sender)
+                _supportCenterDrawer = null;
+            if (_btnSupportCenter != null)
+                _btnSupportCenter.Text = LanguageManager.Get("Help & Support");
+            AdjustForScreenSize();
+        }
+
+        private int GetSupportDrawerWidth()
+        {
+            int shellLeft = _sidebar == null || !_sidebar.Visible ? 0 : _sidebar.Width;
+            int available = Math.Max(460, ClientSize.Width - shellLeft);
+            return Math.Min(620, Math.Max(460, (int)(available * 0.34f)));
         }
 
         private void LayoutSupportLauncher()
@@ -249,14 +435,13 @@ namespace HVAC_Pro_Desktop.UI
             if (_btnSupportCenter == null)
                 return;
 
-            int bottomOffset = 22;
-            if (_pnlUpdateBanner != null && _pnlUpdateBanner.Visible)
-                bottomOffset += _pnlUpdateBanner.Height;
-            if (_pnlLicenseBanner != null && _pnlLicenseBanner.Visible)
-                bottomOffset += _pnlLicenseBanner.Height;
-
-            _btnSupportCenter.Left = Math.Max((_sidebar == null ? 0 : _sidebar.Width) + 18, ClientSize.Width - _btnSupportCenter.Width - 24);
-            _btnSupportCenter.Top = Math.Max(20, ClientSize.Height - _btnSupportCenter.Height - bottomOffset);
+            _btnSupportCenter.Visible = false;
+            int sidebarWidth = _sidebar == null || !_sidebar.Visible ? GetSidebarWidth() : _sidebar.Width;
+            int userTop = _userStrip != null && _userStrip.Visible ? _userStrip.Top : ClientSize.Height - 118;
+            _btnSupportCenter.Width = Math.Max(112, sidebarWidth - 24);
+            _btnSupportCenter.Height = 32;
+            _btnSupportCenter.Left = 12;
+            _btnSupportCenter.Top = Math.Max(20, userTop - _btnSupportCenter.Height - 12);
             _btnSupportCenter.BringToFront();
         }
 
@@ -265,15 +450,160 @@ namespace HVAC_Pro_Desktop.UI
             if (_btnAiCopilot == null)
                 return;
 
-            int bottomOffset = 68;
-            if (_pnlUpdateBanner != null && _pnlUpdateBanner.Visible)
-                bottomOffset += _pnlUpdateBanner.Height;
-            if (_pnlLicenseBanner != null && _pnlLicenseBanner.Visible)
-                bottomOffset += _pnlLicenseBanner.Height;
-
-            _btnAiCopilot.Left = Math.Max((_sidebar == null ? 0 : _sidebar.Width) + 18, ClientSize.Width - _btnAiCopilot.Width - 24);
-            _btnAiCopilot.Top = Math.Max(20, ClientSize.Height - _btnAiCopilot.Height - bottomOffset);
+            int sidebarWidth = _sidebar == null || !_sidebar.Visible ? GetSidebarWidth() : _sidebar.Width;
+            int userTop = _userStrip != null && _userStrip.Visible ? _userStrip.Top : ClientSize.Height - 118;
+            _btnAiCopilot.Width = Math.Max(112, sidebarWidth - 24);
+            _btnAiCopilot.Height = 32;
+            _btnAiCopilot.Left = 12;
+            _btnAiCopilot.Top = Math.Max(20, userTop - (_btnAiCopilot.Height * 2) - 20);
             _btnAiCopilot.BringToFront();
+        }
+
+        /// <summary>Starts the minute timer that checks for the configured end-of-day backup.</summary>
+        private void StartBackupScheduler()
+        {
+            try
+            {
+                new BackupService().EnsureBackupInfrastructure();
+                if (_backupScheduleTimer != null)
+                    return;
+
+                _backupScheduleTimer = new System.Windows.Forms.Timer { Interval = 60000 };
+                _backupScheduleTimer.Tick += (s, e) => CheckScheduledBackup();
+                _backupScheduleTimer.Start();
+                CheckScheduledBackup();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.StartBackupScheduler", ex);
+            }
+        }
+
+        /// <summary>Runs the daily scheduled backup when the configured time is reached.</summary>
+        private void CheckScheduledBackup()
+        {
+            if (_scheduledBackupRunning)
+                return;
+
+            BackupService backupService = new BackupService();
+            if (!backupService.IsScheduledBackupDue())
+                return;
+
+            _scheduledBackupRunning = true;
+            Task.Run(() => backupService.RunBackup(BackupTrigger.Scheduled))
+                .ContinueWith(task =>
+                {
+                    if (IsDisposed || !IsHandleCreated)
+                        return;
+
+                    BeginInvoke((Action)(() =>
+                    {
+                        _scheduledBackupRunning = false;
+                        if (task.Exception != null)
+                        {
+                            AppRuntime.LogException("MainForm.ScheduledBackup", task.Exception);
+                            ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                            return;
+                        }
+
+                        BackupResult result = task.Result;
+                        if (result.Success)
+                            ToastNotification.ShowToast("Daily backup completed successfully to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
+                        else
+                            ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                    }));
+                });
+        }
+
+        /// <summary>Runs a best-effort close backup without delaying shutdown longer than ten seconds.</summary>
+        protected override void OnFormClosing(FormClosingEventArgs e)
+        {
+            if (!_closeBackupAttempted)
+            {
+                _closeBackupAttempted = true;
+                RunCloseBackupWithTimeout();
+            }
+
+            _backupScheduleTimer?.Stop();
+            _backupScheduleTimer?.Dispose();
+            _backupScheduleTimer = null;
+
+            if (!_silentUpdateApplyAttempted)
+            {
+                _silentUpdateApplyAttempted = true;
+                UpdateService.TryApplySilentUpdateOnExit();
+            }
+
+            base.OnFormClosing(e);
+        }
+
+        /// <summary>Runs the app-close backup and records incomplete status if it exceeds the timeout.</summary>
+        private void RunCloseBackupWithTimeout()
+        {
+            try
+            {
+                BackupService backupService = new BackupService();
+                if (!backupService.ShouldRunOnCloseBackup())
+                    return;
+
+                ShowExitBackupStatus();
+                BackupResult result = null;
+                Task backupTask = Task.Run(() => { result = backupService.RunBackup(BackupTrigger.OnClose); });
+                if (!backupTask.Wait(10000))
+                {
+                    backupService.LogIncompleteOnCloseBackup();
+                    return;
+                }
+
+                if (result != null && !result.Success)
+                    AppRuntime.LogConnection("On-close backup failed: " + result.Message);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.RunCloseBackupWithTimeout", ex);
+            }
+        }
+
+        /// <summary>Displays a small non-blocking backup status label during shutdown.</summary>
+        private void ShowExitBackupStatus()
+        {
+            if (_lblExitBackupStatus == null || _lblExitBackupStatus.IsDisposed)
+            {
+                _lblExitBackupStatus = new Label
+                {
+                    Text = "Backing up before exit...",
+                    AutoSize = false,
+                    Size = new Size(240, 30),
+                    BackColor = DS.Amber50,
+                    ForeColor = DS.Slate800,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    TextAlign = ContentAlignment.MiddleCenter
+                };
+                Controls.Add(_lblExitBackupStatus);
+            }
+
+            _lblExitBackupStatus.Location = new Point(Math.Max(12, ClientSize.Width - _lblExitBackupStatus.Width - 18), Math.Max(12, ClientSize.Height - _lblExitBackupStatus.Height - 18));
+            _lblExitBackupStatus.BringToFront();
+            _lblExitBackupStatus.Visible = true;
+            Refresh();
+        }
+
+        /// <summary>Returns display text for backup destinations.</summary>
+        private static string FriendlyBackupDestination(string destination)
+        {
+            if (string.Equals(destination, "Network", StringComparison.OrdinalIgnoreCase))
+                return "Network Server";
+            if (string.Equals(destination, "Local", StringComparison.OrdinalIgnoreCase))
+                return "Local Folder";
+            if (string.Equals(destination, "ExternalDrive", StringComparison.OrdinalIgnoreCase))
+                return "External Drive";
+            return "backup destination";
+        }
+
+        /// <summary>Opens the ServoERP Copilot from approved shell entry points.</summary>
+        public void ShowAiCopilot()
+        {
+            OpenAiCopilot();
         }
 
         private void OpenAiCopilot()
@@ -308,6 +638,14 @@ namespace HVAC_Pro_Desktop.UI
             if (_currentIndex >= 0 && _currentIndex < NavItems.Length)
                 return NavItems[_currentIndex].label;
             return "Dashboard";
+        }
+
+        private string GetNavLabel(int index)
+        {
+            if (index < 0 || index >= NavItems.Length)
+                return string.Empty;
+
+            return LanguageManager.Get(NavItems[index].label);
         }
 
         private void BuildUpdateBanner()
@@ -356,18 +694,21 @@ namespace HVAC_Pro_Desktop.UI
                 Width = 138,
                 Height = 24,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = DS.Primary600,
-                ForeColor = Color.White,
+                BackColor = DS.Primary50,
+                ForeColor = DS.Primary700,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 Margin = new Padding(0, 2, 8, 0),
                 Visible = false
             };
-            _btnDownloadUpdate.FlatAppearance.BorderSize = 0;
+            _btnDownloadUpdate.FlatAppearance.BorderColor = DS.Primary100;
+            _btnDownloadUpdate.FlatAppearance.BorderSize = 1;
+            _btnDownloadUpdate.FlatAppearance.MouseOverBackColor = DS.Primary100;
+            _btnDownloadUpdate.FlatAppearance.MouseDownBackColor = DS.Slate100;
             _btnDownloadUpdate.Click += (s, e) => DownloadAndInstallUpdate();
 
             Button btnRemindLater = new Button
             {
-                Text = "Remind me later",
+                Text = LanguageManager.Get("Remind me later"),
                 Width = 122,
                 Height = 24,
                 FlatStyle = FlatStyle.Flat,
@@ -446,21 +787,237 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(14, 0, 0, 0)
             };
-            Button renew = new Button
+            _btnRenewLicense = new Button
             {
-                Text = "Renew license",
+                Text = LanguageManager.Get("Renew license"),
                 Dock = DockStyle.Right,
                 Width = 132,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = DS.Primary600,
-                ForeColor = Color.White
+                BackColor = DS.Primary50,
+                ForeColor = DS.Primary700
             };
-            renew.FlatAppearance.BorderSize = 0;
-            renew.Click += (s, e) => NavigateTo("Settings");
+            _btnRenewLicense.FlatAppearance.BorderColor = DS.Primary100;
+            _btnRenewLicense.FlatAppearance.BorderSize = 1;
+            _btnRenewLicense.FlatAppearance.MouseOverBackColor = DS.Primary100;
+            _btnRenewLicense.FlatAppearance.MouseDownBackColor = DS.Slate100;
+            _btnRenewLicense.Click += (s, e) => NavigateTo("Settings");
             _pnlLicenseBanner.Controls.Add(_lblLicenseMessage);
-            _pnlLicenseBanner.Controls.Add(renew);
+            _pnlLicenseBanner.Controls.Add(_btnRenewLicense);
             Controls.Add(_pnlLicenseBanner);
             _pnlLicenseBanner.BringToFront();
+        }
+
+        private void BuildAgentSimulationBanner()
+        {
+            _pnlAgentSimulationBanner = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                BackColor = Color.FromArgb(236, 253, 245),
+                Visible = false
+            };
+            _pnlAgentSimulationBanner.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(167, 243, 208), 1))
+                    e.Graphics.DrawLine(pen, 0, _pnlAgentSimulationBanner.Height - 1, _pnlAgentSimulationBanner.Width, _pnlAgentSimulationBanner.Height - 1);
+            };
+            _lblAgentSimulationMessage = new Label
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(6, 95, 70),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(14, 0, 0, 0)
+            };
+            _btnOpenAgentSimulation = new Button
+            {
+                Text = "Agent Panel",
+                Dock = DockStyle.Right,
+                Width = 118,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = DS.Teal50,
+                ForeColor = DS.Teal600,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+            _btnOpenAgentSimulation.FlatAppearance.BorderColor = DS.Lighten(DS.Teal500, 0.72f);
+            _btnOpenAgentSimulation.FlatAppearance.BorderSize = 1;
+            _btnOpenAgentSimulation.FlatAppearance.MouseOverBackColor = DS.Lighten(DS.Teal500, 0.78f);
+            _btnOpenAgentSimulation.FlatAppearance.MouseDownBackColor = DS.Slate100;
+            _btnOpenAgentSimulation.Click += (s, e) => ShowAgentSimulationPanel();
+            _pnlAgentSimulationBanner.Controls.Add(_lblAgentSimulationMessage);
+            _pnlAgentSimulationBanner.Controls.Add(_btnOpenAgentSimulation);
+            Controls.Add(_pnlAgentSimulationBanner);
+            _pnlAgentSimulationBanner.BringToFront();
+        }
+
+        private void BuildDatabaseStatusBanner()
+        {
+            _pnlDatabaseStatusBanner = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 36,
+                BackColor = Color.FromArgb(255, 251, 235),
+                Visible = false
+            };
+            _pnlDatabaseStatusBanner.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(253, 186, 116), 1))
+                    e.Graphics.DrawLine(pen, 0, _pnlDatabaseStatusBanner.Height - 1, _pnlDatabaseStatusBanner.Width, _pnlDatabaseStatusBanner.Height - 1);
+            };
+
+            Button btnCheck = new Button
+            {
+                Text = "Check",
+                Dock = DockStyle.Right,
+                Width = 88,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(154, 52, 18),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+            btnCheck.FlatAppearance.BorderColor = Color.FromArgb(253, 186, 116);
+            btnCheck.FlatAppearance.BorderSize = 1;
+            btnCheck.Click += (s, e) => RefreshDatabaseStatusBanner(DatabaseConnectionStateService.CheckNow("MainForm.DatabaseStatus.Check", true));
+
+            Button btnSupport = new Button
+            {
+                Text = "Help & Support",
+                Dock = DockStyle.Right,
+                Width = 124,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = DS.Primary50,
+                ForeColor = DS.Primary700,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+            btnSupport.FlatAppearance.BorderColor = DS.Primary100;
+            btnSupport.FlatAppearance.BorderSize = 1;
+            btnSupport.Click += (s, e) => OpenSupportCenterDrawer();
+
+            _lblDatabaseStatusMessage = new Label
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(154, 52, 18),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(14, 0, 0, 0)
+            };
+
+            _pnlDatabaseStatusBanner.Controls.Add(_lblDatabaseStatusMessage);
+            _pnlDatabaseStatusBanner.Controls.Add(btnSupport);
+            _pnlDatabaseStatusBanner.Controls.Add(btnCheck);
+            Controls.Add(_pnlDatabaseStatusBanner);
+            _pnlDatabaseStatusBanner.BringToFront();
+        }
+
+        private void DatabaseConnectionStateChanged(object sender, DatabaseConnectionStateChangedEventArgs e)
+        {
+            if (e == null || e.Snapshot == null || IsDisposed)
+                return;
+
+            try
+            {
+                if (InvokeRequired)
+                {
+                    BeginInvoke((Action)(() => RefreshDatabaseStatusBanner(e.Snapshot)));
+                    return;
+                }
+
+                RefreshDatabaseStatusBanner(e.Snapshot);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("MainForm.DatabaseConnectionStateChanged", ex);
+            }
+        }
+
+        private void RefreshDatabaseStatusBanner(DatabaseConnectionStateSnapshot snapshot)
+        {
+            if (_pnlDatabaseStatusBanner == null || _lblDatabaseStatusMessage == null || snapshot == null)
+                return;
+
+            bool show = snapshot.State == DatabaseConnectionStateKind.Degraded ||
+                        snapshot.State == DatabaseConnectionStateKind.Offline ||
+                        snapshot.State == DatabaseConnectionStateKind.Reconnecting ||
+                        snapshot.State == DatabaseConnectionStateKind.ConfigError;
+
+            _pnlDatabaseStatusBanner.Visible = show;
+            if (!show)
+            {
+                ApplyResponsiveShell();
+                return;
+            }
+
+            _lblDatabaseStatusMessage.Text = DatabaseConnectionStateService.BuildUserMessage();
+            if (snapshot.State == DatabaseConnectionStateKind.ConfigError || snapshot.State == DatabaseConnectionStateKind.Offline)
+            {
+                _pnlDatabaseStatusBanner.BackColor = Color.FromArgb(255, 241, 242);
+                _lblDatabaseStatusMessage.ForeColor = Color.FromArgb(153, 27, 27);
+            }
+            else
+            {
+                _pnlDatabaseStatusBanner.BackColor = Color.FromArgb(255, 251, 235);
+                _lblDatabaseStatusMessage.ForeColor = Color.FromArgb(154, 52, 18);
+            }
+
+            _pnlDatabaseStatusBanner.BringToFront();
+            ApplyResponsiveShell();
+        }
+
+        public void ShowAgentSimulationPanel()
+        {
+            if (_agentSimulationPanel == null || _agentSimulationPanel.IsDisposed)
+                _agentSimulationPanel = new AgentSimulationPanel();
+            if (!_agentSimulationPanel.Visible)
+                _agentSimulationPanel.Show(this);
+            _agentSimulationPanel.BringToFront();
+            _agentSimulationPanel.Focus();
+        }
+
+        private void AgentSimulationProgressChanged(object sender, AgentSimulationProgressEventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)(() => UpdateAgentSimulationBanner(e.State)));
+                return;
+            }
+
+            UpdateAgentSimulationBanner(e.State);
+        }
+
+        private void UpdateAgentSimulationBanner(AgentSimulationState state)
+        {
+            if (_pnlAgentSimulationBanner == null || _lblAgentSimulationMessage == null || state == null)
+                return;
+
+            bool visible = state.IsRunning || state.IsPaused || state.IsCompleted;
+            _pnlAgentSimulationBanner.Visible = visible;
+            if (!visible)
+            {
+                AdjustForScreenSize();
+                return;
+            }
+
+            _lblAgentSimulationMessage.Text =
+                "[AGENT SIM] Day " + state.SimulatedDay + "/" + state.MaxDays +
+                " | " + state.SimulatedDate.ToString("dd/MM/yyyy") +
+                " | Quotations " + CountAgentRecords(state, "Quotations") +
+                " | Invoices " + CountAgentRecords(state, "Invoices") +
+                " | Payments " + CountAgentRecords(state, "Payments") +
+                " | Purchases " + CountAgentRecords(state, "Purchases") +
+                " | Score " + state.Score;
+            _pnlAgentSimulationBanner.BackColor = state.IsCompleted ? Color.FromArgb(239, 246, 255) : Color.FromArgb(236, 253, 245);
+            AdjustForScreenSize();
+            _pnlAgentSimulationBanner.BringToFront();
+        }
+
+        private static int CountAgentRecords(AgentSimulationState state, string module)
+        {
+            return state == null || state.Records == null
+                ? 0
+                : state.Records.Where(r => string.Equals(r.Module, module, StringComparison.OrdinalIgnoreCase)).Count();
         }
 
         private void RefreshLicenseBanner()
@@ -521,13 +1078,13 @@ namespace HVAC_Pro_Desktop.UI
 
             _sidebarScroll.Controls.Clear();
             _sidebarScroll.Controls.Add(new Panel { Dock = DockStyle.Top, Height = _compactShell ? 4 : 6, BackColor = Color.Transparent });
-            AddNavGroup("SETTINGS & SUPPORT", SettingsSupportItems, false);
-            AddNavGroup("REPORTS", ReportsItems, true);
-            AddNavGroup("DATA & COMPLIANCE", DataComplianceItems, true);
-            AddNavGroup("HR & PAYROLL", HrPayrollItems, true);
-            AddNavGroup("OPERATIONS", OperationsItems, true);
-            AddNavGroup("SALES", SalesItems, true);
-            AddNavGroup("DASHBOARD", DashboardItems, false);
+            AddNavGroup(LanguageManager.Get("Settings & Support"), SettingsSupportItems, false);
+            AddNavGroup(LanguageManager.Get("Reports"), ReportsItems, true);
+            AddNavGroup(LanguageManager.Get("Data & Compliance"), DataComplianceItems, true);
+            AddNavGroup(LanguageManager.Get("HR & Payroll"), HrPayrollItems, true);
+            AddNavGroup(LanguageManager.Get("Operations"), OperationsItems, true);
+            AddNavGroup(LanguageManager.Get("Sales"), SalesItems, true);
+            AddNavGroup(LanguageManager.Get("Dashboard"), DashboardItems, false);
             _sidebarScroll.Controls.Add(MakeSidebarBrandHeader());
             _sidebarScroll.AutoScrollPosition = new Point(0, 0);
         }
@@ -555,7 +1112,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 Rectangle circle = new Rectangle(0, 0, logo.Width - 1, logo.Height - 1);
-                using (Brush brush = new SolidBrush(Color.FromArgb(52, 91, 224)))
+                using (Brush brush = new SolidBrush(Color.FromArgb(42, 255, 255, 255)))
                     e.Graphics.FillEllipse(brush, circle);
                 if (sidebarLogo != null)
                 {
@@ -622,10 +1179,10 @@ namespace HVAC_Pro_Desktop.UI
             using (Graphics g = Graphics.FromImage(fallback))
             {
                 g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (Brush brush = new SolidBrush(SbActive))
+                using (Brush brush = new SolidBrush(Color.FromArgb(42, 255, 255, 255)))
                     g.FillEllipse(brush, 0, 0, 31, 31);
                 using (Font font = new Font("Segoe UI", 10f, FontStyle.Bold))
-                using (Brush brush = new SolidBrush(Color.White))
+                using (Brush brush = new SolidBrush(DS.Primary700))
                     g.DrawString("SE", font, brush, new PointF(5, 7));
             }
             return fallback;
@@ -673,11 +1230,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             var button = new Button
             {
-                Text = "Quick Action",
+                Text = LanguageManager.Get("Quick Action"),
                 Dock = DockStyle.Top,
                 Height = _compactShell ? 32 : 36,
-                BackColor = SbActive,
-                ForeColor = Color.White,
+                BackColor = DS.Primary50,
+                ForeColor = DS.Primary700,
                 Font = new Font("Segoe UI", _compactShell ? 8f : 8.5f, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -685,9 +1242,10 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(10, 0, 10, 0),
                 TabStop = false
             };
-            button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(35, 104, 148);
-            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(17, 57, 84);
+            button.FlatAppearance.BorderColor = DS.Primary100;
+            button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.MouseOverBackColor = DS.Primary100;
+            button.FlatAppearance.MouseDownBackColor = DS.Slate100;
             button.Click += (s, e) => NavigateTo(JobsPageIndex);
             DS.Rounded(button, 6);
             return button;
@@ -726,7 +1284,7 @@ namespace HVAC_Pro_Desktop.UI
                     Height = 1,
                     Width = Math.Max(1, GetSidebarWidth() - (_compactShell ? 34 : 46)),
                     Location = new Point(_compactShell ? 17 : 23, 2),
-                    BackColor = Color.FromArgb(54, 103, 222)
+                    BackColor = Color.FromArgb(36, 255, 255, 255)
                 };
                 wrapper.Controls.Add(line);
             }
@@ -750,7 +1308,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button MakeNavBtn(int index)
         {
             var (label, icon) = NavItems[index];
-            var btn = new Button
+            var btn = new SidebarNavButton
             {
                 Text = string.Empty,
                 AccessibleName = label,
@@ -768,8 +1326,8 @@ namespace HVAC_Pro_Desktop.UI
             btn.FlatAppearance.BorderSize = 0;
             btn.FlatAppearance.BorderColor = Color.FromArgb(0, 0, 0, 0);
             btn.FlatAppearance.MouseOverBackColor = SbHover;
-            btn.FlatAppearance.MouseDownBackColor = SbActive;
-            btn.Paint += (s, e) => PaintSidebarNavButton((Button)s, e);
+            btn.FlatAppearance.MouseDownBackColor = DS.Slate200;
+            btn.CustomPaint = PaintSidebarNavButton;
             btn.Click += (s, e) => NavigateTo((int)((Button)s).Tag);
             _navButtons[index] = btn;
             return btn;
@@ -778,9 +1336,11 @@ namespace HVAC_Pro_Desktop.UI
         private void PaintSidebarNavButton(Button btn, PaintEventArgs e)
         {
             int index = btn.Tag is int ? (int)btn.Tag : -1;
-            string label = index >= 0 && index < NavItems.Length ? NavItems[index].label : btn.AccessibleName ?? string.Empty;
+            string label = GetNavLabel(index);
             bool active = btn.BackColor.ToArgb() == SbActive.ToArgb();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using (Brush background = new SolidBrush(SbBg))
+                e.Graphics.FillRectangle(background, btn.ClientRectangle);
             Rectangle pill = new Rectangle(_compactShell ? 8 : 10, 3, btn.Width - (_compactShell ? 16 : 20), btn.Height - 6);
             if (active)
             {
@@ -795,7 +1355,7 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.FillPath(brush, path);
             }
 
-            Color fg = active ? Color.White : SbText;
+            Color fg = active ? SbActiveText : SbText;
             int iconX = _compactShell ? 17 : 20;
             int textX = _compactShell ? 43 : 51;
             Rectangle iconRect = new Rectangle(iconX, 0, 20, btn.Height);
@@ -810,10 +1370,33 @@ namespace HVAC_Pro_Desktop.UI
             TextRenderer.DrawText(
                 e.Graphics,
                 label,
-                new Font("Segoe UI", _compactShell ? 8.15f : 9.5f, active ? FontStyle.Bold : FontStyle.Regular),
+                new Font(LanguageManager.GetUiFontFamily(), _compactShell ? 8.15f : 9.5f, active ? FontStyle.Bold : FontStyle.Regular),
                 textRect,
                 fg,
-                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+        }
+
+        private sealed class SidebarNavButton : Button
+        {
+            public Action<Button, PaintEventArgs> CustomPaint { get; set; }
+
+            public SidebarNavButton()
+            {
+                SetStyle(ControlStyles.AllPaintingInWmPaint |
+                         ControlStyles.UserPaint |
+                         ControlStyles.OptimizedDoubleBuffer |
+                         ControlStyles.ResizeRedraw |
+                         ControlStyles.SupportsTransparentBackColor, true);
+            }
+
+            protected override void OnPaintBackground(PaintEventArgs pevent)
+            {
+            }
+
+            protected override void OnPaint(PaintEventArgs pevent)
+            {
+                CustomPaint?.Invoke(this, pevent);
+            }
         }
 
         private string GetNavGlyph(int index)
@@ -828,8 +1411,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 6: return "\uE721"; // Quotations
                 case 7: return "\uE9D2"; // Reports
                 case 8: return "\uE713"; // Settings
-                case 9: return "\uE716"; // Vendors
+                case 9: return "\uE716"; // Suppliers
                 case 10: return "\uE7BF"; // Purchases
+                case VendorsPageIndex: return "\uE716"; // Vendors
                 case 11: return "\uE8F1"; // Inventory
                 case 12: return "\uE77B"; // Employees
                 case 13: return "\uE8C7"; // Payroll
@@ -838,6 +1422,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "\uE90F"; // Retired
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
+                case 19: return "\uE8A5"; // Tally
                 default: return "\uE10F";
             }
         }
@@ -918,6 +1503,9 @@ namespace HVAC_Pro_Desktop.UI
             if (!SessionManager.IsLoggedIn || !CanViewNavItem(index))
                 return;
 
+            if (index != SettingsPageIndex && IsSupportDrawerOpen())
+                CloseSupportCenterDrawer();
+
             if (_currentIndex == index && _pageCache.ContainsKey(index))
                 return;
 
@@ -946,10 +1534,15 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 foreach (Control control in _content.Controls)
+                {
+                    if (control == _btnResetLayout)
+                        continue;
                     control.Visible = false;
+                }
 
                 page.Visible = true;
                 page.BringToFront();
+                LayoutResetLayoutLauncher();
                 if (page is PurchaseForm purchasePage)
                     purchasePage.ApplyNavigationRequest();
                 if (page is ContractManagementForm contractPage)
@@ -973,6 +1566,37 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void HandleDashboardShortcut(string action)
+        {
+            if (string.Equals(action, DashboardForm.ShortcutNewJob, StringComparison.Ordinal))
+            {
+                OpenPageShortcut<JobManagementForm>(JobsPageIndex, page => page.OpenNewJobFromShortcut());
+                return;
+            }
+
+            if (string.Equals(action, DashboardForm.ShortcutNewQuotation, StringComparison.Ordinal))
+            {
+                OpenPageShortcut<TenderBidForm>(QuotationsPageIndex, page => page.OpenNewQuotationFromShortcut());
+                return;
+            }
+
+            if (string.Equals(action, DashboardForm.ShortcutNewInvoice, StringComparison.Ordinal))
+            {
+                OpenPageShortcut<InvoiceForm>(InvoicesPageIndex, page => page.OpenNewInvoiceFromShortcut());
+            }
+        }
+
+        private void OpenPageShortcut<TPage>(int index, Action<TPage> openAction) where TPage : UserControl
+        {
+            NavigateTo(index);
+            BeginInvoke((Action)(() =>
+            {
+                UserControl cachedPage;
+                if (_pageCache.TryGetValue(index, out cachedPage) && cachedPage is TPage page)
+                    openAction(page);
+            }));
+        }
+
         public void NavigateToJobDetail(int jobId)
         {
             EnsureSessionOrClose();
@@ -987,7 +1611,11 @@ namespace HVAC_Pro_Desktop.UI
                 ClearTransientPage();
 
                 foreach (Control control in _content.Controls)
+                {
+                    if (control == _btnResetLayout)
+                        continue;
                     control.Visible = false;
+                }
 
                 var page = new JobDetailPage
                 {
@@ -1007,6 +1635,7 @@ namespace HVAC_Pro_Desktop.UI
                 _content.Controls.Add(page);
                 page.Visible = true;
                 page.BringToFront();
+                LayoutResetLayoutLauncher();
                 TouchPage(JobsPageIndex);
                 _currentIndex = -1;
             }
@@ -1066,14 +1695,19 @@ namespace HVAC_Pro_Desktop.UI
                 ClearTransientPage();
 
                 foreach (Control control in _content.Controls)
+                {
+                    if (control == _btnResetLayout)
+                        continue;
                     control.Visible = false;
+                }
 
                 var page = new ClientDetailPage
                 {
                     Dock = DockStyle.Fill,
                     ClientId = clientId,
                     HighlightSiteId = highlightSiteId,
-                    OnBackToClients = NavigateBackToClients
+                    OnBackToClients = NavigateBackToClients,
+                    OnBackToDashboard = NavigateBackToClientsDashboard
                 };
                 page.LoadClient();
                 DS.ApplyTheme(page);
@@ -1087,6 +1721,7 @@ namespace HVAC_Pro_Desktop.UI
                 _content.Controls.Add(page);
                 page.Visible = true;
                 page.BringToFront();
+                LayoutResetLayoutLauncher();
                 TouchPage(ClientsPageIndex);
                 _currentIndex = -1;
             }
@@ -1113,6 +1748,19 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_pageCache.TryGetValue(ClientsPageIndex, out cachedPage) && cachedPage is ClientManagementForm selectedClients)
                 selectedClients.SelectClientFromNavigation(selectedClientId);
+        }
+
+        /// <summary>Returns from a client sub-page to the clients dashboard.</summary>
+        private void NavigateBackToClientsDashboard()
+        {
+            if (_pageCache.TryGetValue(ClientsPageIndex, out UserControl cachedPage) && cachedPage is ClientManagementForm clients)
+                clients.ShowDashboardFromNavigation();
+
+            _currentIndex = -1;
+            NavigateTo(ClientsPageIndex);
+
+            if (_pageCache.TryGetValue(ClientsPageIndex, out cachedPage) && cachedPage is ClientManagementForm dashboardClients)
+                dashboardClients.ShowDashboardFromNavigation();
         }
 
         private void NavigateBackToJobs(int selectedJobId)
@@ -1151,7 +1799,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 6: page = new TenderBidForm(); break;
                 case 7: page = new ReportForm(); break;
                 case 8: page = new SettingsForm(); break;
-                case 9: page = new VendorForm(); break;
+                case 9: page = new VendorForm(VendorPartnerPageMode.Supplier); break;
                 case 10: page = new PurchaseForm(); break;
                 case 11: page = new InventoryForm(); break;
                 case 12: page = new EmployeeForm(); break;
@@ -1160,9 +1808,12 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
+                case 19: page = new TallyIntegrationForm(); break;
+                case VendorsPageIndex: page = new VendorForm(VendorPartnerPageMode.ServiceVendor); break;
                 default:
                     var dash = new DashboardForm();
                     dash.OnNavigate = NavigateTo;
+                    dash.OnShortcut = HandleDashboardShortcut;
                     page = dash;
                     break;
             }
@@ -1222,7 +1873,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildErrorPage(int index, Exception ex)
         {
-            string title = index >= 0 && index < NavItems.Length ? NavItems[index].label : "page";
+            string title = index >= 0 && index < NavItems.Length ? GetNavLabel(index) : "page";
 
             var wrap = new Panel
             {
@@ -1341,10 +1992,10 @@ namespace HVAC_Pro_Desktop.UI
             avatar.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                using (Brush brush = new SolidBrush(Color.FromArgb(25, 55, 185)))
+                using (Brush brush = new SolidBrush(Color.FromArgb(46, 255, 255, 255)))
                     e.Graphics.FillEllipse(brush, 0, 0, avatar.Width - 1, avatar.Height - 1);
                 using (var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                using (Brush textBrush = new SolidBrush(Color.White))
+                using (Brush textBrush = new SolidBrush(DS.Primary700))
                 using (Font avatarFont = new Font("Segoe UI", _compactShell ? 9.5f : 10.5f, FontStyle.Bold))
                 {
                     e.Graphics.DrawString(GetUserInitials(), avatarFont, textBrush, new RectangleF(0, 0, avatar.Width - 1, avatar.Height - 1), sf);
@@ -1366,18 +2017,18 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(_compactShell ? 58 : 72, _compactShell ? 32 : 38),
                 Size = new Size(_compactShell ? 74 : 82, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8f),
-                ForeColor = Color.White,
-                BackColor = Color.FromArgb(22, 180, 92),
+                ForeColor = DS.Primary700,
+                BackColor = Color.FromArgb(230, 242, 255),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             DS.Rounded(lblRole, 9);
             var linkChange = new LinkLabel
             {
-                Text = "Change Password",
+                Text = LanguageManager.Get("Change Password"),
                 Location = new Point(_compactShell ? 14 : 20, _compactShell ? 82 : 92),
                 Size = new Size(_compactShell ? 110 : 124, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
-                LinkColor = Color.FromArgb(218, 244, 252),
+                LinkColor = Color.FromArgb(219, 234, 254),
                 ActiveLinkColor = Color.White,
                 BackColor = Color.Transparent,
                 TabStop = false
@@ -1392,11 +2043,11 @@ namespace HVAC_Pro_Desktop.UI
             };
             var linkSearch = new LinkLabel
             {
-                Text = "Search",
+                Text = LanguageManager.Get("Search"),
                 Location = new Point(_compactShell ? 14 : 20, _compactShell ? 60 : 70),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
-                LinkColor = Color.FromArgb(218, 244, 252),
+                LinkColor = Color.FromArgb(219, 234, 254),
                 ActiveLinkColor = Color.White,
                 BackColor = Color.Transparent,
                 TabStop = false
@@ -1408,12 +2059,12 @@ namespace HVAC_Pro_Desktop.UI
             };
             var linkAlerts = new LinkLabel
             {
-                Text = "Alerts",
+                Text = LanguageManager.Get("Alerts"),
                 Location = new Point(_compactShell ? 66 : 78, _compactShell ? 60 : 70),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
-                LinkColor = Color.FromArgb(254, 240, 138),
-                ActiveLinkColor = Color.White,
+                LinkColor = DS.Amber600,
+                ActiveLinkColor = DS.Amber500,
                 BackColor = Color.Transparent,
                 TabStop = false
             };
@@ -1424,12 +2075,12 @@ namespace HVAC_Pro_Desktop.UI
             };
             var linkLogout = new LinkLabel
             {
-                Text = "Logout",
+                Text = LanguageManager.Get("Logout"),
                 Location = new Point(_compactShell ? 110 : 148, _compactShell ? 60 : 70),
                 Size = new Size(_compactShell ? 42 : 44, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
-                LinkColor = Color.FromArgb(248, 113, 113),
-                ActiveLinkColor = Color.FromArgb(254, 202, 202),
+                LinkColor = DS.Red600,
+                ActiveLinkColor = DS.Red500,
                 BackColor = Color.Transparent,
                 TabStop = false
             };
@@ -1473,10 +2124,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             btn.BackColor = active ? SbActive : Color.Transparent;
-            btn.ForeColor = active ? Color.White : SbText;
-            btn.Font = new Font("Segoe UI", _compactShell ? 8.2f : 8.8f, active ? FontStyle.Bold : FontStyle.Regular);
+            btn.ForeColor = active ? SbActiveText : SbText;
+            btn.Font = new Font(LanguageManager.GetUiFontFamily(), _compactShell ? 8.2f : 8.8f, active ? FontStyle.Bold : FontStyle.Regular);
             btn.FlatAppearance.MouseOverBackColor = active ? SbActive : SbHover;
-            btn.FlatAppearance.MouseDownBackColor = active ? SbActive : Color.FromArgb(38, 78, 198);
+            btn.FlatAppearance.MouseDownBackColor = active ? SbActive : DS.Slate200;
             btn.Invalidate();
         }
 
@@ -1513,7 +2164,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _compactShell = compact;
             MinimumSize = new Size(1024, 600);
-            Font = new Font("Segoe UI", compact ? 8.25f : 9f);
+            Font = new Font(LanguageManager.GetUiFontFamily(), compact ? 8.25f : 9f);
             if (_sidebar != null)
                 BuildSidebar();
         }
@@ -1524,10 +2175,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _sidebar.Visible = !_sidebar.Visible;
-            _content.Left = _sidebar.Visible ? _sidebar.Width : 0;
-            _content.Width = Math.Max(0, ClientSize.Width - _content.Left);
-            _content.Height = ClientSize.Height;
             _layoutMemory.SetShellValue("SidebarVisible", _sidebar.Visible ? "1" : "0");
+            AdjustForScreenSize();
         }
 
         private void ApplyShellLayoutMemory()
@@ -1537,9 +2186,7 @@ namespace HVAC_Pro_Desktop.UI
 
             string visible = _layoutMemory.GetShellValue("SidebarVisible", "1");
             _sidebar.Visible = !string.Equals(visible, "0", StringComparison.OrdinalIgnoreCase);
-            _content.Left = _sidebar.Visible ? _sidebar.Width : 0;
-            _content.Width = Math.Max(0, ClientSize.Width - _content.Left);
-            _content.Height = ClientSize.Height;
+            AdjustForScreenSize();
         }
 
         private bool CanViewNavItem(int index)
@@ -1575,7 +2222,8 @@ namespace HVAC_Pro_Desktop.UI
                 case "QUOTATIONS": return 6;
                 case "REPORTS": return 7;
                 case "SETTINGS": return 8;
-                case "VENDORS": return 9;
+                case "SUPPLIERS": return 9;
+                case "VENDORS": return VendorsPageIndex;
                 case "PURCHASES": return 10;
                 case "INVENTORY": return 11;
                 case "EMPLOYEES": return 12;
@@ -1596,6 +2244,9 @@ namespace HVAC_Pro_Desktop.UI
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
+                case "TALLY":
+                case "TALLYPRIME":
+                case "TALLY PRIME": return TallyIntegrationPageIndex;
                 default: return 0;
             }
         }
@@ -1623,6 +2274,8 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "WorkOrders";
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
+                case 19: return "Settings";
+                case VendorsPageIndex: return "Vendors";
                 default: return "Dashboard";
             }
         }
@@ -1657,6 +2310,12 @@ namespace HVAC_Pro_Desktop.UI
             if (!SessionManager.IsLoggedIn || _hideUpdateBannerForSession)
                 return;
 
+            if (ConfigService.IsSilentAutoUpdateEnabled())
+            {
+                UpdateService.StartSilentBackgroundUpdateCheck();
+                return;
+            }
+
             Task.Run(async () =>
             {
                 try
@@ -1684,7 +2343,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblUpdateMessage.Text = "ServoERP " + result.LatestVersion + " is available.";
             _latestUpdateResult = result;
-            _btnDownloadUpdate.Visible = !string.IsNullOrWhiteSpace(result.DownloadUrl);
+            _btnDownloadUpdate.Visible = result.CanApplyUpdate;
             _pnlUpdateBanner.Visible = true;
             _pnlUpdateBanner.BringToFront();
         }
@@ -1870,10 +2529,9 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     try
                     {
-                        string packagePath = await UpdateService.DownloadUpdatePackageAsync(_latestUpdateResult, progressReporter, cancelSource.Token);
+                        await UpdateService.DownloadUpdatePackageAsync(_latestUpdateResult, progressReporter, cancelSource.Token);
                         progressForm.Close();
-                        UpdateService.StartPackageUpdater(packagePath);
-                        Application.Exit();
+                        UpdateService.ApplyUpdateAndRestart(_latestUpdateResult);
                     }
                     catch (OperationCanceledException)
                     {

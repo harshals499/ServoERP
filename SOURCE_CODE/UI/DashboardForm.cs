@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -6,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
+using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 
@@ -13,7 +15,12 @@ namespace HVAC_Pro_Desktop.UI
 {
     public class DashboardForm : DeferredPageControl
     {
+        public const string ShortcutNewJob = "NewJob";
+        public const string ShortcutNewQuotation = "NewQuotation";
+        public const string ShortcutNewInvoice = "NewInvoice";
+
         public Action<int> OnNavigate { get; set; }
+        public Action<string> OnShortcut { get; set; }
 
         private readonly ClientService _clientSvc = new ClientService();
         private readonly VendorService _vendorSvc = new VendorService();
@@ -38,7 +45,12 @@ namespace HVAC_Pro_Desktop.UI
         private List<ServiceDeskIncident> _serviceTickets = new List<ServiceDeskIncident>();
 
         private FlowLayoutPanel _root;
+        private Panel _host;
         private Label _clockLabel;
+        private ComboBox _languageCombo;
+        private bool _languageSelectionChanging;
+        private bool _backupNowRunning;
+        private bool _buildingShell;
         private Timer _clockTimer;
 
         public DashboardForm()
@@ -46,6 +58,7 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = DS.BgPage;
             AutoScroll = false;
+            LayoutManager.ResetPage("Dashboard");
             EnableDeferredLoad(async () =>
             {
                 BuildShell();
@@ -55,10 +68,18 @@ namespace HVAC_Pro_Desktop.UI
             });
         }
 
+        /// <summary>Refreshes dashboard labels and fonts after the selected language changes.</summary>
+        protected override void ApplyLanguage()
+        {
+            base.ApplyLanguage();
+            if (_root != null && !IsDisposed)
+                BuildShell();
+        }
+
         private void LoadData()
         {
             try { _clients = _clientSvc.GetAllClients() ?? new List<B2BClient>(); } catch { }
-            try { _vendors = _vendorSvc.GetAll() ?? new List<Vendor>(); } catch { }
+            try { _vendors = _vendorSvc.GetSuppliers() ?? new List<Vendor>(); } catch { }
             try { _jobs = _jobSvc.GetAll() ?? new List<Job>(); } catch { }
             try { _invoices = _invoiceSvc.GetAllInvoices() ?? new List<Invoice>(); } catch { }
             try { _payments = _paymentSvc.GetAllPayments() ?? new List<Payment>(); } catch { }
@@ -71,11 +92,18 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildShell()
         {
-            Controls.Clear();
+            if (_buildingShell || IsDisposed)
+                return;
+
+            _buildingShell = true;
+            SuspendLayout();
+            try
+            {
+            DisposeDashboardControls();
             _clockTimer?.Stop();
             _clockTimer?.Dispose();
 
-            Panel host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage };
+            _host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage };
             _root = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -83,57 +111,297 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
-                Padding = new Padding(22, 12, 22, 24),
+                Padding = new Padding(10, 8, 14, 24),
                 BackColor = DS.BgPage
             };
-            host.Controls.Add(_root);
-            Controls.Add(host);
-            Resize += (s, e) => RebuildIfReady();
-
+            _host.Controls.Add(_root);
+            Controls.Add(_host);
             AddTopBar();
             AddGreetingBanner();
+            AddShortcutActionsRow();
             AddDepartmentRows();
-            AddFinancialAndActivityRow();
-            AddAlertsBar();
+            AddFinancialOverviewRow();
+                AddAlertsBar();
+                NormalizeDashboardFixedLayout();
 
             _clockTimer = new Timer { Interval = 60000 };
             _clockTimer.Tick += (s, e) => { if (_clockLabel != null) _clockLabel.Text = DateTime.Now.ToString("hh:mm tt"); };
             _clockTimer.Start();
+            }
+            finally
+            {
+                ResumeLayout(true);
+                _buildingShell = false;
+            }
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            NormalizeDashboardFixedLayout();
+            BeginInvoke((Action)(() =>
+            {
+                RebuildIfReady();
+                NormalizeDashboardFixedLayout();
+            }));
+        }
+
+        private void DisposeDashboardControls()
+        {
+            Control[] controls = Controls.Cast<Control>().ToArray();
+            Controls.Clear();
+            foreach (Control control in controls)
+                control.Dispose();
         }
 
         private void RebuildIfReady()
         {
-            if (_root == null || IsDisposed || Width <= 0)
+            if (_root == null || IsDisposed || Width <= 0 || _buildingShell)
                 return;
             BuildShell();
         }
 
+        private void NormalizeDashboardFixedLayout()
+        {
+            if (IsDisposed)
+                return;
+
+            LayoutManager.ResetPage("Dashboard");
+            RemoveDashboardResizeState(this);
+            if (_root != null)
+                _root.Padding = new Padding(10, 8, 14, 24);
+        }
+
+        private static void RemoveDashboardResizeState(Control root)
+        {
+            if (root == null || root.IsDisposed)
+                return;
+
+            foreach (Control child in root.Controls.Cast<Control>().ToList())
+            {
+                string metadata = ((child.Name ?? string.Empty) + " " + (child.Tag == null ? string.Empty : child.Tag.ToString())).ToUpperInvariant();
+                if (metadata.Contains("NO_DASHBOARD_RESIZE") || child is DashboardDeptCard)
+                    CardResizeGripService.Detach(child);
+
+                RemoveDashboardResizeState(child);
+            }
+        }
+
         private void AddTopBar()
         {
-            Panel bar = CardPanel(ContentWidth(), 60);
-            bar.Padding = new Padding(12, 8, 12, 8);
+            Panel bar = CardPanel(ContentWidth(), 78);
+            bar.BackColor = Color.White;
+            bar.Padding = new Padding(22, 12, 22, 12);
 
+            const int userWidth = 150;
+            const int avatarSize = 32;
+            const int languageWidth = 160;
+            const int actionWidth = 116;
+            const int gap = 10;
+            bool showTopBarMeta = bar.Width >= 1120;
+            int right = bar.Width - 22;
+            int customizeX = right - actionWidth;
+            int backupX = customizeX - actionWidth - gap;
+            int userBlockWidth = avatarSize + 8 + userWidth;
+            int avatarX = backupX - userBlockWidth - gap;
+            int userX = avatarX + avatarSize + 8;
+            int languageX = avatarX - languageWidth - gap;
+            bool showLanguage = languageX >= 820;
+            if (!showLanguage)
+                languageX = -languageWidth;
+            int rightClusterLeft = showLanguage ? languageX : avatarX;
+            bool showUser = avatarX >= 1010;
+            bool showActions = backupX >= 900;
+            bool showBackup = backupX >= 1020;
+            bool showCustomize = customizeX >= 900;
+            if (!showUser)
+            {
+                avatarX = -avatarSize;
+                userX = -userWidth;
+                rightClusterLeft = showActions ? Math.Min(backupX, customizeX) : right;
+            }
+            if (!showActions)
+                rightClusterLeft = right;
+
+            int searchX = 292;
+            int searchLimit = rightClusterLeft - searchX - (showTopBarMeta ? 128 : 16);
+            int searchWidth = Math.Max(240, Math.Min(430, searchLimit));
+            bool showSearch = searchLimit >= 260;
+            if (!showSearch)
+                searchWidth = 0;
+
+            Label pageTitle = new Label
+            {
+                Text = "Dashboard",
+                Location = new Point(22, 14),
+                Size = new Size(220, 26),
+                Font = new Font("Segoe UI", 15.5f, FontStyle.Bold),
+                ForeColor = DS.Slate950,
+                AutoEllipsis = true
+            };
+            Label pageSubtitle = new Label
+            {
+                Text = "Business overview for today",
+                Location = new Point(23, 42),
+                Size = new Size(220, 18),
+                Font = new Font("Segoe UI", 8.6f),
+                ForeColor = DS.Slate600,
+                AutoEllipsis = true
+            };
+
+            Panel searchHost = new Panel
+            {
+                Location = new Point(searchX, 18),
+                Size = new Size(searchWidth, 40),
+                BackColor = DS.Slate50,
+                Visible = showSearch
+            };
+            searchHost.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 8))
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawPath(pen, path);
+            };
             TextBox search = new TextBox
             {
-                Text = "Search apps, clients, jobs, invoices, purchases...",
-                Location = new Point(56, 17),
-                Size = new Size(Math.Max(360, bar.Width - 668), 24),
+                Text = T("SearchPlaceholder"),
+                Location = new Point(38, 11),
+                Size = new Size(Math.Max(80, searchWidth - 118), 22),
                 BorderStyle = BorderStyle.None,
-                Font = new Font("Segoe UI", 9f),
-                ForeColor = DS.Slate600
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8.4f),
+                ForeColor = DS.Slate600,
+                BackColor = DS.Slate50
             };
             Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 16, DS.Slate600);
-            searchIcon.Location = new Point(10, 14);
-            searchIcon.Size = new Size(18, 22);
-            Label ctrl = new Label { Text = "Ctrl + K", Location = new Point(search.Right + 10, 12), Size = new Size(66, 28), BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter };
-            Label date = new Label { Text = "▣  " + DateTime.Today.ToString("dd/MM/yyyy"), Location = new Point(ctrl.Right + 28, 16), Size = new Size(130, 24), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700 };
-            _clockLabel = new Label { Text = DateTime.Now.ToString("hh:mm tt"), Location = new Point(date.Right + 26, 16), Size = new Size(100, 24), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700 };
-            Button customize = PrimaryButton("⚙  Customize", bar.Width - 270, 10, 124, 40);
-            Label avatar = new Label { Text = Initials(CurrentUserName()), Location = new Point(bar.Width - 132, 9), Size = new Size(40, 40), BackColor = DS.Primary600, ForeColor = Color.White, Font = new Font("Segoe UI", 10f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            Label user = new Label { Text = CurrentUserName() + " ▾", Location = new Point(bar.Width - 86, 15), Size = new Size(78, 24), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            searchIcon.Location = new Point(14, 10);
+            searchIcon.Size = new Size(18, 20);
+            Label ctrl = new Label { Text = "Ctrl + K", Location = new Point(Math.Max(10, searchHost.Width - 66), 8), Size = new Size(54, 24), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter };
+            searchHost.Controls.AddRange(new Control[] { searchIcon, search, ctrl });
 
-            bar.Controls.AddRange(new Control[] { searchIcon, search, ctrl, date, _clockLabel, customize, avatar, user });
+            int timeX = showSearch ? searchHost.Right + 12 : 292;
+            Panel timeBlock = new Panel { Location = new Point(timeX, 16), Size = new Size(100, 44), BackColor = Color.White, Visible = showTopBarMeta && timeX + 100 < rightClusterLeft - 8 };
+            Label date = new Label { Text = DateTime.Today.ToString("dd/MM/yyyy"), Location = new Point(0, 5), Size = new Size(92, 18), Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = DS.Slate700 };
+            _clockLabel = new Label { Text = DateTime.Now.ToString("hh:mm tt"), Location = new Point(0, 24), Size = new Size(78, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 };
+            timeBlock.Controls.AddRange(new Control[] { date, _clockLabel });
+            date.Visible = showTopBarMeta;
+            _clockLabel.Visible = showTopBarMeta;
+            Button customize = SecondaryButton(T("Customize"), customizeX, 22, actionWidth, 34);
+            Label avatar = new Label { Text = Initials(CurrentUserName()), Location = new Point(avatarX, 22), Size = new Size(avatarSize, avatarSize), BackColor = DS.Primary50, ForeColor = DS.Primary600, Font = new Font("Segoe UI", 8.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            DS.Rounded(avatar, 16);
+            Label user = new Label { Text = CurrentUserName(), Location = new Point(userX, 28), Size = new Size(userWidth, 20), Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            Button backupNow = SecondaryButton("Backup Now", backupX, 22, actionWidth, 34);
+            customize.Visible = showActions && showCustomize;
+            backupNow.Visible = showActions && showBackup;
+            avatar.Visible = showUser;
+            user.Visible = showUser;
+            backupNow.Name = "btnDashboardBackupNow";
+            backupNow.Click += (s, e) => RunDashboardBackupNow(backupNow);
+            Panel languagePanel = BuildLanguageSelector(languageX, 23, languageWidth, 30);
+            languagePanel.Visible = showLanguage;
+
+            bar.Controls.AddRange(new Control[] { pageTitle, pageSubtitle, searchHost, timeBlock, customize, backupNow, languagePanel, avatar, user });
             _root.Controls.Add(bar);
+        }
+
+        /// <summary>Runs a manual backup from the dashboard shortcut without blocking the UI.</summary>
+        private void RunDashboardBackupNow(Button sourceButton)
+        {
+            if (_backupNowRunning)
+                return;
+
+            _backupNowRunning = true;
+            if (sourceButton != null)
+            {
+                sourceButton.Enabled = false;
+                sourceButton.Text = "Backing up...";
+            }
+
+            var worker = new BackgroundWorker();
+            worker.DoWork += (s, e) => e.Result = new BackupService().RunBackup(BackupTrigger.Manual);
+            worker.RunWorkerCompleted += (s, e) =>
+            {
+                worker.Dispose();
+                _backupNowRunning = false;
+                if (sourceButton != null && !sourceButton.IsDisposed)
+                {
+                    sourceButton.Enabled = true;
+                    sourceButton.Text = "Backup Now";
+                }
+
+                if (e.Error != null)
+                {
+                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                    return;
+                }
+
+                BackupResult result = e.Result as BackupResult;
+                if (result != null && result.Success)
+                    ToastNotification.ShowToast("Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
+                else
+                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+            };
+            worker.RunWorkerAsync();
+        }
+
+        /// <summary>Returns display text for backup destinations.</summary>
+        private static string FriendlyBackupDestination(string destination)
+        {
+            if (string.Equals(destination, "Network", StringComparison.OrdinalIgnoreCase))
+                return "Network Server";
+            if (string.Equals(destination, "Local", StringComparison.OrdinalIgnoreCase))
+                return "Local Folder";
+            if (string.Equals(destination, "ExternalDrive", StringComparison.OrdinalIgnoreCase))
+                return "External Drive";
+            return "backup destination";
+        }
+
+        private Panel BuildLanguageSelector(int x, int y, int width, int height)
+        {
+            Panel panel = new Panel
+            {
+                Location = new Point(x, y),
+                Size = new Size(width, height),
+                BackColor = Color.Transparent
+            };
+
+            Label label = new Label
+            {
+                Text = T("Language"),
+                Location = new Point(0, 2),
+                Size = new Size(width, 14),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 7.2f, FontStyle.Bold),
+                ForeColor = DS.Slate600,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            _languageCombo = new ComboBox
+            {
+                Location = height <= 32 ? new Point(0, 3) : new Point(0, 16),
+                Size = new Size(width, 24),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font(LanguageManager.GetUiFontFamily(), height <= 32 ? 8f : 8.5f)
+            };
+            _languageCombo.Items.AddRange(new object[] { LanguageManager.English, LanguageManager.Marathi, LanguageManager.Hindi });
+            _languageSelectionChanging = true;
+            _languageCombo.SelectedItem = LanguageManager.CurrentLanguage;
+            if (_languageCombo.SelectedIndex < 0)
+                _languageCombo.SelectedIndex = 0;
+            _languageSelectionChanging = false;
+            _languageCombo.SelectedIndexChanged += (s, e) =>
+            {
+                if (_languageSelectionChanging || _languageCombo.SelectedItem == null)
+                    return;
+
+                string selected = _languageCombo.SelectedItem.ToString();
+                LanguageManager.SetLanguage(selected);
+                DbSettings.Set("Language", LanguageManager.CurrentLanguage);
+            };
+
+            if (height > 32)
+                panel.Controls.Add(label);
+            panel.Controls.Add(_languageCombo);
+            return panel;
         }
 
         private void AddGreetingBanner()
@@ -145,20 +413,69 @@ namespace HVAC_Pro_Desktop.UI
             icon.Location = new Point(18, 19);
             string name = CurrentUserName();
             Label title = new Label { Text = "Good " + TimeOfDay() + ", " + name + "  ✨", Location = new Point(90, 22), Size = new Size(520, 28), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            Label sub = new Label { Text = "Here's what's happening across your business today.", Location = new Point(92, 52), Size = new Size(420, 20), Font = new Font("Segoe UI", 8.6f), ForeColor = DS.Slate600 };
-            ComboBox range = new ComboBox { Location = new Point(banner.Width - 220, 28), Size = new Size(190, 28), DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 8.5f) };
-            range.Items.AddRange(new object[] { "This Month", "Last Month", "This Quarter", "This Year" });
+            Label sub = new Label { Text = T("BusinessToday"), Location = new Point(92, 52), Size = new Size(420, 20), Font = new Font(LanguageManager.GetUiFontFamily(), 8.6f), ForeColor = DS.Slate600 };
+            ComboBox range = new ComboBox { Location = new Point(banner.Width - 220, 28), Size = new Size(190, 28), DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(LanguageManager.GetUiFontFamily(), 8.5f) };
+            range.Items.AddRange(new object[] { T("This Month"), T("Last Month"), T("This Quarter"), T("This Year") });
             range.SelectedIndex = 0;
             banner.Controls.AddRange(new Control[] { icon, title, sub, range });
             _root.Controls.Add(banner);
         }
 
+        private void AddShortcutActionsRow()
+        {
+            int width = ContentWidth();
+            Panel panel = CardPanel(width, 88);
+            panel.BackColor = Color.White;
+
+            Label icon = ModernIconSystem.Badge(ModernIconKind.Status, 42, DS.Primary50, DS.Primary600, 10);
+            icon.Location = new Point(20, 23);
+            Label title = new Label
+            {
+                Text = "Quick create",
+                Location = new Point(76, 20),
+                Size = new Size(220, 22),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold),
+                ForeColor = DS.Slate900
+            };
+            Label subtitle = new Label
+            {
+                Text = "Start daily sales and service entries.",
+                Location = new Point(76, 45),
+                Size = new Size(360, 20),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f),
+                ForeColor = DS.Slate600
+            };
+
+            int buttonWidth = 154;
+            int gap = 12;
+            int startX = Math.Max(460, width - (buttonWidth * 3) - (gap * 2) - 24);
+            AddShortcutButton(panel, "+ New Job", startX, ShortcutNewJob, DS.Primary600);
+            AddShortcutButton(panel, "+ New Quotation", startX + buttonWidth + gap, ShortcutNewQuotation, DS.Teal600);
+            AddShortcutButton(panel, "+ New Invoice", startX + ((buttonWidth + gap) * 2), ShortcutNewInvoice, Color.FromArgb(124, 58, 237));
+
+            panel.Controls.AddRange(new Control[] { icon, title, subtitle });
+            _root.Controls.Add(panel);
+        }
+
+        private void AddShortcutButton(Panel parent, string text, int x, string action, Color color)
+        {
+            Button button = PrimaryButton(text, x, 25, 154, 38);
+            button.BackColor = color;
+            button.Cursor = Cursors.Hand;
+            button.Click += (s, e) => OnShortcut?.Invoke(action);
+            parent.Controls.Add(button);
+        }
+
         private void AddDepartmentRows()
         {
             int rowWidth = ContentWidth();
-            int cardWidth = Math.Max(220, (rowWidth - 48) / 5);
+            const int columns = 5;
+            const int cardSideMargin = 4;
+            int cardWidth = Math.Max(220, (rowWidth - (columns * cardSideMargin * 2)) / columns);
             FlowLayoutPanel row1 = RowPanel(rowWidth, 232);
             FlowLayoutPanel row2 = RowPanel(rowWidth, 232);
+            row1.WrapContents = false;
+            row2.WrapContents = false;
 
             int openQuotes = _quotations.Count(q => IsAny(q.Status, "Draft", "Sent", "Submitted"));
             decimal quotesMtd = _quotations.Where(q => IsThisMonth(q.SubmittedDate ?? q.ModifiedDate ?? q.DueDate)).Sum(QuoteValue);
@@ -173,28 +490,28 @@ namespace HVAC_Pro_Desktop.UI
             decimal paidVendorsMtd = _purchaseOrders.Where(p => IsThisMonth(p.PODate)).Sum(p => p.PaidAmount);
             decimal netCashFlow = receiptsMtd - paidVendorsMtd;
 
-            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Document, "#ede9fe", "#7c3aed", "Sales / Quotations", Count(openQuotes), "Open Quotations", Money(quotesMtd), "Value (MTD)", null, 6));
-            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Job, "#fff7ed", "#f97316", "Jobs / Projects", Count(activeJobs), "Total Active Jobs", null, null, new[] { Pill(inProgress + " In Progress", Color.FromArgb(249, 115, 22)), Pill(overdueJobs + " Overdue", DS.Red500) }, 15));
-            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Purchase, "#f0fdf4", "#16a34a", "Purchase Orders", Count(openPos), "Open POs", Money(poMtd), "Value (MTD)", null, 10, openPos > 0 ? DS.Red500 : (Color?)null));
-            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Invoice, "#f0fdfa", "#0d9488", "Invoices", Count(overdueInvoices.Count), "Overdue Invoices", Money(overdueInvoices.Sum(i => i.BalanceDue)), "Overdue Amount", null, 3, overdueInvoices.Count > 0 ? DS.Red500 : DS.Green600));
-            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Payment, "#eff6ff", "#2563eb", "Payments", Money(pendingPayables), "Pending Payables", Money(netCashFlow), "Net Cash Flow", null, 4, DS.Red500, netCashFlow < 0 ? DS.Red500 : DS.Green600));
+            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Document, "#ede9fe", "#7c3aed", T("Sales / Quotations"), Count(openQuotes), T("Open Quotations"), Money(quotesMtd), T("Value (MTD)"), null, 6));
+            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Job, "#fff7ed", "#f97316", T("Jobs / Projects"), Count(activeJobs), T("Total Active Jobs"), null, null, new[] { Pill(inProgress + " " + T("In Progress"), Color.FromArgb(249, 115, 22)), Pill(overdueJobs + " " + T("Overdue"), DS.Red500) }, 15));
+            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Purchase, "#f0fdf4", "#16a34a", T("Purchase Orders"), Count(openPos), T("Open POs"), Money(poMtd), T("Value (MTD)"), null, 10, openPos > 0 ? DS.Red500 : (Color?)null));
+            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Invoice, "#f0fdfa", "#0d9488", T("Invoices"), Count(overdueInvoices.Count), T("Overdue Invoices"), Money(overdueInvoices.Sum(i => i.BalanceDue)), T("Overdue Amount"), null, 3, overdueInvoices.Count > 0 ? DS.Red500 : DS.Green600));
+            row1.Controls.Add(Dept(cardWidth, ModernIconKind.Payment, "#eff6ff", "#2563eb", T("Payments"), Money(pendingPayables), T("Pending Payables"), Money(netCashFlow), T("Net Cash Flow"), null, 4, DS.Red500, netCashFlow < 0 ? DS.Red500 : DS.Green600));
 
             decimal overduePayables = _purchaseOrders.Where(p => p.IsOverdue).Sum(p => p.BalanceDue);
             int activeVendors = _vendors.Count(v => v.IsActive && !v.IsArchived);
             int activeClients = _clients.Count(c => c.IsActive);
             decimal outstanding = _invoices.Where(i => !IsPaid(i.PaymentStatus)).Sum(i => Math.Max(0m, i.BalanceDue));
-            int lowStock = _inventory.Count(i => i.IsLowStock);
-            int outStock = _inventory.Count(i => i.CurrentStock <= 0);
+            int toOrder = _inventory.Count(i => i.IsLowStock);
+            int pricedItems = _inventory.Count(i => i.LastPurchaseRate > 0);
             int activeEmployees = _employees.Count(e => IsAny(e.Status, "Active"));
             int leaveToday = _employees.Count(e => IsAny(e.Status, "Leave", "On Leave"));
             int openTickets = _serviceTickets.Count(t => !IsAny(t.Status, "Resolved", "Closed", "Cancelled"));
             int highTickets = _serviceTickets.Count(t => IsAny(t.Priority, "High", "Critical") && !IsAny(t.Status, "Resolved", "Closed", "Cancelled"));
 
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Vendor, "#fffbeb", "#d97706", "Vendors", Count(activeVendors), "Active Vendors", Money(overduePayables), "Overdue Payables", null, 9, null, overduePayables > 0 ? DS.Red500 : (Color?)null));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Client, "#eff6ff", "#2563eb", "Clients", Count(activeClients), "Active Clients", outstanding > 0 ? Money(outstanding) : "-", "Outstanding", null, 1, DS.Green600));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Inventory, "#faf5ff", "#9333ea", "Inventory / Materials", Count(lowStock), "Low Stock Items", Count(outStock), "Out of Stock Items", null, 11, lowStock > 0 ? Color.FromArgb(217, 119, 6) : (Color?)null, outStock > 0 ? DS.Red500 : (Color?)null));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.User, "#eff6ff", "#2563eb", "Employees", Count(activeEmployees), "Active Employees", Count(leaveToday), "On Leave Today", null, 12, DS.Green600));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Service, "#eff6ff", "#2563eb", "Service Operations", Count(openTickets), "Open Service Tickets", Count(highTickets), "High Priority", null, 15, null, highTickets > 0 ? DS.Red500 : (Color?)null));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Vendor, "#fffbeb", "#d97706", T("Suppliers"), Count(activeVendors), T("Active Suppliers"), Money(overduePayables), T("Overdue Supplier Payables"), null, 9, null, overduePayables > 0 ? DS.Red500 : (Color?)null));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Client, "#eff6ff", "#2563eb", T("Clients"), Count(activeClients), T("Active Clients"), outstanding > 0 ? Money(outstanding) : "-", T("Outstanding"), null, 1, DS.Green600));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Inventory, "#faf5ff", "#9333ea", T("Materials / Procurement"), Count(toOrder), T("To Order Items"), Count(pricedItems), T("Priced Items"), null, 11, toOrder > 0 ? Color.FromArgb(217, 119, 6) : (Color?)null, pricedItems > 0 ? DS.Green600 : (Color?)null));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.User, "#eff6ff", "#2563eb", T("Employees"), Count(activeEmployees), T("Active Employees"), Count(leaveToday), T("On Leave Today"), null, 12, DS.Green600));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Service, "#eff6ff", "#2563eb", T("Service Operations"), Count(openTickets), T("Open Service Tickets"), Count(highTickets), T("High Priority"), null, 15, null, highTickets > 0 ? DS.Red500 : (Color?)null));
 
             _root.Controls.Add(row1);
             _root.Controls.Add(row2);
@@ -209,20 +526,19 @@ namespace HVAC_Pro_Desktop.UI
                 pills,
                 () => OnNavigate?.Invoke(nav));
             card.Width = width;
-            WindowsFileContextMenu.Attach(card, () => context, DashboardContextMenuActions(() => OnNavigate?.Invoke(nav)));
+            card.Margin = new Padding(4, 6, 4, 6);
+            card.Tag = "NO_DASHBOARD_RESIZE";
+            GlobalCardContextMenu.AttachCard(card, title, "Dashboard", "Nav" + nav, () => OnNavigate?.Invoke(nav));
             return card;
         }
 
-        private void AddFinancialAndActivityRow()
+        private void AddFinancialOverviewRow()
         {
             int width = ContentWidth();
             FlowLayoutPanel row = RowPanel(width, 270);
-            Panel finance = CardPanel((int)(width * 0.55) - 8, 258);
-            Panel activity = CardPanel(width - finance.Width - 20, 258);
+            Panel finance = CardPanel(width, 258);
             BuildFinance(finance);
-            BuildActivity(activity);
             row.Controls.Add(finance);
-            row.Controls.Add(activity);
             _root.Controls.Add(row);
         }
 
@@ -266,52 +582,6 @@ namespace HVAC_Pro_Desktop.UI
             chart.Series.Add(s);
         }
 
-        private void BuildActivity(Panel panel)
-        {
-            panel.Controls.Add(new Label { Text = "Recent Activity", Location = new Point(18, 14), Size = new Size(200, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            Label all = new Label { Text = "View All", Location = new Point(panel.Width - 82, 14), Size = new Size(60, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, ForeColor = DS.Primary600, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
-            panel.Controls.Add(all);
-            int y = 46;
-            foreach (ActivityItem item in Activities().Take(8))
-            {
-                Label icon = ModernIconSystem.Badge(item.Icon, 28, item.BackColor, item.Color, 7);
-                icon.Location = new Point(18, y);
-                icon.Cursor = Cursors.Hand;
-                panel.Controls.Add(icon);
-                Label text = new Label { Text = item.Text, Location = new Point(56, y + 3), Size = new Size(panel.Width - 160, 20), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate900, AutoEllipsis = true, Cursor = Cursors.Hand };
-                Label age = new Label { Text = Age(item.When), Location = new Point(panel.Width - 92, y + 3), Size = new Size(70, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 7.4f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight, Cursor = Cursors.Hand };
-                AttachRecentActivityOpen(icon, item);
-                AttachRecentActivityOpen(text, item);
-                AttachRecentActivityOpen(age, item);
-                AttachRecentActivityContextMenu(icon, item);
-                AttachRecentActivityContextMenu(text, item);
-                AttachRecentActivityContextMenu(age, item);
-                panel.Controls.Add(text);
-                panel.Controls.Add(age);
-                y += 24;
-            }
-            Label bottom = new Label { Text = "View All Activity  →", Dock = DockStyle.Bottom, Height = 30, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Primary600, Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), Cursor = Cursors.Hand };
-            panel.Controls.Add(bottom);
-        }
-
-        private void AttachRecentActivityOpen(Control control, ActivityItem item)
-        {
-            if (control == null || item == null || string.IsNullOrWhiteSpace(item.DocumentType) || item.RecordId <= 0)
-                return;
-            control.Click += (s, e) => OpenRecentActivityDocument(item);
-        }
-
-        private void OpenRecentActivityDocument(ActivityItem item)
-        {
-            if (item == null)
-                return;
-
-            if (string.Equals(item.DocumentType, "Payment", StringComparison.OrdinalIgnoreCase))
-                RecentDocumentOpenService.OpenPaymentDocument(this, item.RecordId);
-            else
-                RecentDocumentOpenService.OpenKnownDocument(this, item.DocumentType, item.RecordId);
-        }
-
         private WindowsFileContextMenuActions DashboardContextMenuActions(Action open)
         {
             return new WindowsFileContextMenuActions
@@ -320,23 +590,11 @@ namespace HVAC_Pro_Desktop.UI
                 Delete = ctx => DeleteContextItem(ctx),
                 Rename = ctx => RenameContextItem(ctx),
                 Copy = ctx => CopyContextItem(ctx),
-                Cut = ctx => System.Diagnostics.Debug.WriteLine("Context menu action: Cut -> " + ctx),
-                Share = ctx => System.Diagnostics.Debug.WriteLine("Context menu action: Share -> " + ctx)
+                Cut = ctx => CopyContextItem(ctx),
+                Share = ctx => CopyContextItem(ctx),
+                CopyAsPath = ctx => CopyDashboardPath(ctx),
+                Properties = ctx => ShowDashboardProperties(ctx)
             };
-        }
-
-        private void AttachRecentActivityContextMenu(Control control, ActivityItem item)
-        {
-            if (control == null || item == null)
-                return;
-
-            WindowsFileContextMenu.Attach(control, () => new DashboardContext
-            {
-                Title = item.Text,
-                Kind = "Recent activity",
-                DocumentType = item.DocumentType,
-                RecordId = item.RecordId
-            }, DashboardContextMenuActions(() => OpenRecentActivityDocument(item)));
         }
 
         private void DeleteContextItem(object context)
@@ -345,7 +603,7 @@ namespace HVAC_Pro_Desktop.UI
             string label = ctx == null ? "this item" : ctx.Title;
             MessageBox.Show(this,
                 "Delete is wired for " + label + "." + Environment.NewLine + Environment.NewLine +
-                "Dashboard cards and recent activity rows are generated from live business records, so this menu does not silently remove source data.",
+                "Dashboard cards are generated from live business records, so this menu does not silently remove source data.",
                 BrandingService.WindowTitle("Delete"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
@@ -370,12 +628,26 @@ namespace HVAC_Pro_Desktop.UI
                 UIHelper.TrySetClipboardText(this, text, BrandingService.WindowTitle("Copy"));
         }
 
+        private void CopyDashboardPath(object context)
+        {
+            DashboardContext ctx = context as DashboardContext;
+            string text = ctx == null ? "servoerp://dashboard" : ctx.ToDashboardPath();
+            UIHelper.TrySetClipboardText(this, text, BrandingService.WindowTitle("Copy as path"));
+        }
+
+        private void ShowDashboardProperties(object context)
+        {
+            DashboardContext ctx = context as DashboardContext;
+            string text = ctx == null ? "Dashboard item" : ctx.ToPropertiesText();
+            MessageBox.Show(this, text, BrandingService.WindowTitle("Dashboard Item Properties"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
         private void AddAlertsBar()
         {
             int overdueJobs = OverdueJobs();
             int openPos = _purchaseOrders.Count(p => IsAny(p.Status, "Draft", "Pending Approval", "Approved", "Open"));
             int overdueInv = _invoices.Count(i => !IsPaid(i.PaymentStatus) && i.DueDate.Date < DateTime.Today);
-            int lowStock = _inventory.Count(i => i.IsLowStock);
+            int toOrder = _inventory.Count(i => i.IsLowStock);
             int highTickets = _serviceTickets.Count(t => IsAny(t.Priority, "High", "Critical") && !IsAny(t.Status, "Resolved", "Closed", "Cancelled"));
 
             Panel bar = CardPanel(ContentWidth(), 74);
@@ -383,7 +655,7 @@ namespace HVAC_Pro_Desktop.UI
             AddAlert(bar, 250, ModernIconKind.Refresh, Color.FromArgb(249, 115, 22), overdueJobs, "Overdue Jobs");
             AddAlert(bar, 450, ModernIconKind.Purchase, Color.FromArgb(59, 130, 246), openPos, "Open Purchase Orders");
             AddAlert(bar, 680, ModernIconKind.Invoice, DS.Red500, overdueInv, "Overdue Invoices");
-            AddAlert(bar, 890, ModernIconKind.Inventory, Color.FromArgb(245, 158, 11), lowStock, "Low Stock Items");
+            AddAlert(bar, 890, ModernIconKind.Inventory, Color.FromArgb(245, 158, 11), toOrder, "Materials To Order");
             AddAlert(bar, 1090, ModernIconKind.Service, Color.FromArgb(20, 184, 166), highTickets, "High Priority Tickets");
             _root.Controls.Add(bar);
         }
@@ -398,26 +670,38 @@ namespace HVAC_Pro_Desktop.UI
             bar.Controls.Add(new Label { Text = label, Location = new Point(x + 46, 43), Size = new Size(150, 18), Font = new Font("Segoe UI", 7.7f), ForeColor = DS.Slate600 });
         }
 
-        private List<ActivityItem> Activities()
-        {
-            var list = new List<ActivityItem>();
-            list.AddRange(_purchaseOrders.Select(p => new ActivityItem { When = p.CreatedDate > DateTime.MinValue ? p.CreatedDate : p.PODate, Text = "Purchase order " + Safe(p.PONumber, "#" + p.POID) + " raised with " + Safe(p.VendorName, "vendor"), Icon = ModernIconKind.Purchase, Color = Color.FromArgb(8, 145, 178), BackColor = Color.FromArgb(236, 254, 255), DocumentType = "PurchaseOrder", RecordId = p.POID }));
-            list.AddRange(_invoices.Select(i => new ActivityItem { When = i.PaymentDate ?? i.InvoiceDate, Text = "Invoice " + Safe(i.InvoiceNumber, "#" + i.InvoiceID) + " " + (IsPaid(i.PaymentStatus) ? "paid" : "raised"), Icon = ModernIconKind.Invoice, Color = DS.Green600, BackColor = Color.FromArgb(240, 253, 244), DocumentType = "Invoice", RecordId = i.InvoiceID }));
-            list.AddRange(_jobs.Select(j => new ActivityItem { When = j.ModifiedDate ?? j.CreatedDate, Text = "Job " + Safe(j.JobNumber, "#" + j.JobID) + " " + Safe(j.Status, "updated"), Icon = ModernIconKind.Job, Color = Color.FromArgb(186, 117, 23), BackColor = Color.FromArgb(255, 251, 235), DocumentType = "Job", RecordId = j.JobID }));
-            list.AddRange(_payments.Select(p => new ActivityItem { When = p.PaymentDate, Text = "Payment " + Safe(p.PaymentNumber, "#" + p.PaymentID) + " received", Icon = ModernIconKind.Payment, Color = Color.FromArgb(13, 148, 136), BackColor = Color.FromArgb(240, 253, 250), DocumentType = "Payment", RecordId = p.InvoiceID }));
-            return list.OrderByDescending(i => i.When).ToList();
-        }
-
         private DashboardCardPill Pill(string text, Color color) => new DashboardCardPill { Text = text, Color = color };
-        private FlowLayoutPanel RowPanel(int width, int height) => new FlowLayoutPanel { Width = width, Height = height, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 10) };
+        private FlowLayoutPanel RowPanel(int width, int height) => new FlowLayoutPanel { Width = width, Height = height, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 10), Tag = "NO_DASHBOARD_RESIZE" };
         private Panel CardPanel(int width, int height)
         {
-            Panel panel = new Panel { Width = width, Height = height, BackColor = DS.BgCard, Margin = new Padding(0, 0, 0, 12) };
+            Panel panel = new Panel { Width = width, Height = height, BackColor = DS.BgCard, Margin = new Padding(0, 0, 0, 12), Tag = "NO_DASHBOARD_RESIZE" };
             panel.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 10)) using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawPath(pen, path); };
             return panel;
         }
-        private Button PrimaryButton(string text, int x, int y, int w, int h) => new Button { Text = text, Location = new Point(x, y), Size = new Size(w, h), BackColor = DS.Primary600, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.4f, FontStyle.Bold) };
-        private int ContentWidth() => Math.Max(1120, ClientSize.Width > 0 ? ClientSize.Width - 68 : 1460);
+        private Button PrimaryButton(string text, int x, int y, int w, int h)
+        {
+            var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(w, h), BackColor = DS.Primary600, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font(LanguageManager.GetUiFontFamily(), 8.1f, FontStyle.Bold) };
+            button.FlatAppearance.BorderSize = 0;
+            return button;
+        }
+        private Button SecondaryButton(string text, int x, int y, int w, int h)
+        {
+            var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(w, h), BackColor = Color.White, ForeColor = DS.Slate900, FlatStyle = FlatStyle.Flat, Font = new Font(LanguageManager.GetUiFontFamily(), 8.1f, FontStyle.Bold), Cursor = Cursors.Hand };
+            button.FlatAppearance.BorderColor = DS.BorderStrong;
+            button.FlatAppearance.BorderSize = 1;
+            return button;
+        }
+        private int ContentWidth()
+        {
+            int sourceWidth = ClientSize.Width;
+            if (sourceWidth < 900 && Parent != null && Parent.ClientSize.Width > sourceWidth)
+                sourceWidth = Parent.ClientSize.Width;
+            if (sourceWidth < 900 && _host != null && !_host.IsDisposed && _host.ClientSize.Width > sourceWidth)
+                sourceWidth = _host.ClientSize.Width;
+
+            int available = sourceWidth > 0 ? sourceWidth - SystemInformation.VerticalScrollBarWidth - 34 : 1160;
+            return Math.Max(1160, available);
+        }
         private int OverdueJobs() => _jobs.Count(j => j.ScheduledDate.Date < DateTime.Today && !IsAny(j.Status, "Completed", "Cancelled"));
         private static bool IsThisMonth(DateTime d) => d.Month == DateTime.Today.Month && d.Year == DateTime.Today.Year;
         private static bool IsAny(string actual, params string[] values) => values.Any(v => string.Equals((actual ?? "").Trim(), v, StringComparison.OrdinalIgnoreCase));
@@ -426,22 +710,11 @@ namespace HVAC_Pro_Desktop.UI
         private static string Money(decimal n) => IndiaFormatHelper.FormatCurrency(n);
         private static string Safe(string text, string fallback) => string.IsNullOrWhiteSpace(text) ? fallback : text.Trim();
         private static decimal QuoteValue(TenderBid q) => q == null ? 0 : (q.TotalWithGST > 0 ? q.TotalWithGST : (q.BidValue > 0 ? q.BidValue : q.TotalTaxableValue + q.TotalGSTAmount));
-        private static string TimeOfDay() { int h = DateTime.Now.Hour; return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening"; }
+        private static string TimeOfDay() { int h = DateTime.Now.Hour; return h < 12 ? T("morning") : h < 17 ? T("afternoon") : T("evening"); }
+        private static string T(string key) => LanguageManager.Get(key);
         private static string CurrentUserName() => !string.IsNullOrWhiteSpace(SessionManager.CurrentUser?.DisplayName) ? SessionManager.CurrentUser.DisplayName : (!string.IsNullOrWhiteSpace(SessionManager.CurrentUser?.Username) ? SessionManager.CurrentUser.Username : "User");
         private static string Initials(string name) => string.Join("", (name ?? "User").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0])).ToUpperInvariant();
-        private static string Age(DateTime dt) { TimeSpan a = DateTime.Now - dt; if (a.TotalMinutes < 1) return "Just now"; if (a.TotalHours < 1) return ((int)a.TotalMinutes) + " min ago"; if (a.TotalDays < 1) return ((int)a.TotalHours) + " hr ago"; return ((int)a.TotalDays) + " d ago"; }
         private static Color Blend(Color color, float amount) => Color.FromArgb(color.R + (int)((255 - color.R) * amount), color.G + (int)((255 - color.G) * amount), color.B + (int)((255 - color.B) * amount));
-
-        private sealed class ActivityItem
-        {
-            public DateTime When { get; set; }
-            public string Text { get; set; }
-            public ModernIconKind Icon { get; set; }
-            public Color Color { get; set; }
-            public Color BackColor { get; set; }
-            public string DocumentType { get; set; }
-            public int RecordId { get; set; }
-        }
 
         private sealed class DashboardContext
         {
@@ -456,6 +729,32 @@ namespace HVAC_Pro_Desktop.UI
                 if (!string.IsNullOrWhiteSpace(DocumentType) && RecordId > 0)
                     return Kind + ": " + Title + " (" + DocumentType + " #" + RecordId + ")";
                 return Kind + ": " + Title;
+            }
+
+            public string ToDashboardPath()
+            {
+                return "servoerp://dashboard/card/Nav" + NavigationIndex;
+            }
+
+            public string ToPropertiesText()
+            {
+                return "Title: " + (string.IsNullOrWhiteSpace(Title) ? "Dashboard item" : Title) + Environment.NewLine +
+                       "Kind: " + (string.IsNullOrWhiteSpace(Kind) ? "Dashboard item" : Kind) + Environment.NewLine +
+                       "Navigation: " + NavigationIndex + Environment.NewLine +
+                       "Document type: " + (string.IsNullOrWhiteSpace(DocumentType) ? "Not assigned" : DocumentType) + Environment.NewLine +
+                       "Record ID: " + (RecordId > 0 ? RecordId.ToString() : "Not assigned") + Environment.NewLine +
+                       "Path: " + ToDashboardPath();
+            }
+
+            private static string CleanPathPart(string value)
+            {
+                if (string.IsNullOrWhiteSpace(value))
+                    return string.Empty;
+
+                char[] chars = value.Trim()
+                    .Where(ch => char.IsLetterOrDigit(ch) || ch == '-' || ch == '_' || ch == '.')
+                    .ToArray();
+                return new string(chars);
             }
         }
     }

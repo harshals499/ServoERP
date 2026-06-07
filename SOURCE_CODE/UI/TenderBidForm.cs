@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -46,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblGst;
         private Label _lblTotal;
         private Label _lblMargin;
+        private Label _lblDashboardMargin;
         private Label _lblLastSaved;
         private Label _lblAlertShortfall;
         private Label _lblAlertMargin;
@@ -97,8 +98,10 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color InfoBlue = Color.FromArgb(37, 99, 235);
         private static readonly Color WarnOrange = Color.FromArgb(245, 158, 11);
         private static readonly Color CargoPurple = Color.FromArgb(79, 70, 229);
-        private static readonly Color BorderColor = Color.FromArgb(221, 227, 234);
-        private static readonly Color InputFill = Color.FromArgb(248, 250, 252);
+        private static readonly Color BorderColor = DS.Border;
+        private static readonly Color InputFill = Color.White;
+        private const int QuoteEditorFieldHeight = 40;
+        private const int QuoteEditorRowHeight = 62;
 
         public TenderBidForm()
         {
@@ -106,11 +109,13 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = QuotePageBg;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Quotations");
             ApplyQuotationVisualFixes();
             ApplyPermissions();
             HandleCreated += (s, e) => BeginInvoke((Action)(() =>
             {
                 ApplyLineItemsGridLayout();
+                SalesUiPolishService.ApplyAfterRebuild(this, "Quotations");
                 ApplyQuotationVisualFixes();
             }));
             HandleCreated += async (s, e) => await InitializeAsync();
@@ -120,6 +125,7 @@ namespace HVAC_Pro_Desktop.UI
                 BeginInvoke((Action)(() =>
                 {
                     ApplyLineItemsGridLayout();
+                    SalesUiPolishService.ApplyAfterRebuild(this, "Quotations");
                     ApplyQuotationVisualFixes();
                 }));
                 await InitializeAsync();
@@ -139,8 +145,8 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 var inventoryTask = Task.Run(() => _inventorySvc.GetAll());
-                var clientsTask = Task.Run(() => _clientSvc.GetAllClientsIncludingInactive());
-                var vendorsTask = Task.Run(() => _vendorSvc.GetAll());
+                var clientsTask = Task.Run(() => _clientSvc.GetAllClients());
+                var vendorsTask = Task.Run(() => _vendorSvc.GetSuppliers());
                 var quotesTask = Task.Run(() => _svc.GetAll().OrderByDescending(q => q.RequiredByDate ?? q.DueDate).Take(80).ToList());
 
                 var clients = await clientsTask;
@@ -198,12 +204,12 @@ namespace HVAC_Pro_Desktop.UI
                 RowCount = 1,
                 Padding = new Padding(24, 4, 24, 24)
             };
-            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 72f));
-            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
             workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             Panel mainHost = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Margin = new Padding(0, 0, 12, 0), MinimumSize = new Size(650, 0) };
-            Panel summaryHost = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Margin = new Padding(12, 0, 0, 0), MinimumSize = new Size(330, 0) };
+            Panel summaryHost = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg, Margin = new Padding(12, 0, 0, 0), MinimumSize = new Size(380, 0) };
             mainHost.Controls.Add(BuildMainWorkspace());
             summaryHost.Controls.Add(BuildRightSummaryPanel());
             workspace.Controls.Add(mainHost, 0, 0);
@@ -348,21 +354,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildErpHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 112, BackColor = QuotePageBg, Padding = new Padding(24, 16, 24, 10) };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = Color.White, Padding = new Padding(24, 12, 24, 10) };
             header.Paint += (s, e) =>
             {
                 using (Pen p = new Pen(BorderColor))
-                    e.Graphics.DrawLine(p, 24, header.Height - 1, header.Width - 24, header.Height - 1);
+                    e.Graphics.DrawLine(p, 0, header.Height - 1, header.Width, header.Height - 1);
             };
 
-            Label title = new Label { Text = "Quotations", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(24, 12), AutoSize = true };
-            Label subtitle = new Label { Text = "Create, price, approve, and convert customer quotations.", Font = new Font("Segoe UI", 9), ForeColor = QuoteMuted, Location = new Point(25, 45), AutoSize = true };
-            Label breadcrumb = new Label { Text = "Dashboard   >   Quotations   >   New Quotation", Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Location = new Point(25, 74), AutoSize = true };
+            Label title = new Label { Text = "Quotations", Font = new Font("Segoe UI", 16.5f, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(24, 12), Size = new Size(260, 28), AutoEllipsis = true };
+            Label subtitle = new Label { Text = "Create, price, approve, and convert customer quotations.", Font = new Font("Segoe UI", 8.8f), ForeColor = QuoteMuted, Location = new Point(25, 42), Size = new Size(430, 18), AutoEllipsis = true };
+            Label breadcrumb = new Label { Text = "Dashboard  /  Sales  /  Quotations", Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = CargoPurple, Location = new Point(25, 62), Size = new Size(360, 18), AutoEllipsis = true };
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
             header.Controls.Add(breadcrumb);
 
-            _lblStatus = new Label { Text = "", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(760, 56) };
+            _lblStatus = new Label { Text = "", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(760, 54) };
             header.Controls.Add(_lblStatus);
 
             FlowLayoutPanel actions = new FlowLayoutPanel
@@ -370,67 +376,105 @@ namespace HVAC_Pro_Desktop.UI
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
-                Height = 42,
-                Width = 900,
-                Location = new Point(Math.Max(300, Width - 890), 18),
+                Height = 38,
+                Width = 720,
+                Location = new Point(Math.Max(300, Width - 710), 24),
                 BackColor = Color.Transparent
             };
-            header.Resize += (s, e) => actions.Location = new Point(Math.Max(420, header.Width - actions.Width - 24), 18);
+            header.Resize += (s, e) => actions.Location = new Point(Math.Max(420, header.Width - actions.Width - 24), 24);
 
             _btnBackToQuoteDashboard = MakeOutlineBtn("< Back to Dashboard", 150);
             _btnNewQuote = MakeBtn("+  New Quotation", InfoBlue, 142);
             Button btnPreview = MakeOutlineBtn("Preview", 86);
-            Button btnImport = MakeOutlineBtn("Import", 86);
-            Button btnUploadDoc = MakeOutlineBtn("Upload PDF", 104);
-            Button btnOpenDoc = MakeOutlineBtn("Open PDF", 96);
-            Button btnMore = MakeOutlineBtn("...", 36);
+            Button btnFileActions = MakeOutlineBtn("File Actions v", 124);
+            Button btnMore = MakeOutlineBtn("Compare / More", 122);
             RegisterFilledButton(_btnNewQuote, CargoPurple);
             RegisterSecondaryButton(btnPreview);
-            RegisterSecondaryButton(btnImport);
-            RegisterSecondaryButton(btnUploadDoc);
-            RegisterSecondaryButton(btnOpenDoc);
+            RegisterSecondaryButton(btnFileActions);
             RegisterSecondaryButton(btnMore);
             RegisterSecondaryButton(_btnBackToQuoteDashboard);
             _btnBackToQuoteDashboard.Visible = false;
             _btnBackToQuoteDashboard.Click += (s, e) => ShowQuotationDashboard();
             _btnNewQuote.Click += (s, e) => NewRecord();
             btnPreview.Click += (s, e) => PreviewQuotation();
-            btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Quotations, FindForm());
-            btnUploadDoc.Click += (s, e) => UploadCompanyPdf();
-            btnOpenDoc.Click += (s, e) => OpenCompanyPdf();
+            btnFileActions.Click += (s, e) => ShowQuoteFileActionsMenu(btnFileActions);
             btnMore.Click += (s, e) => CompareQuotation();
-            actions.Controls.AddRange(new Control[] { _btnBackToQuoteDashboard, _btnNewQuote, btnPreview, btnImport, btnUploadDoc, btnOpenDoc, btnMore });
+            _toolTip.SetToolTip(btnFileActions, "Import, upload, or open quotation PDFs.");
+            _toolTip.SetToolTip(btnMore, "Open supplier comparison and quotation actions.");
+            actions.Controls.AddRange(new Control[] { _btnBackToQuoteDashboard, _btnNewQuote, btnPreview, btnFileActions, btnMore });
             header.Controls.Add(actions);
             return header;
         }
 
+        /// <summary>Shows compact file actions for quotation documents.</summary>
+        private void ShowQuoteFileActionsMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Import", null, (s, e) => ShowQuotationImportMenu(owner));
+            menu.Items.Add("Upload PDF", null, (s, e) => UploadCompanyPdf());
+            menu.Items.Add("Open PDF", null, (s, e) => OpenCompanyPdf());
+            menu.Show(owner, new Point(0, owner.Height + 2));
+        }
+
+        /// <summary>Shows quotation import type options from the Import button.</summary>
+        private void ShowQuotationImportMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            AddQuotationImportMenuItem(menu, "Received from Suppliers");
+            AddQuotationImportMenuItem(menu, "Sent to Suppliers");
+            AddQuotationImportMenuItem(menu, "Sent to Clients");
+            AddQuotationImportMenuItem(menu, "Received from Clients");
+            menu.Show(owner, new Point(0, owner.Height + 2));
+        }
+
+        /// <summary>Adds a quotation import direction menu item.</summary>
+        private void AddQuotationImportMenuItem(ContextMenuStrip menu, string direction)
+        {
+            menu.Items.Add(direction, null, (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Quotations, FindForm(), direction));
+        }
+
         private Panel BuildKpiRow()
         {
-            Panel row = new Panel { Height = 104, BackColor = QuotePageBg, Margin = new Padding(0, 0, 0, 12) };
-            FlowLayoutPanel flow = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, AutoScroll = true, BackColor = QuotePageBg, Padding = new Padding(0, 0, 0, 6) };
-            flow.Controls.Add(BuildLiveKpiCard("₹", "Quote Value (Incl. GST)", out _lblKpiQuoteValue, out Label quoteSub, CargoPurple));
+            Panel row = new Panel { Height = 178, BackColor = QuotePageBg, Margin = new Padding(0, 0, 0, 12) };
+            TableLayoutPanel flow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 2, BackColor = QuotePageBg };
+            for (int i = 0; i < 3; i++)
+                flow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333f));
+            for (int i = 0; i < 2; i++)
+                flow.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            flow.Controls.Add(BuildLiveKpiCard("₹", "Quote Value (Incl. GST)", out _lblKpiQuoteValue, out Label quoteSub, CargoPurple), 0, 0);
             quoteSub.Text = "View breakdown →";
-            flow.Controls.Add(BuildLiveKpiCard("↗", "Expected Margin", out _lblKpiMargin, out _lblKpiMarginSub, SaveGreen));
-            flow.Controls.Add(BuildLiveKpiCard("CLIP", "Approval Status", out _lblKpiApproval, out _lblKpiApprovalSub, WarnOrange));
-            flow.Controls.Add(BuildLiveKpiCard("◎", "Probability to Close", out _lblKpiProbability, out _lblKpiProbabilitySub, InfoBlue));
-            flow.Controls.Add(BuildLiveKpiCard("CAL", "Validity", out _lblKpiValidity, out _lblKpiValiditySub, CargoPurple));
-            flow.Controls.Add(BuildLiveKpiCard("CLK", "Last Saved", out _lblKpiSaved, out _lblKpiSavedSub, CargoPurple));
+            flow.Controls.Add(BuildLiveKpiCard("↗", "Expected Margin", out _lblKpiMargin, out _lblKpiMarginSub, SaveGreen), 1, 0);
+            flow.Controls.Add(BuildLiveKpiCard("CLIP", "Approval Status", out _lblKpiApproval, out _lblKpiApprovalSub, WarnOrange), 2, 0);
+            flow.Controls.Add(BuildLiveKpiCard("◎", "Probability to Close", out _lblKpiProbability, out _lblKpiProbabilitySub, InfoBlue), 0, 1);
+            flow.Controls.Add(BuildLiveKpiCard("CAL", "Validity", out _lblKpiValidity, out _lblKpiValiditySub, CargoPurple), 1, 1);
+            flow.Controls.Add(BuildLiveKpiCard("CLK", "Last Saved", out _lblKpiSaved, out _lblKpiSavedSub, CargoPurple), 2, 1);
             row.Controls.Add(flow);
             return row;
         }
 
         private Panel BuildLiveKpiCard(string icon, string caption, out Label valueLabel, out Label subLabel, Color accent)
         {
-            Panel card = MakeCard(178, 86);
-            card.Margin = new Padding(0, 0, 10, 0);
-            Label iconLabel = new Label { Text = icon, Location = new Point(12, 13), Size = new Size(42, 42), BackColor = DS.Lighten(accent, 0.82f), ForeColor = accent, Font = new Font("Segoe UI", 8, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            Panel card = MakeCard(178, 78);
+            card.Dock = DockStyle.Fill;
+            card.Margin = new Padding(0, 0, 10, 10);
+            Label iconLabel = new Label { Text = icon, Location = new Point(10, 13), Size = new Size(38, 38), BackColor = DS.Lighten(accent, 0.82f), ForeColor = accent, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
             DS.Rounded(iconLabel, 8);
             card.Controls.Add(iconLabel);
-            card.Controls.Add(new Label { Text = caption, Location = new Point(64, 12), Size = new Size(102, 18), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = QuoteMuted, AutoEllipsis = true });
-            valueLabel = new Label { Text = "₹0.00", Location = new Point(64, 31), Size = new Size(104, 22), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText, AutoEllipsis = true };
-            subLabel = new Label { Text = "", Location = new Point(64, 56), Size = new Size(104, 18), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
-            card.Controls.Add(valueLabel);
-            card.Controls.Add(subLabel);
+            Label captionLabel = new Label { Text = caption, Location = new Point(58, 12), Size = new Size(102, 18), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = QuoteMuted, AutoEllipsis = true };
+            card.Controls.Add(captionLabel);
+            Label value = new Label { Text = "₹0.00", Location = new Point(58, 31), Size = new Size(104, 20), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = QuoteText, AutoEllipsis = true };
+            Label sub = new Label { Text = "", Location = new Point(58, 55), Size = new Size(104, 16), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
+            card.Controls.Add(value);
+            card.Controls.Add(sub);
+            card.Resize += (s, e) =>
+            {
+                int textWidth = Math.Max(60, card.ClientSize.Width - 68);
+                captionLabel.Width = textWidth;
+                value.Width = textWidth;
+                sub.Width = textWidth;
+            };
+            valueLabel = value;
+            subLabel = sub;
             return card;
         }
 
@@ -449,38 +493,113 @@ namespace HVAC_Pro_Desktop.UI
         {
             FlowLayoutPanel flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = QuotePageBg };
             flow.Controls.Add(BuildKpiRow());
+            flow.Controls.Add(BuildQuotationFlowGuideCard());
             flow.Controls.Add(BuildQuotationWorkflowCard());
             flow.Controls.Add(BuildQuoteDetailsCard());
             flow.Controls.Add(BuildModernLineItemsCard());
             flow.Controls.Add(BuildFollowUpCard());
             flow.Resize += (s, e) =>
             {
-                int width = Math.Max(760, flow.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
+                int width = Math.Max(520, flow.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
                 foreach (Control control in flow.Controls)
                     control.Width = width;
             };
             return flow;
         }
 
+        private Panel BuildQuotationFlowGuideCard()
+        {
+            Panel card = MakeCard(900, 118);
+            card.Margin = new Padding(0, 0, 0, 12);
+            Label title = new Label { Text = "Quotation flow", Location = new Point(18, 12), Size = new Size(150, 22), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText };
+            Label sub = new Label { Text = "Keep the customer quote, supplier planning, and final conversion in separate steps.", Location = new Point(18, 36), Size = new Size(card.Width - 36, 18), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, AutoEllipsis = true };
+            card.Controls.Add(title);
+            card.Controls.Add(sub);
+
+            TableLayoutPanel steps = new TableLayoutPanel { Location = new Point(18, 62), Size = new Size(card.Width - 36, 42), ColumnCount = 4, RowCount = 1, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            for (int i = 0; i < 4; i++)
+                steps.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+            steps.Controls.Add(BuildQuotationGuideStep("1. Customer", "Client is required; site can stay blank.", InfoBlue), 0, 0);
+            steps.Controls.Add(BuildQuotationGuideStep("2. Scope", "Add materials, labour, and GST.", SaveGreen), 1, 0);
+            steps.Controls.Add(BuildQuotationGuideStep("3. Supplier", "Use supplier status when procurement is needed.", WarnOrange), 2, 0);
+            steps.Controls.Add(BuildQuotationGuideStep("4. Convert", "Send, accept, invoice, or create job from actions.", CargoPurple), 3, 0);
+            card.Controls.Add(steps);
+            card.Resize += (s, e) =>
+            {
+                sub.Width = Math.Max(160, card.ClientSize.Width - 36);
+                steps.Width = Math.Max(320, card.ClientSize.Width - 36);
+            };
+            return card;
+        }
+
+        private Panel BuildQuotationGuideStep(string title, string subtitle, Color accent)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 8, 0), BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(8, 5, 8, 4) };
+            DS.Rounded(panel, 8);
+            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 16, Font = new Font("Segoe UI", 7.7f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
+            Label subtitleLabel = new Label { Text = subtitle, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 7.2f), ForeColor = QuoteMuted, AutoEllipsis = true };
+            _toolTip.SetToolTip(panel, subtitle);
+            _toolTip.SetToolTip(subtitleLabel, subtitle);
+            panel.Controls.Add(subtitleLabel);
+            panel.Controls.Add(titleLabel);
+            return panel;
+        }
+
         private Panel BuildQuoteDetailsCard()
         {
-            Panel card = MakeCard(900, 224);
+            Panel card = MakeCard(900, 374);
             card.Margin = new Padding(0, 0, 0, 16);
-            Label title = new Label { Text = "Quote Details", Location = new Point(18, 16), AutoSize = true, Font = new Font("Segoe UI", 12, FontStyle.Bold), ForeColor = QuoteText };
-            _quoteDetailsStatusPill = new Label { Text = "DRAFT", Location = new Point(130, 17), Size = new Size(70, 22), BackColor = Color.FromArgb(219, 234, 254), ForeColor = InfoBlue, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            card.Padding = new Padding(28, 24, 28, 28);
+            Label title = new Label { Text = "Quote Details", Location = new Point(28, 26), AutoSize = true, Font = new Font("Segoe UI", 17.5f, FontStyle.Bold), ForeColor = Color.FromArgb(10, 31, 68) };
+            _quoteDetailsStatusPill = new Label { Text = "DRAFT", Location = new Point(210, 28), Size = new Size(76, 26), BackColor = Color.FromArgb(219, 234, 254), ForeColor = InfoBlue, Font = new Font("Segoe UI", 9f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
             DS.Rounded(_quoteDetailsStatusPill, 7);
             card.Controls.Add(title);
             card.Controls.Add(_quoteDetailsStatusPill);
 
-            TableLayoutPanel fields = new TableLayoutPanel { Location = new Point(18, 52), Width = card.Width - 36, Height = 156, ColumnCount = 5, RowCount = 3, Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 19));
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 23));
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-            fields.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15));
-            fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-            fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
-            fields.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+            Panel line1 = MakeQuoteDetailDivider();
+            line1.Location = new Point(28, 78);
+            line1.Width = card.Width - 56;
+            line1.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(line1);
+
+            TableLayoutPanel row1 = MakeQuoteDetailRow(4, 68);
+            row1.Location = new Point(28, 100);
+            row1.Width = card.Width - 56;
+            row1.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 21f));
+            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
+            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27f));
+            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
+
+            Panel line2 = MakeQuoteDetailDivider();
+            line2.Location = new Point(28, 170);
+            line2.Width = card.Width - 56;
+            line2.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(line2);
+
+            TableLayoutPanel row2 = MakeQuoteDetailRow(5, 68);
+            row2.Location = new Point(28, 192);
+            row2.Width = card.Width - 56;
+            row2.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17f));
+            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
+            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+
+            Panel line3 = MakeQuoteDetailDivider();
+            line3.Location = new Point(28, 262);
+            line3.Width = card.Width - 56;
+            line3.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(line3);
+
+            TableLayoutPanel row3 = MakeQuoteDetailRow(3, 68);
+            row3.Location = new Point(28, 284);
+            row3.Width = card.Width - 56;
+            row3.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
+            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
+            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
 
             _txtQuoteNo = MakeTextBox(false);
             _txtQuoteNo.Text = string.Empty;
@@ -514,24 +633,31 @@ namespace HVAC_Pro_Desktop.UI
             _dtpRequiredBy = MakeDatePicker();
             _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
 
-            AddLabeledControl(fields, 0, 0, "Quote Number", _txtQuoteNo);
-            AddLabeledControl(fields, 1, 0, "Client", _cboClient);
-            AddLabeledControl(fields, 2, 0, "Site", _cboSite);
-            AddLabeledControl(fields, 3, 0, "Project / Quote Title", _txtTitle);
-            AddLabeledControl(fields, 0, 1, "Date", _dtpDate);
-            AddLabeledControl(fields, 1, 1, "Due Date", _dtpDue);
-            AddLabeledControl(fields, 2, 1, "Validity", _cboValidity);
-            AddLabeledControl(fields, 3, 1, "Required By", _dtpRequiredBy);
-            AddLabeledControl(fields, 4, 1, "Status", _cboStatus);
-            AddLabeledControl(fields, 0, 2, "Commercial Flow", _cboCommercialFlow);
-            AddLabeledControl(fields, 1, 2, "Customer Side", _cboCustomerDocStatus);
-            AddLabeledControl(fields, 2, 2, "Supplier Side", _cboSupplierDocStatus);
-            fields.SetColumnSpan(fields.GetControlFromPosition(2, 2), 2);
-            card.Controls.Add(fields);
+            AddQuoteDetailField(row1, 0, "Quote Number", _txtQuoteNo, "E8A5", 150);
+            AddQuoteDetailField(row1, 1, "Client *", _cboClient, "E809", 168);
+            AddQuoteDetailField(row1, 2, "Site (optional)", _cboSite, "E707", 198);
+            AddQuoteDetailField(row1, 3, "Project / Quote Title", _txtTitle, "E70F", 210);
+            AddQuoteDetailField(row2, 0, "Date", _dtpDate, "E787", 130);
+            AddQuoteDetailField(row2, 1, "Due Date", _dtpDue, "E787", 130);
+            AddQuoteDetailField(row2, 2, "Validity", _cboValidity, "E121", 122);
+            AddQuoteDetailField(row2, 3, "Required By", _dtpRequiredBy, "E787", 152);
+            AddQuoteDetailField(row2, 4, "Status", _cboStatus, "E916", 145);
+            AddQuoteDetailField(row3, 0, "Commercial Flow", _cboCommercialFlow, "E9D9", 210);
+            AddQuoteDetailField(row3, 1, "Customer Side", _cboCustomerDocStatus, "E77B", 220);
+            AddQuoteDetailField(row3, 2, "Supplier Side", _cboSupplierDocStatus, "E8F8", 220);
+            card.Controls.Add(row3);
+            card.Controls.Add(row2);
+            card.Controls.Add(row1);
 
             card.Resize += (s, e) =>
             {
-                fields.Width = card.Width - 36;
+                int width = Math.Max(420, card.ClientSize.Width - 56);
+                line1.Width = width;
+                line2.Width = width;
+                line3.Width = width;
+                row1.Width = width;
+                row2.Width = width;
+                row3.Width = width;
             };
             return card;
         }
@@ -539,11 +665,12 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildWorkflowTracker()
         {
             Panel panel = MakeCard(820, 92);
+            panel.Name = "__servoerpWorkflowTracker";
             string[] titles = { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" };
-            string[] subtitles = { "Quote created", "Verify stock \u00B7 prices", "Internal approval", "Sent to customer", "Customer accepted", "PO / Invoice / Job" };
+            string[] subtitles = { "Quote created", "Verify supplier price", "Internal approval", "Sent to customer", "Customer accepted", "PO / Invoice / Job" };
             panel.Paint += (s, e) =>
             {
-                using (Pen pen = new Pen(Color.FromArgb(203, 213, 225), 2))
+                using (Pen pen = new Pen(DS.Border, 1))
                     e.Graphics.DrawLine(pen, 80, 34, Math.Max(80, panel.Width - 80), 34);
             };
             panel.Resize += (s, e) => LayoutWorkflowSteps(panel, titles, subtitles);
@@ -559,7 +686,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < count; i++)
             {
                 int x = 40 + (count == 1 ? 0 : (usable * i) / (count - 1));
-                Color color = i == 0 ? InfoBlue : Color.FromArgb(226, 232, 240);
+                Color color = i == 0 ? InfoBlue : DS.Border;
                 Color text = i == 0 ? InfoBlue : DS.Slate600;
                 Label dot = new Label { Text = i == 0 ? "/" : (i + 1).ToString(), Size = new Size(34, 34), Location = new Point(x - 17, 17), BackColor = color, ForeColor = i == 0 ? Color.White : DS.Slate700, Font = new Font("Segoe UI", 9, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
                 DS.Rounded(dot, 17);
@@ -576,7 +703,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _workflowPanel.Controls.Clear();
             string[] titles = { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" };
-            string[] subtitles = { "Quote created", "Check stock + cost", "Approval", "Customer quote sent", "Customer PO received", "Invoice / PO / Job" };
+            string[] subtitles = { "Quote created", "Check supplier cost", "Approval", "Customer quote sent", "Customer PO received", "Invoice / PO / Job" };
             int active = ResolveWorkflowStep(_cboStatus?.SelectedItem?.ToString());
             int width = Math.Max(640, _workflowPanel.ClientSize.Width);
             int usable = Math.Max(560, width - 90);
@@ -588,7 +715,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     Location = new Point(x1 + 18, 16),
                     Size = new Size(Math.Max(20, x2 - x1 - 36), 2),
-                    BackColor = i < active ? InfoBlue : Color.FromArgb(203, 213, 225)
+                    BackColor = i < active ? InfoBlue : DS.Border
                 };
                 _workflowPanel.Controls.Add(line);
             }
@@ -613,13 +740,17 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (!complete && !current)
                     {
-                        using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                        using (Pen pen = new Pen(DS.Border))
                             e.Graphics.DrawEllipse(pen, 1, 1, dot.Width - 3, dot.Height - 3);
                     }
                 };
                 _workflowPanel.Controls.Add(dot);
-                _workflowPanel.Controls.Add(new Label { Text = titles[i], Location = new Point(x - 52, 34), Size = new Size(104, 16), Font = new Font("Segoe UI", 7.4f, FontStyle.Bold), ForeColor = current ? InfoBlue : QuoteText, TextAlign = ContentAlignment.MiddleCenter });
-                _workflowPanel.Controls.Add(new Label { Text = subtitles[i], Location = new Point(x - 64, 50), Size = new Size(128, 16), Font = new Font("Segoe UI", 6.8f), ForeColor = QuoteMuted, TextAlign = ContentAlignment.MiddleCenter });
+                Label title = new Label { Text = titles[i], Location = new Point(x - 56, 34), Size = new Size(112, 16), Font = new Font("Segoe UI", 7.4f, FontStyle.Bold), ForeColor = current ? InfoBlue : QuoteText, TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true };
+                Label subtitle = new Label { Text = subtitles[i], Location = new Point(x - 76, 50), Size = new Size(152, 18), Font = new Font("Segoe UI", 6.7f), ForeColor = QuoteMuted, TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true };
+                _toolTip.SetToolTip(title, titles[i]);
+                _toolTip.SetToolTip(subtitle, subtitles[i]);
+                _workflowPanel.Controls.Add(title);
+                _workflowPanel.Controls.Add(subtitle);
             }
         }
 
@@ -638,7 +769,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildModernLineItemsCard()
         {
-            Panel card = MakeCard(900, 520);
+            Panel card = MakeCard(900, 548);
             card.Margin = new Padding(0, 0, 0, 16);
 
             Button addItem = MakeBtn("+  Add Item", InfoBlue, 130);
@@ -646,23 +777,23 @@ namespace HVAC_Pro_Desktop.UI
             Button bulk = MakeOutlineBtn("Bulk Actions  v", 150);
             foreach (Button button in new[] { addItem, addLabour, bulk })
                 button.Height = 42;
+            ApplySecondaryButton(addItem);
+            RegisterSecondaryButton(addItem);
 
             Label filterLabel = new Label { Text = "Filter by Category", AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _cmbCategoryFilter = new ComboBox { Width = 150, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _cmbCategoryFilter = new ComboBox { Width = 150, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = InputFill, FlatStyle = FlatStyle.Flat };
             _cmbCategoryFilter.Items.Add("All");
             _cmbCategoryFilter.SelectedIndex = 0;
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => BindInventoryItems();
             Panel searchPanel = CreateSearchPanel();
-            searchPanel.Location = new Point(card.Width - searchPanel.Width - 14, 16);
             addItem.Location = new Point(14, 16);
             addLabour.Location = new Point(156, 16);
             bulk.Location = new Point(358, 16);
-            filterLabel.Location = new Point(searchPanel.Left - 158, 4);
-            _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
+            Panel separator = new Panel { BackColor = Color.LightGray, Size = new Size(1, 28), Location = new Point(522, 23), Anchor = AnchorStyles.Top | AnchorStyles.Left };
             addItem.Click += (s, e) => AddLineItem();
             addLabour.Click += (s, e) => AddServiceLabourLine();
             bulk.Click += (s, e) => ShowBulkActionsMenu(bulk);
-            card.Controls.AddRange(new Control[] { addItem, addLabour, bulk, filterLabel, _cmbCategoryFilter, searchPanel });
+            card.Controls.AddRange(new Control[] { addItem, addLabour, bulk, separator, filterLabel, _cmbCategoryFilter, searchPanel });
 
             Panel gridHost = new Panel
             {
@@ -695,6 +826,7 @@ namespace HVAC_Pro_Desktop.UI
             StyleQuotationGrid(_grid);
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sr", HeaderText = "#", Width = 36, MinimumWidth = 34, ReadOnly = true });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item / Service", Width = 170, MinimumWidth = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, DisplayStyleForCurrentCellOnly = true, FlatStyle = FlatStyle.Standard });
+            _grid.Columns["ItemDescription"].DefaultCellStyle.NullValue = "Click to select item...";
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 70, MinimumWidth = 66 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 42, MinimumWidth = 40 });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
@@ -739,6 +871,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (e.RowIndex >= 0 && e.ColumnIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "Actions")
                     HandleGridButtonClick(e.RowIndex, e.ColumnIndex);
             };
+            _grid.CellFormatting += Grid_CellFormatting;
             _grid.EditingControlShowing += Grid_EditingControlShowing;
             _grid.CurrentCellDirtyStateChanged += (s, e) =>
             {
@@ -749,7 +882,7 @@ namespace HVAC_Pro_Desktop.UI
             gridHost.Controls.Add(_grid);
             _lblLineItemsEmptyState = new Label
             {
-                Text = "No more items. Click + Add Item to continue.",
+                Text = "No line items yet. Add material, service labour, or import items to price this quotation.",
                 AutoSize = false,
                 Height = 24,
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -762,44 +895,43 @@ namespace HVAC_Pro_Desktop.UI
             _lblLineItemsEmptyState.BringToFront();
 
             _lblLineItemCount = new Label { Text = "Showing 0 to 0 of 0 items", Location = new Point(24, 476), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
-            ComboBox pageSize = new ComboBox { Width = 86, Height = 34, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Bottom };
-            pageSize.Items.AddRange(new object[] { "10", "25", "50" });
-            pageSize.SelectedIndex = 0;
-            Label perPage = new Label { Text = "per page", AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Bottom };
-            Button first = MakeOutlineBtn("|<", 38);
-            Button prev = MakeOutlineBtn("<", 38);
-            Button current = MakeBtn("1", InfoBlue, 38);
-            Button next = MakeOutlineBtn(">", 38);
-            Button last = MakeOutlineBtn(">|", 38);
-            foreach (Button nav in new[] { first, prev, current, next, last })
-                nav.Height = 34;
-            card.Controls.AddRange(new Control[] { _lblLineItemCount, pageSize, perPage, first, prev, current, next, last });
-            pageSize.Location = new Point((card.Width / 2) - 50, card.Height - 48);
-            perPage.Location = new Point(pageSize.Right + 12, card.Height - 40);
-            int initialNavY = card.Height - 48;
-            last.Location = new Point(card.Width - 52, initialNavY);
-            next.Location = new Point(last.Left - 46, initialNavY);
-            current.Location = new Point(next.Left - 46, initialNavY);
-            prev.Location = new Point(current.Left - 46, initialNavY);
-            first.Location = new Point(prev.Left - 46, initialNavY);
-            card.Resize += (s, e) =>
+            card.Controls.Add(_lblLineItemCount);
+            Action layoutToolbar = () =>
             {
-                int searchWidth = Math.Min(220, Math.Max(160, card.Width / 5));
+                bool compact = card.ClientSize.Width < 860;
+                int right = Math.Max(220, card.ClientSize.Width - 14);
+                int searchWidth = compact
+                    ? Math.Min(220, Math.Max(150, card.ClientSize.Width - 182))
+                    : Math.Min(220, Math.Max(160, card.ClientSize.Width / 5));
                 searchPanel.Size = new Size(searchWidth, 42);
-                searchPanel.Location = new Point(card.Width - searchWidth - 14, 16);
-                filterLabel.Location = new Point(searchPanel.Left - 158, 4);
-                _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
+                _cmbCategoryFilter.Width = compact ? 140 : 150;
+
+                if (compact)
+                {
+                    filterLabel.Location = new Point(14, 66);
+                    _cmbCategoryFilter.Location = new Point(14, 84);
+                    searchPanel.Location = new Point(Math.Min(right - searchPanel.Width, _cmbCategoryFilter.Right + 12), 80);
+                    separator.Visible = false;
+                    gridHost.Location = new Point(14, 142);
+                }
+                else
+                {
+                    searchPanel.Location = new Point(right - searchPanel.Width, 16);
+                    filterLabel.Location = new Point(searchPanel.Left - 158, 4);
+                    _cmbCategoryFilter.Location = new Point(searchPanel.Left - 158, 20);
+                    separator.Location = new Point(Math.Max(bulk.Right + 14, _cmbCategoryFilter.Left - 24), 23);
+                    separator.Visible = true;
+                    gridHost.Location = new Point(14, 126);
+                }
+
                 ApplyLineItemsGridLayout();
                 _lblLineItemCount.Location = new Point(24, card.Height - 42);
-                pageSize.Location = new Point((card.Width / 2) - 50, card.Height - 48);
-                perPage.Location = new Point(pageSize.Right + 12, card.Height - 40);
-                int navY = card.Height - 48;
-                last.Location = new Point(card.Width - 52, navY);
-                next.Location = new Point(last.Left - 46, navY);
-                current.Location = new Point(next.Left - 46, navY);
-                prev.Location = new Point(current.Left - 46, navY);
-                first.Location = new Point(prev.Left - 46, navY);
             };
+            card.Resize += (s, e) =>
+            {
+                layoutToolbar();
+            };
+            layoutToolbar();
             return card;
         }
 
@@ -812,8 +944,9 @@ namespace HVAC_Pro_Desktop.UI
             Control card = host.Parent ?? host;
             if (host.Name == "pnlLineItemsGridHost")
             {
-                host.Location = new Point(14, 126);
-                host.Size = new Size(Math.Max(300, card.ClientSize.Width - 28), Math.Max(220, card.ClientSize.Height - 182));
+                int top = host.Top <= 0 ? 126 : host.Top;
+                host.Location = new Point(14, top);
+                host.Size = new Size(Math.Max(300, card.ClientSize.Width - 28), Math.Max(220, card.ClientSize.Height - top - 64));
                 _grid.Dock = DockStyle.Fill;
                 _grid.Location = Point.Empty;
                 LayoutLineItemsEmptyState(host);
@@ -854,7 +987,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel CreateSearchPanel()
         {
-            Panel panel = new Panel { Width = 220, Height = 42, BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Panel panel = new Panel { Width = 220, Height = 42, BackColor = QuoteSurface, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             DS.Rounded(panel, 9);
             panel.Paint += (s, e) =>
             {
@@ -868,6 +1001,7 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(20, 20),
                 Font = new Font("Segoe MDL2 Assets", 10f),
                 ForeColor = QuoteMuted,
+                BackColor = QuoteSurface,
                 TextAlign = ContentAlignment.MiddleCenter
             };
             _txtItemSearch = new TextBox
@@ -878,6 +1012,7 @@ namespace HVAC_Pro_Desktop.UI
                 Width = panel.Width - 54,
                 Height = 22,
                 Font = new Font("Segoe UI", 9f),
+                BackColor = InputFill,
                 ForeColor = QuoteMuted,
                 Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
             };
@@ -943,8 +1078,8 @@ namespace HVAC_Pro_Desktop.UI
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 27f));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 22f));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 46f));
-            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 5f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 43f));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
 
             Panel summary = BuildQuoteSummaryCard();
             Panel alerts = BuildSmartAlertsCard();
@@ -956,13 +1091,62 @@ namespace HVAC_Pro_Desktop.UI
             alerts.Margin = new Padding(0, 0, 0, 10);
             actions.Margin = new Padding(0, 0, 0, 8);
 
-            _lblLastSaved = new Label { Text = "Last saved: 05/05/2026 11:30 AM        Refresh", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight, Cursor = Cursors.Hand };
+            Panel footer = BuildQuotationFooterStrip();
             _lblLastSaved.Click += async (s, e) => await InitializeAsync();
             panel.Controls.Add(summary, 0, 0);
             panel.Controls.Add(alerts, 0, 1);
             panel.Controls.Add(actions, 0, 2);
-            panel.Controls.Add(_lblLastSaved, 0, 3);
+            panel.Controls.Add(footer, 0, 3);
             return panel;
+        }
+
+        /// <summary>Builds the quotation editor footer strip.</summary>
+        private Panel BuildQuotationFooterStrip()
+        {
+            Panel footer = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.FromArgb(248, 249, 250),
+                Padding = new Padding(12, 0, 12, 0)
+            };
+            footer.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(BorderColor))
+                    e.Graphics.DrawLine(pen, 0, 0, footer.Width, 0);
+            };
+            _lblLastSaved = new Label
+            {
+                Text = "Last saved: Just now",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = Color.Gray,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Cursor = Cursors.Hand
+            };
+            LinkLabel support = new LinkLabel
+            {
+                Text = "Support",
+                Dock = DockStyle.Right,
+                Width = 58,
+                Font = new Font("Segoe UI", 8f),
+                LinkColor = InfoBlue,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            LinkLabel help = new LinkLabel
+            {
+                Text = "Help",
+                Dock = DockStyle.Right,
+                Width = 42,
+                Font = new Font("Segoe UI", 8f),
+                LinkColor = InfoBlue,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            help.Click += (s, e) => MessageBox.Show("Quotation help is available from the Open Quote Actions menu.", "Help", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            support.Click += (s, e) => MessageBox.Show("Contact ServoERP support with the quotation number and screenshot.", "Support", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            footer.Controls.Add(_lblLastSaved);
+            footer.Controls.Add(support);
+            footer.Controls.Add(help);
+            return footer;
         }
 
         private Panel BuildQuoteSummaryCard()
@@ -971,13 +1155,15 @@ namespace HVAC_Pro_Desktop.UI
             card.Margin = new Padding(0);
             card.Controls.Add(new Label { Text = "Quote Summary", Location = new Point(16, 12), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText });
             _lblTaxable = AddSummaryRow(card, "Subtotal (Excl. GST)", IndiaFormatHelper.FormatCurrency(105805.08m), 36, false);
-            _lblGst = AddSummaryRow(card, "GST (18%)", IndiaFormatHelper.FormatCurrency(19044.92m), 58, false);
-            card.Controls.Add(new Label { Text = "Discount (%)", Location = new Point(16, 82), AutoSize = false, Width = 118, Height = 20, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteText });
-            _numDiscount = new NumericUpDown { Location = new Point(150, 78), Width = 128, DecimalPlaces = 2, Maximum = 9999999, Font = new Font("Segoe UI", 8.5f), TextAlign = HorizontalAlignment.Right, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _lblGst = AddSummaryRow(card, "GST (18%)", IndiaFormatHelper.FormatCurrency(19044.92m), 62, false);
+            card.Controls.Add(new Label { Text = "Discount (%)", Location = new Point(16, 88), AutoSize = false, Width = 118, Height = 20, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteText });
+            _numDiscount = new NumericUpDown { Location = new Point(150, 84), Width = 128, DecimalPlaces = 2, Maximum = 9999999, Font = new Font("Segoe UI", 8.5f), TextAlign = HorizontalAlignment.Right, Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _numDiscount.ValueChanged += (s, e) => RefreshSummary();
             card.Controls.Add(_numDiscount);
-            _lblTotal = AddSummaryRow(card, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(124850m), 110, true);
-            _lblMargin = AddSummaryRow(card, "Gross Margin", "28.65%", 136, false);
+            Panel totalRule = new Panel { Location = new Point(16, 118), Size = new Size(card.Width - 32, 1), BackColor = BorderColor, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            card.Controls.Add(totalRule);
+            _lblTotal = AddSummaryRow(card, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(124850m), 126, true);
+            _lblMargin = AddSummaryRow(card, "Gross Margin", "28.65%", 154, false);
             _lblMargin.ForeColor = SaveGreen;
             card.Resize += (s, e) =>
             {
@@ -992,32 +1178,41 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildSmartAlertsCard()
         {
-            Panel card = MakeCard(310, 142);
+            Panel card = MakeCard(310, 166);
             card.Margin = new Padding(0);
             card.Controls.Add(new Label { Text = "Smart Alerts", Location = new Point(16, 12), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = QuoteText });
-            _lblAlertShortfall = AddAlert(card, 34, "!", "1 item has stock shortfall", WarnOrange);
-            _lblAlertMargin = AddAlert(card, 52, "!", "Low margin on 1 item", WarnOrange);
-            _lblAlertExpiry = AddAlert(card, 70, "i", "Quote validity expires in 30 days", InfoBlue);
-            _lblAlertSupplier = AddAlert(card, 88, "OK", "All items have supplier prices", SaveGreen);
-            _lblAlertSite = AddAlert(card, 106, "OK", "Client site is selected", SaveGreen);
+            _lblAlertShortfall = AddAlert(card, 34, "i", "1 material needs supplier plan", WarnOrange);
+            _lblAlertMargin = AddAlert(card, 56, "i", "Low margin on 1 item", WarnOrange);
+            _lblAlertExpiry = AddAlert(card, 78, "i", "Quote validity expires in 30 days", WarnOrange);
+            _lblAlertSupplier = AddAlert(card, 100, "OK", "All items have supplier prices", SaveGreen);
+            _lblAlertSite = AddAlert(card, 122, "OK", "Client site is selected", SaveGreen);
+            card.Resize += (s, e) =>
+            {
+                foreach (Label label in new[] { _lblAlertShortfall, _lblAlertMargin, _lblAlertExpiry, _lblAlertSupplier, _lblAlertSite })
+                {
+                    if (label != null)
+                        label.Width = Math.Max(140, card.ClientSize.Width - label.Left - 16);
+                }
+            };
             return card;
         }
 
         private Panel BuildQuickActionsCard()
         {
-            Panel card = MakeCard(310, 362);
+            Panel card = MakeCard(340, 266);
             card.Margin = new Padding(0, 0, 0, 14);
             card.Controls.Add(new Label { Text = "Quick Actions", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            _btnSaveQuote = MakeBtn("Save Draft", SaveGreen, 270);
-            Button approval = MakeBtn("Send for Approval", InfoBlue, 270);
-            Button actions = MakeOutlineBtn("Open Quote Actions", 270);
+            _btnSaveQuote = MakeBtn("Save Draft", SaveGreen, 300);
+            Button approval = MakeBtn("Send for Approval", InfoBlue, 300);
+            Button actions = MakeOutlineBtn("Open Quote Actions", 300);
             Label hint = new Label
             {
-                Text = "PDFs, supplier POs, invoices, jobs,\r\nWhatsApp follow-ups, and delete live here.",
-                Location = new Point(18, 150),
-                Size = new Size(270, 70),
-                Font = new Font("Segoe UI", 8.25f),
-                ForeColor = QuoteMuted
+                Text = "PDFs, supplier POs, invoices, jobs, WhatsApp follow-ups, and delete live here.",
+                Location = new Point(18, 154),
+                AutoSize = true,
+                MaximumSize = new Size(300, 0),
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = Color.Gray
             };
             Button[] buttons = { _btnSaveQuote, approval, actions };
             for (int i = 0; i < buttons.Length; i++)
@@ -1039,6 +1234,7 @@ namespace HVAC_Pro_Desktop.UI
                 foreach (Button button in buttons)
                     button.Width = width;
                 hint.Width = width;
+                hint.Height = Math.Max(42, card.ClientSize.Height - hint.Top - 18);
             };
             return card;
         }
@@ -1218,7 +1414,7 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             AddTrackingStep(panel, new Point(16, 16), 204, "01", "Quote details", "Customer, site, validity", InfoBlue);
-            AddTrackingStep(panel, new Point(236, 16), 204, "02", "Material readiness", "Supplier and stock check", SaveGreen);
+            AddTrackingStep(panel, new Point(236, 16), 204, "02", "Material readiness", "Supplier price check", SaveGreen);
             AddTrackingStep(panel, new Point(456, 16), 204, "03", "Operations handoff", "PO and dispatch prep", WarnOrange);
             AddTrackingStep(panel, new Point(676, 16), 204, "04", "Invoice close", "Convert quote to billing", CargoPurple);
             return panel;
@@ -1255,7 +1451,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel panel = CreateSectionPanel("Quotation line items", 900, 450);
 
             // â”€â”€ Category filter bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            var filterBar = new Panel { Location = new Point(14, 40), Width = 860, Height = 30 };
+            var filterBar = new Panel { Location = new Point(14, 40), Width = 860, Height = 30, BackColor = QuoteSurface };
             filterBar.Controls.Add(new Label
             {
                 Text = "Filter by Category:",
@@ -1269,7 +1465,9 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(128, 4),
                 Width = 180,
                 Font = new Font("Segoe UI", 9),
-                DropDownStyle = ComboBoxStyle.DropDownList
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                BackColor = InputFill,
+                FlatStyle = FlatStyle.Flat
             };
             _cmbCategoryFilter.Items.Add("All");
             _cmbCategoryFilter.SelectedIndex = 0;
@@ -1331,7 +1529,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblTaxable = MakeMetricCard(panel, new Point(14, 40), 190, "Taxable Value");
             _lblGst = MakeMetricCard(panel, new Point(230, 40), 190, "GST");
             _lblTotal = MakeMetricCard(panel, new Point(446, 40), 190, "Total incl. GST");
-            _lblMargin = MakeMetricCard(panel, new Point(662, 40), 190, "Avg Margin %");
+            _lblDashboardMargin = MakeMetricCard(panel, new Point(662, 40), 190, "Avg Margin %");
             return panel;
         }
 
@@ -1555,9 +1753,13 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadSites()
         {
             _cboSite.Items.Clear();
+            _cboSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
             ComboItem client = _cboClient.SelectedItem as ComboItem;
             if (client == null)
+            {
+                _cboSite.SelectedIndex = 0;
                 return;
+            }
             foreach (ClientSite site in _siteSvc.GetAll().Where(s => s.ClientID == client.Id).OrderBy(s => s.SiteName))
                 _cboSite.Items.Add(new ComboItem { Id = site.SiteID, Text = SiteService.GetDisplayName(site), Tag = site });
             if (_cboSite.Items.Count > 0)
@@ -1737,6 +1939,18 @@ namespace HVAC_Pro_Desktop.UI
             SetStatus("New quotation ready.", DS.Slate500);
         }
 
+        /// <summary>Opens the quotation editor with a fresh draft from external navigation.</summary>
+        public void OpenNewQuotationFromShortcut()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)OpenNewQuotationFromShortcut);
+                return;
+            }
+
+            NewRecord(true);
+        }
+
         private static List<TenderBidLineItem> BuildFallbackQuotationRows()
         {
             return new List<TenderBidLineItem>
@@ -1767,7 +1981,7 @@ namespace HVAC_Pro_Desktop.UI
                 GSTAmount = Math.Round(taxable * 0.18m, 2),
                 MarginPct = sell <= 0 ? 0m : Math.Round(((sell - cost) / sell) * 100m, 2),
                 AnalysisStatus = "Manual",
-                AnalysisNotes = "Demo fallback row. Select an inventory item to analyse live supplier/stock."
+                AnalysisNotes = "Demo fallback row. Select a material item to analyse live supplier pricing."
             };
         }
 
@@ -1776,7 +1990,6 @@ namespace HVAC_Pro_Desktop.UI
             ComboItem client = _cboClient.SelectedItem as ComboItem;
             ComboItem site = _cboSite.SelectedItem as ComboItem;
             if (client == null || client.Id <= 0) throw new Exception("Please select a client.");
-            if (site == null || site.Id <= 0) throw new Exception("Please select a site.");
             if (string.IsNullOrWhiteSpace(_txtQuoteNo.Text)) throw new Exception("Quotation number is required.");
             if (string.IsNullOrWhiteSpace(_txtTitle.Text)) throw new Exception("Quotation / project name is required.");
             SyncGridToModel();
@@ -1787,8 +2000,8 @@ namespace HVAC_Pro_Desktop.UI
             bid.TenderName = _txtTitle.Text.Trim();
             bid.ClientID = client.Id;
             bid.ClientName = client.Text;
-            bid.SiteID = site.Id;
-            bid.SiteName = site.Text;
+            bid.SiteID = site != null && site.Id > 0 ? site.Id : 0;
+            bid.SiteName = site != null && site.Id > 0 ? site.Text : string.Empty;
             bid.SubmittedDate = _dtpDate.Value.Date;
             bid.DueDate = _dtpDue.Value.Date;
             bid.RequiredByDate = _dtpRequiredBy.Value.Date;
@@ -2163,6 +2376,7 @@ namespace HVAC_Pro_Desktop.UI
                 SetMetric(_lblGst, "GST", IndiaFormatHelper.FormatCurrency(0));
                 SetMetric(_lblTotal, "Total incl. GST", IndiaFormatHelper.FormatCurrency(0));
                 SetMetric(_lblMargin, "Avg Margin %", "0.00%");
+                SetMetric(_lblDashboardMargin, "Avg Margin %", "0.00%");
                 UpdateLiveQuotationHeaderStats(0m, 0m, 0m, 0m);
                 RefreshSmartAlerts(bid);
                 return;
@@ -2175,6 +2389,7 @@ namespace HVAC_Pro_Desktop.UI
             SetMetric(_lblGst, "GST (18%)", IndiaFormatHelper.FormatCurrency(bid.TotalGSTAmount));
             SetMetric(_lblTotal, "Total (Incl. GST)", IndiaFormatHelper.FormatCurrency(total));
             SetMetric(_lblMargin, "Gross Margin", bid.AverageMarginPct.ToString("0.##", CultureInfo.InvariantCulture) + "%");
+            SetMetric(_lblDashboardMargin, "Avg Margin %", bid.AverageMarginPct.ToString("0.##", CultureInfo.InvariantCulture) + "%");
             if (_lblMargin != null)
                 _lblMargin.ForeColor = bid.AverageMarginPct >= 25m ? SaveGreen : bid.AverageMarginPct >= 15m ? WarnOrange : DS.Red600;
             UpdateLiveQuotationHeaderStats(total, bid.TotalTaxableValue, bid.TotalGSTAmount, bid.AverageMarginPct);
@@ -2226,7 +2441,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_lblKpiSavedSub != null)
                 _lblKpiSavedSub.Text = "by " + (SessionManager.CurrentUser?.DisplayName ?? Environment.UserName);
             if (_lblLastSaved != null)
-                _lblLastSaved.Text = "Last saved: Just now        Help & Support";
+                _lblLastSaved.Text = "Last saved: Just now";
             RenderWorkflowStepper();
         }
 
@@ -2396,18 +2611,29 @@ namespace HVAC_Pro_Desktop.UI
             bool suppliersOk = bid.LineItems.All(li => li.IsInternalLabour || li.AnalysisStatus == "Manual" || li.BestSupplierId.HasValue || li.Shortfall <= 0m);
             bool siteSelected = bid.SiteID > 0;
             int days = Math.Max(0, (bid.DueDate.Date - DateTime.Today).Days);
-            if (_lblAlertShortfall != null) _lblAlertShortfall.Text = (shortfall == 1 ? "1 item has stock shortfall" : shortfall + " items have stock shortfall");
+            if (_lblAlertShortfall != null) _lblAlertShortfall.Text = (shortfall == 1 ? "1 material needs supplier plan" : shortfall + " materials need supplier plans");
             if (_lblAlertMargin != null) _lblAlertMargin.Text = (lowMargin == 1 ? "Low margin on 1 item" : lowMargin + " low-margin items");
             if (_lblAlertExpiry != null) _lblAlertExpiry.Text = "Quote validity expires in " + days + " days";
             if (_lblAlertSupplier != null) _lblAlertSupplier.Text = suppliersOk ? "All items have supplier prices" : "Some items need supplier prices";
             if (_lblAlertSite != null) _lblAlertSite.Text = siteSelected ? "Client site is selected" : "Select a client site";
         }
 
-        private void SendForApproval()
+        private async void SendForApproval()
         {
-            if (_cboStatus != null)
-                SelectComboByText(_cboStatus, "Approval");
-            SetStatus("Quotation marked for approval review.", InfoBlue);
+            try
+            {
+                if (_cboStatus != null)
+                    SelectComboByText(_cboStatus, "Approval");
+
+                SetStatus("Sending quotation for approval...", InfoBlue);
+                await EnsureSavedAsync();
+                SetStatus("Quotation sent for approval.", InfoBlue);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Quotations"), "Sending quotation for approval", ex);
+                SetStatus("Quotation could not be sent for approval. Review the draft and try again.", Color.Firebrick);
+            }
         }
 
         private void ShowBulkActionsMenu(Control owner)
@@ -2499,6 +2725,7 @@ namespace HVAC_Pro_Desktop.UI
             if (e.Control is ComboBox combo)
             {
                 UIHelper.ApplyInputStyle(combo);
+                ApplyQuotationComboSizing(combo);
                 combo.DropDownStyle = ComboBoxStyle.DropDown;
                 combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
                 combo.AutoCompleteSource = AutoCompleteSource.ListItems;
@@ -2508,6 +2735,24 @@ namespace HVAC_Pro_Desktop.UI
                     combo.SelectionChangeCommitted += InventoryCombo_SelectionChangeCommitted;
                 }
             }
+        }
+
+        /// <summary>Shows a gentle placeholder in empty item cells.</summary>
+        private void Grid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (_grid == null || e.RowIndex < 0 || e.ColumnIndex < 0)
+                return;
+
+            if (!string.Equals(_grid.Columns[e.ColumnIndex].Name, "ItemDescription", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (e.Value != null && !string.IsNullOrWhiteSpace(Convert.ToString(e.Value)))
+                return;
+
+            e.Value = "Click to select item...";
+            e.CellStyle.ForeColor = Color.Gray;
+            e.CellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Italic);
+            e.FormattingApplied = true;
         }
 
         private void InventoryCombo_SelectionChangeCommitted(object sender, EventArgs e)
@@ -3026,7 +3271,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Panel MakeCard(int width, int height)
         {
-            Panel panel = new Panel { Width = width, Height = height, BackColor = QuoteSurface };
+            Panel panel = new Panel { Width = width, Height = height, BackColor = QuoteSurface, Tag = "QUOTATION_EDITOR_SECTION" };
             DS.Rounded(panel, 10);
             panel.Paint += (s, e) =>
             {
@@ -3047,18 +3292,22 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label AddAlert(Control parent, int y, string mark, string text, Color color)
         {
-            Label icon = new Label { Text = mark, Location = new Point(16, y), Size = new Size(18, 18), BackColor = DS.Lighten(color, 0.86f), ForeColor = color, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            DS.Rounded(icon, 5);
+            bool ok = string.Equals(mark, "OK", StringComparison.OrdinalIgnoreCase);
+            bool info = string.Equals(mark, "i", StringComparison.OrdinalIgnoreCase);
+            Color back = ok ? Color.FromArgb(212, 237, 218) : info ? Color.FromArgb(255, 243, 205) : DS.Lighten(color, 0.86f);
+            Color fore = ok ? Color.FromArgb(21, 87, 36) : info ? Color.FromArgb(133, 100, 4) : color;
+            Label icon = new Label { Text = mark, Location = new Point(16, y), Size = new Size(18, 18), BackColor = back, ForeColor = fore, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            DS.Rounded(icon, 9);
             parent.Controls.Add(icon);
-            Label label = new Label { Text = text, Location = new Point(44, y + 1), Size = new Size(234, 16), Font = new Font("Segoe UI", 8.2f), ForeColor = QuoteText };
+            Label label = new Label { Text = text, Location = new Point(44, y + 1), Size = new Size(Math.Max(140, parent.ClientSize.Width - 60), 18), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 8.2f), ForeColor = QuoteText, AutoEllipsis = true };
             parent.Controls.Add(label);
             return label;
         }
 
         private void AddReadonlyField(TableLayoutPanel grid, int col, string label, string value)
         {
-            Panel wrap = new Panel { Dock = DockStyle.Fill };
-            wrap.Controls.Add(new Label { Text = label, Location = new Point(0, 0), AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted });
+            Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface };
+            wrap.Controls.Add(new Label { Text = label, Location = new Point(0, 0), AutoSize = true, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted, BackColor = QuoteSurface });
             bool notes = string.Equals(label, "Notes", StringComparison.OrdinalIgnoreCase);
             TextBox box = new TextBox
             {
@@ -3109,6 +3358,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void SetMetric(Label valueLabel, string caption, string value)
         {
+            if (valueLabel == null)
+                return;
+
             valueLabel.Text = value;
             if (Equals(valueLabel.Tag, "MetricValue") && valueLabel.Parent != null && valueLabel.Parent.Controls.Count > 0 && valueLabel.Parent.Controls[0] is Label captionLabel)
                 captionLabel.Text = caption;
@@ -3116,26 +3368,260 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddLabeledControl(TableLayoutPanel grid, int col, int row, string label, Control control)
         {
-            Panel wrap = new Panel { Dock = DockStyle.Fill };
-            wrap.Controls.Add(new Label { Text = label, Font = new Font("Segoe UI", 8), ForeColor = QuoteMuted, Location = new Point(0, 0), AutoSize = true });
-            control.Location = new Point(0, 16);
+            Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface };
+            wrap.Controls.Add(new Label { Text = label, Font = new Font("Segoe UI", 8.6f, FontStyle.Bold), ForeColor = QuoteMuted, Location = new Point(0, 0), AutoSize = true, BackColor = QuoteSurface });
+            control.Location = new Point(0, 22);
+            control.Height = QuoteEditorFieldHeight;
             wrap.Controls.Add(control);
             grid.Controls.Add(wrap, col, row);
         }
 
+        /// <summary>Creates one polished field in the Quote Details reference layout.</summary>
+        private static void AddQuoteDetailField(TableLayoutPanel row, int col, string label, Control control, string iconHex, int shellWidth)
+        {
+            Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface, Margin = new Padding(0, 0, 18, 0), Tag = "CUSTOM_INPUT_SHELL" };
+            Label labelControl = new Label
+            {
+                Text = label,
+                Location = new Point(0, 0),
+                Height = 18,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.7f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(10, 31, 68),
+                BackColor = QuoteSurface
+            };
+            Panel shell = new Panel
+            {
+                Location = new Point(0, 25),
+                Height = 32,
+                Width = shellWidth,
+                Anchor = AnchorStyles.Left | AnchorStyles.Top,
+                BackColor = Color.White,
+                Padding = new Padding(34, 4, 8, 4),
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
+            wrap.Resize += (s, e) =>
+            {
+                int availableWidth = Math.Max(88, wrap.ClientSize.Width - 2);
+                int correctedWidth = Math.Min(shellWidth, availableWidth);
+                if (shell.Width != correctedWidth)
+                {
+                    shell.Width = correctedWidth;
+                    shell.Invalidate();
+                }
+            };
+            DS.Rounded(shell, 7);
+            shell.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(207, 216, 229)))
+                    e.Graphics.DrawRectangle(pen, 0, 0, shell.Width - 1, shell.Height - 1);
+            };
+
+            Label icon = new Label
+            {
+                Text = IconFromHex(iconHex),
+                Location = new Point(10, 6),
+                Size = new Size(18, 20),
+                Font = new Font("Segoe MDL2 Assets", 11f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(0, 102, 255),
+                BackColor = Color.White,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+
+            PrepareQuoteDetailControl(control);
+            shell.Controls.Add(control);
+            AddQuoteDetailDisplayLayer(shell, control);
+            shell.Controls.Add(icon);
+            wrap.Controls.Add(shell);
+            wrap.Controls.Add(labelControl);
+            row.Controls.Add(wrap, col, 0);
+        }
+
+        /// <summary>Creates a single row in the polished Quote Details layout.</summary>
+        private static TableLayoutPanel MakeQuoteDetailRow(int columns, int height)
+        {
+            return new TableLayoutPanel
+            {
+                Height = height,
+                ColumnCount = columns,
+                RowCount = 1,
+                BackColor = QuoteSurface
+            };
+        }
+
+        /// <summary>Creates the subtle divider used between Quote Details sections.</summary>
+        private static Panel MakeQuoteDetailDivider()
+        {
+            return new Panel { Height = 1, BackColor = Color.FromArgb(216, 225, 238) };
+        }
+
+        /// <summary>Places an existing editor control inside the polished Quote Details input shell.</summary>
+        private static void PrepareQuoteDetailControl(Control control)
+        {
+            control.Dock = DockStyle.Fill;
+            control.Margin = Padding.Empty;
+            control.Font = new Font("Segoe UI", 8.8f, FontStyle.Regular);
+            control.ForeColor = QuoteText;
+            control.BackColor = Color.White;
+            control.Tag = AppendTag(control.Tag, "CUSTOM_INPUT_SHELL");
+
+            TextBox textBox = control as TextBox;
+            if (textBox != null)
+            {
+                textBox.BorderStyle = BorderStyle.None;
+                textBox.Multiline = false;
+                textBox.Height = 22;
+                return;
+            }
+
+            ComboBox combo = control as ComboBox;
+            if (combo != null)
+            {
+                combo.FlatStyle = FlatStyle.Flat;
+                combo.ItemHeight = 20;
+                combo.MaxDropDownItems = 12;
+                combo.IntegralHeight = false;
+                combo.DropDownWidth = Math.Max(260, combo.Width);
+                return;
+            }
+
+            DateTimePicker picker = control as DateTimePicker;
+            if (picker != null)
+            {
+                picker.Format = DateTimePickerFormat.Custom;
+                picker.CustomFormat = "dd/MM/yyyy";
+                picker.CalendarFont = new Font("Segoe UI", 9f);
+            }
+        }
+
+        /// <summary>Adds a clean display surface over native ComboBox and DateTimePicker chrome.</summary>
+        private static void AddQuoteDetailDisplayLayer(Panel shell, Control control)
+        {
+            ComboBox combo = control as ComboBox;
+            DateTimePicker picker = control as DateTimePicker;
+            if (combo == null && picker == null)
+                return;
+
+            Label display = new Label
+            {
+                Location = new Point(34, 3),
+                Size = new Size(Math.Max(40, shell.Width - 62), 26),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.White,
+                ForeColor = QuoteText,
+                Font = new Font("Segoe UI", 8.8f),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Cursor = Cursors.Hand,
+                AutoEllipsis = true,
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
+            Label affordance = new Label
+            {
+                Location = new Point(shell.Width - 24, 7),
+                Size = new Size(13, 17),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.White,
+                ForeColor = Color.FromArgb(71, 85, 105),
+                Font = new Font("Segoe MDL2 Assets", 9f),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand,
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
+
+            Action refresh = () =>
+            {
+                if (combo != null)
+                {
+                    display.Text = combo.Text;
+                    affordance.Text = IconFromHex("E70D");
+                    return;
+                }
+
+                display.Text = picker.Value.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+                affordance.Text = IconFromHex("E787");
+            };
+
+            EventHandler open = (s, e) =>
+            {
+                if (combo != null)
+                {
+                    combo.Focus();
+                    combo.DroppedDown = true;
+                    return;
+                }
+
+                picker.Focus();
+                SendKeys.SendWait("%{DOWN}");
+            };
+
+            display.Click += open;
+            affordance.Click += open;
+            shell.Click += open;
+            if (combo != null)
+                combo.SelectedIndexChanged += (s, e) => refresh();
+            if (picker != null)
+                picker.ValueChanged += (s, e) => refresh();
+            refresh();
+
+            shell.Controls.Add(display);
+            shell.Controls.Add(affordance);
+            display.BringToFront();
+            affordance.BringToFront();
+        }
+
+        /// <summary>Appends metadata while preserving existing Tag values.</summary>
+        private static string AppendTag(object currentTag, string value)
+        {
+            string existing = currentTag == null ? string.Empty : currentTag.ToString();
+            if (existing.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0)
+                return existing;
+
+            return string.IsNullOrWhiteSpace(existing) ? value : existing + " " + value;
+        }
+
+        /// <summary>Converts a Segoe MDL2 hex code into a display string.</summary>
+        private static string IconFromHex(string hex)
+        {
+            return char.ConvertFromUtf32(Convert.ToInt32(hex, 16));
+        }
+
         private static TextBox MakeTextBox(bool readOnly)
         {
-            return new TextBox { Width = 250, ReadOnly = readOnly, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 9), BackColor = InputFill, ForeColor = QuoteText };
+            return new TextBox { Width = 250, Height = QuoteEditorFieldHeight, ReadOnly = readOnly, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 10.2f), BackColor = InputFill, ForeColor = QuoteText };
         }
 
         private static ComboBox MakeCombo(bool dropDownList)
         {
-            return new ComboBox { Width = 250, DropDownStyle = dropDownList ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown, Font = new Font("Segoe UI", 9), BackColor = InputFill, ForeColor = QuoteText, FlatStyle = FlatStyle.Flat };
+            ComboBox combo = new ComboBox
+            {
+                Width = 250,
+                Height = QuoteEditorFieldHeight,
+                DropDownStyle = dropDownList ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown,
+                Font = new Font("Segoe UI", 10.5f),
+                BackColor = InputFill,
+                ForeColor = QuoteText,
+                FlatStyle = FlatStyle.Flat
+            };
+            ApplyQuotationComboSizing(combo);
+            return combo;
         }
 
         private static DateTimePicker MakeDatePicker()
         {
-            return new DateTimePicker { Width = 250, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Short };
+            return new DateTimePicker { Width = 250, Height = QuoteEditorFieldHeight, Font = new Font("Segoe UI", 10.2f), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", CalendarMonthBackground = InputFill };
+        }
+
+        private static void ApplyQuotationComboSizing(ComboBox combo)
+        {
+            if (combo == null)
+                return;
+
+            combo.Font = new Font("Segoe UI", 10.5f);
+            combo.Height = QuoteEditorFieldHeight;
+            combo.ItemHeight = 26;
+            combo.MaxDropDownItems = 12;
+            combo.IntegralHeight = false;
+            combo.DropDownWidth = Math.Max(combo.Width, 320);
         }
 
         private void RegisterFilledButton(Button button, Color color)
@@ -3169,6 +3655,8 @@ namespace HVAC_Pro_Desktop.UI
             foreach (Button button in _secondaryQuoteButtons)
                 ApplySecondaryButton(button);
 
+            ApplyQuoteDetailsFieldSizing();
+
             if (_grid != null)
             {
                 _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
@@ -3177,6 +3665,49 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             UpdateLineItemsEmptyState();
+        }
+
+        /// <summary>Normalises Quote Details row sizing after shared input styling runs.</summary>
+        private void ApplyQuoteDetailsFieldSizing()
+        {
+            SetQuoteDetailFieldSize(_dtpDate);
+            SetQuoteDetailFieldSize(_dtpDue);
+            SetQuoteDetailFieldSize(_cboValidity);
+            SetQuoteDetailFieldSize(_dtpRequiredBy);
+            SetQuoteDetailFieldSize(_cboStatus);
+            SetQuoteDetailFieldSize(_txtQuoteNo);
+            SetQuoteDetailFieldSize(_txtTitle);
+            SetQuoteDetailFieldSize(_cboClient);
+            SetQuoteDetailFieldSize(_cboSite);
+            SetQuoteDetailFieldSize(_cboCommercialFlow);
+            SetQuoteDetailFieldSize(_cboCustomerDocStatus);
+            SetQuoteDetailFieldSize(_cboSupplierDocStatus);
+        }
+
+        /// <summary>Preserves polished Quote Details field styling after shared UI passes run.</summary>
+        private static void SetQuoteDetailFieldSize(Control control)
+        {
+            if (control == null)
+                return;
+
+            control.Font = new Font("Segoe UI", 8.8f);
+            control.ForeColor = QuoteText;
+            control.BackColor = Color.White;
+            if (control is ComboBox combo)
+            {
+                combo.FlatStyle = FlatStyle.Flat;
+                combo.ItemHeight = 20;
+                combo.DropDownWidth = Math.Max(260, combo.Width);
+            }
+            else if (control is DateTimePicker picker)
+            {
+                picker.Format = DateTimePickerFormat.Custom;
+                picker.CustomFormat = "dd/MM/yyyy";
+            }
+            else if (control is TextBox textBox)
+            {
+                textBox.BorderStyle = BorderStyle.None;
+            }
         }
 
         private void ApplyQuotationGridColumnSizing()
@@ -3220,6 +3751,7 @@ namespace HVAC_Pro_Desktop.UI
                     comboBox.FlatStyle = FlatStyle.Flat;
                     comboBox.BackColor = InputFill;
                     comboBox.ForeColor = QuoteText;
+                    ApplyQuotationComboSizing(comboBox);
                 }
                 else if (child is NumericUpDown numeric)
                 {
@@ -3265,37 +3797,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ExportHtmlToPdf(string html, string outputPath)
         {
-            string[] candidates =
-            {
-                @"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
-                @"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
-            };
-            string edgePath = candidates.FirstOrDefault(File.Exists);
-            if (string.IsNullOrWhiteSpace(edgePath))
-                throw new Exception("Microsoft Edge is required for PDF export.");
-
-            string tempHtml = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".html");
-            File.WriteAllText(tempHtml, html);
-            try
-            {
-                string fileUrl = new Uri(tempHtml).AbsoluteUri;
-                using (Process process = Process.Start(new ProcessStartInfo
-                {
-                    FileName = edgePath,
-                    Arguments = "--headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf=\"" + outputPath + "\" \"" + fileUrl + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                }))
-                {
-                    process.WaitForExit(20000);
-                    if (!File.Exists(outputPath))
-                        throw new Exception("PDF export did not complete.");
-                }
-            }
-            finally
-            {
-                if (File.Exists(tempHtml)) File.Delete(tempHtml);
-            }
+            HtmlPdfExportService.ExportHtmlToPdf(html, outputPath);
         }
 
         private sealed class ComboItem

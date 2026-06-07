@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -84,11 +84,15 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnSaveInvoice;
         private Panel _invoiceDashboardPanel;
         private Panel _invoiceWorkspacePanel;
+        private Panel _invoiceWorkflowCard;
+        private TableLayoutPanel _invoiceWorkflowTable;
         private DateTimePicker _invoiceDashFromPicker;
         private DateTimePicker _invoiceDashToPicker;
         private ComboBox _invoiceDashGroupingCombo;
         private InvoiceDashboardSnapshot _invoiceDashboardSnapshot;
         private bool _invoiceDashboardRefreshing;
+        private bool _invoiceDashboardLayingOut;
+        private readonly Dictionary<string, int> _invoiceDashboardCardHeights = new Dictionary<string, int>();
 
         // â”€â”€ Colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private static readonly Color HeaderBg = DS.White;
@@ -103,10 +107,11 @@ namespace HVAC_Pro_Desktop.UI
             this.BackColor = DS.BgPage;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Invoices");
             ApplyInvoicePreviewSkin(Controls);
             RestoreModernInvoiceInputStyles(Controls);
             ApplyPermissions();
-            ClearForm();
+            ShowInvoiceDashboard();
             RecordDeletionUi.BindDeleteShortcut(this, () => { DeleteCurrentInvoice(); return Task.FromResult(0); }, () => _current != null && _current.InvoiceID > 0);
             HandleCreated += (s, e) => QueueInitialLoad();
             ParentChanged += (s, e) => QueueInitialLoad();
@@ -351,43 +356,53 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BackColor = DS.BgPage;
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 94, BackColor = DS.BgPage, Padding = new Padding(28, 18, 28, 10) };
-            header.Controls.Add(new Label { Text = "Invoice Management", Font = new Font("Segoe UI", 18.5f, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(28, 18), Size = new Size(440, 30) });
-            header.Controls.Add(new Label { Text = "Create, manage and track customer invoices.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(28, 52), Size = new Size(440, 20) });
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 84, BackColor = Color.White, Padding = new Padding(28, 14, 28, 10) };
+            header.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Slate200))
+                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+            };
+            Label pageTitle = new Label { Text = "Invoices", Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 15), Size = new Size(360, 28), AutoEllipsis = true };
+            Label pageSubtitle = new Label { Text = "GST billing, receivables and customer invoice workflow.", Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate600, Location = new Point(29, 46), Size = new Size(520, 20), AutoEllipsis = true };
+            header.Controls.AddRange(new Control[] { pageTitle, pageSubtitle });
+
             _btnNewInvoice = MakeBtn("+  New Invoice", InfoBlue, 138);
             _btnNewInvoice.MinimumSize = new Size(110, 0);
             Button btnSettings = MakeBtn("⚙", Color.White, 42); btnSettings.ForeColor = DS.Slate700; btnSettings.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button btnPreview = MakeBtn("Preview", Color.White, 98); btnPreview.ForeColor = DS.Slate700; btnPreview.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnForms = MakeBtn("Forms", Color.White, 86); btnForms.ForeColor = DS.Primary600; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             Button btnImport = MakeBtn("Import", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button btnTemplate = MakeBtn("Template", Color.White, 112); btnTemplate.ForeColor = DS.Slate700; btnTemplate.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button btnMore = MakeBtn("⋮", Color.White, 42); btnMore.ForeColor = DS.Slate700; btnMore.FlatAppearance.BorderColor = DS.BorderStrong;
-            _btnNewInvoice.Anchor = btnSettings.Anchor = btnPreview.Anchor = btnForms.Anchor = btnImport.Anchor = btnTemplate.Anchor = btnMore.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+
+            FlowLayoutPanel actionRail = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                BackColor = Color.White,
+                Size = new Size(500, 38),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            foreach (Button button in new[] { _btnNewInvoice, btnSettings, btnForms, btnImport })
+                button.Margin = new Padding(10, 1, 0, 1);
+
             Action layoutHeaderActions = () =>
             {
-                _btnNewInvoice.Location = new Point(header.Width - _btnNewInvoice.Width - 28, 24);
-                btnSettings.Location = new Point(_btnNewInvoice.Left - 60, 24);
-                btnForms.Location = new Point(btnSettings.Left - btnForms.Width - 12, 24);
-                btnMore.Location = new Point(btnForms.Left - 58, 22);
-                btnTemplate.Location = new Point(btnMore.Left - 120, 22);
-                btnImport.Location = new Point(btnTemplate.Left - 112, 22);
+                actionRail.Width = Math.Min(500, Math.Max(360, header.Width - 610));
+                actionRail.Location = new Point(header.Width - actionRail.Width - 28, 22);
+                pageTitle.Width = Math.Max(260, actionRail.Left - 56);
+                pageSubtitle.Width = Math.Max(320, actionRail.Left - 56);
             };
             header.Resize += (s, e) => layoutHeaderActions();
             _btnNewInvoice.Click += BtnNew_Click;
             btnSettings.Click += (s, e) => MessageBox.Show("Invoice settings are available from Settings and Templates.", "Invoice Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            btnPreview.Click += BtnPreview_Click;
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Invoice Management", "Finance / Payments", null, "invoice payment receipt credit note GST approval customer sign-off");
-            btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Invoices, FindForm());
-            btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Invoices, FindForm());
-            btnMore.Click += (s, e) => LoadInvoiceList();
-            btnImport.Visible = false;
-            btnTemplate.Visible = false;
-            btnMore.Visible = false;
-            header.Controls.AddRange(new Control[] { _btnNewInvoice, btnSettings, btnForms, btnImport, btnTemplate, btnMore });
+            btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Invoices, FindForm());
+            actionRail.Controls.AddRange(new Control[] { _btnNewInvoice, btnSettings, btnForms, btnImport });
+            header.Controls.Add(actionRail);
             layoutHeaderActions();
 
-            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 0, 24, 16) };
+            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 12, 24, 16) };
             _invoiceDashboardPanel = BuildInvoiceModuleDashboard();
             _invoiceDashboardPanel.Dock = DockStyle.Top;
             _invoiceWorkspacePanel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Visible = false };
@@ -407,7 +422,6 @@ namespace HVAC_Pro_Desktop.UI
             Panel rightPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(0, 16), BackColor = DS.BgPage, Padding = new Padding(18, 0, 0, 0) };
             rightPanel.MouseEnter += (s, e) => rightPanel.Focus();
             rightPanel.Controls.Add(BuildInvoiceFooterCard());
-            rightPanel.Controls.Add(BuildRecentActivityCard());
             rightPanel.Controls.Add(BuildInvoiceSummaryCard());
             rightPanel.Controls.Add(BuildQuickActionsCard());
 
@@ -471,7 +485,7 @@ namespace HVAC_Pro_Desktop.UI
 
             actionBar.Paint += (s, e) =>
             {
-                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawLine(pen, 0, 0, actionBar.Width, 0);
             };
 
@@ -543,32 +557,6 @@ namespace HVAC_Pro_Desktop.UI
             };
             host.Resize += (s, e) => LayoutInvoiceDashboard(host);
 
-            Label title = new Label
-            {
-                Text = "Invoice Dashboard",
-                Font = new Font("Segoe UI", 13.5f, FontStyle.Bold),
-                ForeColor = DS.Slate900,
-                Location = new Point(0, 4),
-                Size = new Size(260, 26)
-            };
-            Label subtitle = new Label
-            {
-                Text = "Live invoice KPIs, receivables, workflow, and recent billing activity.",
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate600,
-                Location = new Point(1, 31),
-                Size = new Size(520, 20)
-            };
-
-            Button create = MakeBtn("Create Invoice", InfoBlue, 132);
-            create.Tag = "dash-create";
-            create.Click += BtnNew_Click;
-            Button refresh = MakeBtn("Refresh", Color.White, 90);
-            refresh.Tag = "dash-refresh";
-            refresh.ForeColor = DS.Primary700;
-            refresh.FlatAppearance.BorderColor = DS.BorderStrong;
-            refresh.Click += (s, e) => RefreshInvoiceModuleDashboard(host);
-
             _invoiceDashFromPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateFrom, Width = 126, Tag = "dash-filter" };
             _invoiceDashToPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateTo, Width = 126, Tag = "dash-filter" };
             _invoiceDashGroupingCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 86, Tag = "dash-filter" };
@@ -578,7 +566,6 @@ namespace HVAC_Pro_Desktop.UI
             _invoiceDashToPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
             _invoiceDashGroupingCombo.SelectedIndexChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
 
-            host.Controls.AddRange(new Control[] { title, subtitle, create, refresh, _invoiceDashFromPicker, _invoiceDashToPicker, _invoiceDashGroupingCombo });
             PopulateInvoiceDashboardCards(host);
             LayoutInvoiceDashboard(host);
             return host;
@@ -628,21 +615,24 @@ namespace HVAC_Pro_Desktop.UI
             Color[] accents = { DS.Primary600, DS.Green600, DS.Teal600, DS.Amber500, DS.Red600 };
             string[] icons = { "INV", "Rs", "OK", "P", "!" };
             for (int i = 0; i < kpis.Length; i++)
-                host.Controls.Add(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0));
+                host.Controls.Add(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0, "invoiceDashKpi" + i));
 
             Panel overview = MakeInvoiceDashCard();
+            overview.Name = "invoiceDashOverview";
             overview.Tag = "dash-card";
             overview.Controls.Add(new Label { Text = "Invoice Overview", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             overview.Controls.Add(new InvoiceOverviewChart { Snapshot = _invoiceDashboardSnapshot, Location = new Point(12, 42), Size = new Size(520, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
             host.Controls.Add(overview);
 
             Panel status = MakeInvoiceDashCard();
+            status.Name = "invoiceDashStatus";
             status.Tag = "dash-card";
             status.Controls.Add(new Label { Text = "Invoices by Status", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             status.Controls.Add(new InvoiceStatusDonut { Snapshot = _invoiceDashboardSnapshot, Location = new Point(10, 42), Size = new Size(390, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
             host.Controls.Add(status);
 
             Panel recent = MakeInvoiceDashCard();
+            recent.Name = "invoiceDashRecent";
             recent.Tag = "dash-card";
             recent.Controls.Add(new Label { Text = "Recent Invoices", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             DataGridView grid = BuildInvoiceDashRecentGrid();
@@ -650,6 +640,7 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Add(recent);
 
             Panel side = MakeInvoiceDashCard();
+            side.Name = "invoiceDashReceivables";
             side.Tag = "dash-card";
             side.Controls.Add(new Label { Text = "Receivables & Actions", Location = new Point(16, 12), Size = new Size(220, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             decimal overdue = _invoiceDashboardSnapshot.AgingBuckets.Sum(b => b.Amount);
@@ -666,11 +657,53 @@ namespace HVAC_Pro_Desktop.UI
                 y += 22;
             }
             host.Controls.Add(side);
+
+            host.Controls.Add(BuildInvoiceWorkflowCard());
         }
 
-        private Panel BuildInvoiceDashKpiCard(InvoiceKpi kpi, Color accent, string icon, bool numberOnly)
+        private Panel BuildInvoiceWorkflowCard()
+        {
+            Panel workflow = MakeInvoiceDashCard();
+            workflow.Name = "invoiceDashWorkflow";
+            workflow.Tag = "dash-card";
+            workflow.Controls.Add(new Label { Text = "Invoice Workflow", Location = new Point(16, 12), Size = new Size(220, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            Control body = SharedUiPrimitives.BuildDirectionalWorkflowLayout(
+                "Supplier Workflow",
+                "Sent to Suppliers",
+                Enumerable.Empty<string>(),
+                "Received from Suppliers",
+                Enumerable.Empty<string>(),
+                "Client Workflow",
+                "Sent to Clients",
+                BuildInvoiceWorkflowLines(row => !IsInvoicePaid(row.Status)),
+                "Received from Clients",
+                BuildInvoiceWorkflowLines(row => IsInvoicePaid(row.Status)));
+            body.Location = new Point(10, 42);
+            body.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+            workflow.Controls.Add(body);
+            workflow.Resize += (s, e) => body.Size = new Size(Math.Max(120, workflow.ClientSize.Width - 20), Math.Max(120, workflow.ClientSize.Height - 54));
+            return workflow;
+        }
+
+        private IEnumerable<string> BuildInvoiceWorkflowLines(Func<InvoiceRecentRow, bool> predicate)
+        {
+            return (_invoiceDashboardSnapshot?.RecentInvoices ?? Enumerable.Empty<InvoiceRecentRow>())
+                .Where(predicate)
+                .OrderByDescending(row => row.InvoiceDate)
+                .Take(4)
+                .Select(row => (string.IsNullOrWhiteSpace(row.InvoiceNumber) ? "Invoice" : row.InvoiceNumber) + " - " + (string.IsNullOrWhiteSpace(row.ClientName) ? "Client" : row.ClientName) + " - " + row.Status);
+        }
+
+        private static bool IsInvoicePaid(string status)
+        {
+            string key = (status ?? string.Empty).Trim();
+            return key.Equals("Paid", StringComparison.OrdinalIgnoreCase) || key.Equals("Closed", StringComparison.OrdinalIgnoreCase) || key.Equals("Received", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private Panel BuildInvoiceDashKpiCard(InvoiceKpi kpi, Color accent, string icon, bool numberOnly, string cardName)
         {
             Panel card = MakeInvoiceDashCard();
+            card.Name = cardName;
             card.Tag = "dash-card";
             card.Height = 92;
             card.Controls.Add(new Label { Text = kpi.Title, Location = new Point(14, 14), Size = new Size(160, 18), Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = DS.Slate600 });
@@ -720,7 +753,7 @@ namespace HVAC_Pro_Desktop.UI
         private void InvoiceDashRecentGrid_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             DataGridView grid = sender as DataGridView;
-            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf")
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf" || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
                 return;
 
             OpenRecentInvoicePdf(grid, e.RowIndex);
@@ -737,7 +770,7 @@ namespace HVAC_Pro_Desktop.UI
         private void InvoiceDashRecentGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             DataGridView grid = sender as DataGridView;
-            if (grid == null || e.RowIndex < 0)
+            if (grid == null || e.RowIndex < 0 || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
                 return;
             OpenRecentInvoicePdf(grid, e.RowIndex);
         }
@@ -760,7 +793,42 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawPath(pen, path);
             };
             DS.Rounded(card, 8);
+            CardResizeGripService.Attach(card, InvoiceDashboardCardResizeComplete, InvoiceDashboardCardResizeChanging);
             return card;
+        }
+
+        private void InvoiceDashboardCardResizeChanging(Control card, Size size)
+        {
+            SaveInvoiceDashboardCardHeight(card, size.Height);
+            if (!_invoiceDashboardLayingOut && _invoiceDashboardPanel != null)
+                LayoutInvoiceDashboard(_invoiceDashboardPanel);
+        }
+
+        private void InvoiceDashboardCardResizeComplete(Control card, Size size)
+        {
+            SaveInvoiceDashboardCardHeight(card, size.Height);
+            if (_invoiceDashboardPanel != null)
+                LayoutInvoiceDashboard(_invoiceDashboardPanel);
+        }
+
+        private void SaveInvoiceDashboardCardHeight(Control card, int height)
+        {
+            string key = GetInvoiceDashboardCardKey(card);
+            if (!string.IsNullOrWhiteSpace(key))
+                _invoiceDashboardCardHeights[key] = Math.Max(96, height);
+        }
+
+        private int GetInvoiceDashboardCardHeight(Control card, int defaultHeight)
+        {
+            string key = GetInvoiceDashboardCardKey(card);
+            if (!string.IsNullOrWhiteSpace(key) && _invoiceDashboardCardHeights.TryGetValue(key, out int savedHeight))
+                return Math.Max(96, savedHeight);
+            return defaultHeight;
+        }
+
+        private static string GetInvoiceDashboardCardKey(Control card)
+        {
+            return card == null ? null : card.Name;
         }
 
         private void LayoutInvoiceDashboard(Panel host)
@@ -770,45 +838,81 @@ namespace HVAC_Pro_Desktop.UI
 
             bool compact = host.Width < 1100;
             int gap = 10;
-            int top = 64;
+            int top = 0;
 
             Control create = host.Controls.Cast<Control>().FirstOrDefault(c => Convert.ToString(c.Tag) == "dash-create");
             Control refresh = host.Controls.Cast<Control>().FirstOrDefault(c => Convert.ToString(c.Tag) == "dash-refresh");
-            if (refresh != null) refresh.Location = new Point(host.Width - refresh.Width, 18);
-            if (create != null) create.Location = new Point(refresh.Left - create.Width - 10, 18);
-            if (_invoiceDashGroupingCombo != null) _invoiceDashGroupingCombo.Location = new Point(create.Left - _invoiceDashGroupingCombo.Width - 10, 20);
-            if (_invoiceDashToPicker != null) _invoiceDashToPicker.Location = new Point(_invoiceDashGroupingCombo.Left - _invoiceDashToPicker.Width - 8, 20);
-            if (_invoiceDashFromPicker != null) _invoiceDashFromPicker.Location = new Point(_invoiceDashToPicker.Left - _invoiceDashFromPicker.Width - 8, 20);
+            if (refresh != null && create != null)
+            {
+                refresh.Location = new Point(host.Width - refresh.Width, 18);
+                create.Location = new Point(refresh.Left - create.Width - 10, 18);
+                if (_invoiceDashGroupingCombo != null) _invoiceDashGroupingCombo.Location = new Point(create.Left - _invoiceDashGroupingCombo.Width - 10, 20);
+                if (_invoiceDashToPicker != null) _invoiceDashToPicker.Location = new Point(_invoiceDashGroupingCombo.Left - _invoiceDashToPicker.Width - 8, 20);
+                if (_invoiceDashFromPicker != null) _invoiceDashFromPicker.Location = new Point(_invoiceDashToPicker.Left - _invoiceDashFromPicker.Width - 8, 20);
+            }
 
             var cards = host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList();
-            int kpiCols = compact ? 3 : 5;
-            int kpiWidth = Math.Max(170, (host.Width - gap * (kpiCols - 1)) / kpiCols);
-            for (int i = 0; i < Math.Min(5, cards.Count); i++)
+            _invoiceDashboardLayingOut = true;
+            try
             {
-                cards[i].SetBounds((i % kpiCols) * (kpiWidth + gap), top + (i / kpiCols) * 102, kpiWidth, 92);
-            }
-
-            int chartTop = top + (compact ? 204 : 104);
-            int leftW = compact ? host.Width : (int)((host.Width - gap) * 0.58);
-            int rightW = compact ? host.Width : host.Width - leftW - gap;
-            if (cards.Count > 5) cards[5].SetBounds(0, chartTop, leftW, 232);
-            if (cards.Count > 6) cards[6].SetBounds(compact ? 0 : leftW + gap, compact ? chartTop + 242 : chartTop, rightW, 232);
-            int lowerTop = compact ? chartTop + 484 : chartTop + 242;
-            if (cards.Count > 7) cards[7].SetBounds(0, lowerTop, leftW, 222);
-            if (cards.Count > 8) cards[8].SetBounds(compact ? 0 : leftW + gap, compact ? lowerTop + 232 : lowerTop, rightW, 222);
-
-            foreach (Panel card in cards.OfType<Panel>())
-            {
-                foreach (Control child in card.Controls)
+                int kpiCols = compact ? 3 : 5;
+                int kpiWidth = Math.Max(170, (host.Width - gap * (kpiCols - 1)) / kpiCols);
+                int kpiY = top;
+                int kpiCount = Math.Min(5, cards.Count);
+                for (int rowStart = 0; rowStart < kpiCount; rowStart += kpiCols)
                 {
-                    if (child is InvoiceOverviewChart || child is InvoiceStatusDonut)
-                        child.Size = new Size(card.Width - 24, card.Height - 54);
-                    if (child is DataGridView grid)
-                        grid.Size = new Size(card.Width, card.Height - 52);
-                }
-            }
+                    int rowCount = Math.Min(kpiCols, kpiCount - rowStart);
+                    int rowHeight = 92;
+                    for (int i = rowStart; i < rowStart + rowCount; i++)
+                        rowHeight = Math.Max(rowHeight, GetInvoiceDashboardCardHeight(cards[i], 92));
 
-            host.Height = compact ? 1220 : 646;
+                    for (int i = rowStart; i < rowStart + rowCount; i++)
+                        cards[i].SetBounds((i - rowStart) * (kpiWidth + gap), kpiY, kpiWidth, rowHeight);
+                    kpiY += rowHeight + gap;
+                }
+
+                int chartTop = kpiY;
+                int leftW = compact ? host.Width : (int)((host.Width - gap) * 0.58);
+                int rightW = compact ? host.Width : host.Width - leftW - gap;
+                if (cards.Count > 5)
+                    cards[5].SetBounds(0, chartTop, leftW, GetInvoiceDashboardCardHeight(cards[5], 232));
+                if (cards.Count > 6)
+                    cards[6].SetBounds(compact ? 0 : leftW + gap, compact ? cards[5].Bottom + gap : chartTop, rightW, GetInvoiceDashboardCardHeight(cards[6], 232));
+
+                int lowerTop = compact
+                    ? (cards.Count > 6 ? cards[6].Bottom + gap : chartTop)
+                    : Math.Max(cards.Count > 5 ? cards[5].Bottom : chartTop, cards.Count > 6 ? cards[6].Bottom : chartTop) + gap;
+                if (cards.Count > 7)
+                    cards[7].SetBounds(0, lowerTop, leftW, GetInvoiceDashboardCardHeight(cards[7], 222));
+                if (cards.Count > 8)
+                    cards[8].SetBounds(compact ? 0 : leftW + gap, compact ? cards[7].Bottom + gap : lowerTop, rightW, GetInvoiceDashboardCardHeight(cards[8], 222));
+
+                int workflowTop = compact
+                    ? (cards.Count > 8 ? cards[8].Bottom + gap : lowerTop)
+                    : Math.Max(cards.Count > 7 ? cards[7].Bottom : lowerTop, cards.Count > 8 ? cards[8].Bottom : lowerTop) + gap;
+                if (cards.Count > 9)
+                    cards[9].SetBounds(0, workflowTop, host.Width, GetInvoiceDashboardCardHeight(cards[9], 300));
+
+                foreach (Panel card in cards.OfType<Panel>())
+                {
+                    foreach (Control child in card.Controls)
+                    {
+                        if (CardResizeGripService.IsResizeGrip(child))
+                            continue;
+                        if (child is InvoiceOverviewChart || child is InvoiceStatusDonut)
+                            child.Size = new Size(card.Width - 24, Math.Max(40, card.Height - 54));
+                        if (child is DataGridView grid)
+                            grid.Size = new Size(card.Width, Math.Max(40, card.Height - 52));
+                    }
+                }
+
+                int bottom = cards.Count == 0 ? top : cards.Max(c => c.Bottom);
+                host.Height = Math.Max(compact ? 1220 : 646, bottom + 18);
+            }
+            finally
+            {
+                _invoiceDashboardLayingOut = false;
+            }
         }
 
         private void ApplyInvoicePreviewSkin(Control.ControlCollection controls)
@@ -915,7 +1019,7 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle rect = new Rectangle(0, 0, host.Width - 1, host.Height - 1);
                 using (GraphicsPath path = CreateRoundedPath(rect, 4))
-                using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawPath(pen, path);
             };
 
@@ -990,7 +1094,7 @@ namespace HVAC_Pro_Desktop.UI
             button.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             button.Cursor = Cursors.Hand;
             if (button.BackColor == Color.White)
-                button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+                button.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(button, 5);
         }
 
@@ -1020,7 +1124,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = CreateRoundedPath(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
-                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawPath(pen, path);
             };
             DS.Rounded(card, 10);
@@ -1048,8 +1152,6 @@ namespace HVAC_Pro_Desktop.UI
                 return "Quick Actions";
             if (string.Equals(title, "INVOICE SUMMARY", StringComparison.OrdinalIgnoreCase))
                 return "Invoice Summary";
-            if (string.Equals(title, "RECENT ACTIVITY", StringComparison.OrdinalIgnoreCase))
-                return "Recent Activity";
             return title;
         }
 
@@ -1176,8 +1278,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Delete invoice failed: " + ex.Message, "Delete Invoice", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                ShowStatus("Delete failed: " + ex.Message, Color.Firebrick);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Deleting invoice", ex);
+                ShowStatus("Invoice could not be deleted. Refresh and try again.", Color.Firebrick);
             }
             finally
             {
@@ -1244,30 +1346,12 @@ namespace HVAC_Pro_Desktop.UI
             y += 28;
         }
 
-        private Panel BuildRecentActivityCard()
-        {
-            Panel card = CreateInvoiceCard("RECENT ACTIVITY", 180);
-            string[] rows =
-            {
-                "No recent invoice activity yet."
-            };
-            int y = 48;
-            foreach (string row in rows)
-            {
-                card.Controls.Add(new Label { Text = "●", Location = new Point(22, y + 2), Size = new Size(16, 18), ForeColor = SaveGreen });
-                card.Controls.Add(new Label { Text = row, Location = new Point(46, y), Size = new Size(270, 34), Font = new Font("Segoe UI", 8.1f), ForeColor = DS.Slate700 });
-                y += 42;
-            }
-            return card;
-        }
-
         private Panel BuildInvoiceFooterCard()
         {
             Panel card = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = DS.BgPage };
             _lblStatus = new Label { Text = "Last saved: " + DateTime.Now.ToString("dd/MM/yyyy hh:mm tt"), Dock = DockStyle.Left, Width = 190, Font = new Font("Segoe UI", 8), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleLeft };
             Button refresh = MakeBtn("Refresh", DS.BgPage, 90);
-            refresh.ForeColor = InfoBlue;
-            refresh.FlatAppearance.BorderSize = 0;
+            UIHelper.ApplyButtonStyle(refresh, ButtonRole.Secondary);
             refresh.Dock = DockStyle.Right;
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             refresh.Click += (s, e) => LoadInvoiceList();
@@ -1288,7 +1372,7 @@ namespace HVAC_Pro_Desktop.UI
 
             panel.Paint += (s, e) =>
             {
-                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (Pen pen = new Pen(DS.Border))
                 {
                     e.Graphics.DrawLine(pen, 0, 0, panel.Width, 0);
                     e.Graphics.DrawLine(pen, 0, panel.Height - 1, panel.Width, panel.Height - 1);
@@ -1406,7 +1490,7 @@ namespace HVAC_Pro_Desktop.UI
             AddModernField(grid, "Invoice Date", _dtpInvDate, 2, 0, true, 1);
             AddModernField(grid, "Due Date", _dtpDueDate, 3, 0, true, 1);
             AddModernField(grid, "Client", _cmbClient, 0, 1, true, 2);
-            AddModernField(grid, "Site", _cmbSite, 2, 1, true, 1);
+            AddModernField(grid, "Site (optional)", _cmbSite, 2, 1, false, 1);
             AddModernField(grid, "Contract (optional)", _cmbContract, 3, 1, false, 1);
             AddModernField(grid, "Use Template", _cmbTemplate, 0, 2, false, 1);
             AddModernField(grid, "Coverage", _cmbCoverageType, 1, 2, false, 1);
@@ -1422,7 +1506,7 @@ namespace HVAC_Pro_Desktop.UI
             AddModernField(grid, "Notes", _txtNotes, 2, 5, false, 2, 2);
             AddModernField(grid, "Send Invoice To", _txtSendInvoiceTo, 0, 6, false, 2);
 
-            _txtNudges = new TextBox { Text = "All required details look good. You can generate and send the invoice.", ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255) };
+            _txtNudges = new TextBox { Text = "Required: client and line items. Site, contract, PO, warranty, and service notes can be added later.", ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255) };
             Panel smartBar = new Panel { Height = 28, BackColor = Color.FromArgb(238, 242, 255), Margin = new Padding(0, 0, 0, 12), Padding = new Padding(12, 6, 12, 4), Tag = "invoice-no-preview-wrap" };
             DS.Rounded(smartBar, 8);
             smartBar.Controls.Add(_txtNudges);
@@ -1518,7 +1602,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = ModernCard.RoundedRect(new Rectangle(0, 0, host.Width - 1, host.Height - 1), 6))
-                using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawPath(pen, path);
             };
             DS.Rounded(host, 6);
@@ -1562,9 +1646,26 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildModernWorkflowSection()
         {
-            ModernCard card = new ModernCard { Height = 232, Padding = new Padding(16), Tag = "invoice-no-preview-wrap" };
+            ModernCard card = new ModernCard
+            {
+                Name = "InvoiceHvacWorkflowCard",
+                Height = 276,
+                MinimumSize = new Size(760, 220),
+                Padding = new Padding(16),
+                Tag = "dashboard-card"
+            };
+            _invoiceWorkflowCard = card;
             Panel workflowTitle = BuildInvoiceSectionTitle("HVAC WORKFLOW", ModernIconKind.Service);
-            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, BackColor = Color.White, Padding = new Padding(0, 6, 0, 0) };
+            TableLayoutPanel table = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                BackColor = Color.White,
+                Padding = new Padding(0, 6, 0, 0),
+                Tag = "invoice-workflow-table"
+            };
+            _invoiceWorkflowTable = table;
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.3f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.4f));
@@ -1590,6 +1691,9 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(_txtChecklist);
             card.Controls.Add(_txtAssetDetails);
             card.Controls.Add(_txtPaymentHistory);
+            card.Resize += (s, e) => LayoutInvoiceWorkflowSection();
+            CardResizeGripService.Attach(card, InvoiceWorkflowCardResizeComplete, InvoiceWorkflowCardResizeChanging);
+            LayoutInvoiceWorkflowSection();
             return card;
         }
 
@@ -1620,12 +1724,23 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildMiniInfoCard(string title, DataGridView body, ModernIconKind iconKind, out Button actionButton)
         {
-            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 0, 12, 0), Padding = new Padding(12, 8, 12, 8) };
+            Panel panel = new Panel
+            {
+                Name = "InvoiceWorkflow" + Regex.Replace(title ?? "Card", @"[^A-Za-z0-9]", string.Empty),
+                Tag = "dashboard-card",
+                Dock = DockStyle.None,
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(250, 140),
+                MinimumSize = new Size(220, 118),
+                BackColor = Color.FromArgb(248, 250, 252),
+                Margin = new Padding(0, 0, 12, 0),
+                Padding = new Padding(12, 8, 12, 8)
+            };
             panel.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = ModernCard.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 8))
-                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawPath(pen, path);
             };
             TableLayoutPanel layout = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.Transparent, ColumnCount = 1, RowCount = 2, Padding = Padding.Empty, Margin = Padding.Empty };
@@ -1645,7 +1760,94 @@ namespace HVAC_Pro_Desktop.UI
             layout.Controls.Add(titleRow, 0, 0);
             layout.Controls.Add(body, 0, 1);
             panel.Controls.Add(layout);
+            CardResizeGripService.Attach(panel, InvoiceWorkflowMiniCardResizeComplete, InvoiceWorkflowMiniCardResizeChanging);
             return panel;
+        }
+
+        /// <summary>Keeps the HVAC workflow card and inner mini cards usable while they are resized.</summary>
+        private void LayoutInvoiceWorkflowSection()
+        {
+            if (_invoiceWorkflowCard == null || _invoiceWorkflowCard.IsDisposed || _invoiceWorkflowTable == null || _invoiceWorkflowTable.IsDisposed)
+                return;
+
+            int tableHeight = Math.Max(96, _invoiceWorkflowCard.ClientSize.Height - _invoiceWorkflowCard.Padding.Vertical - 30);
+            _invoiceWorkflowTable.Height = tableHeight;
+
+            foreach (Panel miniCard in _invoiceWorkflowTable.Controls.OfType<Panel>())
+            {
+                if (CardResizeGripService.IsResizeGrip(miniCard))
+                    continue;
+
+                int cellWidth = Math.Max(220, (_invoiceWorkflowTable.ClientSize.Width - _invoiceWorkflowTable.Padding.Horizontal - 36) / 3);
+                int preferredHeight = CardResizeGripService.PreferredHeight(miniCard, Math.Max(118, tableHeight - 8));
+                miniCard.Width = cellWidth;
+                miniCard.Height = Math.Min(Math.Max(118, preferredHeight), Math.Max(118, tableHeight - 2));
+            }
+
+            ResizeDocumentPageForInvoiceContent();
+        }
+
+        /// <summary>Refreshes the invoice document page scroll bounds after a workflow resize.</summary>
+        private void ResizeDocumentPageForInvoiceContent()
+        {
+            if (_documentPage == null || _documentPage.IsDisposed)
+                return;
+
+            int bottom = 0;
+            foreach (Control child in _documentPage.Controls)
+                bottom = Math.Max(bottom, child.Bottom);
+
+            _documentPage.Height = Math.Max(_documentPage.Height, bottom + 16);
+            ScrollableControl scrollHost = _documentPage.Parent as ScrollableControl;
+            if (scrollHost != null)
+                scrollHost.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
+        }
+
+        /// <summary>Applies live sizing while the outer HVAC workflow card is dragged.</summary>
+        private void InvoiceWorkflowCardResizeChanging(Control card, Size size)
+        {
+            if (card != null)
+                card.Height = Math.Max(174, size.Height);
+            LayoutInvoiceWorkflowSection();
+        }
+
+        /// <summary>Finalizes the outer HVAC workflow card size after resize.</summary>
+        private void InvoiceWorkflowCardResizeComplete(Control card, Size size)
+        {
+            InvoiceWorkflowCardResizeChanging(card, size);
+        }
+
+        /// <summary>Applies live sizing while an inner HVAC workflow mini card is dragged.</summary>
+        private void InvoiceWorkflowMiniCardResizeChanging(Control card, Size size)
+        {
+            if (card != null)
+                card.Height = Math.Max(88, size.Height);
+
+            int requiredCardHeight = RequiredInvoiceWorkflowHeight();
+            if (_invoiceWorkflowCard != null && !_invoiceWorkflowCard.IsDisposed && requiredCardHeight > _invoiceWorkflowCard.Height)
+                _invoiceWorkflowCard.Height = requiredCardHeight;
+
+            LayoutInvoiceWorkflowSection();
+        }
+
+        /// <summary>Finalizes an inner HVAC workflow mini card size after resize.</summary>
+        private void InvoiceWorkflowMiniCardResizeComplete(Control card, Size size)
+        {
+            InvoiceWorkflowMiniCardResizeChanging(card, size);
+        }
+
+        /// <summary>Returns the outer workflow height needed to fit the tallest inner card.</summary>
+        private int RequiredInvoiceWorkflowHeight()
+        {
+            if (_invoiceWorkflowTable == null || _invoiceWorkflowTable.IsDisposed)
+                return 232;
+
+            int maxMiniHeight = _invoiceWorkflowTable.Controls.OfType<Panel>()
+                .Where(panel => !CardResizeGripService.IsResizeGrip(panel))
+                .Select(panel => CardResizeGripService.PreferredHeight(panel, panel.Height))
+                .DefaultIfEmpty(112)
+                .Max();
+            return Math.Max(174, maxMiniHeight + 58);
         }
 
         private Panel BuildModernTaxSection()
@@ -1762,7 +1964,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 using (GraphicsPath path = ModernCard.RoundedRect(new Rectangle(0, 0, host.Width - 1, host.Height - 1), 6))
-                using (Pen pen = new Pen(Color.FromArgb(203, 213, 225)))
+                using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawPath(pen, path);
             };
             StyleModernInput(input);
@@ -1909,7 +2111,7 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadSiteDropdowns(int clientId)
         {
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- Select Site --" });
+            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
             if (clientId > 0)
             {
                 try
@@ -1935,7 +2137,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                ShowStatus("Error: " + ex.Message, Color.Red);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Loading invoices", ex);
+                ShowStatus("Invoices could not load. Refresh and try again.", Color.Red);
             }
         }
 
@@ -1979,7 +2182,8 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 _invoiceFlow.ResumeLayout(true);
-                ShowStatus("Error: " + ex.Message, Color.Red);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Rendering invoice list", ex);
+                ShowStatus("Invoice list could not be shown. Refresh and try again.", Color.Red);
             }
         }
 
@@ -2215,7 +2419,7 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Rows.Clear();
             AddLineRow();
             RecalculateSummary();
-            _txtNudges.Text = "Select a client, site, and invoice line items before saving.";
+            _txtNudges.Text = "Select a client and invoice line items before saving. Add a site only when the exact service location is known.";
             if (_selectedCard != null)
             {
                 HighlightCard(_selectedCard, false);
@@ -2726,6 +2930,19 @@ namespace HVAC_Pro_Desktop.UI
             ShowStatus("New invoice â€” fill the form and click Save Draft.", Color.Gray);
         }
 
+        /// <summary>Opens the invoice editor with a fresh draft from external navigation.</summary>
+        public void OpenNewInvoiceFromShortcut()
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)OpenNewInvoiceFromShortcut);
+                return;
+            }
+
+            QueueInitialLoad();
+            BtnNew_Click(this, EventArgs.Empty);
+        }
+
         private void BtnSave_Click(object sender, EventArgs e)
         {
             try
@@ -2761,7 +2978,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Saving invoice", ex);
+                ShowStatus("Invoice could not be saved. Review the form and try again.", Color.Red);
             }
             finally
             {
@@ -2791,7 +3009,11 @@ namespace HVAC_Pro_Desktop.UI
                 ToastNotification.Show(this, "Invoice sent for approval.", InfoBlue);
                 LoadInvoiceList();
             }
-            catch (Exception ex) { MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Finalising invoice", ex);
+                ShowStatus("Invoice could not be finalised. Review the draft and try again.", Color.Red);
+            }
             finally { SetBusy(null); }
         }
 
@@ -2866,7 +3088,8 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 catch (Exception ex2)
                 {
-                    MessageBox.Show(ex2.Message, "Payment Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Recording payment", ex2);
+                    MessageBox.Show("Payment could not be recorded. Check the invoice, amount, and payment mode, then try again.", "Payment Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             };
 
@@ -2943,7 +3166,8 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Credit Note", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Creating credit note", ex);
+                    ShowStatus("Credit note could not be created. Review the amount and try again.", Color.Red);
                 }
             }
         }
@@ -2982,7 +3206,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Preview Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Previewing invoice", ex);
+                ShowStatus("Invoice preview could not be generated. Review the invoice and try again.", Color.Red);
             }
             finally
             {
@@ -3001,7 +3226,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Compare Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Comparing invoice format", ex);
+                ShowStatus("Invoice comparison could not be generated. Review the invoice and try again.", Color.Red);
             }
         }
 
@@ -3089,7 +3315,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                ShowStatus("Template error: " + ex.Message, Color.Red);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Applying invoice template", ex);
+                ShowStatus("Template could not be applied. Review the selection and try again.", Color.Red);
             }
             finally
             {
@@ -3180,12 +3407,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             List<string> errors = new List<string>();
             ComboItem client = _cmbClient?.SelectedItem as ComboItem;
-            ComboItem site = _cmbSite?.SelectedItem as ComboItem;
 
             if (client == null || client.Id <= 0)
                 errors.Add("Client is required.");
-            if (site == null || site.Id <= 0)
-                errors.Add("Site is required.");
             if (_dtpInvDate == null)
                 errors.Add("Invoice date is required.");
             if (_dtpDueDate == null)
@@ -3247,7 +3471,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Email Invoice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Preparing invoice email", ex);
+                ShowStatus("Invoice email could not be prepared. Please review the invoice and try again.", Color.Red);
             }
             finally
             {
