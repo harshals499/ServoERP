@@ -38,6 +38,12 @@ namespace HVAC_Pro_Desktop.Models
     {
         public bool Success { get; set; }
         public string BackupPath { get; set; }
+        public string DestinationUsed { get; set; }
+        public string FilePath { get; set; }
+        public string ErrorMessage { get; set; }
+        public string Trigger { get; set; }
+        public long FileSizeKB { get; set; }
+        public DateTime Timestamp { get; set; }
         public string Message { get; set; }
         public DateTime CreatedAt { get; set; }
     }

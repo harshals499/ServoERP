@@ -104,6 +104,31 @@ namespace HVAC_Pro_Desktop.Services
             return status;
         }
 
+        /// <summary>Returns live record counts for the Master Data smart upload cards.</summary>
+        public int GetUploadRecordCount(ExcelImportModule module)
+        {
+            return _repo.CountUploadRecords(GetUploadRecordCountKey(module));
+        }
+
+        /// <summary>Maps import modules to whitelisted repository count keys.</summary>
+        private static string GetUploadRecordCountKey(ExcelImportModule module)
+        {
+            switch (module)
+            {
+                case ExcelImportModule.Clients: return "Clients";
+                case ExcelImportModule.Vendors: return "Suppliers";
+                case ExcelImportModule.Sites: return "Sites";
+                case ExcelImportModule.Inventory: return "Inventory";
+                case ExcelImportModule.Purchases: return "Purchases";
+                case ExcelImportModule.Invoices: return "Invoices";
+                case ExcelImportModule.Payments: return "Payments";
+                case ExcelImportModule.Quotations: return "Quotations";
+                case ExcelImportModule.Jobs: return "Jobs";
+                case ExcelImportModule.Employees: return "Employees";
+                default: return string.Empty;
+            }
+        }
+
         public string BuildConnectionPreview(PrivateServerConnection connection)
         {
             if (connection == null)

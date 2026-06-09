@@ -8,6 +8,7 @@ namespace HVAC_Pro_Desktop.Services
     public static class ConfigService
     {
         private static readonly object Sync = new object();
+        public const string ProductionVersionCheckUrl = UpdateService.DefaultGitHubRepositoryUrl;
 
         public static string Get(string section, string key, string defaultValue)
         {
@@ -82,12 +83,35 @@ namespace HVAC_Pro_Desktop.Services
 
         public static string GetAppVersion()
         {
+            try
+            {
+                return UpdateService.GetCurrentAssemblyVersion();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("ConfigService.GetAppVersion", ex);
+            }
+
             return Get("App", "Version", "1.0.0");
         }
 
         public static string GetVersionCheckUrl()
         {
-            return Get("App", "VersionCheckUrl", string.Empty);
+            string configured = Get("App", "GitHubRepositoryUrl", Get("App", "VersionCheckUrl", ProductionVersionCheckUrl));
+            if (!string.Equals(configured, ProductionVersionCheckUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    Set("App", "GitHubRepositoryUrl", ProductionVersionCheckUrl);
+                    Set("App", "VersionCheckUrl", ProductionVersionCheckUrl);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("ConfigService.GetVersionCheckUrl.Lock", ex);
+                }
+            }
+
+            return ProductionVersionCheckUrl;
         }
 
         public static bool IsVersionCheckEnabled()
@@ -99,6 +123,21 @@ namespace HVAC_Pro_Desktop.Services
         {
             int hours;
             return int.TryParse(Get("App", "VersionCheckIntervalHours", "24"), out hours) && hours > 0 ? hours : 24;
+        }
+
+        public static bool IsSilentAutoUpdateEnabled()
+        {
+            return string.Equals(Get("App", "SilentAutoUpdateEnabled", "true"), "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool ShouldApplySilentUpdateOnExit()
+        {
+            return string.Equals(Get("App", "SilentAutoUpdateApplyOnExit", "true"), "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public static bool ShouldApplySilentUpdateImmediately()
+        {
+            return string.Equals(Get("App", "SilentAutoUpdateApplyImmediately", "true"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static string GetLicenseActivationUrl()

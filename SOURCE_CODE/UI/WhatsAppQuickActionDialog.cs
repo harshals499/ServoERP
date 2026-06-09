@@ -7,7 +7,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class WhatsAppQuickActionDialog : Form
+    public sealed class WhatsAppQuickActionDialog : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly WhatsAppHubService _service = new WhatsAppHubService();
         private readonly WhatsAppQuickActionContext _context;
@@ -21,9 +21,10 @@ namespace HVAC_Pro_Desktop.UI
             Text = BrandingService.WindowTitle("WhatsApp Quick Action");
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
-            MaximizeBox = false;
+            MaximizeBox = true;
             MinimizeBox = false;
             Size = new Size(620, 430);
+            MinimumSize = new Size(560, 420);
             BackColor = DS.BgPage;
             Font = DS.Body;
 
@@ -33,7 +34,9 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(22, 18),
                 Size = new Size(360, 28),
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
-                ForeColor = DS.Slate900
+                ForeColor = DS.Slate900,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(title);
 
@@ -43,7 +46,9 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(24, 50),
                 Size = new Size(560, 38),
                 Font = DS.Small,
-                ForeColor = DS.Slate600
+                ForeColor = DS.Slate600,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(meta);
 
@@ -55,7 +60,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(554, 188),
                 Text = _context.Message ?? string.Empty,
                 Font = new Font("Segoe UI", 9.5f),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.FixedSingle,
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(_message);
 
@@ -65,7 +71,9 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(24, 300),
                 Size = new Size(554, 34),
                 Font = DS.Small,
-                ForeColor = DS.Slate700
+                ForeColor = DS.Slate700,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(notice);
 
@@ -75,7 +83,9 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(24, 342),
                 Size = new Size(260, 24),
                 Font = DS.SmallBold,
-                ForeColor = DS.Teal600
+                ForeColor = DS.Teal600,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(_status);
 
@@ -98,8 +108,28 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(open);
             Controls.Add(sent);
             Controls.Add(close);
+            Resize += (s, e) => LayoutBottomControls(notice, copy, open, sent, close);
+            LayoutBottomControls(notice, copy, open, sent, close);
 
             Log("Prepared");
+        }
+
+        private void LayoutBottomControls(Label notice, Button copy, Button open, Button sent, Button close)
+        {
+            int margin = 24;
+            int bottom = ClientSize.Height - 24;
+            int buttonTop = bottom - close.Height;
+            int statusTop = buttonTop - 30;
+            int noticeTop = statusTop - 42;
+
+            _message.Height = Math.Max(120, noticeTop - _message.Top - 10);
+            notice.SetBounds(margin, noticeTop, Math.Max(120, ClientSize.Width - (margin * 2)), 34);
+            _status.SetBounds(margin, statusTop, Math.Max(120, ClientSize.Width - 300), 24);
+
+            close.Location = new Point(ClientSize.Width - margin - close.Width, buttonTop);
+            sent.Location = new Point(close.Left - 10 - sent.Width, buttonTop);
+            open.Location = new Point(sent.Left - 10 - open.Width, buttonTop);
+            copy.Location = new Point(margin, buttonTop);
         }
 
         public static void ShowFor(IWin32Window owner, WhatsAppQuickActionContext context)
@@ -175,3 +205,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

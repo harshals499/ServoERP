@@ -16,7 +16,7 @@ namespace HVAC_Pro_Desktop.Tests
             var calc = new CalculationVerificationService();
             var refs = new ReferenceIntegrityService();
 
-            ExpectError(rules.ValidateClient(new B2BClient { CompanyName = "Bad Email", Email = "bad@", GSTNumber = "27ABCDE1234F1Z5" }), "invalid client email");
+            ExpectError(rules.ValidateClient(new B2BClient { CompanyName = "Bad Email", Email = "bad@", GSTNumber = "27ABCDE1234F1Z0" }), "invalid client email");
             passed.Add("invalid email rejected");
 
             ExpectWarning(rules.ValidateClient(new B2BClient { CompanyName = "Bad Phone", Phone = "abc" }), "invalid client phone warning");
@@ -26,13 +26,13 @@ namespace HVAC_Pro_Desktop.Tests
             passed.Add("invalid GST rejected");
 
             ExpectError(duplicates.CheckClient(
-                new B2BClient { ClientID = 2, CompanyName = "Acme New", GSTNumber = "27ABCDE1234F1Z5" },
-                new[] { new B2BClient { ClientID = 1, CompanyName = "Acme Old", GSTNumber = "27ABCDE1234F1Z5" } }), "duplicate client GST");
+                new B2BClient { ClientID = 2, CompanyName = "Acme New", GSTNumber = "27ABCDE1234F1Z0" },
+                new[] { new B2BClient { ClientID = 1, CompanyName = "Acme Old", GSTNumber = "27ABCDE1234F1Z0" } }), "duplicate client GST");
             passed.Add("duplicate client GST rejected");
 
             ExpectError(duplicates.CheckVendor(
-                new Vendor { VendorID = 2, VendorName = "Vendor New", GSTNumber = "27ABCDE1234F1Z5" },
-                new[] { new Vendor { VendorID = 1, VendorName = "Vendor Old", GSTNumber = "27ABCDE1234F1Z5" } }), "duplicate vendor GST");
+                new Vendor { VendorID = 2, VendorName = "Vendor New", GSTNumber = "27ABCDE1234F1Z0" },
+                new[] { new Vendor { VendorID = 1, VendorName = "Vendor Old", GSTNumber = "27ABCDE1234F1Z0" } }), "duplicate vendor GST");
             passed.Add("duplicate vendor GST rejected");
 
             ExpectError(rules.ValidateInventoryItem(new StockItem { ItemName = "Copper Pipe", CurrentStock = -1 }), "negative stock");
@@ -68,6 +68,21 @@ namespace HVAC_Pro_Desktop.Tests
 
             ExpectError(calc.VerifyPurchaseOrder(new PurchaseOrder { VendorID = 1, PONumber = "PO-1", PODate = DateTime.Today, PayByDate = DateTime.Today, TotalAmount = 100m, PaidAmount = 101m }), "PO paid exceeds total");
             passed.Add("PO paid amount rejected");
+
+            var supplier = new Vendor { VendorID = 10, VendorName = "ABC HVAC Parts", VendorType = "Supplier", IsSupplier = true, IsServiceVendor = false };
+            var serviceVendor = new Vendor { VendorID = 20, VendorName = "City Duct Cleaning", VendorType = "Subcontractor", IsSupplier = false, IsServiceVendor = true };
+            var partnerSet = new List<Vendor> { supplier, serviceVendor };
+            if (partnerSet.FindAll(v => v.IsSupplier).Exists(v => v.IsServiceVendor && !v.IsSupplier))
+                throw new InvalidOperationException("Supplier purchase list included a service-only vendor.");
+            if (partnerSet.FindAll(v => v.IsServiceVendor).Exists(v => v.IsSupplier && !v.IsServiceVendor))
+                throw new InvalidOperationException("Service vendor list included a supplier-only record.");
+            passed.Add("supplier and service vendor role filters separated");
+
+            var fullyReceivedPo = new PurchaseOrder { VendorID = 1, PONumber = "PO-2", PODate = DateTime.Today.AddDays(-10), PayByDate = DateTime.Today.AddDays(-5), TotalAmount = 100m, PaidAmount = 0m, Status = "Fully Received" };
+            fullyReceivedPo.ApplyPaymentCompletionRule();
+            if (!fullyReceivedPo.IsPaymentCompleted || fullyReceivedPo.PaidAmount != fullyReceivedPo.TotalAmount || fullyReceivedPo.BalanceDue != 0m || fullyReceivedPo.IsOverdue)
+                throw new InvalidOperationException("Expected fully received purchase orders to be treated as fully paid and not overdue.");
+            passed.Add("fully received PO treated as paid");
 
             ExpectError(calc.VerifyQuotation(new TenderBid
             {

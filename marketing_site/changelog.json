@@ -1,281 +1,944 @@
-﻿{
-    "product":  "ServoERP",
-    "latestVersion":  "1.0.30.0",
-    "updatedAt":  "2026-05-26",
-    "download":  {
-                     "url":  "/download/",
-                     "installer":  "ServoERP_Setup_1.0.30.0.exe",
-                     "packageUrl":  "/updates/ServoERP_Update_1.0.30.0.zip"
-                 },
-    "versions":  [
-                     {
-                         "version":  "1.0.30.0",
-                         "date":  "2026-05-26",
-                         "title":  "Quotation Dashboard Polish and Login Window Fixes",
-                         "changes":  [
-                                         {
-                                             "type":  "release",
-                                             "items":  [
-                                                           "Polished the quotation dashboard layout with compact responsive cards, cleaner resize controls, and intentional empty states after dummy quotation data removal.,Fixed login window title-bar controls and password visibility toggle so they remain visible at runtime.,Cleaned client dashboard icon fallback artifacts and verified module dashboard navigation, quotations, invoices, and page construction smoke tests."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.29.0",
-                         "date":  "2026-05-21",
-                         "title":  "Startup Update Cleanup and Quotation UI Fixes",
-                         "changes":  [
-                                         {
-                                             "type":  "release",
-                                             "items":  [
-                                                           "App startup now removes stale ServoERP/HVAC_PRO instances before opening so the newly updated build is shown.",
-                                                           "Quotation module now opens dashboard first and New Quotation opens the existing quotation form.",
-                                                           "Added Back to Dashboard inside the quotation editor.",
-                                                           "Fixed quotation line-item empty message overlap and quote summary layout issues."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.28.0",
-                         "date":  "2026-05-20",
-                         "title":  "Company Template Dialog Layout Fix",
-                         "changes":  [
-                                         {
-                                             "type":  "ui",
-                                             "items":  [
-                                                           "Fixed Company Document Templates dialog layout so the upload area, template list, mapping fields, toggles, and preview title remain visible and aligned.",
-                                                           "Improved template list scrolling for long template names.",
-                                                           "Preserved existing letterhead rendering behavior and client template files."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.27.0",
-                         "date":  "2026-05-20",
-                         "title":  "Letterhead Rendering Fix",
-                         "changes":  [
-                                         {
-                                             "type":  "document",
-                                             "items":  [
-                                                           "Generated invoices, quotations, purchase orders, and reports now render the uploaded default Letterhead image as the document header.",
-                                                           "Image-based company templates no longer show the blue template label inside generated documents.",
-                                                           "Existing client PC template files under CompanyTemplates are preserved during update."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.26.0",
-                         "date":  "2026-05-20",
-                         "title":  "Global UI Line Cleanup",
-                         "changes":  [
-                                         {
-                                             "type":  "ui",
-                                             "items":  [
-                                                           "Removed global inline input outlines that were drawing dark borders across the app.",
-                                                           "Removed global panel resize grip rendering that was adding corner lines to panels and cards.",
-                                                           "Preserved the app shell, sidebar, navigation, workflows, and updater behavior."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.25.0",
-                         "date":  "2026-05-11",
-                         "changes":  [
-                                         "Fixed startup failure on older customer databases missing licensing schema tables.",
-                                         "Added defensive license schema self-healing during startup and license persistence.",
-                                         "Prepared fresh update package for client rollout.",
-                                         "Updated the installer Terms and Conditions shown during setup.",
-                                         "Refreshed the downloadable setup installer so client installs no longer depend on a changing WebView2 web payload."
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.23.0",
-                         "date":  "2026-05-11",
-                         "title":  "Current UI and updater release",
-                         "changes":  [
-                                         {
-                                             "type":  "release",
-                                             "items":  [
-                                                           "Publishes the latest ServoERP UI build through the in-app updater.",
-                                                           "Improves the package updater so client installs reliably copy the downloaded app files before restart.",
-                                                           "Includes the current support, WhatsApp Hub, icon system, and modernized page updates in the release package."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.22.0",
-                         "date":  "2026-05-09",
-                         "title":  "Enterprise Login Polish",
-                         "changes":  [
-                                         {
-                                             "type":  "ui",
-                                             "items":  [
-                                                           "Corrected the Sign In title and improved login typography hierarchy.",
-                                                           "Added a stronger ServoERP brand panel with readable HVAC operations value props.",
-                                                           "Improved input alignment, focus styling, button treatment, footer context, and VM/laptop screen fit."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.21.0",
-                         "date":  "2026-05-09",
-                         "title":  "Lightweight Login Window",
-                         "changes":  [
-                                         {
-                                             "type":  "performance",
-                                             "items":  [
-                                                           "Redesigned the login window with a cleaner logo-free layout.",
-                                                           "Removed heavy custom artwork from the login paint path to reduce lag in VM and remote desktop environments.",
-                                                           "Kept the update ZIP flow compatible so this change can ship through the in-app updater."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.20.0",
-                         "date":  "2026-05-07",
-                         "title":  "Data Quality Protection",
-                         "changes":  [
-                                         {
-                                             "type":  "quality",
-                                             "items":  [
-                                                           "Added central data-quality audit documentation.",
-                                                           "Added reusable validation, business-rule, duplicate-detection, calculation-verification, import-review, audit, logging, and form-recovery foundations.",
-                                                           "Blocked invalid client, vendor, site, inventory, quotation, PO, invoice, contract, job, and HVAC asset saves at service boundaries.",
-                                                           "Added duplicate GSTIN hard stops for clients and vendors.",
-                                                           "Added negative-stock protection for inventory movements and service-job part usage.",
-                                                           "Added focused smoke tests for bad formats, duplicate detection, total mismatches, broken references, negative stock, and impossible dates."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.19.0",
-                         "date":  "2026-05-07",
-                         "title":  "Company Document Templates",
-                         "changes":  [
-                                         {
-                                             "type":  "feature",
-                                             "items":  [
-                                                           "Added Company Document Templates inside Master Data.",
-                                                           "Added upload, recognition, mapping, preview, default selection, and module-use toggles for invoice, quotation, PO, letterhead, contract, report, and delivery templates.",
-                                                           "Added template services for upload, recognition, mapping, storage, rendering, and central management.",
-                                                           "Generated invoices, quotations, and purchase orders now read central default template metadata."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.18.0",
-                         "date":  "2026-05-07",
-                         "title":  "Enterprise Login System",
-                         "changes":  [
-                                         {
-                                             "type":  "security",
-                                             "items":  [
-                                                           "Added modern split-screen ServoERP login experience.",
-                                                           "Added BCrypt password hashing for new and changed passwords.",
-                                                           "Replaced raw-password remember-me storage with encrypted session tokens.",
-                                                           "Added SQL session tracking, lockout handling, and login audit tables."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.17.0",
-                         "date":  "2026-05-07",
-                         "title":  "Master Data Control Center",
-                         "changes":  [
-                                         {
-                                             "type":  "ui",
-                                             "items":  [
-                                                           "Redesigned Master Data as an upload, validation, mapping, and sync hub.",
-                                                           "Added smart import cards for clients, vendors, invoices, inventory, contracts, assets, rate cards, and documents.",
-                                                           "Added missing-data warnings, recent import status, duplicate checks, and one-click routing into ERP modules."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.16.0",
-                         "date":  "2026-05-07",
-                         "title":  "Automatic update package support",
-                         "changes":  [
-                                         {
-                                             "type":  "update",
-                                             "items":  [
-                                                           "Added no-installer update flow using downloadable ZIP packages.",
-                                                           "App can download, apply, and restart into the latest build after this updater is installed once.",
-                                                           "Unlocked manual quotation number entry and fixed quotation client dropdown to use the full client list."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.14.0",
-                         "date":  "2026-05-07",
-                         "title":  "Startup stability fix",
-                         "changes":  [
-                                         {
-                                             "type":  "release",
-                                             "items":  [
-                                                           "Prevent sample-data seeding from blocking app startup.",
-                                                           "Protect existing client databases from demo-data reset logic.",
-                                                           "Handle duplicate seed lookup rows without SQL Server startup error 512."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.13.0",
-                         "date":  "2026-05-07",
-                         "title":  "Official invoice header fix",
-                         "changes":  [
-                                         {
-                                             "type":  "release",
-                                             "items":  [
-                                                           "Fixed the invoice header to use the official Madhusuman Enterprises letterhead.",
-                                                           "Corrected company GST, PAN, phone, email, and address defaults used by invoice generation."
-                                                       ]
-                                         }
-                                     ]
-                     },
-                     {
-                         "version":  "1.0.12.0",
-                         "date":  "2026-05-06",
-                         "title":  "Performance and installer release",
-                         "changes":  [
-                                         {
-                                             "type":  "performance",
-                                             "items":  [
-                                                           "Improved page navigation speed by keeping main modules cached.",
-                                                           "Added background warmup for shared app data after login.",
-                                                           "Prevented repeated theme, layout, grid, and resize handler wiring during navigation."
-                                                       ]
-                                         },
-                                         {
-                                             "type":  "installer",
-                                             "items":  [
-                                                           "Added complete Inno Setup 6 installer for ServoERP.",
-                                                           "Bundled .NET Framework 4.7.2, SQL Server Express, and WebView2 Runtime prerequisite installers.",
-                                                           "Installer now uses official ServoERP icon and asks whether to keep business data during uninstall."
-                                                       ]
-                                         },
-                                         {
-                                             "type":  "ui",
-                                             "items":  [
-                                                           "Refined modern table styling and quotation line item layout.",
-                                                           "Improved dashboard, sidebar, settings, purchases, inventory, vendors, jobs, and invoice layouts for laptop displays."
-                                                       ]
-                                         }
-                                     ]
-                     }
-                 ]
+{
+  "product": "ServoERP",
+  "latestVersion": "1.1.3.0",
+  "updatedAt": "2026-06-09",
+  "download": {
+    "available": false,
+    "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
+    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.3.0.zip"
+  },
+  "versions": [
+    {
+      "version": "1.1.3.0",
+      "date": "2026-06-09",
+      "title": "ServoERP client update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Publishes ServoERP v1.1.3.0 update package for client rollout.",
+            "Refreshes website update metadata for the client update workflow."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.150.0",
+      "date": "2026-06-04",
+      "title": "Inventory supplier schema compatibility fix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixes Materials / Procurement loading on client databases missing supplier role columns.",
+            "Adds guarded Inventory schema repair for Vendors.IsSupplier and Vendors.IsServiceVendor before supplier joins.",
+            "Publishes a client-side schema repair script for affected PCs."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.149.0",
+      "date": "2026-06-04",
+      "title": "Client update visibility fix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixes update detection for client PCs that still read the ServoERP website manifest.",
+            "Normalizes Velopack package versions and app assembly versions before deciding whether an update is newer.",
+            "Publishes the GitHub Releases setup package for client rollout."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.148.0",
+      "date": "2026-06-04",
+      "title": "Inventory screen action hotfix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixes Inventory screen-action stability by guarding shared grid header sizing against WinForms click and hover crashes.",
+            "Removes duplicate Inventory delete error prompts so recoverable failures are shown once.",
+            "Publishes the GitHub Releases setup package for client update rollout."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.144.0",
+      "date": "2026-06-04",
+      "title": "Database connection setup client update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixes Database Connection Setup so client PCs cannot save doubled SQL named-instance targets like PC-5\\SQLEXPRESS\\SQLEXPRESS.",
+            "Allows users to enter either PC-5 with SQLEXPRESS separately or PC-5\\SQLEXPRESS directly while saving the correct SQL target.",
+            "Ships ServoERP v1.0.144.0 for client rollout."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.143.0",
+      "date": "2026-06-04",
+      "title": "ServoERP client update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Publishes the latest Release build for client update delivery.",
+            "Refreshes installer and website version metadata for ServoERP v1.0.143.0."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.124.0",
+      "date": "2026-06-03",
+      "title": "Vendor status dashboard update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Adds a status dropdown in Vendor Management > Recent Vendors so vendors can be changed to Active, Pending Approval, Inactive, or Blocked from the dashboard.",
+            "Persists vendor status changes through the app lifecycle flags so active and inactive vendor visibility updates across ServoERP.",
+            "Includes the recent client lifecycle status, inventory client-PC compatibility, global input visibility, and card resize grip fixes."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.117.0",
+      "date": "2026-06-03",
+      "title": "Fresh start, vendor, login, and duplicate cleanup update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Clears all old purchase order rows and purchase PDFs on first launch so Madhusuman Enterprises can start fresh.",
+            "Removes development/test seed data from the client database without touching real vendors or clients.",
+            "Adds inventory duplicate detection and merge cleanup from Inventory > More Actions.",
+            "Fixes Recent Vendors so imported vendors appear correctly.",
+            "Adds direct forgot-password reset without administrator intervention.",
+            "Removes viewer restrictions so all app users receive full module access."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.106.0",
+      "date": "2026-06-02",
+      "title": "Purchase order PDF and card workflow update",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Purchase Order numbers now open the stored PO PDF directly.",
+            "PO View uses a more reliable shared PDF exporter with Edge or Chrome.",
+            "Card resize locks now persist until the user unlocks the card.",
+            "Purchase Order pagination controls remain visible in narrow card layouts.",
+            "Reduced app slowdown caused by repeated global card event hooks."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.101.0",
+      "date": "2026-06-01",
+      "title": "Global pagination and Clients search fix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Global pagination now shows active page numbers and supports first, previous, next, last, direct page entry, and page-size changes.",
+            "Clients page search now filters in place without flicker or placeholder text friction.",
+            "Contracts, Vendors, Payments, Purchases, Jobs, and Inventory now share the same pagination behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.98.0",
+      "date": "2026-05-30",
+      "title": "Quotation approval persistence and payment UX fix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Quotation Send for Approval now saves and persists the approval status immediately.",
+            "Invoice payment entry now shows a user-friendly recovery message instead of a raw technical exception."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.90.0",
+      "date": "2026-05-30",
+      "title": "Purchase order payment completion and client data fix",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Made Fully Received purchase orders payment-completed across dashboards, overdue PO lists, vendor payables, and support reports.",
+            "Updated current purchase orders to Fully Received with paid amount equal to total.",
+            "Added startup repair for old completed PO rows and smoke coverage for the payment rule."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.89.0",
+      "date": "2026-05-30",
+      "title": "Client PC reliability and UI error handling",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixed Clients address save refresh so client PCs no longer show the screen-action error after address entry.",
+            "Added app-wide UI error handling with typed operator messages, central logging, and inline load recovery.",
+            "Added smoke-test coverage for client address save, navigation clicks, and UI error handling safety nets."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.80.0",
+      "date": "2026-05-30",
+      "title": "Global dashboard card packing and UI layout fixes",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added shared Tetris-style dashboard card packing so card rows automatically fill gaps.",
+            "Fixed Quotation Dashboard card gaps and KPI row spacing.",
+            "Fixed Payments Management Cash Flow Trend card sizing."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.77.0",
+      "date": "2026-05-29",
+      "title": "Global UI polish and layout stability",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed global toolbar wrapping that caused large blank header areas.",
+            "Fixed page-level horizontal scrollbars and clipped dashboard layouts.",
+            "Fixed client dashboard placeholder filtering so client counts and lists stay consistent.",
+            "Polished compact alert badges and dashboard search alignment."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.70.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.70.0 Release",
+      "changes": [
+        {
+          "type": "feature",
+          "items": [
+            "Added Settings > Agent Simulation with a live panel, pause/resume, one-day tick, final report, and tracked cleanup.",
+            "Added a global [AGENT SIM] status bar showing simulated day/date, document counts, and QA score.",
+            "Creates isolated [AGENT] clients, sites, vendors, inventory, quotations, jobs, invoices, payments, purchases, and PDF previews with exact-ID cleanup."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.69.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.69.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Added a global recursive text-fit policy for buttons, filter buttons, tab buttons, and TabControl headers.",
+            "Disabled button ellipsis globally and measured captions with TextRenderer so full labels are preserved.",
+            "Allowed button flow panels to grow or wrap when needed and widened fixed TabControl item sizes for long tab labels."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.68.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.68.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixed Employees header actions so Save, New Employee, WhatsApp, Export, Template, Forms, Import, and Delete stay visible without clipping the selected employee status.",
+            "Fixed Materials / Procurement header actions so Export, Import, Forms, and Add Item stay on one row.",
+            "Replaced fragile fixed-width header FlowLayoutPanels with stable right-side action hosts on the affected pages."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.67.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.67.0 Release",
+      "changes": [
+        {
+          "type": "feature",
+          "items": [
+            "Added a global dashboard layout layer for card and panel surfaces across major ServoERP screens.",
+            "Cards can now be dragged, resized from the dotted bottom-right grip, snapped to a grid, and restored with Reset Layout.",
+            "Saved layouts persist locally per screen under the ServoERP layouts folder so user changes return on next launch."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.57.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.57.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Expanded Dispatch Center technician detection to include helpers, assistants, operators, DCS officers, and skilled field staff while excluding admin and accounts roles.",
+            "Sorted technician rosters by dispatch role priority and added visible role labels to technician cards and assignment dropdowns.",
+            "Kept live employee technicians visible even when Dispatch uses sample jobs, so the roster no longer falls back to six demo technicians."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.56.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.56.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Standardized app-wide card, panel, input, table, and secondary-action outlines on black design-system border tokens.",
+            "Patched operational outliers across Jobs, Clients, Contracts, Invoices, Payments, Quotations, Purchases, Inventory, Vendors, Employees, Payroll, Reports, Settings, and detail pages.",
+            "Added UI policy coverage to keep shared border tokens and secondary action borders black in future builds.",
+            "Captured and visually checked all 18 department/detail pages after the change, with extra full-size checks on Jobs, Purchases, Quotations, Invoices, Inventory, and Payments."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.55.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.55.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Audited delete coverage across core modules and standardized more user-facing delete actions on the guarded confirmation workflow.",
+            "Added payment deletion from payment history with invoice paid amount, balance, and status recalculation after removal.",
+            "Added inventory item delete as a soft archive using guarded StockItems.IsActive schema support so historical jobs, purchases, invoices, and movements stay preserved.",
+            "Updated client dashboard delete to use the ClientService soft-delete path and shared delete confirmation instead of an unguarded inactive update."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.54.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.54.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Fixed Jobs dashboard delete so dashboard-mode rows no longer call detail-list refresh/status controls that are not mounted.",
+            "Added null-safe Jobs selection/status guards around delete refresh paths to prevent Object reference failures after a row is removed."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.53.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.53.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Upgraded client billing address entry to a larger multiline field in the client editor and exposed it in client detail, search, and CSV export views.",
+            "Applied client registered address rendering to invoice and quotation previews while still showing optional site and site address details when selected.",
+            "Reused the existing guarded B2BClients.BillingAddress schema support; no new database column was required."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.52.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.52.0 Release",
+      "changes": [
+        {
+          "type": "fix",
+          "items": [
+            "Enlarged the New Quotation editor dropdowns, input text, row spacing, and dropdown item height so client, site, validity, status, and workflow selections are easier to read and click.",
+            "Applied the same sizing to quotation line-item combo editors so item and supplier dropdowns no longer feel cramped while building quotations."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.51.0",
+      "date": "2026-05-29",
+      "title": "ServoERP 1.0.51.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Improved inner-page guidance for Inventory, Purchases, Quotations, Payroll, Settings, Reports, WhatsApp, Support, Clients, Jobs, Contracts, and Invoices after the full user journey QA pass.",
+            "Clarified optional site/project/location behaviour across client-owned workflows so jobs, invoices, contracts, purchases, and quotations no longer look blocked when a site is not yet decided.",
+            "Added workflow guide strips and helper copy for dense forms so required fields, optional follow-up fields, and next actions are easier for Indian HVAC operators to understand.",
+            "Tightened discoverability for report tiles, WhatsApp filtering, support escalation context, and payroll salary validation without changing database schema or guarded business flows."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.47.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.47.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a global button alignment normalizer for repeated action areas across forms, module pages, dialogs, flow layouts, and table layouts.",
+            "Standardized grouped button height, center text alignment, padding, margins, and row alignment while preserving existing button colors and commands.",
+            "Added smoke-test coverage that fails when visible button rows in instantiated pages have mismatched top alignment or height.",
+            "Corrected the Geo Intelligence Filter/Date action-row alignment discovered by the new button alignment check."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.46.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.46.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Consolidated dashboard department cards onto the global card context-menu system to prevent duplicate right-click paths.",
+            "Added working dashboard recent-activity Copy as path and Properties actions for support and QA traceability.",
+            "Replaced Debug-only dashboard Cut and Share handlers with clipboard-safe support metadata actions."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.45.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.45.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Made global card context menus more support-ready with working Copy as path and Properties actions.",
+            "Added stable `servoerp://card/...` paths for cards so QA and support can identify the exact screen element.",
+            "Added card metadata properties for title, page, key, control type, size, and path without changing business records."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.44.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.44.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a global Windows-style card context menu so right-click card actions are available beyond the dashboard.",
+            "Wired global card-menu attachment through shared forms, user controls, deferred pages, and design-system cards.",
+            "Preserved guarded module delete flows by keeping global Cut, Copy, Delete, Rename, and Share actions non-destructive.",
+            "Added UI smoke coverage to verify detected module cards receive the global context-menu hook."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.43.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.43.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Expanded language switching from dashboard-only labels to a global control-tree refresh across open forms and module pages.",
+            "Added generic translation refresh for labels, buttons, group boxes, tab pages, grid headers, combo box items, menus, and tool strips.",
+            "Applied language refresh automatically to dynamically added controls in shared base forms and deferred module pages.",
+            "Added common Marathi and Hindi keys for app-wide commands, Settings, Jobs, compliance, and list-view labels."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.42.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.42.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added Module Catalog for installed modules and extension-ready roadmap review.",
+            "Added Compliance Export Pack to generate local legal, license, module, and readiness ZIP files.",
+            "Added saved Jobs dashboard views for search, status, and type filters via UserSettings.",
+            "Added Jobs Workflow Board for Kanban-style field-service pipeline review."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.41.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.41.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added Open Source & License Center for third-party component review and disclosure export.",
+            "Added component metadata for EPPlus, BCrypt.Net-Next, WebView2, iTextSharp, and .NET Framework.",
+            "Added Settings access for client IT, procurement, and audit review without exposing business data."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.40.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.40.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added client-owned automated SQL backups with network, local folder, and external drive fallback.",
+            "Added BackupLog persistence and default backup preferences in UserSettings.",
+            "Added Backup & Recovery settings UI with UNC testing, schedule, retention, manual backup, status, and log review.",
+            "Added non-blocking toast notifications for background backup results.",
+            "Added scheduled end-of-day backup checks, dashboard Backup Now shortcut, and best-effort backup on app close."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.39.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.39.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added first-launch legal agreement acceptance before ServoERP opens the main dashboard.",
+            "Embedded EULA, Privacy Policy, Data Processing Policy, and Disclaimer text directly in the app.",
+            "Added a read-only Legal Agreements viewer in Settings for later review.",
+            "Persisted LegalAccepted in UserSettings after the user accepts the agreements."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.38.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.38.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added an English, Marathi, and Hindi language selector to the dashboard top bar.",
+            "Added persisted per-user language selection through the guarded UserSettings table.",
+            "Added LanguageManager with dashboard/navigation/common-control translations and Devanagari-capable font switching.",
+            "Wired base forms and module user controls to refresh when the selected language changes."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.37.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.37.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added Tally Prime integration for voucher export, master import, and stock item sync through a dedicated Tally page.",
+            "Added guarded Tally mapping, export status, import batch, and sync log schema additions for clients, vendors, stock items, invoices, payments, and purchases.",
+            "Added Tally XML generation for sales, receipt, purchase, supplier payment, and stock item master payloads, with direct HTTP push or offline XML export.",
+            "Added Tally master pull/import flow to map ledgers and stock items back into ServoERP."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.36.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.36.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added Materials-to-Purchase Request flow so a selected material can create a draft supplier request with vendor, quantity, rate, and line-item details.",
+            "Added monthly P&L Excel export in Reports with revenue, purchases, salaries, expenses, profit, and margin for the last 12 months.",
+            "Cleaned user-visible stock-risk wording across reports, jobs, quotations, and material validation to match procurement planning."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.35.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.35.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Reframed dashboard materials signals around procurement readiness with To Order and Priced Items metrics instead of warehouse stock alerts.",
+            "Updated ServoERP Assistant material prompts and context so it discusses vendor ordering plans instead of low-stock warehouse alerts.",
+            "Added renewal countdowns to contracts table, sidebar cards, and export output so expiring AMCs are visible before revenue is lost.",
+            "Added a due-age signal to the jobs dashboard table so delayed field work is visible at a glance.",
+            "Fixed installed-version reporting so Settings and support metadata read the running assembly version instead of stale config text."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.34.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.34.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Removed the Ollama local-model dependency from ServoERP Copilot.",
+            "Replaced the AI provider path with a built-in ServoERP Assistant that uses ERP context, deterministic guidance, and preview-only suggested actions.",
+            "Updated Settings and Copilot messaging so users no longer see Ollama, model, endpoint, or local-server setup instructions."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.33.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.33.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Reframed Inventory as a procurement catalog for ordering materials from vendors and suppliers.",
+            "Removed warehouse-style out-of-stock criteria, filters, badges, alerts, and export/report wording.",
+            "Replaced stock-alert language with supplier-ordering states: To Order, Vendor Linked, and Needs Vendor.",
+            "Replaced inventory valuation KPI with Priced Items so the page focuses on supplier catalog readiness."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.32.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.32.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Moved AI Copilot and Help & Support launchers into the sidebar footer area so they no longer cover module content or bottom-right actions.",
+            "Made payroll empty-month status explicit by showing the active employee count and the Run Payroll next step.",
+            "Opened invoices on the dashboard/list experience instead of landing users directly in an unsaved draft.",
+            "Kept inventory alerts on the existing low-stock and out-of-stock model without adding separate negative-stock criteria.",
+            "Added WhatsApp Hub missing-phone empty state and tooltips for icon-only chat actions."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.31.0",
+      "date": "2026-05-28",
+      "title": "ServoERP 1.0.31.0 Release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed the login password visibility icon state so hidden passwords show the crossed-eye state and visible passwords show the open-eye state.",
+            "Improved the dashboard top-bar user identity layout so the Administrator name fits without being clipped.",
+            "Aligned the installer version include with the application assembly version."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.30.0",
+      "date": "2026-05-26",
+      "title": "Quotation Dashboard Polish and Login Window Fixes",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Polished the quotation dashboard layout with compact responsive cards, cleaner resize controls, and intentional empty states after dummy quotation data removal.,Fixed login window title-bar controls and password visibility toggle so they remain visible at runtime.,Cleaned client dashboard icon fallback artifacts and verified module dashboard navigation, quotations, invoices, and page construction smoke tests."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.29.0",
+      "date": "2026-05-21",
+      "title": "Startup Update Cleanup and Quotation UI Fixes",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "App startup now removes stale ServoERP/HVAC_PRO instances before opening so the newly updated build is shown.",
+            "Quotation module now opens dashboard first and New Quotation opens the existing quotation form.",
+            "Added Back to Dashboard inside the quotation editor.",
+            "Fixed quotation line-item empty message overlap and quote summary layout issues."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.28.0",
+      "date": "2026-05-20",
+      "title": "Company Template Dialog Layout Fix",
+      "changes": [
+        {
+          "type": "ui",
+          "items": [
+            "Fixed Company Document Templates dialog layout so the upload area, template list, mapping fields, toggles, and preview title remain visible and aligned.",
+            "Improved template list scrolling for long template names.",
+            "Preserved existing letterhead rendering behavior and client template files."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.27.0",
+      "date": "2026-05-20",
+      "title": "Letterhead Rendering Fix",
+      "changes": [
+        {
+          "type": "document",
+          "items": [
+            "Generated invoices, quotations, purchase orders, and reports now render the uploaded default Letterhead image as the document header.",
+            "Image-based company templates no longer show the blue template label inside generated documents.",
+            "Existing client PC template files under CompanyTemplates are preserved during update."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.26.0",
+      "date": "2026-05-20",
+      "title": "Global UI Line Cleanup",
+      "changes": [
+        {
+          "type": "ui",
+          "items": [
+            "Removed global inline input outlines that were drawing dark borders across the app.",
+            "Removed global panel resize grip rendering that was adding corner lines to panels and cards.",
+            "Preserved the app shell, sidebar, navigation, workflows, and updater behavior."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.25.0",
+      "date": "2026-05-11",
+      "changes": [
+        "Fixed startup failure on older customer databases missing licensing schema tables.",
+        "Added defensive license schema self-healing during startup and license persistence.",
+        "Prepared fresh update package for client rollout.",
+        "Updated the installer Terms and Conditions shown during setup.",
+        "Refreshed the downloadable setup installer so client installs no longer depend on a changing WebView2 web payload."
+      ]
+    },
+    {
+      "version": "1.0.23.0",
+      "date": "2026-05-11",
+      "title": "Current UI and updater release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Publishes the latest ServoERP UI build through the in-app updater.",
+            "Improves the package updater so client installs reliably copy the downloaded app files before restart.",
+            "Includes the current support, WhatsApp Hub, icon system, and modernized page updates in the release package."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.22.0",
+      "date": "2026-05-09",
+      "title": "Enterprise Login Polish",
+      "changes": [
+        {
+          "type": "ui",
+          "items": [
+            "Corrected the Sign In title and improved login typography hierarchy.",
+            "Added a stronger ServoERP brand panel with readable HVAC operations value props.",
+            "Improved input alignment, focus styling, button treatment, footer context, and VM/laptop screen fit."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.21.0",
+      "date": "2026-05-09",
+      "title": "Lightweight Login Window",
+      "changes": [
+        {
+          "type": "performance",
+          "items": [
+            "Redesigned the login window with a cleaner logo-free layout.",
+            "Removed heavy custom artwork from the login paint path to reduce lag in VM and remote desktop environments.",
+            "Kept the update ZIP flow compatible so this change can ship through the in-app updater."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.20.0",
+      "date": "2026-05-07",
+      "title": "Data Quality Protection",
+      "changes": [
+        {
+          "type": "quality",
+          "items": [
+            "Added central data-quality audit documentation.",
+            "Added reusable validation, business-rule, duplicate-detection, calculation-verification, import-review, audit, logging, and form-recovery foundations.",
+            "Blocked invalid client, vendor, site, inventory, quotation, PO, invoice, contract, job, and HVAC asset saves at service boundaries.",
+            "Added duplicate GSTIN hard stops for clients and vendors.",
+            "Added negative-stock protection for inventory movements and service-job part usage.",
+            "Added focused smoke tests for bad formats, duplicate detection, total mismatches, broken references, negative stock, and impossible dates."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.19.0",
+      "date": "2026-05-07",
+      "title": "Company Document Templates",
+      "changes": [
+        {
+          "type": "feature",
+          "items": [
+            "Added Company Document Templates inside Master Data.",
+            "Added upload, recognition, mapping, preview, default selection, and module-use toggles for invoice, quotation, PO, letterhead, contract, report, and delivery templates.",
+            "Added template services for upload, recognition, mapping, storage, rendering, and central management.",
+            "Generated invoices, quotations, and purchase orders now read central default template metadata."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.18.0",
+      "date": "2026-05-07",
+      "title": "Enterprise Login System",
+      "changes": [
+        {
+          "type": "security",
+          "items": [
+            "Added modern split-screen ServoERP login experience.",
+            "Added BCrypt password hashing for new and changed passwords.",
+            "Replaced raw-password remember-me storage with encrypted session tokens.",
+            "Added SQL session tracking, lockout handling, and login audit tables."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.17.0",
+      "date": "2026-05-07",
+      "title": "Master Data Control Center",
+      "changes": [
+        {
+          "type": "ui",
+          "items": [
+            "Redesigned Master Data as an upload, validation, mapping, and sync hub.",
+            "Added smart import cards for clients, vendors, invoices, inventory, contracts, assets, rate cards, and documents.",
+            "Added missing-data warnings, recent import status, duplicate checks, and one-click routing into ERP modules."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.16.0",
+      "date": "2026-05-07",
+      "title": "Automatic update package support",
+      "changes": [
+        {
+          "type": "update",
+          "items": [
+            "Added no-installer update flow using downloadable ZIP packages.",
+            "App can download, apply, and restart into the latest build after this updater is installed once.",
+            "Unlocked manual quotation number entry and fixed quotation client dropdown to use the full client list."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.14.0",
+      "date": "2026-05-07",
+      "title": "Startup stability fix",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Prevent sample-data seeding from blocking app startup.",
+            "Protect existing client databases from demo-data reset logic.",
+            "Handle duplicate seed lookup rows without SQL Server startup error 512."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.13.0",
+      "date": "2026-05-07",
+      "title": "Official invoice header fix",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed the invoice header to use the official Madhusuman Enterprises letterhead.",
+            "Corrected company GST, PAN, phone, email, and address defaults used by invoice generation."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.12.0",
+      "date": "2026-05-06",
+      "title": "Performance and installer release",
+      "changes": [
+        {
+          "type": "performance",
+          "items": [
+            "Improved page navigation speed by keeping main modules cached.",
+            "Added background warmup for shared app data after login.",
+            "Prevented repeated theme, layout, grid, and resize handler wiring during navigation."
+          ]
+        },
+        {
+          "type": "installer",
+          "items": [
+            "Added complete Inno Setup 6 installer for ServoERP.",
+            "Bundled .NET Framework 4.7.2, SQL Server Express, and WebView2 Runtime prerequisite installers.",
+            "Installer now uses official ServoERP icon and asks whether to keep business data during uninstall."
+          ]
+        },
+        {
+          "type": "ui",
+          "items": [
+            "Refined modern table styling and quotation line item layout.",
+            "Improved dashboard, sidebar, settings, purchases, inventory, vendors, jobs, and invoice layouts for laptop displays."
+          ]
+        }
+      ]
+    }
+  ]
 }

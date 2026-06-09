@@ -125,7 +125,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static VersionManifest ParseManifest(string response)
         {
-            string text = (response ?? string.Empty).Trim();
+            string text = NormalizeVersionText(response);
             if (text.StartsWith("{"))
             {
                 try
@@ -164,15 +164,20 @@ namespace HVAC_Pro_Desktop.Services
 
         private static bool IsPlausibleVersionText(string value)
         {
-            if (string.IsNullOrWhiteSpace(value))
+            string text = NormalizeVersionText(value);
+            if (string.IsNullOrWhiteSpace(text))
                 return false;
 
-            string text = value.Trim();
             if (text.Length > 64 || text.IndexOfAny(new[] { '<', '>', '\r', '\n', '\t' }) >= 0)
                 return false;
 
             Version parsed;
             return Version.TryParse(text, out parsed);
+        }
+
+        private static string NormalizeVersionText(string value)
+        {
+            return (value ?? string.Empty).Trim().TrimStart('\uFEFF');
         }
 
         private static string SafeLogValue(string value)

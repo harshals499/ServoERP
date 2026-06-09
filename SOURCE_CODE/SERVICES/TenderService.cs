@@ -35,7 +35,7 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 const string sql = @"
                     SELECT t.*, c.CompanyName AS ClientResolvedName, s.SiteName, v.VendorName
-                    FROM TenderBids t
+                    FROM Quotations t
                     LEFT JOIN B2BClients c ON t.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON t.SiteID = s.SiteID
                     LEFT JOIN Vendors v ON t.RecommendedVendorID = v.VendorID
@@ -54,7 +54,7 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 const string sql = @"
                     SELECT t.*, c.CompanyName AS ClientResolvedName, s.SiteName, v.VendorName
-                    FROM TenderBids t
+                    FROM Quotations t
                     LEFT JOIN B2BClients c ON t.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON t.SiteID = s.SiteID
                     LEFT JOIN Vendors v ON t.RecommendedVendorID = v.VendorID
@@ -84,7 +84,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 conn.Open();
                 const string sql = @"
-                    INSERT INTO TenderBids
+                    INSERT INTO Quotations
                     (QuotationNumber,TenderName,ClientID,SiteID,SystemCount,BidValue,DueDate,SubmittedDate,RequiredByDate,
                      Status,ClientName,RequirementCategory,ItemName,RequiredQuantity,Unit,InventoryAvailable,ShortfallQuantity,
                      EstimatedInternalRate,EstimatedSupplierRate,EstimatedInternalCost,EstimatedExternalCost,
@@ -121,7 +121,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 conn.Open();
                 const string sql = @"
-                    UPDATE TenderBids SET
+                    UPDATE Quotations SET
                         QuotationNumber=@quoteNo,
                         TenderName=@name,
                         ClientID=@clientId,
@@ -182,8 +182,8 @@ namespace HVAC_Pro_Desktop.Services
                     {
                         ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET RecommendedByBidID=NULL WHERE RecommendedByBidID=@id", bidId);
                         ExecuteDelete(conn, tx, "UPDATE Invoices SET QuotationBidID=NULL WHERE QuotationBidID=@id", bidId);
-                        ExecuteDelete(conn, tx, "DELETE FROM TenderBidLineItems WHERE TenderBidId=@id", bidId);
-                        ExecuteDelete(conn, tx, "DELETE FROM TenderBids WHERE BidID=@id", bidId);
+                        ExecuteDelete(conn, tx, "DELETE FROM QuotationLineItems WHERE TenderBidId=@id", bidId);
+                        ExecuteDelete(conn, tx, "DELETE FROM Quotations WHERE BidID=@id", bidId);
                         tx.Commit();
                     }
                     catch
@@ -216,7 +216,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 conn.Open();
                 string prefix = "QTN-" + DateTime.Now.ToString("yyyy-MM");
-                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM TenderBids WHERE QuotationNumber LIKE @p", conn))
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Quotations WHERE QuotationNumber LIKE @p", conn))
                 {
                     cmd.Parameters.AddWithValue("@p", prefix + "-%");
                     int count = Convert.ToInt32(cmd.ExecuteScalar());
@@ -255,8 +255,9 @@ namespace HVAC_Pro_Desktop.Services
                     SELECT sip.*, v.VendorName, v.Phone, v.Email
                     FROM SupplierItemPrices sip
                     INNER JOIN Vendors v ON sip.VendorID = v.VendorID
-                    WHERE sip.ItemName LIKE @item
-                       OR (@category <> '' AND sip.Category = @category)
+                    WHERE (sip.ItemName LIKE @item
+                       OR (@category <> '' AND sip.Category = @category))
+                      AND ISNULL(v.IsSupplier, 1) = 1
                     ORDER BY sip.Rate ASC, v.VendorName ASC", conn))
                 {
                     supplierCmd.Parameters.AddWithValue("@item", "%" + bid.ItemName.Trim() + "%");
@@ -294,8 +295,9 @@ namespace HVAC_Pro_Desktop.Services
                         FROM PurchaseLineItems pli
                         INNER JOIN PurchaseOrders p ON pli.POID = p.POID
                         INNER JOIN Vendors v ON p.VendorID = v.VendorID
-                        WHERE pli.Description LIKE @item
-                           OR (@category <> '' AND pli.Description LIKE '%' + @category + '%')
+                        WHERE (pli.Description LIKE @item
+                           OR (@category <> '' AND pli.Description LIKE '%' + @category + '%'))
+                          AND ISNULL(v.IsSupplier, 1) = 1
                         GROUP BY p.VendorID, v.VendorName, v.Phone, v.Email
                         HAVING MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) IS NOT NULL
                         ORDER BY MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) ASC, MAX(p.PODate) DESC", conn))
@@ -487,7 +489,7 @@ namespace HVAC_Pro_Desktop.Services
             var checks = new List<string>();
             checks.Add(Check("Quotation number present", !string.IsNullOrWhiteSpace(bid.QuotationNumber)));
             checks.Add(Check("Client selected", bid.ClientID > 0));
-            checks.Add(Check("Site selected", bid.SiteID > 0));
+            checks.Add(Check("Site selected when known", true));
             checks.Add(Check("Project / quotation title present", !string.IsNullOrWhiteSpace(bid.TenderName)));
             checks.Add(Check("Item selected", !string.IsNullOrWhiteSpace(bid.ItemName)));
             checks.Add(Check("Quantity entered", bid.RequiredQuantity > 0));

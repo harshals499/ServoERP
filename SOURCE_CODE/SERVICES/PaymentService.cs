@@ -28,23 +28,17 @@ namespace HVAC_Pro_Desktop.Services
 
         public List<Payment> GetPaymentsForInvoice(int invoiceId)
         {
-            return GetAllPayments().FindAll(p => p.InvoiceID == invoiceId);
+            return _paymentRepo.GetByInvoiceId(invoiceId);
         }
 
         public List<Payment> GetPaymentsForClient(int clientId)
         {
-            return GetAllPayments().FindAll(p => p.ClientID == clientId);
+            return _paymentRepo.GetByClientId(clientId);
         }
 
         public decimal GetTotalCollectedThisMonth()
         {
-            decimal total = 0;
-            foreach (var payment in GetAllPayments())
-            {
-                if (payment.PaymentDate.Month == DateTime.Today.Month && payment.PaymentDate.Year == DateTime.Today.Year)
-                    total += payment.AmountPaid;
-            }
-            return total;
+            return _paymentRepo.GetTotalCollectedThisMonth();
         }
 
         // ── RECORD PAYMENT ───────────────────────────────────
@@ -55,14 +49,17 @@ namespace HVAC_Pro_Desktop.Services
         public int RecordPayment(Payment payment)
         {
             SessionManager.DemandPermission("Payments", "Create");
+            if (payment == null)
+                throw new Exception("Payment details are missing.");
             if (payment.PaymentDate == default)
                 payment.PaymentDate = DateTime.Today;
-            ValidatePaymentForSave(payment);
 
             // Fetch invoice to check balance
             Invoice inv = _invoiceRepo.GetById(payment.InvoiceID);
             if (inv == null)
                 throw new Exception("Invoice not found.");
+            payment.ClientID = inv.ClientID;
+            ValidatePaymentForSave(payment);
 
             decimal alreadyPaid = _paymentRepo.GetTotalPaidForInvoice(payment.InvoiceID);
             decimal remaining   = inv.TotalAmount - alreadyPaid;
@@ -96,6 +93,21 @@ namespace HVAC_Pro_Desktop.Services
         /// Recomputes PaidAmount, BalanceDue, and PaymentStatus for an invoice
         /// based on the sum of all linked payment records.
         /// </summary>
+        public void DeletePayment(int paymentId)
+        {
+            SessionManager.DemandPermission("Payments", "Delete");
+            Payment payment = _paymentRepo.GetById(paymentId);
+            if (payment == null)
+                throw new Exception("Payment record not found.");
+
+            _paymentRepo.Delete(paymentId);
+            RecalculateInvoiceStatus(payment.InvoiceID);
+            AppDataCache.RemovePrefix("payments:");
+            AppDataCache.RemovePrefix("invoices:");
+            SessionManager.LogAction("DELETE", "Payments", paymentId, "Payment deleted");
+            _audit.Record("DELETE", "Payments", paymentId, "Payment " + (payment.PaymentNumber ?? paymentId.ToString()) + " deleted and invoice payment status recalculated");
+        }
+
         public void RecalculateInvoiceStatus(int invoiceId)
         {
             Invoice inv = _invoiceRepo.GetById(invoiceId);

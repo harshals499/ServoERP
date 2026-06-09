@@ -677,25 +677,6 @@ namespace HVAC_Pro_Desktop.Services
                 "</div>";
         }
 
-        private static string BuildPopupHtml(ClientSite site, string clientName, AMCContract activeContract, int openCalls, DateTime? nextPmDueDate, string pinColour)
-        {
-            string badgeText = activeContract == null ? "No Contract" : NormalizeContractLabel(activeContract.ContractType ?? "Contract");
-            string badgeColor = ResolveBadgeHex(pinColour);
-            string nextPmText = nextPmDueDate.HasValue ? nextPmDueDate.Value.ToString("dd MMM yyyy") : "Not scheduled";
-            string zoneText = openCalls >= 3 ? "High Demand Zone" : (openCalls >= 1 ? "Active Service Zone" : "Monitored Service Zone");
-
-            return
-                "<div style='font-family:Segoe UI,sans-serif;min-width:248px;padding:18px 18px 16px;border-radius:18px;background:#fff;color:#17315f;border:1px solid #d9e2ef;box-shadow:0 14px 32px rgba(23,49,95,.16);'>" +
-                "<div style='font-size:15px;font-weight:700;line-height:1.2;'>" + Html(site.SiteName) + "</div>" +
-                "<div style='font-size:12px;color:#53719b;margin-top:3px;'>" + Html(clientName) + "</div>" +
-                "<div style='font-size:11px;color:#17315f;margin-top:10px;font-weight:700;letter-spacing:.2px;'>" + Html(zoneText) + "</div>" +
-                "<div style='display:inline-block;background:" + badgeColor + ";color:#fff;border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;margin-top:10px;'>" + Html(badgeText) + "</div>" +
-                "<div style='font-size:12px;color:#17315f;margin-top:14px;'><span style='color:#53719b;'>Open Calls</span><span style='float:right;font-weight:700;'>" + openCalls.ToString(CultureInfo.InvariantCulture) + "</span></div>" +
-                "<div style='font-size:12px;color:#17315f;margin-top:6px;'><span style='color:#53719b;'>Next PM</span><span style='float:right;font-weight:700;'>" + Html(nextPmText) + "</span></div>" +
-                "<button style='margin-top:14px;width:100%;background:#2f74e5;color:#fff;border:none;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;' onclick='viewSite(" + site.SiteID.ToString(CultureInfo.InvariantCulture) + ");return false;'>View Details</button>" +
-                "</div>";
-        }
-
         private static string ResolveBadgeHex(string pinColour)
         {
             switch ((pinColour ?? string.Empty).Trim().ToLowerInvariant())

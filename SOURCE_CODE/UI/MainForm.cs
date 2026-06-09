@@ -48,9 +48,12 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
         private readonly LinkedList<int> _pageUsage = new LinkedList<int>();
         private readonly Dictionary<int, Button> _navButtons = new Dictionary<int, Button>();
+        private AMCPage _amcPage;
         private UserControl _transientPage;
         private int _currentIndex = -1;
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
+        private readonly List<UserControl> _deferredDisposedPages = new List<UserControl>();
+        private System.Windows.Forms.Timer _deferredPageDisposeTimer;
         private const int MaxCachedPages = 20;
         private const int ClientsPageIndex = 1;
         private const int InvoicesPageIndex = 3;
@@ -62,6 +65,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int WhatsAppHubPageIndex = 18;
         private const int TallyIntegrationPageIndex = 19;
         private const int VendorsPageIndex = 20;
+        private const int AMCPageIndex = 21;
 
         private static readonly Color SbBg = DS.Primary700;
         private static readonly Color SbBgDeep = DS.Darken(DS.Primary700, 0.12f);
@@ -100,11 +104,12 @@ namespace HVAC_Pro_Desktop.UI
             ("WhatsApp Hub", "W"),
             ("Tally", "T"),
             ("Vendors", "V"),
+            ("AMC", "A"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, VendorsPageIndex, 15 };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, VendorsPageIndex, 15, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -164,6 +169,7 @@ namespace HVAC_Pro_Desktop.UI
                 RefreshLicenseBanner();
                 DatabaseConnectionStateService.StartBackgroundMonitor();
                 StartBackupScheduler();
+                BeginInvoke((Action)TryStartFirstLaunchTour);
             };
         }
 
@@ -445,6 +451,61 @@ namespace HVAC_Pro_Desktop.UI
             _btnSupportCenter.BringToFront();
         }
 
+        /// <summary>Starts the first-launch guided tour after the main shell is visible.</summary>
+        private void TryStartFirstLaunchTour()
+        {
+            try
+            {
+                if (IsDisposed || !IsHandleCreated || !SessionManager.IsLoggedIn)
+                    return;
+
+                TourEngine.StartFirstLaunchTour(this, _content, BuildFirstLaunchTourSteps());
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.TryStartFirstLaunchTour", ex);
+            }
+        }
+
+        /// <summary>Builds the first-launch tour steps for the ServoERP shell and core modules.</summary>
+        private IList<TourStep> BuildFirstLaunchTourSteps()
+        {
+            return new List<TourStep>
+            {
+                MakeWorkspaceTourStep("Dashboard", "Start here for daily service KPIs, shortcuts, jobs, payments, and operational alerts.", DS.Primary600),
+                MakeWorkspaceTourStep("Clients", "Maintain B2B clients, client sites, contacts, and active relationship history.", Color.FromArgb(37, 99, 235)),
+                MakeWorkspaceTourStep("Jobs", "Track service calls, technician assignment, job status, parts, checklist, and closure.", DS.Green600),
+                MakeWorkspaceTourStep("Invoices", "Create GST invoices with Indian tax handling, HSN/SAC details, and PDF output.", DS.Amber600),
+                MakeWorkspaceTourStep("Dispatch Center", "Use dispatch and geo-intelligence to coordinate technicians and service locations.", Color.FromArgb(14, 116, 144)),
+                MakeWorkspaceTourStep("Contracts", "Manage AMC contracts, SLA commitments, renewal windows, and customer coverage.", DS.Primary600),
+                MakeWorkspaceTourStep("Payments", "Record collections, track outstanding amounts, and keep customer ledgers current.", DS.Green600),
+                MakeWorkspaceTourStep("SLA Dashboard", "Review SLA logs, response performance, and service commitment status.", DS.Red600),
+                MakeWorkspaceTourStep("Quotations", "Prepare quotations and convert accepted work into the sales workflow.", Color.FromArgb(37, 99, 235)),
+                MakeWorkspaceTourStep("Reports", "Open operational, sales, GST, inventory, and management reports for review.", Color.FromArgb(79, 70, 229)),
+                MakeWorkspaceTourStep("Settings", "Configure company profile, legal information, backups, users, and system preferences.", DS.Slate700),
+                MakeWorkspaceTourStep("Suppliers", "Use supplier mode for material vendors, purchases, stock, and procurement workflows.", DS.Amber600),
+                MakeWorkspaceTourStep("Purchases", "Create purchase orders, manage purchases, and track vendor-side procurement.", DS.Primary600),
+                MakeWorkspaceTourStep("Inventory", "Control HVAC stock, movements, line items, and material availability.", DS.Green600),
+                MakeWorkspaceTourStep("Employees", "Maintain employee profiles, attendance, skills, documents, and payroll readiness.", Color.FromArgb(37, 99, 235)),
+                MakeWorkspaceTourStep("Payroll", "Manage salary, advances, payslips, and payroll reporting for staff.", Color.FromArgb(124, 58, 237)),
+                MakeWorkspaceTourStep("Master Data", "Import, clean, validate, and sync client-owned Excel master data.", DS.Amber600),
+                MakeWorkspaceTourStep("WhatsApp Hub", "Open WhatsApp workflows for customer communication and service coordination.", DS.Green600),
+                MakeWorkspaceTourStep("Tally", "Export vouchers, import masters, and sync accounting data with Tally Prime.", DS.Primary600)
+            };
+        }
+
+        /// <summary>Creates a dashboard workspace tour step.</summary>
+        private TourStep MakeWorkspaceTourStep(string title, string body, Color highlightColor)
+        {
+            return new TourStep(
+                () => _content,
+                title,
+                body,
+                highlightColor,
+                TourTooltipPosition.Center,
+                null);
+        }
+
         private void LayoutAiCopilotLauncher()
         {
             if (_btnAiCopilot == null)
@@ -527,6 +588,23 @@ namespace HVAC_Pro_Desktop.UI
             _backupScheduleTimer?.Stop();
             _backupScheduleTimer?.Dispose();
             _backupScheduleTimer = null;
+
+            _deferredPageDisposeTimer?.Stop();
+            _deferredPageDisposeTimer?.Dispose();
+            _deferredPageDisposeTimer = null;
+
+            foreach (UserControl page in _deferredDisposedPages.ToList())
+            {
+                try
+                {
+                    if (page != null && !page.IsDisposed)
+                        page.Dispose();
+                }
+                catch
+                {
+                }
+            }
+            _deferredDisposedPages.Clear();
 
             if (!_silentUpdateApplyAttempted)
             {
@@ -1406,6 +1484,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 0: return "\uE80F"; // Dashboard
                 case 1: return "\uE716"; // Clients
                 case 2: return "\uE8A5"; // Contracts
+                case AMCPageIndex: return "\uE8A5"; // AMC
                 case 3: return "\uE8A5"; // Invoices
                 case 4: return "\uE8C7"; // Payments
                 case 6: return "\uE721"; // Quotations
@@ -1499,6 +1578,8 @@ namespace HVAC_Pro_Desktop.UI
 
         public void NavigateTo(int index)
         {
+            bool traceNavigation = index == 11 || index == 14 || index == JobsPageIndex || index == VendorsPageIndex || index == 9 || index == ClientsPageIndex;
+            Stopwatch traceWatch = traceNavigation ? Stopwatch.StartNew() : null;
             EnsureSessionOrClose();
             if (!SessionManager.IsLoggedIn || !CanViewNavItem(index))
                 return;
@@ -1519,29 +1600,84 @@ namespace HVAC_Pro_Desktop.UI
                 UserControl page;
                 if (!_pageCache.TryGetValue(index, out page) || page == null || page.IsDisposed)
                 {
+                    if (traceNavigation)
+                        AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".CreatePage.Start", traceWatch.ElapsedMilliseconds);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.CreatePage.Start", 0);
                     page = CreatePage(index);
+                    if (traceNavigation)
+                        AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".CreatePage.Complete", traceWatch.ElapsedMilliseconds);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.CreatePage.Complete", 0);
                     page.Dock = DockStyle.Fill;
                     page.Visible = false;
-                    DS.ApplyTheme(page);
-                    LayoutScaler.ApplyGlobalScale(page);
-                    if (!(page is DeferredPageControl))
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ApplyTheme.Start", 0);
+                    bool lightFirstOpen = IsLightFirstOpenPage(index, page);
+                    if (!lightFirstOpen)
+                        DS.ApplyTheme(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ApplyTheme.Complete", 0);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.GlobalScale.Start", 0);
+                    if (!lightFirstOpen)
+                        LayoutScaler.ApplyGlobalScale(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.GlobalScale.Complete", 0);
+                    if (!lightFirstOpen && !(page is DeferredPageControl))
                         LayoutScaler.ScaleControl(page);
-                    LayoutScaler.ApplyDisplayFit(page);
-                    UIHelper.ApplyGlobalScrollAndResize(page);
-                    ResizeCursorHelper.Apply(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.DisplayFit.Start", 0);
+                    if (!lightFirstOpen && index != SettingsPageIndex)
+                        LayoutScaler.ApplyDisplayFit(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.DisplayFit.Complete", 0);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ScrollResize.Start", 0);
+                    if (!lightFirstOpen)
+                        UIHelper.ApplyGlobalScrollAndResize(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ScrollResize.Complete", 0);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ResizeCursor.Start", 0);
+                    if (!lightFirstOpen)
+                        ResizeCursorHelper.Apply(page);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ResizeCursor.Complete", 0);
                     _pageCache[index] = page;
+                    if (traceNavigation)
+                        AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".ControlsAdd.Start", traceWatch.ElapsedMilliseconds);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ControlsAdd.Start", 0);
                     _content.Controls.Add(page);
+                    if (traceNavigation)
+                        AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".ControlsAdd.Complete", traceWatch.ElapsedMilliseconds);
+                    if (index == SettingsPageIndex)
+                        AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ControlsAdd.Complete", 0);
                 }
 
                 foreach (Control control in _content.Controls)
                 {
                     if (control == _btnResetLayout)
                         continue;
+                    if (control == page)
+                        continue;
                     control.Visible = false;
                 }
 
-                page.Visible = true;
+                if (index == SettingsPageIndex)
+                    AppRuntime.LogTiming("MainForm.NavigateTo.Settings.Visible.Start", 0);
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".Visible.Start", traceWatch.ElapsedMilliseconds);
+                if (!page.Visible)
+                    page.Visible = true;
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".Visible.Complete", traceWatch.ElapsedMilliseconds);
+                if (index == SettingsPageIndex)
+                    AppRuntime.LogTiming("MainForm.NavigateTo.Settings.Visible.Complete", 0);
                 page.BringToFront();
+                if (page is SettingsForm settingsPage)
+                    settingsPage.EnsureInitialLoad();
                 LayoutResetLayoutLauncher();
                 if (page is PurchaseForm purchasePage)
                     purchasePage.ApplyNavigationRequest();
@@ -1549,8 +1685,12 @@ namespace HVAC_Pro_Desktop.UI
                     contractPage.ApplyNavigationRequest();
                 if (page is ReportForm reportPage)
                     reportPage.ApplyNavigationRequest();
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".BeforeTouchTrim", traceWatch.ElapsedMilliseconds);
                 TouchPage(index);
                 TrimPageCache(index);
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".AfterTrim", traceWatch.ElapsedMilliseconds);
                 _currentIndex = index;
             }
             catch (Exception ex)
@@ -1562,7 +1702,11 @@ namespace HVAC_Pro_Desktop.UI
             }
             finally
             {
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".BeforeResumeLayout", traceWatch.ElapsedMilliseconds);
                 _content.ResumeLayout();
+                if (traceNavigation)
+                    AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".Complete", traceWatch.ElapsedMilliseconds);
             }
         }
 
@@ -1583,7 +1727,61 @@ namespace HVAC_Pro_Desktop.UI
             if (string.Equals(action, DashboardForm.ShortcutNewInvoice, StringComparison.Ordinal))
             {
                 OpenPageShortcut<InvoiceForm>(InvoicesPageIndex, page => page.OpenNewInvoiceFromShortcut());
+                return;
             }
+
+            if (string.Equals(action, DashboardForm.ShortcutNewAMC, StringComparison.Ordinal))
+            {
+                BeginOpenAddAMCFromDashboardShortcut();
+            }
+        }
+
+        private void BeginOpenAddAMCFromDashboardShortcut()
+        {
+            if (!SessionManager.IsLoggedIn)
+                return;
+
+            if (IsHandleCreated)
+            {
+                BeginInvoke((Action)(() => OpenAddAMCFromDashboardShortcut()));
+                return;
+            }
+
+            OpenAddAMCFromDashboardShortcut();
+        }
+
+        private void OpenAddAMCFromDashboardShortcut()
+        {
+            int? savedContractId = null;
+            try
+            {
+                using (var form = new AddAMCForm())
+                {
+                    if (form.ShowDialog(this) == DialogResult.OK)
+                        savedContractId = form.LastSavedContractId;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("OpenAddAMCFromDashboardShortcut", ex);
+                MessageBox.Show(this,
+                    "Unable to open Add AMC form. Please try again.",
+                    BrandingService.WindowTitle("Add AMC"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
+                return;
+            }
+
+            if (savedContractId == null)
+                return;
+
+            // Navigate to the AMC module and open the newly created contract.
+            NavigateTo(AMCPageIndex);
+            BeginInvoke((Action)(() =>
+            {
+                if (_pageCache.TryGetValue(AMCPageIndex, out UserControl page) && page is AMCPage amcPage)
+                    amcPage.OpenContractById(savedContractId.Value);
+            }));
         }
 
         private void OpenPageShortcut<TPage>(int index, Action<TPage> openAction) where TPage : UserControl
@@ -1810,6 +2008,11 @@ namespace HVAC_Pro_Desktop.UI
                 case 18: page = new WhatsAppHubForm(); break;
                 case 19: page = new TallyIntegrationForm(); break;
                 case VendorsPageIndex: page = new VendorForm(VendorPartnerPageMode.ServiceVendor); break;
+                case AMCPageIndex:
+                    if (_amcPage == null || _amcPage.IsDisposed)
+                        _amcPage = new AMCPage();
+                    page = _amcPage;
+                    break;
                 default:
                     var dash = new DashboardForm();
                     dash.OnNavigate = NavigateTo;
@@ -1835,6 +2038,23 @@ namespace HVAC_Pro_Desktop.UI
             return page;
         }
 
+        private static bool IsLightFirstOpenPage(int index, Control page)
+        {
+            return index == 3 || index == 4 || index == 6 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex
+                || page is InvoiceForm
+                || page is PaymentForm
+                || page is TenderBidForm
+                || page is VendorForm
+                || page is PurchaseForm
+                || page is InventoryForm
+                || page is EmployeeForm
+                || page is GeoIntelligenceForm
+                || page is WhatsAppHubForm
+                || page is TallyIntegrationForm
+                || page is JobManagementForm
+                || page is AMCPage;
+        }
+
         private void TouchPage(int index)
         {
             var node = _pageUsage.Find(index);
@@ -1845,6 +2065,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void TrimPageCache(int activeIndex)
         {
+            var pagesToDispose = new List<UserControl>();
             while (_pageCache.Count > MaxCachedPages && _pageUsage.Count > 0)
             {
                 int candidate = _pageUsage.First.Value;
@@ -1865,10 +2086,46 @@ namespace HVAC_Pro_Desktop.UI
                     {
                         if (_content.Controls.Contains(page))
                             _content.Controls.Remove(page);
-                        page.Dispose();
+                        pagesToDispose.Add(page);
                     }
                 }
             }
+
+            QueuePageDisposal(pagesToDispose);
+        }
+
+        private void QueuePageDisposal(List<UserControl> pages)
+        {
+            if (pages == null || pages.Count == 0)
+                return;
+
+            _deferredDisposedPages.AddRange(pages.Where(page => page != null && !page.IsDisposed));
+            if (_deferredPageDisposeTimer != null)
+                return;
+
+            _deferredPageDisposeTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+            _deferredPageDisposeTimer.Tick += (s, e) =>
+            {
+                _deferredPageDisposeTimer.Stop();
+                _deferredPageDisposeTimer.Dispose();
+                _deferredPageDisposeTimer = null;
+
+                var pending = _deferredDisposedPages.ToList();
+                _deferredDisposedPages.Clear();
+                foreach (UserControl page in pending)
+                {
+                    try
+                    {
+                        if (page != null && !page.IsDisposed)
+                            page.Dispose();
+                    }
+                    catch (Exception ex)
+                    {
+                        AppRuntime.LogException("MainForm.DeferredPageDispose", ex);
+                    }
+                }
+            };
+            _deferredPageDisposeTimer.Start();
         }
 
         private Control BuildErrorPage(int index, Exception ex)
@@ -2217,6 +2474,9 @@ namespace HVAC_Pro_Desktop.UI
                 case "DASHBOARD": return 0;
                 case "CLIENTS": return 1;
                 case "CONTRACTS": return 2;
+                case "AMC": return AMCPageIndex;
+                case "AMCCONTRACTS":
+                case "AMC CONTRACTS": return AMCPageIndex;
                 case "INVOICES": return 3;
                 case "PAYMENTS": return 4;
                 case "QUOTATIONS": return 6;
@@ -2276,6 +2536,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 18: return "Dashboard";
                 case 19: return "Settings";
                 case VendorsPageIndex: return "Vendors";
+                case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }
         }
@@ -2312,7 +2573,12 @@ namespace HVAC_Pro_Desktop.UI
 
             if (ConfigService.IsSilentAutoUpdateEnabled())
             {
-                UpdateService.StartSilentBackgroundUpdateCheck();
+                UpdateService.StartSilentBackgroundUpdateCheck(
+                    this,
+                    result => ToastNotification.Show(
+                        this,
+                        "ServoERP update v" + result.LatestVersion + " is installing. Please wait a moment.",
+                        DS.Primary600));
                 return;
             }
 

@@ -93,7 +93,14 @@ namespace HVAC_Pro_Desktop.Services
         {
             var map = new Dictionary<string, DataTable>(StringComparer.OrdinalIgnoreCase);
             string extProps = Path.GetExtension(file).Equals(".xls", StringComparison.OrdinalIgnoreCase) ? "Excel 8.0;HDR=NO;IMEX=1" : "Excel 12.0 Xml;HDR=NO;IMEX=1";
-            using (var conn = new OleDbConnection("Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" + file + ";Extended Properties='" + extProps + "';"))
+            var builder = new OleDbConnectionStringBuilder
+            {
+                Provider = "Microsoft.ACE.OLEDB.12.0",
+                DataSource = file
+            };
+            builder["Extended Properties"] = extProps;
+
+            using (var conn = new OleDbConnection(builder.ConnectionString))
             {
                 conn.Open();
                 DataTable schema = conn.GetOleDbSchemaTable(OleDbSchemaGuid.Tables, null);
@@ -103,7 +110,7 @@ namespace HVAC_Pro_Desktop.Services
                     if (string.IsNullOrWhiteSpace(sheetName) || (!sheetName.EndsWith("$") && !sheetName.EndsWith("$'")))
                         continue;
                     var table = new DataTable();
-                    using (var adapter = new OleDbDataAdapter("SELECT * FROM [" + sheetName + "]", conn))
+                    using (var adapter = new OleDbDataAdapter("SELECT * FROM [" + EscapeSheetIdentifier(sheetName) + "]", conn))
                         adapter.Fill(table);
                     map[CleanSheetName(sheetName)] = table;
                 }
@@ -559,6 +566,7 @@ namespace HVAC_Pro_Desktop.Services
         }
 
         private static string CleanSheetName(string rawName) => rawName.Trim('\'').TrimEnd('$').Trim();
+        private static string EscapeSheetIdentifier(string sheetName) => (sheetName ?? string.Empty).Replace("]", "]]");
         private static string Normalize(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : new string(value.Trim().ToUpperInvariant().Where(char.IsLetterOrDigit).ToArray());
         private static string ToTitle(string value) => string.IsNullOrWhiteSpace(value) ? string.Empty : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(value.Trim().ToLowerInvariant());
         private static DateTime? ParseDate(string value) { DateTime parsed; return DateTime.TryParse(value, out parsed) ? (DateTime?)parsed.Date : null; }

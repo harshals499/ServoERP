@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -53,10 +53,12 @@ namespace HVAC_Pro_Desktop.DAL
         {
             string tenantConnectionString = TryBuildInstallerConfigConnectionString();
             if (!string.IsNullOrWhiteSpace(tenantConnectionString))
-                return tenantConnectionString;
+                return DatabaseConnectionFactory.NormalizeConnectionString(tenantConnectionString);
 
             ConnectionStringSettings setting = ConfigurationManager.ConnectionStrings[ConnectionStringName];
-            return setting == null ? null : setting.ConnectionString;
+            return setting == null || string.IsNullOrWhiteSpace(setting.ConnectionString)
+                ? null
+                : DatabaseConnectionFactory.NormalizeConnectionString(setting.ConnectionString);
         }
 
         public static string RequireConfiguredConnectionString()
@@ -264,7 +266,7 @@ namespace HVAC_Pro_Desktop.DAL
                 builder.Password = config.Password ?? string.Empty;
             }
 
-            return builder.ConnectionString;
+            return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
         }
 
         private static string BuildTenantDatabaseName(string tenantCode)
@@ -349,7 +351,7 @@ namespace HVAC_Pro_Desktop.DAL
                 builder.Password = _sqlPassword;
             }
 
-            return builder.ConnectionString;
+            return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
         }
 
         private string BuildCreateDatabaseSql()
@@ -389,10 +391,10 @@ namespace HVAC_Pro_Desktop.DAL
         {
             try
             {
-                using (var conn = new SqlConnection(
+                using (var conn = DatabaseConnectionFactory.CreateConnection(
                     $@"Server={serverName};Database=master;Integrated Security=true;Connection Timeout=5;"))
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.CanOpenServer");
                     return true;
                 }
             }
@@ -475,7 +477,7 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
-        public SqlConnection GetConnection() => new SqlConnection(_connectionString);
+        public SqlConnection GetConnection() => DatabaseConnectionFactory.CreateConnection(_connectionString);
         public string ResolvedServer => _resolvedServer;
 
         public void InitializeDatabase()
@@ -494,9 +496,9 @@ namespace HVAC_Pro_Desktop.DAL
 
             try
             {
-                using (SqlConnection conn = new SqlConnection(masterCs))
+                using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection(masterCs))
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.InitializeDatabase");
                     Exec(conn, BuildCreateDatabaseSql());
                 }
 
@@ -509,9 +511,9 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     masterCs = BuildConnectionStringForDatabase("master");
 
-                    using (SqlConnection retryConn = new SqlConnection(masterCs))
+                    using (SqlConnection retryConn = DatabaseConnectionFactory.CreateConnection(masterCs))
                     {
-                        retryConn.Open();
+                        DatabaseConnectionFactory.Open(retryConn, "DatabaseManager.InitializeDatabase.Retry");
                         Exec(retryConn, BuildCreateDatabaseSql());
                     }
 
@@ -537,9 +539,9 @@ namespace HVAC_Pro_Desktop.DAL
 
         private void CreateBaseTables()
         {
-            using (SqlConnection conn = new SqlConnection(_connectionString))
+            using (SqlConnection conn = GetConnection())
             {
-                conn.Open();
+                DatabaseConnectionFactory.Open(conn, "DatabaseManager.CreateBaseTables");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='B2BClients')
                 CREATE TABLE B2BClients (
@@ -620,8 +622,8 @@ namespace HVAC_Pro_Desktop.DAL
                     Notes       NVARCHAR(MAX)
                 );");
 
-                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='TenderBids')
-                CREATE TABLE TenderBids (
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='Quotations')
+                CREATE TABLE Quotations (
                     BidID         INT PRIMARY KEY IDENTITY(1,1),
                     TenderName    NVARCHAR(255),
                     SystemCount   INT,
@@ -637,9 +639,9 @@ namespace HVAC_Pro_Desktop.DAL
 
         private void MigrateSchema()
         {
-            using (SqlConnection conn = new SqlConnection(_connectionString))
+            using (SqlConnection conn = GetConnection())
             {
-                conn.Open();
+                DatabaseConnectionFactory.Open(conn, "DatabaseManager.MigrateSchema");
 
                 // B2BClients
                 AddColumn(conn, "B2BClients", "Email",            "NVARCHAR(255) NULL");
@@ -696,11 +698,11 @@ namespace HVAC_Pro_Desktop.DAL
                 // Site cleanup below references these columns, so ensure older/fresh
                 // schemas have them before the data migration runs.
                 AddColumn(conn, "Invoices", "SiteID", "INT NULL");
-                AddColumn(conn, "TenderBids", "SiteID", "INT NULL");
-                AddColumn(conn, "TenderBids", "CommercialFlow", "NVARCHAR(30) NOT NULL DEFAULT 'Revenue'");
-                AddColumn(conn, "TenderBids", "CustomerDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Quote Draft'");
-                AddColumn(conn, "TenderBids", "SupplierDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Not Required'");
-                AddColumn(conn, "TenderBids", "FlowNotes", "NVARCHAR(500) NULL");
+                AddColumn(conn, "Quotations", "SiteID", "INT NULL");
+                AddColumn(conn, "Quotations", "CommercialFlow", "NVARCHAR(30) NOT NULL DEFAULT 'Revenue'");
+                AddColumn(conn, "Quotations", "CustomerDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Quote Draft'");
+                AddColumn(conn, "Quotations", "SupplierDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Not Required'");
+                AddColumn(conn, "Quotations", "FlowNotes", "NVARCHAR(500) NULL");
                 AddColumn(conn, "ServiceDeskIncidents", "SiteId", "INT NULL");
                 Exec(conn, @"
                     IF OBJECT_ID('Jobs', 'U') IS NOT NULL
@@ -762,8 +764,8 @@ namespace HVAC_Pro_Desktop.DAL
                         WHERE d.SiteID <> d.KeepSiteID;
                     END;
 
-                    IF OBJECT_ID('TenderBids', 'U') IS NOT NULL
-                       AND COL_LENGTH('TenderBids', 'SiteID') IS NOT NULL
+                    IF OBJECT_ID('Quotations', 'U') IS NOT NULL
+                       AND COL_LENGTH('Quotations', 'SiteID') IS NOT NULL
                     BEGIN
                         ;WITH DuplicateSites AS (
                             SELECT
@@ -778,7 +780,7 @@ namespace HVAC_Pro_Desktop.DAL
                         )
                         UPDATE t
                         SET SiteID = d.KeepSiteID
-                        FROM TenderBids t
+                        FROM Quotations t
                         INNER JOIN DuplicateSites d ON d.SiteID = t.SiteID
                         WHERE d.SiteID <> d.KeepSiteID;
                     END;
@@ -824,6 +826,7 @@ namespace HVAC_Pro_Desktop.DAL
                 // AMCContracts
                 AddColumn(conn, "AMCContracts", "ContractType", "NVARCHAR(50) NOT NULL DEFAULT 'AMC'");
                 AddColumn(conn, "AMCContracts", "Notes",        "NVARCHAR(MAX) NULL");
+                DbHelper.EnsureAMCSchema();
 
                 // Invoices
                 AddColumn(conn, "Invoices", "ClientID",   "INT NULL");
@@ -1014,6 +1017,7 @@ namespace HVAC_Pro_Desktop.DAL
                     LastUpdated      DATETIME NOT NULL DEFAULT GETDATE()
                 );");
                 AddColumn(conn, "StockItems", "ReservedStock", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "StockItems", "IsActive", "BIT NOT NULL DEFAULT 1");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='StockMovements')
                 CREATE TABLE StockMovements (
@@ -1426,6 +1430,7 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "Jobs", "ModifiedByName", "NVARCHAR(100) NULL");
                 AddColumn(conn, "Jobs", "ModifiedDate", "DATETIME NULL");
                 AddColumn(conn, "ClientSites", "TravelRateINR", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                EnsureOptionalSiteReferences(conn);
 
                 Exec(conn, @"UPDATE Jobs
                              SET JobTitle = ISNULL(NULLIF(JobTitle, ''), Title),
@@ -1454,6 +1459,11 @@ namespace HVAC_Pro_Desktop.DAL
                     CompletedDate DATETIME NULL,
                     SortOrder INT NOT NULL DEFAULT 0
                 );");
+                AddColumn(conn, "JobChecklistItems", "ItemText", "NVARCHAR(200) NOT NULL DEFAULT ''");
+                AddColumn(conn, "JobChecklistItems", "IsCompleted", "BIT NOT NULL DEFAULT 0");
+                AddColumn(conn, "JobChecklistItems", "CompletedBy", "NVARCHAR(100) NULL");
+                AddColumn(conn, "JobChecklistItems", "CompletedDate", "DATETIME NULL");
+                AddColumn(conn, "JobChecklistItems", "SortOrder", "INT NOT NULL DEFAULT 0");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='JobPartsUsed')
                 CREATE TABLE JobPartsUsed (
@@ -1468,6 +1478,14 @@ namespace HVAC_Pro_Desktop.DAL
                     IsFromInventory BIT NOT NULL DEFAULT 1,
                     StockStatus NVARCHAR(20) NULL
                 );");
+                AddColumn(conn, "JobPartsUsed", "InventoryItemId", "INT NULL");
+                AddColumn(conn, "JobPartsUsed", "ItemDescription", "NVARCHAR(255) NOT NULL DEFAULT ''");
+                AddColumn(conn, "JobPartsUsed", "QuantityUsed", "DECIMAL(10,3) NOT NULL DEFAULT 0");
+                AddColumn(conn, "JobPartsUsed", "Unit", "NVARCHAR(30) NOT NULL DEFAULT 'Nos'");
+                AddColumn(conn, "JobPartsUsed", "UnitCost", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "JobPartsUsed", "TotalCost", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "JobPartsUsed", "IsFromInventory", "BIT NOT NULL DEFAULT 1");
+                AddColumn(conn, "JobPartsUsed", "StockStatus", "NVARCHAR(20) NULL");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='JobActivityLog')
                 CREATE TABLE JobActivityLog (
@@ -1478,6 +1496,10 @@ namespace HVAC_Pro_Desktop.DAL
                     ActivityDate DATETIME NOT NULL DEFAULT GETDATE(),
                     ActivityType NVARCHAR(20) NOT NULL DEFAULT 'Info'
                 );");
+                AddColumn(conn, "JobActivityLog", "ActivityText", "NVARCHAR(500) NOT NULL DEFAULT ''");
+                AddColumn(conn, "JobActivityLog", "PerformedBy", "NVARCHAR(100) NULL");
+                AddColumn(conn, "JobActivityLog", "ActivityDate", "DATETIME NOT NULL DEFAULT GETDATE()");
+                AddColumn(conn, "JobActivityLog", "ActivityType", "NVARCHAR(20) NOT NULL DEFAULT 'Info'");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='JobChecklistTemplates')
                 CREATE TABLE JobChecklistTemplates (
@@ -1486,6 +1508,9 @@ namespace HVAC_Pro_Desktop.DAL
                     ItemText NVARCHAR(200) NOT NULL,
                     SortOrder INT NOT NULL DEFAULT 0
                 );");
+                AddColumn(conn, "JobChecklistTemplates", "JobType", "NVARCHAR(50) NOT NULL DEFAULT 'General'");
+                AddColumn(conn, "JobChecklistTemplates", "ItemText", "NVARCHAR(200) NOT NULL DEFAULT ''");
+                AddColumn(conn, "JobChecklistTemplates", "SortOrder", "INT NOT NULL DEFAULT 0");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='ServiceDeskIncidents')
                 CREATE TABLE ServiceDeskIncidents (
@@ -1747,6 +1772,8 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "Vendors", "DefaultCreditDays", "INT NOT NULL DEFAULT 30");
                 AddColumn(conn, "Vendors", "WhatsAppNumber", "NVARCHAR(20) NULL");
                 AddColumn(conn, "Vendors", "VendorType", "NVARCHAR(30) NULL DEFAULT 'Supplier'");
+                AddColumn(conn, "Vendors", "IsSupplier", "BIT NOT NULL DEFAULT 1");
+                AddColumn(conn, "Vendors", "IsServiceVendor", "BIT NOT NULL DEFAULT 0");
                 AddColumn(conn, "Vendors", "MSMERegistered", "NVARCHAR(20) NULL DEFAULT 'No'");
                 AddColumn(conn, "Vendors", "MSMENumber", "NVARCHAR(50) NULL");
                 AddColumn(conn, "Vendors", "GSTRegistrationType", "NVARCHAR(20) NULL DEFAULT 'Regular'");
@@ -1825,8 +1852,30 @@ namespace HVAC_Pro_Desktop.DAL
                     CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
                     IsBilled BIT NOT NULL DEFAULT 0
                 );");
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='SupplierItemPrices')
+                CREATE TABLE SupplierItemPrices (
+                    PriceID       INT PRIMARY KEY IDENTITY(1,1),
+                    VendorID      INT NOT NULL FOREIGN KEY REFERENCES Vendors(VendorID),
+                    ItemName      NVARCHAR(255) NOT NULL,
+                    Category      NVARCHAR(100) NULL,
+                    Unit          NVARCHAR(50) NULL,
+                    Rate          DECIMAL(12,2) NOT NULL DEFAULT 0,
+                    Source        NVARCHAR(100) NULL,
+                    EffectiveDate DATETIME NOT NULL DEFAULT GETDATE()
+                );");
                 Exec(conn, @"UPDATE Vendors SET DefaultCreditDays = 30 WHERE DefaultCreditDays IS NULL OR DefaultCreditDays <= 0;");
                 Exec(conn, @"UPDATE Vendors SET VendorType = 'Supplier' WHERE VendorType IS NULL OR LTRIM(RTRIM(VendorType)) = '';");
+                Exec(conn, @"
+                    UPDATE Vendors
+                    SET IsSupplier = 1
+                    WHERE VendorID IN (SELECT VendorID FROM PurchaseOrders)
+                       OR VendorID IN (SELECT VendorID FROM StockItems WHERE VendorID IS NOT NULL)
+                       OR VendorID IN (SELECT VendorID FROM SupplierItemPrices)
+                       OR VendorType IN ('Supplier', 'Distributor', 'Trader');");
+                Exec(conn, @"
+                    UPDATE Vendors
+                    SET IsServiceVendor = 1
+                    WHERE VendorType IN ('Vendor', 'Subcontractor', 'Labour', 'Service Provider');");
                 Exec(conn, @"UPDATE Vendors SET MSMERegistered = 'No' WHERE MSMERegistered IS NULL OR LTRIM(RTRIM(MSMERegistered)) = '';");
                 Exec(conn, @"UPDATE Vendors SET GSTRegistrationType = 'Regular' WHERE GSTRegistrationType IS NULL OR LTRIM(RTRIM(GSTRegistrationType)) = '';");
                 Exec(conn, @"UPDATE Vendors SET TDSRate = 0 WHERE TDSRate IS NULL;");
@@ -1851,39 +1900,44 @@ namespace HVAC_Pro_Desktop.DAL
                              LEFT JOIN Vendors v ON p.VendorID = v.VendorID
                              WHERE p.PayByDate IS NOT NULL
                                AND (YEAR(p.PayByDate) < 2020 OR YEAR(p.PayByDate) < YEAR(p.PODate) - 1);");
+                Exec(conn, @"IF OBJECT_ID('PurchaseOrders', 'U') IS NOT NULL
+                             UPDATE PurchaseOrders
+                             SET PaidAmount = TotalAmount
+                             WHERE ISNULL(Status,'') IN ('Fully Received','Received','Paid','Closed')
+                               AND ISNULL(PaidAmount,0) < ISNULL(TotalAmount,0);");
 
                 // StockItems â€” ensure LastUpdated column exists (may already be there as LastUpdated)
                 AddColumn(conn, "StockItems", "LastUpdated", "DATETIME NOT NULL DEFAULT GETDATE()");
-                AddColumn(conn, "TenderBids", "QuotationNumber", "NVARCHAR(50) NULL");
-                AddColumn(conn, "TenderBids", "ClientID", "INT NULL");
-                AddColumn(conn, "TenderBids", "SiteID", "INT NULL");
-                AddColumn(conn, "TenderBids", "RequirementCategory", "NVARCHAR(100) NULL");
-                AddColumn(conn, "TenderBids", "ItemName", "NVARCHAR(255) NULL");
-                AddColumn(conn, "TenderBids", "RequiredQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "Unit", "NVARCHAR(50) NULL");
-                AddColumn(conn, "TenderBids", "RequiredByDate", "DATETIME NULL");
-                AddColumn(conn, "TenderBids", "InventoryAvailable", "DECIMAL(10,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "ShortfallQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "EstimatedInternalRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "EstimatedSupplierRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "EstimatedInternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "EstimatedExternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "RecommendedVendorID", "INT NULL");
-                AddColumn(conn, "TenderBids", "ComparisonSummary", "NVARCHAR(MAX) NULL");
-                AddColumn(conn, "TenderBids", "AnalysisStatus", "NVARCHAR(100) NULL");
-                AddColumn(conn, "TenderBids", "IsMultiLine", "BIT NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "TotalTaxableValue", "DECIMAL(18,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "TotalGSTAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "TotalWithGST", "DECIMAL(18,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "AverageMarginPct", "DECIMAL(5,2) NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "TemplateId", "INT NULL");
-                AddColumn(conn, "TenderBids", "ClientPriceMemoryApplied", "BIT NOT NULL DEFAULT 0");
-                AddColumn(conn, "TenderBids", "SuggestionsJson", "NVARCHAR(MAX) NULL");
+                AddColumn(conn, "Quotations", "QuotationNumber", "NVARCHAR(50) NULL");
+                AddColumn(conn, "Quotations", "ClientID", "INT NULL");
+                AddColumn(conn, "Quotations", "SiteID", "INT NULL");
+                AddColumn(conn, "Quotations", "RequirementCategory", "NVARCHAR(100) NULL");
+                AddColumn(conn, "Quotations", "ItemName", "NVARCHAR(255) NULL");
+                AddColumn(conn, "Quotations", "RequiredQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "Unit", "NVARCHAR(50) NULL");
+                AddColumn(conn, "Quotations", "RequiredByDate", "DATETIME NULL");
+                AddColumn(conn, "Quotations", "InventoryAvailable", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "ShortfallQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "EstimatedInternalRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "EstimatedSupplierRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "EstimatedInternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "EstimatedExternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "RecommendedVendorID", "INT NULL");
+                AddColumn(conn, "Quotations", "ComparisonSummary", "NVARCHAR(MAX) NULL");
+                AddColumn(conn, "Quotations", "AnalysisStatus", "NVARCHAR(100) NULL");
+                AddColumn(conn, "Quotations", "IsMultiLine", "BIT NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "TotalTaxableValue", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "TotalGSTAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "TotalWithGST", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "AverageMarginPct", "DECIMAL(5,2) NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "TemplateId", "INT NULL");
+                AddColumn(conn, "Quotations", "ClientPriceMemoryApplied", "BIT NOT NULL DEFAULT 0");
+                AddColumn(conn, "Quotations", "SuggestionsJson", "NVARCHAR(MAX) NULL");
 
-                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='TenderBidLineItems')
-                CREATE TABLE TenderBidLineItems (
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='QuotationLineItems')
+                CREATE TABLE QuotationLineItems (
                     LineItemId        INT IDENTITY(1,1) PRIMARY KEY,
-                    TenderBidId       INT NOT NULL FOREIGN KEY REFERENCES TenderBids(BidID) ON DELETE CASCADE,
+                    TenderBidId       INT NOT NULL FOREIGN KEY REFERENCES Quotations(BidID) ON DELETE CASCADE,
                     SortOrder         INT NOT NULL DEFAULT 0,
                     Category          NVARCHAR(100) NULL,
                     InventoryItemId   INT NULL,
@@ -2138,7 +2192,7 @@ namespace HVAC_Pro_Desktop.DAL
                 Exec(conn, @"UPDATE t
                              SET t.ClientID = c.ClientID,
                                  t.ClientName = c.CompanyName
-                             FROM TenderBids t
+                             FROM Quotations t
                              JOIN B2BClients c ON t.ClientName = c.CompanyName
                              WHERE t.ClientID IS NULL;");
 
@@ -2158,9 +2212,12 @@ namespace HVAC_Pro_Desktop.DAL
 
                 EnsureAuthSchema(conn);
                 EnsureLicenseSchema(conn);
+                EnsureTallyIntegrationSchema(conn);
                 EnsureAuditMetadataColumns(conn);
                 SeedPayrollReferenceData(conn);
                 SeedSecurityData(conn);
+                ApplyPurchaseOrderFreshStartReset(conn);
+                ApplyDevelopmentTestDataCleanup(conn);
             }
         }
 
@@ -2172,7 +2229,7 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     InitialCatalog = database
                 };
-                return builder.ConnectionString;
+                return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
             }
 
             return BuildConnectionString(_resolvedServer, database);
@@ -2183,13 +2240,14 @@ namespace HVAC_Pro_Desktop.DAL
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(_connectionString))
+                using (SqlConnection conn = GetConnection())
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.IsNormalStartupReady");
                     string[] requiredTables =
                     {
                         "B2BClients", "ClientSites", "AMCContracts", "Vendors", "PurchaseOrders",
-                        "StockItems", "Employees", "Jobs", "InvoiceTemplates", "SupplierItemPrices",
+                        "StockItems", "Employees", "Jobs", "JobChecklistItems", "JobPartsUsed",
+                        "JobActivityLog", "JobChecklistTemplates", "InvoiceTemplates", "SupplierItemPrices",
                         "RolePermissions", "AppUsers", "ClientAssets", "ClientDocuments",
                         "ServiceRateCards", "PrivateServerConnections", "DataImportBatches", "DataImportErrors",
                         "LicenseState", "LicenseEvents", "ActivatedDevices", "FeatureEntitlements"
@@ -2209,9 +2267,9 @@ namespace HVAC_Pro_Desktop.DAL
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(_connectionString))
+                using (SqlConnection conn = GetConnection())
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.IsSampleDataReady");
                     return IsSampleDataReady(conn);
                 }
             }
@@ -2249,6 +2307,16 @@ THEN 1 ELSE 0 END";
 SELECT CASE WHEN
     (SELECT COUNT(DISTINCT name) FROM sys.tables WHERE name IN (" + tableNames + @")) = " + requiredTables.Length + @"
     AND EXISTS (SELECT 1 FROM RolePermissions WHERE ModuleKey = N'MasterData')
+    AND COL_LENGTH('Jobs', 'JobTitle') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'PipelineStatus') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'QuotedRevenue') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'ActualRevenue') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'ClosedDate') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'InvoiceId') IS NOT NULL
+    AND COL_LENGTH('ClientSites', 'TravelRateINR') IS NOT NULL
+    AND COL_LENGTH('JobChecklistItems', 'CompletedBy') IS NOT NULL
+    AND COL_LENGTH('JobPartsUsed', 'TotalCost') IS NOT NULL
+    AND COL_LENGTH('JobActivityLog', 'ActivityType') IS NOT NULL
     AND EXISTS (SELECT 1 FROM AppUsers)
 THEN 1 ELSE 0 END";
                 return ExecuteReadyScalar(conn, tenantReadySql);
@@ -2258,6 +2326,16 @@ THEN 1 ELSE 0 END";
 SELECT CASE WHEN
     (SELECT COUNT(DISTINCT name) FROM sys.tables WHERE name IN (" + tableNames + @")) = " + requiredTables.Length + @"
     AND EXISTS (SELECT 1 FROM RolePermissions WHERE ModuleKey = N'MasterData')
+    AND COL_LENGTH('Jobs', 'JobTitle') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'PipelineStatus') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'QuotedRevenue') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'ActualRevenue') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'ClosedDate') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'InvoiceId') IS NOT NULL
+    AND COL_LENGTH('ClientSites', 'TravelRateINR') IS NOT NULL
+    AND COL_LENGTH('JobChecklistItems', 'CompletedBy') IS NOT NULL
+    AND COL_LENGTH('JobPartsUsed', 'TotalCost') IS NOT NULL
+    AND COL_LENGTH('JobActivityLog', 'ActivityType') IS NOT NULL
     AND (SELECT COUNT_BIG(1) FROM B2BClients) > 0
     AND (SELECT COUNT_BIG(1) FROM ClientSites) > 0
     AND (SELECT COUNT_BIG(1) FROM AMCContracts) > 0
@@ -2286,9 +2364,9 @@ THEN 1 ELSE 0 END";
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(_connectionString))
+                using (SqlConnection conn = GetConnection())
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.EnsureOperationalSeedData");
 
                     if (GetTableCount(conn, "InvoiceTemplates") == 0)
                         SeedInvoiceTemplateData(conn);
@@ -2305,9 +2383,9 @@ THEN 1 ELSE 0 END";
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(_connectionString))
+                using (SqlConnection conn = GetConnection())
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "DatabaseManager.InsertSampleData");
 
                     if (NeedsCoreSeedReset(conn))
                     {
@@ -2588,14 +2666,26 @@ THEN 1 ELSE 0 END";
                 ? $"Excel 8.0;HDR={(hdr ? "YES" : "NO")};IMEX=1"
                 : $"Excel 12.0 Xml;HDR={(hdr ? "YES" : "NO")};IMEX=1";
 
-            using (OleDbConnection conn = new OleDbConnection($"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={path};Extended Properties='{extProps}';"))
-            using (OleDbDataAdapter adapter = new OleDbDataAdapter($"SELECT {(topRows > 0 ? $"TOP {topRows} " : "")}* FROM [{sheetName}]", conn))
+            var builder = new OleDbConnectionStringBuilder
+            {
+                Provider = "Microsoft.ACE.OLEDB.12.0",
+                DataSource = path
+            };
+            builder["Extended Properties"] = extProps;
+
+            using (OleDbConnection conn = new OleDbConnection(builder.ConnectionString))
+            using (OleDbDataAdapter adapter = new OleDbDataAdapter("SELECT " + (topRows > 0 ? "TOP " + topRows + " " : string.Empty) + "* FROM [" + EscapeSheetIdentifier(sheetName) + "]", conn))
             {
                 var table = new DataTable();
                 conn.Open();
                 adapter.Fill(table);
                 return table;
             }
+        }
+
+        private static string EscapeSheetIdentifier(string sheetName)
+        {
+            return (sheetName ?? string.Empty).Replace("]", "]]");
         }
 
         private int EnsureVendor(SqlConnection conn, string vendorName, string gstNumber)
@@ -2605,17 +2695,35 @@ THEN 1 ELSE 0 END";
                 find.Parameters.AddWithValue("@VendorName", vendorName);
                 object existing = find.ExecuteScalar();
                 if (existing != null && existing != DBNull.Value)
-                    return Convert.ToInt32(existing);
+                {
+                    int existingId = Convert.ToInt32(existing);
+                    MarkVendorAsSupplier(conn, existingId);
+                    return existingId;
+                }
             }
 
             using (SqlCommand insert = new SqlCommand(@"
-                INSERT INTO Vendors (VendorName, GSTNumber, PANNumber, Phone, Email, Address, City, Category, IsActive)
-                VALUES (@VendorName, @GSTNumber, NULL, NULL, NULL, NULL, NULL, NULL, 1);
+                INSERT INTO Vendors (VendorName, GSTNumber, PANNumber, Phone, Email, Address, City, Category, VendorType, IsSupplier, IsServiceVendor, IsActive)
+                VALUES (@VendorName, @GSTNumber, NULL, NULL, NULL, NULL, NULL, NULL, N'Supplier', 1, 0, 1);
                 SELECT SCOPE_IDENTITY();", conn))
             {
                 insert.Parameters.AddWithValue("@VendorName", vendorName);
                 insert.Parameters.AddWithValue("@GSTNumber", NullIfEmpty(gstNumber));
                 return Convert.ToInt32(insert.ExecuteScalar());
+            }
+        }
+
+        /// <summary>Marks an existing business partner as a supplier when purchase or material evidence is found.</summary>
+        private void MarkVendorAsSupplier(SqlConnection conn, int vendorId)
+        {
+            using (SqlCommand update = new SqlCommand(@"
+                UPDATE Vendors
+                SET IsSupplier = 1,
+                    VendorType = CASE WHEN VendorType IS NULL OR LTRIM(RTRIM(VendorType)) = '' THEN N'Supplier' ELSE VendorType END
+                WHERE VendorID = @VendorID;", conn))
+            {
+                update.Parameters.AddWithValue("@VendorID", vendorId);
+                update.ExecuteNonQuery();
             }
         }
 
@@ -2809,23 +2917,29 @@ THEN 1 ELSE 0 END";
         private void SeedVendors(SqlConnection conn)
         {
             Exec(conn, @"
-                INSERT INTO Vendors (VendorName, GSTNumber, DefaultCreditDays, PANNumber, Phone, Email, Address, City, IsActive)
+                INSERT INTO Vendors (VendorName, GSTNumber, DefaultCreditDays, PANNumber, Phone, Email, Address, City, Category, VendorType, IsSupplier, IsServiceVendor, IsActive)
                 VALUES
-                    (N'H.K. Enterprises', N'27AAAFH1101K1ZV', 30, NULL, N'022-23010001', N'sales@hkenterprises.example', N'Masjid Bunder, Mumbai', N'Mumbai', 1),
-                    (N'Bharat Sales Thane', N'27ACIPC0819M1ZL', 21, N'ACIPC0819M', N'9322383025', N'bharatsalesharesh77@gmail.com', N'Naupada, Thane', N'Thane', 1),
-                    (N'Infinity HVAC Spares & Tools Pvt. Ltd', N'27AACCI1314A1ZD', 45, N'AACCI1314A', N'9223521333', N'enquiry@ihvac.in', N'Dadar East, Mumbai', N'Mumbai', 1),
-                    (N'Anand Sales', N'27AJDPA3014A2Z8', 30, NULL, N'9823556677', N'anand.sales@gmail.com', N'Bhandup, Mumbai', N'Mumbai', 1),
-                    (N'Climate Engineering Company', N'27AAEFC5505D1Z5', 30, NULL, N'9824667788', N'info@climateengg.example', N'MIDC, Navi Mumbai', N'Navi Mumbai', 1),
-                    (N'Clicon Solution', N'27AIQPB1553M1Z0', 30, N'AIQPB1553M', N'9423584795', N'pdbathe@gmail.com', N'Dhankawdi, Pune', N'Pune', 1),
-                    (N'K.K. Trading Company', N'27AAMPM3809P1Z1', 15, NULL, N'9826889900', N'kktrading@example.com', N'MIDC Thane', N'Thane', 1),
-                    (N'India Trading Company', N'27AABFI1006M1ZM', 30, N'AABFI1006M', N'7021056934', N'ravindrapathak66@gmail.com', N'Matunga West, Mumbai', N'Mumbai', 1),
-                    (N'Hari Om Refrigeration Co.', N'27AAAPL3157D1Z2', 30, N'AAAPL3157D', N'9870325648', N'sales@hariomrefrigeration.com', N'Mulund West, Mumbai', N'Mumbai', 1),
-                    (N'Flowair Engineer', N'27AAFHF1010T1Z1', 20, NULL, N'9987040833', N'service@flowair.example', N'Rabale, Navi Mumbai', N'Navi Mumbai', 1),
-                    (N'Uni-Chem Services', N'27AOHPP3810L1ZP', 30, N'AOHPP3810L', N'9833269232', N'unichem.services@yahoo.com', N'LBS Marg, Thane', N'Thane', 1),
-                    (N'Airconditioning Spares Centre', N'27AABFA2809E1ZY', 30, N'AABFA2809E', N'7045966616', N'sales@accentre.in', N'Andheri East, Mumbai', N'Mumbai', 1),
-                    (N'Shraddha Sales', N'27AAFHS1313N1ZT', 30, NULL, N'9832445566', N'shraddha@example.com', N'Borivali, Mumbai', N'Mumbai', 1),
-                    (N'Divya Solutions', N'27AAFHD1414G1ZQ', 30, NULL, N'9833556677', N'ops@divyasolutions.example', N'Malad, Mumbai', N'Mumbai', 1),
-                    (N'Beardsell Limited', N'27AAACB1429P1ZJ', 45, N'AAACB1429P', N'8369362672', N'thane@beardsell.co.in', N'Kanara Business Centre, Mumbai', N'Mumbai', 1);
+                    (N'H.K. Enterprises', N'27AAAFH1101K1ZV', 30, NULL, N'022-23010001', N'sales@hkenterprises.example', N'Masjid Bunder, Mumbai', N'Mumbai', N'HVAC materials', N'Supplier', 1, 0, 1),
+                    (N'Bharat Sales Thane', N'27ACIPC0819M1ZL', 21, N'ACIPC0819M', N'9322383025', N'bharatsalesharesh77@gmail.com', N'Naupada, Thane', N'Thane', N'Electrical parts', N'Supplier', 1, 0, 1),
+                    (N'Infinity HVAC Spares & Tools Pvt. Ltd', N'27AACCI1314A1ZD', 45, N'AACCI1314A', N'9223521333', N'enquiry@ihvac.in', N'Dadar East, Mumbai', N'Mumbai', N'HVAC spares', N'Supplier', 1, 0, 1),
+                    (N'Anand Sales', N'27AJDPA3014A2Z8', 30, NULL, N'9823556677', N'anand.sales@gmail.com', N'Bhandup, Mumbai', N'Mumbai', N'Consumables', N'Supplier', 1, 0, 1),
+                    (N'Climate Engineering Company', N'27AAEFC5505D1Z5', 30, NULL, N'9824667788', N'info@climateengg.example', N'MIDC, Navi Mumbai', N'Navi Mumbai', N'Filters and belts', N'Supplier', 1, 0, 1),
+                    (N'Clicon Solution', N'27AIQPB1553M1Z0', 30, N'AIQPB1553M', N'9423584795', N'pdbathe@gmail.com', N'Dhankawdi, Pune', N'Pune', N'Controls spares', N'Supplier', 1, 0, 1),
+                    (N'K.K. Trading Company', N'27AAMPM3809P1Z1', 15, NULL, N'9826889900', N'kktrading@example.com', N'MIDC Thane', N'Thane', N'HVAC materials', N'Supplier', 1, 0, 1),
+                    (N'India Trading Company', N'27AABFI1006M1ZM', 30, N'AABFI1006M', N'7021056934', N'ravindrapathak66@gmail.com', N'Matunga West, Mumbai', N'Mumbai', N'Industrial parts', N'Supplier', 1, 0, 1),
+                    (N'Hari Om Refrigeration Co.', N'27AAAPL3157D1Z2', 30, N'AAAPL3157D', N'9870325648', N'sales@hariomrefrigeration.com', N'Mulund West, Mumbai', N'Mumbai', N'Refrigeration spares', N'Supplier', 1, 0, 1),
+                    (N'Flowair Engineer', N'27AAFHF1010T1Z1', 20, NULL, N'9987040833', N'service@flowair.example', N'Rabale, Navi Mumbai', N'Navi Mumbai', N'Valves and tools', N'Supplier', 1, 0, 1),
+                    (N'Uni-Chem Services', N'27AOHPP3810L1ZP', 30, N'AOHPP3810L', N'9833269232', N'unichem.services@yahoo.com', N'LBS Marg, Thane', N'Thane', N'Chemicals and cleaning material', N'Supplier', 1, 0, 1),
+                    (N'Airconditioning Spares Centre', N'27AABFA2809E1ZY', 30, N'AABFA2809E', N'7045966616', N'sales@accentre.in', N'Andheri East, Mumbai', N'Mumbai', N'AC spares', N'Supplier', 1, 0, 1),
+                    (N'Shraddha Sales', N'27AAFHS1313N1ZT', 30, NULL, N'9832445566', N'shraddha@example.com', N'Borivali, Mumbai', N'Mumbai', N'General HVAC spares', N'Supplier', 1, 0, 1),
+                    (N'Divya Solutions', N'27AAFHD1414G1ZQ', 30, NULL, N'9833556677', N'ops@divyasolutions.example', N'Malad, Mumbai', N'Mumbai', N'HVAC products', N'Supplier', 1, 0, 1),
+                    (N'Beardsell Limited', N'27AAACB1429P1ZJ', 45, N'AAACB1429P', N'8369362672', N'thane@beardsell.co.in', N'Kanara Business Centre, Mumbai', N'Mumbai', N'Insulation products', N'Supplier', 1, 0, 1),
+                    (N'ABC HVAC Parts', NULL, 30, NULL, N'9820001101', N'sales@abchvacparts.example', N'Wagle Estate, Thane', N'Thane', N'AC spare parts supplier', N'Supplier', 1, 0, 1),
+                    (N'CoolAir Spares', NULL, 30, NULL, N'9820001102', N'orders@coolairspares.example', N'Chakan MIDC, Pune', N'Pune', N'Refrigerant and AC spares', N'Supplier', 1, 0, 1),
+                    (N'CopperLine Traders', NULL, 21, NULL, N'9820001103', N'sales@copperline.example', N'MIDC Ambad, Nashik', N'Nashik', N'Copper pipe and fittings', N'Supplier', 1, 0, 1),
+                    (N'Fast Cooling Services', NULL, 15, NULL, N'9820001201', N'ops@fastcooling.example', N'Ghodbunder Road, Thane', N'Thane', N'Freelance technician support', N'Service Provider', 0, 1, 1),
+                    (N'City Duct Cleaning', NULL, 15, NULL, N'9820001202', N'jobs@cityductcleaning.example', N'Andheri East, Mumbai', N'Mumbai', N'Duct cleaning contractor', N'Subcontractor', 0, 1, 1),
+                    (N'Lift & Crane Support', NULL, 7, NULL, N'9820001203', N'bookings@liftcrane.example', N'Taloja MIDC, Navi Mumbai', N'Navi Mumbai', N'Crane rental and lifting support', N'Service Provider', 0, 1, 1);
             ");
         }
 
@@ -3133,12 +3247,16 @@ THEN 1 ELSE 0 END";
                 find.Parameters.AddWithValue("@VendorName", ClientPurchaseArchiveVendorName);
                 object existing = find.ExecuteScalar();
                 if (existing != null && existing != DBNull.Value)
-                    return Convert.ToInt32(existing);
+                {
+                    int existingId = Convert.ToInt32(existing);
+                    MarkVendorAsSupplier(conn, existingId);
+                    return existingId;
+                }
             }
 
             using (SqlCommand insert = new SqlCommand(@"
-                INSERT INTO Vendors (VendorName, GSTNumber, DefaultCreditDays, PANNumber, Phone, Email, Address, City, Category, IsActive)
-                VALUES (@VendorName, NULL, 30, NULL, NULL, NULL, @Address, @City, @Category, 1);
+                INSERT INTO Vendors (VendorName, GSTNumber, DefaultCreditDays, PANNumber, Phone, Email, Address, City, Category, VendorType, IsSupplier, IsServiceVendor, IsActive)
+                VALUES (@VendorName, NULL, 30, NULL, NULL, NULL, @Address, @City, @Category, N'Supplier', 1, 0, 1);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);", conn))
             {
                 insert.Parameters.AddWithValue("@VendorName", ClientPurchaseArchiveVendorName);
@@ -3448,7 +3566,7 @@ THEN 1 ELSE 0 END";
         {
             string[] tables =
             {
-                "TenderBids",
+                "Quotations",
                 "Invoices",
                 "PurchaseOrders",
                 "AMCContracts",
@@ -3465,6 +3583,113 @@ THEN 1 ELSE 0 END";
                 AddColumn(conn, table, "ModifiedByName", "NVARCHAR(100) NULL");
                 AddColumn(conn, table, "ModifiedDate", "DATETIME NULL");
             }
+        }
+
+        private void EnsureTallyIntegrationSchema(SqlConnection conn)
+        {
+            AddColumn(conn, "B2BClients", "TallyLedgerName", "NVARCHAR(255) NULL");
+            AddColumn(conn, "B2BClients", "TallyMasterId", "INT NULL");
+            AddColumn(conn, "B2BClients", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "B2BClients", "TallySyncStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "B2BClients", "TallyLastSyncedAt", "DATETIME NULL");
+            AddColumn(conn, "B2BClients", "TallySyncError", "NVARCHAR(1000) NULL");
+
+            AddColumn(conn, "Vendors", "TallyLedgerName", "NVARCHAR(255) NULL");
+            AddColumn(conn, "Vendors", "TallyMasterId", "INT NULL");
+            AddColumn(conn, "Vendors", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "Vendors", "TallySyncStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "Vendors", "TallyLastSyncedAt", "DATETIME NULL");
+            AddColumn(conn, "Vendors", "TallySyncError", "NVARCHAR(1000) NULL");
+
+            AddColumn(conn, "StockItems", "HSNCode", "NVARCHAR(20) NULL");
+            AddColumn(conn, "StockItems", "TallyItemName", "NVARCHAR(255) NULL");
+            AddColumn(conn, "StockItems", "TallyMasterId", "INT NULL");
+            AddColumn(conn, "StockItems", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "StockItems", "TallyUnitName", "NVARCHAR(50) NULL");
+            AddColumn(conn, "StockItems", "TallyStockGroupName", "NVARCHAR(100) NULL");
+            AddColumn(conn, "StockItems", "TallyGodownName", "NVARCHAR(100) NULL");
+            AddColumn(conn, "StockItems", "TallySyncStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "StockItems", "TallyLastSyncedAt", "DATETIME NULL");
+            AddColumn(conn, "StockItems", "TallySyncError", "NVARCHAR(1000) NULL");
+
+            AddColumn(conn, "Invoices", "TallyVoucherId", "INT NULL");
+            AddColumn(conn, "Invoices", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "Invoices", "TallyExportStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "Invoices", "TallyExportedAt", "DATETIME NULL");
+            AddColumn(conn, "Invoices", "TallyExportError", "NVARCHAR(1000) NULL");
+
+            AddColumn(conn, "Payments", "TallyVoucherId", "INT NULL");
+            AddColumn(conn, "Payments", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "Payments", "TallyExportStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "Payments", "TallyExportedAt", "DATETIME NULL");
+            AddColumn(conn, "Payments", "TallyExportError", "NVARCHAR(1000) NULL");
+
+            AddColumn(conn, "PurchaseOrders", "TallyVoucherId", "INT NULL");
+            AddColumn(conn, "PurchaseOrders", "TallyGuid", "NVARCHAR(100) NULL");
+            AddColumn(conn, "PurchaseOrders", "TallyExportStatus", "NVARCHAR(30) NULL");
+            AddColumn(conn, "PurchaseOrders", "TallyExportedAt", "DATETIME NULL");
+            AddColumn(conn, "PurchaseOrders", "TallyExportError", "NVARCHAR(1000) NULL");
+
+            Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='TallyLedgerMappings')
+            CREATE TABLE TallyLedgerMappings (
+                MappingID INT IDENTITY(1,1) PRIMARY KEY,
+                MappingType NVARCHAR(50) NOT NULL,
+                ServoKey NVARCHAR(100) NULL,
+                TallyLedgerName NVARCHAR(255) NOT NULL,
+                TallyMasterId INT NULL,
+                IsDefault BIT NOT NULL DEFAULT 0,
+                UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+            );");
+
+            Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='TallyImportBatches')
+            CREATE TABLE TallyImportBatches (
+                ImportBatchID INT IDENTITY(1,1) PRIMARY KEY,
+                ImportType NVARCHAR(50) NOT NULL,
+                SourceMode NVARCHAR(30) NOT NULL,
+                StartedAt DATETIME NOT NULL DEFAULT GETDATE(),
+                CompletedAt DATETIME NULL,
+                CreatedCount INT NOT NULL DEFAULT 0,
+                UpdatedCount INT NOT NULL DEFAULT 0,
+                SkippedCount INT NOT NULL DEFAULT 0,
+                ErrorCount INT NOT NULL DEFAULT 0
+            );");
+
+            Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='TallySyncLog')
+            CREATE TABLE TallySyncLog (
+                SyncLogID INT IDENTITY(1,1) PRIMARY KEY,
+                Direction NVARCHAR(20) NOT NULL,
+                EntityType NVARCHAR(50) NOT NULL,
+                EntityID INT NULL,
+                Operation NVARCHAR(50) NOT NULL,
+                Status NVARCHAR(30) NOT NULL,
+                Message NVARCHAR(1000) NULL,
+                LocalXmlPath NVARCHAR(500) NULL,
+                RawResponse NVARCHAR(MAX) NULL,
+                CreatedAt DATETIME NOT NULL DEFAULT GETDATE()
+            );");
+
+            Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'Sales' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('Sales', NULL, 'Sales', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'Purchase' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('Purchase', NULL, 'Purchase', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'CGSTOutput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('CGSTOutput', NULL, 'Output CGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'SGSTOutput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('SGSTOutput', NULL, 'Output SGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'IGSTOutput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('IGSTOutput', NULL, 'Output IGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'CGSTInput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('CGSTInput', NULL, 'Input CGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'SGSTInput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('SGSTInput', NULL, 'Input SGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'IGSTInput' AND IsDefault = 1)
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('IGSTInput', NULL, 'Input IGST', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'PaymentMode' AND ServoKey = 'Cash')
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('PaymentMode', 'Cash', 'Cash', 0);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'PaymentMode' AND ServoKey = 'Bank Transfer')
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('PaymentMode', 'Bank Transfer', 'Bank', 1);
+            IF NOT EXISTS (SELECT 1 FROM TallyLedgerMappings WHERE MappingType = 'PaymentMode' AND ServoKey = 'UPI')
+                INSERT INTO TallyLedgerMappings (MappingType, ServoKey, TallyLedgerName, IsDefault) VALUES ('PaymentMode', 'UPI', 'UPI Collections', 0);");
         }
 
         private void EnsureLicenseSchema(SqlConnection conn)
@@ -3566,60 +3791,31 @@ THEN 1 ELSE 0 END";
                 IF NOT EXISTS (SELECT 1 FROM AppRoles WHERE RoleName = 'Accounts')
                     INSERT INTO AppRoles (RoleName, Description) VALUES ('Accounts', 'Legacy finance role; use Accountant for new users');
                 IF NOT EXISTS (SELECT 1 FROM AppRoles WHERE RoleName = 'Supervisor')
-                    INSERT INTO AppRoles (RoleName, Description) VALUES ('Supervisor', 'Legacy field role; use Dispatcher or Technician for new users');
-                IF NOT EXISTS (SELECT 1 FROM AppRoles WHERE RoleName = 'Viewer')
-                    INSERT INTO AppRoles (RoleName, Description) VALUES ('Viewer', 'Read-only access');");
+                    INSERT INTO AppRoles (RoleName, Description) VALUES ('Supervisor', 'Legacy field role; use Dispatcher or Technician for new users');");
 
             using (SqlCommand clear = new SqlCommand("DELETE FROM RolePermissions WHERE RoleId IN (SELECT RoleId FROM AppRoles)", conn))
                 clear.ExecuteNonQuery();
 
             int adminId = GetRoleId(conn, "Admin");
-            int accountantId = GetRoleId(conn, "Accountant");
-            int dispatcherId = GetRoleId(conn, "Dispatcher");
-            int technicianId = GetRoleId(conn, "Technician");
-            int managerId = GetRoleId(conn, "Manager");
-            int accountsId = GetRoleId(conn, "Accounts");
-            int supervisorId = GetRoleId(conn, "Supervisor");
-            int viewerId = GetRoleId(conn, "Viewer");
             string[] modules =
             {
                 "Dashboard", "Quotations", "Invoices", "Payments", "Contracts", "Employees", "Inventory",
                 "Purchases", "Vendors", "Clients", "Reports", "Settings", "WorkOrders", "ServiceDesk", "GeoIntelligence", "Payroll", "MasterData"
             };
 
-            foreach (string module in modules)
-                InsertPermission(conn, adminId, module, true, true, true, true);
+            List<int> roleIds = new List<int>();
+            using (SqlCommand roleCommand = new SqlCommand("SELECT RoleId FROM AppRoles", conn))
+            using (SqlDataReader reader = roleCommand.ExecuteReader())
+            {
+                while (reader.Read())
+                    roleIds.Add(Convert.ToInt32(reader["RoleId"]));
+            }
 
-            InsertPermission(conn, accountantId, "Dashboard", true, false, false, false);
-            foreach (string module in new[] { "Invoices", "Payments", "Purchases", "Vendors", "Clients", "Contracts", "Reports", "Payroll", "MasterData" })
-                InsertPermission(conn, accountantId, module, true, true, true, false);
-            InsertPermission(conn, accountantId, "Inventory", true, false, false, false);
-
-            InsertPermission(conn, dispatcherId, "Dashboard", true, false, false, false);
-            foreach (string module in new[] { "WorkOrders", "ServiceDesk", "Clients" })
-                InsertPermission(conn, dispatcherId, module, true, true, true, false);
-            foreach (string module in new[] { "GeoIntelligence", "Employees", "Reports", "MasterData" })
-                InsertPermission(conn, dispatcherId, module, true, false, false, false);
-            InsertPermission(conn, dispatcherId, "Inventory", true, false, false, false);
-
-            InsertPermission(conn, technicianId, "Dashboard", true, false, false, false);
-            foreach (string module in new[] { "WorkOrders", "ServiceDesk" })
-                InsertPermission(conn, technicianId, module, true, false, true, false);
-            foreach (string module in new[] { "Clients", "GeoIntelligence", "Inventory", "Reports", "MasterData" })
-                InsertPermission(conn, technicianId, module, true, false, false, false);
-
-            foreach (string module in modules.Where(m => !string.Equals(m, "Settings", StringComparison.OrdinalIgnoreCase)))
-                InsertPermission(conn, managerId, module, true, true, true, false);
-
-            foreach (string module in new[] { "Dashboard", "Invoices", "Payments", "Purchases", "Vendors", "Clients", "Reports", "MasterData" })
-                InsertPermission(conn, accountsId, module, true, true, true, false);
-
-            foreach (string module in new[] { "Dashboard", "Contracts", "WorkOrders", "ServiceDesk", "Clients", "GeoIntelligence", "MasterData" })
-                InsertPermission(conn, supervisorId, module, true, true, true, false);
-            InsertPermission(conn, supervisorId, "Inventory", true, false, false, false);
-
-            foreach (string module in modules.Where(m => !string.Equals(m, "Employees", StringComparison.OrdinalIgnoreCase) && !string.Equals(m, "Settings", StringComparison.OrdinalIgnoreCase)))
-                InsertPermission(conn, viewerId, module, true, false, false, false);
+            foreach (int roleId in roleIds)
+            {
+                foreach (string module in modules)
+                    InsertPermission(conn, roleId, module, true, true, true, true);
+            }
 
             using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM AppUsers", conn))
             {
@@ -3710,6 +3906,220 @@ THEN 1 ELSE 0 END";
             }
         }
 
+        /// <summary>Runs the one-time client purchase-order reset introduced for the Madhusuman fresh-start update.</summary>
+        private void ApplyPurchaseOrderFreshStartReset(SqlConnection conn)
+        {
+            const string resetKey = "PurchaseOrderFreshStartReset_1_0_114_0";
+
+            if (HasSettingValue(conn, resetKey, "1"))
+                return;
+
+            List<string> purchaseOrderPdfPaths = GetPurchaseOrderPdfPaths(conn);
+
+            Exec(conn, @"
+                IF OBJECT_ID('dbo.PendingCharges', 'U') IS NOT NULL DELETE FROM PendingCharges;
+                IF OBJECT_ID('dbo.VendorAdvancePayments', 'U') IS NOT NULL UPDATE VendorAdvancePayments SET POID = NULL WHERE POID IS NOT NULL;
+                IF OBJECT_ID('dbo.PurchaseLineItems', 'U') IS NOT NULL DELETE FROM PurchaseLineItems;
+                IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL DELETE FROM PurchaseOrders;
+                IF OBJECT_ID('dbo.Vendors', 'U') IS NOT NULL UPDATE Vendors SET TotalPurchased = 0;");
+
+            DeletePurchaseOrderFiles(purchaseOrderPdfPaths);
+            DeletePurchaseOrderFolderContents(@"C:\HVAC_PRO_MSE\RECEIPTS");
+            DeletePurchaseOrderFolderContents(@"C:\HVAC_PRO_MSE\DATABASE\Purchase Order AMC");
+
+            UpsertSetting(conn, resetKey, "1");
+            UpsertSetting(conn, "PurchaseOrderFreshStartResetAppliedOn", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Removes known development/demo records that must not appear in live client databases.</summary>
+        private void ApplyDevelopmentTestDataCleanup(SqlConnection conn)
+        {
+            const string cleanupKey = "DevelopmentTestDataCleanup_1_0_117_0";
+
+            if (HasSettingValue(conn, cleanupKey, "1"))
+                return;
+
+            Exec(conn, @"
+                IF OBJECT_ID('dbo.SupplierItemPrices', 'U') IS NOT NULL
+                BEGIN
+                    DELETE sip
+                    FROM SupplierItemPrices sip
+                    INNER JOIN Vendors v ON v.VendorID = sip.VendorID
+                    WHERE v.VendorName IN (
+                        N'H.K. Enterprises',
+                        N'Infinity HVAC Spares & Tools Pvt. Ltd',
+                        N'Infinity Hvac Spares & Tools Pvt. Ltd',
+                        N'Climate Engineering Company',
+                        N'Bharat Sales Thane',
+                        N'Flowair Engineer',
+                        N'Client AMC PO Archive'
+                    );
+                END;
+
+                IF OBJECT_ID('dbo.Vendors', 'U') IS NOT NULL
+                BEGIN
+                    DELETE FROM Vendors
+                    WHERE VendorName IN (
+                        N'H.K. Enterprises',
+                        N'Infinity HVAC Spares & Tools Pvt. Ltd',
+                        N'Infinity Hvac Spares & Tools Pvt. Ltd',
+                        N'Climate Engineering Company',
+                        N'Bharat Sales Thane',
+                        N'Flowair Engineer',
+                        N'Client AMC PO Archive'
+                    );
+                END;
+
+                IF OBJECT_ID('dbo.QuotationLineItems', 'U') IS NOT NULL
+                BEGIN
+                    DELETE li
+                    FROM QuotationLineItems li
+                    INNER JOIN Quotations t ON t.BidID = li.TenderBidId
+                    WHERE ISNULL(t.TenderName, '') LIKE '%Demo%'
+                       OR ISNULL(t.TenderName, '') LIKE '%Test%';
+                END;
+
+                IF OBJECT_ID('dbo.Quotations', 'U') IS NOT NULL
+                BEGIN
+                    DELETE FROM Quotations
+                    WHERE ISNULL(TenderName, '') LIKE '%Demo%'
+                       OR ISNULL(TenderName, '') LIKE '%Test%';
+                END;");
+
+            UpsertSetting(conn, cleanupKey, "1");
+            UpsertSetting(conn, "DevelopmentTestDataCleanupAppliedOn", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture));
+        }
+
+        /// <summary>Checks whether a CompanySettings value already matches the expected marker.</summary>
+        private bool HasSettingValue(SqlConnection conn, string key, string expectedValue)
+        {
+            using (SqlCommand cmd = new SqlCommand("SELECT SettingValue FROM CompanySettings WHERE SettingKey = @key;", conn))
+            {
+                cmd.Parameters.AddWithValue("@key", key ?? string.Empty);
+                object value = cmd.ExecuteScalar();
+                return value != null
+                    && value != DBNull.Value
+                    && string.Equals(Convert.ToString(value), expectedValue, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>Collects stored or archived purchase-order PDF paths before the old PO rows are deleted.</summary>
+        private List<string> GetPurchaseOrderPdfPaths(SqlConnection conn)
+        {
+            var paths = new List<string>();
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL
+                    SELECT ReceiptImagePath, Notes FROM PurchaseOrders;", conn))
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    AddPurchaseOrderPdfPath(paths, reader["ReceiptImagePath"] as string);
+                    AddPurchaseOrderPdfPath(paths, ExtractPurchaseOrderSourcePath(reader["Notes"] as string));
+                }
+            }
+
+            return paths
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        /// <summary>Adds a purchase-order PDF path when it is safe for this migration to remove.</summary>
+        private void AddPurchaseOrderPdfPath(List<string> paths, string path)
+        {
+            if (paths == null || string.IsNullOrWhiteSpace(path))
+                return;
+
+            string cleaned = path.Trim().Trim('"');
+            if (!string.Equals(Path.GetExtension(cleaned), ".pdf", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (IsSafePurchaseOrderDeletePath(cleaned))
+                paths.Add(cleaned);
+        }
+
+        /// <summary>Extracts the archived source PDF path stored inside imported purchase-order notes.</summary>
+        private string ExtractPurchaseOrderSourcePath(string notes)
+        {
+            if (string.IsNullOrWhiteSpace(notes))
+                return null;
+
+            Match match = Regex.Match(notes, @"Source\s+Path:\s*(?<path>.+?)(\s+\|\s+|$)", RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups["path"].Value.Trim() : null;
+        }
+
+        /// <summary>Returns true for ServoERP-owned PO file locations only.</summary>
+        private bool IsSafePurchaseOrderDeletePath(string path)
+        {
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                return IsPathUnder(fullPath, @"C:\HVAC_PRO_MSE\RECEIPTS")
+                    || IsPathUnder(fullPath, @"C:\HVAC_PRO_MSE\DATABASE\Purchase Order AMC")
+                    || IsPathUnder(fullPath, Path.GetTempPath());
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>Deletes stored purchase-order PDFs from the approved ServoERP file locations.</summary>
+        private void DeletePurchaseOrderFiles(IEnumerable<string> paths)
+        {
+            foreach (string path in paths ?? Enumerable.Empty<string>())
+            {
+                try
+                {
+                    if (File.Exists(path))
+                        File.Delete(path);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("DatabaseManager.DeletePurchaseOrderFiles", ex);
+                }
+            }
+        }
+
+        /// <summary>Clears files from a ServoERP purchase-order folder without deleting the folder itself.</summary>
+        private void DeletePurchaseOrderFolderContents(string folder)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+                    return;
+
+                foreach (string file in Directory.GetFiles(folder, "*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogError("DatabaseManager.DeletePurchaseOrderFolderContents.File", ex);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("DatabaseManager.DeletePurchaseOrderFolderContents", ex);
+            }
+        }
+
+        /// <summary>Checks whether a resolved file path is inside a trusted ServoERP cleanup root.</summary>
+        private bool IsPathUnder(string fullPath, string root)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath) || string.IsNullOrWhiteSpace(root))
+                return false;
+
+            string resolvedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            string resolvedPath = Path.GetFullPath(fullPath);
+            return resolvedPath.StartsWith(resolvedRoot, StringComparison.OrdinalIgnoreCase);
+        }
+
         private void Exec(SqlConnection conn, string sql)
         {
             using (SqlCommand cmd = new SqlCommand(sql, conn))
@@ -3736,6 +4146,16 @@ THEN 1 ELSE 0 END";
                 WHERE object_id = OBJECT_ID('{table}') AND name = '{column}')
                 ALTER TABLE {table} ALTER COLUMN {column} {definition};";
             Exec(conn, sql);
+        }
+
+        /// <summary>Allows client-level records to be saved before a service site is known.</summary>
+        private void EnsureOptionalSiteReferences(SqlConnection conn)
+        {
+            AlterColumn(conn, "Jobs", "SiteID", "INT NULL");
+            AlterColumn(conn, "AMCContracts", "SiteID", "INT NULL");
+            AlterColumn(conn, "Invoices", "SiteID", "INT NULL");
+            AlterColumn(conn, "Quotations", "SiteID", "INT NULL");
+            AlterColumn(conn, "PurchaseOrders", "SiteID", "INT NULL");
         }
 
         private void EnsureSetting(SqlConnection conn, string key, string value)

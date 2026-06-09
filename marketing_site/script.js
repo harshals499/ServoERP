@@ -1,20 +1,12 @@
-﻿const DOWNLOAD_URL =
-  "https://servoerp.in/download/";
 const DEMO_REQUEST_ENDPOINT = "/api/demo-request";
 const DEMO_SUCCESS_MESSAGE = "Thank you! Our team will contact you shortly.";
 const DEMO_REQUEST_EMAIL = "support@servoerp.in";
 
 const header = document.querySelector(".site-header");
 const navToggle = document.querySelector(".nav-toggle");
-const downloadLinks = document.querySelectorAll("[data-download-link]");
 const leadForm = document.querySelector("[data-lead-form]");
 const revealItems = document.querySelectorAll(".reveal");
-const screenshotImages = document.querySelectorAll('img[src*="assets/screenshots"]');
-
-downloadLinks.forEach((link) => {
-  link.href = DOWNLOAD_URL;
-  link.rel = "noopener";
-});
+const screenshotImages = document.querySelectorAll('img[src*="assets/screenshots"], img[src*="assets/forms"]');
 
 navToggle?.addEventListener("click", () => {
   const expanded = navToggle.getAttribute("aria-expanded") === "true";
@@ -57,7 +49,7 @@ if (screenshotImages.length) {
         <strong>ServoERP screenshot</strong>
         <span>Full-resolution product image</span>
       </div>
-      <button class="lightbox-close" type="button" aria-label="Close image preview">Ã—</button>
+      <button class="lightbox-close" type="button" aria-label="Close image preview">&times;</button>
     </div>
     <div class="lightbox-stage">
       <img alt="" />
@@ -102,7 +94,7 @@ if (screenshotImages.length) {
     });
   });
 
-  document.querySelectorAll('a[href*="assets/screenshots"]').forEach((link) => {
+  document.querySelectorAll('a[href*="assets/screenshots"], a[href*="assets/forms"]').forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       if (event.target?.tagName === "IMG") {

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.Models;
 
@@ -8,23 +9,32 @@ namespace HVAC_Pro_Desktop.DAL
     public class PaymentRepository
     {
         private readonly DatabaseManager _db = new DatabaseManager();
+        private const int DefaultRecentRows = 1000;
 
         // ── READ ─────────────────────────────────────────────
         public List<Payment> GetAll()
+        {
+            return GetRecent(DefaultRecentRows);
+        }
+
+        public List<Payment> GetRecent(int maxRows)
         {
             var list = new List<Payment>();
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
                 const string sql = @"
-                    SELECT p.*, i.InvoiceNumber, c.CompanyName AS ClientName
+                    SELECT TOP (@maxRows) p.*, i.InvoiceNumber, c.CompanyName AS ClientName
                     FROM Payments p
                     JOIN Invoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
-                    ORDER BY p.PaymentDate DESC";
+                    ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
-                using (var r = cmd.ExecuteReader())
-                    while (r.Read()) list.Add(Map(r));
+                {
+                    cmd.Parameters.AddWithValue("@maxRows", Math.Max(1, maxRows));
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read()) list.Add(Map(r));
+                }
             }
             return list;
         }
@@ -40,7 +50,7 @@ namespace HVAC_Pro_Desktop.DAL
                     FROM Payments p
                     JOIN Invoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
-                    WHERE p.InvoiceID = @id ORDER BY p.PaymentDate DESC";
+                    WHERE p.InvoiceID = @id ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@id", invoiceId);
@@ -62,7 +72,7 @@ namespace HVAC_Pro_Desktop.DAL
                     FROM Payments p
                     JOIN Invoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
-                    WHERE p.ClientID = @id ORDER BY p.PaymentDate DESC";
+                    WHERE p.ClientID = @id ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@id", clientId);
@@ -71,6 +81,26 @@ namespace HVAC_Pro_Desktop.DAL
                 }
             }
             return list;
+        }
+
+        public Payment GetById(int paymentId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                const string sql = @"
+                    SELECT p.*, i.InvoiceNumber, c.CompanyName AS ClientName
+                    FROM Payments p
+                    JOIN Invoices i ON p.InvoiceID = i.InvoiceID
+                    JOIN B2BClients c ON p.ClientID = c.ClientID
+                    WHERE p.PaymentID = @id";
+                using (var cmd = new SqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", paymentId);
+                    using (var r = cmd.ExecuteReader())
+                        return r.Read() ? Map(r) : null;
+                }
+            }
         }
 
         public decimal GetTotalPaidForInvoice(int invoiceId)
@@ -106,7 +136,10 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@num",    p.PaymentNumber ?? GeneratePaymentNumber());
                     cmd.Parameters.AddWithValue("@inv",    p.InvoiceID);
                     cmd.Parameters.AddWithValue("@client", p.ClientID);
-                    cmd.Parameters.AddWithValue("@amt",    p.AmountPaid);
+                    SqlParameter amountParameter = cmd.Parameters.Add("@amt", SqlDbType.Decimal);
+                    amountParameter.Precision = 12;
+                    amountParameter.Scale = 2;
+                    amountParameter.Value = p.AmountPaid;
                     cmd.Parameters.AddWithValue("@date",   p.PaymentDate);
                     cmd.Parameters.AddWithValue("@mode",   p.PaymentMode ?? "Bank Transfer");
                     cmd.Parameters.AddWithValue("@ref",    p.ReferenceNumber ?? "");
@@ -119,6 +152,19 @@ namespace HVAC_Pro_Desktop.DAL
         }
 
         // ── SUMMARY ──────────────────────────────────────────
+        public void Delete(int paymentId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand("DELETE FROM Payments WHERE PaymentID = @id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", paymentId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public decimal GetTotalCollectedThisMonth()
         {
             using (var conn = _db.GetConnection())

@@ -42,6 +42,18 @@
       <HintPath>packages\BCrypt.Net-Next.4.0.3\lib\net472\BCrypt.Net-Next.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Dapper">
+      <HintPath>packages\Dapper.2.1.66\lib\net461\Dapper.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="FluentValidation">
+      <HintPath>packages\FluentValidation.11.11.0\lib\netstandard2.0\FluentValidation.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Bcl.AsyncInterfaces">
+      <HintPath>packages\Microsoft.Bcl.AsyncInterfaces.9.0.1\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Microsoft.Web.WebView2.Core">
       <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\lib\net462\Microsoft.Web.WebView2.Core.dll</HintPath>
       <Private>True</Private>
@@ -50,12 +62,60 @@
       <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\lib\net462\Microsoft.Web.WebView2.WinForms.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Memory, Version=4.0.1.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\Microsoft.Web.WebView2.1.0.3912.50\tools\wv2winrt\System.Memory.dll</HintPath>
+    <Reference Include="System.Data.SQLite">
+      <HintPath>packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\lib\net46\System.Data.SQLite.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=4.0.4.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.4.5.3\package\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+    <Reference Include="Serilog">
+      <HintPath>packages\Serilog.4.2.0\lib\net471\Serilog.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Serilog.Sinks.File">
+      <HintPath>packages\Serilog.Sinks.File.6.0.0\lib\net471\Serilog.Sinks.File.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Diagnostics.DiagnosticSource">
+      <HintPath>packages\System.Diagnostics.DiagnosticSource.8.0.1\lib\net462\System.Diagnostics.DiagnosticSource.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Threading.Channels">
+      <HintPath>packages\System.Threading.Channels.8.0.0\lib\net462\System.Threading.Channels.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions">
+      <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="QuestPDF">
+      <HintPath>packages\QuestPDF.2026.5.0\lib\netstandard2.0\QuestPDF.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\Facades\netstandard.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Velopack">
+      <HintPath>packages\Velopack.1.2.0\lib\net472\Velopack.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -67,6 +127,7 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Security" />
     <Reference Include="System.ServiceProcess" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Web" />
     <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Windows.Forms" />
@@ -74,16 +135,43 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Infrastructure\AppExceptionHandler.cs" />
+    <Compile Include="Infrastructure\ExceptionLogger.cs" />
+    <Compile Include="Infrastructure\IRefreshable.cs" />
+    <Compile Include="Infrastructure\PDFGenerator.cs" />
+    <Compile Include="Infrastructure\RenderHelper.cs" />
+    <Compile Include="Infrastructure\SafeBackgroundWorker.cs" />
+    <Compile Include="Infrastructure\ServoConfirmDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Infrastructure\ServoErrorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Infrastructure\ServoFormBase.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Infrastructure\ServoPageBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Infrastructure\UIThread.cs" />
+    <Compile Include="Validators\AMCContractValidator.cs" />
+    <Compile Include="Validators\B2BClientValidator.cs" />
+    <Compile Include="Validators\EmployeeValidator.cs" />
+    <Compile Include="Validators\JobValidator.cs" />
+    <Compile Include="Validators\PaymentValidator.cs" />
+    <Compile Include="Validators\TenderBidValidator.cs" />
+    <Compile Include="Validators\VendorValidator.cs" />
+    <Compile Include="Validators\ValidationMessageFormatter.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <!-- Local AI Copilot -->
+    <Compile Include="Properties\Settings.cs" />
+    <!-- Built-in ServoERP Assistant -->
     <Compile Include="AI\AiAssistantService.cs" />
     <Compile Include="AI\AiContextProvider.cs" />
     <Compile Include="AI\AiIntentRouter.cs" />
     <Compile Include="AI\AiPromptBuilder.cs" />
     <Compile Include="AI\AiProviderConfig.cs" />
     <Compile Include="AI\AiResponseModels.cs" />
-    <Compile Include="AI\OllamaClient.cs" />
     <Compile Include="AI\Plugins\ClientAiPlugin.cs" />
     <Compile Include="AI\Plugins\InventoryAiPlugin.cs" />
     <Compile Include="AI\Plugins\InvoiceAiPlugin.cs" />
@@ -119,6 +207,7 @@
     <Compile Include="MODELS\AuthModels.cs" />
     <Compile Include="MODELS\PayrollModels.cs" />
     <Compile Include="MODELS\CardLayoutDto.cs" />
+    <Compile Include="MODELS\PaginationState.cs" />
     <Compile Include="MODELS\ServiceDeskModels.cs" />
     <Compile Include="MODELS\MailIntegrationModels.cs" />
     <Compile Include="MODELS\MasterDataModels.cs" />
@@ -128,12 +217,16 @@
     <Compile Include="MODELS\WhatsAppHubModels.cs" />
     <Compile Include="MODELS\LicenseModels.cs" />
     <Compile Include="MODELS\IntegrationModels.cs" />
+    <Compile Include="MODELS\TallyIntegrationModels.cs" />
     <Compile Include="MODELS\Validation\ValidationSeverity.cs" />
     <Compile Include="MODELS\Validation\ValidationIssue.cs" />
     <Compile Include="MODELS\Validation\ValidationResult.cs" />
     <Compile Include="MODELS\Validation\DataQualityScore.cs" />
     <!-- Data Access Layer -->
     <Compile Include="DAL\DatabaseManager.cs" />
+    <Compile Include="DAL\DatabaseConnectionFactory.cs" />
+    <Compile Include="DAL\DapperDatabase.cs" />
+    <Compile Include="DAL\DbHelper.cs" />
     <Compile Include="DAL\DbExecutor.cs" />
     <Compile Include="DAL\ClientRepository.cs" />
     <Compile Include="DAL\ContractRepository.cs" />
@@ -146,6 +239,7 @@
     <Compile Include="DAL\EmployeeRepository.cs" />
     <Compile Include="DAL\SiteRepository.cs" />
     <Compile Include="DAL\SettingsRepository.cs" />
+    <Compile Include="DAL\DbSettings.cs" />
     <Compile Include="DAL\JobRepository.cs" />
     <Compile Include="DAL\InvoiceTemplateRepository.cs" />
     <Compile Include="DAL\HsnSacMasterRepository.cs" />
@@ -154,6 +248,7 @@
     <Compile Include="DAL\ServiceDeskRepository.cs" />
     <Compile Include="DAL\MailIntegrationRepository.cs" />
     <Compile Include="DAL\MasterDataRepository.cs" />
+    <Compile Include="DAL\TallyIntegrationRepository.cs" />
     <!-- Services -->
     <Compile Include="SERVICES\ClientService.cs" />
     <Compile Include="SERVICES\ContractService.cs" />
@@ -172,9 +267,17 @@
     <Compile Include="SERVICES\EmployeeSalarySlipService.cs" />
     <Compile Include="SERVICES\SiteService.cs" />
     <Compile Include="SERVICES\SettingsService.cs" />
+    <Compile Include="SERVICES\LanguageManager.cs" />
+    <Compile Include="SERVICES\LegalTexts.cs" />
     <Compile Include="SERVICES\ConfigService.cs" />
     <Compile Include="SERVICES\AppLogger.cs" />
+    <Compile Include="SERVICES\SensitiveDataRedactor.cs" />
+    <Compile Include="SERVICES\Logger.cs" />
+    <Compile Include="SERVICES\UiExceptions.cs" />
+    <Compile Include="SERVICES\CrashProtectionService.cs" />
+    <Compile Include="SERVICES\SafeGet.cs" />
     <Compile Include="SERVICES\BrandingService.cs" />
+    <Compile Include="SERVICES\HtmlPdfExportService.cs" />
     <Compile Include="SERVICES\DocumentBranding.cs" />
     <Compile Include="SERVICES\DocumentTemplateService.cs" />
     <Compile Include="SERVICES\FormTemplateLibraryService.cs" />
@@ -185,6 +288,7 @@
     <Compile Include="SERVICES\DocumentTemplateRenderer.cs" />
     <Compile Include="SERVICES\CompanyTemplateManager.cs" />
     <Compile Include="SERVICES\ExcelImportService.cs" />
+    <Compile Include="SERVICES\MasterDataIngestionPipeline.cs" />
     <Compile Include="SERVICES\ImportPreflightService.cs" />
     <Compile Include="SERVICES\DashboardCommandCenterService.cs" />
     <Compile Include="SERVICES\InvoiceAnalyticsService.cs" />
@@ -192,11 +296,22 @@
     <Compile Include="SERVICES\FreshStartService.cs" />
     <Compile Include="SERVICES\AutoSaveService.cs" />
     <Compile Include="SERVICES\BackupService.cs" />
+    <Compile Include="SERVICES\CompliancePackService.cs" />
+    <Compile Include="SERVICES\ModuleCatalogService.cs" />
+    <Compile Include="SERVICES\OpenSourceLicenseService.cs" />
+    <Compile Include="SERVICES\SavedViewService.cs" />
     <Compile Include="SERVICES\GlobalSearchService.cs" />
     <Compile Include="SERVICES\NotificationCenterService.cs" />
     <Compile Include="SERVICES\SiteTimelineService.cs" />
     <Compile Include="SERVICES\PersistentLayoutMemoryService.cs" />
+    <Compile Include="SERVICES\LayoutManager.cs" />
+    <Compile Include="SERVICES\DashboardShortcutService.cs" />
+    <Compile Include="SERVICES\StatusUpdateService.cs" />
+    <Compile Include="SERVICES\AgentSimulationModels.cs" />
+    <Compile Include="SERVICES\SimulationClock.cs" />
+    <Compile Include="SERVICES\AgentSimulationService.cs" />
     <Compile Include="SERVICES\ImportUiHelper.cs" />
+    <Compile Include="SERVICES\WorkflowLaunchContext.cs" />
     <Compile Include="SERVICES\TenderService.cs" />
     <Compile Include="SERVICES\TenderService.MultiLine.cs" />
     <Compile Include="SERVICES\JobService.cs" />
@@ -219,10 +334,10 @@
     <Compile Include="SERVICES\AttendanceService.cs" />
     <Compile Include="SERVICES\PayrollService.cs" />
     <Compile Include="SERVICES\PayslipService.cs" />
-    <Compile Include="SERVICES\PayrollReportService.cs" />
-    <Compile Include="SERVICES\PayrollDataImportService.cs" />
-    <Compile Include="SERVICES\SecurityHelpers.cs" />
-    <Compile Include="SERVICES\RememberedLoginService.cs" />
+      <Compile Include="SERVICES\PayrollReportService.cs" />
+      <Compile Include="SERVICES\PayrollDataImportService.cs" />
+      <Compile Include="SERVICES\SecurityHelpers.cs" />
+      <Compile Include="SERVICES\RememberedLoginService.cs" />
     <Compile Include="SERVICES\Licensing\LicensingInterfaces.cs" />
     <Compile Include="SERVICES\Licensing\DeviceFingerprintService.cs" />
     <Compile Include="SERVICES\Licensing\LicenseCacheStore.cs" />
@@ -234,8 +349,11 @@
     <Compile Include="Helpers\SecureStorageHelper.cs" />
     <Compile Include="SERVICES\CardLayoutService.cs" />
     <Compile Include="SERVICES\AppStartupService.cs" />
+    <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
+    <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
     <Compile Include="SERVICES\UpdateService.cs" />
     <Compile Include="SERVICES\VersionCheckService.cs" />
+    <Compile Include="SERVICES\AMCVisitScheduler.cs" />
     <Compile Include="SERVICES\ServiceDeskService.cs" />
     <Compile Include="SERVICES\MailIntegrationService.cs" />
     <Compile Include="SERVICES\MasterDataService.cs" />
@@ -252,20 +370,28 @@
     <Compile Include="SERVICES\Logging\ErrorLoggingService.cs" />
     <Compile Include="SERVICES\Integrations\IntegrationConfig.cs" />
     <Compile Include="SERVICES\Integrations\TallyPrimeIntegrationService.cs" />
+    <Compile Include="SERVICES\Integrations\TallyXmlBuilder.cs" />
+    <Compile Include="SERVICES\Integrations\TallyXmlParser.cs" />
     <Compile Include="SERVICES\Integrations\WhatsAppCloudIntegrationService.cs" />
     <Compile Include="SERVICES\Integrations\CalendarDispatchIntegrationService.cs" />
     <Compile Include="SERVICES\Integrations\CloudBackupIntegrationService.cs" />
     <Compile Include="SERVICES\Integrations\GstEinvoiceIntegrationService.cs" />
     <Compile Include="SERVICES\Recovery\FormStateRecoveryService.cs" />
+    <Compile Include="Tests\AddAMCSmokeTests.cs" />
     <Compile Include="Tests\DataQualitySmokeTests.cs" />
+    <Compile Include="Tests\EndToEndWorkflowSmokeTests.cs" />
     <Compile Include="Tests\ImportPreflightSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
     <Compile Include="Tests\InvoiceAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\ModuleDashboardNavigationSmokeTests.cs" />
+    <Compile Include="Tests\FullNavigationClickSmokeTests.cs" />
+    <Compile Include="Tests\FullNavigationTimingTests.cs" />
     <Compile Include="Tests\StartupInstanceCleanupSmokeTests.cs" />
     <Compile Include="Tests\EnterpriseUiSmokeTests.cs" />
     <Compile Include="Tests\SupportCenterOperationsSmokeTests.cs" />
+    <Compile Include="Tests\ContextMenuActionAuditTests.cs" />
+    <Compile Include="Tests\UiErrorHandlingSmokeTests.cs" />
     <Compile Include="Tests\UiQaStateCatalog.cs" />
     <Compile Include="Tests\UiQaStateCatalogTests.cs" />
     <Compile Include="Tests\UiPolicyTests.cs" />
@@ -279,10 +405,28 @@
     <Compile Include="UI\DesignSystem.cs" />
     <Compile Include="UI\ModernIconSystem.cs" />
     <Compile Include="UI\GridTheme.cs" />
+    <Compile Include="UI\GlobalStatusEditor.cs" />
     <Compile Include="UI\UIHelper.cs" />
+    <Compile Include="UI\InputOutlineService.cs" />
     <Compile Include="UI\RecordDeletionUi.cs" />
     <Compile Include="UI\RecentDocumentOpenService.cs" />
+    <Compile Include="UI\NavigationHelper.cs" />
     <Compile Include="UI\WindowsFileContextMenu.cs" />
+    <Compile Include="UI\CardSurfacePolicy.cs" />
+    <Compile Include="UI\CardResizeGripService.cs" />
+    <Compile Include="UI\GlobalCardContextMenu.cs" />
+    <Compile Include="UI\DraggableCard.cs" />
+    <Compile Include="UI\GlobalDashboardLayoutService.cs" />
+    <Compile Include="UI\LayoutAuditService.cs" />
+    <Compile Include="UI\PageHeaderPolishService.cs" />
+    <Compile Include="UI\SalesUiPolishService.cs" />
+    <Compile Include="UI\SharedUiPrimitives.cs" />
+    <Compile Include="UI\UiPerformanceService.cs" />
+    <Compile Include="UI\StatusOptionProvider.cs" />
+    <Compile Include="UI\TourEngine.cs" />
+    <Compile Include="UI\AgentSimulationPanel.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\HtmlPreviewDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -298,11 +442,20 @@
     <Compile Include="UI\SupportCenterDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\ErrorLogViewerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\AiAssistantForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\WhatsAppHubForm.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\TallyIntegrationForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\TallyIntegrationForm.Designer.cs">
+      <DependentUpon>TallyIntegrationForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\WhatsAppQuickActionDialog.cs">
       <SubType>Form</SubType>
@@ -316,9 +469,15 @@
     <Compile Include="UI\Controls\ModernErpControls.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\Controls\GlobalPaginationControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\Helpers\LayoutScaler.cs" />
     <Compile Include="UI\Helpers\ResizeCursorHelper.cs" />
     <Compile Include="UI\ConnectionSetupForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ServerFirstRunSetupForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\DeferredPageControl.cs" />
@@ -336,6 +495,36 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\ChangePasswordForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\LegalAgreementForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\LegalAgreementForm.Designer.cs">
+      <DependentUpon>LegalAgreementForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\BackupSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\BackupSettingsForm.Designer.cs">
+      <DependentUpon>BackupSettingsForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\OpenSourceLicenseForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\OpenSourceLicenseForm.Designer.cs">
+      <DependentUpon>OpenSourceLicenseForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\ModuleCatalogForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\JobWorkflowBoardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\CompliancePackForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\ToastNotification.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\MainForm.cs">
@@ -362,6 +551,36 @@
     </Compile>
     <Compile Include="UI\ContractManagementForm.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\AMCPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\AMCPage.Designer.cs">
+      <DependentUpon>AMCPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\AddAMCForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\AddAMCForm.Designer.cs">
+      <DependentUpon>AddAMCForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\AMCDetailPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\AMCDetailPage.Designer.cs">
+      <DependentUpon>AMCDetailPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\AddAMCEquipmentForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\AddAMCEquipmentForm.Designer.cs">
+      <DependentUpon>AddAMCEquipmentForm.cs</DependentUpon>
+    </Compile>
+    <Compile Include="UI\MarkVisitCompleteForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\MarkVisitCompleteForm.Designer.cs">
+      <DependentUpon>MarkVisitCompleteForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\InvoiceForm.cs">
       <SubType>UserControl</SubType>
@@ -430,8 +649,19 @@
     <Content Include="Resources\Branding\official_invoice_header.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\x64\SQLite.Interop.dll">
+      <Link>x64\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\x86\SQLite.Interop.dll">
+      <Link>x86\SQLite.Interop.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <EmbeddedResource Include="Resources\GeoMap\map.html" />
   </ItemGroup>
   <Import Project="packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets')" />
+  <Import Project="packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
+  <Import Project="packages\QuestPDF.2026.5.0\build\QuestPDF.targets" Condition="Exists('packages\QuestPDF.2026.5.0\build\QuestPDF.targets')" />
+  <Import Project="packages\QuestPDF.2026.5.0\build\net4\QuestPDF.targets" Condition="Exists('packages\QuestPDF.2026.5.0\build\net4\QuestPDF.targets')" />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -79,7 +80,8 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                OpenPdf(owner, invoice);
+                if (!OpenPdf(owner, invoice))
+                    GenerateAndOpenInvoicePdf(owner, service, invoice);
             }
             catch (Exception ex)
             {
@@ -124,7 +126,13 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                OpenPdf(owner, detail.Job);
+                if (!OpenPdf(owner, detail.Job))
+                {
+                    string jobNumber = string.IsNullOrWhiteSpace(detail.Job.JobNumber)
+                        ? "JobCard-" + detail.Job.JobID.ToString("0000")
+                        : "JobCard-" + detail.Job.JobNumber.Trim();
+                    PDFGenerator.OpenPDF(PDFGenerator.GenerateJobCard(detail), SafePdfFilename(jobNumber) + ".pdf");
+                }
             }
             catch (Exception ex)
             {
@@ -239,6 +247,30 @@ namespace HVAC_Pro_Desktop.UI
             {
                 return false;
             }
+        }
+
+        private static void GenerateAndOpenInvoicePdf(IWin32Window owner, InvoiceService service, Invoice invoice)
+        {
+            if (service == null || invoice == null)
+                return;
+
+            string invoiceNo = string.IsNullOrWhiteSpace(invoice.InvoiceNumber)
+                ? "invoice-" + invoice.InvoiceID.ToString("0000")
+                : invoice.InvoiceNumber.Trim();
+            string safeName = Regex.Replace(invoiceNo, @"[^\w\-.]+", "-");
+            string folder = Path.Combine(Path.GetTempPath(), "ServoERP", "InvoicePdfs");
+            Directory.CreateDirectory(folder);
+            string pdfPath = Path.Combine(folder, safeName + ".pdf");
+
+            File.WriteAllBytes(pdfPath, PDFGenerator.GenerateInvoice(invoice));
+
+            if (!TryOpenPdfPath(pdfPath))
+                MessageBox.Show(owner, "Invoice PDF was generated, but Windows could not open it automatically." + Environment.NewLine + pdfPath, "Open invoice PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private static string SafePdfFilename(string value)
+        {
+            return Regex.Replace(string.IsNullOrWhiteSpace(value) ? "ServoERP" : value.Trim(), @"[^\w\-.]+", "-");
         }
 
     }

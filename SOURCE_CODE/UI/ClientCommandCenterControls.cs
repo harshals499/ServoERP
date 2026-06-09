@@ -18,6 +18,9 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Panel _progressTrack;
 
         public int ClientId { get; private set; }
+        public event EventHandler StatusClicked;
+
+        public Control StatusAnchor => _status;
 
         public bool IsSelected
         {
@@ -46,8 +49,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(42, 42),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-                ForeColor = Color.White,
-                BackColor = DS.Teal600
+                ForeColor = DS.Teal600,
+                BackColor = DS.Teal50
             };
             DS.Rounded(_avatar, 21);
 
@@ -73,19 +76,37 @@ namespace HVAC_Pro_Desktop.UI
                 child.Cursor = Cursors.Hand;
                 child.Click += (s, e) => OnClick(e);
             }
+            _status.Click += (s, e) => StatusClicked?.Invoke(this, EventArgs.Empty);
         }
 
         public void Bind(int clientId, string initials, string name, string type, string city, bool active, int progress)
         {
+            Bind(clientId, initials, name, type, city, active ? "Active" : "Inactive", progress);
+        }
+
+        public void Bind(int clientId, string initials, string name, string type, string city, string status, int progress)
+        {
             ClientId = clientId;
+            string value = string.IsNullOrWhiteSpace(status) ? "Inactive" : status.Trim();
+            bool active = value == "Active" || value == "Prospect";
             _avatar.Text = initials;
             _name.Text = name;
             _type.Text = type;
             _city.Text = city;
-            _status.Text = active ? "●  Active" : "●  Inactive";
-            _status.ForeColor = active ? DS.Green600 : DS.Slate500;
-            _avatar.BackColor = active ? DS.Teal600 : DS.Slate400;
+            _status.Text = "●  " + value;
+            _status.ForeColor = StatusColor(value);
+            _avatar.BackColor = active ? DS.Teal50 : DS.Slate100;
+            _avatar.ForeColor = active ? DS.Teal600 : DS.Slate600;
             _progress.Width = Math.Max(8, Math.Min(_progressTrack.Width, progress));
+        }
+
+        private static Color StatusColor(string status)
+        {
+            if (status == "Active") return DS.Green600;
+            if (status == "Prospect") return DS.Amber500;
+            if (status == "On Hold") return DS.Amber600;
+            if (status == "Blacklisted") return DS.Red500;
+            return DS.Slate500;
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -107,11 +128,13 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Label _badge;
         private readonly TableLayoutPanel _actions;
 
-        public event EventHandler LogActivityClicked;
         public event EventHandler AddJobClicked;
         public event EventHandler CreateInvoiceClicked;
         public event EventHandler EditProfileClicked;
         public event EventHandler MoreClicked;
+        public event EventHandler StatusClicked;
+
+        public Control StatusAnchor => _badge;
 
         public ClientHeaderControl()
         {
@@ -121,18 +144,19 @@ namespace HVAC_Pro_Desktop.UI
             Padding = new Padding(14);
             DoubleBuffered = true;
 
-            _avatar = new Label { Location = new Point(18, 18), Size = new Size(54, 54), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = Color.White, BackColor = DS.Teal600 };
+            _avatar = new Label { Location = new Point(18, 18), Size = new Size(54, 54), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Teal600, BackColor = DS.Teal50 };
             DS.Rounded(_avatar, 27);
             _name = new Label { Location = new Point(86, 20), Size = new Size(400, 24), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Slate900 };
             _meta = new Label { Location = new Point(88, 48), Size = new Size(430, 18), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
             _badge = new Label { Location = new Point(88, 67), Size = new Size(60, 20), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(21, 128, 61), BackColor = DS.Green50 };
+            _badge.Cursor = Cursors.Hand;
+            _badge.Click += (s, e) => StatusClicked?.Invoke(this, EventArgs.Empty);
             DS.Rounded(_badge, 10);
 
-            _actions = new TableLayoutPanel { Dock = DockStyle.Right, Width = 540, Height = 54, Padding = new Padding(0, 6, 0, 0), ColumnCount = 5, RowCount = 1, BackColor = Color.Transparent };
-            for (int i = 0; i < 5; i++)
-                _actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+            _actions = new TableLayoutPanel { Dock = DockStyle.Right, Width = 440, Height = 54, Padding = new Padding(0, 6, 0, 0), ColumnCount = 4, RowCount = 1, BackColor = Color.Transparent };
+            for (int i = 0; i < 4; i++)
+                _actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
             _actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            AddAction("Log Activity", "□", (s, e) => LogActivityClicked?.Invoke(this, EventArgs.Empty));
             AddAction("Add Job", "+", (s, e) => AddJobClicked?.Invoke(this, EventArgs.Empty));
             AddAction("Create Invoice", "▤", (s, e) => CreateInvoiceClicked?.Invoke(this, EventArgs.Empty));
             AddAction("Edit Profile", "✎", (s, e) => EditProfileClicked?.Invoke(this, EventArgs.Empty));
@@ -149,12 +173,20 @@ namespace HVAC_Pro_Desktop.UI
 
         public void Bind(string initials, string name, string category, string city, bool active)
         {
+            Bind(initials, name, category, city, active ? "Active" : "Inactive");
+        }
+
+        public void Bind(string initials, string name, string category, string city, string status)
+        {
+            string value = string.IsNullOrWhiteSpace(status) ? "Inactive" : status.Trim();
+            bool active = value == "Active" || value == "Prospect";
             _avatar.Text = initials;
             _name.Text = name;
             _meta.Text = category + " - " + city;
-            _badge.Text = active ? "Active" : "Inactive";
-            _badge.BackColor = active ? DS.Green50 : DS.Slate100;
-            _badge.ForeColor = active ? DS.Green600 : DS.Slate600;
+            _badge.Text = value;
+            _badge.Width = Math.Max(68, TextRenderer.MeasureText(value, _badge.Font).Width + 20);
+            _badge.BackColor = active ? DS.Green50 : (value == "Blacklisted" ? DS.Red50 : DS.Slate100);
+            _badge.ForeColor = active ? DS.Green600 : (value == "Blacklisted" ? DS.Red500 : DS.Slate600);
         }
 
         private void AddAction(string text, string icon, EventHandler handler)
@@ -187,14 +219,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             int available = Math.Max(300, Width - 500);
             bool compact = available < 460;
-            _actions.Width = compact ? Math.Max(300, available) : 540;
+            _actions.Width = compact ? Math.Max(300, available) : 440;
             _actions.Height = 54;
             _actions.Top = 20;
             _name.Width = Math.Max(200, Width - _actions.Width - 116);
             _meta.Width = _name.Width;
 
-            string[] full = { "Log Activity", "+ Add Job", "Create Invoice", "Profile", "... More" };
-            string[] small = { "Log", "+ Job", "Invoice", "Profile", "More" };
+            string[] full = { "+ Add Job", "Create Invoice", "Profile", "... More" };
+            string[] small = { "+ Job", "Invoice", "Profile", "More" };
             for (int i = 0; i < _actions.Controls.Count && i < full.Length; i++)
             {
                 Button button = _actions.Controls[i] as Button;
@@ -277,9 +309,9 @@ namespace HVAC_Pro_Desktop.UI
             bool active = string.Equals(stage, _stage, StringComparison.OrdinalIgnoreCase);
             if (active)
             {
-                button.BackColor = DS.Primary600;
-                button.ForeColor = Color.White;
-                button.FlatAppearance.BorderColor = DS.Primary600;
+                button.BackColor = DS.Primary50;
+                button.ForeColor = DS.Primary700;
+                button.FlatAppearance.BorderColor = DS.Primary100;
             }
             else if (stage == "Active AMC")
             {
@@ -356,98 +388,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
-    public class ActivityTimelineControl : Panel
-    {
-        private readonly FlowLayoutPanel _items;
-
-        public ActivityTimelineControl()
-        {
-            Dock = DockStyle.Fill;
-            BackColor = Color.White;
-            _items = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(18, 14, 14, 14), BackColor = Color.White };
-            Controls.Add(_items);
-        }
-
-        public void Bind(IEnumerable<ActivityTimelineItem> items)
-        {
-            _items.Controls.Clear();
-            foreach (ActivityTimelineItem item in items)
-                _items.Controls.Add(CreateRow(item));
-        }
-
-        private Control CreateRow(ActivityTimelineItem item)
-        {
-            Panel row = new Panel { Width = 360, Height = 92, Margin = new Padding(0, 0, 0, 8), BackColor = Color.White };
-            Label icon = new Label { Location = new Point(2, 8), Size = new Size(28, 28), Text = item.Icon, TextAlign = ContentAlignment.MiddleCenter, BackColor = item.IconBackColor, ForeColor = Color.White, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
-            DS.Rounded(icon, 14);
-            row.Controls.Add(icon);
-            row.Controls.Add(new Label { Text = item.Title, Location = new Point(42, 4), Size = new Size(300, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            row.Controls.Add(new Label { Text = item.When, Location = new Point(42, 22), Size = new Size(300, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = DS.Slate500 });
-            row.Controls.Add(new Label { Text = item.Description, Location = new Point(42, 40), Size = new Size(300, 32), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate700 });
-            LinkLabel link = new LinkLabel { Text = item.ActionText, Location = new Point(42, 72), Size = new Size(160, 18), Font = new Font("Segoe UI", 8f), LinkColor = DS.Primary600 };
-            link.Click += (s, e) => item.Action?.Invoke();
-            row.Controls.Add(link);
-            return row;
-        }
-    }
-
-    public class ClientSummaryTableControl : Panel
-    {
-        private readonly DataGridView _grid;
-        private readonly Label _total;
-
-        public ClientSummaryTableControl()
-        {
-            Dock = DockStyle.Fill;
-            BackColor = Color.White;
-            Padding = new Padding(18, 24, 18, 18);
-            _grid = new DataGridView
-            {
-                Dock = DockStyle.Top,
-                Height = 218,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                ReadOnly = true,
-                RowHeadersVisible = false,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None,
-                GridColor = DS.Border,
-                EnableHeadersVisualStyles = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
-            };
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Stage", Width = 110 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Details", Width = 180 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Expected Value", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            GridTheme.Apply(_grid);
-            _total = new Label { Dock = DockStyle.Top, Height = 34, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Primary600 };
-            Controls.Add(_total);
-            Controls.Add(_grid);
-        }
-
-        public void Bind(IEnumerable<ClientSummaryRow> rows, string total)
-        {
-            _grid.Rows.Clear();
-            foreach (ClientSummaryRow row in rows)
-                _grid.Rows.Add(row.Stage, row.Details, row.ExpectedValue);
-            _total.Text = "Total Expected Value     " + total;
-        }
-    }
-
-    public sealed class ActivityTimelineItem
-    {
-        public string Icon { get; set; }
-        public Color IconBackColor { get; set; }
-        public string When { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public string ActionText { get; set; }
-        public Action Action { get; set; }
-    }
-
-    public sealed class ClientSummaryRow
-    {
-        public string Stage { get; set; }
-        public string Details { get; set; }
-        public string ExpectedValue { get; set; }
-    }
 }

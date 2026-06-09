@@ -1027,7 +1027,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             int? clientId = SelectedId(_cmbClient);
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add(new ComboItem(0, ""));
+            _cmbSite.Items.Add(new ComboItem(0, "No site / site not decided"));
             if (clientId.HasValue)
             {
                 foreach (ClientSite site in _clientService.GetClientSites(clientId.Value))
@@ -1170,7 +1170,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label MakeFieldLabel(string label)
         {
-            bool required = label == "Client" || label == "Site" || label == "Caller name" || label == "Caller phone" ||
+            bool required = label == "Client" || label == "Caller name" || label == "Caller phone" ||
                 label == "Category" || label == "Equipment" || label == "Priority" || label == "Status" ||
                 label == "Short description" || label == "Description";
             return new Label { Text = required ? label + " *" : label, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = required ? Red : TextSecondary };

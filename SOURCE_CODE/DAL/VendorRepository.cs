@@ -31,6 +31,18 @@ namespace HVAC_Pro_Desktop.DAL
             return list;
         }
 
+        /// <summary>Returns active material suppliers for purchase, inventory, stock, and supplier price-list workflows.</summary>
+        public List<Vendor> GetSuppliers(bool includeArchived = false)
+        {
+            return GetAll(includeArchived).FindAll(v => v.IsSupplier);
+        }
+
+        /// <summary>Returns active service vendors for subcontracting, job support, labour, and external service workflows.</summary>
+        public List<Vendor> GetServiceVendors(bool includeArchived = false)
+        {
+            return GetAll(includeArchived).FindAll(v => v.IsServiceVendor);
+        }
+
         public Vendor GetById(int id)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -55,12 +67,12 @@ namespace HVAC_Pro_Desktop.DAL
                     INSERT INTO Vendors
                     (VendorName,GSTNumber,DefaultCreditDays,PANNumber,Phone,Email,Address,City,Category,IsActive,
                      WhatsAppNumber,VendorType,MSMERegistered,MSMENumber,GSTRegistrationType,TDSApplicable,TDSSection,
-                     TDSRate,RCMApplicable,BankAccountNumber,BankIFSC,BankAccountName,BankName,PreferredPaymentMode,StateCode,Notes,IsArchived,
+                     TDSRate,RCMApplicable,IsSupplier,IsServiceVendor,BankAccountNumber,BankIFSC,BankAccountName,BankName,PreferredPaymentMode,StateCode,Notes,IsArchived,
                      SpecialisationTags,TotalPurchased,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn)
                     VALUES
                     (@n,@g,@credit,@p,@ph,@em,@ad,@ci,@ca,@ia,
                      @wa,@vendorType,@msmeRegistered,@msmeNumber,@gstType,@tdsApplicable,@tdsSection,
-                     @tdsRate,@rcmApplicable,@bankAccountNumber,@bankIfsc,@bankAccountName,@bankName,@preferredPaymentMode,@stateCode,@notes,@isArchived,
+                     @tdsRate,@rcmApplicable,@isSupplier,@isServiceVendor,@bankAccountNumber,@bankIfsc,@bankAccountName,@bankName,@preferredPaymentMode,@stateCode,@notes,@isArchived,
                      @tags,@totalPurchased,@lat,@lng,@geoAddr,@geoStatus,@geoUpdatedOn);
                     SELECT SCOPE_IDENTITY();", conn))
                 {
@@ -96,6 +108,8 @@ namespace HVAC_Pro_Desktop.DAL
                         TDSSection=@tdsSection,
                         TDSRate=@tdsRate,
                         RCMApplicable=@rcmApplicable,
+                        IsSupplier=@isSupplier,
+                        IsServiceVendor=@isServiceVendor,
                         BankAccountNumber=@bankAccountNumber,
                         BankIFSC=@bankIfsc,
                         BankAccountName=@bankAccountName,
@@ -172,6 +186,42 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void SetLifecycleStatus(int vendorId, bool isActive, bool isArchived)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(
+                    "UPDATE Vendors SET IsActive=@active, IsArchived=@archived WHERE VendorID=@id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", vendorId);
+                    cmd.Parameters.AddWithValue("@active", isActive ? 1 : 0);
+                    cmd.Parameters.AddWithValue("@archived", isArchived ? 1 : 0);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        /// <summary>Moves supplier records that only qualified for derived pending approval into inactive status.</summary>
+        public int MovePendingApprovalSuppliersToInactive()
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE Vendors
+                    SET IsActive = 0
+                    WHERE ISNULL(IsSupplier, 1) = 1
+                      AND ISNULL(IsArchived, 0) = 0
+                      AND ISNULL(IsActive, 1) = 1
+                      AND NULLIF(LTRIM(RTRIM(ISNULL(Phone, ''))), '') IS NULL
+                      AND NULLIF(LTRIM(RTRIM(ISNULL(Category, ''))), '') IS NULL", conn))
+                {
+                    return cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public void SetArchivedMany(IEnumerable<int> vendorIds, bool isArchived)
         {
             if (vendorIds == null)
@@ -201,7 +251,7 @@ namespace HVAC_Pro_Desktop.DAL
                 using (SqlCommand cmd = new SqlCommand(
                     @"SELECT COUNT(*) FROM PurchaseOrders
                       WHERE VendorID = @id
-                        AND ISNULL(Status, 'Pending') IN ('Pending','Partial')", conn))
+                        AND ISNULL(Status, 'Pending') IN ('Draft','Pending','Pending Approval','Approval Pending','Approved','Partial','Partially Received')", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", vendorId);
                     return Convert.ToInt32(cmd.ExecuteScalar());
@@ -280,6 +330,8 @@ namespace HVAC_Pro_Desktop.DAL
             cmd.Parameters.AddWithValue("@tdsSection", (object)v.TDSSection ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@tdsRate", v.TDSRate);
             cmd.Parameters.AddWithValue("@rcmApplicable", v.RCMApplicable);
+            cmd.Parameters.AddWithValue("@isSupplier", v.IsSupplier);
+            cmd.Parameters.AddWithValue("@isServiceVendor", v.IsServiceVendor);
             cmd.Parameters.AddWithValue("@bankAccountNumber", (object)v.BankAccountNumber ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@bankIfsc", (object)v.BankIFSC ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@bankAccountName", (object)v.BankAccountName ?? DBNull.Value);
@@ -320,6 +372,8 @@ namespace HVAC_Pro_Desktop.DAL
                 TDSSection = HasColumn(r, "TDSSection") ? r["TDSSection"] as string : null,
                 TDSRate = HasColumn(r, "TDSRate") && r["TDSRate"] != DBNull.Value ? Convert.ToDecimal(r["TDSRate"]) : 0m,
                 RCMApplicable = HasColumn(r, "RCMApplicable") && r["RCMApplicable"] != DBNull.Value && Convert.ToBoolean(r["RCMApplicable"]),
+                IsSupplier = HasColumn(r, "IsSupplier") ? r["IsSupplier"] != DBNull.Value && Convert.ToBoolean(r["IsSupplier"]) : InferSupplierRole(HasColumn(r, "VendorType") ? r["VendorType"] as string : null),
+                IsServiceVendor = HasColumn(r, "IsServiceVendor") ? r["IsServiceVendor"] != DBNull.Value && Convert.ToBoolean(r["IsServiceVendor"]) : InferServiceVendorRole(HasColumn(r, "VendorType") ? r["VendorType"] as string : null),
                 BankAccountNumber = HasColumn(r, "BankAccountNumber") ? r["BankAccountNumber"] as string : null,
                 BankIFSC = HasColumn(r, "BankIFSC") ? r["BankIFSC"] as string : null,
                 BankAccountName = HasColumn(r, "BankAccountName") ? r["BankAccountName"] as string : null,
@@ -338,6 +392,24 @@ namespace HVAC_Pro_Desktop.DAL
                 GeocodeUpdatedOn = HasColumn(r, "GeocodeUpdatedOn") && r["GeocodeUpdatedOn"] != DBNull.Value ? (DateTime?)Convert.ToDateTime(r["GeocodeUpdatedOn"]) : null,
                 CreatedDate = r["CreatedDate"] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(r["CreatedDate"])
             };
+        }
+
+        private static bool InferSupplierRole(string vendorType)
+        {
+            string normalized = (vendorType ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(normalized)
+                || string.Equals(normalized, "Supplier", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Distributor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Trader", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool InferServiceVendorRole(string vendorType)
+        {
+            string normalized = (vendorType ?? string.Empty).Trim();
+            return string.Equals(normalized, "Vendor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Subcontractor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Labour", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Service Provider", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool HasColumn(SqlDataReader reader, string columnName)

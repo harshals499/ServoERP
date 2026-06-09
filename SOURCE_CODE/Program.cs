@@ -14,6 +14,9 @@ using HVAC_Pro_Desktop.Services.Licensing;
 using HVAC_Pro_Desktop.Tests;
 using HVAC_Pro_Desktop.UI;
 using HVAC_Pro_Desktop.UI.Licensing;
+using QuestPDF.Infrastructure;
+using Serilog;
+using Velopack;
 
 namespace HVAC_Pro_Desktop
 {
@@ -26,43 +29,14 @@ namespace HVAC_Pro_Desktop
 
         public static void LogException(string context, Exception ex)
         {
-            try
-            {
-                string dir = @"C:\HVAC_PRO_MSE\LOGS";
-                Directory.CreateDirectory(dir);
-
-                string path = Path.Combine(dir, "crash-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
-                var sb = new StringBuilder();
-                sb.AppendLine("==================================================");
-                sb.AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                sb.AppendLine("Context: " + context);
-                sb.AppendLine(ex.ToString());
-                sb.AppendLine();
-
-                lock (Sync)
-                {
-                    File.AppendAllText(path, sb.ToString());
-                    _lastLogPath = path;
-                }
-            }
-            catch
-            {
-            }
+            CrashProtectionService.LogException("(application)", context, ex, false);
+            _lastLogPath = CrashProtectionService.LastCrashLogPath;
         }
 
         public static void ShowRecoverableError(string title, string context, Exception ex)
         {
-            LogException(context, ex);
-
-            string logHint = string.IsNullOrWhiteSpace(_lastLogPath)
-                ? ""
-                : "\r\n\r\nCrash log: " + _lastLogPath;
-
-            MessageBox.Show(
-                context + " failed.\r\n\r\n" + ex.Message + logHint,
-                title,
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+            CrashProtectionService.ShowFriendlyError(null, "(application)", context, ex);
+            _lastLogPath = CrashProtectionService.LastCrashLogPath;
         }
 
         public static void LogTiming(string context, long elapsedMs, string details = null)
@@ -121,6 +95,8 @@ namespace HVAC_Pro_Desktop
         [STAThread]
         static void Main()
         {
+            ServoERP.Infrastructure.AppExceptionHandler.Register();
+            VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
             SetProcessDPIAware();
             ShutdownExistingAppInstances();
 
@@ -244,26 +220,42 @@ namespace HVAC_Pro_Desktop
             Application.ThreadException += OnThreadException;
             AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
             TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+            CrashProtectionService.InstallApplicationHooks();
+            QuestPDF.Settings.License = LicenseType.Community;
+            ConfigureSerilog();
+            Log.Information("ServoERP startup requested. Version {Version}", Application.ProductVersion);
 
+            string[] args = Environment.GetCommandLineArgs();
             try
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
+                LayoutAuditService.AttachGlobalFormAuditor();
+                InputOutlineService.InstallGlobalApplicationWatcher();
 
-                string[] args = Environment.GetCommandLineArgs();
                 if (args.Skip(1).Any(arg => string.Equals(arg, "/firstrun", StringComparison.OrdinalIgnoreCase)))
                 {
                     try
                     {
                         AppStartupService.InitialiseDatabaseOnly();
+                        Environment.ExitCode = 0;
                     }
                     catch (Exception ex)
                     {
                         AppRuntime.LogException("FIRSTRUN-ERR", ex);
+                        Environment.ExitCode = 1;
                     }
                     return;
                 }
+
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/serversetup", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Application.Run(new ServerFirstRunSetupForm());
+                    return;
+                }
+
                 Stopwatch startupWatch = Stopwatch.StartNew();
+                LocalSqliteFallbackStore.EnsureReady();
                 var dbManager = new DatabaseManager();
                 Stopwatch stageWatch = Stopwatch.StartNew();
                 if (dbManager.IsNormalStartupReady())
@@ -275,6 +267,9 @@ namespace HVAC_Pro_Desktop
                     dbManager.InitializeDatabase();
                     AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds);
                 }
+                DbHelper.EnsureQuotationSchemaMigration();
+                DbHelper.EnsureAMCSchema();
+                LocalSqliteFallbackStore.RecordSqlAvailable(DatabaseManager.RequireConfiguredConnectionString());
 
                 stageWatch.Restart();
                 if (!DatabaseManager.IsDemoDataEnabled())
@@ -294,14 +289,55 @@ namespace HVAC_Pro_Desktop
                     AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "seed/import completed");
                 }
 
+                stageWatch.Restart();
+                DbSettings.EnsureUserSettingsTable();
+                LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
+                new BackupService().EnsureBackupInfrastructure();
+                AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
+
                 if (args.Skip(1).Any(arg => string.Equals(arg, "/smoketest", StringComparison.OrdinalIgnoreCase)))
                 {
                     string reportPath = EnterpriseUiSmokeTests.WriteReport();
+                    if (File.Exists(reportPath) && File.ReadAllText(reportPath).Contains(Environment.NewLine + "FAIL "))
+                        Environment.ExitCode = 1;
+                    else
+                        Environment.ExitCode = 0;
                     AppRuntime.LogTiming("EnterpriseUiSmokeTests", 0, reportPath);
                     return;
                 }
 
-                Task.Run(() => new BackupService().CreateStartupBackupIfDue());
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/amctest", StringComparison.OrdinalIgnoreCase)))
+                {
+                    string dir = System.IO.Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    System.IO.Directory.CreateDirectory(dir);
+                    string reportPath = System.IO.Path.Combine(dir, "amc-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines2 = new System.Collections.Generic.List<string>();
+                    lines2.Add("AddAMC Smoke Tests");
+                    lines2.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    lines2.Add("");
+                    try
+                    {
+                        foreach (string result in AddAMCSmokeTests.RunAll())
+                            lines2.Add(result);
+                    }
+                    catch (Exception amcEx)
+                    {
+                        lines2.Add("FAIL " + amcEx);
+                    }
+                    System.IO.File.WriteAllLines(reportPath, lines2);
+                    bool anyFail = lines2.Any(l => l.StartsWith("FAIL "));
+                    Environment.ExitCode = anyFail ? 1 : 0;
+                    return;
+                }
+
+                if (ShouldShowServerFirstRunSetup())
+                {
+                    using (var setup = new ServerFirstRunSetupForm())
+                    {
+                        if (setup.ShowDialog() != DialogResult.OK)
+                            return;
+                    }
+                }
 
                 stageWatch.Restart();
                 WebView2RuntimeHelper.ShowFriendlyMissingRuntimeMessage(null);
@@ -323,6 +359,27 @@ namespace HVAC_Pro_Desktop
                 licenseResult = ShowLicenseStartupWarning(licenseResult);
 
                 stageWatch.Restart();
+                if (!LegalAgreementForm.EnsureAccepted(null))
+                    return;
+                AppRuntime.LogTiming("Startup.LegalAgreement", stageWatch.ElapsedMilliseconds);
+
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/navtiming", StringComparison.OrdinalIgnoreCase)))
+                {
+                    stageWatch.Restart();
+                    string bypassMessage;
+                    if (!LocalLoginBypassService.TryStartSession(out bypassMessage))
+                        throw new InvalidOperationException("Navigation timing requires the authorized local login bypass. " + bypassMessage);
+
+                    string reportPath = FullNavigationTimingTests.WriteReport();
+                    if (File.Exists(reportPath) && File.ReadAllText(reportPath).Contains(Environment.NewLine + "FAIL "))
+                        Environment.ExitCode = 1;
+                    else
+                        Environment.ExitCode = 0;
+                    AppRuntime.LogTiming("FullNavigationTimingTests", stageWatch.ElapsedMilliseconds, reportPath);
+                    return;
+                }
+
+                stageWatch.Restart();
                 if (LocalLoginBypassService.TryStartSession(out _))
                 {
                     AppRuntime.LogTiming("Startup.Login", stageWatch.ElapsedMilliseconds, "local bypass");
@@ -338,20 +395,88 @@ namespace HVAC_Pro_Desktop
             }
             catch (Exception ex)
             {
+                Log.Fatal(ex, "ServoERP startup failed");
                 AppRuntime.LogException("Application startup", ex);
+                LocalSqliteFallbackStore.RecordSqlUnavailable(DatabaseManager.GetConfiguredConnectionString(), ex);
 
-                MessageBox.Show(
-                    "Application startup error:\r\n\r\n" + ex.Message +
-                    "\r\n\r\nWhat the app already tried:\r\n" +
-                    "  1. Start SQL Server (SQLEXPRESS)\r\n" +
-                    "  2. Start SQL Server Browser\r\n" +
-                    "  3. Wait for SQL Express to accept connections\r\n" +
-                    "  4. Retry database initialization once" +
-                    (string.IsNullOrWhiteSpace(AppRuntime.LastLogPath) ? "" : "\r\n\r\nCrash log: " + AppRuntime.LastLogPath),
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/smoketest", StringComparison.OrdinalIgnoreCase)))
+                {
+                    WriteStartupSmokeFailure(ex);
+                    Environment.ExitCode = 1;
+                    return;
+                }
+
+                DialogResult retry = MessageBox.Show(
+                    "Cannot connect to the office SQL Server or complete startup. Please ensure the always-on server PC and SQL Server are running, then click Retry.\r\n\r\nA local SQLite fallback status file has been updated for diagnostics only; business entries remain locked until SQL Server is reachable.",
                     BrandingService.WindowTitle("Startup Error"),
-                    MessageBoxButtons.OK,
+                    MessageBoxButtons.RetryCancel,
                     MessageBoxIcon.Error);
+                if (retry == DialogResult.Retry)
+                    RunApplication();
             }
+            finally
+            {
+                Log.Information("ServoERP application loop ended");
+                Log.CloseAndFlush();
+            }
+        }
+
+        private static void ConfigureSerilog()
+        {
+            try
+            {
+                string logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                Directory.CreateDirectory(logFolder);
+                string logPath = Path.Combine(logFolder, "servoerp_.log");
+
+                Log.Logger = new LoggerConfiguration()
+                    .MinimumLevel.Information()
+                    .Enrich.FromLogContext()
+                    .WriteTo.File(
+                        logPath,
+                        rollingInterval: RollingInterval.Month,
+                        retainedFileCountLimit: 12,
+                        shared: true,
+                        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                    .CreateLogger();
+            }
+            catch
+            {
+                Log.Logger = new LoggerConfiguration().CreateLogger();
+            }
+        }
+
+        private static void WriteStartupSmokeFailure(Exception ex)
+        {
+            try
+            {
+                string dir = @"C:\HVAC_PRO_MSE\TEST_RESULTS";
+                Directory.CreateDirectory(dir);
+                string path = Path.Combine(dir, "enterprise-ui-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                File.WriteAllText(
+                    path,
+                    "ServoERP Enterprise UI Smoke Test" + Environment.NewLine +
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
+                    Environment.NewLine +
+                    "FAIL Startup failed before UI smoke tests could run." + Environment.NewLine +
+                    ex.GetType().FullName + ": " + ex.Message + Environment.NewLine +
+                    Environment.NewLine +
+                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                    Environment.NewLine +
+                    LocalSqliteFallbackStore.BuildStatusText());
+                AppRuntime.LogTiming("EnterpriseUiSmokeTests.StartupFailure", 0, path);
+            }
+            catch
+            {
+            }
+        }
+
+        private static bool ShouldShowServerFirstRunSetup()
+        {
+            string required = ConfigService.Get("Setup", "ServerFirstRunRequired", "false");
+            string complete = ConfigService.Get("Setup", "ServerFirstRunComplete", "false");
+            return string.Equals(required, "true", StringComparison.OrdinalIgnoreCase) &&
+                   !string.Equals(complete, "true", StringComparison.OrdinalIgnoreCase);
         }
 
         private static LicenseValidationResult ShowLicenseStartupWarning(LicenseValidationResult result)
@@ -392,7 +517,7 @@ namespace HVAC_Pro_Desktop
 
         private static void OnThreadException(object sender, System.Threading.ThreadExceptionEventArgs e)
         {
-            AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Screen Error"), "A screen action", e.Exception);
+            AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Screen Error"), CrashProtectionService.LastUiAction, e.Exception);
         }
 
         private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

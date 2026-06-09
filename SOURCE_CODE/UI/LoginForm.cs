@@ -294,7 +294,7 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Controls.Add(_chkRememberMe);
 
             var forgot = LinkLabel("Forgot password?", 346, 328, 150, 30);
-            forgot.Click += (s, e) => ShowToast("Contact your ServoERP administrator to reset password.", false);
+            forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
             _lblError = new Label
@@ -369,7 +369,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Color.FromArgb(8, 22, 61),
                 Font = new Font("Segoe UI", 10f)
             };
-            language.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            language.FlatAppearance.BorderColor = DS.Border;
             language.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             _loginCard.Controls.Add(language);
 
@@ -429,7 +429,7 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Controls.Add(_chkRememberMe);
 
             var forgot = LinkLabel("Forgot Password?", 482, 458, 150, 30);
-            forgot.Click += (s, e) => ShowToast("Contact your ServoERP administrator to reset password.", false);
+            forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
             _lblError = new Label
@@ -553,7 +553,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Color.FromArgb(30, 64, 175),
                 Font = new Font("Segoe UI", 10f)
             };
-            language.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            language.FlatAppearance.BorderColor = DS.Border;
             language.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             _loginCard.Controls.Add(language);
 
@@ -612,7 +612,7 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Controls.Add(_chkRememberMe);
 
             var forgot = LinkLabel("Forgot Password?", 500, 518, 150, 30);
-            forgot.Click += (s, e) => ShowToast("Contact your ServoERP administrator to reset password.", false);
+            forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
             _btnSignIn = new Button
@@ -881,8 +881,24 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void ShowForgotPasswordDialog()
+        {
+            using (var dialog = new ChangePasswordForm(_txtUsername?.Text ?? string.Empty))
+            {
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    _txtPassword.Text = string.Empty;
+                    _txtPassword.Focus();
+                    ShowToast("Password reset. Sign in with your new password.", false);
+                }
+            }
+        }
+
         private void ShowMainShell()
         {
+            if (!LegalAgreementForm.EnsureAccepted(this))
+                return;
+
             Hide();
             try
             {
@@ -895,8 +911,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     _txtPassword.Text = string.Empty;
                     _lblError.Text = string.Empty;
-                    Show();
-                    Activate();
+                    Close();
                 }
             }
         }
@@ -958,7 +973,7 @@ namespace HVAC_Pro_Desktop.UI
             button.AccessibleDescription = "Show password";
             button.MouseEnter += (s, e) => button.Invalidate();
             button.MouseLeave += (s, e) => button.Invalidate();
-            button.Paint += (s, e) => DrawPasswordVisibilityIcon(e.Graphics, button.ClientRectangle, _passwordVisible, button.ClientRectangle.Contains(button.PointToClient(Cursor.Position)));
+            button.Paint += (s, e) => DrawPasswordVisibilityIcon(e.Graphics, button.ClientRectangle, !_passwordVisible, button.ClientRectangle.Contains(button.PointToClient(Cursor.Position)));
         }
 
         private void DrawPasswordVisibilityIcon(Graphics graphics, Rectangle bounds, bool hidden, bool hot)
@@ -1405,7 +1420,7 @@ namespace HVAC_Pro_Desktop.UI
                     g.DrawString(labels[i], textFont, text, x + 28, rect.Top + 5);
                 }
                 if (i > 0)
-                    using (Pen p = new Pen(Color.FromArgb(203, 213, 225)))
+                    using (Pen p = new Pen(DS.Border))
                         g.DrawLine(p, x - 12, rect.Top + 7, x - 12, rect.Bottom - 8);
             }
         }
@@ -1477,7 +1492,7 @@ namespace HVAC_Pro_Desktop.UI
 
             using (GraphicsPath path = Rounded(rect, 18))
             using (SolidBrush bg = new SolidBrush(Color.White))
-            using (Pen border = new Pen(Color.FromArgb(218, 226, 236)))
+            using (Pen border = new Pen(DS.Border))
             {
                 g.FillPath(bg, path);
                 g.DrawPath(border, path);
@@ -1486,7 +1501,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void DrawFooter(object sender, PaintEventArgs e)
         {
-            using (Pen p = new Pen(Color.FromArgb(226, 232, 240)))
+            using (Pen p = new Pen(DS.Border))
                 e.Graphics.DrawLine(p, 0, 0, _footer.Width, 0);
         }
 
@@ -1513,7 +1528,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button SocialButton(string text, int x, int y)
         {
             var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(264, 58), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(8, 22, 61), Font = new Font("Segoe UI", 12f) };
-            button.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             return button;
         }

@@ -11,7 +11,7 @@ namespace HVAC_Pro_Desktop.UI
     /// <summary>
     /// Enterprise Copilot surface. This form is intentionally read-only: it suggests actions but never writes ERP records.
     /// </summary>
-    public class AiAssistantForm : Form
+    public class AiAssistantForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly Func<string> _moduleResolver;
         private readonly AiAssistantService _assistant = new AiAssistantService();
@@ -44,7 +44,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _moduleResolver = moduleResolver;
             BuildLayout();
-            Shown += async (s, e) => await CheckLocalAiAsync();
+            Shown += async (s, e) => await CheckAssistantAsync();
             FormClosed += (s, e) => CancelActiveRequest();
         }
 
@@ -74,7 +74,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             Label subtitle = new Label
             {
-                Text = "Local HVAC ERP assistant",
+                Text = "Built-in HVAC ERP assistant",
                 Location = new Point(18, 42),
                 Size = new Size(240, 20),
                 Font = DS.Small,
@@ -109,7 +109,7 @@ namespace HVAC_Pro_Desktop.UI
                 "Quotation Assistant",
                 "Invoice Assistant",
                 "Job/Technician Assistant",
-                "Inventory Assistant",
+                "Materials Assistant",
                 "Vendor Assistant",
                 "Analytics Explainer"
             });
@@ -201,7 +201,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(header);
 
             RefreshContextLabel();
-            AddAssistantBubble("Local AI is read-only in this first version. Ask about clients, invoices, quotations, delayed jobs, vendors, stock, or payments. For write actions I will show a preview only.");
+            AddAssistantBubble("ServoERP Assistant is ready. Ask about clients, invoices, quotations, delayed jobs, vendors, materials, or payments. I use built-in ERP context and action previews only.");
             AddSuggestedPromptCard();
         }
 
@@ -401,11 +401,11 @@ namespace HVAC_Pro_Desktop.UI
                 };
             }
 
-            if (mode == "Inventory Assistant")
+            if (mode == "Materials Assistant")
             {
                 return new[]
                 {
-                    Prompt("Low stock risks", "List low-stock or reorder-risk inventory items from available context."),
+                    Prompt("Materials to order", "List materials that should be planned for vendor ordering from available context."),
                     Prompt("Material plan", "Suggest material planning for the selected job, preview only."),
                     Prompt("Parts affecting delivery", "Explain which parts may affect job delivery timelines.")
                 };
@@ -426,7 +426,7 @@ namespace HVAC_Pro_Desktop.UI
                 return new[]
                 {
                     Prompt("Dashboard priorities", "Explain today's dashboard numbers and the top 3 issues to check."),
-                    Prompt("Business risk summary", "Summarize revenue, receivables, delayed jobs, and inventory risks."),
+                    Prompt("Business risk summary", "Summarize revenue, receivables, delayed jobs, and material ordering risks."),
                     Prompt("Recent changes", "Tell me what changed recently in " + module + " and why it matters.")
                 };
             }
@@ -447,16 +447,16 @@ namespace HVAC_Pro_Desktop.UI
             return new PromptSuggestion(label, prompt);
         }
 
-        private async Task CheckLocalAiAsync()
+        private async Task CheckAssistantAsync()
         {
             RefreshContextLabel();
-            SetBusy(true, "Checking local AI...");
+            SetBusy(true, "Checking assistant...");
             try
             {
                 bool ok = await _assistant.IsLocalAiReachableAsync(CancellationToken.None);
                 _lblStatus.Text = ok
-                    ? "Local AI connected."
-                    : "Local AI is not running. Please install/start Ollama and pull a model like llama3.1 or qwen2.5.";
+                    ? "Assistant ready."
+                    : "Assistant is disabled in Settings.";
                 _lblStatus.ForeColor = ok ? DS.Teal600 : DS.Amber600;
             }
             finally
@@ -477,7 +477,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtPrompt.Clear();
             RefreshContextLabel();
             AddUserBubble(prompt);
-            SetBusy(true, "Thinking locally...");
+            SetBusy(true, "Preparing answer...");
 
             try
             {
@@ -607,7 +607,7 @@ namespace HVAC_Pro_Desktop.UI
             _suggestionCard = null;
             _lastPrompt = null;
             _lastResponse = null;
-            AddAssistantBubble("Chat cleared. Local AI remains read-only and uses limited ServoERP context.");
+            AddAssistantBubble("Chat cleared. ServoERP Assistant is ready and uses built-in ERP context.");
             AddSuggestedPromptCard();
         }
 
@@ -652,3 +652,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

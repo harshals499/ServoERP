@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -64,19 +64,46 @@ namespace HVAC_Pro_Desktop.UI
         private List<Employee> _employees = new List<Employee>();
         private bool _isInitializing;
 
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
+
         public PayrollForm()
         {
             Dock = DockStyle.Fill;
             BackColor = Color.FromArgb(245, 247, 250);
-            BuildLayout();
-            UIHelper.ApplyInputStyles(Controls);
-            EnableDeferredLoad(
-                () =>
-                {
-                    LoadEmployees();
-                    RefreshAll();
-                },
-                ex => SetStatus("Payroll load error: " + ex.Message, Color.Firebrick));
+            BuildFastPayrollShell();
+            MarkDeferredLoadCompleted();
+        }
+
+        private void BuildFastPayrollShell()
+        {
+            Controls.Clear();
+            BackColor = DS.BgPage;
+            Panel root = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(32) };
+            Label title = new Label { Text = "Payroll", Location = new Point(32, 30), Size = new Size(420, 34), Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            Label subtitle = new Label { Text = "Payroll workspace is ready. Open full workspace when salary processing is required.", Location = new Point(33, 70), Size = new Size(760, 24), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate600 };
+            _lblStatus = new Label { Text = "Payroll ready.", Location = new Point(33, 116), Size = new Size(640, 24), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate500 };
+            Button refresh = NewButton("Refresh Employees", new Point(33, 158), 150, DS.Primary600);
+            refresh.Click += (s, e) =>
+            {
+                LoadEmployees();
+                SetStatus("Loaded " + _employees.Count + " employees for payroll.", DS.Green600);
+            };
+            Button full = NewButton("Open Full Workspace", new Point(195, 158), 170, DS.Primary600);
+            full.Click += (s, e) =>
+            {
+                BuildLayout();
+                UIHelper.ApplyInputStyles(Controls);
+                LoadEmployees();
+                RefreshAll();
+            };
+            root.Controls.Add(title);
+            root.Controls.Add(subtitle);
+            root.Controls.Add(_lblStatus);
+            root.Controls.Add(refresh);
+            root.Controls.Add(full);
+            Controls.Add(root);
         }
 
         private void BuildLayout()
@@ -105,12 +132,10 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            FlowLayoutPanel headerActions = new FlowLayoutPanel
+            Panel headerActions = new Panel
             {
                 Dock = DockStyle.Right,
                 Width = 654,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
                 BackColor = Color.Transparent,
                 Padding = new Padding(0, 8, 0, 0)
             };
@@ -132,14 +157,31 @@ namespace HVAC_Pro_Desktop.UI
             btnLock.FlatAppearance.BorderSize = 1;
             btnLock.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnRun = NewButton("Run Payroll", Point.Empty, 118, DS.Primary600);
-            foreach (Button button in new[] { btnMore, _btnImport, btnForms, btnLock, btnRun })
-                button.Margin = new Padding(8, 0, 0, 0);
+            Button[] headerButtons = { btnMore, _btnImport, btnForms, btnLock, btnRun };
+            foreach (Button button in headerButtons)
+            {
+                button.Margin = Padding.Empty;
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
+            }
             btnRun.Click += (s, e) => RunPayroll();
             btnLock.Click += (s, e) => LockCurrentPayroll();
             _btnImport.Click += (s, e) => ImportHistoricalData();
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payroll", "Payroll", null, "technician attendance leave request salary approval payroll job costing sheet payment receipt");
             btnMore.Click += (s, e) => ShowPayrollActionsMenu(btnMore, btnRun, btnLock, btnForms);
-            headerActions.Controls.AddRange(new Control[] { btnMore, _btnImport, btnForms, btnLock, btnRun });
+            headerActions.Controls.AddRange(headerButtons.Cast<Control>().ToArray());
+            Action layoutHeaderButtons = () =>
+            {
+                int right = headerActions.ClientSize.Width;
+                foreach (Button button in headerButtons)
+                {
+                    right -= button.Width;
+                    button.Location = new Point(Math.Max(0, right), 8);
+                    right -= 8;
+                }
+            };
+            headerActions.Resize += (s, e) => layoutHeaderButtons();
+            layoutHeaderButtons();
             header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
 
             Panel workspace = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(18, 0, 18, 18) };
@@ -289,7 +331,7 @@ namespace HVAC_Pro_Desktop.UI
             var searchWrap = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(14, 14, 14, 14) };
             searchWrap.Paint += (s, e) =>
             {
-                using (var pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (var pen = new Pen(DS.Border))
                     e.Graphics.DrawRectangle(pen, 0, 0, searchWrap.Width - 1, searchWrap.Height - 1);
             };
             var employeesTitle = new Label { Text = "Employees", Dock = DockStyle.Top, Height = 20, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42) };
@@ -307,7 +349,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel form = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(18, 18, 18, 18) };
             form.Paint += (s, e) =>
             {
-                using (var pen = new Pen(Color.FromArgb(226, 232, 240)))
+                using (var pen = new Pen(DS.Border))
                     e.Graphics.DrawRectangle(pen, 0, 0, form.Width - 1, form.Height - 1);
             };
             var titleLabel = new Label { Text = "Salary Structure Editor", Dock = DockStyle.Top, Height = 24, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42) };
@@ -325,8 +367,8 @@ namespace HVAC_Pro_Desktop.UI
             fieldGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
             fieldGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
 
-            _dtStructureFrom = AddDateField(fieldGrid, "Effective From");
-            _numBasic = AddAmountField(fieldGrid, "Basic Salary");
+            _dtStructureFrom = AddDateField(fieldGrid, "Effective From *");
+            _numBasic = AddAmountField(fieldGrid, "Basic Salary *");
             _numDa = AddAmountField(fieldGrid, "DA");
             _numHra = AddAmountField(fieldGrid, "HRA");
             _numSpecial = AddAmountField(fieldGrid, "Special Allowance");
@@ -355,15 +397,45 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblSalaryValidation = new Label { Dock = DockStyle.Top, Height = 34, ForeColor = Color.Firebrick, Font = new Font("Segoe UI", 8, FontStyle.Bold), Padding = new Padding(0, 10, 0, 0) };
 
+            Panel salaryGuide = BuildSalaryStructureGuide();
             form.Controls.Add(_gridSalaryHistory);
             form.Controls.Add(_lblSalaryValidation);
             form.Controls.Add(actions);
             form.Controls.Add(fieldGrid);
+            form.Controls.Add(salaryGuide);
             form.Controls.Add(subtitleLabel);
             form.Controls.Add(titleLabel);
             split.Panel2.Controls.Add(form);
             tab.Controls.Add(split);
             return tab;
+        }
+
+        private Panel BuildSalaryStructureGuide()
+        {
+            Panel guide = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(14, 8, 14, 8) };
+            guide.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, guide.Width - 1, guide.Height - 1);
+            };
+            Label title = new Label
+            {
+                Text = "Required fields: Employee, Effective From, Basic Salary.",
+                Dock = DockStyle.Top,
+                Height = 22,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate900
+            };
+            Label hint = new Label
+            {
+                Text = "Allowances can stay zero. Save creates a new effective salary structure for future payroll runs.",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = DS.Slate600
+            };
+            guide.Controls.Add(hint);
+            guide.Controls.Add(title);
+            return guide;
         }
 
         private TabPage BuildAttendanceTab()
@@ -475,7 +547,7 @@ namespace HVAC_Pro_Desktop.UI
             RefreshProcessTab();
             LoadAttendanceTab();
             RefreshStatutoryTab();
-            _btnImport.Visible = string.Equals(SessionManager.CurrentUser?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase) && !_importService.IsHistoricalImportCompleted();
+            _btnImport.Visible = SessionManager.IsLoggedIn && !_importService.IsHistoricalImportCompleted();
         }
 
         private void RefreshProcessTab()
@@ -486,8 +558,9 @@ namespace HVAC_Pro_Desktop.UI
             PayrollRun run = _payrollService.GetPayrollRun(CurrentMonth, CurrentYear);
             if (run == null)
             {
-                SetStatus("No payroll run for selected month.", Color.Gray);
-                UpdateSummary(new PayrollSummaryDto());
+                int activeEmployees = _employees.Count(e => string.Equals(e.Status, "Active", StringComparison.OrdinalIgnoreCase));
+                UpdateSummary(new PayrollSummaryDto { TotalEmployees = activeEmployees });
+                SetStatus($"No payroll run for {CurrentMonth:00}/{CurrentYear}. Click Run Payroll to calculate salaries for {activeEmployees} active employees.", Color.Gray);
                 return;
             }
 
@@ -625,7 +698,18 @@ namespace HVAC_Pro_Desktop.UI
         {
             Employee employee = _lstSalaryEmployees.SelectedItem as Employee;
             if (employee == null)
+            {
+                _lblSalaryValidation.Text = "Select an employee before saving the salary structure.";
+                _lblSalaryValidation.ForeColor = Color.Firebrick;
                 return;
+            }
+            if (_numBasic.Value <= 0)
+            {
+                _lblSalaryValidation.Text = "Basic Salary is required and must be greater than zero.";
+                _lblSalaryValidation.ForeColor = Color.Firebrick;
+                _numBasic.Focus();
+                return;
+            }
             var structure = new SalaryStructure
             {
                 EmployeeId = employee.EmployeeID,
@@ -1034,13 +1118,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Control BuildEditorLabel(string text)
         {
+            bool required = (text ?? string.Empty).Contains("*");
             return new Label
             {
                 Text = text,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(51, 65, 85),
+                ForeColor = required ? DS.Primary700 : Color.FromArgb(51, 65, 85),
                 Margin = new Padding(0, 4, 10, 4)
             };
         }

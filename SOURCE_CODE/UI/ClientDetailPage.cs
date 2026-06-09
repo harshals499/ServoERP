@@ -10,12 +10,12 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class ClientDetailPage : UserControl
+    public class ClientDetailPage : BaseUserControl
     {
         private static readonly Color Teal = ColorTranslator.FromHtml("#1D9E75");
         private static readonly Color TealBg = ColorTranslator.FromHtml("#E1F5EE");
         private static readonly Color TealText = ColorTranslator.FromHtml("#0F6E56");
-        private static readonly Color Border = Color.FromArgb(230, 230, 230);
+        private static readonly Color Border = DS.Border;
         private static readonly Color Surface = Color.FromArgb(248, 248, 248);
         private static readonly Color TextMain = Color.FromArgb(24, 24, 27);
         private static readonly Color TextMuted = Color.FromArgb(101, 112, 128);
@@ -55,6 +55,7 @@ namespace HVAC_Pro_Desktop.UI
         public int ClientId { get; set; }
         public int HighlightSiteId { get; set; }
         public Action<int> OnBackToClients { get; set; }
+        public Action OnBackToDashboard { get; set; }
 
         public ClientDetailPage()
         {
@@ -62,6 +63,7 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = Color.White;
             Font = new Font("Segoe UI", 9f);
             BuildLayout();
+            SalesUiPolishService.ApplyAfterRebuild(this, "Client Detail");
         }
 
         public void LoadClient(int clientId)
@@ -95,26 +97,26 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel top = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = Color.White, Padding = new Padding(12, 8, 12, 8) };
             top.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, top.Height - 1, top.Width, top.Height - 1);
+            FlowLayoutPanel nav = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 244, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.White, Padding = new Padding(0) };
+            Button dashboard = Button("<- Dashboard", Color.White, TextMain, 116);
+            dashboard.FlatAppearance.BorderColor = Border;
+            dashboard.Click += (s, e) => OnBackToDashboard?.Invoke();
             Button back = Button("<- Clients", Color.White, TextMain, 92);
-            back.Dock = DockStyle.Left;
             back.FlatAppearance.BorderColor = Border;
             back.Click += (s, e) => OnBackToClients?.Invoke(ClientId);
-            Label sep = new Label { Text = "/", Dock = DockStyle.Left, Width = 24, TextAlign = ContentAlignment.MiddleCenter, ForeColor = TextMuted };
+            nav.Controls.Add(dashboard);
+            nav.Controls.Add(back);
             _titleLabel = new Label { Text = "Client", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextMain };
-            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 300, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, BackColor = Color.White };
+            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 198, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, BackColor = Color.White };
             Button save = Button("Save changes", Teal, Color.White, 112);
             Button print = Button("Print", Color.White, TextMain, 70);
-            Button log = Button("+ Log activity", Color.White, TextMain, 112);
             save.Click += (s, e) => SaveClient();
             print.Click += (s, e) => PrintClientProfile();
-            log.Click += (s, e) => ClientUi.ShowActivityModal(this, ClientId, RenderClient);
             actions.Controls.Add(save);
             actions.Controls.Add(print);
-            actions.Controls.Add(log);
             top.Controls.Add(_titleLabel);
             top.Controls.Add(actions);
-            top.Controls.Add(sep);
-            top.Controls.Add(back);
+            top.Controls.Add(nav);
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 40, BackColor = Color.White, Padding = new Padding(8, 5, 12, 5) };
             footer.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, 0, footer.Width, 0);
@@ -136,6 +138,8 @@ namespace HVAC_Pro_Desktop.UI
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260f));
             _leftStack = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(18, 14, 18, 20), BackColor = Color.White };
             _rightStack = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(12), BackColor = Surface };
+            _leftStack.Resize += (s, e) => ResizeClientDetailCards(_leftStack);
+            _rightStack.Resize += (s, e) => ResizeClientDetailCards(_rightStack);
             body.Controls.Add(_leftStack, 0, 0);
             body.Controls.Add(_rightStack, 1, 0);
 
@@ -165,11 +169,13 @@ namespace HVAC_Pro_Desktop.UI
             _leftStack.Controls.Add(BuildSitesSection());
 
             _rightStack.Controls.Add(BuildNotesCard());
-            _rightStack.Controls.Add(BuildRecentActivityCard());
             _rightStack.Controls.Add(BuildSiteTimelineCard());
 
             _leftStack.ResumeLayout();
             _rightStack.ResumeLayout();
+            ResizeClientDetailCards(_leftStack);
+            ResizeClientDetailCards(_rightStack);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Client Detail");
         }
 
         private Panel BuildIdentitySection()
@@ -178,8 +184,8 @@ namespace HVAC_Pro_Desktop.UI
             Panel avatar = Avatar(Initials(_client.CompanyName), 48);
             avatar.Location = new Point(14, 16);
             card.Controls.Add(avatar);
-            card.Controls.Add(new Label { Text = _client.CompanyName ?? "Client", Location = new Point(78, 14), Size = new Size(420, 24), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = TextMain });
-            card.Controls.Add(new Label { Text = Safe(_client.IndustryType, "-") + " · " + Safe(_client.City, "-"), Location = new Point(80, 42), Size = new Size(420, 18), ForeColor = TextMuted });
+            card.Controls.Add(new Label { Text = _client.CompanyName ?? "Client", Location = new Point(78, 14), Size = new Size(420, 24), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = TextMain, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+            card.Controls.Add(new Label { Text = Safe(_client.IndustryType, "-") + " · " + Safe(_client.City, "-"), Location = new Point(80, 42), Size = new Size(420, 18), ForeColor = TextMuted, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
             int x = 80;
             foreach (string tag in SplitTags(_client.Tags).Take(5))
             {
@@ -204,13 +210,13 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildStageSection()
         {
             Panel card = Section(760, 86);
-            card.Controls.Add(new Label { Text = "Relationship stage", Location = new Point(14, 8), Size = new Size(220, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextMain });
-            string[] stages = { "Prospect", "Qualified", "Active AMC", "Renewal Due", "Inactive" };
-            string current = NormalizeStage(_client.RelationshipStage);
+            card.Controls.Add(new Label { Text = "Client status", Location = new Point(14, 8), Size = new Size(220, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextMain });
+            string[] stages = ClientStatusOptions();
+            string current = GetClientStatus(_client);
             for (int i = 0; i < stages.Length; i++)
             {
                 string stage = stages[i];
-                Button step = Button((stage == current ? "● " : "○ ") + stage, Color.White, stage == current ? TealText : TextMuted, i == 2 || i == 3 ? 130 : 104);
+                Button step = Button((stage == current ? "● " : "○ ") + stage, Color.White, stage == current ? TealText : TextMuted, stage == "Blacklisted" ? 124 : 104);
                 step.Location = new Point(14 + (i * 138), 40);
                 step.Tag = stage;
                 step.FlatAppearance.BorderColor = stage == current ? Teal : Border;
@@ -271,6 +277,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Location = new Point(14, 42),
                 Size = new Size(728, 178),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
                 AllowUserToAddRows = false,
                 AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
                 BackgroundColor = Color.White,
@@ -307,7 +314,7 @@ namespace HVAC_Pro_Desktop.UI
             add.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             add.FlatAppearance.BorderColor = Border;
             add.Click += (s, e) => AddSite();
-            _sitesFlow = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(728, 74), WrapContents = true, AutoScroll = true };
+            _sitesFlow = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(728, 74), WrapContents = true, AutoScroll = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             foreach (ClientSite site in sites)
                 _sitesFlow.Controls.Add(SiteChip(site));
             card.ContentPanel.Controls.Add(add);
@@ -321,30 +328,16 @@ namespace HVAC_Pro_Desktop.UI
             int y = 8;
             foreach (ClientNote note in ParseNotes(_client.Notes).Take(3))
             {
-                Label item = new Label { Text = Safe(note.Title, "Note") + "\r\n" + Safe(note.Body, ""), Location = new Point(14, y), Size = new Size(208, 52), BackColor = Color.White, ForeColor = TextMuted, Padding = new Padding(6) };
+                Label item = new Label { Text = Safe(note.Title, "Note") + "\r\n" + Safe(note.Body, ""), Location = new Point(14, y), Size = new Size(208, 52), BackColor = Color.White, ForeColor = TextMuted, Padding = new Padding(6), AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
                 item.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, item.Width - 1, item.Height - 1);
                 card.ContentPanel.Controls.Add(item);
                 y += 58;
             }
-            TextBox add = new TextBox { Location = new Point(14, Math.Min(202, y)), Width = 208, Text = "+ Add a note..." };
+            TextBox add = new TextBox { Location = new Point(14, Math.Min(202, y)), Width = 208, Text = "+ Add a note...", Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             add.Enter += (s, e) => { if (add.Text == "+ Add a note...") add.Text = ""; };
             add.Leave += (s, e) => SaveNote(add);
             add.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter) { SaveNote(add); e.SuppressKeyPress = true; } };
             card.ContentPanel.Controls.Add(add);
-            return card;
-        }
-
-        private Control BuildRecentActivityCard()
-        {
-            AccordionPanel card = SideCard(236, 224, "Recent activity");
-            int y = 8;
-            foreach (ClientActivity activity in SafeActivities().Take(5))
-            {
-                card.ContentPanel.Controls.Add(new Label { Text = ActivityLetter(activity.ActivityType), Location = new Point(14, y + 3), Size = new Size(22, 22), BackColor = TealBg, ForeColor = TealText, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) });
-                card.ContentPanel.Controls.Add(new Label { Text = Safe(activity.Title, activity.ActivityType), Location = new Point(44, y), Size = new Size(170, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextMain });
-                card.ContentPanel.Controls.Add(new Label { Text = activity.CreatedAt.ToString("dd/MM/yyyy"), Location = new Point(44, y + 18), Size = new Size(170, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextMuted });
-                y += 40;
-            }
             return card;
         }
 
@@ -362,7 +355,9 @@ namespace HVAC_Pro_Desktop.UI
                     Text = "No site is available for this client.",
                     Location = new Point(14, 12),
                     Size = new Size(208, 40),
-                    ForeColor = TextMuted
+                    ForeColor = TextMuted,
+                    AutoEllipsis = true,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 });
                 return card;
             }
@@ -370,9 +365,15 @@ namespace HVAC_Pro_Desktop.UI
             int y = 8;
             foreach (SiteTimelineItem item in _siteTimelineService.GetTimeline(selectedSite.SiteID, 5))
             {
-                card.ContentPanel.Controls.Add(new Label { Text = ActivityLetter(item.EventType), Location = new Point(14, y + 2), Size = new Size(22, 22), BackColor = TealBg, ForeColor = TealText, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) });
-                card.ContentPanel.Controls.Add(new Label { Text = Safe(item.Title, item.EventType), Location = new Point(44, y), Size = new Size(170, 18), Font = new Font("Segoe UI", 8.3f, FontStyle.Bold), ForeColor = TextMain });
-                card.ContentPanel.Controls.Add(new Label { Text = item.EventDate == DateTime.MinValue ? item.EventType : item.EventDate.ToString("dd/MM/yyyy") + " | " + item.EventType, Location = new Point(44, y + 18), Size = new Size(170, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextMuted });
+                Label icon = new Label { Text = ActivityLetter(item.EventType), Location = new Point(14, y + 2), Size = new Size(22, 22), BackColor = TealBg, ForeColor = TealText, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
+                Label titleLabel = new Label { Text = Safe(item.Title, item.EventType), Location = new Point(44, y), Size = new Size(170, 18), Font = new Font("Segoe UI", 8.3f, FontStyle.Bold), ForeColor = TextMain, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+                Label metaLabel = new Label { Text = item.EventDate == DateTime.MinValue ? item.EventType : item.EventDate.ToString("dd/MM/yyyy") + " | " + item.EventType, Location = new Point(44, y + 18), Size = new Size(170, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextMuted, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+                NavigationHelper.MakeLink(icon, () => NavigationHelper.OpenTimelineItem(this, item));
+                NavigationHelper.MakeLink(titleLabel, () => NavigationHelper.OpenTimelineItem(this, item));
+                NavigationHelper.MakeLink(metaLabel, () => NavigationHelper.OpenTimelineItem(this, item));
+                card.ContentPanel.Controls.Add(icon);
+                card.ContentPanel.Controls.Add(titleLabel);
+                card.ContentPanel.Controls.Add(metaLabel);
                 y += 42;
             }
 
@@ -383,7 +384,9 @@ namespace HVAC_Pro_Desktop.UI
                     Text = "No jobs, invoices, purchases, service tickets, or contracts yet.",
                     Location = new Point(14, 12),
                     Size = new Size(208, 54),
-                    ForeColor = TextMuted
+                    ForeColor = TextMuted,
+                    AutoEllipsis = true,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
                 });
             }
 
@@ -438,16 +441,12 @@ namespace HVAC_Pro_Desktop.UI
             ClientStats stats = LoadStats();
             List<ClientSite> sites = SafeSites();
             List<ClientTeamMember> team = SafeTeamMembers();
-            List<ClientActivity> activities = SafeActivities();
             string rows = string.Join("", sites.Select(s => "<tr><td>" + H(s.SiteName) + "</td><td>" + H(s.City) + "</td><td>" + H(s.Address) + "</td></tr>"));
             if (string.IsNullOrEmpty(rows))
                 rows = "<tr><td colspan='3' class='muted'>No sites configured.</td></tr>";
             string contacts = string.Join("", team.Select(t => "<tr><td>" + H(t.EmployeeName) + "</td><td>" + H(t.Position) + "</td><td>" + H(t.EmailId) + "</td><td>" + H(t.ContactNo) + "</td></tr>"));
             if (string.IsNullOrEmpty(contacts))
                 contacts = "<tr><td colspan='4' class='muted'>No team contacts configured.</td></tr>";
-            string activity = string.Join("", activities.Take(8).Select(a => "<li><b>" + H(a.Title) + "</b><span>" + a.CreatedAt.ToString("dd/MM/yyyy") + "</span><p>" + H(a.Detail) + "</p></li>"));
-            if (string.IsNullOrEmpty(activity))
-                activity = "<li class='muted'>No recent activity.</li>";
 
             return @"<!doctype html><html><head><meta charset='utf-8'><style>
 body{font-family:'Segoe UI',Arial,sans-serif;margin:34px;color:#0f172a;background:#fff}
@@ -466,7 +465,6 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 <h2>Company</h2><div class='kv'><div>GSTIN</div><div>" + H(_client.GSTNumber) + @"</div><div>PAN</div><div>" + H(_client.PANNumber) + @"</div><div>Phone</div><div>" + H(_client.Phone) + @"</div><div>Email</div><div>" + H(_client.Email) + @"</div><div>Billing address</div><div>" + H(_client.BillingAddress) + @"</div></div>
 <h2>Sites</h2><table><thead><tr><th>Site</th><th>City</th><th>Address</th></tr></thead><tbody>" + rows + @"</tbody></table>
 <h2>Contacts</h2><table><thead><tr><th>Name</th><th>Role</th><th>Email</th><th>Phone</th></tr></thead><tbody>" + contacts + @"</tbody></table>
-<h2>Recent activity</h2><ul>" + activity + @"</ul>
 </body></html>";
         }
 
@@ -509,21 +507,27 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private void MoveStage(string stage)
         {
-            if (MessageBox.Show("Move to " + stage + "?", "Relationship stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (MessageBox.Show("Change client status to " + stage + "?", "Client status", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                 return;
-            _client.RelationshipStage = stage;
-            _clientService.UpdateClient(_client);
+            ApplyLifecycleLocal(_client, stage);
+            _clientService.UpdateLifecycleStatus(ClientId, stage);
             RenderClient();
         }
 
         private void AddSite()
         {
-            string name = Prompt("Add site", "Site name");
-            if (string.IsNullOrWhiteSpace(name))
+            SitePromptResult site = PromptSiteDetails();
+            if (site == null || string.IsNullOrWhiteSpace(site.SiteName))
                 return;
             try
             {
-                _siteService.Create(new ClientSite { ClientID = ClientId, SiteName = name.Trim(), City = _client.City });
+                _siteService.Create(new ClientSite
+                {
+                    ClientID = ClientId,
+                    SiteName = site.SiteName.Trim(),
+                    Address = (site.Address ?? string.Empty).Trim(),
+                    City = string.IsNullOrWhiteSpace(site.City) ? _client.City : site.City.Trim()
+                });
                 RenderClient();
             }
             catch (Exception ex)
@@ -604,12 +608,6 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             catch (Exception ex) { AppLogger.LogError("ClientDetailPage.SafeSites", ex); return new List<ClientSite>(); }
         }
 
-        private List<ClientActivity> SafeActivities()
-        {
-            try { return _clientService.GetActivities(ClientId, "All"); }
-            catch (Exception ex) { AppLogger.LogError("ClientDetailPage.SafeActivities", ex); return new List<ClientActivity>(); }
-        }
-
         private void SaveNote(TextBox box)
         {
             if (box == null || string.IsNullOrWhiteSpace(box.Text) || box.Text == "+ Add a note...")
@@ -624,7 +622,25 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private List<ClientNote> ParseNotes(string raw)
         {
-            try { return string.IsNullOrWhiteSpace(raw) ? new List<ClientNote>() : (_json.Deserialize<List<ClientNote>>(raw) ?? new List<ClientNote>()); }
+            if (string.IsNullOrWhiteSpace(raw))
+                return new List<ClientNote>();
+
+            string value = raw.Trim();
+            if (!value.StartsWith("[") && !value.StartsWith("{"))
+            {
+                return new List<ClientNote>
+                {
+                    new ClientNote
+                    {
+                        Title = "Imported Note",
+                        Body = value,
+                        CreatedAt = DateTime.Now,
+                        CreatedBy = "Imported"
+                    }
+                };
+            }
+
+            try { return _json.Deserialize<List<ClientNote>>(value) ?? new List<ClientNote>(); }
             catch (Exception ex) { AppLogger.LogError("ClientDetailPage.ParseNotes", ex); return new List<ClientNote>(); }
         }
 
@@ -661,6 +677,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             {
                 if (panel.Parent != null)
                     panel.Width = Math.Max(640, panel.Parent.ClientSize.Width - 38);
+                ResizeFixedChildren(panel.ContentPanel);
             };
             panel.SetExpanded(expanded);
             return panel;
@@ -681,6 +698,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
                 Margin = new Padding(0, 0, 0, 10)
             };
             card.ContentPanel.BackColor = Surface;
+            card.Resize += (s, e) => ResizeFixedChildren(card.ContentPanel);
             card.SetExpanded(true);
             return card;
         }
@@ -692,7 +710,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private TableLayoutPanel Grid(int columns, int rows, int height)
         {
-            TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(14, 10), Size = new Size(728, Math.Max(height, rows * 70 + 8)), ColumnCount = columns, RowCount = rows };
+            TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(14, 10), Size = new Size(728, Math.Max(height, rows * 70 + 8)), ColumnCount = columns, RowCount = rows, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             for (int i = 0; i < columns; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / columns));
             for (int i = 0; i < rows; i++)
@@ -737,9 +755,9 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private void AddStat(Panel card, int x, string label, string value, string note, Color noteColor)
         {
-            card.Controls.Add(new Label { Text = value, Location = new Point(x + 14, 10), Size = new Size(160, 22), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = TextMain });
-            card.Controls.Add(new Label { Text = label, Location = new Point(x + 14, 34), Size = new Size(160, 14), ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f) });
-            card.Controls.Add(new Label { Text = note, Location = new Point(x + 14, 48), Size = new Size(160, 14), ForeColor = noteColor, Font = new Font("Segoe UI", 7.5f) });
+            card.Controls.Add(new Label { Text = value, Location = new Point(x + 14, 10), Size = new Size(160, 22), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = TextMain, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = label, Location = new Point(x + 14, 34), Size = new Size(160, 14), ForeColor = TextMuted, Font = new Font("Segoe UI", 7.5f), AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = note, Location = new Point(x + 14, 48), Size = new Size(160, 14), ForeColor = noteColor, Font = new Font("Segoe UI", 7.5f), AutoEllipsis = true });
         }
 
         private static Button Button(string text, Color back, Color fore, int width)
@@ -765,7 +783,36 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private static Label MakeTag(string text)
         {
-            return new Label { Text = text, Width = Math.Max(60, Math.Min(140, text.Length * 7 + 20)), Height = 22, TextAlign = ContentAlignment.MiddleCenter, BackColor = TealBg, ForeColor = TealText, Font = new Font("Segoe UI", 8f) };
+            return new Label { Text = text, Width = Math.Max(60, Math.Min(140, text.Length * 7 + 20)), Height = 22, TextAlign = ContentAlignment.MiddleCenter, BackColor = TealBg, ForeColor = TealText, Font = new Font("Segoe UI", 8f), AutoEllipsis = true };
+        }
+
+        private static void ResizeClientDetailCards(FlowLayoutPanel stack)
+        {
+            if (stack == null || stack.IsDisposed)
+                return;
+
+            int width = Math.Max(220, stack.ClientSize.Width - stack.Padding.Left - stack.Padding.Right - 24);
+            foreach (Control control in stack.Controls)
+            {
+                if (control.Dock == DockStyle.None)
+                    control.Width = Math.Max(control.MinimumSize.Width, width);
+                ResizeFixedChildren(control);
+            }
+        }
+
+        private static void ResizeFixedChildren(Control parent)
+        {
+            if (parent == null || parent.IsDisposed)
+                return;
+
+            int available = Math.Max(80, parent.ClientSize.Width - 28);
+            foreach (Control child in parent.Controls)
+            {
+                if (child.Dock == DockStyle.None && child.Left >= 0 && child.Width > available / 2)
+                    child.Width = Math.Max(80, parent.ClientSize.Width - child.Left - 14);
+
+                ResizeFixedChildren(child);
+            }
         }
 
         private static bool IsClosedJob(Job job)
@@ -777,11 +824,42 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
         private static string NormalizeStage(string stage)
         {
             string s = (stage ?? "").Trim();
+            if (string.Equals(s, "Active", StringComparison.OrdinalIgnoreCase)) return "Active";
+            if (s.IndexOf("black", StringComparison.OrdinalIgnoreCase) >= 0) return "Blacklisted";
+            if (s.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0) return "On Hold";
             if (string.Equals(s, "Qualified", StringComparison.OrdinalIgnoreCase)) return "Qualified";
             if (string.Equals(s, "Active AMC", StringComparison.OrdinalIgnoreCase)) return "Active AMC";
             if (string.Equals(s, "Renewal Due", StringComparison.OrdinalIgnoreCase)) return "Renewal Due";
             if (string.Equals(s, "Inactive", StringComparison.OrdinalIgnoreCase)) return "Inactive";
             return "Prospect";
+        }
+
+        /// <summary>Returns the supported client lifecycle statuses shared by client status controls.</summary>
+        private static string[] ClientStatusOptions()
+        {
+            return new[] { "Active", "Prospect", "On Hold", "Inactive", "Blacklisted" };
+        }
+
+        /// <summary>Returns the visible lifecycle status for a client record.</summary>
+        private static string GetClientStatus(B2BClient client)
+        {
+            if (client == null)
+                return "Inactive";
+            string stage = client.RelationshipStage ?? string.Empty;
+            if (stage.IndexOf("black", StringComparison.OrdinalIgnoreCase) >= 0) return "Blacklisted";
+            if (!client.IsActive) return stage.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0 ? "On Hold" : "Inactive";
+            if (stage.IndexOf("prospect", StringComparison.OrdinalIgnoreCase) >= 0 || stage.IndexOf("lead", StringComparison.OrdinalIgnoreCase) >= 0) return "Prospect";
+            return "Active";
+        }
+
+        /// <summary>Applies lifecycle status semantics to the current in-memory client record.</summary>
+        private static void ApplyLifecycleLocal(B2BClient client, string status)
+        {
+            if (client == null)
+                return;
+            string value = string.IsNullOrWhiteSpace(status) ? "Active" : status.Trim();
+            client.RelationshipStage = value;
+            client.IsActive = value == "Active" || value == "Prospect";
         }
 
         private static List<string> SplitTags(string tags)
@@ -841,6 +919,52 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             }
         }
 
+        private SitePromptResult PromptSiteDetails()
+        {
+            using (Form dialog = new Form { Text = "Add site", Width = 420, Height = 280, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = Color.White })
+            {
+                dialog.Controls.Add(new Label { Text = "Site name", Location = new Point(16, 16), Width = 360, ForeColor = TextMain });
+                TextBox txtName = new TextBox { Location = new Point(16, 40), Width = 360, Text = string.Empty };
+
+                dialog.Controls.Add(new Label { Text = "Site address", Location = new Point(16, 76), Width = 360, ForeColor = TextMain });
+                TextBox txtAddress = new TextBox { Location = new Point(16, 100), Width = 360, Height = 56, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = string.Empty };
+
+                dialog.Controls.Add(new Label { Text = "City", Location = new Point(16, 166), Width = 360, ForeColor = TextMain });
+                TextBox txtCity = new TextBox { Location = new Point(16, 190), Width = 360, Text = Safe(_client == null ? null : _client.City, string.Empty) };
+
+                Button ok = Button("Save site", Teal, Color.White, 92);
+                ok.Location = new Point(192, 224);
+                ok.DialogResult = DialogResult.OK;
+                Button cancel = Button("Cancel", Color.White, TextMain, 78);
+                cancel.Location = new Point(298, 224);
+                cancel.DialogResult = DialogResult.Cancel;
+
+                dialog.Controls.Add(txtName);
+                dialog.Controls.Add(txtAddress);
+                dialog.Controls.Add(txtCity);
+                dialog.Controls.Add(ok);
+                dialog.Controls.Add(cancel);
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return null;
+
+                if (string.IsNullOrWhiteSpace(txtName.Text))
+                {
+                    MessageBox.Show("Site name is required.", "Sites", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return null;
+                }
+
+                return new SitePromptResult
+                {
+                    SiteName = txtName.Text,
+                    Address = txtAddress.Text,
+                    City = txtCity.Text
+                };
+            }
+        }
+
         private sealed class ClientStats
         {
             public string OpenJobs;
@@ -857,5 +981,14 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             public DateTime CreatedAt { get; set; }
             public string CreatedBy { get; set; }
         }
+
+        private sealed class SitePromptResult
+        {
+            public string SiteName { get; set; }
+            public string Address { get; set; }
+            public string City { get; set; }
+        }
     }
 }
+
+

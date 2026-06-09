@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -11,7 +12,8 @@ namespace HVAC_Pro_Desktop.DAL
 
         private const string BaseQuery = @"
             SELECT s.*, v.VendorName FROM StockItems s
-            LEFT JOIN Vendors v ON s.VendorID = v.VendorID";
+            LEFT JOIN Vendors v ON s.VendorID = v.VendorID AND ISNULL(v.IsSupplier, 1) = 1
+            WHERE ISNULL(s.IsActive, 1) = 1";
 
         public List<StockItem> GetAll()
         {
@@ -19,8 +21,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    BaseQuery + " ORDER BY s.Category, s.ItemName", conn))
+                    BaseQuery + " ORDER BY ISNULL(s.Category, ''), s.ItemName", conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
                     while (r.Read()) list.Add(Map(r));
             }
@@ -32,8 +35,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    BaseQuery + " WHERE s.ItemID = @id", conn))
+                    BaseQuery + " AND s.ItemID = @id", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
                     using (SqlDataReader r = cmd.ExecuteReader())
@@ -48,8 +52,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    BaseQuery + " WHERE s.CurrentStock <= s.ReorderLevel ORDER BY s.ItemName", conn))
+                    BaseQuery + " AND s.CurrentStock <= s.ReorderLevel ORDER BY s.ItemName", conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
                     while (r.Read()) list.Add(Map(r));
             }
@@ -61,6 +66,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(@"
                     INSERT INTO StockItems (ItemName,Category,CurrentStock,Unit,LastPurchaseRate,ReorderLevel,VendorID)
                     VALUES (@n,@cat,@qty,@unit,@rate,@rl,@vid);
@@ -83,10 +89,11 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(@"
                     UPDATE StockItems SET ItemName=@n,Category=@cat,CurrentStock=@qty,Unit=@unit,
                     LastPurchaseRate=@rate,ReorderLevel=@rl,VendorID=@vid,LastUpdated=GETDATE()
-                    WHERE ItemID=@id", conn))
+                    WHERE ItemID=@id AND ISNULL(IsActive, 1) = 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@id",   item.ItemID);
                     cmd.Parameters.AddWithValue("@n",    item.ItemName);
@@ -101,13 +108,29 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void Delete(int itemId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                EnsureStockItemsSchema(conn, null);
+                using (SqlCommand cmd = new SqlCommand(
+                    "UPDATE StockItems SET IsActive = 0, LastUpdated = GETDATE() WHERE ItemID = @id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", itemId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public decimal GetTotalStockValue()
         {
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    "SELECT ISNULL(SUM(CurrentStock * LastPurchaseRate),0) FROM StockItems", conn))
+                    "SELECT ISNULL(SUM(CurrentStock * LastPurchaseRate),0) FROM StockItems WHERE ISNULL(IsActive, 1) = 1", conn))
                     return (decimal)cmd.ExecuteScalar();
             }
         }
@@ -117,8 +140,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    "SELECT COUNT(*) FROM StockItems WHERE CurrentStock <= ReorderLevel", conn))
+                    "SELECT COUNT(*) FROM StockItems WHERE ISNULL(IsActive, 1) = 1 AND CurrentStock <= ReorderLevel", conn))
                     return (int)cmd.ExecuteScalar();
             }
         }
@@ -128,8 +152,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    "UPDATE StockItems SET CurrentStock = CurrentStock + @qty, LastUpdated = GETDATE() WHERE ItemID = @id", conn))
+                    "UPDATE StockItems SET CurrentStock = CurrentStock + @qty, LastUpdated = GETDATE() WHERE ItemID = @id AND ISNULL(IsActive, 1) = 1", conn))
                 {
                     cmd.Parameters.AddWithValue("@qty", qty);
                     cmd.Parameters.AddWithValue("@id",  itemId);
@@ -147,6 +172,7 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     try
                     {
+                        EnsureStockItemsSchema(conn, tx);
                         StockItem item = GetByIdForUpdate(conn, tx, movement.ItemID);
                         if (item == null)
                             throw new InvalidOperationException("Inventory item not found.");
@@ -223,8 +249,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureStockItemsSchema(conn, null);
                 using (SqlCommand cmd = new SqlCommand(
-                    BaseQuery + " WHERE s.ItemName LIKE @n ORDER BY s.ItemName", conn))
+                    BaseQuery + " AND s.ItemName LIKE @n ORDER BY s.ItemName", conn))
                 {
                     cmd.Parameters.AddWithValue("@n", "%" + name + "%");
                     using (SqlDataReader r = cmd.ExecuteReader())
@@ -233,28 +260,244 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public List<InventoryDuplicateGroup> FindDuplicateItems()
+        {
+            List<StockItem> items = GetAll();
+            return items
+                .GroupBy(item => NormalizeDuplicateKey(item.ItemName))
+                .Where(group => !string.IsNullOrWhiteSpace(group.Key) && group.Count() > 1)
+                .Select(group => new InventoryDuplicateGroup
+                {
+                    DuplicateKey = group.Key,
+                    Items = group.OrderByDescending(ScoreDuplicateMaster).ThenBy(item => item.ItemID).ToList()
+                })
+                .OrderByDescending(group => group.Count)
+                .ThenBy(group => group.DuplicateKey)
+                .ToList();
+        }
+
+        public InventoryDuplicateCleanupResult MergeDuplicateItems()
+        {
+            var result = new InventoryDuplicateCleanupResult();
+            List<InventoryDuplicateGroup> groups = FindDuplicateItems();
+            result.GroupsDetected = groups.Count;
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlTransaction tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (InventoryDuplicateGroup group in groups)
+                        {
+                            if (group.Items == null || group.Items.Count < 2)
+                                continue;
+
+                            StockItem master = group.Items[0];
+                            List<StockItem> duplicates = group.Items.Skip(1).ToList();
+                            foreach (StockItem duplicate in duplicates)
+                            {
+                                result.ReferencesMoved += MoveItemReferences(conn, tx, duplicate.ItemID, master.ItemID);
+                                MergeStockValues(conn, tx, master.ItemID, duplicate);
+                                ArchiveDuplicate(conn, tx, duplicate.ItemID);
+                                result.ItemsArchived++;
+                            }
+
+                            result.Messages.Add(group.DuplicateKey + ": kept #" + master.ItemID + ", archived " + duplicates.Count + ".");
+                        }
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        private static int MoveItemReferences(SqlConnection conn, SqlTransaction tx, int duplicateItemId, int masterItemId)
+        {
+            int moved = 0;
+            moved += ExecuteReferenceMove(conn, tx, "StockMovements", "ItemID", duplicateItemId, masterItemId);
+            moved += ExecuteReferenceMove(conn, tx, "InvoiceInventoryReservations", "StockItemID", duplicateItemId, masterItemId);
+            moved += ExecuteReferenceMove(conn, tx, "InventoryUsageLog", "StockItemID", duplicateItemId, masterItemId);
+            moved += ExecuteReferenceMove(conn, tx, "PurchaseLineItems", "InventoryItemId", duplicateItemId, masterItemId);
+            moved += ExecuteReferenceMove(conn, tx, "JobPartsUsed", "InventoryItemId", duplicateItemId, masterItemId);
+            moved += ExecuteReferenceMove(conn, tx, "QuotationLineItems", "InventoryItemId", duplicateItemId, masterItemId);
+            return moved;
+        }
+
+        /// <summary>Repairs old client inventory schemas before queries that depend on active/archive columns.</summary>
+        private static void EnsureStockItemsSchema(SqlConnection conn, SqlTransaction tx)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF OBJECT_ID('dbo.StockItems', 'U') IS NOT NULL AND COL_LENGTH('dbo.StockItems', 'IsActive') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.StockItems ADD IsActive BIT NOT NULL DEFAULT(1) WITH VALUES;
+                END
+
+                IF OBJECT_ID('dbo.StockItems', 'U') IS NOT NULL AND COL_LENGTH('dbo.StockItems', 'LastUpdated') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.StockItems ADD LastUpdated DATETIME NOT NULL DEFAULT(GETDATE()) WITH VALUES;
+                END
+
+                IF OBJECT_ID('dbo.Vendors', 'U') IS NOT NULL AND COL_LENGTH('dbo.Vendors', 'IsSupplier') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.Vendors ADD IsSupplier BIT NOT NULL DEFAULT(1) WITH VALUES;
+                END
+
+                IF OBJECT_ID('dbo.Vendors', 'U') IS NOT NULL AND COL_LENGTH('dbo.Vendors', 'IsServiceVendor') IS NULL
+                BEGIN
+                    ALTER TABLE dbo.Vendors ADD IsServiceVendor BIT NOT NULL DEFAULT(0) WITH VALUES;
+                END", conn, tx))
+            {
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private static int ExecuteReferenceMove(SqlConnection conn, SqlTransaction tx, string tableName, string columnName, int duplicateItemId, int masterItemId)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF OBJECT_ID(@tableName, 'U') IS NOT NULL
+                   AND COL_LENGTH(@tableName, @columnName) IS NOT NULL
+                BEGIN
+                    DECLARE @sql NVARCHAR(MAX) = N'UPDATE ' + QUOTENAME(@tableName) +
+                        N' SET ' + QUOTENAME(@columnName) + N' = @masterId WHERE ' + QUOTENAME(@columnName) + N' = @duplicateId;';
+                    EXEC sp_executesql @sql, N'@masterId INT, @duplicateId INT', @masterId, @duplicateId;
+                END", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@tableName", tableName);
+                cmd.Parameters.AddWithValue("@columnName", columnName);
+                cmd.Parameters.AddWithValue("@masterId", masterItemId);
+                cmd.Parameters.AddWithValue("@duplicateId", duplicateItemId);
+                return cmd.ExecuteNonQuery();
+            }
+        }
+
+        private static void MergeStockValues(SqlConnection conn, SqlTransaction tx, int masterItemId, StockItem duplicate)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+                UPDATE StockItems
+                SET CurrentStock = ISNULL(CurrentStock, 0) + @stock,
+                    ReservedStock = ISNULL(ReservedStock, 0) + @reserved,
+                    LastPurchaseRate = CASE WHEN @rate > 0 THEN @rate ELSE LastPurchaseRate END,
+                    ReorderLevel = CASE WHEN @reorder > ReorderLevel THEN @reorder ELSE ReorderLevel END,
+                    LastUpdated = GETDATE()
+                WHERE ItemID = @masterId;", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@masterId", masterItemId);
+                cmd.Parameters.AddWithValue("@stock", duplicate.CurrentStock);
+                cmd.Parameters.AddWithValue("@reserved", duplicate.ReservedStock);
+                cmd.Parameters.AddWithValue("@rate", duplicate.LastPurchaseRate);
+                cmd.Parameters.AddWithValue("@reorder", duplicate.ReorderLevel);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private static void ArchiveDuplicate(SqlConnection conn, SqlTransaction tx, int duplicateItemId)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+                UPDATE StockItems
+                SET IsActive = 0,
+                    LastUpdated = GETDATE()
+                WHERE ItemID = @duplicateId;", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@duplicateId", duplicateItemId);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private static int ScoreDuplicateMaster(StockItem item)
+        {
+            int score = 0;
+            if (item == null)
+                return score;
+            if (item.CurrentStock > 0) score += 20;
+            if (item.LastPurchaseRate > 0) score += 10;
+            if (item.VendorID.HasValue) score += 5;
+            if (!string.IsNullOrWhiteSpace(item.Category)) score += 2;
+            if (!string.IsNullOrWhiteSpace(item.Unit)) score += 1;
+            return score;
+        }
+
+        private static string NormalizeDuplicateKey(string itemName)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+                return string.Empty;
+
+            return string.Join(" ", itemName.Trim().ToUpperInvariant().Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
+        }
+
         private static StockItem Map(SqlDataReader r) => new StockItem
         {
-            ItemID           = (int)r["ItemID"],
-            ItemName         = r["ItemName"]         as string,
-            Category         = r["Category"]         as string,
-            CurrentStock     = (decimal)r["CurrentStock"],
-            Unit             = r["Unit"]             as string,
-            LastPurchaseRate = (decimal)r["LastPurchaseRate"],
-            ReorderLevel     = (decimal)r["ReorderLevel"],
-            ReservedStock    = r["ReservedStock"] == DBNull.Value ? 0m : (decimal)r["ReservedStock"],
-            VendorID         = r["VendorID"] == DBNull.Value ? (int?)null : (int)r["VendorID"],
-            VendorName       = r["VendorName"] == DBNull.Value ? null : r["VendorName"] as string,
-            LastUpdated      = (DateTime)r["LastUpdated"],
+            ItemID           = ReadInt32(r, "ItemID"),
+            ItemName         = ReadString(r, "ItemName"),
+            Category         = ReadString(r, "Category"),
+            CurrentStock     = ReadDecimal(r, "CurrentStock"),
+            Unit             = ReadString(r, "Unit"),
+            LastPurchaseRate = ReadDecimal(r, "LastPurchaseRate"),
+            ReorderLevel     = ReadDecimal(r, "ReorderLevel"),
+            ReservedStock    = ReadDecimal(r, "ReservedStock"),
+            VendorID         = ReadNullableInt32(r, "VendorID"),
+            VendorName       = ReadString(r, "VendorName"),
+            LastUpdated      = ReadDateTime(r, "LastUpdated"),
+            IsActive         = !HasColumn(r, "IsActive") || r["IsActive"] == DBNull.Value || Convert.ToBoolean(r["IsActive"]),
         };
+
+        /// <summary>Reads a string column safely from mixed imported stock schemas.</summary>
+        private static string ReadString(SqlDataReader reader, string columnName)
+        {
+            return !HasColumn(reader, columnName) || reader[columnName] == DBNull.Value ? null : Convert.ToString(reader[columnName]);
+        }
+
+        /// <summary>Reads an integer column safely from mixed imported stock schemas.</summary>
+        private static int ReadInt32(SqlDataReader reader, string columnName)
+        {
+            return !HasColumn(reader, columnName) || reader[columnName] == DBNull.Value ? 0 : Convert.ToInt32(reader[columnName]);
+        }
+
+        /// <summary>Reads a nullable integer column safely from mixed imported stock schemas.</summary>
+        private static int? ReadNullableInt32(SqlDataReader reader, string columnName)
+        {
+            return !HasColumn(reader, columnName) || reader[columnName] == DBNull.Value ? (int?)null : Convert.ToInt32(reader[columnName]);
+        }
+
+        /// <summary>Reads a decimal column safely from mixed imported stock schemas.</summary>
+        private static decimal ReadDecimal(SqlDataReader reader, string columnName)
+        {
+            return !HasColumn(reader, columnName) || reader[columnName] == DBNull.Value ? 0m : Convert.ToDecimal(reader[columnName]);
+        }
+
+        /// <summary>Reads a DateTime column safely from mixed imported stock schemas.</summary>
+        private static DateTime ReadDateTime(SqlDataReader reader, string columnName)
+        {
+            return !HasColumn(reader, columnName) || reader[columnName] == DBNull.Value ? DateTime.Now : Convert.ToDateTime(reader[columnName]);
+        }
+
+        /// <summary>Checks whether a data reader contains a column before compatibility mapping.</summary>
+        private static bool HasColumn(SqlDataReader reader, string columnName)
+        {
+            for (int i = 0; i < reader.FieldCount; i++)
+            {
+                if (string.Equals(reader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
 
         private static StockItem GetByIdForUpdate(SqlConnection conn, SqlTransaction tx, int id)
         {
             using (SqlCommand cmd = new SqlCommand(@"
                 SELECT s.*, v.VendorName
                 FROM StockItems s WITH (UPDLOCK, ROWLOCK)
-                LEFT JOIN Vendors v ON s.VendorID = v.VendorID
-                WHERE s.ItemID = @id", conn, tx))
+                LEFT JOIN Vendors v ON s.VendorID = v.VendorID AND ISNULL(v.IsSupplier, 1) = 1
+                WHERE ISNULL(s.IsActive, 1) = 1 AND s.ItemID = @id", conn, tx))
             {
                 cmd.Parameters.AddWithValue("@id", id);
                 using (SqlDataReader r = cmd.ExecuteReader())

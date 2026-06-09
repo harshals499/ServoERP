@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -9,6 +10,8 @@ using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -22,6 +25,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly EmployeeService _employeeSvc = new EmployeeService();
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly VendorAdvancePaymentService _vendorAdvanceSvc = new VendorAdvancePaymentService();
+        private readonly PayrollService _payrollSvc = new PayrollService();
 
         private static int? PendingTabIndex;
         private int _currentReportIndex;
@@ -49,7 +53,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static readonly string[] ReportNames =
         {
-            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Inventory", "Purchases", "Vendor Advances", "Clients / Sites"
+            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites"
         };
         private const string PageKey = "ReportsCommandCenter";
         private const string CardOrderPath = @"C:\HVAC_PRO_MSE\CONFIG\reports_card_order.txt";
@@ -75,7 +79,8 @@ namespace HVAC_Pro_Desktop.UI
                 () => RefreshAllAsync(),
                 ex =>
                 {
-                    _lblStatus.Text = "Load error: " + ex.Message;
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Loading reports", ex);
+                    _lblStatus.Text = "Reports could not load. Refresh and try again.";
                     _lblStatus.ForeColor = Red;
                 });
         }
@@ -101,6 +106,8 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel surface = new Panel
             {
+                Name = "ReportsSurface",
+                Tag = "NO_CARD_SURFACE",
                 Dock = DockStyle.Fill,
                 AutoScroll = true,
                 BackColor = PageBg,
@@ -153,24 +160,26 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel actions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 372,
+                Width = 500,
                 FlowDirection = FlowDirection.RightToLeft,
                 WrapContents = false,
                 Padding = new Padding(0, 12, 0, 0),
                 BackColor = header.BackColor
             };
-            Button export = MakeButton("Export", Green, 94);
+            Button export = MakeButton("Export CSV", Green, 104);
+            Button pnl = MakeButton("Export P&L Excel", Color.White, 138);
             Button refresh = MakeButton("Refresh", Blue, 94);
-            Button forms = MakeButton("Forms", Color.White, 86);
-            forms.ForeColor = Blue;
-            forms.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button forms = MakeButton("Service Forms", Color.White, 108);
             ModernIconSystem.AddButtonIcon(export, ModernIconKind.Export);
+            ModernIconSystem.AddButtonIcon(pnl, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             ModernIconSystem.AddButtonIcon(forms, ModernIconKind.Document);
             export.Click += (s, e) => ExportCurrentReport();
+            pnl.Click += (s, e) => ExportMonthlyProfitLoss();
             refresh.Click += async (s, e) => await RefreshAllAsync();
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Reports", "Reports", null, "service completion report AMC visit report compliance audit job costing sheet export analytics");
             actions.Controls.Add(export);
+            actions.Controls.Add(pnl);
             actions.Controls.Add(forms);
             actions.Controls.Add(refresh);
 
@@ -210,7 +219,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblSla = AddKpi(strip, 2, "SLA Risk", Amber, out _lblSlaSub);
             _lblMargin = AddKpi(strip, 3, "Live Margin", Blue, out _lblMarginSub);
             _lblPayroll = AddKpi(strip, 4, "Tech Load", Teal, out _lblPayrollSub);
-            _lblInventory = AddKpi(strip, 5, "Stock Risk", Amber, out _lblInventorySub);
+            _lblInventory = AddKpi(strip, 5, "Material Plan", Amber, out _lblInventorySub);
             return strip;
         }
 
@@ -265,7 +274,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildLibrarySection()
         {
-            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 132, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
+            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 168, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
             Panel card = MakePlainCard("Report Library");
             _reportLibrary = new FlowLayoutPanel
             {
@@ -278,7 +287,17 @@ namespace HVAC_Pro_Desktop.UI
             };
             for (int i = 0; i < ReportNames.Length; i++)
                 _reportLibrary.Controls.Add(MakeReportTile(i, ReportNames[i]));
+            Label hint = new Label
+            {
+                Text = "Pinned owner views: Revenue, Collections, SLA Risk, Materials, Purchases, Payroll, and Client/Site reports.",
+                Dock = DockStyle.Top,
+                Height = 28,
+                Font = DS.Small,
+                ForeColor = TextMid,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
             card.Controls.Add(_reportLibrary);
+            card.Controls.Add(hint);
             wrapper.Controls.Add(card);
             return wrapper;
         }
@@ -302,7 +321,7 @@ namespace HVAC_Pro_Desktop.UI
             _refreshing = true;
             try
             {
-                _lblStatus.Text = "Refreshing...";
+                _lblStatus.Text = "Refreshing reports...";
                 _lblStatus.ForeColor = Blue;
                 await Task.Run(() => LoadData());
                 if (IsDisposed)
@@ -312,12 +331,13 @@ namespace HVAC_Pro_Desktop.UI
                 BindClientProfitability();
                 BindActionQueue();
                 SelectReport(_currentReportIndex);
-                _lblStatus.Text = "Updated " + DateTime.Now.ToString("dd-MMM HH:mm");
+                _lblStatus.Text = "Reports updated " + DateTime.Now.ToString("dd-MMM HH:mm");
                 _lblStatus.ForeColor = Green;
             }
             catch (Exception ex)
             {
-                _lblStatus.Text = "Error: " + ex.Message;
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Refreshing report", ex);
+                _lblStatus.Text = "Report could not be refreshed. Review the filters and try again.";
                 _lblStatus.ForeColor = Red;
             }
             finally
@@ -351,7 +371,7 @@ namespace HVAC_Pro_Desktop.UI
             decimal jobCost = _jobs.Sum(j => j.EstimatedCost);
             decimal margin = jobRevenue <= 0 ? 0 : Math.Round((jobRevenue - jobCost) / jobRevenue * 100m, 1);
             int openJobs = _jobs.Count(j => !IsComplete(j.Status));
-            int lowStock = _stock.Count(s => s.IsLowStock);
+            int toOrder = _stock.Count(s => s.IsLowStock);
 
             _lblRevenue.Text = "Rs " + arr.ToString("N0");
             _lblRevenueSub.Text = "MRR Rs " + mrr.ToString("N0");
@@ -363,8 +383,8 @@ namespace HVAC_Pro_Desktop.UI
             _lblMarginSub.Text = "Revenue Rs " + jobRevenue.ToString("N0");
             _lblPayroll.Text = openJobs.ToString();
             _lblPayrollSub.Text = _technicians.Count + " active technicians";
-            _lblInventory.Text = lowStock.ToString();
-            _lblInventorySub.Text = "Items below reorder";
+            _lblInventory.Text = toOrder.ToString();
+            _lblInventorySub.Text = "materials to order";
         }
 
         private void BindCharts()
@@ -434,13 +454,13 @@ namespace HVAC_Pro_Desktop.UI
             int overdueInvoices = _invoices.Count(i => i.PaymentStatus != "Paid" && (i.PaymentStatus == "Overdue" || i.DueDate < DateTime.Today));
             int renewals = _contracts.Count(c => (c.EndDate - DateTime.Today).Days <= 30 && (c.EndDate - DateTime.Today).Days >= -365);
             int unassigned = _jobs.Count(j => !j.AssignedEmployeeID.HasValue && !IsComplete(j.Status));
-            int lowStock = _stock.Count(s => s.IsLowStock);
+            int toOrder = _stock.Count(s => s.IsLowStock);
             int overduePo = _purchases.Count(p => p.IsOverdue);
 
             AddAction("Chase overdue invoices", overdueInvoices + " invoices need collection follow-up", Red, 1);
             AddAction("Renew expiring contracts", renewals + " contracts need owner review", Amber, 2);
             AddAction("Assign unassigned jobs", unassigned + " jobs need technician assignment", Blue, 3);
-            AddAction("Reorder low stock", lowStock + " items below reorder level", Amber, 5);
+            AddAction("Plan material orders", toOrder + " materials need supplier ordering", Amber, 5);
             AddAction("Clear vendor payables", overduePo + " purchase payments overdue", Teal, 7);
         }
 
@@ -532,24 +552,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindInventoryDetail()
         {
-            AddColumns("Item", "Category", "Stock", "Reserved", "Reorder", "Value");
+            AddColumns("Item", "Category", "Current Qty", "Reserved", "Plan Qty", "Purchase Value");
             foreach (StockItem item in _stock.OrderByDescending(i => i.IsLowStock).ThenBy(i => i.ItemName).Take(200))
                 _detailGrid.Rows.Add(item.ItemName, item.Category, item.CurrentStock.ToString("N1"), item.ReservedStock.ToString("N1"), item.ReorderLevel.ToString("N1"), item.StockValue.ToString("N0"));
         }
 
         private void BindPurchaseDetail()
         {
-            AddColumns("PO", "Vendor", "Date", "Amount", "Balance", "Status");
+            AddColumns("PO", "Supplier", "Date", "Amount", "Balance", "Status");
             foreach (PurchaseOrder po in _purchases.OrderByDescending(p => p.PODate).Take(200))
                 _detailGrid.Rows.Add(po.PONumber, po.VendorName ?? "", po.PODate.ToString("dd-MMM-yy"), po.TotalAmount.ToString("N0"), po.BalanceDue.ToString("N0"), po.Status);
         }
 
         private void BindVendorAdvanceDetail()
         {
-            AddColumns("Vendor", "Type", "Date", "Amount", "Applied", "Balance", "Reference");
+            AddColumns("Supplier", "Type", "Date", "Amount", "Applied", "Balance", "Reference");
             foreach (VendorAdvancePayment advance in _vendorAdvances.Take(300))
                 _detailGrid.Rows.Add(
-                    advance.VendorName ?? ("Vendor #" + advance.VendorId),
+                    advance.VendorName ?? ("Supplier #" + advance.VendorId),
                     advance.TransactionType,
                     advance.TransactionDate.ToString("dd-MMM-yy"),
                     advance.Amount.ToString("N0"),
@@ -560,7 +580,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindClientSiteDetail()
         {
-            AddColumns("Client", "Jobs", "Revenue", "Open Jobs", "Last Activity");
+            AddColumns("Client", "Jobs", "Revenue", "Open Jobs", "Last Update");
             foreach (var row in _jobs.GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName).OrderByDescending(g => g.Count()).Take(200))
             {
                 decimal revenue = row.Sum(j => Math.Max(j.Revenue, Math.Max(j.ActualRevenue, j.QuotedRevenue)));
@@ -591,6 +611,82 @@ namespace HVAC_Pro_Desktop.UI
                 _lblStatus.Text = "Exported: " + Path.GetFileName(dlg.FileName);
                 _lblStatus.ForeColor = Green;
             }
+        }
+
+        private void ExportMonthlyProfitLoss()
+        {
+            using (var dlg = new SaveFileDialog { FileName = "Monthly_PL_" + DateTime.Today.ToString("yyyyMMdd") + ".xlsx", Filter = "Excel workbook (*.xlsx)|*.xlsx" })
+            {
+                if (dlg.ShowDialog() != DialogResult.OK)
+                    return;
+
+                try
+                {
+                    using (ExcelPackage package = new ExcelPackage())
+                    {
+                        ExcelWorksheet sheet = package.Workbook.Worksheets.Add("Monthly P&L");
+                        WriteProfitLossSheet(sheet);
+                        package.SaveAs(new FileInfo(dlg.FileName));
+                    }
+
+                    _lblStatus.Text = "P&L exported: " + Path.GetFileName(dlg.FileName);
+                    _lblStatus.ForeColor = Green;
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Exporting monthly profit and loss", ex);
+                    _lblStatus.Text = "P&L export failed.";
+                    _lblStatus.ForeColor = Red;
+                }
+            }
+        }
+
+        private void WriteProfitLossSheet(ExcelWorksheet sheet)
+        {
+            DateTime firstMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-11);
+            string[] headers = { "Month", "Revenue", "Purchases", "Salaries", "Total Expenses", "Net Profit", "Margin %" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                sheet.Cells[1, i + 1].Value = headers[i];
+                sheet.Cells[1, i + 1].Style.Font.Bold = true;
+                sheet.Cells[1, i + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                sheet.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(239, 246, 255));
+            }
+
+            for (int i = 0; i < 12; i++)
+            {
+                DateTime month = firstMonth.AddMonths(i);
+                decimal revenue = _invoices.Where(inv => inv.InvoiceDate.Year == month.Year && inv.InvoiceDate.Month == month.Month).Sum(inv => inv.TotalAmount);
+                decimal purchases = _purchases.Where(po => po.PODate.Year == month.Year && po.PODate.Month == month.Month).Sum(po => po.TotalAmount);
+                PayrollRun run = _payrollSvc.GetPayrollRun(month.Month, month.Year);
+                decimal salaries = run == null ? 0m : run.TotalNetPay + run.TotalEPFEmployer + run.TotalESIEmployer;
+                decimal expenses = purchases + salaries;
+                decimal profit = revenue - expenses;
+                decimal margin = revenue <= 0 ? 0 : Math.Round(profit / revenue * 100m, 2);
+                int row = i + 2;
+
+                sheet.Cells[row, 1].Value = month.ToString("MMM yyyy", CultureInfo.InvariantCulture);
+                sheet.Cells[row, 2].Value = revenue;
+                sheet.Cells[row, 3].Value = purchases;
+                sheet.Cells[row, 4].Value = salaries;
+                sheet.Cells[row, 5].Value = expenses;
+                sheet.Cells[row, 6].Value = profit;
+                sheet.Cells[row, 7].Value = margin;
+            }
+
+            int totalRow = 14;
+            sheet.Cells[totalRow, 1].Value = "Total";
+            sheet.Cells[totalRow, 1].Style.Font.Bold = true;
+            for (int col = 2; col <= 6; col++)
+            {
+                sheet.Cells[totalRow, col].Formula = "SUM(" + sheet.Cells[2, col].Address + ":" + sheet.Cells[13, col].Address + ")";
+                sheet.Cells[totalRow, col].Style.Font.Bold = true;
+            }
+            sheet.Cells[totalRow, 7].Formula = "IF(" + sheet.Cells[totalRow, 2].Address + "=0,0," + sheet.Cells[totalRow, 6].Address + "/" + sheet.Cells[totalRow, 2].Address + "*100)";
+            sheet.Cells[totalRow, 7].Style.Font.Bold = true;
+            sheet.Cells[2, 2, totalRow, 6].Style.Numberformat.Format = "#,##0.00";
+            sheet.Cells[2, 7, totalRow, 7].Style.Numberformat.Format = "0.00";
+            sheet.Cells.AutoFitColumns();
         }
 
         private Label AddKpi(TableLayoutPanel host, int column, string title, Color accent, out Label subLabel)
@@ -627,6 +723,8 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 0, 12, 12)
             };
             content.Dock = DockStyle.Fill;
+            card.ContentPanel.Tag = MergeTag(card.ContentPanel.Tag, "NO_CARD_SURFACE");
+            content.Tag = MergeTag(content.Tag, "NO_CARD_SURFACE");
             card.ContentPanel.Controls.Add(content);
             card.CardDragRequested += DashboardCard_DragRequested;
             card.CardResizeComplete += (s, e) => LayoutDashboardCards();
@@ -634,6 +732,16 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardFlow.Controls.Add(card);
             CardLayoutService.RegisterDefaultSize(PageKey, key, card.Size, preset);
             return card;
+        }
+
+        /// <summary>Adds a metadata token to an existing control tag.</summary>
+        private static string MergeTag(object existing, string token)
+        {
+            string current = existing == null ? string.Empty : existing.ToString();
+            if (current.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                return current;
+
+            return string.IsNullOrWhiteSpace(current) ? token : current + " " + token;
         }
 
         private void DashboardCard_DragRequested(object sender, MouseEventArgs e)
@@ -801,8 +909,13 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(10, 0, 8, 0),
                 Cursor = Cursors.Hand
             };
-            tile.FlatAppearance.BorderColor = Border;
+            tile.FlatAppearance.BorderColor = DS.InputBorder;
             tile.FlatAppearance.BorderSize = 1;
+            tile.AccessibleName = "Open " + title + " report";
+            UIHelper.ApplyButtonStyle(tile, ButtonRole.Secondary);
+            tile.ImageAlign = ContentAlignment.MiddleLeft;
+            tile.TextImageRelation = TextImageRelation.ImageBeforeText;
+            tile.TextAlign = ContentAlignment.MiddleCenter;
             tile.Click += (s, e) => SelectReport(Convert.ToInt32(((Control)s).Tag));
             return tile;
         }
@@ -890,7 +1003,7 @@ namespace HVAC_Pro_Desktop.UI
             Button button = new Button
             {
                 Text = text,
-                Width = width,
+                Width = Math.Max(100, width),
                 Height = 34,
                 BackColor = bg,
                 ForeColor = Color.White,
@@ -900,6 +1013,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(6, 0, 0, 0)
             };
             button.FlatAppearance.BorderSize = 0;
+            UIHelper.ApplyButtonStyle(button, UIHelper.ResolveButtonRole(button));
             return button;
         }
 

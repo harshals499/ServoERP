@@ -3,18 +3,25 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
     internal static class DS
     {
+        public const string ThemePolicy = "ServoERP is locked to the light theme unless Harshal explicitly requests a theme change.";
+
         public static readonly Color White = Color.White;
-        public static readonly Color BgPage = Color.FromArgb(244, 248, 252);
-        public static readonly Color BgSubtle = Color.FromArgb(239, 246, 255);
+        public static readonly Color BgPage = Color.FromArgb(245, 247, 251);
+        public static readonly Color BgSubtle = Color.FromArgb(248, 250, 252);
         public static readonly Color BgCard = Color.White;
-        public static readonly Color BgCardHov = Color.FromArgb(244, 247, 255);
+        public static readonly Color BgCardHov = Color.FromArgb(248, 250, 252);
         public static readonly Color BgInput = Color.White;
-        public static readonly Color BgRail = Color.FromArgb(250, 250, 250);
+        public static readonly Color InputBorder = Color.FromArgb(207, 216, 229);
+        public static readonly Color InputText = Color.FromArgb(15, 23, 42);
+        public static readonly Color InputMutedText = Color.FromArgb(100, 116, 139);
+        public static readonly Color InputDisabledBack = Color.FromArgb(241, 245, 249);
+        public static readonly Color BgRail = Color.FromArgb(248, 250, 252);
 
         public static readonly Color Primary700 = Color.FromArgb(29, 78, 216);
         public static readonly Color Primary600 = Color.FromArgb(37, 99, 235);
@@ -46,10 +53,10 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color Slate100 = Color.FromArgb(241, 245, 249);
         public static readonly Color Slate50 = Color.FromArgb(248, 250, 252);
 
-        public static readonly Color Border = Color.FromArgb(228, 228, 231);
-        public static readonly Color BorderStrong = Color.FromArgb(212, 212, 216);
-        public static readonly Color FocusBlue = Color.FromArgb(129, 140, 248);
-        public static readonly Color Shadow = Color.FromArgb(205, 216, 232);
+        public static readonly Color Border = Color.FromArgb(220, 220, 220);
+        public static readonly Color BorderStrong = Color.FromArgb(220, 220, 220);
+        public static readonly Color FocusBlue = Color.FromArgb(37, 99, 235);
+        public static readonly Color Shadow = Color.FromArgb(203, 213, 225);
         public static readonly Color Indigo600 = Primary700;
         public static readonly Color Indigo500 = Primary600;
         public static readonly Color Indigo100 = Primary100;
@@ -73,15 +80,20 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly System.Collections.Generic.Dictionary<Control, int> RoundedControls =
             new System.Collections.Generic.Dictionary<Control, int>();
 
-        public static Font H1 => new Font("Segoe UI", 18f, FontStyle.Bold);
-        public static Font H2 => new Font("Segoe UI", 14f, FontStyle.Bold);
-        public static Font H3 => new Font("Segoe UI", 11f, FontStyle.Bold);
-        public static Font Body => new Font("Segoe UI", 9f);
-        public static Font BodyBold => new Font("Segoe UI", 9f, FontStyle.Bold);
-        public static Font Small => new Font("Segoe UI", 8f);
-        public static Font SmallBold => new Font("Segoe UI", 8f, FontStyle.Bold);
-        public static Font Caption => new Font("Segoe UI", 7.5f);
+        public static Font H1 => UiFont(18f, FontStyle.Bold);
+        public static Font H2 => UiFont(14f, FontStyle.Bold);
+        public static Font H3 => UiFont(11f, FontStyle.Bold);
+        public static Font Body => UiFont(9f);
+        public static Font BodyBold => UiFont(9f, FontStyle.Bold);
+        public static Font Small => UiFont(8f);
+        public static Font SmallBold => UiFont(8f, FontStyle.Bold);
+        public static Font Caption => UiFont(7.5f);
         public static Font Mono => new Font("Consolas", 8f);
+
+        public static Font UiFont(float size, FontStyle style = FontStyle.Regular)
+        {
+            return new Font(LanguageManager.GetUiFontFamily(), size, style);
+        }
 
         [DllImport("Gdi32.dll")]
         private static extern IntPtr CreateRoundRectRgn(int nLeft, int nTop, int nRight, int nBottom, int nWidth, int nHeight);
@@ -171,22 +183,23 @@ namespace HVAC_Pro_Desktop.UI
             Rounded(card, radius);
             shadow.Controls.Add(card);
             inner = card;
+            GlobalCardContextMenu.AttachCard(shadow);
             return shadow;
         }
 
         public static Button PrimaryBtn(string text, int width = 120, int height = 34)
         {
-            return MakeButton(text, Primary600, Color.White, Color.Transparent, width, height, BodyBold);
+            return MakeButton(text, Primary600, Color.White, Primary600, width, Math.Max(height, 36), BodyBold);
         }
 
         public static Button GhostBtn(string text, int width = 100, int height = 34)
         {
-            return MakeButton(text, White, Slate700, BorderStrong, width, height, BodyBold);
+            return MakeButton(text, BgCard, Slate800, InputBorder, Math.Max(width, 110), Math.Max(height, 36), BodyBold);
         }
 
         public static Button DangerBtn(string text, int width = 100, int height = 34)
         {
-            return MakeButton(text, Red50, Red600, Color.FromArgb(254, 202, 202), width, height, BodyBold);
+            return MakeButton(text, Red600, Color.White, Red600, Math.Max(width, 110), Math.Max(height, 36), BodyBold);
         }
 
         public static Button CommandBtn(string text, Color accent, int width = 118, int height = 34)
@@ -199,8 +212,8 @@ namespace HVAC_Pro_Desktop.UI
             var button = new Button
             {
                 Text = text,
-                Width = width,
-                Height = height,
+                Width = Math.Max(width, 110),
+                Height = Math.Max(height, 36),
                 BackColor = bg,
                 ForeColor = fg,
                 Font = font,
@@ -210,10 +223,10 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(10, 0, 10, 0),
                 UseVisualStyleBackColor = false
             };
-            button.FlatAppearance.BorderSize = border == Color.Transparent ? 0 : 1;
+            button.FlatAppearance.BorderSize = 1;
             button.FlatAppearance.BorderColor = border == Color.Transparent ? bg : border;
-            button.FlatAppearance.MouseOverBackColor = bg.GetBrightness() > 0.92f ? BgCardHov : Lighten(bg, 0.08f);
-            button.FlatAppearance.MouseDownBackColor = bg.GetBrightness() > 0.92f ? Slate100 : Darken(bg, 0.10f);
+            button.FlatAppearance.MouseOverBackColor = bg.GetBrightness() > 0.92f ? Slate50 : Darken(bg, 0.08f);
+            button.FlatAppearance.MouseDownBackColor = bg.GetBrightness() > 0.92f ? Slate100 : Darken(bg, 0.16f);
             Rounded(button, RadiusSm);
             return button;
         }
@@ -257,7 +270,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public static Font CaptionBold()
         {
-            return new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            return UiFont(7.5f, FontStyle.Bold);
         }
 
         public static Panel PageHeader(string title)
@@ -266,7 +279,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Top,
                 Height = 58,
-                BackColor = White,
+                BackColor = BgCard,
                 Padding = new Padding(18, 0, 18, 0)
             };
             header.Paint += (s, e) =>
@@ -279,7 +292,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = title ?? string.Empty,
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                Font = H2,
                 ForeColor = Slate900,
                 TextAlign = ContentAlignment.MiddleLeft
             });
@@ -356,33 +369,7 @@ namespace HVAC_Pro_Desktop.UI
             if (button == null)
                 return;
 
-            button.FlatStyle = FlatStyle.Flat;
-            button.UseVisualStyleBackColor = false;
-            button.Cursor = Cursors.Hand;
-            button.Font = new Font("Segoe UI", Math.Max(8.5f, button.Font.Size), FontStyle.Bold);
-            button.Height = Math.Max(button.Height, 32);
-            button.Padding = button.Padding == Padding.Empty ? new Padding(10, 0, 10, 0) : button.Padding;
-
-            bool isLight = button.BackColor.ToArgb() == Color.White.ToArgb()
-                || button.BackColor.ToArgb() == Color.Transparent.ToArgb()
-                || button.BackColor.GetBrightness() > 0.92f;
-
-            if (isLight)
-            {
-                button.BackColor = White;
-                button.ForeColor = Slate700;
-                button.FlatAppearance.BorderColor = BorderStrong;
-                button.FlatAppearance.BorderSize = Math.Max(1, button.FlatAppearance.BorderSize);
-                button.FlatAppearance.MouseOverBackColor = BgCardHov;
-                button.FlatAppearance.MouseDownBackColor = Slate100;
-            }
-            else
-            {
-                button.FlatAppearance.BorderSize = 0;
-                button.FlatAppearance.MouseOverBackColor = Lighten(button.BackColor, 0.08f);
-                button.FlatAppearance.MouseDownBackColor = Darken(button.BackColor, 0.10f);
-            }
-            Rounded(button, RadiusSm);
+            UIHelper.ApplyButtonStyle(button, UIHelper.ResolveButtonRole(button));
         }
 
         public static Color Lighten(Color color, float amount)
@@ -442,13 +429,14 @@ namespace HVAC_Pro_Desktop.UI
             {
                 bool whiteText = label.ForeColor.ToArgb() == Color.White.ToArgb();
                 Color parentBack = label.Parent == null ? Color.Empty : label.Parent.BackColor;
-                bool onLightSurface = parentBack == Color.Empty
-                    || parentBack.ToArgb() == White.ToArgb()
-                    || parentBack.ToArgb() == Slate50.ToArgb()
-                    || parentBack.GetBrightness() > 0.92f;
+                bool onLightSurface = parentBack != Color.Empty
+                    && parentBack != Color.Transparent
+                    && parentBack.GetBrightness() > 0.92f;
 
                 if (whiteText && onLightSurface)
                     label.ForeColor = Slate900;
+                else if (!whiteText && parentBack != Color.Empty && parentBack != Color.Transparent && parentBack.GetBrightness() < 0.45f && label.ForeColor.GetBrightness() < 0.45f)
+                    label.ForeColor = Slate800;
                 return;
             }
 
@@ -464,9 +452,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            if (control is Panel panel && panel.BackColor.ToArgb() == SystemColors.Control.ToArgb())
+            if (control is Panel panel)
             {
-                panel.BackColor = BgPage;
+                if (IsLegacyLightBackColor(panel.BackColor))
+                    panel.BackColor = IsChromePanel(panel) ? BgPage : BgCard;
                 return;
             }
 
@@ -478,45 +467,50 @@ namespace HVAC_Pro_Desktop.UI
 
             if (control is TextBox textBox)
             {
-                textBox.Font = Body;
-                textBox.ForeColor = Slate900;
-                if (textBox.BorderStyle != BorderStyle.None)
-                    textBox.BorderStyle = BorderStyle.FixedSingle;
-                if (!textBox.Multiline)
-                    textBox.Height = Math.Max(textBox.Height, 30);
-                if (!textBox.ReadOnly)
-                    textBox.BackColor = White;
-                else
-                    textBox.BackColor = Slate50;
+                UIHelper.ApplyInputStyle(textBox);
                 return;
             }
 
             if (control is ComboBox comboBox)
             {
-                comboBox.Font = Body;
-                comboBox.BackColor = White;
-                comboBox.ForeColor = Slate900;
-                comboBox.FlatStyle = FlatStyle.System;
-                comboBox.Height = Math.Max(comboBox.Height, 30);
+                UIHelper.ApplyInputStyle(comboBox);
                 return;
             }
 
             if (control is DateTimePicker datePicker)
             {
-                datePicker.Font = Body;
-                datePicker.CalendarForeColor = Slate900;
-                datePicker.CalendarMonthBackground = White;
+                UIHelper.ApplyInputStyle(datePicker);
                 return;
             }
 
             if (control is NumericUpDown numeric)
             {
-                numeric.Font = Body;
-                numeric.BackColor = White;
-                numeric.ForeColor = Slate900;
-                numeric.BorderStyle = BorderStyle.FixedSingle;
+                UIHelper.ApplyInputStyle(numeric);
                 return;
             }
+        }
+
+        public static bool IsLegacyLightBackColor(Color color)
+        {
+            if (color == Color.Empty || color == Color.Transparent)
+                return false;
+
+            return color.ToArgb() == Color.White.ToArgb()
+                || color.ToArgb() == SystemColors.Control.ToArgb()
+                || color.ToArgb() == SystemColors.Window.ToArgb()
+                || color.GetBrightness() > 0.92f;
+        }
+
+        private static bool IsChromePanel(Control control)
+        {
+            string name = ((control == null ? string.Empty : control.Name) ?? string.Empty).ToUpperInvariant();
+            string tag = control == null || control.Tag == null ? string.Empty : control.Tag.ToString().ToUpperInvariant();
+            return name.Contains("SIDEBAR")
+                || name.Contains("NAV")
+                || name.Contains("MENU")
+                || name.Contains("BANNER")
+                || tag.Contains("SIDEBAR")
+                || tag.Contains("NAV");
         }
     }
 }

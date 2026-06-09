@@ -17,7 +17,7 @@ namespace HVAC_Pro_Desktop.Models
         public string Email           { get; set; }
 
         // Indian-specific financials
-        public string  GSTNumber        { get; set; }   // e.g. 27AAAAA0000A1Z5
+        public string  GSTNumber        { get; set; }   // e.g. 27ABCDE1234F1Z0
         public string  PANNumber        { get; set; }   // e.g. AAAAA0000A
         public int     PaymentTermsDays { get; set; }   // 30 / 45 / 60
         public decimal CreditLimit      { get; set; }

@@ -64,8 +64,11 @@ namespace HVAC_Pro_Desktop.Services.Validation
             if (bid == null)
                 return result.Add(ValidationSeverity.Critical, "Quotations", "Quotation", "Quotation payload is missing.");
 
-            decimal taxable = (bid.LineItems ?? new List<TenderBidLineItem>()).Sum(l => Math.Round(l.Quantity * l.SellPricePerUnit, 2));
-            decimal gst = (bid.LineItems ?? new List<TenderBidLineItem>()).Sum(l => Math.Round(Math.Round(l.Quantity * l.SellPricePerUnit, 2) * (l.GSTRatePct / 100m), 2));
+            List<TenderBidLineItem> lines = (bid.LineItems ?? new List<TenderBidLineItem>())
+                .Where(l => l != null && !string.IsNullOrWhiteSpace(l.ItemDescription))
+                .ToList();
+            decimal taxable = lines.Sum(l => Math.Round(l.Quantity * l.SellPricePerUnit, 2));
+            decimal gst = lines.Sum(l => Math.Round(Math.Round(l.Quantity * l.SellPricePerUnit, 2) * (l.GSTRatePct / 100m), 2));
             if (taxable > 0 && Math.Abs(bid.TotalTaxableValue - taxable) > 0.05m)
                 result.Add(ValidationSeverity.Warning, "Quotations", "Taxable total", "Quotation taxable total differs from line totals.", "Recalculate quotation.", true);
             if (taxable > 0 && Math.Abs(bid.TotalWithGST - (taxable + gst)) > 0.05m)

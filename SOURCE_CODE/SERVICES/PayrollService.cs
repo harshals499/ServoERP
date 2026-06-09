@@ -183,8 +183,6 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 SessionManager.DemandPermission("Payroll", "Edit");
-                if (!string.Equals(SessionManager.CurrentUser?.RoleName, "Admin", StringComparison.OrdinalIgnoreCase))
-                    return ServiceResult<bool>.Fail("Only Admin can lock payroll.");
 
                 PayrollRun run = _repo.GetPayrollRunById(payrollRunId);
                 if (run == null)

@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
-using System.Data;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -41,6 +40,7 @@ namespace HVAC_Pro_Desktop.Services
             if (po == null)
                 throw new Exception("Purchase order details are missing.");
             po.PayByDate = AutoSuggestPayByDate(po.PODate, po.VendorID, po.PayByDate);
+            po.ApplyPaymentCompletionRule();
             ValidatePurchaseOrderForSave(po);
             if (SessionManager.IsLoggedIn)
             {
@@ -62,6 +62,7 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Purchase order details are missing.");
             PurchaseOrder existing = po.POID > 0 ? _repo.GetById(po.POID) : null;
             po.PayByDate = AutoSuggestPayByDate(po.PODate, po.VendorID, po.PayByDate);
+            po.ApplyPaymentCompletionRule();
             ValidatePurchaseOrderForSave(po);
             if (SessionManager.IsLoggedIn)
             {
@@ -97,6 +98,7 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.DemandPermission("Purchases", "Create");
             if (supplierId <= 0)
                 throw new Exception("Supplier is required to create a purchase order.");
+            EnsureSupplierForPurchase(supplierId);
 
             List<TenderBidLineItem> rows = (lineItems ?? new List<TenderBidLineItem>())
                 .Where(li => li != null && li.Shortfall > 0m)
@@ -198,7 +200,7 @@ namespace HVAC_Pro_Desktop.Services
         public List<VendorPayableGroup> GetVendorPayables()
         {
             return GetPendingPayments()
-                .GroupBy(p => new { p.VendorID, VendorName = string.IsNullOrWhiteSpace(p.VendorName) ? "Unknown Vendor" : p.VendorName })
+                .GroupBy(p => new { p.VendorID, VendorName = string.IsNullOrWhiteSpace(p.VendorName) ? "Unknown Supplier" : p.VendorName })
                 .Select(g => new VendorPayableGroup
                 {
                     VendorID = g.Key.VendorID,
@@ -216,7 +218,7 @@ namespace HVAC_Pro_Desktop.Services
         public List<VendorPayableGroup> GetVendorPayablesFresh()
         {
             return GetPendingPaymentsFresh()
-                .GroupBy(p => new { p.VendorID, VendorName = string.IsNullOrWhiteSpace(p.VendorName) ? "Unknown Vendor" : p.VendorName })
+                .GroupBy(p => new { p.VendorID, VendorName = string.IsNullOrWhiteSpace(p.VendorName) ? "Unknown Supplier" : p.VendorName })
                 .Select(g => new VendorPayableGroup
                 {
                     VendorID = g.Key.VendorID,
@@ -451,7 +453,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<td class='meta-cell'>Date : " + orderDate + "</td></tr>"
             + "<tr><td></td><td class='meta-cell'>PO No. " + Html(po.PONumber) + "</td></tr>"
             + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
-            + "<tr class='po-row'><td colspan='2'>Vendor Invoice No : " + Html(po.VendorInvoiceNumber) + " &nbsp;&nbsp; Pay By Date : " + payByDate.ToString("dd/MM/yyyy") + "</td></tr>"
+            + "<tr class='po-row'><td colspan='2'>Supplier Invoice No : " + Html(po.VendorInvoiceNumber) + " &nbsp;&nbsp; Pay By Date : " + payByDate.ToString("dd/MM/yyyy") + "</td></tr>"
             + "<tr class='blank-row'><td colspan='2'></td></tr></table>"
             + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN Code</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows.ToString()
@@ -475,24 +477,6 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td class='certification'>Please supply goods / services as per the above purchase order and agreed terms.</td>"
             + "<td class='footer-right'><span class='send-title'>Bill / Dispatch To : </span><br/>" + Html(settings.CompanyName) + "<br/>" + Html(settings.Address).Replace("\n", "<br/>") + "</td></tr>"
             + "</table></div></div></body></html>";
-        }
-
-        private string BuildTermsHtml()
-        {
-            string configured = _settingsService.Get("PurchaseOrderTerms", string.Empty);
-            List<string> terms = configured
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(t => t.Trim())
-                .Where(t => t.Length > 0)
-                .ToList();
-
-            if (terms.Count == 0)
-            {
-                terms.Add("Please supply goods as per specifications above.");
-                terms.Add("Payment will be made as per agreed terms.");
-            }
-
-            return "<ul>" + string.Join(string.Empty, terms.Select(t => "<li>" + Html(t) + "</li>")) + "</ul>";
         }
 
         private string ResolveUnit(string description)
@@ -576,6 +560,8 @@ namespace HVAC_Pro_Desktop.Services
         {
             ValidationResult result = _businessRules.ValidatePurchaseOrder(po);
             result.Merge(_calculationVerifier.VerifyPurchaseOrder(po));
+            if (po != null)
+                AddSupplierRoleValidation(po, result);
             if (po != null && !string.IsNullOrWhiteSpace(po.PONumber))
             {
                 bool duplicateNumber = GetAllFresh().Any(existing =>
@@ -585,6 +571,31 @@ namespace HVAC_Pro_Desktop.Services
                     result.Add(ValidationSeverity.Error, "Purchases", "PONumber", "Another purchase order already uses this PO number.", "Open the existing PO or generate a new PO number.");
             }
             _validation.EnsureValid(result, "Purchase order validation failed");
+        }
+
+        /// <summary>Adds purchase validation that prevents service vendors from being selected as suppliers.</summary>
+        private void AddSupplierRoleValidation(PurchaseOrder po, ValidationResult result)
+        {
+            if (po == null || result == null || po.VendorID <= 0)
+                return;
+
+            Vendor supplier = _vendorService.GetById(po.VendorID);
+            if (supplier == null)
+            {
+                result.Add(ValidationSeverity.Error, "Purchases", "Supplier", "Supplier record was not found.");
+                return;
+            }
+
+            if (!supplier.IsSupplier)
+                result.Add(ValidationSeverity.Error, "Purchases", "Supplier", "Purchase orders can select only Suppliers. Use Vendors only for service/subcontracting work.");
+        }
+
+        /// <summary>Throws when a purchase flow tries to use a non-supplier business partner.</summary>
+        private void EnsureSupplierForPurchase(int supplierId)
+        {
+            Vendor supplier = _vendorService.GetById(supplierId);
+            if (supplier == null || !supplier.IsSupplier)
+                throw new Exception("Purchase order can be created only for a Supplier. Service Vendors are reserved for subcontracting and job support.");
         }
     }
 }

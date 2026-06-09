@@ -7,7 +7,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class GlobalSearchDialog : Form
+    public sealed class GlobalSearchDialog : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly GlobalSearchService _searchService = new GlobalSearchService();
         private readonly TextBox _searchBox;
@@ -35,7 +35,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
             };
 
-            _results = new ListBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false };
+            _results = new ListBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false, Cursor = Cursors.Hand };
             _results.DoubleClick += (s, e) => OpenSelected();
 
             var header = new Label
@@ -76,8 +76,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             GlobalSearchResult selected = _current[index];
+            Hide();
+            NavigationHelper.OpenSearchResult(this, selected, _navigate);
             Close();
-            _navigate?.Invoke(selected.PageKey);
         }
     }
 }
+

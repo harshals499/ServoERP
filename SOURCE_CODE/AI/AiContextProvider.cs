@@ -37,8 +37,8 @@ namespace HVAC_Pro_Desktop.AI
                 int overdueInvoiceCount = overdueInvoices.Count;
                 int overdueReceivableCount = overdueInvoices.Count(i => i.BalanceDue > 0.01m);
                 int quotes = new TenderService().GetAll().Count;
-                int lowStock = new InventoryService().GetLowStock().Count;
-                return "Clients " + clients + ", Jobs " + jobs + ", Delayed jobs " + delayed + ", Invoices " + invoices + ", Overdue invoices " + overdueInvoiceCount + ", Overdue receivables with positive balance " + overdueReceivableCount + ", Quotations " + quotes + ", Low-stock items " + lowStock + ".";
+                int toOrder = new InventoryService().GetLowStock().Count;
+                return "Clients " + clients + ", Jobs " + jobs + ", Delayed jobs " + delayed + ", Invoices " + invoices + ", Overdue invoices " + overdueInvoiceCount + ", Overdue receivables with positive balance " + overdueReceivableCount + ", Quotations " + quotes + ", Materials to order " + toOrder + ".";
             });
         }
 
@@ -103,16 +103,16 @@ namespace HVAC_Pro_Desktop.AI
             TryAdd(snapshot, summary, "Inventory context", () =>
             {
                 var low = new InventoryService().GetLowStock().OrderBy(i => i.AvailableStock).Take(6).ToList();
-                return low.Count == 0 ? "No low-stock items found." : "Low stock: " + string.Join("; ", low.Select(i => i.ItemName + " available " + i.AvailableStock.ToString("0.##") + " " + i.Unit + " reorder " + i.ReorderLevel.ToString("0.##")));
+                return low.Count == 0 ? "No material ordering items found." : "Materials to plan with suppliers: " + string.Join("; ", low.Select(i => i.ItemName + " need " + i.ReorderLevel.ToString("0.##") + " " + i.Unit + " planned, supplier " + (string.IsNullOrWhiteSpace(i.VendorName) ? "not mapped" : i.VendorName)));
             });
         }
 
         private void AddVendorContext(AiContextSnapshot snapshot, StringBuilder summary)
         {
-            TryAdd(snapshot, summary, "Vendor context", () =>
+            TryAdd(snapshot, summary, "Supplier context", () =>
             {
-                var vendors = new VendorService().GetAllVendorsWithSummary().OrderByDescending(v => v.TotalPurchased).Take(5).ToList();
-                return "Vendor summary: " + string.Join("; ", vendors.Select(v => v.VendorName + " " + v.Category + " open POs " + v.OpenPOCount + " outstanding " + IndiaFormatHelper.FormatCurrency(v.OutstandingBalance)));
+                var vendors = new VendorService().GetAllVendorsWithSummary().Where(v => v.IsSupplier).OrderByDescending(v => v.TotalPurchased).Take(5).ToList();
+                return "Supplier summary: " + string.Join("; ", vendors.Select(v => v.VendorName + " " + v.Category + " open POs " + v.OpenPOCount + " outstanding " + IndiaFormatHelper.FormatCurrency(v.OutstandingBalance)));
             });
         }
 

@@ -194,6 +194,22 @@ namespace HVAC_Pro_Desktop.Services
             _audit.Record("EDIT", "Clients", client.ClientID, "Client saved with data-quality validation");
         }
 
+        /// <summary>Updates a client's lifecycle status without rewriting the full client profile.</summary>
+        public void UpdateLifecycleStatus(int clientId, string status)
+        {
+            SessionManager.DemandPermission("Clients", "Edit");
+            if (clientId <= 0)
+                return;
+
+            string normalized = NormalizeLifecycleStatus(status);
+            bool active = string.Equals(normalized, "Active", StringComparison.OrdinalIgnoreCase)
+                          || string.Equals(normalized, "Prospect", StringComparison.OrdinalIgnoreCase);
+
+            _clientRepo.SetLifecycleStatus(clientId, normalized, active);
+            AppDataCache.RemovePrefix("clients:");
+            _audit.Record("EDIT", "Clients", clientId, "Client lifecycle status changed to " + normalized);
+        }
+
         // ── DELETE (soft) ────────────────────────────────────
         public void DeleteClient(int id)
         {
@@ -249,7 +265,7 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Company name is required.");
 
             if (!string.IsNullOrEmpty(c.GSTNumber) && !IsValidGSTIN(c.GSTNumber))
-                throw new Exception("GST Number must be a valid 15-character GSTIN (e.g. 27AAAAA0000A1Z5).");
+                throw new Exception("GST Number must be a valid 15-character GSTIN (e.g. 27ABCDE1234F1Z0).");
 
             if (!string.IsNullOrEmpty(c.PANNumber) && !IsValidPAN(c.PANNumber))
                 throw new Exception("PAN Number must be a valid 10-character PAN (e.g. AAAAA0000A).");
@@ -306,6 +322,23 @@ namespace HVAC_Pro_Desktop.Services
                 .Where(t => !string.IsNullOrWhiteSpace(t))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        /// <summary>Normalizes free-form client lifecycle text to supported application statuses.</summary>
+        private static string NormalizeLifecycleStatus(string status)
+        {
+            string value = (status ?? string.Empty).Trim();
+            if (value.Length == 0)
+                return "Active";
+            if (value.IndexOf("black", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Blacklisted";
+            if (value.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "On Hold";
+            if (value.IndexOf("prospect", StringComparison.OrdinalIgnoreCase) >= 0 || value.IndexOf("lead", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Prospect";
+            if (value.IndexOf("inactive", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Inactive";
+            return "Active";
         }
     }
 }

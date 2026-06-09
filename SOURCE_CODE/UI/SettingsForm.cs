@@ -1,6 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -22,6 +24,10 @@ namespace HVAC_Pro_Desktop.UI
     public class SettingsForm : DeferredPageControl
     {
         protected override bool EnableAutomaticLayoutScaling => false;
+
+        protected override bool EnableMainScrollCanvas => false;
+
+        protected override bool SuppressAutomaticChildPolish => true;
 
         private readonly SettingsService _svc = new SettingsService();
         private readonly HsnSacMasterService _hsnSacSvc = new HsnSacMasterService();
@@ -64,6 +70,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
         private CheckBox _chkVersionCheckEnabled;
         private Label _lblInstalledVersion;
+        private Label _lblLastUpdateCheckStatus;
         private ComboBox _cmbDisplayFitMode;
         private ComboBox _cmbUiScale;
         private CheckBox _chkAiEnabled;
@@ -80,9 +87,16 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblAuditTotal;
         private Label _lblAuditLogin;
         private Label _lblAuditWarnings;
-        private Label _lblAuditLatest;
+        private Panel _auditGridCard;
         private Label _lblBackupStatus;
         private Label _lblLicenseStatus;
+        private AgentSimulationPanel _agentSimulationPanel;
+        private bool _reflowingSettingsCards;
+        private bool _initialLoadQueued;
+        private bool _settingsCardsBuilt;
+        private bool _hsnLoadQueued;
+        private bool _securityLoadQueued;
+        private bool _settingsPolishQueued;
 
         private static readonly Color HeaderBg = DS.White;
         private static readonly Color SectionBg = DS.Slate50;
@@ -100,20 +114,129 @@ namespace HVAC_Pro_Desktop.UI
         public SettingsForm()
         {
             Dock = DockStyle.Fill;
+            AutoScroll = false;
             BackColor = DS.BgPage;
+            AppRuntime.LogTiming("Settings.BuildLayout.Start", 0);
             BuildLayout();
+            AppRuntime.LogTiming("Settings.BuildLayout.Complete", 0);
             UIHelper.ApplyInputStyles(Controls);
-            EnableDeferredLoad(
-                () =>
+            AppRuntime.LogTiming("Settings.InputStyles.Complete", 0);
+        }
+
+        public void EnsureInitialLoad()
+        {
+            if (_initialLoadQueued || DeferredLoadCompleted || IsDisposed)
+                return;
+
+            _initialLoadQueued = true;
+            Action load = () =>
+            {
+                try
                 {
+                    EnsureSettingsCardsBuilt();
                     LoadSettings();
-                    CheckDbConnection();
-                },
-                ex =>
+                    BeginCheckDbConnection();
+                    MarkDeferredLoadCompleted();
+                }
+                catch (Exception ex)
                 {
+                    AppRuntime.LogException("SettingsForm.EnsureInitialLoad", ex);
                     _lblStatus.Text = "Load error: " + ex.Message;
                     _lblStatus.ForeColor = Color.Red;
-                });
+                    MarkDeferredLoadCompleted();
+                }
+                finally
+                {
+                    _initialLoadQueued = false;
+                }
+            };
+
+            if (IsHandleCreated)
+                BeginInvoke(load);
+            else
+                load();
+        }
+
+        private void EnsureSettingsCardsBuilt()
+        {
+            if (_settingsCardsBuilt)
+                return;
+
+            Stopwatch watch = Stopwatch.StartNew();
+            AppRuntime.LogTiming("Settings.BuildCards.Start", 0);
+            UiPerformanceService.WithSuspendedDrawing(_tabs, () =>
+            {
+                _generalCanvas.SuspendLayout();
+                _generalFlow.SuspendLayout();
+                try
+                {
+                    BuildForm(_generalFlow);
+                    CenterCanvas(_generalCanvas.Parent as Panel, _generalCanvas);
+                }
+                finally
+                {
+                    _generalFlow.ResumeLayout(false);
+                    _generalCanvas.ResumeLayout(false);
+                }
+            });
+            _settingsCardsBuilt = true;
+            QueueDeferredSettingsPolish();
+            AppRuntime.LogTiming("Settings.BuildCards.Complete", watch.ElapsedMilliseconds);
+        }
+
+        /// <summary>Applies expensive shared Settings polish after first paint instead of blocking page open.</summary>
+        private void QueueDeferredSettingsPolish()
+        {
+            if (_settingsPolishQueued || IsDisposed || _generalFlow == null)
+                return;
+
+            _settingsPolishQueued = true;
+            Action polish = () =>
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+                try
+                {
+                    if (IsDisposed || _generalFlow == null || _generalFlow.IsDisposed)
+                        return;
+
+                    UIHelper.ApplyInputStyles(_generalFlow.Controls);
+                    UIHelper.ApplyButtonAlignment(_generalFlow);
+                    GlobalCardContextMenu.ApplyToTree(_generalFlow);
+                    AppRuntime.LogTiming("Settings.DeferredPolish.Complete", watch.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("SettingsForm.QueueDeferredSettingsPolish", ex);
+                }
+                finally
+                {
+                    _settingsPolishQueued = false;
+                }
+            };
+
+            if (IsHandleCreated)
+                BeginInvoke(polish);
+            else
+                polish();
+        }
+
+        /// <summary>Refreshes runtime-only Settings labels whenever the cached page becomes visible again.</summary>
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            AppRuntime.LogTiming("Settings.OnVisibleChanged.Start", 0, "visible=" + Visible);
+            base.OnVisibleChanged(e);
+            if (Visible)
+                RefreshRuntimeSettingsLabels();
+            AppRuntime.LogTiming("Settings.OnVisibleChanged.Complete", 0, "visible=" + Visible);
+        }
+
+        /// <summary>Updates Settings labels that must reflect the currently running build, not saved configuration.</summary>
+        private void RefreshRuntimeSettingsLabels()
+        {
+            if (_lblInstalledVersion != null && !_lblInstalledVersion.IsDisposed)
+                _lblInstalledVersion.Text = "Current version: " + ConfigService.GetAppVersion();
+            if (_lblLastUpdateCheckStatus != null && !_lblLastUpdateCheckStatus.IsDisposed)
+                _lblLastUpdateCheckStatus.Text = ConfigService.Get("App", "LastUpdateCheckStatus", "Updates have not been checked in this session.");
         }
 
         private void BuildLayout()
@@ -127,10 +250,10 @@ namespace HVAC_Pro_Desktop.UI
             Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 148);
             btnResetDefaults.ForeColor = DS.Slate700;
             btnResetDefaults.FlatAppearance.BorderSize = 1;
-            btnResetDefaults.FlatAppearance.BorderColor = DS.Slate300;
+            btnResetDefaults.FlatAppearance.BorderColor = DS.Border;
             ModernIconSystem.AddButtonIcon(btnResetDefaults, ModernIconKind.Preference);
             btnResetDefaults.Click += (s, e) => ResetGeneralDefaults();
-            Button btnToolbarCheckUpdates = MakeBtn("Check Update Notification", InfoBlue, 190);
+            Button btnToolbarCheckUpdates = MakeBtn("Check for Updates", InfoBlue, 170);
             btnToolbarCheckUpdates.Location = new Point(0, 0);
             ModernIconSystem.AddButtonIcon(btnToolbarCheckUpdates, ModernIconKind.Refresh);
             btnToolbarCheckUpdates.Click += async (s, e) => await CheckVersionNowAsync();
@@ -164,15 +287,16 @@ namespace HVAC_Pro_Desktop.UI
             };
             _tabs.DrawItem += DrawModernSettingsTab;
             TabPage generalTab = new TabPage("General") { BackColor = DS.BgPage };
-            Panel body = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage };
-            _generalCanvas = new Panel { Width = GeneralCanvasWidth, BackColor = DS.BgPage, Padding = new Padding(0, 0, 0, 24) };
+            Panel body = new Panel { Name = "SettingsGeneralBody", Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage, Tag = "NO_CARD_SURFACE" };
+            _generalCanvas = new Panel { Width = GeneralCanvasWidth, BackColor = DS.BgPage, Padding = new Padding(0, 0, 0, 24), Tag = "CUSTOM_INPUT_SHELL NO_INPUT_HOST NO_CARD_SURFACE" };
             _generalFlow = new Panel
             {
                 Dock = DockStyle.Top,
                 AutoSize = false,
                 BackColor = DS.BgPage,
                 Padding = new Padding(0),
-                Margin = new Padding(0)
+                Margin = new Padding(0),
+                Tag = "CUSTOM_INPUT_SHELL NO_INPUT_HOST NO_CARD_SURFACE"
             };
             _generalCanvas.Controls.Add(_generalFlow);
             body.Controls.Add(_generalCanvas);
@@ -181,14 +305,20 @@ namespace HVAC_Pro_Desktop.UI
                 CenterCanvas(body, _generalCanvas);
                 ReflowSettingsCards();
             };
-            BuildForm(_generalFlow);
+            _generalFlow.Controls.Add(new Label
+            {
+                Text = "Loading Settings...",
+                Location = new Point(0, 0),
+                Size = new Size(360, 32),
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                ForeColor = DS.Slate600
+            });
             CenterCanvas(body, _generalCanvas);
             generalTab.Controls.Add(body);
             _tabs.TabPages.Add(generalTab);
             if (IsAdminUser())
             {
                 _tabs.TabPages.Add(BuildUsersTab());
-                _tabs.TabPages.Add(BuildAuditTab());
             }
 
             Controls.Add(_tabs);
@@ -203,8 +333,14 @@ namespace HVAC_Pro_Desktop.UI
             if (IsAdminUser())
                 BuildLoginAccessSection(parent);
 
+            AppRuntime.LogTiming("Settings.BuildForm.Guides.Start", 0);
+            BuildGeneralSettingsGuide(parent);
+            BuildHelpSupportCard(parent);
+            BuildAgentSimulationCard(parent);
             BuildUpdateNotificationsCard(parent);
+            AppRuntime.LogTiming("Settings.BuildForm.Guides.Complete", 0);
 
+            AppRuntime.LogTiming("Settings.BuildForm.Company.Start", 0);
             Panel companyBody = AddModernSettingsCard(parent, "Company Information", "Profile, compliance, and office location details used across the platform.", 430);
             _txtCompanyName = new TextBox();
             PlaceLabeledControl(companyBody, "Company Name *", _txtCompanyName, 0, 0, 210);
@@ -239,7 +375,9 @@ namespace HVAC_Pro_Desktop.UI
             PlaceLabeledControl(companyBody, "GST Registration Type", _cmbGstRegistrationType, 0, 256, 220);
             companyBody.Resize += (s, e) => LayoutCompanyInformationCard(companyBody, btnLocateOffice);
             LayoutCompanyInformationCard(companyBody, btnLocateOffice);
+            AppRuntime.LogTiming("Settings.BuildForm.Company.Complete", 0);
 
+            AppRuntime.LogTiming("Settings.BuildForm.Display.Start", 0);
             Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 340);
             _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbDisplayFitMode.Items.AddRange(new object[]
@@ -296,7 +434,16 @@ namespace HVAC_Pro_Desktop.UI
             displayBody.Controls.Add(currentScreen);
 
             BuildLocalAiCard(parent);
+            AppRuntime.LogTiming("Settings.BuildForm.Display.Complete", 0);
 
+            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
+            BuildLegalAgreementsCard(parent);
+            BuildOpenSourceLicensesCard(parent);
+            BuildModuleCatalogCard(parent);
+            BuildCompliancePackCard(parent);
+            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Complete", 0);
+
+            AppRuntime.LogTiming("Settings.BuildForm.Defaults.Start", 0);
             Panel defaultsBody = AddModernSettingsCard(parent, "India Defaults", "Set default financial and taxation preferences.", 360);
             _txtPrefix = new TextBox { CharacterCasing = CharacterCasing.Upper };
             PlaceLabeledControl(defaultsBody, "Invoice Prefix", _txtPrefix, 0, 0, 150);
@@ -339,7 +486,9 @@ namespace HVAC_Pro_Desktop.UI
             defaultsBody.Controls.Add(_lblMoneyPreview);
             defaultsBody.Resize += (s, e) => LayoutIndiaDefaultsCard(defaultsBody);
             LayoutIndiaDefaultsCard(defaultsBody);
+            AppRuntime.LogTiming("Settings.BuildForm.Defaults.Complete", 0);
 
+            AppRuntime.LogTiming("Settings.BuildForm.Hsn.Start", 0);
             Panel hsnBody = AddModernSettingsCard(parent, "HSN / SAC Master", "Manage HSN / SAC codes and tax rates.", 384);
             _gridHsnSac = BuildHsnSacGrid();
             Panel hsnGridHost = new Panel
@@ -367,6 +516,7 @@ namespace HVAC_Pro_Desktop.UI
                 _gridHsnSac.Height = hsnGridHost.Height + SystemInformation.HorizontalScrollBarHeight + 2;
                 LayoutHsnSacColumns(_gridHsnSac);
             };
+            AppRuntime.LogTiming("Settings.BuildForm.Hsn.Complete", 0);
 
             Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection and saved card layout controls.", 330);
             _lblDbStatus = new Label { Location = new Point(0, 0), Size = new Size(520, 24), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate700 };
@@ -388,11 +538,288 @@ namespace HVAC_Pro_Desktop.UI
                 Panel licenseBody = AddModernSettingsCard(parent, "License Management", "Activation, renewal, device status, and frozen-mode recovery.", 300);
                 BuildLicenseSection(licenseBody);
 
-                Panel backupBody = AddModernSettingsCard(parent, "Backup & Restore", "Create recoverable SQL backups and restore safely after corruption or mistakes.", 300);
+                Panel backupBody = AddModernSettingsCard(parent, "Backup & Recovery", "Configure client-owned network, local, and external-drive SQL backups.", 300);
                 BuildBackupRestoreSection(backupBody);
 
                 Panel dataBody = AddModernSettingsCard(parent, "Data Management", "Fresh Start clears transactional records, master data, and settings.", 300);
                 BuildFreshStartSection(dataBody);
+            }
+
+            Panel diagnosticsBody = AddModernSettingsCard(parent, "Diagnostics & Error Log", "Review local ServoERP exception logs for support and troubleshooting.", 250);
+            BuildDiagnosticsErrorLogSection(diagnosticsBody);
+        }
+
+        /// <summary>Builds Settings actions for viewing and maintaining ServoERP error logs.</summary>
+        private void BuildDiagnosticsErrorLogSection(Panel parent)
+        {
+            string logsFolder = ServoERP.Infrastructure.ExceptionLogger.LogFolderPath;
+
+            var label = new Label
+            {
+                Text = "Error log location:",
+                Location = new Point(0, 0),
+                Size = new Size(160, 20),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = DS.Slate500
+            };
+            parent.Controls.Add(label);
+
+            var txtLogLocation = new TextBox
+            {
+                Text = logsFolder,
+                ReadOnly = true,
+                Location = new Point(0, 24),
+                Size = new Size(560, 34),
+                BorderStyle = BorderStyle.None,
+                BackColor = DS.Slate100,
+                ForeColor = DS.Slate700
+            };
+            parent.Controls.Add(txtLogLocation);
+
+            Button btnOpenFolder = MakeBtn("Open Log Folder", InfoBlue, 150);
+            btnOpenFolder.Location = new Point(0, 82);
+            btnOpenFolder.Click += (s, e) => OpenErrorLogFolder(logsFolder);
+            parent.Controls.Add(btnOpenFolder);
+
+            Button btnViewCurrent = MakeBtn("View Current Log", SaveGreen, 150);
+            btnViewCurrent.Location = new Point(166, 82);
+            btnViewCurrent.Click += (s, e) => ViewCurrentErrorLog();
+            parent.Controls.Add(btnViewCurrent);
+
+            Button btnClearOld = MakeBtn("Clear Old Logs", Color.White, 140);
+            btnClearOld.ForeColor = DS.Slate700;
+            btnClearOld.FlatAppearance.BorderSize = 1;
+            btnClearOld.FlatAppearance.BorderColor = DS.Border;
+            btnClearOld.Location = new Point(332, 82);
+            btnClearOld.Click += (s, e) => ClearOldErrorLogs(logsFolder);
+            parent.Controls.Add(btnClearOld);
+        }
+
+        /// <summary>Opens the folder that contains monthly exception logs.</summary>
+        private void OpenErrorLogFolder(string logsFolder)
+        {
+            try
+            {
+                Directory.CreateDirectory(logsFolder);
+                Process.Start("explorer.exe", logsFolder);
+            }
+            catch (Exception ex)
+            {
+                ShowError( "Could not open the error log folder.", ex);
+            }
+        }
+
+        /// <summary>Opens the current monthly exception log in Notepad when it exists.</summary>
+        private void ViewCurrentErrorLog()
+        {
+            try
+            {
+                string logPath = ServoERP.Infrastructure.ExceptionLogger.CurrentLogPath();
+                if (string.IsNullOrWhiteSpace(logPath))
+                {
+                    RunOnUI(() =>
+                        MessageBox.Show("No errors logged this month.", BrandingService.WindowTitle("Diagnostics"), MessageBoxButtons.OK, MessageBoxIcon.Information));
+                    return;
+                }
+
+                Process.Start("notepad.exe", logPath);
+            }
+            catch (Exception ex)
+            {
+                ShowError( "Could not open the current error log.", ex);
+            }
+        }
+
+        /// <summary>Deletes monthly exception logs older than 90 days after confirmation.</summary>
+        private void ClearOldErrorLogs(string logsFolder)
+        {
+            try
+            {
+                DialogResult confirm = MessageBox.Show(
+                    "Delete ServoERP error log files older than 90 days?",
+                    BrandingService.WindowTitle("Clear Old Logs"),
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question,
+                    MessageBoxDefaultButton.Button2);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                int deleted = 0;
+                if (Directory.Exists(logsFolder))
+                {
+                    DateTime cutoff = DateTime.Now.AddDays(-90);
+                    foreach (string file in Directory.GetFiles(logsFolder, "*.log"))
+                    {
+                        if (File.GetLastWriteTime(file) >= cutoff)
+                            continue;
+
+                        File.Delete(file);
+                        deleted++;
+                    }
+                }
+
+                RunOnUI(() =>
+                    MessageBox.Show(deleted + " old log file(s) deleted.", BrandingService.WindowTitle("Clear Old Logs"), MessageBoxButtons.OK, MessageBoxIcon.Information));
+            }
+            catch (Exception ex)
+            {
+                ShowError( "Could not clear old error logs.", ex);
+            }
+        }
+
+        private void BuildGeneralSettingsGuide(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "General Setup Map", "Use this as the safe order for first-time setup and audits.", 250);
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 3,
+                BackColor = Color.White
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            for (int i = 0; i < 3; i++)
+                grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.333f));
+            grid.Controls.Add(BuildSettingsGuideRow("1. Company", "GSTIN, PAN, address, state, office.", InfoBlue), 0, 0);
+            grid.Controls.Add(BuildSettingsGuideRow("2. India Defaults", "Prefix, GST, payment terms, INR.", SaveGreen), 1, 0);
+            grid.Controls.Add(BuildSettingsGuideRow("3. Display", "Fit mode and UI scale.", DS.Amber500), 0, 1);
+            grid.Controls.Add(BuildSettingsGuideRow("4. HSN / SAC", "Tax rows for invoices and quotes.", DS.Teal600), 1, 1);
+            grid.Controls.Add(BuildSettingsGuideRow("5. Backup", "SQL backup and restore readiness.", DS.Primary700), 0, 2);
+            grid.Controls.Add(BuildSettingsGuideRow("6. Risk Controls", "License, users, audit, Fresh Start.", DS.Red600), 1, 2);
+            body.Controls.Add(grid);
+        }
+
+        private Panel BuildSettingsGuideRow(string title, string text, Color accent)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 10, 8), BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(10, 7, 10, 6) };
+            DS.Rounded(panel, 8);
+            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 20, Font = DS.SmallBold, ForeColor = accent };
+            Label bodyLabel = new Label { Text = text, Dock = DockStyle.Fill, Font = DS.Caption, ForeColor = DS.Slate600 };
+            panel.Controls.Add(bodyLabel);
+            panel.Controls.Add(titleLabel);
+            return panel;
+        }
+
+        private void BuildHelpSupportCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Help & Support", "Open knowledge base, health checks, diagnostics, update tools, and support brief from Settings.", 280);
+
+            Label icon = ModernIconSystem.Badge(ModernIconKind.Service, 46, DS.Primary50, DS.Primary600, 12);
+            icon.Location = new Point(0, 4);
+            body.Controls.Add(icon);
+
+            Label title = new Label
+            {
+                Text = "Need help with ServoERP?",
+                Location = new Point(64, 4),
+                Size = new Size(420, 28),
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                ForeColor = DS.Slate900
+            };
+            body.Controls.Add(title);
+
+            Label text = new Label
+            {
+                Text = "Use this for guided help, database checks, diagnostics export, update verification, and support handover information.",
+                Location = new Point(64, 38),
+                Size = new Size(430, 56),
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(text);
+
+            Button open = MakeBtn("Open Help & Support", InfoBlue, 178);
+            open.Name = "btnSettingsHelpSupport";
+            open.UseMnemonic = false;
+            ModernIconSystem.AddButtonIcon(open, ModernIconKind.Service);
+            open.Location = new Point(64, 112);
+            open.Click += (s, e) => OpenHelpSupportFromSettings();
+            body.Controls.Add(open);
+
+            Button logs = MakeBtn("View Error Logs", Color.White, 150);
+            logs.Name = "btnSettingsViewErrorLogs";
+            logs.UseMnemonic = false;
+            logs.Location = new Point(open.Right + 12, 112);
+            logs.Click += (s, e) => CrashProtectionService.SafeShowDialog(this, "Open error log viewer", () => new ErrorLogViewerForm());
+            body.Controls.Add(logs);
+
+            body.Resize += (s, e) =>
+            {
+                title.Width = Math.Max(220, body.ClientSize.Width - title.Left - 12);
+                text.Width = Math.Max(220, body.ClientSize.Width - text.Left - 12);
+                if (logs.Right > body.ClientSize.Width - 12)
+                    logs.Location = new Point(64, open.Bottom + 10);
+            };
+        }
+
+        private void OpenHelpSupportFromSettings()
+        {
+            MainForm main = FindForm() as MainForm;
+            if (main != null)
+            {
+                main.ShowSupportCenterDrawer();
+                return;
+            }
+
+            CrashProtectionService.SafeShowDialog(this, "Open Help & Support", () => new SupportCenterDialog());
+        }
+
+        private void BuildAgentSimulationCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Agent Simulation", "Run isolated [AGENT] QA data, PDFs, report, pause/resume, and cleanup.", 260);
+            Label summary = new Label
+            {
+                Text = "Tracks exact IDs in AgentState.json. Real records are not touched.",
+                Location = new Point(0, 2),
+                Size = new Size(520, 54),
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(summary);
+
+            Button run = MakeBtn("Run Agent Simulation", InfoBlue, 184);
+            run.Location = new Point(0, 76);
+            run.Name = "btnRunAgentSimulation";
+            ModernIconSystem.AddButtonIcon(run, ModernIconKind.Service);
+            run.Click += (s, e) => OpenAgentSimulationPanel(true);
+            body.Controls.Add(run);
+
+            Button openReport = MakeBtn("Open Latest Report", Color.White, 160);
+            openReport.ForeColor = DS.Primary600;
+            openReport.FlatAppearance.BorderColor = DS.Border;
+            openReport.FlatAppearance.BorderSize = 1;
+            openReport.Location = new Point(202, 76);
+            openReport.Click += (s, e) => OpenLatestAgentReport();
+            body.Controls.Add(openReport);
+        }
+
+        private void OpenAgentSimulationPanel(bool start)
+        {
+            if (_agentSimulationPanel == null || _agentSimulationPanel.IsDisposed)
+                _agentSimulationPanel = new AgentSimulationPanel();
+
+            if (!_agentSimulationPanel.Visible)
+                _agentSimulationPanel.Show(FindForm());
+            _agentSimulationPanel.BringToFront();
+            _agentSimulationPanel.Focus();
+
+            if (start)
+                AgentSimulationService.Instance.StartOrResume();
+        }
+
+        private void OpenLatestAgentReport()
+        {
+            try
+            {
+                string path = AgentSimulationService.Instance.BuildLatestReport();
+                if (File.Exists(path))
+                    System.Diagnostics.Process.Start("notepad.exe", path);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SettingsForm.OpenLatestAgentReport", ex);
+                MessageBox.Show("Unable to open agent report:\r\n" + ex.Message, "Agent Simulation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -437,13 +864,19 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildUpdateNotificationsCard(Panel parent)
         {
-            Panel updatesBody = AddModernSettingsCard(parent, "Update Notifications", "Configure update checks and version information.", 300);
-            _txtVersionCheckUrl = new TextBox();
-            PlaceLabeledControl(updatesBody, "Version File URL", _txtVersionCheckUrl, 0, 0, 444);
+            Panel updatesBody = AddModernSettingsCard(parent, "About & Updates", "GitHub Releases powered updates and installed version information.", 340);
+            _txtVersionCheckUrl = new TextBox
+            {
+                ReadOnly = true,
+                TabStop = false,
+                BackColor = DS.Slate50,
+                ForeColor = DS.Slate700
+            };
+            PlaceLabeledControl(updatesBody, "GitHub Releases Repository", _txtVersionCheckUrl, 0, 0, 444);
             Button btnCopy = MakeBtn("Copy", Color.White, 72);
             btnCopy.ForeColor = DS.Slate700;
             btnCopy.FlatAppearance.BorderSize = 1;
-            btnCopy.FlatAppearance.BorderColor = DS.Slate300;
+            btnCopy.FlatAppearance.BorderColor = DS.Border;
             btnCopy.Location = new Point(456, 20);
             btnCopy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             btnCopy.Click += (s, e) =>
@@ -471,7 +904,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblInstalledVersion = new Label
             {
-                Text = "Installed version: " + ConfigService.GetAppVersion(),
+                Text = "Current version: " + ConfigService.GetAppVersion(),
                 Location = new Point(0, 122),
                 Width = 320,
                 Height = 22,
@@ -480,19 +913,30 @@ namespace HVAC_Pro_Desktop.UI
             };
             updatesBody.Controls.Add(_lblInstalledVersion);
 
-            Button btnCheckNow = MakeBtn("Check Update Notification", InfoBlue, 190);
-            btnCheckNow.Location = new Point(0, 160);
+            _lblLastUpdateCheckStatus = new Label
+            {
+                Text = ConfigService.Get("App", "LastUpdateCheckStatus", "Updates have not been checked in this session."),
+                Location = new Point(0, 154),
+                Width = 520,
+                Height = 48,
+                Font = new Font("Segoe UI", 8.8f),
+                ForeColor = DS.Slate600
+            };
+            updatesBody.Controls.Add(_lblLastUpdateCheckStatus);
+
+            Button btnCheckNow = MakeBtn("Check for Updates", InfoBlue, 170);
+            btnCheckNow.Location = new Point(0, 216);
             btnCheckNow.Click += async (s, e) => await CheckVersionNowAsync();
             updatesBody.Controls.Add(btnCheckNow);
         }
 
         private void BuildLocalAiCard(Panel parent)
         {
-            Panel aiBody = AddModernSettingsCard(parent, "Local AI Assistant", "Configure the inbuilt ServoERP Copilot. Ollama on localhost is used by default.", 410);
+            Panel aiBody = AddModernSettingsCard(parent, "ServoERP Assistant", "Built-in ERP helper. No server, model setup, or API key is required.", 410);
 
             _chkAiEnabled = new CheckBox
             {
-                Text = "Enable Local AI Assistant",
+                Text = "Enable ServoERP Assistant",
                 Location = new Point(0, 0),
                 Size = new Size(240, 26),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
@@ -502,42 +946,204 @@ namespace HVAC_Pro_Desktop.UI
             aiBody.Controls.Add(_chkAiEnabled);
 
             _cmbAiProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbAiProvider.Items.AddRange(new object[] { "Ollama", "OpenAI-compatible future" });
+            _cmbAiProvider.Items.AddRange(new object[] { "Built-in" });
             PlaceLabeledControl(aiBody, "Provider", _cmbAiProvider, 0, 52, 190);
+            _cmbAiProvider.Enabled = false;
 
-            _txtAiEndpoint = new TextBox();
-            PlaceLabeledControl(aiBody, "Endpoint URL", _txtAiEndpoint, 210, 52, 318);
-
-            _txtAiModel = new TextBox();
-            PlaceLabeledControl(aiBody, "Model name", _txtAiModel, 0, 124, 190);
-
+            _txtAiEndpoint = new TextBox { Visible = false };
+            _txtAiModel = new TextBox { Visible = false };
             _numAiMaxTokens = MakeDecimalBox(Point.Empty, 0, 64m, 4096m, 700m, 0, 50m);
-            PlaceLabeledControl(aiBody, "Max tokens", _numAiMaxTokens, 210, 124, 150);
-
             _numAiTemperature = MakeDecimalBox(Point.Empty, 0, 0m, 2m, 0.2m, 2, 0.05m);
-            PlaceLabeledControl(aiBody, "Temperature", _numAiTemperature, 378, 124, 150);
+            _numAiMaxTokens.Visible = false;
+            _numAiTemperature.Visible = false;
+            aiBody.Controls.Add(_txtAiEndpoint);
+            aiBody.Controls.Add(_txtAiModel);
+            aiBody.Controls.Add(_numAiMaxTokens);
+            aiBody.Controls.Add(_numAiTemperature);
 
             Label help = new Label
             {
-                Text = "No API keys are stored here. Keep provider as Ollama for local-only AI. Install Ollama, then pull llama3.1 or qwen2.5 before using Copilot.",
-                Location = new Point(0, 204),
+                Text = "No API keys, endpoints, or model setup are needed. The assistant uses built-in ServoERP rules, module context, and preview-only actions.",
+                Location = new Point(0, 124),
                 Size = new Size(528, 48),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
             };
             aiBody.Controls.Add(help);
 
-            Button test = MakeBtn("Test Local AI", InfoBlue, 126);
-            test.Location = new Point(0, 266);
+            Button openCopilot = MakeBtn("Open AI Copilot", InfoBlue, 150);
+            openCopilot.Location = new Point(0, 190);
+            openCopilot.Click += (s, e) =>
+            {
+                MainForm shell = FindForm() as MainForm;
+                if (shell != null)
+                    shell.ShowAiCopilot();
+            };
+            aiBody.Controls.Add(openCopilot);
+
+            Button test = MakeBtn("Check Assistant", InfoBlue, 138);
+            test.Location = new Point(164, 190);
             test.Click += async (s, e) => await TestLocalAiAsync();
             aiBody.Controls.Add(test);
         }
 
+        private void BuildLegalAgreementsCard(Panel parent)
+        {
+            Panel legalBody = AddModernSettingsCard(parent, "Legal Agreements", "View EULA, Privacy Policy, Data Processing Policy, and Disclaimer.", 220);
+            Label help = new Label
+            {
+                Text = "Review the legal agreements accepted during first launch. This viewer is read-only and does not change acceptance status.",
+                Location = new Point(0, 0),
+                Size = new Size(528, 48),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            legalBody.Controls.Add(help);
+
+            Button viewLegal = MakeBtn("View Legal Agreements", InfoBlue, 190);
+            viewLegal.Location = new Point(0, 72);
+            viewLegal.Click += (s, e) =>
+            {
+                using (var form = new LegalAgreementForm(true))
+                    form.ShowDialog(FindForm());
+            };
+            legalBody.Controls.Add(viewLegal);
+        }
+
+        private void BuildOpenSourceLicensesCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Open Source & Licenses", "Review third-party components, license notes, and export audit disclosure.", 240);
+            Label help = new Label
+            {
+                Text = "Enterprise clients often ask which open-source components are bundled. Use this disclosure for procurement, compliance, and IT review.",
+                Location = new Point(0, 0),
+                Size = new Size(528, 58),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(help);
+
+            Button view = MakeBtn("View Open Source", InfoBlue, 170);
+            view.Location = new Point(0, 82);
+            view.Click += (s, e) =>
+            {
+                using (var form = new OpenSourceLicenseForm())
+                    form.ShowDialog(FindForm());
+            };
+            body.Controls.Add(view);
+
+            Button export = MakeBtn("Export Disclosure", SaveGreen, 170);
+            export.Location = new Point(186, 82);
+            export.Click += (s, e) =>
+            {
+                try
+                {
+                    string path = new OpenSourceLicenseService().ExportDisclosureReport();
+                    _lblStatus.Text = "Open-source disclosure exported: " + path;
+                    _lblStatus.ForeColor = SaveGreen;
+                    System.Diagnostics.Process.Start("notepad.exe", path);
+                }
+                catch (Exception ex)
+                {
+                    _lblStatus.Text = "Disclosure export failed: " + ex.Message;
+                    _lblStatus.ForeColor = Color.Red;
+                }
+            };
+            body.Controls.Add(export);
+        }
+
+        private void BuildModuleCatalogCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Module Catalog", "Review installed modules and extension-ready roadmap ideas.", 240);
+            Label help = new Label
+            {
+                Text = "Use this catalog as the client-facing module map: what is installed today, what pattern inspired it, and what can be extended next.",
+                Location = new Point(0, 0),
+                Size = new Size(528, 58),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(help);
+
+            Button view = MakeBtn("View Catalog", InfoBlue, 150);
+            view.Location = new Point(0, 82);
+            view.Click += (s, e) =>
+            {
+                using (var form = new ModuleCatalogForm())
+                    form.ShowDialog(FindForm());
+            };
+            body.Controls.Add(view);
+
+            Button export = MakeBtn("Export Catalog", SaveGreen, 150);
+            export.Location = new Point(166, 82);
+            export.Click += (s, e) =>
+            {
+                try
+                {
+                    string path = new ModuleCatalogService().ExportReport();
+                    _lblStatus.Text = "Module catalog exported: " + path;
+                    _lblStatus.ForeColor = SaveGreen;
+                    System.Diagnostics.Process.Start("notepad.exe", path);
+                }
+                catch (Exception ex)
+                {
+                    _lblStatus.Text = "Catalog export failed: " + ex.Message;
+                    _lblStatus.ForeColor = Color.Red;
+                }
+            };
+            body.Controls.Add(export);
+        }
+
+        private void BuildCompliancePackCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Compliance Export Pack", "Generate a local legal, license, module, and readiness ZIP.", 240);
+            Label help = new Label
+            {
+                Text = "Create a local handover pack for client IT, procurement, and audit review. No passwords, license keys, or database records are uploaded.",
+                Location = new Point(0, 0),
+                Size = new Size(528, 58),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(help);
+
+            Button view = MakeBtn("Open Exporter", InfoBlue, 150);
+            view.Location = new Point(0, 82);
+            view.Click += (s, e) =>
+            {
+                using (var form = new CompliancePackForm())
+                    form.ShowDialog(FindForm());
+            };
+            body.Controls.Add(view);
+
+            Button export = MakeBtn("Generate Pack", SaveGreen, 150);
+            export.Location = new Point(166, 82);
+            export.Click += (s, e) =>
+            {
+                try
+                {
+                    string path = new CompliancePackService().ExportPack();
+                    _lblStatus.Text = "Compliance pack created: " + path;
+                    _lblStatus.ForeColor = SaveGreen;
+                    System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
+                }
+                catch (Exception ex)
+                {
+                    _lblStatus.Text = "Compliance pack failed: " + ex.Message;
+                    _lblStatus.ForeColor = Color.Red;
+                }
+            };
+            body.Controls.Add(export);
+        }
+
         private void LoadSettings()
         {
+            Stopwatch watch = Stopwatch.StartNew();
             try
             {
+                AppRuntime.LogTiming("Settings.LoadSettings.Start", 0);
                 IndiaCompanySettings settings = _svc.GetIndiaCompanySettings();
+                AppRuntime.LogTiming("Settings.LoadSettings.CompanyLoaded", watch.ElapsedMilliseconds);
                 _txtCompanyName.Text = settings.CompanyName;
                 _txtGST.Text = settings.GSTIN;
                 _txtPAN.Text = settings.PAN;
@@ -558,21 +1164,24 @@ namespace HVAC_Pro_Desktop.UI
                 SelectCombo(_cmbState, settings.CompanyState, "Maharashtra");
                 SelectCombo(_cmbGstRegistrationType, settings.GSTRegistrationType, "Regular");
                 if (_txtVersionCheckUrl != null)
-                    _txtVersionCheckUrl.Text = ConfigService.GetVersionCheckUrl();
+                {
+                    _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
+                }
                 if (_chkVersionCheckEnabled != null)
                     _chkVersionCheckEnabled.Checked = ConfigService.IsVersionCheckEnabled();
-                if (_lblInstalledVersion != null)
-                    _lblInstalledVersion.Text = "Installed version: " + ConfigService.GetAppVersion();
+                RefreshRuntimeSettingsLabels();
                 LoadDisplayFitSetting();
                 LoadUiScaleSetting();
                 LoadAiSettings();
+                AppRuntime.LogTiming("Settings.LoadSettings.RuntimeLoaded", watch.ElapsedMilliseconds);
 
-                LoadHsnSacGrid(_hsnSacSvc.GetAll());
                 RefreshIndiaDefaultsPreview();
-                RefreshSecurityTabs();
+                BeginLoadHsnSacGrid();
+                BeginRefreshSecurityTabs();
             }
             catch (Exception ex)
             {
+                AppRuntime.LogException("SettingsForm.LoadSettings", ex);
                 _lblStatus.Text = "Load error: " + ex.Message;
                 _lblStatus.ForeColor = Color.Red;
             }
@@ -637,7 +1246,6 @@ namespace HVAC_Pro_Desktop.UI
             _lblAuditTotal = AddSummaryCard(summary, "Total Events", "0", InfoBlue);
             _lblAuditLogin = AddSummaryCard(summary, "Login Events", "0", SaveGreen);
             _lblAuditWarnings = AddSummaryCard(summary, "Failed / Warning", "0", DS.Red600);
-            _lblAuditLatest = AddSummaryCard(summary, "Latest Activity", "-", DS.Slate700);
 
             Panel toolbar = BuildPlainCard();
             toolbar.Dock = DockStyle.Top;
@@ -653,31 +1261,29 @@ namespace HVAC_Pro_Desktop.UI
             toolbarInner.Controls.Add(FilterLabel("User"));
             _cmbAuditUser = new ComboBox { Width = 180, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9), Margin = new Padding(0, 0, 18, 8) };
             toolbarInner.Controls.Add(_cmbAuditUser);
-            Button btnRefresh = MakeBtn("Refresh", InfoBlue, 92);
+            Button btnRefresh = MakeBtn("Load Audit", InfoBlue, 104);
             btnRefresh.Margin = new Padding(0, 0, 0, 8);
-            btnRefresh.Click += (s, e) => RefreshAuditLog();
+            btnRefresh.Click += (s, e) =>
+            {
+                EnsureAuditGrid();
+                RefreshAuditLog();
+            };
             toolbarInner.Controls.Add(btnRefresh);
             toolbar.Controls.Add(toolbarInner);
 
-            Panel gridCard = BuildPlainCard();
-            gridCard.Dock = DockStyle.Fill;
-            gridCard.Padding = new Padding(14);
-            _gridAudit = new DataGridView
+            _auditGridCard = BuildPlainCard();
+            _auditGridCard.Dock = DockStyle.Fill;
+            _auditGridCard.Padding = new Padding(14);
+            _auditGridCard.Controls.Add(new Label
             {
-                Dock = DockStyle.Fill,
-                ReadOnly = true,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                BorderStyle = BorderStyle.None,
-                RowHeadersVisible = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect
-            };
-            StyleDataGrid(_gridAudit);
-            gridCard.Controls.Add(_gridAudit);
+                Text = "Click Load Audit to view the latest 100 audit events.",
+                Dock = DockStyle.Top,
+                Height = 28,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate600
+            });
 
-            page.Controls.Add(gridCard);
+            page.Controls.Add(_auditGridCard);
             page.Controls.Add(toolbar);
             page.Controls.Add(summary);
             tab.Controls.Add(page);
@@ -686,10 +1292,31 @@ namespace HVAC_Pro_Desktop.UI
             return tab;
         }
 
+        private void EnsureAuditGrid()
+        {
+            if (_gridAudit != null || _auditGridCard == null)
+                return;
+
+            _auditGridCard.Controls.Clear();
+            _gridAudit = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            };
+            StyleDataGrid(_gridAudit);
+            _auditGridCard.Controls.Add(_gridAudit);
+        }
+
         private bool IsAdminUser()
         {
-            return SessionManager.CurrentUser != null
-                && string.Equals(SessionManager.CurrentUser.RoleName, "Admin", StringComparison.OrdinalIgnoreCase);
+            return SessionManager.CurrentUser != null;
         }
 
         private void OpenUserManagementTab()
@@ -716,12 +1343,66 @@ namespace HVAC_Pro_Desktop.UI
             RefreshAuditLog();
         }
 
+        /// <summary>Loads security summaries after Settings is visible so user SQL does not block first paint.</summary>
+        private void BeginRefreshSecurityTabs()
+        {
+            if (!IsAdminUser() || _gridUsers == null || _securityLoadQueued)
+                return;
+
+            _securityLoadQueued = true;
+            var worker = CreateWorker();
+            worker.DoWork += (s, e) =>
+            {
+                AppRuntime.LogTiming("Settings.SecurityUsers.Start", 0);
+                e.Result = _authSvc.GetUsers();
+            };
+            worker.RunWorkerCompleted += (s, e) =>
+            {
+                if (e.Error != null)
+                {
+                    AppRuntime.LogException("SettingsForm.BeginRefreshSecurityTabs", e.Error);
+                    RunOnUI(() =>
+                    {
+                        worker.Dispose();
+                        _securityLoadQueued = false;
+                        if (IsDisposed || _gridUsers == null || _gridUsers.IsDisposed)
+                            return;
+                        _lblStatus.Text = "User login summary could not be loaded: " + e.Error.Message;
+                        _lblStatus.ForeColor = Color.Red;
+                    });
+                    ShowError( "Failed to load user login summary. Please try again.", e.Error);
+                    return;
+                }
+                if (e.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    worker.Dispose();
+                    _securityLoadQueued = false;
+                    if (IsDisposed || _gridUsers == null || _gridUsers.IsDisposed)
+                        return;
+                    BindUsers(e.Result as List<ManagedUserDto> ?? new List<ManagedUserDto>());
+                    AppRuntime.LogTiming("Settings.SecurityUsers.Complete", 0);
+                });
+            };
+            worker.RunWorkerAsync();
+        }
+
         private void RefreshUsers()
         {
             if (_gridUsers == null)
                 return;
 
-            var users = _authSvc.GetUsers();
+            BindUsers(_authSvc.GetUsers());
+        }
+
+        /// <summary>Binds loaded user rows to the Users & Logins tab.</summary>
+        private void BindUsers(List<ManagedUserDto> users)
+        {
+            if (_gridUsers == null)
+                return;
+
+            users = users ?? new List<ManagedUserDto>();
             _gridUsers.DataSource = users
                 .Select(u => new
                 {
@@ -777,6 +1458,16 @@ namespace HVAC_Pro_Desktop.UI
                 _gridAudit.Columns["LogDate"].HeaderText = "Log Date";
             if (_gridAudit.Columns["ModuleKey"] != null)
                 _gridAudit.Columns["ModuleKey"].HeaderText = "Module";
+            if (_gridAudit.Columns["LogDate"] != null)
+                _gridAudit.Columns["LogDate"].Width = 140;
+            if (_gridAudit.Columns["Username"] != null)
+                _gridAudit.Columns["Username"].Width = 120;
+            if (_gridAudit.Columns["Action"] != null)
+                _gridAudit.Columns["Action"].Width = 90;
+            if (_gridAudit.Columns["ModuleKey"] != null)
+                _gridAudit.Columns["ModuleKey"].Width = 110;
+            if (_gridAudit.Columns["Description"] != null)
+                _gridAudit.Columns["Description"].Width = 520;
 
             if (_lblAuditTotal != null)
                 _lblAuditTotal.Text = table.Rows.Count.ToString();
@@ -807,8 +1498,6 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 _lblAuditWarnings.Text = warningCount.ToString();
             }
-            if (_lblAuditLatest != null)
-                _lblAuditLatest.Text = table.Rows.Count > 0 ? Convert.ToDateTime(table.Rows[0]["LogDate"]).ToString("dd/MM HH:mm") : "-";
         }
 
         private ManagedUserDto GetSelectedUser()
@@ -1000,7 +1689,9 @@ namespace HVAC_Pro_Desktop.UI
                 SaveAiSettings();
                 if (_txtVersionCheckUrl != null)
                 {
-                    ConfigService.Set("App", "VersionCheckUrl", _txtVersionCheckUrl.Text.Trim());
+                    ConfigService.Set("App", "GitHubRepositoryUrl", ConfigService.ProductionVersionCheckUrl);
+                    ConfigService.Set("App", "VersionCheckUrl", ConfigService.ProductionVersionCheckUrl);
+                    _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                     ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled != null && _chkVersionCheckEnabled.Checked ? "true" : "false");
                     ConfigService.Set("App", "VersionCheckIntervalHours", ConfigService.GetVersionCheckIntervalHours().ToString());
                 }
@@ -1061,7 +1752,7 @@ namespace HVAC_Pro_Desktop.UI
 
             AiProviderConfig config = AiProviderConfig.Load();
             _chkAiEnabled.Checked = config.Enabled;
-            SelectCombo(_cmbAiProvider, config.Provider, "Ollama");
+            SelectCombo(_cmbAiProvider, config.Provider, "Built-in");
             _txtAiEndpoint.Text = config.EndpointUrl;
             _txtAiModel.Text = config.ModelName;
             _numAiMaxTokens.Value = Clamp(_numAiMaxTokens, config.MaxTokens);
@@ -1076,9 +1767,9 @@ namespace HVAC_Pro_Desktop.UI
             var config = new AiProviderConfig
             {
                 Enabled = _chkAiEnabled.Checked,
-                Provider = _cmbAiProvider.SelectedItem == null ? "Ollama" : _cmbAiProvider.SelectedItem.ToString(),
-                EndpointUrl = _txtAiEndpoint.Text.Trim(),
-                ModelName = _txtAiModel.Text.Trim(),
+                Provider = "Built-in",
+                EndpointUrl = "",
+                ModelName = "ServoERP Bot",
                 MaxTokens = (int)_numAiMaxTokens.Value,
                 Temperature = _numAiTemperature.Value
             };
@@ -1090,17 +1781,17 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 SaveAiSettings();
-                _lblStatus.Text = "Testing Local AI connection...";
+                _lblStatus.Text = "Checking assistant...";
                 _lblStatus.ForeColor = InfoBlue;
                 bool ok = await new AiAssistantService().IsLocalAiReachableAsync(CancellationToken.None);
                 _lblStatus.Text = ok
-                    ? "Local AI connected."
-                    : "Local AI is not running. Please install/start Ollama and pull a model like llama3.1 or qwen2.5.";
+                    ? "ServoERP Assistant is ready."
+                    : "ServoERP Assistant is disabled.";
                 _lblStatus.ForeColor = ok ? SaveGreen : DS.Amber600;
             }
             catch (Exception ex)
             {
-                _lblStatus.Text = "Local AI test failed: " + ex.Message;
+                _lblStatus.Text = "Assistant check failed: " + ex.Message;
                 _lblStatus.ForeColor = Color.Red;
             }
         }
@@ -1124,18 +1815,76 @@ namespace HVAC_Pro_Desktop.UI
             return "Detected working area: " + workArea.Width + " x " + workArea.Height + " px. Recommended for IdeaPad laptops: IdeaPad / compact laptop.";
         }
 
+        /// <summary>Checks SQL Server health on a worker thread so opening Settings never freezes the shell.</summary>
+        private void BeginCheckDbConnection()
+        {
+            if (_lblDbStatus == null || _lblDbStatus.IsDisposed)
+                return;
+
+            _lblDbStatus.Text = "Database: checking office SQL Server...";
+            _lblDbStatus.ForeColor = DS.Slate600;
+
+            var worker = CreateWorker();
+            worker.DoWork += (s, e) =>
+            {
+                AppRuntime.LogTiming("Settings.CheckDbConnection.Start", 0);
+                e.Result = DatabaseConnectionFactory.TestDatabaseConnectionAsync()
+                    .GetAwaiter()
+                    .GetResult();
+            };
+            worker.RunWorkerCompleted += (s, e) =>
+            {
+                if (e.Error != null)
+                {
+                    AppRuntime.LogException("SettingsForm.BeginCheckDbConnection", e.Error);
+                    RunOnUI(() =>
+                    {
+                        worker.Dispose();
+                        if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
+                            return;
+                        _lblDbStatus.Text = "Database: NOT connected - " + e.Error.Message;
+                        _lblDbStatus.ForeColor = Color.Red;
+                    });
+                    ShowError( "Failed to check office SQL Server connection. Please try again.", e.Error);
+                    return;
+                }
+                if (e.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    worker.Dispose();
+                    if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
+                        return;
+
+                    DatabaseConnectionTestResult result = e.Result as DatabaseConnectionTestResult;
+                    if (result == null)
+                    {
+                        _lblDbStatus.Text = "Database: status unavailable.";
+                        _lblDbStatus.ForeColor = Color.Red;
+                        return;
+                    }
+
+                    AppRuntime.LogTiming("Settings.CheckDbConnection.Complete", 0);
+                    _lblDbStatus.Text = "Database: " + result.Message;
+                    _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
+                });
+            };
+            worker.RunWorkerAsync();
+        }
+
+        /// <summary>Runs an immediate SQL Server health check for explicit Settings actions.</summary>
         private void CheckDbConnection()
         {
             try
             {
-                var db = new DatabaseManager();
-                using (SqlConnection conn = db.GetConnection())
-                {
-                    conn.Open();
-                }
+                AppRuntime.LogTiming("Settings.CheckDbConnection.Start", 0);
+                DatabaseConnectionTestResult result = DatabaseConnectionFactory.TestDatabaseConnectionAsync()
+                    .GetAwaiter()
+                    .GetResult();
+                AppRuntime.LogTiming("Settings.CheckDbConnection.Complete", 0);
 
-                _lblDbStatus.Text = "Database: Connected (" + db.ResolvedServer + ")";
-                _lblDbStatus.ForeColor = SaveGreen;
+                _lblDbStatus.Text = "Database: " + result.Message;
+                _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
             }
             catch (Exception ex)
             {
@@ -1253,6 +2002,51 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        /// <summary>Loads HSN/SAC rows after Settings is visible so master-data SQL does not block first paint.</summary>
+        private void BeginLoadHsnSacGrid()
+        {
+            if (_gridHsnSac == null || _gridHsnSac.IsDisposed || _hsnLoadQueued)
+                return;
+
+            _hsnLoadQueued = true;
+            var worker = CreateWorker();
+            worker.DoWork += (s, e) =>
+            {
+                AppRuntime.LogTiming("Settings.HsnSac.Start", 0);
+                e.Result = _hsnSacSvc.GetAll();
+            };
+            worker.RunWorkerCompleted += (s, e) =>
+            {
+                if (e.Error != null)
+                {
+                    AppRuntime.LogException("SettingsForm.BeginLoadHsnSacGrid", e.Error);
+                    RunOnUI(() =>
+                    {
+                        worker.Dispose();
+                        _hsnLoadQueued = false;
+                        if (IsDisposed || _gridHsnSac == null || _gridHsnSac.IsDisposed)
+                            return;
+                        _lblStatus.Text = "HSN/SAC master could not be loaded: " + e.Error.Message;
+                        _lblStatus.ForeColor = Color.Red;
+                    });
+                    ShowError( "Failed to load HSN/SAC master. Please try again.", e.Error);
+                    return;
+                }
+                if (e.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    worker.Dispose();
+                    _hsnLoadQueued = false;
+                    if (IsDisposed || _gridHsnSac == null || _gridHsnSac.IsDisposed)
+                        return;
+                    LoadHsnSacGrid(e.Result as IEnumerable<HsnSacMasterEntry>);
+                    AppRuntime.LogTiming("Settings.HsnSac.Complete", 0);
+                });
+            };
+            worker.RunWorkerAsync();
+        }
+
         private List<HsnSacMasterEntry> CollectHsnSacRows()
         {
             var entries = new List<HsnSacMasterEntry>();
@@ -1295,7 +2089,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(210, y),
                 Width = width,
                 Font = new Font("Segoe UI", 9),
-                BorderStyle = BorderStyle.FixedSingle
+                BorderStyle = BorderStyle.None
             };
             if (uppercase)
                 txt.CharacterCasing = CharacterCasing.Upper;
@@ -1366,7 +2160,7 @@ namespace HVAC_Pro_Desktop.UI
                 UseVisualStyleBackColor = false
             };
             button.FlatAppearance.BorderSize = bg == Color.White ? 1 : 0;
-            button.FlatAppearance.BorderColor = DS.Slate300;
+            button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.MouseOverBackColor = bg == Color.White ? DS.Slate50 : ControlPaint.Light(bg);
             button.FlatAppearance.MouseDownBackColor = bg == Color.White ? DS.Slate100 : ControlPaint.Dark(bg);
             DS.Rounded(button, 8);
@@ -1439,25 +2233,34 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildModernActionBar(params Button[] buttons)
         {
             Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = DS.BgPage, Padding = new Padding(28, 10, 28, 10) };
-            FlowLayoutPanel flow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right,
-                Width = 560,
-                BackColor = DS.BgPage,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false
-            };
-            foreach (Button button in buttons.Reverse())
+            foreach (Button button in buttons)
             {
                 button.Height = 36;
-                button.Margin = new Padding(10, 0, 0, 0);
-                flow.Controls.Add(button);
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                toolbar.Controls.Add(button);
             }
-            _lblStatus.Dock = DockStyle.Fill;
+
+            Action layoutActions = () =>
+            {
+                int right = toolbar.ClientSize.Width - toolbar.Padding.Right;
+                foreach (Button button in buttons)
+                {
+                    right -= button.Width;
+                    button.Left = Math.Max(0, right);
+                    button.Top = toolbar.Padding.Top;
+                    right -= 10;
+                }
+                _lblStatus.Location = new Point(toolbar.Padding.Left, toolbar.Padding.Top + 7);
+                _lblStatus.Width = Math.Max(120, right - toolbar.Padding.Left - 8);
+            };
+            toolbar.Resize += (s, e) => layoutActions();
+            layoutActions();
+
             _lblStatus.Margin = Padding.Empty;
             _lblStatus.TextAlign = ContentAlignment.MiddleLeft;
-            toolbar.Controls.Add(flow);
             toolbar.Controls.Add(_lblStatus);
+            foreach (Button button in buttons)
+                button.BringToFront();
             return toolbar;
         }
 
@@ -1490,16 +2293,19 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel body;
             Panel wrapper = DS.MakeCard(out body, 14, new Padding(22, 22, 22, 18));
+            wrapper.AutoScroll = false;
             wrapper.Size = new Size(560, height);
             wrapper.Margin = new Padding(0, 0, 14, 14);
             wrapper.Tag = "settings-card";
+            body.AutoScroll = false;
             body.Controls.Add(new Label
             {
                 Text = title,
                 Location = new Point(60, 2),
                 Size = new Size(410, 24),
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
-                ForeColor = DS.Slate900
+                ForeColor = DS.Slate900,
+                UseMnemonic = false
             });
             body.Controls.Add(new Label
             {
@@ -1507,7 +2313,8 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(60, 29),
                 Size = new Size(420, 38),
                 Font = new Font("Segoe UI", 8.7f),
-                ForeColor = DS.Slate500
+                ForeColor = DS.Slate500,
+                UseMnemonic = false
             });
             Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconSystem.KindForTitle(title), 44, DS.Indigo50, DS.Primary600);
             icon.Location = new Point(0, 2);
@@ -1517,11 +2324,13 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(0, 76),
                 Size = new Size(530, Math.Max(90, height - 108)),
                 BackColor = Color.White,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+                Anchor = AnchorStyles.Top | AnchorStyles.Left,
+                AutoScroll = false
             };
             body.Resize += (s, e) =>
             {
                 int availableWidth = Math.Max(280, body.ClientSize.Width);
+                content.Location = new Point(0, 76);
                 content.Width = Math.Max(260, availableWidth);
                 content.Height = Math.Max(90, body.ClientSize.Height - content.Top);
                 foreach (Label label in body.Controls.OfType<Label>())
@@ -1603,43 +2412,63 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_generalFlow == null || _generalCanvas == null)
                 return;
+            if (_reflowingSettingsCards)
+                return;
 
-            int viewportWidth = _generalCanvas.Parent == null ? GeneralCanvasWidth : _generalCanvas.Parent.ClientSize.Width;
-            int canvasWidth = Math.Min(GeneralCanvasWidth, Math.Max(420, viewportWidth - 42));
-            _generalCanvas.Width = canvasWidth;
-            _generalFlow.Width = canvasWidth;
-            int columns = canvasWidth >= 1220 ? 3 : (canvasWidth >= 820 ? 2 : 1);
-            int gap = 14;
-            int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
-            int[] columnHeights = new int[columns];
-            Panel[] cards = _generalFlow.Controls
-                .OfType<Panel>()
-                .Where(p => Equals(p.Tag, "settings-card"))
-                .ToArray();
-
-            _generalFlow.SuspendLayout();
-            foreach (Panel card in cards)
+            _reflowingSettingsCards = true;
+            try
             {
-                card.Width = Math.Max(390, cardWidth);
-                card.Margin = Padding.Empty;
+                int viewportWidth = _generalCanvas.Parent == null ? GeneralCanvasWidth : _generalCanvas.Parent.ClientSize.Width;
+                int canvasWidth = Math.Min(GeneralCanvasWidth, Math.Max(420, viewportWidth - 42));
+                if (_generalCanvas.Width != canvasWidth)
+                    _generalCanvas.Width = canvasWidth;
+                if (_generalFlow.Width != canvasWidth)
+                    _generalFlow.Width = canvasWidth;
+                int columns = canvasWidth >= 1220 ? 3 : (canvasWidth >= 980 ? 2 : 1);
+                int gap = 14;
+                int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
+                int[] columnHeights = new int[columns];
+                Panel[] cards = _generalFlow.Controls
+                    .OfType<Panel>()
+                    .Where(p => Equals(p.Tag, "settings-card"))
+                    .ToArray();
 
-                int column = 0;
-                for (int i = 1; i < columns; i++)
+                _generalFlow.SuspendLayout();
+                foreach (Panel card in cards)
                 {
-                    if (columnHeights[i] < columnHeights[column])
-                        column = i;
+                    int targetWidth = Math.Max(360, cardWidth);
+                    if (card.Width != targetWidth)
+                        card.Width = targetWidth;
+                    if (card.Margin != Padding.Empty)
+                        card.Margin = Padding.Empty;
+
+                    int column = 0;
+                    for (int i = 1; i < columns; i++)
+                    {
+                        if (columnHeights[i] < columnHeights[column])
+                            column = i;
+                    }
+
+                    Point targetLocation = new Point(column * (card.Width + gap), columnHeights[column]);
+                    if (card.Location != targetLocation)
+                        card.Location = targetLocation;
+                    columnHeights[column] += card.Height + gap;
                 }
+                _generalFlow.ResumeLayout(false);
 
-                card.Location = new Point(column * (card.Width + gap), columnHeights[column]);
-                columnHeights[column] += card.Height + gap;
+                int contentHeight = columnHeights.Length == 0 ? 0 : columnHeights.Max();
+                if (contentHeight > 0)
+                    contentHeight -= gap;
+                if (_generalFlow.Height != contentHeight)
+                    _generalFlow.Height = contentHeight;
+                int canvasHeight = Math.Max(_generalCanvas.Parent == null ? 0 : _generalCanvas.Parent.ClientSize.Height - 40, _generalFlow.Height + 32);
+                if (_generalCanvas.Height != canvasHeight)
+                    _generalCanvas.Height = canvasHeight;
             }
-            _generalFlow.ResumeLayout(false);
-
-            int contentHeight = columnHeights.Length == 0 ? 0 : columnHeights.Max();
-            if (contentHeight > 0)
-                contentHeight -= gap;
-            _generalFlow.Height = contentHeight;
-            _generalCanvas.Height = Math.Max(_generalCanvas.Parent == null ? 0 : _generalCanvas.Parent.ClientSize.Height - 40, _generalFlow.Height + 32);
+            finally
+            {
+                _reflowingSettingsCards = false;
+            }
         }
 
         private void ResetGeneralDefaults()
@@ -1779,7 +2608,7 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
             };
-            btnExtend.FlatAppearance.BorderColor = DS.Slate200;
+            btnExtend.FlatAppearance.BorderColor = DS.Border;
             btnExtend.FlatAppearance.BorderSize = 1;
             btnExtend.FlatAppearance.MouseOverBackColor = DS.Slate100;
             btnExtend.Margin = new Padding(0);
@@ -1987,33 +2816,34 @@ namespace HVAC_Pro_Desktop.UI
             btnBackupNow.Click += async (s, e) => await CreateBackupAsync();
             parent.Controls.Add(btnBackupNow);
 
+            Button btnBackupSettings = MakeBtn("Backup Settings", InfoBlue, 142);
+            btnBackupSettings.Location = new Point(140, 78);
+            btnBackupSettings.Click += (s, e) => OpenBackupSettings();
+            parent.Controls.Add(btnBackupSettings);
+
             Button btnRestoreFile = MakeBtn("Restore File", Color.FromArgb(220, 38, 38), 124);
-            btnRestoreFile.Location = new Point(140, 78);
+            btnRestoreFile.Location = new Point(298, 78);
             btnRestoreFile.Click += async (s, e) => await RestoreFromFileAsync();
             parent.Controls.Add(btnRestoreFile);
 
             Button btnOpenFolder = MakeBtn("Open Folder", InfoBlue, 124);
-            btnOpenFolder.Location = new Point(280, 78);
+            btnOpenFolder.Location = new Point(438, 78);
             btnOpenFolder.Click += (s, e) => OpenBackupFolder();
             parent.Controls.Add(btnOpenFolder);
 
-            Button btnCloudBackup = MakeBtn("Cloud Backup", Color.FromArgb(79, 70, 229), 124);
-            btnCloudBackup.Location = new Point(420, 78);
-            btnCloudBackup.Click += async (s, e) => await CreateCloudBackupAsync();
-            parent.Controls.Add(btnCloudBackup);
             parent.Resize += (s, e) =>
             {
                 int gap = 10;
                 int buttonWidth = Math.Max(92, (parent.ClientSize.Width - (gap * 3)) / 4);
                 btnBackupNow.SetBounds(0, 78, buttonWidth, 34);
-                btnRestoreFile.SetBounds(btnBackupNow.Right + gap, 78, buttonWidth, 34);
+                btnBackupSettings.SetBounds(btnBackupNow.Right + gap, 78, buttonWidth, 34);
+                btnRestoreFile.SetBounds(btnBackupSettings.Right + gap, 78, buttonWidth, 34);
                 btnOpenFolder.SetBounds(btnRestoreFile.Right + gap, 78, buttonWidth, 34);
-                btnCloudBackup.SetBounds(btnOpenFolder.Right + gap, 78, buttonWidth, 34);
             };
 
             parent.Controls.Add(new Label
             {
-                Text = "Restore first creates a safety backup, disconnects active database sessions, restores the selected .bak, and returns the database to multi-user mode.",
+                Text = "Backups stay on the client network, local PC, or external drive. Restore first creates a safety backup and then restores the selected .bak.",
                 Location = new Point(0, 128),
                 Width = Math.Max(260, parent.ClientSize.Width),
                 Height = 58,
@@ -2049,7 +2879,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Button copyFingerprint = MakeBtn("Copy Device ID", Color.White, 132);
             copyFingerprint.ForeColor = DS.Slate700;
-            copyFingerprint.FlatAppearance.BorderColor = DS.Slate300;
+            copyFingerprint.FlatAppearance.BorderColor = DS.Border;
             copyFingerprint.FlatAppearance.BorderSize = 1;
             copyFingerprint.Location = new Point(308, 104);
             copyFingerprint.Click += (s, e) => CopyLicenseDeviceFingerprint();
@@ -2147,11 +2977,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                var latest = new BackupService().GetBackups().FirstOrDefault();
+                var latest = new BackupService().GetBackupLog(50).FirstOrDefault(r => r.Success);
                 if (latest == null)
-                    return "No backups found. Backups are stored in " + BackupService.BackupRoot;
+                    return "No successful backups found. Local fallback folder: " + BackupService.BackupRoot;
 
-                return "Latest backup: " + latest.Name + " | " + latest.LastWriteTime.ToString("dd MMM yyyy HH:mm", CultureInfo.CurrentCulture);
+                return "Latest backup: " + latest.BackupTime.ToString("dd MMM yyyy HH:mm", CultureInfo.CurrentCulture) + " | " + latest.Destination + " | " + latest.FileSizeKB.ToString("N0") + " KB";
             }
             catch (Exception ex)
             {
@@ -2165,15 +2995,24 @@ namespace HVAC_Pro_Desktop.UI
             SetBackupStatus("Creating database backup...", DS.Slate700);
             try
             {
-                BackupResult result = await Task.Run(() => new BackupService().CreateDatabaseBackup("Manual backup from Settings"));
+                BackupResult result = await Task.Run(() => new BackupService().RunBackup(BackupTrigger.Manual));
                 SetBackupStatus(result.Success ? BuildBackupSummary() : "Backup failed: " + result.Message, result.Success ? SaveGreen : Color.Red);
-                MessageBox.Show(result.Success ? "Backup created:\r\n" + result.BackupPath : "Backup failed:\r\n" + result.Message, result.Success ? "Backup Complete" : "Backup Failed", MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                ToastNotification.ShowToast(result.Success ? "Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed) : "Backup failed - please check settings", result.Success ? SaveGreen : Color.Red);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("SettingsForm.CreateBackupAsync", ex);
                 SetBackupStatus("Backup failed: " + ex.Message, Color.Red);
             }
+        }
+
+        private void OpenBackupSettings()
+        {
+            using (var form = new BackupSettingsForm())
+                form.ShowDialog(FindForm());
+
+            if (_lblBackupStatus != null)
+                _lblBackupStatus.Text = BuildBackupSummary();
         }
 
         private async Task CreateCloudBackupAsync()
@@ -2270,6 +3109,17 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblStatus.Text = text;
             _lblStatus.ForeColor = color;
+        }
+
+        private static string FriendlyBackupDestination(string destination)
+        {
+            if (string.Equals(destination, "Network", StringComparison.OrdinalIgnoreCase))
+                return "Network Server";
+            if (string.Equals(destination, "Local", StringComparison.OrdinalIgnoreCase))
+                return "Local Folder";
+            if (string.Equals(destination, "ExternalDrive", StringComparison.OrdinalIgnoreCase))
+                return "External Drive";
+            return "backup destination";
         }
 
         private void RunFreshStart()
@@ -2381,18 +3231,18 @@ namespace HVAC_Pro_Desktop.UI
 
             if (control is TextBox textBox)
             {
-                textBox.BorderStyle = BorderStyle.FixedSingle;
+                textBox.BorderStyle = BorderStyle.None;
                 textBox.BackColor = textBox.ReadOnly ? DS.Slate100 : Color.White;
             }
             else if (control is ComboBox comboBox)
             {
-                comboBox.FlatStyle = FlatStyle.System;
+                comboBox.FlatStyle = FlatStyle.Flat;
                 comboBox.BackColor = Color.White;
             }
             else if (control is NumericUpDown numeric)
             {
                 numeric.BackColor = Color.White;
-                numeric.BorderStyle = BorderStyle.FixedSingle;
+                numeric.BorderStyle = BorderStyle.None;
                 numeric.ThousandsSeparator = true;
             }
         }
@@ -2412,7 +3262,7 @@ namespace HVAC_Pro_Desktop.UI
                 Width = width,
                 ReadOnly = true,
                 Font = new Font("Segoe UI", 9),
-                BorderStyle = BorderStyle.FixedSingle,
+                BorderStyle = BorderStyle.None,
                 BackColor = Color.White
             };
         }
@@ -2493,22 +3343,16 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                string url = _txtVersionCheckUrl == null ? string.Empty : _txtVersionCheckUrl.Text.Trim();
-                if (string.IsNullOrWhiteSpace(url))
-                {
-                    MessageBox.Show(
-                        "Version check URL is not configured.\r\nEnter the servoerp.in version endpoint above to enable update checks.",
-                        "Check for updates",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Information);
-                    return;
-                }
-
-                ConfigService.Set("App", "VersionCheckUrl", url);
+                ConfigService.Set("App", "GitHubRepositoryUrl", ConfigService.ProductionVersionCheckUrl);
+                ConfigService.Set("App", "VersionCheckUrl", ConfigService.ProductionVersionCheckUrl);
+                if (_txtVersionCheckUrl != null)
+                    _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                 ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled == null || _chkVersionCheckEnabled.Checked ? "true" : "false");
 
                 if (_chkVersionCheckEnabled != null && !_chkVersionCheckEnabled.Checked)
                 {
+                    if (_lblLastUpdateCheckStatus != null)
+                        _lblLastUpdateCheckStatus.Text = "Update checks are turned off in Settings.";
                     MessageBox.Show(
                         "Update notification settings were saved, but automatic checks are turned off.\r\nTurn on \"Check for updates automatically\" to show update banners at startup.",
                         "Update notifications",
@@ -2518,11 +3362,23 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 UpdateCheckResult result = await UpdateService.CheckForUpdatesAsync();
+                if (_lblLastUpdateCheckStatus != null)
+                    _lblLastUpdateCheckStatus.Text = result.StatusMessage;
 
                 if (result.IsUpdateAvailable)
                 {
+                    if (!result.CanApplyUpdate)
+                    {
+                        MessageBox.Show(
+                            result.StatusMessage,
+                            "Check for updates",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                        return;
+                    }
+
                     DialogResult install = MessageBox.Show(
-                        "Version " + result.LatestVersion + " is available.\r\nCurrent version: " + result.CurrentVersion + ".\r\n\r\nInstall the update now?",
+                        "ServoERP v" + result.LatestVersion + " is available from GitHub Releases.\r\nCurrent version: v" + result.CurrentVersion + ".\r\n\r\nServoERP will download the update, back up configuration, restart, and apply it. Save your work before continuing.\r\n\r\nInstall now?",
                         "Update available",
                         MessageBoxButtons.OKCancel,
                         MessageBoxIcon.Information);
@@ -2532,7 +3388,7 @@ namespace HVAC_Pro_Desktop.UI
                 else
                 {
                     MessageBox.Show(
-                        BrandingService.AppName + " is up to date.\r\nCurrent version: " + result.CurrentVersion + ".",
+                        result.StatusMessage,
                         "Check for updates",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);
@@ -2541,11 +3397,13 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("SettingsForm.CheckVersionNowAsync", ex);
+                if (_lblLastUpdateCheckStatus != null)
+                    _lblLastUpdateCheckStatus.Text = "Update check failed. ServoERP will continue normally. " + ex.Message;
                 MessageBox.Show(
-                    BrandingService.AppName + " is up to date.\r\nCurrent version: " + ConfigService.GetAppVersion() + ".",
+                    "Update check failed. ServoERP will continue normally.\r\n\r\n" + ex.Message,
                     "Check for updates",
                     MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                    MessageBoxIcon.Warning);
             }
         }
 
@@ -2600,10 +3458,9 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     try
                     {
-                        string packagePath = await UpdateService.DownloadUpdatePackageAsync(result, progressReporter, cancelSource.Token);
+                        await UpdateService.DownloadUpdatePackageAsync(result, progressReporter, cancelSource.Token);
                         progressForm.Close();
-                        UpdateService.StartPackageUpdater(packagePath);
-                        Application.Exit();
+                        UpdateService.ApplyUpdateAndRestart(result);
                     }
                     catch (OperationCanceledException)
                     {
@@ -2628,4 +3485,6 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
+
 

@@ -24,6 +24,8 @@ namespace HVAC_Pro_Desktop.Models
         public string  TDSSection { get; set; }
         public decimal TDSRate { get; set; }
         public bool    RCMApplicable { get; set; }
+        public bool    IsSupplier { get; set; } = true;
+        public bool    IsServiceVendor { get; set; }
         public string  BankAccountNumber { get; set; }
         public string  BankIFSC { get; set; }
         public string  BankAccountName { get; set; }
@@ -42,6 +44,12 @@ namespace HVAC_Pro_Desktop.Models
         public DateTime? GeocodeUpdatedOn { get; set; }
         public DateTime CreatedDate { get; set; }
 
+        /// <summary>Returns true when this party can be selected for material, inventory, and purchase workflows.</summary>
+        public bool CanSupplyMaterials => IsSupplier;
+
+        /// <summary>Returns true when this party can be selected for service, subcontracting, and labour workflows.</summary>
+        public bool CanProvideServices => IsServiceVendor;
+
         public override string ToString() => VendorName;
     }
 
@@ -54,6 +62,8 @@ namespace HVAC_Pro_Desktop.Models
         public string City { get; set; }
         public string State { get; set; }
         public string Phone { get; set; }
+        public bool IsSupplier { get; set; }
+        public bool IsServiceVendor { get; set; }
         public bool IsActive { get; set; }
         public bool IsArchived { get; set; }
         public decimal OutstandingBalance { get; set; }

@@ -103,6 +103,10 @@ namespace HVAC_Pro_Desktop.UI
         private const int QuoteEditorFieldHeight = 40;
         private const int QuoteEditorRowHeight = 62;
 
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
+
         public TenderBidForm()
         {
             Dock = DockStyle.Fill;
@@ -781,7 +785,7 @@ namespace HVAC_Pro_Desktop.UI
             RegisterSecondaryButton(addItem);
 
             Label filterLabel = new Label { Text = "Filter by Category", AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _cmbCategoryFilter = new ComboBox { Width = 150, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = InputFill, FlatStyle = FlatStyle.Flat };
+            _cmbCategoryFilter = new ComboBox { Width = 150, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9f), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = InputFill, FlatStyle = FlatStyle.Standard };
             _cmbCategoryFilter.Items.Add("All");
             _cmbCategoryFilter.SelectedIndex = 0;
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => BindInventoryItems();
@@ -1467,7 +1471,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 9),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = InputFill,
-                FlatStyle = FlatStyle.Flat
+                FlatStyle = FlatStyle.Standard
             };
             _cmbCategoryFilter.Items.Add("All");
             _cmbCategoryFilter.SelectedIndex = 0;
@@ -1677,17 +1681,34 @@ namespace HVAC_Pro_Desktop.UI
                 TenderBid bid = CollectBidFromForm();
                 string previousStatus = _current?.Status;
                 SetStatus("Saving quotation...", InfoBlue);
-                int bidId = await Task.Run(() => _svc.SaveTenderBid(bid));
-                _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                QuotationSaveSnapshot snapshot = await RunQuotationWorker(() =>
+                {
+                    int bidId = _svc.SaveTenderBid(bid);
+                    TenderBid saved = _svc.GetByIdDetailed(bidId);
+                    if (saved != null &&
+                        (saved.Status == "Won" || saved.Status == "Lost") &&
+                        !string.Equals(previousStatus, saved.Status, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _svc.RecordClientPriceMemory(saved.BidID, saved.Status == "Won");
+                    }
+                    return new QuotationSaveSnapshot
+                    {
+                        Current = saved,
+                        Quotes = LoadRecentQuotesForDashboard()
+                    };
+                });
+                _current = snapshot.Current;
                 PopulateCurrent(_current);
-                await RefreshListsAsync();
-                if ((_current.Status == "Won" || _current.Status == "Lost") && !string.Equals(previousStatus, _current.Status, StringComparison.OrdinalIgnoreCase))
-                    await Task.Run(() => _svc.RecordClientPriceMemory(_current.BidID, _current.Status == "Won"));
+                BindQuoteList(snapshot.Quotes);
+                BindRenewalAlerts();
+                RefreshQuotationDashboardSafe();
+                ShowQuotationDashboard();
                 SetStatus("Quotation saved.", SaveGreen);
             }
             catch (Exception ex)
             {
                 SetStatus("Save error: " + ex.Message, Color.Firebrick);
+                MessageBox.Show("Could not save quotation:\r\n" + ex.Message, "ServoERP", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -1696,15 +1717,18 @@ namespace HVAC_Pro_Desktop.UI
             TenderBid bid = CollectBidFromForm();
             if (_current != null && _current.BidID > 0)
                 bid.BidID = _current.BidID;
-            int bidId = await Task.Run(() => _svc.SaveTenderBid(bid));
-            _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+            _current = await RunQuotationWorker(() =>
+            {
+                int bidId = _svc.SaveTenderBid(bid);
+                return _svc.GetByIdDetailed(bidId);
+            });
             PopulateCurrent(_current);
-            return bidId;
+            return _current == null ? 0 : _current.BidID;
         }
 
         private async Task RefreshListsAsync()
         {
-            var quotes = await Task.Run(() => _svc.GetAll().OrderByDescending(q => q.RequiredByDate ?? q.DueDate).Take(80).ToList());
+            var quotes = await RunQuotationWorker(LoadRecentQuotesForDashboard);
             BindQuoteList(quotes);
             BindRenewalAlerts();
             RefreshQuotationDashboardSafe();
@@ -1730,9 +1754,16 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 SetStatus("Deleting quotation...", InfoBlue);
-                await Task.Run(() => _svc.Delete(_current.BidID));
+                int bidId = _current.BidID;
+                List<TenderBid> quotes = await RunQuotationWorker(() =>
+                {
+                    _svc.Delete(bidId);
+                    return LoadRecentQuotesForDashboard();
+                });
                 NewRecord();
-                await RefreshListsAsync();
+                BindQuoteList(quotes);
+                BindRenewalAlerts();
+                RefreshQuotationDashboardSafe();
                 SetStatus("Quotation deleted.", Color.FromArgb(220, 38, 38));
             }
             catch (Exception ex)
@@ -1831,6 +1862,16 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (Control control in new Control[] { card, lblNo, lblClient, lblTitle, lblStatus, lblDue })
                 control.Click += async (s, e) => await SelectQuoteAsync(quote, card);
+
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Open", null, async (s, e) => await SelectQuoteAsync(quote, card));
+            menu.Items.Add("Delete Quote", null, async (s, e) =>
+            {
+                await SelectQuoteAsync(quote, card);
+                await DeleteCurrentQuoteAsync();
+            });
+            foreach (Control control in new Control[] { card, lblNo, lblClient, lblTitle, lblStatus, lblDue })
+                control.ContextMenuStrip = menu;
 
             card.Controls.Add(lblNo);
             card.Controls.Add(lblClient);
@@ -1992,8 +2033,12 @@ namespace HVAC_Pro_Desktop.UI
             if (client == null || client.Id <= 0) throw new Exception("Please select a client.");
             if (string.IsNullOrWhiteSpace(_txtQuoteNo.Text)) throw new Exception("Quotation number is required.");
             if (string.IsNullOrWhiteSpace(_txtTitle.Text)) throw new Exception("Quotation / project name is required.");
+            CommitQuotationGridEdits();
             SyncGridToModel();
-            if (_lineItems.All(li => string.IsNullOrWhiteSpace(li.ItemDescription))) throw new Exception("Add at least one line item.");
+            List<TenderBidLineItem> validLines = _lineItems
+                .Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription))
+                .ToList();
+            if (validLines.Count == 0) throw new Exception("Add at least one line item.");
 
             TenderBid bid = _current != null ? new TenderBid { BidID = _current.BidID } : new TenderBid();
             bid.QuotationNumber = _txtQuoteNo.Text.Trim();
@@ -2011,7 +2056,7 @@ namespace HVAC_Pro_Desktop.UI
             bid.SupplierDocumentStatus = _cboSupplierDocStatus?.SelectedItem?.ToString() ?? "Not Required";
             bid.Notes = _txtNotes.Text.Trim();
             bid.TemplateId = _current?.TemplateId;
-            bid.LineItems = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
+            bid.LineItems = validLines.Select((li, index) => CloneLine(li, index)).ToList();
             bid.IsMultiLine = bid.LineItems.Count > 1;
             return _svc.AnalyseTenderDraft(bid);
         }
@@ -2289,8 +2334,61 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SyncGridToModel()
         {
+            CommitQuotationGridEdits();
             for (int i = 0; i < _grid.Rows.Count && i < _lineItems.Count; i++)
                 SyncRowToModel(i);
+        }
+
+        private void CommitQuotationGridEdits()
+        {
+            if (_grid == null || _grid.IsDisposed)
+                return;
+
+            try
+            {
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                if (_grid.IsCurrentCellInEditMode)
+                    _grid.EndEdit(DataGridViewDataErrorContexts.Commit);
+                BindingContext[_grid.DataSource]?.EndCurrentEdit();
+            }
+            catch
+            {
+                // The save validation path reports any remaining invalid line value.
+            }
+        }
+
+        private Task<T> RunQuotationWorker<T>(Func<T> work)
+        {
+            var completion = new TaskCompletionSource<T>();
+            var worker = CreateWorker();
+            worker.DoWork += (s, args) => args.Result = work();
+            worker.RunWorkerCompleted += (s, args) =>
+            {
+                if (args.Error != null)
+                    completion.SetException(args.Error);
+                else if (args.Cancelled)
+                    completion.SetCanceled();
+                else
+                    completion.SetResult((T)args.Result);
+            };
+            worker.RunWorkerAsync();
+            return completion.Task;
+        }
+
+        private List<TenderBid> LoadRecentQuotesForDashboard()
+        {
+            return _svc.GetAll()
+                .OrderByDescending(q => q.RequiredByDate ?? q.DueDate)
+                .ThenByDescending(q => q.BidID)
+                .Take(80)
+                .ToList();
+        }
+
+        private sealed class QuotationSaveSnapshot
+        {
+            public TenderBid Current { get; set; }
+            public List<TenderBid> Quotes { get; set; } = new List<TenderBid>();
         }
 
         private void SyncRowToModel(int rowIndex, string editedColumn = null)
@@ -2369,7 +2467,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_loading || _txtQuoteNo == null || _txtTitle == null || _dtpDate == null || _dtpDue == null)
                 return;
             TenderBid bid = BuildDraftHeaderOnly();
-            bid.LineItems = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
+            bid.LineItems = _lineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
             if (bid.LineItems.Count == 0)
             {
                 SetMetric(_lblTaxable, "Taxable Value", IndiaFormatHelper.FormatCurrency(0));
@@ -2404,7 +2502,7 @@ namespace HVAC_Pro_Desktop.UI
                 _lblKpiMargin.Text = margin.ToString("0.##", CultureInfo.InvariantCulture) + "%";
             if (_lblKpiMarginSub != null)
             {
-                decimal cost = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Sum(li => li.CostPerUnit * li.Quantity);
+                decimal cost = _lineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).Sum(li => li.CostPerUnit * li.Quantity);
                 _lblKpiMarginSub.Text = IndiaFormatHelper.FormatCurrency(Math.Max(0m, subtotal - cost));
                 _lblKpiMarginSub.ForeColor = margin >= 20m ? SaveGreen : margin >= 10m ? WarnOrange : DS.Red600;
             }
@@ -2606,9 +2704,10 @@ namespace HVAC_Pro_Desktop.UI
             if (bid == null || bid.LineItems == null)
                 return;
 
-            int shortfall = bid.LineItems.Count(li => li.Shortfall > 0m);
-            int lowMargin = bid.LineItems.Count(li => li.SellPricePerUnit > 0m && li.MarginPct < 15m);
-            bool suppliersOk = bid.LineItems.All(li => li.IsInternalLabour || li.AnalysisStatus == "Manual" || li.BestSupplierId.HasValue || li.Shortfall <= 0m);
+            List<TenderBidLineItem> lines = bid.LineItems.Where(li => li != null).ToList();
+            int shortfall = lines.Count(li => li.Shortfall > 0m);
+            int lowMargin = lines.Count(li => li.SellPricePerUnit > 0m && li.MarginPct < 15m);
+            bool suppliersOk = lines.All(li => li.IsInternalLabour || li.AnalysisStatus == "Manual" || li.BestSupplierId.HasValue || li.Shortfall <= 0m);
             bool siteSelected = bid.SiteID > 0;
             int days = Math.Max(0, (bid.DueDate.Date - DateTime.Today).Days);
             if (_lblAlertShortfall != null) _lblAlertShortfall.Text = (shortfall == 1 ? "1 material needs supplier plan" : shortfall + " materials need supplier plans");
@@ -2663,7 +2762,7 @@ namespace HVAC_Pro_Desktop.UI
             int count = 0;
             for (int i = 0; i < _lineItems.Count; i++)
             {
-                if (string.IsNullOrWhiteSpace(_lineItems[i].ItemDescription))
+                if (_lineItems[i] == null || string.IsNullOrWhiteSpace(_lineItems[i].ItemDescription))
                     continue;
                 TenderBid draft = BuildDraftHeaderOnly();
                 TenderBidLineItem analysed = await Task.Run(() => _svc.AnalyseTenderLineItem(draft, CloneLine(_lineItems[i], i)));
@@ -2680,7 +2779,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             SyncGridToModel();
             int before = _lineItems.Count;
-            _lineItems.RemoveAll(li => string.IsNullOrWhiteSpace(li.ItemDescription));
+            _lineItems.RemoveAll(li => li == null || string.IsNullOrWhiteSpace(li.ItemDescription));
             if (_lineItems.Count == 0)
                 _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
             RefreshGrid();
@@ -2819,7 +2918,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_suggestionFlow == null || _txtQuoteNo == null || _dtpDate == null || _dtpDue == null)
                 return;
             TenderBid bid = BuildDraftHeaderOnly();
-            bid.LineItems = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
+            bid.LineItems = _lineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
             RefreshSuggestions(_svc.GenerateSuggestions(bid));
         }
 
@@ -2870,7 +2969,7 @@ namespace HVAC_Pro_Desktop.UI
                     bid.QuotationNumber = string.IsNullOrWhiteSpace(bid.QuotationNumber) ? "DRAFT-QUOTE-PREVIEW" : bid.QuotationNumber;
                     bid.TenderName = string.IsNullOrWhiteSpace(bid.TenderName) ? "Draft quotation preview" : bid.TenderName;
                     bid.ClientName = string.IsNullOrWhiteSpace(bid.ClientName) ? "Draft Client" : bid.ClientName;
-                    bid.LineItems = _lineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
+                    bid.LineItems = _lineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
                     if (bid.LineItems.Count == 0)
                         bid.LineItems.Add(new TenderBidLineItem { ItemDescription = "Draft service / material line", HsnSacCode = "9987", Unit = "Nos", Quantity = 1, SellPricePerUnit = 0, GSTRatePct = 18 });
                     bid.IsMultiLine = true;
@@ -3379,36 +3478,70 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Creates one polished field in the Quote Details reference layout.</summary>
         private static void AddQuoteDetailField(TableLayoutPanel row, int col, string label, Control control, string iconHex, int shellWidth)
         {
+            const int headerHeight = 20;
+            const int iconSize = 16;
+            const int iconLabelGap = 6;
+            const int fieldLeftInset = 8;
             Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface, Margin = new Padding(0, 0, 18, 0), Tag = "CUSTOM_INPUT_SHELL" };
+            Panel labelHeader = new Panel
+            {
+                Location = new Point(fieldLeftInset, 0),
+                Height = headerHeight,
+                Width = Math.Max(40, shellWidth - fieldLeftInset),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = QuoteSurface
+            };
+            Label icon = new Label
+            {
+                Text = IconFromHex(iconHex),
+                Location = new Point(0, (headerHeight - iconSize) / 2),
+                Size = new Size(iconSize, iconSize),
+                MinimumSize = new Size(iconSize, iconSize),
+                MaximumSize = new Size(iconSize, iconSize),
+                Font = new Font("Segoe MDL2 Assets", 9f, FontStyle.Regular),
+                ForeColor = Color.FromArgb(0, 102, 255),
+                BackColor = QuoteSurface,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
             Label labelControl = new Label
             {
                 Text = label,
-                Location = new Point(0, 0),
-                Height = 18,
-                AutoSize = true,
+                Location = new Point(iconSize + iconLabelGap, 0),
+                Size = new Size(Math.Max(40, shellWidth - iconSize - iconLabelGap), headerHeight),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                AutoSize = false,
                 Font = new Font("Segoe UI", 8.7f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(10, 31, 68),
-                BackColor = QuoteSurface
+                BackColor = QuoteSurface,
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
+            labelHeader.Controls.Add(icon);
+            labelHeader.Controls.Add(labelControl);
             Panel shell = new Panel
             {
-                Location = new Point(0, 25),
+                Location = new Point(fieldLeftInset, 25),
                 Height = 32,
-                Width = shellWidth,
+                Width = Math.Max(40, shellWidth - fieldLeftInset),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top,
                 BackColor = Color.White,
-                Padding = new Padding(34, 4, 8, 4),
+                Padding = new Padding(8, 4, 8, 4),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
             wrap.Resize += (s, e) =>
             {
-                int availableWidth = Math.Max(88, wrap.ClientSize.Width - 2);
-                int correctedWidth = Math.Min(shellWidth, availableWidth);
+                int availableWidth = Math.Max(88, wrap.ClientSize.Width - fieldLeftInset - 2);
+                int correctedWidth = Math.Min(Math.Max(40, shellWidth - fieldLeftInset), availableWidth);
                 if (shell.Width != correctedWidth)
                 {
                     shell.Width = correctedWidth;
                     shell.Invalidate();
                 }
+                if (labelHeader.Width != correctedWidth)
+                    labelHeader.Width = correctedWidth;
+                int labelWidth = Math.Max(40, correctedWidth - iconSize - iconLabelGap);
+                if (labelControl.Width != labelWidth)
+                    labelControl.Width = labelWidth;
             };
             DS.Rounded(shell, 7);
             shell.Paint += (s, e) =>
@@ -3417,23 +3550,11 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawRectangle(pen, 0, 0, shell.Width - 1, shell.Height - 1);
             };
 
-            Label icon = new Label
-            {
-                Text = IconFromHex(iconHex),
-                Location = new Point(10, 6),
-                Size = new Size(18, 20),
-                Font = new Font("Segoe MDL2 Assets", 11f, FontStyle.Regular),
-                ForeColor = Color.FromArgb(0, 102, 255),
-                BackColor = Color.White,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-
             PrepareQuoteDetailControl(control);
             shell.Controls.Add(control);
             AddQuoteDetailDisplayLayer(shell, control);
-            shell.Controls.Add(icon);
             wrap.Controls.Add(shell);
-            wrap.Controls.Add(labelControl);
+            wrap.Controls.Add(labelHeader);
             row.Controls.Add(wrap, col, 0);
         }
 
@@ -3468,7 +3589,7 @@ namespace HVAC_Pro_Desktop.UI
             TextBox textBox = control as TextBox;
             if (textBox != null)
             {
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = IsInsideQuoteInputShell(textBox) ? BorderStyle.None : BorderStyle.FixedSingle;
                 textBox.Multiline = false;
                 textBox.Height = 22;
                 return;
@@ -3477,7 +3598,7 @@ namespace HVAC_Pro_Desktop.UI
             ComboBox combo = control as ComboBox;
             if (combo != null)
             {
-                combo.FlatStyle = FlatStyle.Flat;
+                combo.FlatStyle = IsInsideQuoteInputShell(combo) ? FlatStyle.Flat : FlatStyle.Standard;
                 combo.ItemHeight = 20;
                 combo.MaxDropDownItems = 12;
                 combo.IntegralHeight = false;
@@ -3504,8 +3625,8 @@ namespace HVAC_Pro_Desktop.UI
 
             Label display = new Label
             {
-                Location = new Point(34, 3),
-                Size = new Size(Math.Max(40, shell.Width - 62), 26),
+                Location = new Point(8, 3),
+                Size = new Size(Math.Max(40, shell.Width - 36), 26),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = Color.White,
                 ForeColor = QuoteText,
@@ -3695,7 +3816,7 @@ namespace HVAC_Pro_Desktop.UI
             control.BackColor = Color.White;
             if (control is ComboBox combo)
             {
-                combo.FlatStyle = FlatStyle.Flat;
+                combo.FlatStyle = IsInsideQuoteInputShell(combo) ? FlatStyle.Flat : FlatStyle.Standard;
                 combo.ItemHeight = 20;
                 combo.DropDownWidth = Math.Max(260, combo.Width);
             }
@@ -3706,7 +3827,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             else if (control is TextBox textBox)
             {
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = IsInsideQuoteInputShell(textBox) ? BorderStyle.None : BorderStyle.FixedSingle;
             }
         }
 
@@ -3742,20 +3863,20 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (child is TextBox textBox)
                 {
-                    textBox.BorderStyle = BorderStyle.None;
+                    textBox.BorderStyle = IsInsideQuoteInputShell(textBox) ? BorderStyle.None : BorderStyle.FixedSingle;
                     textBox.BackColor = InputFill;
                     textBox.ForeColor = QuoteText;
                 }
                 else if (child is ComboBox comboBox)
                 {
-                    comboBox.FlatStyle = FlatStyle.Flat;
+                    comboBox.FlatStyle = IsInsideQuoteInputShell(comboBox) ? FlatStyle.Flat : FlatStyle.Standard;
                     comboBox.BackColor = InputFill;
                     comboBox.ForeColor = QuoteText;
                     ApplyQuotationComboSizing(comboBox);
                 }
                 else if (child is NumericUpDown numeric)
                 {
-                    numeric.BorderStyle = BorderStyle.None;
+                    numeric.BorderStyle = IsInsideQuoteInputShell(numeric) ? BorderStyle.None : BorderStyle.FixedSingle;
                     numeric.BackColor = InputFill;
                     numeric.ForeColor = QuoteText;
                 }
@@ -3763,6 +3884,17 @@ namespace HVAC_Pro_Desktop.UI
                 if (child.HasChildren)
                     ApplyInputFillRecursive(child);
             }
+        }
+
+        /// <summary>Returns true when a control is inside a custom quotation input shell.</summary>
+        private static bool IsInsideQuoteInputShell(Control control)
+        {
+            Control parent = control == null ? null : control.Parent;
+            if (parent == null)
+                return false;
+
+            string metadata = ((parent.Name ?? string.Empty) + " " + (parent.Tag == null ? string.Empty : parent.Tag.ToString())).ToUpperInvariant();
+            return metadata.Contains("CUSTOM_INPUT_SHELL") || metadata.Contains("HOST") || metadata.Contains("FIELD");
         }
 
         private static void ApplyFilledButton(Button button, Color color)
@@ -3808,7 +3940,7 @@ namespace HVAC_Pro_Desktop.UI
             public override string ToString() => Text;
         }
 
-        private sealed class TemplatePickerDialog : Form
+        private sealed class TemplatePickerDialog : ServoERP.Infrastructure.ServoFormBase
         {
             private readonly ListBox _list = new ListBox();
             public int SelectedTemplateId => _list.SelectedItem is QuoteTemplate template ? template.TemplateId : 0;
@@ -3841,7 +3973,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class QuotationPreviewDialog : Form
+        private sealed class QuotationPreviewDialog : ServoERP.Infrastructure.ServoFormBase
         {
             public QuotationPreviewDialog(string title, string html)
             {
@@ -3856,4 +3988,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
 

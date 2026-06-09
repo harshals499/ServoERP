@@ -106,9 +106,9 @@ namespace HVAC_Pro_Desktop.Services
                 Directory.CreateDirectory(dir);
                 string path = Path.Combine(dir, "auth-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
                 var sb = new StringBuilder();
-                sb.AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + message);
+                sb.AppendLine(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + SensitiveDataRedactor.Redact(message));
                 if (ex != null)
-                    sb.AppendLine(ex.ToString());
+                    sb.AppendLine(SensitiveDataRedactor.Redact(ex.ToString()));
                 File.AppendAllText(path, sb.ToString());
             }
             catch

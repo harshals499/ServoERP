@@ -65,7 +65,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
             var r = new ValidationResult();
             if (inv == null) return r.Add(ValidationSeverity.Critical, "Invoices", "Invoice", "Invoice payload is missing.");
             if (inv.ClientID <= 0) r.Add(ValidationSeverity.Error, "Invoices", "ClientID", "Invoice must be linked to a client.");
-            if (inv.SiteID <= 0) r.Add(ValidationSeverity.Error, "Invoices", "SiteID", "Invoice must be linked to a site.");
+            if (inv.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Invoices", "SiteID", "Invoice has no site selected.", "Add a site when the exact service location is known.", true);
             if (!GlobalValidationEngine.IsReasonableDate(inv.InvoiceDate)) r.Add(ValidationSeverity.Error, "Invoices", "InvoiceDate", "Invoice date is impossible.");
             if (!GlobalValidationEngine.IsReasonableDate(inv.DueDate)) r.Add(ValidationSeverity.Error, "Invoices", "DueDate", "Due date is impossible.");
             if (inv.DueDate < inv.InvoiceDate) r.Add(ValidationSeverity.Error, "Invoices", "DueDate", "Due date cannot be before invoice date.");
@@ -84,7 +84,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
         {
             var r = new ValidationResult();
             if (po == null) return r.Add(ValidationSeverity.Critical, "Purchases", "PO", "Purchase order payload is missing.");
-            if (po.VendorID <= 0) r.Add(ValidationSeverity.Error, "Purchases", "VendorID", "PO must be linked to a vendor.");
+            if (po.VendorID <= 0) r.Add(ValidationSeverity.Error, "Purchases", "Supplier", "PO must be linked to a supplier.");
             if (string.IsNullOrWhiteSpace(po.PONumber)) r.Add(ValidationSeverity.Error, "Purchases", "PONumber", "PO number is required.");
             if (!GlobalValidationEngine.IsReasonableDate(po.PODate)) r.Add(ValidationSeverity.Error, "Purchases", "PODate", "PO date is impossible.");
             if (po.PayByDate != default(DateTime) && po.PayByDate < po.PODate) r.Add(ValidationSeverity.Warning, "Purchases", "PayByDate", "Pay-by date is before PO date.", "Confirm payment terms.", true);
@@ -107,13 +107,13 @@ namespace HVAC_Pro_Desktop.Services.Validation
             if (bid == null) return r.Add(ValidationSeverity.Critical, "Quotations", "Quotation", "Quotation payload is missing.");
             if (string.IsNullOrWhiteSpace(bid.QuotationNumber)) r.Add(ValidationSeverity.Error, "Quotations", "QuotationNumber", "Quotation number is required.");
             if (bid.ClientID <= 0) r.Add(ValidationSeverity.Error, "Quotations", "ClientID", "Quotation must be linked to a client.");
-            if (bid.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Quotations", "SiteID", "Quotation has no site selected.", "Select site before final approval.", true);
+            if (bid.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Quotations", "SiteID", "Quotation has no site selected.", "Add a site when the exact service location is known.", true);
             if (!GlobalValidationEngine.IsReasonableDate(bid.DueDate)) r.Add(ValidationSeverity.Error, "Quotations", "DueDate", "Quotation due date is impossible.");
             if (bid.RequiredByDate.HasValue && !GlobalValidationEngine.IsReasonableDate(bid.RequiredByDate.Value)) r.Add(ValidationSeverity.Error, "Quotations", "RequiredByDate", "Required-by date is impossible.");
             if (bid.SubmittedDate.HasValue && !GlobalValidationEngine.IsReasonableDate(bid.SubmittedDate.Value)) r.Add(ValidationSeverity.Error, "Quotations", "SubmittedDate", "Submitted date is impossible.");
             if (bid.BidValue < 0 || bid.RequiredQuantity < 0 || bid.InventoryAvailable < 0 || bid.ShortfallQuantity < 0 || bid.EstimatedInternalRate < 0 || bid.EstimatedSupplierRate < 0 || bid.EstimatedInternalCost < 0 || bid.EstimatedExternalCost < 0)
                 r.Add(ValidationSeverity.Error, "Quotations", "Amounts", "Quotation quantity, inventory, rates, and costs cannot be negative.");
-            foreach (TenderBidLineItem line in bid.LineItems ?? Enumerable.Empty<TenderBidLineItem>())
+            foreach (TenderBidLineItem line in (bid.LineItems ?? Enumerable.Empty<TenderBidLineItem>()).Where(line => line != null))
             {
                 if (string.IsNullOrWhiteSpace(line.ItemDescription)) r.Add(ValidationSeverity.Error, "Quotations", "ItemDescription", "Every quotation line needs a description.");
                 if (line.Quantity <= 0) r.Add(ValidationSeverity.Error, "Quotations", "Quantity", "Quotation line quantity must be greater than zero.");
@@ -128,7 +128,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
             var r = new ValidationResult();
             if (c == null) return r.Add(ValidationSeverity.Critical, "Contracts", "Contract", "Contract payload is missing.");
             if (c.ClientID <= 0) r.Add(ValidationSeverity.Error, "Contracts", "ClientID", "Contract must be linked to a client.");
-            if (c.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Contracts", "SiteID", "Contract has no service site.", "Select the covered site.", true);
+            if (c.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Contracts", "SiteID", "Contract has no service site.", "Add a covered site when it is known.", true);
             if (!GlobalValidationEngine.IsReasonableDate(c.StartDate)) r.Add(ValidationSeverity.Error, "Contracts", "StartDate", "Contract start date is impossible.");
             if (!GlobalValidationEngine.IsReasonableDate(c.EndDate)) r.Add(ValidationSeverity.Error, "Contracts", "EndDate", "Contract end date is impossible.");
             if (c.EndDate < c.StartDate) r.Add(ValidationSeverity.Error, "Contracts", "EndDate", "Contract end date cannot be before start date.");
@@ -141,7 +141,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
             var r = new ValidationResult();
             if (job == null) return r.Add(ValidationSeverity.Critical, "Jobs", "Job", "Job payload is missing.");
             if (job.ClientID <= 0) r.Add(ValidationSeverity.Error, "Jobs", "ClientID", "Job must be linked to a client.");
-            if (job.SiteID <= 0) r.Add(ValidationSeverity.Error, "Jobs", "SiteID", "Job must be linked to a site.");
+            if (job.SiteID <= 0) r.Add(ValidationSeverity.Warning, "Jobs", "SiteID", "Job has no site selected.", "Add a site when the exact service location is known.", true);
             if (string.IsNullOrWhiteSpace(job.JobTitle) && string.IsNullOrWhiteSpace(job.Title)) r.Add(ValidationSeverity.Error, "Jobs", "Title", "Job title is required.");
             if (!GlobalValidationEngine.IsReasonableDate(job.ScheduledDate)) r.Add(ValidationSeverity.Error, "Jobs", "ScheduledDate", "Scheduled date is impossible.");
             if (job.Revenue < 0 || job.QuotedRevenue < 0 || job.EstimatedCost < 0) r.Add(ValidationSeverity.Error, "Jobs", "Amounts", "Job revenue/cost cannot be negative.");

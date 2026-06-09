@@ -29,14 +29,14 @@ namespace HVAC_Pro_Desktop.UI
 
     public static class GridTheme
     {
-        public static readonly Color HeaderBack = Color.FromArgb(18, 57, 183);
-        public static readonly Color HeaderFore = Color.White;
-        public static readonly Color RowAlt = Color.FromArgb(248, 251, 255);
+        public static readonly Color HeaderBack = Color.FromArgb(248, 250, 252);
+        public static readonly Color HeaderFore = Color.FromArgb(15, 23, 42);
+        public static readonly Color RowAlt = Color.FromArgb(248, 250, 252);
         public static readonly Color RowNormal = Color.White;
-        public static readonly Color RowSelected = Color.FromArgb(219, 234, 254);
-        public static readonly Color RowSelectedFore = Color.FromArgb(15, 23, 42);
-        public static readonly Color GridLine = Color.FromArgb(226, 232, 240);
-        public static readonly Color BorderColor = Color.FromArgb(203, 213, 225);
+        public static readonly Color RowSelected = Color.FromArgb(37, 99, 235);
+        public static readonly Color RowSelectedFore = Color.White;
+        public static readonly Color GridLine = Color.FromArgb(220, 220, 220);
+        public static readonly Color BorderColor = Color.FromArgb(220, 220, 220);
 
         private static readonly HashSet<DataGridView> BoundGrids = new HashSet<DataGridView>();
         private static readonly HashSet<DataGridView> StyledGrids = new HashSet<DataGridView>();
@@ -51,6 +51,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             StyledGrids.Add(dgv);
+            UiPerformanceService.ApplyGridPerformance(dgv);
             dgv.Disposed += (s, e) =>
             {
                 StyledGrids.Remove(dgv);
@@ -65,7 +66,7 @@ namespace HVAC_Pro_Desktop.UI
             dgv.ScrollBars = ScrollBars.Both;
             dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgv.RowTemplate.Height = rowHeight;
-            dgv.ColumnHeadersHeight = 38;
+            SetColumnHeadersHeightSafely(dgv, 38);
             dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 
             dgv.AllowUserToResizeRows = false;
@@ -75,7 +76,7 @@ namespace HVAC_Pro_Desktop.UI
             dgv.BorderStyle = BorderStyle.None;
             dgv.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             dgv.GridColor = GridLine;
-            dgv.BackgroundColor = Color.White;
+            dgv.BackgroundColor = RowNormal;
             dgv.EnableHeadersVisualStyles = false;
             dgv.RowHeadersVisible = false;
 
@@ -88,7 +89,7 @@ namespace HVAC_Pro_Desktop.UI
             dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = HeaderFore;
 
             dgv.DefaultCellStyle.Font = new Font("Segoe UI", 9f);
-            dgv.DefaultCellStyle.ForeColor = Color.FromArgb(15, 23, 42);
+            dgv.DefaultCellStyle.ForeColor = DS.Slate800;
             dgv.DefaultCellStyle.BackColor = RowNormal;
             dgv.DefaultCellStyle.SelectionBackColor = RowSelected;
             dgv.DefaultCellStyle.SelectionForeColor = RowSelectedFore;
@@ -104,6 +105,7 @@ namespace HVAC_Pro_Desktop.UI
 
             FormatColumns(dgv);
             FillColumns(dgv);
+            GlobalStatusEditor.Attach(dgv);
 
             if (!BoundGrids.Contains(dgv))
             {
@@ -183,7 +185,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgv.ScrollBars = ScrollBars.Both;
-            dgv.ColumnHeadersHeight = Math.Max(dgv.ColumnHeadersHeight, 38);
+            SetColumnHeadersHeightSafely(dgv, Math.Max(dgv.ColumnHeadersHeight, 38));
 
             var byName = (policies ?? Enumerable.Empty<GridColumnPolicy>())
                 .GroupBy(p => Normalize(p.ColumnName))
@@ -227,6 +229,29 @@ namespace HVAC_Pro_Desktop.UI
             int visibleWidth = dgv.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).Sum(c => c.Width);
             dgv.HorizontalScrollingOffset = 0;
             dgv.ScrollBars = visibleWidth > dgv.ClientSize.Width ? ScrollBars.Both : ScrollBars.Vertical;
+        }
+
+        private static void SetColumnHeadersHeightSafely(DataGridView dgv, int height)
+        {
+            if (dgv == null || dgv.IsDisposed || dgv.ColumnHeadersHeight == height)
+                return;
+
+            try
+            {
+                dgv.ColumnHeadersHeight = height;
+            }
+            catch (NullReferenceException ex)
+            {
+                AppRuntime.LogException("GridTheme.ColumnHeadersHeight", ex);
+            }
+            catch (InvalidOperationException ex)
+            {
+                AppRuntime.LogException("GridTheme.ColumnHeadersHeight", ex);
+            }
+            catch (ArgumentException ex)
+            {
+                AppRuntime.LogException("GridTheme.ColumnHeadersHeight", ex);
+            }
         }
 
         public static void FormatColumns(DataGridView dgv)
@@ -287,7 +312,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        public static void ShowEmptyState(DataGridView dgv, string message = "No records found.")
+        public static void ShowEmptyState(DataGridView dgv, string message = "No records found.", string hint = "Use search, filters, or the New button to continue.")
         {
             if (dgv == null)
                 return;
@@ -297,14 +322,20 @@ namespace HVAC_Pro_Desktop.UI
                 if (dgv.Rows.Count != 0)
                     return;
 
-                using (Font font = new Font("Segoe UI", 10f, FontStyle.Regular))
-                using (SolidBrush brush = new SolidBrush(Color.FromArgb(150, 150, 170)))
+                using (Font titleFont = new Font("Segoe UI", 10f, FontStyle.Bold))
+                using (Font hintFont = new Font("Segoe UI", 8.75f, FontStyle.Regular))
+                using (SolidBrush titleBrush = new SolidBrush(DS.Slate700))
+                using (SolidBrush hintBrush = new SolidBrush(DS.Slate500))
                 using (StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
                 {
                     Rectangle rect = dgv.ClientRectangle;
                     rect.Y += dgv.ColumnHeadersHeight;
                     rect.Height = Math.Max(0, rect.Height - dgv.ColumnHeadersHeight);
-                    e.Graphics.DrawString(message, font, brush, rect, sf);
+                    Rectangle titleRect = new Rectangle(rect.X, rect.Y - 10, rect.Width, rect.Height);
+                    Rectangle hintRect = new Rectangle(rect.X + 24, rect.Y + 18, Math.Max(0, rect.Width - 48), rect.Height);
+                    e.Graphics.DrawString(message, titleFont, titleBrush, titleRect, sf);
+                    if (!string.IsNullOrWhiteSpace(hint))
+                        e.Graphics.DrawString(hint, hintFont, hintBrush, hintRect, sf);
                 }
             };
         }
@@ -315,7 +346,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             label.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-            label.ForeColor = HeaderBack;
+            label.ForeColor = DS.Primary700;
             label.AutoSize = true;
             label.Margin = new Padding(label.Margin.Left, label.Margin.Top, label.Margin.Right, 8);
             if (label.Padding.Bottom < 8)

@@ -5,14 +5,33 @@ CURRENT RELEASE FLOW
 
 1. Bump the application version in Properties\AssemblyInfo.cs.
 2. Build the installer with SOURCE_CODE\Installer\Build-ServoERPInstaller.ps1.
-3. Upload the installer EXE to the public release download location.
+3. Upload the installer EXE to the public release download location using SOURCE_CODE\Installer\Publish-ServoERPR2Installer.ps1.
 4. Update the installer download URL in:
    - SOURCE_CODE\SERVICES\UpdateService.cs
    - marketing_site\script.js
    - marketing_site\download\index.html
 5. Update marketing_site\version.txt with the latest version number.
 6. Update marketing_site\changelog.json with the release notes.
-7. Deploy the full marketing_site folder to servoerp.in.
+7. Deploy the full marketing_site folder to servoerp.in with SOURCE_CODE\Installer\Publish-ServoERPCloudflare.ps1.
+
+REQUIRED CLOUD ENVIRONMENT VARIABLES
+
+- CLOUDFLARE_API_TOKEN
+- R2_ACCOUNT_ID
+- R2_ACCESS_KEY_ID (optional if using the Worker multipart fallback)
+- R2_SECRET_ACCESS_KEY (optional if using the Worker multipart fallback)
+- R2_BUCKET (optional, defaults to servoerp-downloads)
+- R2_ENDPOINT_URL (optional, defaults to https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com)
+
+OPTIONAL SETUP HELPER
+
+- SOURCE_CODE\Installer\Configure-ServoERPCloudflareEnv.ps1 can persist the Cloudflare token, R2 access key pair, account id, bucket, endpoint, and AWS CLI path for the current Windows user profile.
+- SOURCE_CODE\Installer\Publish-ServoERPR2Installer.ps1 now auto-selects the upload path:
+  - static R2 access keys + AWS CLI when available
+  - Cloudflare API direct upload for files up to 300 MB
+  - Cloudflare Worker multipart upload for large files when static R2 keys are missing
+- SOURCE_CODE\Installer\Publish-ServoERPCloudflare.ps1 now performs post-publish verification automatically unless `-SkipVerification` is passed.
+- Cloudflare multipart fallback now removes the temporary upload Worker after use unless `-KeepUploadWorker` is passed.
 
 REQUIRED LIVE ENDPOINTS
 

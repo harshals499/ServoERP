@@ -42,6 +42,11 @@ namespace HVAC_Pro_Desktop.Tests
                 InventoryItems = new List<StockItem>
                 {
                     new StockItem { ItemID = 1, ItemName = "Filter", CurrentStock = 2m, ReorderLevel = 5m, LastPurchaseRate = 500m, VendorName = "Supplier One", LastUpdated = today }
+                },
+                PurchaseOrders = new List<PurchaseOrder>
+                {
+                    new PurchaseOrder { POID = 1, PONumber = "PO-OPEN", ClientName = "Alpha", SiteName = "Plant", VendorName = "Supplier One", PODate = today.AddDays(-2), PayByDate = today.AddDays(7), TotalAmount = 20000m, PaidAmount = 0m, Status = "Pending" },
+                    new PurchaseOrder { POID = 2, PONumber = "PO-FULL", ClientName = "Alpha", SiteName = "Plant", VendorName = "Supplier One", PODate = today.AddDays(-8), PayByDate = today.AddDays(-3), TotalAmount = 50000m, PaidAmount = 0m, Status = "Fully Received" }
                 }
             };
 
@@ -52,6 +57,8 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Filtered pending invoice detail was not preserved.");
             if (filtered.Details["revenue"].Any(row => row.Customer == "Beta"))
                 throw new InvalidOperationException("Customer filter did not apply to revenue details.");
+            if (!filtered.Details["supplier_dues"].Any(row => row.Reference == "PO-OPEN") || filtered.Details["supplier_dues"].Any(row => row.Reference == "PO-FULL"))
+                throw new InvalidOperationException("Fully received purchase orders must not appear in supplier dues.");
             passed.Add("dashboard cross-filtering drives metrics, charts, and drilldown details");
 
             return passed;

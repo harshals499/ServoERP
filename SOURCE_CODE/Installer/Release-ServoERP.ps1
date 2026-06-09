@@ -13,7 +13,9 @@ param(
 
     [switch]$SkipPrerequisiteDownload,
 
-    [switch]$ForceCloseRunningApp
+    [switch]$ForceCloseRunningApp,
+
+    [switch]$PublishCloudflare
 )
 
 $ErrorActionPreference = 'Stop'
@@ -35,9 +37,13 @@ function Update-RegexFile {
     )
 
     $text = Get-Content -LiteralPath $Path -Raw
+    if (-not [regex]::IsMatch($text, $Pattern)) {
+        throw "No matching text was found in $Path"
+    }
+
     $updated = [regex]::Replace($text, $Pattern, $Replacement)
     if ($updated -eq $text) {
-        throw "No matching text was changed in $Path"
+        return
     }
 
     Set-Content -LiteralPath $Path -Value $updated -Encoding UTF8
@@ -115,7 +121,9 @@ $newEntry = [pscustomobject]@{
 $existingVersions = @($changelog.versions | Where-Object { $_.version -ne $Version })
 $changelog.latestVersion = $Version
 $changelog.updatedAt = (Get-Date).ToString('yyyy-MM-dd')
+$changelog.download.url = "https://downloads.servoerp.in/ServoERP_Setup_$Version.exe"
 $changelog.download.installer = "ServoERP_Setup_$Version.exe"
+$changelog.download.packageUrl = "/updates/ServoERP_Update_$Version.zip"
 $changelog.versions = @($newEntry) + $existingVersions
 $changelog | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $changelogPath -Encoding UTF8
 
@@ -142,11 +150,17 @@ if (Test-Path -LiteralPath $marketingZip) {
 
 Compress-Archive -Path (Join-Path $marketingRoot '*') -DestinationPath $marketingZip -Force
 
+if ($PublishCloudflare) {
+    & (Join-Path $PSScriptRoot 'Publish-ServoERPCloudflare.ps1') -Version $Version
+}
+
 Write-Host ""
 Write-Host "Release files prepared:"
 Write-Host "  Installer folder: $installerOutput"
 Write-Host "  Marketing deploy zip: $marketingZip"
-Write-Host ""
-Write-Host "Next manual steps:"
-Write-Host "  1. Upload installer_output\ServoERP_Setup_$Version.exe to your release download location."
-Write-Host "  2. Deploy $marketingZip contents to servoerp.in."
+if (-not $PublishCloudflare) {
+    Write-Host ""
+    Write-Host "Next manual steps:"
+    Write-Host "  1. Upload installer_output\ServoERP_Setup_$Version.exe to your release download location."
+    Write-Host "  2. Deploy $marketingZip contents to servoerp.in."
+}

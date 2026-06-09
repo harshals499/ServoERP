@@ -39,8 +39,9 @@ namespace HVAC_Pro_Desktop.Models
         public DateTime? ModifiedDate { get; set; }
         public decimal  TotalAmount { get; set; }
         public decimal  PaidAmount  { get; set; }
-        public decimal  BalanceDue  => TotalAmount - PaidAmount;
-        public bool     IsOverdue   => BalanceDue > 0 && PayByDate.Date < DateTime.Today;
+        public bool     IsPaymentCompleted => IsPaymentCompletedStatus(Status);
+        public decimal  BalanceDue  => IsPaymentCompleted ? 0m : Math.Max(0m, TotalAmount - PaidAmount);
+        public bool     IsOverdue   => !IsPaymentCompleted && BalanceDue > 0.01m && PayByDate.Date < DateTime.Today;
         public int      AgeDays     => Math.Max(0, (DateTime.Today - PODate.Date).Days);
         public string   Status      { get; set; }
         public string   PaymentReference { get; set; }
@@ -49,6 +50,26 @@ namespace HVAC_Pro_Desktop.Models
         public DateTime CreatedDate { get; set; }
 
         public List<PurchaseLineItem> LineItems { get; set; } = new List<PurchaseLineItem>();
+
+        /// <summary>Returns true when a purchase-order status means vendor payment is complete.</summary>
+        public static bool IsPaymentCompletedStatus(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return false;
+
+            string normalized = status.Trim();
+            return string.Equals(normalized, "Fully Received", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Received", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Paid", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Closed", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Applies the ServoERP rule that fully received purchase orders are fully paid.</summary>
+        public void ApplyPaymentCompletionRule()
+        {
+            if (IsPaymentCompleted)
+                PaidAmount = TotalAmount;
+        }
     }
 
     public class PurchaseLineItem

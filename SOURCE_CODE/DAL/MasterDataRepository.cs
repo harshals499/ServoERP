@@ -232,11 +232,100 @@ namespace HVAC_Pro_Desktop.DAL
 
         public int Count(string tableName)
         {
+            string safeTableName = ToSafeIdentifier(tableName);
+            if (string.IsNullOrWhiteSpace(safeTableName))
+                return 0;
+
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM " + tableName, conn))
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM [" + safeTableName + "]", conn))
                     return Convert.ToInt32(cmd.ExecuteScalar());
+            }
+        }
+
+        private static string ToSafeIdentifier(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            value = value.Trim();
+            foreach (char c in value)
+            {
+                if (!(char.IsLetterOrDigit(c) || c == '_'))
+                    return string.Empty;
+            }
+
+            return value.Replace("]", "]]");
+        }
+
+        /// <summary>Counts records for a known master-data upload module using whitelisted SQL only.</summary>
+        public int CountUploadRecords(string moduleKey)
+        {
+            string sql = ResolveUploadCountSql(moduleKey);
+            if (string.IsNullOrWhiteSpace(sql))
+                return 0;
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                    return Convert.ToInt32(cmd.ExecuteScalar() ?? 0);
+            }
+        }
+
+        /// <summary>Resolves safe count SQL for Master Data smart upload cards.</summary>
+        private static string ResolveUploadCountSql(string moduleKey)
+        {
+            switch ((moduleKey ?? string.Empty).Trim())
+            {
+                case "Clients":
+                    return "SELECT COUNT(*) FROM dbo.B2BClients;";
+                case "Suppliers":
+                    return @"
+                        IF COL_LENGTH('dbo.Vendors', 'IsSupplier') IS NULL AND COL_LENGTH('dbo.Vendors', 'IsArchived') IS NULL
+                        BEGIN
+                            IF COL_LENGTH('dbo.Vendors', 'IsActive') IS NULL
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors;';
+                            ELSE
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsActive, 1) = 1;';
+                        END
+                        ELSE IF COL_LENGTH('dbo.Vendors', 'IsSupplier') IS NULL
+                        BEGIN
+                            IF COL_LENGTH('dbo.Vendors', 'IsActive') IS NULL
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsArchived, 0) = 0;';
+                            ELSE
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsArchived, 0) = 0 AND ISNULL(IsActive, 1) = 1;';
+                        END
+                        ELSE IF COL_LENGTH('dbo.Vendors', 'IsArchived') IS NULL
+                        BEGIN
+                            IF COL_LENGTH('dbo.Vendors', 'IsActive') IS NULL
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsSupplier, 1) = 1;';
+                            ELSE
+                                EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsSupplier, 1) = 1 AND ISNULL(IsActive, 1) = 1;';
+                        END
+                        ELSE IF COL_LENGTH('dbo.Vendors', 'IsActive') IS NULL
+                            EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsSupplier, 1) = 1 AND ISNULL(IsArchived, 0) = 0;';
+                        ELSE
+                            EXEC sp_executesql N'SELECT COUNT(*) FROM dbo.Vendors WHERE ISNULL(IsSupplier, 1) = 1 AND ISNULL(IsArchived, 0) = 0 AND ISNULL(IsActive, 1) = 1;';";
+                case "Sites":
+                    return "SELECT COUNT(*) FROM dbo.ClientSites;";
+                case "Inventory":
+                    return "SELECT COUNT(*) FROM dbo.StockItems;";
+                case "Purchases":
+                    return "SELECT COUNT(*) FROM dbo.PurchaseOrders;";
+                case "Invoices":
+                    return "SELECT COUNT(*) FROM dbo.Invoices;";
+                case "Payments":
+                    return "SELECT COUNT(*) FROM dbo.Payments;";
+                case "Quotations":
+                    return "SELECT COUNT(*) FROM dbo.Quotations;";
+                case "Jobs":
+                    return "SELECT COUNT(*) FROM dbo.Jobs;";
+                case "Employees":
+                    return "SELECT COUNT(*) FROM dbo.Employees;";
+                default:
+                    return null;
             }
         }
 

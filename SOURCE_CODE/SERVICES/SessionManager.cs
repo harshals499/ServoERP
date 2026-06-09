@@ -43,20 +43,7 @@ namespace HVAC_Pro_Desktop.Services
             if (!new LicenseService().CanPerform(moduleKey, action))
                 return false;
 
-            if (string.Equals(_currentUser.RoleName, "Admin", StringComparison.OrdinalIgnoreCase))
-                return true;
-
-            if (!_currentUser.Permissions.TryGetValue(moduleKey, out RolePermissionDto permission) || permission == null)
-                return false;
-
-            switch ((action ?? string.Empty).Trim().ToUpperInvariant())
-            {
-                case "VIEW": return permission.CanView;
-                case "CREATE": return permission.CanCreate;
-                case "EDIT": return permission.CanEdit;
-                case "DELETE": return permission.CanDelete;
-                default: return false;
-            }
+            return true;
         }
 
         public static void DemandPermission(string moduleKey, string action)

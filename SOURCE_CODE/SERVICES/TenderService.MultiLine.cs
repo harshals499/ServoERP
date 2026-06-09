@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Text;
+using Dapper;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Audit;
@@ -31,7 +32,7 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 const string sql = @"
                     SELECT t.*, c.CompanyName AS ClientResolvedName, s.SiteName, v.VendorName
-                    FROM TenderBids t
+                    FROM Quotations t
                     LEFT JOIN B2BClients c ON t.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON t.SiteID = s.SiteID
                     LEFT JOIN Vendors v ON t.RecommendedVendorID = v.VendorID
@@ -72,7 +73,7 @@ namespace HVAC_Pro_Desktop.Services
                             throw new Exception("Quotation number is required.");
 
                         const string insertSql = @"
-                            INSERT INTO TenderBids
+                            INSERT INTO Quotations
                             (QuotationNumber,TenderName,ClientID,SiteID,SystemCount,BidValue,DueDate,SubmittedDate,RequiredByDate,
                              Status,ClientName,RequirementCategory,ItemName,RequiredQuantity,Unit,InventoryAvailable,ShortfallQuantity,
                              EstimatedInternalRate,EstimatedSupplierRate,EstimatedInternalCost,EstimatedExternalCost,
@@ -94,7 +95,7 @@ namespace HVAC_Pro_Desktop.Services
                     else
                     {
                         const string updateSql = @"
-                            UPDATE TenderBids SET
+                            UPDATE Quotations SET
                                 QuotationNumber=@QuotationNumber,
                                 TenderName=@TenderName,
                                 ClientID=@ClientID,
@@ -158,6 +159,9 @@ namespace HVAC_Pro_Desktop.Services
 
             if (bid.LineItems == null)
                 bid.LineItems = new List<TenderBidLineItem>();
+            bid.LineItems = bid.LineItems
+                .Where(line => line != null && !string.IsNullOrWhiteSpace(line.ItemDescription))
+                .ToList();
 
             bid.ClientPriceMemoryApplied = false;
             for (int i = 0; i < bid.LineItems.Count; i++)
@@ -413,7 +417,7 @@ namespace HVAC_Pro_Desktop.Services
             SaveTenderBid(bid);
 
             var poNumbers = new List<string>();
-            foreach (IGrouping<int?, TenderBidLineItem> group in bid.LineItems.Where(li => li.BestSupplierId.HasValue && li.Shortfall > 0m).GroupBy(li => li.BestSupplierId))
+            foreach (IGrouping<int?, TenderBidLineItem> group in bid.LineItems.Where(li => li != null && li.BestSupplierId.HasValue && li.Shortfall > 0m).GroupBy(li => li.BestSupplierId))
             {
                 PurchaseOrder po = _purchaseService.CreatePO(group.Key.Value, group.ToList(), bid);
                 poNumbers.Add(po.PONumber);
@@ -484,8 +488,6 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Quotation not found.");
             if (bid.ClientID <= 0)
                 throw new Exception("Quotation must be linked to a client before creating a job.");
-            if (bid.SiteID <= 0)
-                throw new Exception("Quotation must be linked to a site before creating a job.");
 
             AnalyseTenderDraft(bid);
             SaveTenderBid(bid);
@@ -526,7 +528,7 @@ namespace HVAC_Pro_Desktop.Services
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                foreach (TenderBidLineItem line in bid.LineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)))
+                foreach (TenderBidLineItem line in bid.LineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)))
                 {
                     using (SqlCommand cmd = new SqlCommand(@"
                         IF EXISTS (SELECT 1 FROM ClientPriceMemory WHERE ClientId=@ClientId AND ItemDescription=@ItemDescription)
@@ -574,26 +576,28 @@ namespace HVAC_Pro_Desktop.Services
             if (bid == null || bid.LineItems == null)
                 return suggestions;
 
-            foreach (IGrouping<int?, TenderBidLineItem> group in bid.LineItems.Where(li => li.BestSupplierId.HasValue && li.Shortfall > 0m).GroupBy(li => li.BestSupplierId))
+            List<TenderBidLineItem> lines = bid.LineItems.Where(li => li != null).ToList();
+
+            foreach (IGrouping<int?, TenderBidLineItem> group in lines.Where(li => li.BestSupplierId.HasValue && li.Shortfall > 0m).GroupBy(li => li.BestSupplierId))
             {
                 string supplierName = group.First().BestSupplierName ?? "Mapped supplier";
                 string items = string.Join(", ", group.Select(li => li.ItemDescription).Distinct());
                 suggestions.Add("PO ready: " + supplierName + " (" + items + "). Click Create PO to auto-generate.");
             }
 
-            foreach (TenderBidLineItem line in bid.LineItems.Where(li => li.Shortfall > 0m))
+            foreach (TenderBidLineItem line in lines.Where(li => li.Shortfall > 0m))
             {
                 suggestions.Add("Shortfall: " + line.Shortfall.ToString("0.###", CultureInfo.InvariantCulture) + " " + line.Unit + " of " + line.ItemDescription
                     + " not in stock. " + (string.IsNullOrWhiteSpace(line.BestSupplierName) ? "Mapped supplier not found." : line.BestSupplierName + " can supply."));
             }
 
-            foreach (TenderBidLineItem line in bid.LineItems.Where(li => li.PriceMemoryApplied && li.PriceMemoryDate.HasValue))
+            foreach (TenderBidLineItem line in lines.Where(li => li.PriceMemoryApplied && li.PriceMemoryDate.HasValue))
             {
                 suggestions.Add((bid.ClientName ?? "Client") + " last accepted " + IndiaFormatHelper.FormatCurrency(line.SellPricePerUnit) + "/" + line.Unit
                     + " for " + line.ItemDescription + " on " + IndiaFormatHelper.FormatDate(line.PriceMemoryDate.Value) + ".");
             }
 
-            foreach (TenderBidLineItem line in bid.LineItems.Where(li => li.MarginPct < 15m && li.SellPricePerUnit > 0m))
+            foreach (TenderBidLineItem line in lines.Where(li => li.MarginPct < 15m && li.SellPricePerUnit > 0m))
             {
                 suggestions.Add("Warning: " + line.ItemDescription + " margin is " + line.MarginPct.ToString("0.##", CultureInfo.InvariantCulture)
                     + "% - below minimum 15%. Suggested: " + IndiaFormatHelper.FormatCurrency(line.MinimumRecommendedPrice) + ".");
@@ -632,6 +636,7 @@ namespace HVAC_Pro_Desktop.Services
 
             var rows = new StringBuilder();
             int sr = 1;
+            bid.LineItems = bid.LineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).ToList();
             int actualLineCount = bid.LineItems.Count;
             string itemRowClass = actualLineCount > 8 ? "item-row dense-item-row" : actualLineCount > 4 ? "item-row compact-item-row" : "item-row";
             foreach (TenderBidLineItem line in bid.LineItems)
@@ -660,10 +665,8 @@ namespace HVAC_Pro_Desktop.Services
                 : "<tr><td class='total-label' colspan='6'>Add: IGST @ 18%</td><td class='total-value'>" + FormatTenderAmount(igst) + "</td></tr>";
 
             string amountWords = "Rupees :- " + ToTenderWords((long)Math.Round(bid.TotalWithGST)) + " Only.";
-            string clientAddress = !string.IsNullOrWhiteSpace(site?.Address) ? site.Address : client?.BillingAddress;
             string subject = string.IsNullOrWhiteSpace(bid.TenderName) ? "Quotation for HVAC supply / service work at your site." : bid.TenderName;
-            string customerName = client?.CompanyName ?? bid.ClientName;
-            string customerGst = client?.GSTNumber;
+            string customerBlockHtml = BuildTenderCustomerBlock(client, site, bid.ClientName);
             string submittedDate = IndiaFormatHelper.FormatDate(bid.SubmittedDate ?? DateTime.Today);
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
@@ -674,8 +677,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<div class='quote-frame'><div class='quote-title'>::Quotation ::</div>"
             + "<table class='quote-grid quote-head'><tr>"
             + "<td class='to-cell' rowspan='4'><div class='cell-title'>To,</div><div class='client-lines'>"
-            + HtmlTender(customerName) + "<br/>" + HtmlTender(clientAddress).Replace("\n", "<br/>")
-            + (string.IsNullOrWhiteSpace(customerGst) ? "" : "<br/>GST No. " + HtmlTender(customerGst))
+            + customerBlockHtml
             + "</div></td>"
             + "<td class='meta-row'><span>Quotation No</span><span>: " + HtmlTender(bid.QuotationNumber) + "</span></td></tr>"
             + "<tr><td class='meta-row'><span>Quotation Date</span><span>: " + HtmlTender(submittedDate) + "</span></td></tr>"
@@ -802,7 +804,6 @@ body{background:#fff;}
         private void PrepareDetailedBid(TenderBid bid)
         {
             if (bid.ClientID <= 0) throw new Exception("Please select a client.");
-            if (bid.SiteID <= 0) throw new Exception("Please select a site.");
             if (string.IsNullOrWhiteSpace(bid.TenderName)) throw new Exception("Quotation / project name is required.");
             bid.SubmittedDate = (bid.SubmittedDate ?? DateTime.Today).Date;
             bid.DueDate = bid.DueDate == default(DateTime) ? bid.SubmittedDate.Value.AddDays(30) : bid.DueDate.Date;
@@ -828,6 +829,9 @@ body{background:#fff;}
 
         private void ApplyTenderTotals(TenderBid bid)
         {
+            bid.LineItems = (bid.LineItems ?? new List<TenderBidLineItem>())
+                .Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription))
+                .ToList();
             decimal taxable = 0m;
             decimal gst = 0m;
             decimal weightedMarginTotal = 0m;
@@ -835,8 +839,13 @@ body{background:#fff;}
             bid.InventoryAvailable = 0m;
             bid.ShortfallQuantity = 0m;
 
-            foreach (TenderBidLineItem line in bid.LineItems)
+            foreach (TenderBidLineItem line in bid.LineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)))
             {
+                if (line == null)
+                    continue;
+                line.Category = string.IsNullOrWhiteSpace(line.Category) ? "Service" : line.Category.Trim();
+                line.Unit = string.IsNullOrWhiteSpace(line.Unit) ? "Nos" : line.Unit.Trim();
+                line.AnalysisStatus = string.IsNullOrWhiteSpace(line.AnalysisStatus) ? "Manual" : line.AnalysisStatus.Trim();
                 line.Quantity = line.Quantity <= 0 ? 1m : line.Quantity;
                 line.TaxableLineTotal = Math.Round(line.Quantity * line.SellPricePerUnit, 2);
                 line.GSTAmount = Math.Round(line.TaxableLineTotal * (line.GSTRatePct / 100m), 2);
@@ -860,7 +869,7 @@ body{background:#fff;}
             {
                 bid.RequirementCategory = first.Category;
                 bid.ItemName = bid.LineItems.Count == 1 ? first.ItemDescription : first.ItemDescription + " +" + (bid.LineItems.Count - 1) + " more";
-                bid.RequiredQuantity = bid.LineItems.Count == 1 ? first.Quantity : bid.LineItems.Sum(li => li.Quantity);
+                bid.RequiredQuantity = bid.LineItems.Count == 1 ? first.Quantity : bid.LineItems.Where(li => li != null).Sum(li => li.Quantity);
                 bid.Unit = first.Unit;
                 bid.RecommendedVendorID = first.BestSupplierId;
                 bid.RecommendedVendorName = first.BestSupplierName;
@@ -869,7 +878,7 @@ body{background:#fff;}
         private List<TenderBidLineItem> LoadTenderLineItems(SqlConnection conn, int bidId)
         {
             var lines = new List<TenderBidLineItem>();
-            using (SqlCommand cmd = new SqlCommand("SELECT * FROM TenderBidLineItems WHERE TenderBidId=@id ORDER BY SortOrder, LineItemId", conn))
+            using (SqlCommand cmd = new SqlCommand("SELECT * FROM QuotationLineItems WHERE TenderBidId=@id ORDER BY SortOrder, LineItemId", conn))
             {
                 cmd.Parameters.AddWithValue("@id", bidId);
                 using (SqlDataReader r = cmd.ExecuteReader())
@@ -912,50 +921,48 @@ body{background:#fff;}
 
         private void SaveTenderLineItems(SqlConnection conn, SqlTransaction tx, TenderBid bid)
         {
-            using (SqlCommand cmd = new SqlCommand("DELETE FROM TenderBidLineItems WHERE TenderBidId=@id", conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@id", bid.BidID);
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute("DELETE FROM QuotationLineItems WHERE TenderBidId=@id", new { id = bid.BidID }, tx);
 
-            foreach (TenderBidLineItem line in bid.LineItems.OrderBy(li => li.SortOrder))
+            foreach (TenderBidLineItem line in (bid.LineItems ?? new List<TenderBidLineItem>())
+                .Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription))
+                .OrderBy(li => li.SortOrder))
             {
-                using (SqlCommand cmd = new SqlCommand(@"
-                    INSERT INTO TenderBidLineItems
+                conn.Execute(@"
+                    INSERT INTO QuotationLineItems
                     (TenderBidId,SortOrder,Category,InventoryItemId,ItemDescription,Quantity,Unit,HsnSacCode,GSTRatePct,
                      BestSupplierId,BestSupplierName,CostPerUnit,SellPricePerUnit,TaxableLineTotal,GSTAmount,MarginPct,
                      StockAvailable,Shortfall,IsInternalLabour,AnalysisStatus,AnalysisNotes,IsSellPriceManual,CreatedDate,ModifiedDate)
                     VALUES
                     (@TenderBidId,@SortOrder,@Category,@InventoryItemId,@ItemDescription,@Quantity,@Unit,@HsnSacCode,@GSTRatePct,
                      @BestSupplierId,@BestSupplierName,@CostPerUnit,@SellPricePerUnit,@TaxableLineTotal,@GSTAmount,@MarginPct,
-                     @StockAvailable,@Shortfall,@IsInternalLabour,@AnalysisStatus,@AnalysisNotes,@IsSellPriceManual,@CreatedDate,@ModifiedDate)", conn, tx))
+                     @StockAvailable,@Shortfall,@IsInternalLabour,@AnalysisStatus,@AnalysisNotes,@IsSellPriceManual,@CreatedDate,@ModifiedDate)",
+                    new
                 {
-                    cmd.Parameters.AddWithValue("@TenderBidId", bid.BidID);
-                    cmd.Parameters.AddWithValue("@SortOrder", line.SortOrder);
-                    cmd.Parameters.AddWithValue("@Category", (object)(line.Category ?? string.Empty));
-                    cmd.Parameters.AddWithValue("@InventoryItemId", line.InventoryItemId.HasValue ? (object)line.InventoryItemId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ItemDescription", line.ItemDescription ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@Quantity", line.Quantity);
-                    cmd.Parameters.AddWithValue("@Unit", line.Unit ?? "Nos");
-                    cmd.Parameters.AddWithValue("@HsnSacCode", (object)(line.HsnSacCode ?? string.Empty));
-                    cmd.Parameters.AddWithValue("@GSTRatePct", line.GSTRatePct);
-                    cmd.Parameters.AddWithValue("@BestSupplierId", line.BestSupplierId.HasValue ? (object)line.BestSupplierId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@BestSupplierName", (object)(line.BestSupplierName ?? string.Empty));
-                    cmd.Parameters.AddWithValue("@CostPerUnit", line.CostPerUnit);
-                    cmd.Parameters.AddWithValue("@SellPricePerUnit", line.SellPricePerUnit);
-                    cmd.Parameters.AddWithValue("@TaxableLineTotal", line.TaxableLineTotal);
-                    cmd.Parameters.AddWithValue("@GSTAmount", line.GSTAmount);
-                    cmd.Parameters.AddWithValue("@MarginPct", line.MarginPct);
-                    cmd.Parameters.AddWithValue("@StockAvailable", line.StockAvailable);
-                    cmd.Parameters.AddWithValue("@Shortfall", line.Shortfall);
-                    cmd.Parameters.AddWithValue("@IsInternalLabour", line.IsInternalLabour);
-                    cmd.Parameters.AddWithValue("@AnalysisStatus", line.AnalysisStatus ?? "Pending");
-                    cmd.Parameters.AddWithValue("@AnalysisNotes", (object)(line.AnalysisNotes ?? string.Empty));
-                    cmd.Parameters.AddWithValue("@IsSellPriceManual", line.IsSellPriceManual);
-                    cmd.Parameters.AddWithValue("@CreatedDate", line.CreatedDate == default(DateTime) ? DateTime.Now : line.CreatedDate);
-                    cmd.Parameters.AddWithValue("@ModifiedDate", line.ModifiedDate == default(DateTime) ? DateTime.Now : line.ModifiedDate);
-                    cmd.ExecuteNonQuery();
-                }
+                    TenderBidId = bid.BidID,
+                    line.SortOrder,
+                    Category = line.Category ?? string.Empty,
+                    line.InventoryItemId,
+                    ItemDescription = line.ItemDescription ?? string.Empty,
+                    line.Quantity,
+                    Unit = line.Unit ?? "Nos",
+                    HsnSacCode = line.HsnSacCode ?? string.Empty,
+                    line.GSTRatePct,
+                    line.BestSupplierId,
+                    BestSupplierName = line.BestSupplierName ?? string.Empty,
+                    line.CostPerUnit,
+                    line.SellPricePerUnit,
+                    line.TaxableLineTotal,
+                    line.GSTAmount,
+                    line.MarginPct,
+                    line.StockAvailable,
+                    line.Shortfall,
+                    line.IsInternalLabour,
+                    AnalysisStatus = line.AnalysisStatus ?? "Pending",
+                    AnalysisNotes = line.AnalysisNotes ?? string.Empty,
+                    line.IsSellPriceManual,
+                    CreatedDate = line.CreatedDate == default(DateTime) ? DateTime.Now : line.CreatedDate,
+                    ModifiedDate = line.ModifiedDate == default(DateTime) ? DateTime.Now : line.ModifiedDate
+                }, tx);
             }
         }
 
@@ -964,7 +971,7 @@ body{background:#fff;}
             cmd.Parameters.AddWithValue("@QuotationNumber", (object)(bid.QuotationNumber ?? string.Empty));
             cmd.Parameters.AddWithValue("@TenderName", bid.TenderName ?? string.Empty);
             cmd.Parameters.AddWithValue("@ClientID", bid.ClientID);
-            cmd.Parameters.AddWithValue("@SiteID", bid.SiteID);
+            cmd.Parameters.AddWithValue("@SiteID", bid.SiteID > 0 ? (object)bid.SiteID : DBNull.Value);
             cmd.Parameters.AddWithValue("@SystemCount", bid.SystemCount);
             cmd.Parameters.AddWithValue("@BidValue", bid.BidValue);
             cmd.Parameters.AddWithValue("@DueDate", bid.DueDate);
@@ -1055,7 +1062,7 @@ body{background:#fff;}
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM TenderBids WHERE QuotationNumber LIKE @p", conn))
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Quotations WHERE QuotationNumber LIKE @p", conn))
                 {
                     cmd.Parameters.AddWithValue("@p", prefix + "%");
                     int count = Convert.ToInt32(cmd.ExecuteScalar());
@@ -1130,9 +1137,52 @@ body{background:#fff;}
             var parts = new List<string>();
             if (!string.IsNullOrWhiteSpace(client?.CompanyName)) parts.Add(client.CompanyName);
             if (!string.IsNullOrWhiteSpace(client?.BillingAddress)) parts.Add(client.BillingAddress);
-            if (!string.IsNullOrWhiteSpace(site?.SiteName)) parts.Add(site.SiteName);
-            if (!string.IsNullOrWhiteSpace(site?.Address)) parts.Add(site.Address);
+            if (!string.IsNullOrWhiteSpace(site?.SiteName)) parts.Add("Site: " + site.SiteName);
+            if (!string.IsNullOrWhiteSpace(site?.Address) && !SameTenderAddress(client?.BillingAddress, site.Address)) parts.Add("Site Address: " + site.Address);
             return string.Join(Environment.NewLine, parts);
+        }
+
+        private static string BuildTenderCustomerBlock(B2BClient client, ClientSite site, string fallbackName)
+        {
+            var lines = new List<string>();
+            string customerName = !string.IsNullOrWhiteSpace(client?.CompanyName) ? client.CompanyName.Trim() : (fallbackName ?? "Client").Trim();
+            lines.Add(customerName);
+            AddTenderAddressLines(lines, "Registered Address", client?.BillingAddress);
+            if (!string.IsNullOrWhiteSpace(site?.SiteName))
+                lines.Add("Site: " + site.SiteName.Trim());
+            if (!string.IsNullOrWhiteSpace(site?.Address) && !SameTenderAddress(client?.BillingAddress, site.Address))
+                AddTenderAddressLines(lines, "Site Address", site.Address);
+            if (!string.IsNullOrWhiteSpace(client?.GSTNumber))
+                lines.Add("GST No. " + client.GSTNumber.Trim());
+            return string.Join("<br/>", lines.Select(HtmlTender));
+        }
+
+        private static void AddTenderAddressLines(List<string> lines, string label, string address)
+        {
+            string[] addressLines = SplitTenderAddressLines(address);
+            if (addressLines.Length == 0)
+                return;
+            lines.Add(label + ": " + addressLines[0]);
+            for (int i = 1; i < addressLines.Length; i++)
+                lines.Add(addressLines[i]);
+        }
+
+        private static string[] SplitTenderAddressLines(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return new string[0];
+            return address.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToArray();
+        }
+
+        private static bool SameTenderAddress(string left, string right)
+        {
+            string normalizedLeft = string.Join(" ", SplitTenderAddressLines(left));
+            string normalizedRight = string.Join(" ", SplitTenderAddressLines(right));
+            return !string.IsNullOrWhiteSpace(normalizedLeft)
+                && string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetTenderSetting(Dictionary<string, string> settings, string key, string fallback)

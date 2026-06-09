@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Text.RegularExpressions;
@@ -78,6 +79,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel   _selectedCard;
         private bool    _initialLoadQueued;
         private bool    _dataInitialized;
+        private bool    _invoiceListRefreshing;
         private List<B2BClient> _clients = new List<B2BClient>();
         private List<InvoiceTemplate> _templates = new List<InvoiceTemplate>();
         private Button _btnNewInvoice;
@@ -101,6 +103,10 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color InfoBlue = DS.Primary600;
         private static readonly Color OrangeCol = DS.Amber500;
 
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
+
         public InvoiceForm()
         {
             this.Dock      = DockStyle.Fill;
@@ -110,10 +116,17 @@ namespace HVAC_Pro_Desktop.UI
             SalesUiPolishService.ApplyAfterRebuild(this, "Invoices");
             ApplyInvoicePreviewSkin(Controls);
             RestoreModernInvoiceInputStyles(Controls);
+            RestoreInvoiceEditorInputState();
             ApplyPermissions();
+            if (SessionManager.HasPermission("Invoices", "Create") || SessionManager.HasPermission("Invoices", "Edit"))
+                RestoreInvoiceEditorInputState();
             ShowInvoiceDashboard();
             RecordDeletionUi.BindDeleteShortcut(this, () => { DeleteCurrentInvoice(); return Task.FromResult(0); }, () => _current != null && _current.InvoiceID > 0);
-            HandleCreated += (s, e) => QueueInitialLoad();
+            HandleCreated += (s, e) =>
+            {
+                QueueInitialLoad();
+                BeginInvoke((Action)RestoreInvoiceEditorInputState);
+            };
             ParentChanged += (s, e) => QueueInitialLoad();
             Load += (s, e) => QueueInitialLoad();
             VisibleChanged += (s, e) =>
@@ -402,7 +415,7 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(actionRail);
             layoutHeaderActions();
 
-            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 12, 24, 16) };
+            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 12, 24, 16), Tag = "NO_CARD_SURFACE" };
             _invoiceDashboardPanel = BuildInvoiceModuleDashboard();
             _invoiceDashboardPanel.Dock = DockStyle.Top;
             _invoiceWorkspacePanel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Visible = false };
@@ -421,9 +434,14 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel rightPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(0, 16), BackColor = DS.BgPage, Padding = new Padding(18, 0, 0, 0) };
             rightPanel.MouseEnter += (s, e) => rightPanel.Focus();
-            rightPanel.Controls.Add(BuildInvoiceFooterCard());
-            rightPanel.Controls.Add(BuildInvoiceSummaryCard());
-            rightPanel.Controls.Add(BuildQuickActionsCard());
+            Panel footerCard = BuildInvoiceFooterCard();
+            Panel summaryCard = BuildInvoiceSummaryCard();
+            Panel quickActionsCard = BuildQuickActionsCard();
+            rightPanel.Controls.Add(footerCard);
+            rightPanel.Controls.Add(summaryCard);
+            rightPanel.Controls.Add(quickActionsCard);
+            CardResizeGripService.Attach(summaryCard);
+            CardResizeGripService.Attach(quickActionsCard);
 
             _documentHost = new Panel
             {
@@ -542,12 +560,12 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildInvoiceModuleDashboard()
         {
             DateTime today = DateTime.Today;
-            _invoiceDashboardSnapshot = _invoiceAnalyticsSvc.BuildSnapshot(new InvoiceAnalyticsFilter
+            _invoiceDashboardSnapshot = new InvoiceDashboardSnapshot
             {
                 DateFrom = new DateTime(today.Year, today.Month, 1),
                 DateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
                 Grouping = InvoiceAnalyticsGrouping.Week
-            });
+            };
 
             Panel host = new Panel
             {
@@ -568,6 +586,7 @@ namespace HVAC_Pro_Desktop.UI
 
             PopulateInvoiceDashboardCards(host);
             LayoutInvoiceDashboard(host);
+            host.HandleCreated += (s, e) => BeginInvoke((Action)(() => RefreshInvoiceModuleDashboard(host)));
             return host;
         }
 
@@ -625,7 +644,7 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Add(overview);
 
             Panel status = MakeInvoiceDashCard();
-            status.Name = "invoiceDashStatus";
+            status.Name = "invoiceDashDistribution";
             status.Tag = "dash-card";
             status.Controls.Add(new Label { Text = "Invoices by Status", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             status.Controls.Add(new InvoiceStatusDonut { Snapshot = _invoiceDashboardSnapshot, Location = new Point(10, 42), Size = new Size(390, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
@@ -743,6 +762,7 @@ namespace HVAC_Pro_Desktop.UI
             grid.Columns.Add("Amount", "Amount");
             grid.Columns.Add("Status", "Status");
             grid.Columns.Add(new DataGridViewButtonColumn { Name = "Pdf", HeaderText = "", Text = "PDF", UseColumnTextForButtonValue = true, FillWeight = 45 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true, FillWeight = 55 });
             foreach (InvoiceRecentRow row in _invoiceDashboardSnapshot.RecentInvoices.Take(5))
                 grid.Rows.Add(row.InvoiceId, row.InvoiceNumber, row.ClientName, row.InvoiceDate.ToString("dd/MM/yyyy"), IndiaFormatHelper.FormatCurrency(row.Amount), row.Status);
             GridTheme.Apply(grid);
@@ -753,7 +773,7 @@ namespace HVAC_Pro_Desktop.UI
         private void InvoiceDashRecentGrid_CellClick(object sender, DataGridViewCellEventArgs e)
         {
             DataGridView grid = sender as DataGridView;
-            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf" || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf" || grid.Columns[e.ColumnIndex].Name == "Delete" || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
                 return;
 
             OpenRecentInvoicePdf(grid, e.RowIndex);
@@ -762,15 +782,19 @@ namespace HVAC_Pro_Desktop.UI
         private void InvoiceDashRecentGrid_CellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             DataGridView grid = sender as DataGridView;
-            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name != "Pdf")
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0)
                 return;
-            OpenRecentInvoicePdf(grid, e.RowIndex);
+            string columnName = grid.Columns[e.ColumnIndex].Name;
+            if (columnName == "Pdf")
+                OpenRecentInvoicePdf(grid, e.RowIndex);
+            else if (columnName == "Delete")
+                DeleteRecentInvoice(grid, e.RowIndex);
         }
 
         private void InvoiceDashRecentGrid_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
         {
             DataGridView grid = sender as DataGridView;
-            if (grid == null || e.RowIndex < 0 || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
+            if (grid == null || e.RowIndex < 0 || e.ColumnIndex < 0 || grid.Columns[e.ColumnIndex].Name == "Pdf" || grid.Columns[e.ColumnIndex].Name == "Delete" || GlobalStatusEditor.IsEditableStatusCell(grid, e.RowIndex, e.ColumnIndex))
                 return;
             OpenRecentInvoicePdf(grid, e.RowIndex);
         }
@@ -783,9 +807,25 @@ namespace HVAC_Pro_Desktop.UI
             RecentDocumentOpenService.OpenInvoicePdf(this, invoiceId);
         }
 
+        private void DeleteRecentInvoice(DataGridView grid, int rowIndex)
+        {
+            int invoiceId;
+            if (grid == null || rowIndex < 0 || rowIndex >= grid.Rows.Count || !int.TryParse(Convert.ToString(grid.Rows[rowIndex].Cells["InvoiceId"].Value), out invoiceId) || invoiceId <= 0)
+                return;
+
+            Invoice target = _invSvc.GetInvoiceById(invoiceId);
+            if (target == null)
+            {
+                ShowStatus("Invoice not found. Refresh and try again.", Color.Firebrick);
+                return;
+            }
+
+            DeleteInvoice(target, _current != null && _current.InvoiceID == invoiceId);
+        }
+
         private Panel MakeInvoiceDashCard()
         {
-            Panel card = new Panel { BackColor = Color.White };
+            Panel card = new Panel { BackColor = Color.White, Tag = "dash-card" };
             card.Paint += (s, e) =>
             {
                 using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
@@ -975,7 +1015,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (child is TextBox textBox)
             {
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
                 textBox.BackColor = child.Parent != null && child.Parent.Tag as string == "invoice-no-preview-wrap"
                     ? child.Parent.BackColor
                     : Color.FromArgb(248, 250, 252);
@@ -1033,7 +1073,7 @@ namespace HVAC_Pro_Desktop.UI
             input.ForeColor = DS.Slate900;
 
             if (input is TextBox textBox)
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
             if (input is ComboBox combo)
             {
                 combo.DropDownStyle = ComboBoxStyle.DropDown;
@@ -1118,7 +1158,8 @@ namespace HVAC_Pro_Desktop.UI
                 Height = height,
                 BackColor = Color.White,
                 Padding = new Padding(20),
-                Margin = new Padding(0, 0, 0, 12)
+                Margin = new Padding(0, 0, 0, 12),
+                Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE"
             };
             card.Paint += (s, e) =>
             {
@@ -1128,6 +1169,7 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawPath(pen, path);
             };
             DS.Rounded(card, 10);
+            card.HandleCreated += (s, e) => CardResizeGripService.Attach(card);
             if (!string.IsNullOrWhiteSpace(title))
             {
                 Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 24, DS.Indigo50, InfoBlue, 8);
@@ -1273,7 +1315,9 @@ namespace HVAC_Pro_Desktop.UI
                 _invSvc.DeleteInvoice(deletedId);
                 if (clearIfCurrent || (_current != null && _current.InvoiceID == deletedId))
                     ClearForm();
-                LoadInvoiceList();
+                LoadInvoiceList(true);
+                if (_invoiceDashboardPanel != null)
+                    RefreshInvoiceModuleDashboard(_invoiceDashboardPanel);
                 ShowStatus("Invoice deleted.", DS.Red600);
             }
             catch (Exception ex)
@@ -1434,7 +1478,8 @@ namespace HVAC_Pro_Desktop.UI
                 Height = 1180,
                 BackColor = Color.White,
                 Padding = new Padding(0),
-                Margin = new Padding(0)
+                Margin = new Padding(0),
+                Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE"
             };
             container.Controls.Add(_documentPage);
             container.Resize += (s, e) =>
@@ -1459,7 +1504,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                Padding = new Padding(20, 12, 20, 18)
+                Padding = new Padding(20, 12, 20, 18),
+                Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE"
             };
 
             Panel titleRow = new Panel { Height = 36, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
@@ -1506,7 +1552,7 @@ namespace HVAC_Pro_Desktop.UI
             AddModernField(grid, "Notes", _txtNotes, 2, 5, false, 2, 2);
             AddModernField(grid, "Send Invoice To", _txtSendInvoiceTo, 0, 6, false, 2);
 
-            _txtNudges = new TextBox { Text = "Required: client and line items. Site, contract, PO, warranty, and service notes can be added later.", ReadOnly = true, BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255) };
+            _txtNudges = new TextBox { Text = "Required: client and line items. Site, contract, PO, warranty, and service notes can be added later.", ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255), Tag = "CUSTOM_INPUT_SHELL" };
             Panel smartBar = new Panel { Height = 28, BackColor = Color.FromArgb(238, 242, 255), Margin = new Padding(0, 0, 0, 12), Padding = new Padding(12, 6, 12, 4), Tag = "invoice-no-preview-wrap" };
             DS.Rounded(smartBar, 8);
             smartBar.Controls.Add(_txtNudges);
@@ -1519,6 +1565,7 @@ namespace HVAC_Pro_Desktop.UI
             DockInvoiceSection(content, tax);
             DockInvoiceGap(content, 12);
             DockInvoiceSection(content, workflow);
+            CardResizeGripService.Attach(workflow, InvoiceWorkflowCardResizeComplete, InvoiceWorkflowCardResizeChanging);
             DockInvoiceGap(content, 12);
             DockInvoiceSection(content, smartBar);
             DockInvoiceGap(content, 8);
@@ -1618,9 +1665,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             input.Font = new Font("Segoe UI", 8.5f);
             input.ForeColor = DS.Slate900;
-            input.BackColor = Color.White;
+            input.BackColor = SystemColors.Window;
             if (input is TextBox textBox)
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
             if (input is ComboBox combo)
             {
                 combo.FlatStyle = FlatStyle.Flat;
@@ -1628,6 +1675,90 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (input is NumericUpDown numeric)
                 numeric.BorderStyle = BorderStyle.None;
+        }
+
+        /// <summary>
+        /// Keeps invoice editor inputs visually editable after shared polish passes.
+        /// </summary>
+        private void RestoreInvoiceEditorInputState()
+        {
+            foreach (Control input in GetInvoiceEditorInputs())
+            {
+                if (input == null || input.IsDisposed)
+                    continue;
+
+                input.Enabled = true;
+                input.BackColor = SystemColors.Window;
+                input.ForeColor = DS.Slate900;
+
+                if (input is TextBox textBox)
+                {
+                    textBox.BackColor = SystemColors.Window;
+                    textBox.BorderStyle = BorderStyle.FixedSingle;
+                    if (!ReferenceEquals(textBox, _txtInvNo))
+                        textBox.ReadOnly = false;
+                }
+                else if (input is ComboBox combo)
+                {
+                    combo.BackColor = SystemColors.Window;
+                    combo.FlatStyle = FlatStyle.Flat;
+                }
+                else if (input is DateTimePicker picker)
+                {
+                    picker.CalendarMonthBackground = SystemColors.Window;
+                    picker.CalendarTitleBackColor = SystemColors.Window;
+                    picker.CalendarForeColor = DS.Slate900;
+                    picker.CalendarTitleForeColor = DS.Slate900;
+                }
+                else if (input is RichTextBox richText)
+                {
+                    richText.BackColor = SystemColors.Window;
+                    richText.ReadOnly = false;
+                    richText.BorderStyle = BorderStyle.FixedSingle;
+                }
+
+                Control host = input.Parent;
+                if (host != null && host.Tag as string == "invoice-input-host")
+                    host.BackColor = SystemColors.Window;
+            }
+
+            if (_txtInvNo != null)
+            {
+                _txtInvNo.ReadOnly = true;
+                _txtInvNo.BackColor = SystemColors.Window;
+            }
+        }
+
+        /// <summary>
+        /// Returns only the editable invoice detail controls, excluding summary/actions.
+        /// </summary>
+        private IEnumerable<Control> GetInvoiceEditorInputs()
+        {
+            Control[] controls =
+            {
+                _txtInvNo,
+                _cmbStatus,
+                _dtpInvDate,
+                _dtpDueDate,
+                _cmbClient,
+                _cmbSite,
+                _cmbContract,
+                _cmbTemplate,
+                _cmbCoverageType,
+                _cmbWarrantyStatus,
+                _dtpWarrantyExpiry,
+                _txtSubject,
+                _txtPaymentTerms,
+                _txtPlaceOfSupply,
+                _dtpNextServiceDue,
+                _txtInventorySummary,
+                _txtPONumber,
+                _dtpPODate,
+                _txtNotes,
+                _txtSendInvoiceTo
+            };
+
+            return controls.Where(control => control != null);
         }
 
         private Button MakeGhostAction(string text, int width)
@@ -1648,11 +1779,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             ModernCard card = new ModernCard
             {
-                Name = "InvoiceHvacWorkflowCard",
+                Name = "InvoiceHvacOpsCard",
                 Height = 276,
                 MinimumSize = new Size(760, 220),
                 Padding = new Padding(16),
-                Tag = "dashboard-card"
+                Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE"
             };
             _invoiceWorkflowCard = card;
             Panel workflowTitle = BuildInvoiceSectionTitle("HVAC WORKFLOW", ModernIconKind.Service);
@@ -1679,9 +1810,15 @@ namespace HVAC_Pro_Desktop.UI
             _gridPaymentHistory.AllowUserToAddRows = false;
             if (_gridPaymentHistory.Columns["Delete"] != null)
                 _gridPaymentHistory.Columns["Delete"].Visible = false;
-            table.Controls.Add(BuildMiniInfoCard("Checklist / Tasks", _gridChecklist, ModernIconKind.Checklist, out _btnAddChecklistRow), 0, 0);
-            table.Controls.Add(BuildMiniInfoCard("Asset / Equipment", _gridAssets, ModernIconKind.Inventory, out _btnAddAssetRow), 1, 0);
-            table.Controls.Add(BuildMiniInfoCard("Payment History", _gridPaymentHistory, ModernIconKind.Payment, out _btnRecordWorkflowPayment), 2, 0);
+            Panel checklistCard = BuildMiniInfoCard("Checklist / Tasks", _gridChecklist, ModernIconKind.Checklist, out _btnAddChecklistRow);
+            Panel assetCard = BuildMiniInfoCard("Asset / Equipment", _gridAssets, ModernIconKind.Inventory, out _btnAddAssetRow);
+            Panel paymentCard = BuildMiniInfoCard("Payment History", _gridPaymentHistory, ModernIconKind.Payment, out _btnRecordWorkflowPayment);
+            table.Controls.Add(checklistCard, 0, 0);
+            table.Controls.Add(assetCard, 1, 0);
+            table.Controls.Add(paymentCard, 2, 0);
+            CardResizeGripService.Attach(checklistCard, InvoiceWorkflowMiniCardResizeComplete, InvoiceWorkflowMiniCardResizeChanging);
+            CardResizeGripService.Attach(assetCard, InvoiceWorkflowMiniCardResizeComplete, InvoiceWorkflowMiniCardResizeChanging);
+            CardResizeGripService.Attach(paymentCard, InvoiceWorkflowMiniCardResizeComplete, InvoiceWorkflowMiniCardResizeChanging);
             _btnAddChecklistRow.Click += (s, e) => AddWorkflowRow(_gridChecklist, "New task");
             _btnAddAssetRow.Click += (s, e) => AddWorkflowRow(_gridAssets, "New equipment");
             _btnRecordWorkflowPayment.Text = "Record";
@@ -1727,7 +1864,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel panel = new Panel
             {
                 Name = "InvoiceWorkflow" + Regex.Replace(title ?? "Card", @"[^A-Za-z0-9]", string.Empty),
-                Tag = "dashboard-card",
+                Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE",
                 Dock = DockStyle.None,
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 Size = new Size(250, 140),
@@ -1852,7 +1989,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildModernTaxSection()
         {
-            ModernCard card = new ModernCard { Height = 430, Padding = new Padding(16), Tag = "invoice-no-preview-wrap" };
+            ModernCard card = new ModernCard { Height = 430, Padding = new Padding(16), Tag = "invoice-no-preview-wrap NO_DASHBOARD_RESIZE NO_CARD_SURFACE" };
             Panel title = BuildInvoiceSectionTitle("TAX SUMMARY (GST)", ModernIconKind.Tax);
 
             FlowLayoutPanel metrics = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 66, WrapContents = true, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
@@ -2126,54 +2263,98 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadInvoiceList()
         {
-            try
+            LoadInvoiceList(false);
+        }
+
+        private void LoadInvoiceList(bool forceRefresh)
+        {
+            if (forceRefresh)
+                _invoiceListRefreshing = false;
+            if (_invoiceListRefreshing)
+                return;
+
+            _invoiceListRefreshing = true;
+            ShowInvoiceDashboard();
+            SetBusy("Refreshing invoices...");
+
+            var worker = CreateWorker();
+            worker.DoWork += (s, args) =>
             {
-                ShowInvoiceDashboard();
                 var invoices = _invSvc.GetAllInvoices()
                     .OrderByDescending(i => i.InvoiceDate)
+                    .ThenByDescending(i => i.InvoiceID)
                     .Take(120)
                     .ToList();
-                BindInvoiceList(invoices);
-            }
-            catch (Exception ex)
+                Invoice firstDetail = null;
+                if (_current == null && invoices.Count > 0)
+                    firstDetail = _invSvc.GetInvoiceById(invoices[0].InvoiceID) ?? invoices[0];
+                args.Result = new InvoiceListSnapshot { Invoices = invoices, FirstDetail = firstDetail };
+            };
+            worker.RunWorkerCompleted += (s, args) =>
             {
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Loading invoices", ex);
-                ShowStatus("Invoices could not load. Refresh and try again.", Color.Red);
-            }
+                if (args.Error != null)
+                {
+                    RunOnUI(() =>
+                    {
+                        _invoiceListRefreshing = false;
+                        SetBusy(null);
+                        ShowStatus("Invoices could not load. Refresh and try again.", Color.Red);
+                    });
+                    ShowError( "Failed to load invoices. Please try again.", args.Error);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Loading invoices", args.Error);
+                    return;
+                }
+                if (args.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    _invoiceListRefreshing = false;
+                    SetBusy(null);
+                    InvoiceListSnapshot snapshot = args.Result as InvoiceListSnapshot ?? new InvoiceListSnapshot();
+                    BindInvoiceList(snapshot.Invoices, snapshot.FirstDetail);
+                });
+            };
+            worker.RunWorkerAsync();
         }
 
         private void BindInvoiceList(IEnumerable<Invoice> invoices)
         {
-            _invoiceFlow.SuspendLayout();
-            _invoiceFlow.Controls.Clear();
+            BindInvoiceList(invoices, null);
+        }
+
+        private void BindInvoiceList(IEnumerable<Invoice> invoices, Invoice firstDetail)
+        {
             DateTime today = DateTime.Today;
             List<Invoice> invoiceList = (invoices ?? Enumerable.Empty<Invoice>()).ToList();
             try
             {
-                foreach (Invoice inv in invoiceList)
+                UiPerformanceService.WithSuspendedDrawing(_invoiceFlow, () =>
                 {
-                    string status = inv.PaymentStatus ?? "";
-                    bool isOverdue = status == "Overdue" ||
-                                     (status == "Pending" && inv.DueDate < today);
-                    Color statusColor;
-                    if (status == "Paid")
-                        statusColor = Color.ForestGreen;
-                    else if (isOverdue)
-                        statusColor = Color.Red;
-                    else if (status == "Draft")
-                        statusColor = Color.Gray;
-                    else if (status == "Pending")
-                        statusColor = Color.DarkBlue;
-                    else
-                        statusColor = Color.DarkBlue;
+                    _invoiceFlow.Controls.Clear();
+                    foreach (Invoice inv in invoiceList)
+                    {
+                        string status = inv.PaymentStatus ?? "";
+                        bool isOverdue = status == "Overdue" ||
+                                         (status == "Pending" && inv.DueDate < today);
+                        Color statusColor;
+                        if (status == "Paid")
+                            statusColor = Color.ForestGreen;
+                        else if (isOverdue)
+                            statusColor = Color.Red;
+                        else if (status == "Draft")
+                            statusColor = Color.Gray;
+                        else if (status == "Pending")
+                            statusColor = Color.DarkBlue;
+                        else
+                            statusColor = Color.DarkBlue;
 
-                    _invoiceFlow.Controls.Add(MakeInvoiceCard(inv, statusColor));
-                }
-                _invoiceFlow.ResumeLayout(true);
+                        _invoiceFlow.Controls.Add(MakeInvoiceCard(inv, statusColor));
+                    }
+                });
                 if (_current == null)
                 {
                     if (invoiceList.Count > 0)
-                        PopulateForm(_invSvc.GetInvoiceById(invoiceList[0].InvoiceID) ?? invoiceList[0]);
+                        PopulateForm(firstDetail ?? invoiceList[0]);
                     else
                         ClearForm();
                 }
@@ -2181,7 +2362,6 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                _invoiceFlow.ResumeLayout(true);
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Rendering invoice list", ex);
                 ShowStatus("Invoice list could not be shown. Refresh and try again.", Color.Red);
             }
@@ -2266,6 +2446,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Invoice CollectForm()
         {
+            CommitInvoiceLineGridEdits();
             Invoice inv = _current ?? new Invoice();
             inv.InvoiceDate   = _dtpInvDate.Value.Date;
             inv.DueDate       = _dtpDueDate.Value.Date;
@@ -2349,8 +2530,10 @@ namespace HVAC_Pro_Desktop.UI
             var list = new List<InvoiceLineItem>();
             foreach (DataGridViewRow row in _grid.Rows)
             {
+                if (row == null || row.IsNewRow || !IsMeaningfulInvoiceLineRow(row))
+                    continue;
+
                 string desc = row.Cells["Description"].Value?.ToString().Trim() ?? "";
-                if (string.IsNullOrEmpty(desc)) continue;
                 string hsn  = row.Cells["HSNCode"].Value?.ToString().Trim() ?? "";
                 string category = row.Cells["Category"].Value?.ToString().Trim() ?? "Service";
                 string unit = row.Cells["Unit"].Value?.ToString().Trim() ?? "Nos";
@@ -2362,6 +2545,8 @@ namespace HVAC_Pro_Desktop.UI
                 bool isBillable = !string.Equals(taxType, "Out of Scope", StringComparison.OrdinalIgnoreCase);
                 decimal gross = Math.Round((qty > 0 ? qty : 1m) * rate, 2);
                 decimal amount = isBillable ? Math.Round(gross - (gross * Math.Min(Math.Max(discount, 0m), 100m) / 100m), 2) : 0m;
+                if (string.IsNullOrWhiteSpace(desc))
+                    desc = ResolveInvoiceLineDescription(category);
                 list.Add(new InvoiceLineItem
                 {
                     Description = desc,
@@ -2381,6 +2566,54 @@ namespace HVAC_Pro_Desktop.UI
                 });
             }
             return list;
+        }
+
+        private void CommitInvoiceLineGridEdits()
+        {
+            if (_grid == null || _grid.IsDisposed)
+                return;
+
+            try
+            {
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                if (_grid.IsCurrentCellInEditMode)
+                    _grid.EndEdit(DataGridViewDataErrorContexts.Commit);
+                BindingContext[_grid.DataSource]?.EndCurrentEdit();
+            }
+            catch
+            {
+                // Validation will surface any unresolved row issue to the user.
+            }
+        }
+
+        private bool IsMeaningfulInvoiceLineRow(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+                return false;
+
+            string desc = row.Cells["Description"].Value?.ToString().Trim() ?? "";
+            if (!string.IsNullOrWhiteSpace(desc))
+                return true;
+
+            decimal qty = TryParseDecimal(row.Cells["Quantity"].Value);
+            decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
+            decimal amount = TryParseDecimal(row.Cells["Amount"].Value);
+            decimal gst = TryParseDecimal(row.Cells["GSTPercent"].Value);
+            string hsn = row.Cells["HSNCode"].Value?.ToString().Trim() ?? "";
+            string coverage = row.Cells["CoverageNote"].Value?.ToString().Trim() ?? "";
+            return rate > 0m || amount > 0m || qty > 1m || gst > 0m
+                || !string.IsNullOrWhiteSpace(hsn)
+                || !string.IsNullOrWhiteSpace(coverage);
+        }
+
+        private static string ResolveInvoiceLineDescription(string category)
+        {
+            if (string.Equals(category, "Material", StringComparison.OrdinalIgnoreCase))
+                return "Material charges";
+            if (string.Equals(category, "Labour", StringComparison.OrdinalIgnoreCase))
+                return "Labour charges";
+            return "Service charges";
         }
 
         private void ClearForm()
@@ -2612,6 +2845,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_numGST != null) _numGST.Enabled = !locked;
             if (_numRoundOff != null) _numRoundOff.Enabled = !locked;
             if (_cmbGstMode != null) _cmbGstMode.Enabled = !locked;
+            RestoreInvoiceEditorInputState();
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2826,11 +3060,15 @@ namespace HVAC_Pro_Desktop.UI
             decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
             decimal discount = Math.Min(Math.Max(TryParseDecimal(row.Cells["DiscountPercent"].Value), 0m), 100m);
             decimal amount = TryParseDecimal(row.Cells["Amount"].Value);
+            string category = row.Cells["Category"].Value?.ToString() ?? "Service";
+            string description = row.Cells["Description"].Value?.ToString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(description) && IsMeaningfulInvoiceLineRow(row))
+                description = ResolveInvoiceLineDescription(category);
             return new InvoiceLineItem
             {
-                Description = row.Cells["Description"].Value?.ToString() ?? string.Empty,
+                Description = description,
                 HSNCode = row.Cells["HSNCode"].Value?.ToString() ?? string.Empty,
-                Category = row.Cells["Category"].Value?.ToString() ?? "Service",
+                Category = category,
                 Unit = row.Cells["Unit"].Value?.ToString() ?? "Nos",
                 Quantity = qty <= 0 ? 1m : qty,
                 Rate = rate,
@@ -2974,7 +3212,7 @@ namespace HVAC_Pro_Desktop.UI
                     LogInvoiceActivity("draft saved");
                     ToastNotification.Show(this, "Invoice updated.", SaveGreen);
                 }
-                LoadInvoiceList();
+                LoadInvoiceList(true);
             }
             catch (Exception ex)
             {
@@ -3007,7 +3245,7 @@ namespace HVAC_Pro_Desktop.UI
                 ShowStatus("Invoice finalised.", InfoBlue);
                 LogInvoiceActivity("status changed");
                 ToastNotification.Show(this, "Invoice sent for approval.", InfoBlue);
-                LoadInvoiceList();
+                LoadInvoiceList(true);
             }
             catch (Exception ex)
             {
@@ -3100,7 +3338,7 @@ namespace HVAC_Pro_Desktop.UI
                 ShowStatus("Payment recorded.", SaveGreen);
                 LogInvoiceActivity("receipt converted");
                 ToastNotification.Show(this, "Receipt/payment recorded.", SaveGreen);
-                LoadInvoiceList();
+                LoadInvoiceList(true);
                 // Refresh current invoice display
                 if (_current != null)
                 {
@@ -3158,7 +3396,7 @@ namespace HVAC_Pro_Desktop.UI
                     Invoice creditNote = _invSvc.CreateCreditNoteForInvoice(_current.InvoiceID, numAmount.Value, txtReason.Text.Trim());
                     _current = _invSvc.GetInvoiceById(_current.InvoiceID);
                     PopulateForm(_current);
-                    LoadInvoiceList();
+                    LoadInvoiceList(true);
                     ShowStatus("Credit note created: " + creditNote.InvoiceNumber, SaveGreen);
                     LogInvoiceActivity("credit note created");
                     ToastNotification.Show(this, "Credit note created.", SaveGreen);
@@ -3747,6 +3985,14 @@ namespace HVAC_Pro_Desktop.UI
             public bool IsStockItem { get; set; }
         }
 
+        private sealed class InvoiceListSnapshot
+        {
+            public List<Invoice> Invoices { get; set; }
+            public Invoice FirstDetail { get; set; }
+        }
+
     }
 }
+
+
 

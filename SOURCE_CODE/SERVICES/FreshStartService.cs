@@ -34,7 +34,7 @@ namespace HVAC_Pro_Desktop.Services
             new ResetTarget { TableName = "JobPartsUsed", DisplayName = "Jobs", IncludeInSummary = false },
             new ResetTarget { TableName = "PurchaseLineItems", DisplayName = "Purchases", IncludeInSummary = false },
             new ResetTarget { TableName = "VendorAdvancePayments", DisplayName = "Vendor advances", IncludeInSummary = false },
-            new ResetTarget { TableName = "TenderBidLineItems", DisplayName = "Quotations", IncludeInSummary = false },
+            new ResetTarget { TableName = "QuotationLineItems", DisplayName = "Quotations", IncludeInSummary = false },
             new ResetTarget { TableName = "PayrollEntries", DisplayName = "Salary", IncludeInSummary = false },
             new ResetTarget { TableName = "StatutoryPayments", DisplayName = "Salary", IncludeInSummary = false },
             new ResetTarget { TableName = "EmployeeAttendance", DisplayName = "Attendance records", IncludeInSummary = false },
@@ -59,7 +59,7 @@ namespace HVAC_Pro_Desktop.Services
             // Parent transactional rows.
             new ResetTarget { TableName = "Invoices", DisplayName = "Invoices" },
             new ResetTarget { TableName = "Jobs", DisplayName = "Jobs" },
-            new ResetTarget { TableName = "TenderBids", DisplayName = "Quotations" },
+            new ResetTarget { TableName = "Quotations", DisplayName = "Quotations" },
             new ResetTarget { TableName = "PurchaseOrders", DisplayName = "Purchases" },
             new ResetTarget { TableName = "PayrollRuns", DisplayName = "Salary" },
 

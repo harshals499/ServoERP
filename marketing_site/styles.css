@@ -983,6 +983,85 @@ h1 {
   scroll-margin-top: 86px;
 }
 
+.forms-hero {
+  background:
+    linear-gradient(180deg, #f7faff, #ffffff 72%),
+    var(--surface);
+}
+
+.forms-gallery-section {
+  background: #ffffff;
+}
+
+.forms-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  max-width: 1420px;
+  margin: 0 auto;
+}
+
+.form-shot-card {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.form-shot-card a {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid #cbd9ed;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff, #f7faff);
+}
+
+.form-shot-card a::after {
+  content: "View";
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(8, 22, 61, 0.82);
+  font-size: 12px;
+  font-weight: 850;
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.form-shot-card a:hover::after,
+.form-shot-card a:focus-visible::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.form-shot-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+  object-position: center;
+  cursor: zoom-in;
+}
+
+.form-shot-card strong {
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.form-shot-card span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .directory-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -1133,6 +1212,101 @@ h1 {
 
 .licensing-section {
   background: #07152f;
+}
+
+.download-section {
+  background:
+    linear-gradient(180deg, #ffffff, #f7faff),
+    var(--surface);
+}
+
+.download-panel {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.62fr) minmax(280px, 0.38fr);
+  gap: clamp(24px, 4vw, 52px);
+  align-items: stretch;
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: clamp(24px, 4vw, 42px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  box-shadow: var(--shadow-md);
+}
+
+.download-copy h2 {
+  max-width: 680px;
+  margin-bottom: 14px;
+  color: var(--ink);
+  font-size: clamp(32px, 4vw, 52px);
+  line-height: 1.06;
+}
+
+.download-copy p {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.download-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.download-meta div {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fbff;
+}
+
+.download-meta strong,
+.download-meta span {
+  display: block;
+}
+
+.download-meta strong {
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.download-meta span,
+.download-notes,
+.download-action-card span {
+  color: var(--muted);
+}
+
+.download-meta span {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.download-notes {
+  margin: 18px 0 0;
+  font-size: 14px;
+}
+
+.download-action-card {
+  display: grid;
+  align-content: center;
+  gap: 14px;
+  padding: clamp(22px, 3vw, 32px);
+  border: 1px solid rgba(17, 89, 230, 0.18);
+  border-radius: var(--radius);
+  background:
+    linear-gradient(180deg, #f8fbff, #ffffff);
+}
+
+.download-action-card strong {
+  color: var(--ink);
+  font-size: 24px;
+}
+
+.download-action-card .button {
+  width: 100%;
 }
 
 .license-panel {
@@ -1515,6 +1689,7 @@ h1 {
   .module-panel,
   .module-panel.reverse,
   .license-panel,
+  .download-panel,
   .contact-panel {
     grid-template-columns: 1fr;
   }
@@ -1633,12 +1808,14 @@ h1 {
   .kpi-row,
   .proof-band,
   .workflow-lane,
+  .download-meta,
   .feature-grid,
   .industry-grid,
   .testimonial-grid,
   .pricing-grid,
   .license-grid,
   .directory-grid,
+  .forms-grid,
   .site-footer {
     grid-template-columns: 1fr;
   }

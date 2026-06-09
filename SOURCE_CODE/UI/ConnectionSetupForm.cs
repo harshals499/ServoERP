@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Configuration;
 using System.Data.SqlClient;
 using System.Drawing;
@@ -8,10 +8,10 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class ConnectionSetupForm : Form
+    public sealed class ConnectionSetupForm : ServoERP.Infrastructure.ServoFormBase
     {
         public const string ConnectionStringName = "HVACPro_Connection";
-        public const string DefaultConnectionString = @"Server=localhost\SQLEXPRESS;Database=HVAC_PRO;Integrated Security=True;";
+        public const string DefaultConnectionString = @"Server=localhost\SQLEXPRESS;Database=HVAC_PRO;Integrated Security=True;Pooling=True;Min Pool Size=0;Max Pool Size=100;Connect Timeout=15;";
 
         private readonly RadioButton _rbLocalServer = new RadioButton();
         private readonly RadioButton _rbPrivateServer = new RadioButton();
@@ -22,6 +22,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly RadioButton _rbSqlAuth = new RadioButton();
         private readonly TextBox _txtUsername = new TextBox();
         private readonly TextBox _txtPassword = new TextBox();
+        private readonly NumericUpDown _numMaxPoolSize = new NumericUpDown();
         private readonly Label _lblModeHint = new Label();
         private readonly Label _lblStatus = new Label();
         private bool _lastTestSucceeded;
@@ -35,7 +36,7 @@ namespace HVAC_Pro_Desktop.UI
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(560, 520);
+            ClientSize = new Size(560, 560);
             Font = new Font("Segoe UI", 9F);
             BackColor = DS.BgPage;
 
@@ -59,7 +60,7 @@ namespace HVAC_Pro_Desktop.UI
 
             var hint = new Label
             {
-                Text = "Choose local setup or connect this client to a private SQL Server.",
+                Text = "Choose local setup or connect this client to the always-on office SQL Server.",
                 ForeColor = Color.DimGray,
                 Location = new Point(26, 54),
                 Size = new Size(500, 24)
@@ -71,7 +72,7 @@ namespace HVAC_Pro_Desktop.UI
             _rbLocalServer.Checked = true;
             _rbLocalServer.CheckedChanged += (s, e) => UpdateServerMode();
 
-            _rbPrivateServer.Text = "Client private server";
+            _rbPrivateServer.Text = "Always-on office server";
             _rbPrivateServer.Location = new Point(180, 116);
             _rbPrivateServer.Size = new Size(220, 24);
             _rbPrivateServer.CheckedChanged += (s, e) => UpdateServerMode();
@@ -114,10 +115,17 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.Size = new Size(330, 24);
             _txtPassword.UseSystemPasswordChar = true;
 
+            AddLabel("Max Pool Size", 454);
+            _numMaxPoolSize.Location = new Point(180, 450);
+            _numMaxPoolSize.Size = new Size(120, 24);
+            _numMaxPoolSize.Minimum = 20;
+            _numMaxPoolSize.Maximum = 500;
+            _numMaxPoolSize.Value = DatabaseConnectionFactory.DefaultMaxPoolSize;
+
             var btnTestConnection = new Button
             {
                 Text = "Test Connection",
-                Location = new Point(180, 454),
+                Location = new Point(180, 492),
                 Size = new Size(130, 32)
             };
             btnTestConnection.Click += (s, e) => TestConnection();
@@ -125,7 +133,7 @@ namespace HVAC_Pro_Desktop.UI
             var btnSave = new Button
             {
                 Text = "Save",
-                Location = new Point(320, 454),
+                Location = new Point(320, 492),
                 Size = new Size(68, 32)
             };
             btnSave.Click += (s, e) => SaveConnection();
@@ -133,7 +141,7 @@ namespace HVAC_Pro_Desktop.UI
             var btnCancel = new Button
             {
                 Text = "Cancel",
-                Location = new Point(396, 454),
+                Location = new Point(396, 492),
                 Size = new Size(64, 32)
             };
             btnCancel.Click += (s, e) =>
@@ -142,7 +150,7 @@ namespace HVAC_Pro_Desktop.UI
                 Close();
             };
 
-            _lblStatus.Location = new Point(24, 492);
+            _lblStatus.Location = new Point(24, 532);
             _lblStatus.Size = new Size(500, 24);
             _lblStatus.ForeColor = Color.DimGray;
 
@@ -150,7 +158,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 title, hint, _rbLocalServer, _rbPrivateServer, _lblModeHint,
                 _txtServerIP, _txtInstance, _txtDatabase,
-                _rbWindowsAuth, _rbSqlAuth, _txtUsername, _txtPassword,
+                _rbWindowsAuth, _rbSqlAuth, _txtUsername, _txtPassword, _numMaxPoolSize,
                 btnTestConnection, btnSave, btnCancel, _lblStatus
             });
         }
@@ -171,12 +179,12 @@ namespace HVAC_Pro_Desktop.UI
             _txtServerIP.Text = "localhost";
             _txtInstance.Text = "SQLEXPRESS";
             _txtDatabase.Text = "HVAC_PRO";
+            _rbWindowsAuth.Checked = true;
+            _numMaxPoolSize.Value = DatabaseConnectionFactory.DefaultMaxPoolSize;
 
             string connectionString = DatabaseManager.GetConfiguredConnectionString();
             if (string.IsNullOrWhiteSpace(connectionString))
-            {
                 return;
-            }
 
             try
             {
@@ -200,8 +208,9 @@ namespace HVAC_Pro_Desktop.UI
                 _rbWindowsAuth.Checked = builder.IntegratedSecurity;
                 _rbSqlAuth.Checked = !builder.IntegratedSecurity;
                 _txtUsername.Text = builder.UserID;
-            _txtPassword.Text = builder.Password;
-
+                _txtPassword.Text = builder.Password;
+                decimal poolSize = Math.Min(_numMaxPoolSize.Maximum, Math.Max(_numMaxPoolSize.Minimum, DatabaseConnectionFactory.GetConfiguredMaxPoolSize()));
+                _numMaxPoolSize.Value = poolSize;
                 _rbPrivateServer.Checked = !IsLocalServer(_txtServerIP.Text);
                 _rbLocalServer.Checked = !_rbPrivateServer.Checked;
             }
@@ -218,7 +227,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (IsLocalServer(_txtServerIP.Text))
                     _txtServerIP.Text = string.Empty;
 
-                _lblModeHint.Text = "Use this when the client's data is hosted on their own office/server machine. Enter IP or server name.";
+                _lblModeHint.Text = "Use this when the office has a dedicated server PC that stays on for all ServoERP users.";
                 _txtServerIP.Focus();
             }
             else
@@ -276,19 +285,19 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 string connectionString = BuildConnectionString();
-                using (var connection = new SqlConnection(connectionString))
-                {
-                    connection.Open();
-                }
+                DatabaseConnectionTestResult result = DatabaseConnectionFactory.TestDatabaseConnectionAsync(connectionString, (int)_numMaxPoolSize.Value)
+                    .GetAwaiter()
+                    .GetResult();
 
-                _lastTestSucceeded = true;
-                _lastTestedConnectionString = connectionString;
-                _lblStatus.ForeColor = Color.ForestGreen;
-                _lblStatus.Text = "Connected successfully.";
-                AppRuntime.LogConnection("Connection setup test succeeded.");
+                _lastTestSucceeded = result.Success;
+                _lastTestedConnectionString = result.ConnectionString;
+                _lblStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
+                _lblStatus.Text = result.Message;
+                AppRuntime.LogConnection(result.Success ? "Connection setup test succeeded." : "Connection setup test failed.");
             }
             catch (Exception ex)
             {
+                LocalSqliteFallbackStore.RecordSqlUnavailable(BuildConnectionStringForFallback(), ex);
                 _lblStatus.ForeColor = Color.Firebrick;
                 _lblStatus.Text = "Connection failed: " + ex.Message;
                 AppRuntime.LogException("ConnectionSetupForm.TestConnection", ex);
@@ -340,6 +349,7 @@ namespace HVAC_Pro_Desktop.UI
             string server = (_txtServerIP.Text ?? string.Empty).Trim();
             string instance = (_txtInstance.Text ?? string.Empty).Trim();
             string database = (_txtDatabase.Text ?? string.Empty).Trim();
+            NormalizeServerAndInstance(ref server, ref instance);
 
             if (string.IsNullOrWhiteSpace(server))
                 throw new InvalidOperationException("Server IP / Name is required.");
@@ -352,7 +362,10 @@ namespace HVAC_Pro_Desktop.UI
             {
                 DataSource = string.IsNullOrWhiteSpace(instance) ? server : server + "\\" + instance,
                 InitialCatalog = database,
-                ConnectTimeout = 5,
+                ConnectTimeout = DatabaseConnectionFactory.DefaultConnectTimeoutSeconds,
+                Pooling = true,
+                MinPoolSize = DatabaseConnectionFactory.DefaultMinPoolSize,
+                MaxPoolSize = (int)_numMaxPoolSize.Value,
                 IntegratedSecurity = _rbWindowsAuth.Checked
             };
 
@@ -363,7 +376,39 @@ namespace HVAC_Pro_Desktop.UI
                 builder.IntegratedSecurity = false;
             }
 
-            return builder.ConnectionString;
+            return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString, (int)_numMaxPoolSize.Value);
+        }
+
+        /// <summary>Normalizes server and instance fields so full named-instance entries are accepted safely.</summary>
+        private void NormalizeServerAndInstance(ref string server, ref string instance)
+        {
+            if (string.IsNullOrWhiteSpace(server))
+                return;
+
+            int slashIndex = server.IndexOf('\\');
+            if (slashIndex < 0)
+                return;
+
+            string serverName = server.Substring(0, slashIndex).Trim();
+            string embeddedInstance = slashIndex >= server.Length - 1
+                ? string.Empty
+                : server.Substring(slashIndex + 1).Trim();
+
+            if (string.IsNullOrWhiteSpace(serverName))
+                return;
+
+            if (string.IsNullOrWhiteSpace(instance) ||
+                string.Equals(instance, embeddedInstance, StringComparison.OrdinalIgnoreCase))
+            {
+                server = serverName;
+                instance = embeddedInstance;
+                _txtServerIP.Text = server;
+                _txtInstance.Text = instance;
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "Enter the server name and SQL instance separately. Example: Server IP / Name = PC-5, Instance = SQLEXPRESS.");
         }
 
         private static void SaveInstallerDatabaseConfig(string connectionString)
@@ -374,7 +419,27 @@ namespace HVAC_Pro_Desktop.UI
             ConfigService.Set("Database", "UseWindowsAuth", builder.IntegratedSecurity ? "true" : "false");
             ConfigService.Set("Database", "Username", builder.IntegratedSecurity ? string.Empty : builder.UserID ?? string.Empty);
             ConfigService.Set("Database", "Password", builder.IntegratedSecurity ? string.Empty : builder.Password ?? string.Empty);
+            DatabaseConnectionFactory.SetConfiguredMaxPoolSize(builder.MaxPoolSize);
+            ConfigService.Set("Database", "ServerRole", "AlwaysOnOfficeServer");
+            ConfigService.Set("Fallback", "Mode", "LocalSQLiteDiagnostics");
+            ConfigService.Set("Fallback", "SqlitePath", LocalSqliteFallbackStore.GetDatabasePath());
+            ConfigService.Set("Fallback", "AllowBusinessWrites", "false");
         }
+
+        /// <summary>Builds the entered connection string for fallback logging only.</summary>
+        private string BuildConnectionStringForFallback()
+        {
+            try
+            {
+                return BuildConnectionString();
+            }
+            catch
+            {
+                return DatabaseManager.GetConfiguredConnectionString();
+            }
+        }
+
     }
 }
+
 

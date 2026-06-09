@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
+using Dapper;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -8,34 +10,21 @@ namespace HVAC_Pro_Desktop.DAL
     public class ClientRepository
     {
         private readonly DatabaseManager _db = new DatabaseManager();
+        private const int DefaultClientListRows = 2000;
 
         // ── READ ─────────────────────────────────────────────
         public List<B2BClient> GetAll()
         {
-            var list = new List<B2BClient>();
             using (var conn = _db.GetConnection())
-            {
-                conn.Open();
-                using (var cmd = new SqlCommand(
-                    "SELECT * FROM B2BClients WHERE IsActive = 1 ORDER BY CompanyName", conn))
-                using (var r = cmd.ExecuteReader())
-                    while (r.Read()) list.Add(Map(r));
-            }
-            return list;
+                return conn.Query<B2BClient>("SELECT * FROM B2BClients WHERE IsActive = 1 ORDER BY CompanyName").ToList();
         }
 
         public List<B2BClient> GetAllIncludingInactive()
         {
-            var list = new List<B2BClient>();
             using (var conn = _db.GetConnection())
-            {
-                conn.Open();
-                using (var cmd = new SqlCommand(
-                    "SELECT * FROM B2BClients ORDER BY CompanyName", conn))
-                using (var r = cmd.ExecuteReader())
-                    while (r.Read()) list.Add(Map(r));
-            }
-            return list;
+                return conn.Query<B2BClient>(
+                    "SELECT TOP (@maxRows) * FROM B2BClients ORDER BY CompanyName",
+                    new { maxRows = DefaultClientListRows }).ToList();
         }
 
         public B2BClient GetById(int id)
@@ -43,15 +32,9 @@ namespace HVAC_Pro_Desktop.DAL
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                B2BClient client = null;
-                using (var cmd = new SqlCommand(
-                    "SELECT * FROM B2BClients WHERE ClientID = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    using (var r = cmd.ExecuteReader())
-                        if (r.Read())
-                            client = Map(r);
-                }
+                B2BClient client = conn.QueryFirstOrDefault<B2BClient>(
+                    "SELECT * FROM B2BClients WHERE ClientID = @id",
+                    new { id });
                 if (client != null)
                     client.Contacts = GetContacts(conn, id);
                 return client;
@@ -72,14 +55,10 @@ namespace HVAC_Pro_Desktop.DAL
                     VALUES
                         (@name,@industry,@value,@contact1,@contact2,
                          @phone,@since,@email,@gst,@pan,@terms,
-                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,1);
-                    SELECT SCOPE_IDENTITY();";
+                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive);
+                    SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
-                using (var cmd = new SqlCommand(sql, conn))
-                {
-                    AddParams(cmd, c);
-                    return Convert.ToInt32(cmd.ExecuteScalar());
-                }
+                return conn.QuerySingle<int>(sql, ToClientParams(c));
             }
         }
 
@@ -114,15 +93,11 @@ namespace HVAC_Pro_Desktop.DAL
                         HealthScore       = @healthScore,
                         Notes             = @notes,
                         AssignedTo        = @assignedTo,
-                        LeadSource        = @leadSource
+                        LeadSource        = @leadSource,
+                        IsActive          = @isActive
                     WHERE ClientID = @id;";
 
-                using (var cmd = new SqlCommand(sql, conn))
-                {
-                    AddParams(cmd, c);
-                    cmd.Parameters.AddWithValue("@id", c.ClientID);
-                    cmd.ExecuteNonQuery();
-                }
+                conn.Execute(sql, ToClientParams(c, c.ClientID));
             }
         }
 
@@ -131,13 +106,18 @@ namespace HVAC_Pro_Desktop.DAL
         {
             using (var conn = _db.GetConnection())
             {
-                conn.Open();
-                using (var cmd = new SqlCommand(
-                    "UPDATE B2BClients SET IsActive = 0 WHERE ClientID = @id", conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", id);
-                    cmd.ExecuteNonQuery();
-                }
+                conn.Execute("UPDATE B2BClients SET IsActive = 0 WHERE ClientID = @id", new { id });
+            }
+        }
+
+        /// <summary>Updates only the client lifecycle fields used by dashboard status controls.</summary>
+        public void SetLifecycleStatus(int clientId, string relationshipStage, bool isActive)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Execute(
+                    "UPDATE B2BClients SET RelationshipStage = @stage, IsActive = @active WHERE ClientID = @id",
+                    new { id = clientId, stage = relationshipStage ?? string.Empty, active = isActive ? 1 : 0 });
             }
         }
 
@@ -426,6 +406,41 @@ namespace HVAC_Pro_Desktop.DAL
             cmd.Parameters.AddWithValue("@notes", c.Notes ?? "");
             cmd.Parameters.AddWithValue("@assignedTo", c.AssignedTo ?? "");
             cmd.Parameters.AddWithValue("@leadSource", c.LeadSource ?? "");
+            cmd.Parameters.AddWithValue("@isActive", c.IsActive);
+        }
+
+        private static object ToClientParams(B2BClient c, int? id = null)
+        {
+            return new
+            {
+                id,
+                name = c.CompanyName ?? "",
+                industry = c.IndustryType ?? "",
+                value = c.TotalAnnualValue,
+                contact1 = c.PrimaryContact ?? "",
+                contact2 = c.SecondaryContact ?? "",
+                phone = c.Phone ?? "",
+                since = c.CustomerSince == default(DateTime) ? DateTime.Now : c.CustomerSince,
+                email = c.Email ?? "",
+                gst = c.GSTNumber ?? "",
+                pan = c.PANNumber ?? "",
+                terms = c.PaymentTermsDays == 0 ? 30 : c.PaymentTermsDays,
+                credit = c.CreditLimit,
+                address = c.BillingAddress ?? "",
+                city = c.City ?? "",
+                geoLat = c.GeoLatitude,
+                geoLon = c.GeoLongitude,
+                geoAddress = c.GeocodeAddress ?? string.Empty,
+                geoStatus = c.GeocodeStatus ?? string.Empty,
+                geoUpdatedOn = c.GeocodeUpdatedOn,
+                relationshipStage = c.RelationshipStage ?? "",
+                tags = c.Tags ?? "",
+                healthScore = c.HealthScore,
+                notes = c.Notes ?? "",
+                assignedTo = c.AssignedTo ?? "",
+                leadSource = c.LeadSource ?? "",
+                isActive = c.IsActive
+            };
         }
 
         private static void AddTeamParams(SqlCommand cmd, ClientTeamMember member)

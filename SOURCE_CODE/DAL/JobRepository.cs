@@ -8,6 +8,7 @@ namespace HVAC_Pro_Desktop.DAL
     public class JobRepository
     {
         private readonly DatabaseManager _db = new DatabaseManager();
+        private const int DefaultRecentRows = 1000;
 
         private const string BaseSelect = @"
             SELECT j.*,
@@ -28,15 +29,39 @@ namespace HVAC_Pro_Desktop.DAL
 
         public List<Job> GetAll()
         {
+            return GetRecent(DefaultRecentRows);
+        }
+
+        public List<Job> GetRecent(int maxRows)
+        {
             var list = new List<Job>();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand(BaseSelect + " ORDER BY j.ScheduledDate DESC, j.JobID DESC", conn))
-                using (SqlDataReader r = cmd.ExecuteReader())
+                using (SqlCommand cmd = new SqlCommand(@"
+            SELECT TOP (@maxRows) j.*,
+                   c.CompanyName AS ClientName,
+                   s.SiteName,
+                   s.TravelRateINR,
+                   e.Name AS AssignedEmployeeName,
+                   CASE
+                       WHEN CAST(j.ScheduledDate AS DATE) < CAST(GETDATE() AS DATE)
+                        AND ISNULL(NULLIF(j.PipelineStatus, ''), ISNULL(j.Status, 'Created')) NOT IN ('Closed','Invoiced','Completed')
+                       THEN CAST(1 AS bit)
+                       ELSE CAST(0 AS bit)
+                   END AS IsOverdueComputed
+            FROM Jobs j
+            LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
+            LEFT JOIN ClientSites s ON j.SiteID = s.SiteID
+            LEFT JOIN Employees e ON j.AssignedEmployeeID = e.EmployeeID
+            ORDER BY j.ScheduledDate DESC, j.JobID DESC", conn))
                 {
-                    while (r.Read())
-                        list.Add(MapJob(r));
+                    cmd.Parameters.AddWithValue("@maxRows", Math.Max(1, maxRows));
+                    using (SqlDataReader r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                            list.Add(MapJob(r));
+                    }
                 }
             }
             return list;
@@ -82,7 +107,23 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
+                    WITH ChecklistAgg AS
+                    (
+                        SELECT
+                            JobId,
+                            SUM(CASE WHEN IsCompleted = 1 THEN 1 ELSE 0 END) AS CompletedCount,
+                            COUNT(*) AS TotalCount
+                        FROM JobChecklistItems
+                        GROUP BY JobId
+                    ),
+                    PartsAgg AS
+                    (
+                        SELECT JobId, SUM(TotalCost) AS PartsCost
+                        FROM JobPartsUsed
+                        GROUP BY JobId
+                    )
                     SELECT
+                        TOP (@maxRows)
                         j.JobID,
                         j.JobNumber,
                         ISNULL(NULLIF(j.JobTitle, ''), j.Title) AS JobTitle,
@@ -101,16 +142,16 @@ namespace HVAC_Pro_Desktop.DAL
                             ELSE CAST(0 AS bit)
                         END AS IsOverdue,
                         CASE WHEN ISNULL(j.QuotedRevenue, 0) = 0 THEN ISNULL(j.Revenue, 0) ELSE j.QuotedRevenue END AS QuotedRevenue,
-                        ISNULL((SELECT COUNT(*) FROM JobChecklistItems ci WHERE ci.JobId = j.JobID AND ci.IsCompleted = 1), 0) AS ChecklistCompletedCount,
-                        ISNULL((SELECT COUNT(*) FROM JobChecklistItems ci WHERE ci.JobId = j.JobID), 0) AS ChecklistTotalCount,
-                        ISNULL((SELECT SUM(p.TotalCost) FROM JobPartsUsed p WHERE p.JobId = j.JobID), 0) AS PartsCost,
+                        ISNULL(ca.CompletedCount, 0) AS ChecklistCompletedCount,
+                        ISNULL(ca.TotalCount, 0) AS ChecklistTotalCount,
+                        ISNULL(pa.PartsCost, 0) AS PartsCost,
                         j.Notes,
                         CASE
                             WHEN CASE WHEN ISNULL(j.QuotedRevenue, 0) = 0 THEN ISNULL(j.Revenue, 0) ELSE j.QuotedRevenue END <= 0 THEN 0
                             ELSE ROUND((
                                 (CASE WHEN ISNULL(j.QuotedRevenue, 0) = 0 THEN ISNULL(j.Revenue, 0) ELSE j.QuotedRevenue END)
                                 - (ISNULL(j.EstimatedCost, 0)
-                                   + ISNULL((SELECT SUM(p.TotalCost) FROM JobPartsUsed p WHERE p.JobId = j.JobID), 0)
+                                   + ISNULL(pa.PartsCost, 0)
                                    + ISNULL(s.TravelRateINR, 0))
                             ) * 100.0
                               / NULLIF((CASE WHEN ISNULL(j.QuotedRevenue, 0) = 0 THEN ISNULL(j.Revenue, 0) ELSE j.QuotedRevenue END), 0), 2)
@@ -119,32 +160,37 @@ namespace HVAC_Pro_Desktop.DAL
                     LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON j.SiteID = s.SiteID
                     LEFT JOIN Employees e ON j.AssignedEmployeeID = e.EmployeeID
+                    LEFT JOIN ChecklistAgg ca ON ca.JobId = j.JobID
+                    LEFT JOIN PartsAgg pa ON pa.JobId = j.JobID
                     ORDER BY j.ScheduledDate DESC, j.JobID DESC", conn))
-                using (SqlDataReader r = cmd.ExecuteReader())
                 {
-                    while (r.Read())
+                    cmd.Parameters.AddWithValue("@maxRows", DefaultRecentRows);
+                    using (SqlDataReader r = cmd.ExecuteReader())
                     {
-                        list.Add(new JobSummaryDto
+                        while (r.Read())
                         {
-                            JobId = GetInt(r, "JobID"),
-                            JobNumber = GetString(r, "JobNumber"),
-                            JobTitle = GetString(r, "JobTitle"),
-                            JobType = GetString(r, "JobType"),
-                            PipelineStatus = GetString(r, "PipelineStatus"),
-                            Priority = GetString(r, "Priority"),
-                            ClientName = GetString(r, "ClientName"),
-                            SiteName = GetString(r, "SiteName"),
-                            TechnicianName = GetString(r, "TechnicianName"),
-                            TechnicianId = GetNullableInt(r, "AssignedEmployeeID"),
-                            ScheduledDate = GetDateTime(r, "ScheduledDate"),
-                            IsOverdue = GetBool(r, "IsOverdue"),
-                            QuotedRevenue = GetDecimal(r, "QuotedRevenue"),
-                            EstimatedMarginPct = GetDecimal(r, "EstimatedMarginPct"),
-                            ChecklistCompletedCount = GetInt(r, "ChecklistCompletedCount"),
-                            ChecklistTotalCount = GetInt(r, "ChecklistTotalCount"),
-                            Notes = GetString(r, "Notes"),
-                            PartsCost = GetDecimal(r, "PartsCost")
-                        });
+                            list.Add(new JobSummaryDto
+                            {
+                                JobId = GetInt(r, "JobID"),
+                                JobNumber = GetString(r, "JobNumber"),
+                                JobTitle = GetString(r, "JobTitle"),
+                                JobType = GetString(r, "JobType"),
+                                PipelineStatus = GetString(r, "PipelineStatus"),
+                                Priority = GetString(r, "Priority"),
+                                ClientName = GetString(r, "ClientName"),
+                                SiteName = GetString(r, "SiteName"),
+                                TechnicianName = GetString(r, "TechnicianName"),
+                                TechnicianId = GetNullableInt(r, "AssignedEmployeeID"),
+                                ScheduledDate = GetDateTime(r, "ScheduledDate"),
+                                IsOverdue = GetBool(r, "IsOverdue"),
+                                QuotedRevenue = GetDecimal(r, "QuotedRevenue"),
+                                EstimatedMarginPct = GetDecimal(r, "EstimatedMarginPct"),
+                                ChecklistCompletedCount = GetInt(r, "ChecklistCompletedCount"),
+                                ChecklistTotalCount = GetInt(r, "ChecklistTotalCount"),
+                                Notes = GetString(r, "Notes"),
+                                PartsCost = GetDecimal(r, "PartsCost")
+                            });
+                        }
                     }
                 }
             }
@@ -346,10 +392,14 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                string sql = "SELECT " + (take > 0 ? "TOP " + take + " " : string.Empty) + "* FROM JobActivityLog WHERE JobId=@jobId ORDER BY ActivityDate DESC, ActivityId DESC";
+                string sql = take > 0
+                    ? "SELECT TOP (@take) * FROM JobActivityLog WHERE JobId=@jobId ORDER BY ActivityDate DESC, ActivityId DESC"
+                    : "SELECT * FROM JobActivityLog WHERE JobId=@jobId ORDER BY ActivityDate DESC, ActivityId DESC";
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@jobId", jobId);
+                    if (take > 0)
+                        cmd.Parameters.AddWithValue("@take", Math.Max(1, take));
                     using (SqlDataReader r = cmd.ExecuteReader())
                     {
                         while (r.Read())
@@ -624,6 +674,37 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public int GetJobNumberCountByPrefix(string prefix)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE JobNumber LIKE @prefix", conn))
+                {
+                    cmd.Parameters.AddWithValue("@prefix", (prefix ?? string.Empty) + "%");
+                    return Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
+        }
+
+        public bool JobNumberExists(string jobNumber, int excludeJobId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    SELECT TOP 1 1
+                    FROM Jobs
+                    WHERE JobID <> @excludeJobId
+                      AND JobNumber = @jobNumber", conn))
+                {
+                    cmd.Parameters.AddWithValue("@excludeJobId", excludeJobId);
+                    cmd.Parameters.AddWithValue("@jobNumber", jobNumber ?? string.Empty);
+                    return cmd.ExecuteScalar() != null;
+                }
+            }
+        }
+
         private static void AddParams(SqlCommand cmd, Job job)
         {
             string title = string.IsNullOrWhiteSpace(job.JobTitle) ? job.Title : job.JobTitle;
@@ -634,7 +715,7 @@ namespace HVAC_Pro_Desktop.DAL
 
             cmd.Parameters.AddWithValue("@jobNo", job.JobNumber ?? string.Empty);
             cmd.Parameters.AddWithValue("@clientId", job.ClientID);
-            cmd.Parameters.AddWithValue("@siteId", job.SiteID);
+            cmd.Parameters.AddWithValue("@siteId", job.SiteID > 0 ? (object)job.SiteID : DBNull.Value);
             cmd.Parameters.AddWithValue("@title", title ?? string.Empty);
             cmd.Parameters.AddWithValue("@jobTitle", string.IsNullOrWhiteSpace(job.JobTitle) ? (object)(title ?? string.Empty) : job.JobTitle.Trim());
             cmd.Parameters.AddWithValue("@desc", (object)job.Description ?? DBNull.Value);

@@ -70,6 +70,8 @@ Source: "..\bin\Release\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\{#AppExeName}.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\*.xml"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\bin\Release\x64\SQLite.Interop.dll"; DestDir: "{app}\x64"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "..\bin\Release\x86\SQLite.Interop.dll"; DestDir: "{app}\x86"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\bin\Release\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\Resources\*"; DestDir: "{app}\Resources"; Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
 Source: "..\bin\Release\runtimes\*"; DestDir: "{app}\runtimes"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -249,12 +251,13 @@ function InitializeUninstall(): Boolean;
 var
   Answer: Integer;
 begin
-  Answer := MsgBox(
+  Answer := SuppressibleMsgBox(
     'Do you want to keep ServoERP data, database, backups, invoices, receipts, and logs?' + #13#10#13#10 +
     'Choose Yes to keep business data.' + #13#10 +
     'Choose No to delete C:\HVAC_PRO_MSE after uninstall.',
     mbConfirmation,
-    MB_YESNOCANCEL);
+    MB_YESNOCANCEL,
+    IDYES);
 
   if Answer = IDCANCEL then
   begin
@@ -272,12 +275,14 @@ begin
   begin
     if KeepUserData then
     begin
-      MsgBox('ServoERP application files were removed. Your data remains at C:\HVAC_PRO_MSE.', mbInformation, MB_OK);
+      if not UninstallSilent then
+        MsgBox('ServoERP application files were removed. Your data remains at C:\HVAC_PRO_MSE.', mbInformation, MB_OK);
     end
     else
     begin
       DelTree(ExpandConstant('{app}'), True, True, True);
-      MsgBox('ServoERP application files and local data were removed.', mbInformation, MB_OK);
+      if not UninstallSilent then
+        MsgBox('ServoERP application files and local data were removed.', mbInformation, MB_OK);
     end;
   end;
 end;

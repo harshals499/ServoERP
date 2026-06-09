@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 
 namespace HVAC_Pro_Desktop.UI
@@ -13,6 +14,14 @@ namespace HVAC_Pro_Desktop.UI
         public Action<object> Copy { get; set; }
         public Action<object> Cut { get; set; }
         public Action<object> Share { get; set; }
+        public Action<object> CopyAsPath { get; set; }
+        public Action<object> AddToFavorites { get; set; }
+        public Action<object> CreateShortcut { get; set; }
+        public Action<object> SendToDesktop { get; set; }
+        public Action<object> SendToEmail { get; set; }
+        public Func<object, bool> IsLocked { get; set; }
+        public Action<object> ToggleLock { get; set; }
+        public Action<object> Properties { get; set; }
     }
 
     internal static class WindowsFileContextMenu
@@ -25,19 +34,24 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color DangerColor = Color.FromArgb(185, 28, 28);
         private static readonly Font MenuFont = new Font("Segoe UI", 9f, FontStyle.Regular);
 
+        /// <summary>Attaches the Windows-style context menu to a control tree.</summary>
         public static void Attach(Control control, Func<object> contextFactory, WindowsFileContextMenuActions actions)
         {
             if (control == null || contextFactory == null)
                 return;
 
-            AttachSingle(control, contextFactory, actions);
+            AttachControlOnly(control, contextFactory, actions);
             foreach (Control child in control.Controls)
                 Attach(child, contextFactory, actions);
             control.ControlAdded += (s, e) => Attach(e.Control, contextFactory, actions);
         }
 
-        private static void AttachSingle(Control control, Func<object> contextFactory, WindowsFileContextMenuActions actions)
+        /// <summary>Attaches the Windows-style context menu to only one control.</summary>
+        public static void AttachControlOnly(Control control, Func<object> contextFactory, WindowsFileContextMenuActions actions)
         {
+            if (control == null || contextFactory == null)
+                return;
+
             control.MouseUp += (s, e) =>
             {
                 if (e.Button != MouseButtons.Right)
@@ -74,27 +88,23 @@ namespace HVAC_Pro_Desktop.UI
 
             AddItem(menu, "Open", context, actions.Open, true);
             AddSeparator(menu);
-            AddItem(menu, "Move to OneDrive", context, null);
-            AddItem(menu, "Edit in Notepad", context, null);
-            AddItem(menu, "Add to Favorites", context, null);
-            AddItem(menu, "Scan with Microsoft Defender...", context, null);
-            AddSubmenu(menu, "Open with", context, "Choose another app", "Search Microsoft Store");
-            AddSeparator(menu);
-            AddSubmenu(menu, "Give access to", context, "Specific people...", "Remove access");
-            AddItem(menu, "Copy as path", context, null);
+            AddItem(menu, "Add to Favorites", context, actions.AddToFavorites);
+            AddItem(menu, "Copy as path", context, actions.CopyAsPath);
             AddItem(menu, "Share", context, actions.Share);
-            AddItem(menu, "Restore previous versions", context, null);
-            AddSeparator(menu);
-            AddSubmenu(menu, "Send to", context, "Desktop (create shortcut)", "Compressed folder");
+            AddSubmenu(menu, "Send to", context,
+                new MenuAction("Desktop shortcut", actions.SendToDesktop),
+                new MenuAction("Email link", actions.SendToEmail));
             AddSeparator(menu);
             AddItem(menu, "Cut", context, actions.Cut);
             AddItem(menu, "Copy", context, actions.Copy);
             AddSeparator(menu);
-            AddItem(menu, "Create shortcut", context, null);
+            AddItem(menu, "Create shortcut", context, actions.CreateShortcut);
             AddItem(menu, "Delete", context, actions.Delete, false, DangerColor);
             AddItem(menu, "Rename", context, actions.Rename);
+            AddItem(menu, IsLocked(context, actions) ? "Unlock Card" : "Lock Card", context, actions.ToggleLock);
             AddSeparator(menu);
-            AddItem(menu, "Properties", context, null);
+            AddItem(menu, "Properties", context, actions.Properties);
+            RemoveTrailingSeparators(menu);
 
             menu.KeyDown += (s, e) =>
             {
@@ -107,6 +117,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddItem(ContextMenuStrip menu, string text, object context, Action<object> action, bool bold = false, Color? foreColor = null)
         {
+            if (action == null)
+                return;
+
             var item = new ToolStripMenuItem(text)
             {
                 AutoSize = false,
@@ -119,17 +132,17 @@ namespace HVAC_Pro_Desktop.UI
 
             item.Click += (s, e) =>
             {
-                if (action != null)
-                    action(context);
-                else
-                    Debug.WriteLine("Context menu action: " + text + " -> " + Describe(context));
+                action(context);
             };
 
             menu.Items.Add(item);
         }
 
-        private static void AddSubmenu(ContextMenuStrip menu, string text, object context, params string[] placeholders)
+        private static void AddSubmenu(ContextMenuStrip menu, string text, object context, params MenuAction[] actions)
         {
+            if (actions == null || actions.All(action => action == null || action.Handler == null))
+                return;
+
             var item = new ToolStripMenuItem(text)
             {
                 AutoSize = false,
@@ -145,16 +158,16 @@ namespace HVAC_Pro_Desktop.UI
             item.DropDown.Font = MenuFont;
             item.DropDown.Renderer = new WindowsFileContextMenuRenderer();
 
-            foreach (string placeholder in placeholders)
+            foreach (MenuAction action in actions.Where(action => action != null && action.Handler != null))
             {
-                var child = new ToolStripMenuItem(placeholder)
+                var child = new ToolStripMenuItem(action.Text)
                 {
                     AutoSize = false,
                     Width = 210,
                     Height = RowHeight,
                     Padding = new Padding(8, 0, 8, 0)
                 };
-                child.Click += (s, e) => Debug.WriteLine("Context submenu action: " + text + " / " + placeholder + " -> " + Describe(context));
+                child.Click += (s, e) => action.Handler(context);
                 item.DropDownItems.Add(child);
             }
 
@@ -163,7 +176,31 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddSeparator(ContextMenuStrip menu)
         {
+            if (menu.Items.Count == 0 || menu.Items[menu.Items.Count - 1] is ToolStripSeparator)
+                return;
+
             menu.Items.Add(new ToolStripSeparator { AutoSize = false, Height = 7, Width = MenuWidth - 8 });
+        }
+
+        private static void RemoveTrailingSeparators(ContextMenuStrip menu)
+        {
+            if (menu == null)
+                return;
+
+            while (menu.Items.Count > 0 && menu.Items[menu.Items.Count - 1] is ToolStripSeparator)
+                menu.Items.RemoveAt(menu.Items.Count - 1);
+        }
+
+        private static bool IsLocked(object context, WindowsFileContextMenuActions actions)
+        {
+            try
+            {
+                return actions != null && actions.IsLocked != null && actions.IsLocked(context);
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static Point ClampToScreen(Point requested, Size preferredSize)
@@ -183,6 +220,18 @@ namespace HVAC_Pro_Desktop.UI
         private static string Describe(object context)
         {
             return context == null ? "(null)" : context.ToString();
+        }
+
+        private sealed class MenuAction
+        {
+            public readonly string Text;
+            public readonly Action<object> Handler;
+
+            public MenuAction(string text, Action<object> handler)
+            {
+                Text = text;
+                Handler = handler;
+            }
         }
 
         private sealed class WindowsFileContextMenuRenderer : ToolStripProfessionalRenderer

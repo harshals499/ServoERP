@@ -3,10 +3,11 @@ using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class HtmlPreviewDialog : Form
+    public sealed class HtmlPreviewDialog : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly WebBrowser _browser = new WebBrowser();
         private readonly string _html;
@@ -126,49 +127,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void ExportHtmlToPdf(string html, string pdfPath)
         {
-            string tempHtml = Path.Combine(Path.GetTempPath(), "servo-pdf-" + Guid.NewGuid().ToString("N") + ".html");
-            File.WriteAllText(tempHtml, html ?? string.Empty);
-            try
-            {
-                string browserPath = FindPdfBrowser();
-                if (string.IsNullOrWhiteSpace(browserPath))
-                    throw new Exception("Microsoft Edge or Google Chrome is required to generate PDF output.");
-
-                ProcessStartInfo psi = new ProcessStartInfo
-                {
-                    FileName = browserPath,
-                    Arguments = "--headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf=\"" + pdfPath + "\" \"" + new Uri(tempHtml).AbsoluteUri + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-
-                using (Process process = Process.Start(psi))
-                {
-                    process.WaitForExit(20000);
-                    if (!File.Exists(pdfPath))
-                        throw new Exception("PDF generation did not complete.");
-                }
-            }
-            finally
-            {
-                try { if (File.Exists(tempHtml)) File.Delete(tempHtml); } catch { }
-            }
-        }
-
-        private static string FindPdfBrowser()
-        {
-            string[] candidates =
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "Edge", "Application", "msedge.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "Edge", "Application", "msedge.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe")
-            };
-
-            foreach (string path in candidates)
-                if (File.Exists(path))
-                    return path;
-            return null;
+            HtmlPdfExportService.ExportHtmlToPdf(html, pdfPath);
         }
 
         private static string MakeSafeFileName(string value)
@@ -190,3 +149,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

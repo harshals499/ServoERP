@@ -7,7 +7,7 @@ using HVAC_Pro_Desktop.Services.Licensing;
 
 namespace HVAC_Pro_Desktop.UI.Licensing
 {
-    public sealed class LicenseActivationForm : Form
+    public sealed class LicenseActivationForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly LicenseService _licenseService = new LicenseService();
         private readonly DeviceFingerprintService _fingerprint = new DeviceFingerprintService();
@@ -72,7 +72,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
             Button copyFingerprint = Button("Copy Fingerprint", 462, 210, Color.White);
             copyFingerprint.ForeColor = DS.Slate700;
-            copyFingerprint.FlatAppearance.BorderColor = DS.Slate300;
+            copyFingerprint.FlatAppearance.BorderColor = DS.Border;
             copyFingerprint.FlatAppearance.BorderSize = 1;
             copyFingerprint.Click += (s, e) =>
             {
@@ -94,14 +94,14 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
             Button offline = Button("Import Offline File", 360, 284, Color.White);
             offline.ForeColor = DS.Slate700;
-            offline.FlatAppearance.BorderColor = DS.Slate300;
+            offline.FlatAppearance.BorderColor = DS.Border;
             offline.FlatAppearance.BorderSize = 1;
             offline.Click += (s, e) => ImportOffline();
             Controls.Add(offline);
 
             Button close = Button("Close", 430, 334, Color.White);
             close.ForeColor = DS.Slate700;
-            close.FlatAppearance.BorderColor = DS.Slate300;
+            close.FlatAppearance.BorderColor = DS.Border;
             close.FlatAppearance.BorderSize = 1;
             close.Click += (s, e) => Close();
             Controls.Add(close);
@@ -179,3 +179,4 @@ namespace HVAC_Pro_Desktop.UI.Licensing
         }
     }
 }
+

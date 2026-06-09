@@ -143,8 +143,13 @@ namespace HVAC_Pro_Desktop.UI
         private int _dashboardPage = 1;
         private int _dashboardPageSize = 10;
         private bool _shortcutNewJobRequested;
+        private Timer _initialJobsLoadTimer;
 
         public Action<int> OnOpenJobDetail { get; set; }
+
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
 
         private sealed class JobLoadSnapshot
         {
@@ -160,20 +165,37 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             BuildLayout();
-            if (!_showDashboard)
-            {
-                ShowJobEditor();
-                RenderChecklistPreview(new List<JobChecklistItem>());
-                RenderParts(new List<JobPartUsed>());
-                RenderNudges(new List<NudgeDto>());
-                RefreshHeader(null);
-                RefreshCostPreview();
-                UpdatePipelineBar("Created");
-                LayoutCards();
-            }
             UIHelper.ApplyInputStyles(Controls);
             RecordDeletionUi.BindDeleteShortcut(this, () => DeleteCurrentJobAsync(), () => !_showDashboard && !_isNewMode && _currentDetail != null && _currentDetail.Job != null);
-            EnableDeferredLoad((Func<Task>)(async () => await LoadInitialAsync()), ex => AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Jobs"), "Jobs screen", ex));
+            Load += (s, e) => QueueInitialJobsLoad();
+        }
+
+        private void QueueInitialJobsLoad()
+        {
+            if (_initialJobsLoadTimer != null)
+                return;
+
+            _initialJobsLoadTimer = new Timer { Interval = 750 };
+            _initialJobsLoadTimer.Tick += async (s, e) =>
+            {
+                _initialJobsLoadTimer.Stop();
+                _initialJobsLoadTimer.Dispose();
+                _initialJobsLoadTimer = null;
+                await LoadInitialAsync();
+            };
+            _initialJobsLoadTimer.Start();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing && _initialJobsLoadTimer != null)
+            {
+                _initialJobsLoadTimer.Stop();
+                _initialJobsLoadTimer.Dispose();
+                _initialJobsLoadTimer = null;
+            }
+
+            base.Dispose(disposing);
         }
 
         private void BuildLayout()
@@ -2712,7 +2734,21 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
-                await Task.Run(() => _jobSvc.AdvancePipeline(_currentDetail.Job.JobID, target));
+                int selectedTechnicianId = GetSelectedId(_cmbTechnician);
+                await Task.Run(() =>
+                {
+                    if (selectedTechnicianId > 0 && _currentDetail.Job.AssignedEmployeeID.GetValueOrDefault() != selectedTechnicianId)
+                    {
+                        Job job = _jobSvc.GetById(_currentDetail.Job.JobID);
+                        if (job == null)
+                            throw new InvalidOperationException("Job not found.");
+
+                        job.AssignedEmployeeID = selectedTechnicianId;
+                        _jobSvc.Update(job);
+                    }
+
+                    _jobSvc.AdvancePipeline(_currentDetail.Job.JobID, target);
+                });
                 await ReloadJobsAsync(_currentDetail.Job.JobID);
             }
             catch (Exception ex)
@@ -3639,7 +3675,7 @@ namespace HVAC_Pro_Desktop.UI
             public override string ToString() => Text;
         }
 
-        private class CloseJobDialog : Form
+        private class CloseJobDialog : ServoERP.Infrastructure.ServoFormBase
         {
             public decimal ActualRevenue { get; private set; }
             public string CloseNotes { get; private set; }
@@ -3696,4 +3732,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
 

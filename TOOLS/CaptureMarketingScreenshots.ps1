@@ -117,18 +117,26 @@ function Save-FormClientScreenshot($form, [string]$path) {
 }
 
 $pages = @(
+    @{ Name = "Dashboard"; Index = 0 },
     @{ Name = "Clients"; Index = 1 },
     @{ Name = "Contracts"; Index = 2 },
     @{ Name = "Invoices"; Index = 3 },
     @{ Name = "Payments"; Index = 4 },
+    @{ Name = "SLADashboard"; Index = 5 },
+    @{ Name = "Quotations"; Index = 6 },
     @{ Name = "Reports"; Index = 7 },
     @{ Name = "Settings"; Index = 8 },
-    @{ Name = "Vendors"; Index = 9 },
+    @{ Name = "Suppliers"; Index = 9 },
     @{ Name = "Purchases"; Index = 10 },
     @{ Name = "Inventory"; Index = 11 },
+    @{ Name = "Employees"; Index = 12 },
     @{ Name = "Payroll"; Index = 13 },
+    @{ Name = "DispatchCenter"; Index = 14 },
     @{ Name = "Jobs"; Index = 15 },
-    @{ Name = "ServiceDesk"; Index = 16 }
+    @{ Name = "MasterData"; Index = 17 },
+    @{ Name = "WhatsAppHub"; Index = 18 },
+    @{ Name = "Tally"; Index = 19 },
+    @{ Name = "Vendors"; Index = 20 }
 )
 
 Import-AppConnectionString

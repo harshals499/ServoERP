@@ -41,6 +41,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Panel _rightZone;
         private readonly Panel _bottomZone;
         private readonly Panel _cornerZone;
+        private readonly Panel _heightGrip;
         private readonly ContextMenuStrip _menu;
         private readonly Timer _savedTimer;
         private readonly Timer _animateTimer;
@@ -48,6 +49,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _isResizing;
         private bool _allowResize = true;
         private bool _showGrip;
+        private bool _layoutLocked;
         private bool _suppressAutoSave;
         private ResizeDirection _resizeDirection = ResizeDirection.None;
         private Point _resizeStart;
@@ -160,16 +162,33 @@ namespace HVAC_Pro_Desktop.UI
             HookResizeEvents(_bottomZone, ResizeDirection.Bottom);
             _cornerZone = new Panel
             {
-                Width = 18,
-                Height = 18,
+                Name = CardResizeGripService.CornerGripName,
+                Width = CardResizeGripService.CornerGripSize,
+                Height = CardResizeGripService.CornerGripSize,
                 Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
                 BackColor = DS.White,
                 Cursor = Cursors.SizeNWSE
             };
             _cornerZone.Location = new Point(Width - _cornerZone.Width - 1, Height - _cornerZone.Height - 1);
+            _cornerZone.Paint += (s, e) => CardResizeGripService.PaintCornerGrip(_cornerZone, e);
             HookResizeEvents(_cornerZone, ResizeDirection.BottomRight);
             _cornerZone.MouseEnter += (s, e) => SetGripVisible(true);
             _cornerZone.MouseLeave += (s, e) => { if (!_isResizing) SetGripVisible(false); };
+
+            _heightGrip = new Panel
+            {
+                Name = CardResizeGripService.HeightGripName,
+                Width = CardResizeGripService.HeightGripWidth,
+                Height = CardResizeGripService.HeightGripHeight,
+                Anchor = AnchorStyles.Bottom,
+                BackColor = DS.White,
+                Cursor = Cursors.SizeNS
+            };
+            _heightGrip.Location = new Point(Math.Max(1, (Width - _heightGrip.Width) / 2), Math.Max(1, Height - _heightGrip.Height - 1));
+            _heightGrip.Paint += HeightGrip_Paint;
+            HookResizeEvents(_heightGrip, ResizeDirection.Bottom);
+            _heightGrip.MouseEnter += (s, e) => SetGripVisible(true);
+            _heightGrip.MouseLeave += (s, e) => { if (!_isResizing) SetGripVisible(false); };
 
             _menu = BuildMenu();
             ContextMenuStrip = _menu;
@@ -181,6 +200,7 @@ namespace HVAC_Pro_Desktop.UI
             _animateTimer.Tick += AnimateTimer_Tick;
 
             Controls.Add(_cornerZone);
+            Controls.Add(_heightGrip);
             Controls.Add(_contentPanel);
             Controls.Add(_bottomZone);
             Controls.Add(_rightZone);
@@ -188,7 +208,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Resize += (s, e) =>
             {
-                _cornerZone.Location = new Point(Math.Max(1, Width - _cornerZone.Width - 1), Math.Max(1, Height - _cornerZone.Height - 1));
+                PositionResizeGrips();
                 UpdateLayoutState();
                 QueueOverflowUpdate();
             };
@@ -230,6 +250,21 @@ namespace HVAC_Pro_Desktop.UI
         public CardResizeAxes ResizeAxes { get; set; } = CardResizeAxes.Both;
         public int MinCardWidth => MinimumSize.Width;
         public int MinCardHeight => MinimumSize.Height;
+
+        /// <summary>Locks or unlocks card movement and resizing through the shared dashboard layout layer.</summary>
+        public void SetLayoutLocked(bool locked)
+        {
+            _layoutLocked = locked;
+            if (_isResizing && locked)
+                FinishResize();
+            UpdateLayoutState();
+        }
+
+        /// <summary>Returns true when the shared dashboard layout layer has locked this card.</summary>
+        public bool IsLayoutLocked
+        {
+            get { return _layoutLocked; }
+        }
 
         public void ApplyPersistedLayout(Size size, string preset)
         {
@@ -346,7 +381,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             control.MouseDown += (s, e) =>
             {
-                if (!AllowResize || e.Button != MouseButtons.Left)
+                if (_layoutLocked || !AllowResize || e.Button != MouseButtons.Left)
                     return;
 
                 _isResizing = true;
@@ -369,7 +404,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void HeaderDrag_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button == MouseButtons.Left && !_isResizing)
+            if (e.Button == MouseButtons.Left && !_isResizing && !_layoutLocked)
                 CardDragRequested?.Invoke(this, e);
         }
 
@@ -628,13 +663,47 @@ namespace HVAC_Pro_Desktop.UI
         {
             _headerPanel.Visible = ShowHeader;
             _menuButton.Visible = ShowHeader && AllowResize;
-            _savedLabel.Visible = _savedLabel.Visible && ShowHeader;
+            if (_layoutLocked)
+            {
+                _savedTimer.Stop();
+                _savedLabel.Text = "Locked";
+                _savedLabel.ForeColor = DS.Primary600;
+                _savedLabel.Visible = ShowHeader;
+                BorderColor = DS.Primary600;
+            }
+            else
+            {
+                if (string.Equals(_savedLabel.Text, "Locked", StringComparison.Ordinal))
+                {
+                    _savedLabel.Text = "Saved";
+                    _savedLabel.ForeColor = SavedColor;
+                    _savedLabel.Visible = false;
+                    BorderColor = DefaultBorder;
+                }
+
+                _savedLabel.Visible = _savedLabel.Visible && ShowHeader;
+            }
             _overflowLabel.Visible = _overflowLabel.Visible && ShowHeader;
-            _rightZone.Visible = AllowResize && ResizeAxes != CardResizeAxes.HeightOnly;
-            _bottomZone.Visible = AllowResize && ResizeAxes != CardResizeAxes.WidthOnly;
-            _cornerZone.Visible = AllowResize && ResizeAxes == CardResizeAxes.Both;
+            _rightZone.Visible = !_layoutLocked && AllowResize && ResizeAxes != CardResizeAxes.HeightOnly;
+            _bottomZone.Visible = !_layoutLocked && AllowResize && ResizeAxes != CardResizeAxes.WidthOnly;
+            _cornerZone.Visible = !_layoutLocked && AllowResize && ResizeAxes == CardResizeAxes.Both;
+            _heightGrip.Visible = !_layoutLocked && AllowResize && ResizeAxes != CardResizeAxes.WidthOnly;
             _contentPanel.Padding = ShowHeader ? new Padding(14, 14, 16, 14) : new Padding(14, 14, 16, 14);
+            PositionResizeGrips();
             Invalidate();
+        }
+
+        private void PositionResizeGrips()
+        {
+            if (_cornerZone != null && !_cornerZone.IsDisposed)
+            {
+                CardResizeGripService.PositionCornerGrip(this, _cornerZone, 1);
+            }
+
+            if (_heightGrip != null && !_heightGrip.IsDisposed)
+            {
+                CardResizeGripService.PositionHeightGrip(this, _heightGrip, 1);
+            }
         }
 
         private void QueueOverflowUpdate()
@@ -684,8 +753,22 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void HeightGrip_Paint(object sender, PaintEventArgs e)
+        {
+            CardResizeGripService.PaintHeightGrip(_heightGrip, e);
+        }
+
         private void SavedTimer_Tick(object sender, EventArgs e)
         {
+            if (_layoutLocked)
+            {
+                _savedTimer.Stop();
+                _savedLabel.Text = "Locked";
+                _savedLabel.ForeColor = DS.Primary600;
+                _savedLabel.Visible = ShowHeader;
+                return;
+            }
+
             int alpha = _savedLabel.ForeColor.A - 35;
             if (alpha <= 0)
             {
@@ -700,10 +783,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowSavedFeedback()
         {
-            if (!ShowHeader)
+            if (!ShowHeader || _layoutLocked)
                 return;
 
             _savedTimer.Stop();
+            _savedLabel.Text = "Saved";
             _savedLabel.ForeColor = SavedColor;
             _savedLabel.Visible = true;
             Task.Delay(1500).ContinueWith(t =>

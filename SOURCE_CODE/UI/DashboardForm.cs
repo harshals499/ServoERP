@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.UI
         public const string ShortcutNewJob = "NewJob";
         public const string ShortcutNewQuotation = "NewQuotation";
         public const string ShortcutNewInvoice = "NewInvoice";
+        public const string ShortcutNewAMC = "NewAMC";
 
         public Action<int> OnNavigate { get; set; }
         public Action<string> OnShortcut { get; set; }
@@ -317,29 +318,44 @@ namespace HVAC_Pro_Desktop.UI
                 sourceButton.Text = "Backing up...";
             }
 
-            var worker = new BackgroundWorker();
+            var worker = CreateWorker();
             worker.DoWork += (s, e) => e.Result = new BackupService().RunBackup(BackupTrigger.Manual);
             worker.RunWorkerCompleted += (s, e) =>
             {
-                worker.Dispose();
-                _backupNowRunning = false;
-                if (sourceButton != null && !sourceButton.IsDisposed)
-                {
-                    sourceButton.Enabled = true;
-                    sourceButton.Text = "Backup Now";
-                }
-
                 if (e.Error != null)
                 {
-                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                    RunOnUI(() =>
+                    {
+                        worker.Dispose();
+                        _backupNowRunning = false;
+                        if (sourceButton != null && !sourceButton.IsDisposed)
+                        {
+                            sourceButton.Enabled = true;
+                            sourceButton.Text = "Backup Now";
+                        }
+                        ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                    });
+                    ShowError( "Manual backup failed. Please check backup settings.", e.Error);
                     return;
                 }
+                if (e.Cancelled) return;
 
-                BackupResult result = e.Result as BackupResult;
-                if (result != null && result.Success)
-                    ToastNotification.ShowToast("Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
-                else
-                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                RunOnUI(() =>
+                {
+                    worker.Dispose();
+                    _backupNowRunning = false;
+                    if (sourceButton != null && !sourceButton.IsDisposed)
+                    {
+                        sourceButton.Enabled = true;
+                        sourceButton.Text = "Backup Now";
+                    }
+
+                    BackupResult result = e.Result as BackupResult;
+                    if (result != null && result.Success)
+                        ToastNotification.ShowToast("Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
+                    else
+                        ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                });
             };
             worker.RunWorkerAsync();
         }
@@ -448,10 +464,13 @@ namespace HVAC_Pro_Desktop.UI
 
             int buttonWidth = 154;
             int gap = 12;
-            int startX = Math.Max(460, width - (buttonWidth * 3) - (gap * 2) - 24);
-            AddShortcutButton(panel, "+ New Job", startX, ShortcutNewJob, DS.Primary600);
-            AddShortcutButton(panel, "+ New Quotation", startX + buttonWidth + gap, ShortcutNewQuotation, DS.Teal600);
-            AddShortcutButton(panel, "+ New Invoice", startX + ((buttonWidth + gap) * 2), ShortcutNewInvoice, Color.FromArgb(124, 58, 237));
+            string[] shortcutLabels = { "+ New Job", "+ New Quotation", "+ New Invoice", "+ Add AMC" };
+            string[] shortcutActions = { ShortcutNewJob, ShortcutNewQuotation, ShortcutNewInvoice, ShortcutNewAMC };
+            Color[] shortcutColors = { DS.Primary600, DS.Teal600, Color.FromArgb(124, 58, 237), Color.FromArgb(16, 185, 129) };
+            int startX = Math.Max(460, width - ((buttonWidth * shortcutLabels.Length) + (gap * (shortcutLabels.Length - 1))) - 24);
+
+            for (int i = 0; i < shortcutLabels.Length; i++)
+                AddShortcutButton(panel, shortcutLabels[i], startX + (buttonWidth + gap) * i, shortcutActions[i], shortcutColors[i]);
 
             panel.Controls.AddRange(new Control[] { icon, title, subtitle });
             _root.Controls.Add(panel);
@@ -759,3 +778,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
+

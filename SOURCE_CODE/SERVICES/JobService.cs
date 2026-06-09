@@ -27,15 +27,10 @@ namespace HVAC_Pro_Desktop.Services
 
         public Job GetById(int id)
         {
-            foreach (Job job in GetAll())
-            {
-                if (job.JobID == id)
-                    return job;
-            }
             return _repo.GetById(id);
         }
 
-        public List<Job> GetByStatus(string status) => GetAll().FindAll(j => string.Equals(j.Status, status, StringComparison.OrdinalIgnoreCase));
+        public List<Job> GetByStatus(string status) => _repo.GetByStatus(status);
 
         public List<JobSummaryDto> GetAllJobsWithSummary()
         {
@@ -470,8 +465,6 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (job.ClientID <= 0)
                 throw new Exception("Select a client.");
-            if (job.SiteID <= 0)
-                throw new Exception("Select a site.");
             if (string.IsNullOrWhiteSpace(job.JobTitle) && string.IsNullOrWhiteSpace(job.Title))
                 throw new Exception("Enter a job title.");
 
@@ -493,9 +486,7 @@ namespace HVAC_Pro_Desktop.Services
             ValidationResult result = _businessRules.ValidateJob(job);
             if (job != null && !string.IsNullOrWhiteSpace(job.JobNumber))
             {
-                bool duplicateNumber = GetAll().Any(existing =>
-                    existing.JobID != job.JobID &&
-                    string.Equals((existing.JobNumber ?? string.Empty).Trim(), job.JobNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+                bool duplicateNumber = _repo.JobNumberExists(job.JobNumber.Trim(), job.JobID);
                 if (duplicateNumber)
                     result.Add(ValidationSeverity.Error, "WorkOrders", "JobNumber", "Another work order already uses this job number.", "Open the existing work order or generate a new job number.");
             }
@@ -605,8 +596,9 @@ namespace HVAC_Pro_Desktop.Services
 
         public string GenerateJobNumber()
         {
-            int nextSequence = GetAll().Count + 1;
-            return "JOB-" + DateTime.Now.ToString("yyMMdd") + "-" + nextSequence.ToString("0000");
+            string prefix = "JOB-" + DateTime.Now.ToString("yyMMdd") + "-";
+            int nextSequence = _repo.GetJobNumberCountByPrefix(prefix) + 1;
+            return prefix + nextSequence.ToString("0000");
         }
 
         private static string GetCurrentUserLabel()

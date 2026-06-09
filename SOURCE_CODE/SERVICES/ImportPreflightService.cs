@@ -97,7 +97,7 @@ ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0")
                         break;
                     case ExcelImportModule.Jobs:
                         RequireExists(result, rowNumber, "Client", Get(row, "ClientName"), clients, "Import Clients before Jobs.");
-                        RequireClientSite(result, rowNumber, row, clientSites, "Import Sites before Jobs.");
+                        RequireClientSite(result, rowNumber, row, clientSites, "Import Sites before Jobs, or leave SiteName blank.");
                         string technicianName = Get(row, "TechnicianName");
                         if (!string.IsNullOrWhiteSpace(technicianName))
                             RequireExists(result, rowNumber, "Technician/employee", technicianName, employees, "Import Employees before Jobs, or leave TechnicianName blank.");
@@ -148,15 +148,15 @@ ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0")
                 case ExcelImportModule.Sites:
                     return "Import Clients before Sites.";
                 case ExcelImportModule.Invoices:
-                    return "Import Clients and Sites before Invoices.";
+                    return "Import Clients before Invoices. SiteName may be left blank when the site is not decided.";
                 case ExcelImportModule.Quotations:
-                    return "Import Clients and Sites before Quotations.";
+                    return "Import Clients before Quotations. SiteName may be left blank when the site is not decided.";
                 case ExcelImportModule.Purchases:
                     return "Import Vendors before Purchases.";
                 case ExcelImportModule.Payments:
                     return "Import Invoices before Payments.";
                 case ExcelImportModule.Jobs:
-                    return "Import Clients, Sites, and Employees before Jobs.";
+                    return "Import Clients before Jobs. SiteName and TechnicianName may be left blank when not decided.";
                 default:
                     return string.Empty;
             }

@@ -16,7 +16,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private readonly Color PageBg = Color.FromArgb(246, 248, 251);
         private readonly Color White = Color.White;
-        private readonly Color Border = Color.FromArgb(226, 232, 240);
+        private readonly Color Border = DS.Border;
         private readonly Color TextPrimary = Color.FromArgb(15, 23, 42);
         private readonly Color TextSecondary = Color.FromArgb(71, 85, 105);
         private readonly Color Muted = Color.FromArgb(100, 116, 139);
@@ -47,6 +47,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _timelinePanel;
         private Label _lblStatus;
         private Label _lblTechTitle;
+        private ComboBox _cmbTechnicianDesignationFilter;
 
         private Label _kpiUnassigned;
         private Label _kpiToday;
@@ -81,6 +82,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly List<Panel> _techCards = new List<Panel>();
         private readonly Timer _autoRefreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
+        private const int TechnicianCardWidth = 220;
+        private const int TechnicianCardHeight = 132;
 
         private List<JobSummaryDto> _jobs = new List<JobSummaryDto>();
         private List<Employee> _technicians = new List<Employee>();
@@ -92,21 +95,40 @@ namespace HVAC_Pro_Desktop.UI
         private bool _usingFallbackJobs;
         private bool _satelliteMapEnabled;
         private bool _trafficOverlayEnabled = true;
+        private Timer _initialDispatchLoadTimer;
 
         public Action<int> OnNavigate { get; set; }
         public Action<int> OnOpenClientSite { get; set; }
         public Action<int> OnOpenJobDetail { get; set; }
+
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
 
         public GeoIntelligenceForm()
         {
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             BuildLayout();
-            UIHelper.ApplyInputStyles(Controls);
             _autoRefreshTimer.Interval = 30000;
             _autoRefreshTimer.Tick += (s, e) => QueueLoadDispatchData();
-            _lblStatus = new Label { Visible = false };
-            EnableDeferredLoad(() => QueueLoadDispatchData(), ex => AppRuntime.LogException("DispatchCenter.LoadData", ex));
+            Load += (s, e) => QueueInitialDispatchLoad();
+        }
+
+        private void QueueInitialDispatchLoad()
+        {
+            if (_initialDispatchLoadTimer != null)
+                return;
+
+            _initialDispatchLoadTimer = new Timer { Interval = 750 };
+            _initialDispatchLoadTimer.Tick += (s, e) =>
+            {
+                _initialDispatchLoadTimer.Stop();
+                _initialDispatchLoadTimer.Dispose();
+                _initialDispatchLoadTimer = null;
+                QueueLoadDispatchData();
+            };
+            _initialDispatchLoadTimer.Start();
         }
 
         protected override void Dispose(bool disposing)
@@ -115,6 +137,12 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _autoRefreshTimer.Stop();
                 _autoRefreshTimer.Dispose();
+                if (_initialDispatchLoadTimer != null)
+                {
+                    _initialDispatchLoadTimer.Stop();
+                    _initialDispatchLoadTimer.Dispose();
+                    _initialDispatchLoadTimer = null;
+                }
                 _toolTip.Dispose();
             }
             base.Dispose(disposing);
@@ -150,7 +178,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = "Dispatch Center",
                 Location = new Point(0, 6),
-                Size = new Size(380, 30),
+                Size = new Size(460, 30),
                 Font = new Font("Segoe UI", 18f, FontStyle.Bold),
                 ForeColor = TextPrimary
             };
@@ -162,14 +190,26 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = TextSecondary
             };
+            _lblStatus = new Label
+            {
+                Text = "Dispatch Center ready.",
+                Location = new Point(1, 60),
+                Size = new Size(640, 18),
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = Muted,
+                AutoEllipsis = true
+            };
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
+            header.Controls.Add(_lblStatus);
 
             _cmbLocation = MakeCombo();
-            _cmbLocation.Width = 190;
+            Panel locationHost = new Panel { Name = "DispatchLocationHost", Size = new Size(190, 32), BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
+            _cmbLocation.Dock = DockStyle.Fill;
             _cmbLocation.Items.Add("All Locations");
             _cmbLocation.SelectedIndex = 0;
             _cmbLocation.SelectedIndexChanged += (s, e) => ApplyJobFilters();
+            locationHost.Controls.Add(_cmbLocation);
 
             _chkAutoRefresh = new CheckBox
             {
@@ -204,22 +244,28 @@ namespace HVAC_Pro_Desktop.UI
             Button newJob = MakePrimaryButton("+ New Job", 116);
             newJob.Click += (s, e) => OnNavigate?.Invoke(15);
 
-            header.Resize += (s, e) =>
+            Action layoutHeader = () =>
             {
-                bool compact = header.Width < 980;
-                _cmbLocation.Width = compact ? 150 : 190;
+                bool compact = header.Width < 1120;
+                locationHost.Width = compact ? 150 : 190;
                 notify.Visible = help.Visible = !compact;
-                int x = compact ? Math.Max(300, header.Width - 520) : Math.Max(360, header.Width - 800);
-                _cmbLocation.Location = new Point(x, 20);
-                _chkAutoRefresh.Location = new Point(_cmbLocation.Right + (compact ? 8 : 18), 25);
+                int x = compact ? Math.Max(500, header.Width - 560) : Math.Max(520, header.Width - 800);
+                title.Width = Math.Max(260, Math.Min(460, x - 18));
+                subtitle.Width = title.Width;
+                _lblStatus.Width = title.Width;
+                locationHost.Location = new Point(x, 18);
+                _chkAutoRefresh.Location = new Point(locationHost.Right + (compact ? 8 : 18), 25);
                 _autoRefreshPulse.Location = new Point(_chkAutoRefresh.Right + 6, 24);
                 notify.Location = new Point((_autoRefreshPulse.Visible ? _autoRefreshPulse.Right : _chkAutoRefresh.Right) + 18, 20);
                 help.Location = new Point(notify.Right + 8, 20);
                 _btnRefresh.Location = new Point(compact ? (_autoRefreshPulse.Visible ? _autoRefreshPulse.Right + 8 : _chkAutoRefresh.Right + 8) : help.Right + 18, 20);
                 forms.Location = new Point(_btnRefresh.Right + 10, 20);
                 newJob.Location = new Point(forms.Right + 10, 20);
+                UIHelper.ApplyButtonContainerLayout(header);
             };
-            header.Controls.AddRange(new Control[] { _cmbLocation, _chkAutoRefresh, _autoRefreshPulse, notify, help, _btnRefresh, forms, newJob });
+            header.Resize += (s, e) => layoutHeader();
+            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, notify, help, _btnRefresh, forms, newJob });
+            layoutHeader();
             return header;
         }
 
@@ -266,10 +312,11 @@ namespace HVAC_Pro_Desktop.UI
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            Control technicianBoard = BuildTechnicianBoard();
             Control jobQueue = BuildJobQueue();
-            Control operations = BuildOperationsBoard();
+            Control operations = BuildOperationsBoard(jobQueue);
             Control rightPanel = BuildRightPanel();
-            layout.Controls.Add(jobQueue, 0, 0);
+            layout.Controls.Add(technicianBoard, 0, 0);
             layout.Controls.Add(operations, 1, 0);
             layout.Controls.Add(rightPanel, 2, 0);
             layout.Resize += (s, e) =>
@@ -286,8 +333,8 @@ namespace HVAC_Pro_Desktop.UI
                     layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
                     layout.RowStyles.Add(new RowStyle(SizeType.Percent, 64f));
                     layout.RowStyles.Add(new RowStyle(SizeType.Percent, 36f));
-                    layout.SetColumn(jobQueue, 0);
-                    layout.SetRow(jobQueue, 0);
+                    layout.SetColumn(technicianBoard, 0);
+                    layout.SetRow(technicianBoard, 0);
                     layout.SetColumn(operations, 1);
                     layout.SetRow(operations, 0);
                     layout.SetColumn(rightPanel, 0);
@@ -302,8 +349,8 @@ namespace HVAC_Pro_Desktop.UI
                     layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
                     layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
                     layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-                    layout.SetColumn(jobQueue, 0);
-                    layout.SetRow(jobQueue, 0);
+                    layout.SetColumn(technicianBoard, 0);
+                    layout.SetRow(technicianBoard, 0);
                     layout.SetColumn(operations, 1);
                     layout.SetRow(operations, 0);
                     layout.SetColumn(rightPanel, 2);
@@ -346,6 +393,8 @@ namespace HVAC_Pro_Desktop.UI
             _txtSearch = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), Margin = new Padding(0, 0, 6, 8) };
             _txtSearch.Text = "";
             _txtSearch.TextChanged += (s, e) => ApplyJobFilters();
+            Panel searchHost = WrapInput(_txtSearch, "DispatchSearchHost");
+            searchHost.Margin = new Padding(0, 0, 6, 8);
             Button filter = MakeToolbarButton("Filter", 70);
             filter.Dock = DockStyle.Fill;
             filter.Margin = new Padding(0, 0, 6, 8);
@@ -366,14 +415,18 @@ namespace HVAC_Pro_Desktop.UI
             date.Dock = DockStyle.Fill;
             date.Margin = new Padding(0, 0, 0, 4);
             date.Click += (s, e) => SetTodayDispatchFilter();
-            filters.Controls.Add(_txtSearch, 0, 0);
-            filters.SetColumnSpan(_txtSearch, 2);
+            filters.Controls.Add(searchHost, 0, 0);
+            filters.SetColumnSpan(searchHost, 2);
             filters.Controls.Add(filter, 2, 0);
             filters.Controls.Add(date, 3, 0);
-            filters.Controls.Add(_cmbType, 0, 1);
-            filters.SetColumnSpan(_cmbType, 2);
-            filters.Controls.Add(_cmbPriority, 2, 1);
-            filters.SetColumnSpan(_cmbPriority, 2);
+            Panel typeHost = WrapInput(_cmbType, "DispatchTypeFilterHost");
+            typeHost.Margin = new Padding(0, 0, 6, 8);
+            Panel priorityHost = WrapInput(_cmbPriority, "DispatchPriorityFilterHost");
+            priorityHost.Margin = new Padding(0, 0, 0, 8);
+            filters.Controls.Add(typeHost, 0, 1);
+            filters.SetColumnSpan(typeHost, 2);
+            filters.Controls.Add(priorityHost, 2, 1);
+            filters.SetColumnSpan(priorityHost, 2);
             filterShell.Controls.Add(filters);
             card.Controls.Add(filterShell);
 
@@ -429,13 +482,13 @@ namespace HVAC_Pro_Desktop.UI
             tabs.Controls.Add(tab);
         }
 
-        private Control BuildOperationsBoard()
+        private Control BuildOperationsBoard(Control jobQueue)
         {
             TableLayoutPanel center = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 1, RowCount = 3, Margin = new Padding(8, 0, 8, 0) };
-            center.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));
             center.RowStyles.Add(new RowStyle(SizeType.Percent, 52));
-            center.RowStyles.Add(new RowStyle(SizeType.Percent, 48));
-            center.Controls.Add(BuildTechnicianBoard(), 0, 0);
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 23));
+            center.Controls.Add(jobQueue, 0, 0);
             center.Controls.Add(BuildMapCard(), 0, 1);
             center.Controls.Add(BuildTimelineCard(), 0, 2);
             return center;
@@ -446,24 +499,60 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CreateCard();
             card.Margin = new Padding(0, 0, 0, 8);
             card.Padding = new Padding(14);
+            AttachDispatchRowResizeGrip(card, 212);
             Label loading = new Label { Text = "Map view loading live locations...", Dock = DockStyle.Bottom, Height = 24, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, TextAlign = ContentAlignment.MiddleLeft, BackColor = White };
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = White };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = White };
             _lblTechTitle = SectionTitle("TECHNICIANS (0)");
-            _lblTechTitle.Dock = DockStyle.Left;
-            _lblTechTitle.Width = 220;
+            _lblTechTitle.Location = new Point(0, 0);
+            _lblTechTitle.Size = new Size(260, 30);
+            _cmbTechnicianDesignationFilter = MakeCombo();
+            _cmbTechnicianDesignationFilter.Items.Add("All Designations");
+            _cmbTechnicianDesignationFilter.SelectedIndex = 0;
+            _cmbTechnicianDesignationFilter.SelectedIndexChanged += (s, e) =>
+            {
+                if (_binding)
+                    return;
+                BindTechnicians();
+                BindKpis();
+                RenderMapAndTimeline();
+            };
+            Panel designationHost = WrapInput(_cmbTechnicianDesignationFilter, "TechnicianDesignationFilterHost");
+            designationHost.Location = new Point(0, 34);
+            designationHost.Size = new Size(220, 32);
+            Panel viewGroup = new Panel
+            {
+                Dock = DockStyle.Right,
+                Width = 246,
+                Height = 32,
+                BackColor = White,
+                Padding = Padding.Empty
+            };
+            viewGroup.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, viewGroup.Width - 1, viewGroup.Height - 1);
+            };
             Button timeline = MakeToolbarButton("View Timeline", 112);
-            timeline.Dock = DockStyle.Right;
+            timeline.Location = new Point(0, 0);
             timeline.Click += (s, e) => ShowTechnicianTimelineSummary();
             Button list = MakeToolbarButton("List", 64);
-            list.Dock = DockStyle.Right;
+            list.Location = new Point(112, 0);
             list.Click += (s, e) => ToggleTechnicianListView();
             Button map = MakeToolbarButton("Map", 64);
-            map.Dock = DockStyle.Right;
+            map.Location = new Point(176, 0);
             map.Click += (s, e) => SetTechnicianMapView();
-            header.Controls.AddRange(new Control[] { timeline, list, map, _lblTechTitle });
-            card.Controls.Add(header);
-            _techList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = White, Padding = new Padding(0, 4, 0, 0) };
+            foreach (Button button in new[] { timeline, list, map })
+            {
+                button.Margin = Padding.Empty;
+                button.Height = 32;
+                button.FlatAppearance.BorderSize = 0;
+                button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
+                viewGroup.Controls.Add(button);
+            }
+            _techList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = White, Padding = new Padding(0, 4, 18, 12) };
             card.Controls.Add(_techList);
+            header.Controls.AddRange(new Control[] { viewGroup, designationHost, _lblTechTitle });
+            card.Controls.Add(header);
             return card;
         }
 
@@ -522,6 +611,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = CreateCard();
             card.Padding = new Padding(14);
+            AttachDispatchRowResizeGrip(card, 160);
             Panel header = new Panel { Dock = DockStyle.Top, Height = 36, BackColor = White };
             Label title = SectionTitle("TODAY'S SCHEDULE OVERVIEW");
             title.Dock = DockStyle.Left;
@@ -545,9 +635,9 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildRightPanel()
         {
             TableLayoutPanel right = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 1, RowCount = 3, Margin = new Padding(8, 0, 0, 0) };
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
-            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 178));
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 42));
+            right.RowStyles.Add(new RowStyle(SizeType.Percent, 56));
+            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 238));
+            right.RowStyles.Add(new RowStyle(SizeType.Percent, 44));
             right.Controls.Add(BuildJobDetails(), 0, 0);
             right.Controls.Add(BuildQuickActions(), 0, 1);
             right.Controls.Add(BuildJobInformation(), 0, 2);
@@ -626,8 +716,9 @@ namespace HVAC_Pro_Desktop.UI
             _txtProblem = new TextBox { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle };
             form.Controls.Add(desc, 0, 3);
             form.SetColumnSpan(desc, 2);
-            form.Controls.Add(_txtProblem, 0, 4);
-            form.SetColumnSpan(_txtProblem, 2);
+            Panel problemHost = WrapInput(_txtProblem, "DispatchProblemHost");
+            form.Controls.Add(problemHost, 0, 4);
+            form.SetColumnSpan(problemHost, 2);
             Label tech = SmallLabel("Assigned Technician");
             Label sched = SmallLabel("Schedule Date & Time");
             _cmbAssignTechnician = MakeCombo();
@@ -642,11 +733,11 @@ namespace HVAC_Pro_Desktop.UI
             update.Click += (s, e) => UpdateJobStatus();
             form.Controls.Add(tech, 0, 5);
             form.Controls.Add(sched, 1, 5);
-            form.Controls.Add(_cmbAssignTechnician, 0, 6);
-            form.Controls.Add(_dtpSchedule, 1, 6);
+            form.Controls.Add(WrapInput(_cmbAssignTechnician, "DispatchAssignTechnicianHost"), 0, 6);
+            form.Controls.Add(WrapInput(_dtpSchedule, "DispatchScheduleHost"), 1, 6);
             form.Controls.Add(_lblScheduleWarning, 1, 7);
             form.Controls.Add(status, 0, 7);
-            form.Controls.Add(_cmbDetailStatus, 0, 8);
+            form.Controls.Add(WrapInput(_cmbDetailStatus, "DispatchDetailStatusHost"), 0, 8);
             form.Controls.Add(update, 1, 8);
             page.Controls.Add(form);
             return page;
@@ -680,7 +771,7 @@ namespace HVAC_Pro_Desktop.UI
             TabPage page = new TabPage("Notes") { BackColor = White, Padding = new Padding(4) };
             TextBox notes = new TextBox { Dock = DockStyle.Fill, Multiline = true, Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle };
             notes.Text = "Add dispatcher notes here. Use Add Note for saving to job notes.";
-            page.Controls.Add(notes);
+            page.Controls.Add(WrapInput(notes, "DispatchNotesHost"));
             return page;
         }
 
@@ -700,18 +791,19 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CreateCard();
             card.Margin = new Padding(0, 0, 0, 8);
             card.Padding = new Padding(14);
+            card.MinimumSize = new Size(0, 226);
             Label title = SectionTitle("QUICK ACTIONS");
             title.Dock = DockStyle.Top;
             card.Controls.Add(title);
-            _quickActionsPanel = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(0, 8, 0, 0), ColumnCount = 3, RowCount = 2 };
-            _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
-            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            _quickActionsPanel = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(0, 8, 0, 0), ColumnCount = 2, RowCount = 3 };
+            _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
             AddQuickAction(_quickActionsPanel, "Assign", SaveAssignment);
             AddQuickAction(_quickActionsPanel, "Schedule", SaveAssignment);
-            AddQuickAction(_quickActionsPanel, "Escalate", EscalateSelected);
+            AddQuickAction(_quickActionsPanel, "Escalate SLA", EscalateSelected);
             AddQuickAction(_quickActionsPanel, "Add Note", AddNote);
             AddQuickAction(_quickActionsPanel, "Print Job", PrintJob);
             card.Controls.Add(_quickActionsPanel);
@@ -774,7 +866,7 @@ namespace HVAC_Pro_Desktop.UI
                             _jobs = BuildSeedDispatchJobs();
                             _usingFallbackJobs = true;
                         }
-                        if (_usingFallbackJobs || _technicians.Count == 0)
+                        if (_technicians.Count == 0)
                             _technicians = BuildSeedTechnicians();
                         BindStaticFilters();
                         BindTechnicians();
@@ -806,10 +898,22 @@ namespace HVAC_Pro_Desktop.UI
             SelectComboText(_cmbType, previousType);
             if (_cmbType.SelectedIndex < 0) _cmbType.SelectedIndex = 0;
 
+            string previousDesignation = Convert.ToString(_cmbTechnicianDesignationFilter?.SelectedItem ?? "All Designations");
+            if (_cmbTechnicianDesignationFilter != null)
+            {
+                _cmbTechnicianDesignationFilter.Items.Clear();
+                _cmbTechnicianDesignationFilter.Items.Add("All Designations");
+                foreach (string designation in _technicians.Select(GetTechnicianDesignationFilterLabel).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
+                    _cmbTechnicianDesignationFilter.Items.Add(designation);
+                SelectComboText(_cmbTechnicianDesignationFilter, previousDesignation);
+                if (_cmbTechnicianDesignationFilter.SelectedIndex < 0)
+                    _cmbTechnicianDesignationFilter.SelectedIndex = 0;
+            }
+
             _cmbAssignTechnician.Items.Clear();
             _cmbAssignTechnician.Items.Add(new ComboItem(0, "Unassigned"));
-            foreach (Employee tech in _technicians.OrderBy(t => t.Name))
-                _cmbAssignTechnician.Items.Add(new ComboItem(tech.EmployeeID, tech.Name));
+            foreach (Employee tech in SortDispatchTechnicians(GetVisibleTechnicians()))
+                _cmbAssignTechnician.Items.Add(new ComboItem(tech.EmployeeID, FormatTechnicianOption(tech)));
             _binding = false;
         }
 
@@ -821,7 +925,7 @@ namespace HVAC_Pro_Desktop.UI
             _kpiOverdue.Text = _jobs.Count(IsSlaRisk).ToString();
             _kpiProgress.Text = _jobs.Count(j => NormalizeStatus(j.PipelineStatus) == "In Progress").ToString();
             _kpiCompleted.Text = _jobs.Count(j => IsClosed(j.PipelineStatus) && j.ScheduledDate.Date == today).ToString();
-            _kpiTechnicians.Text = _technicians.Count(t => ResolveTechStatus(t, _jobs.Where(j => j.TechnicianId == t.EmployeeID && j.ScheduledDate.Date == today && !IsClosed(j.PipelineStatus)).ToList()) == "Available").ToString();
+            _kpiTechnicians.Text = GetVisibleTechnicians().Count(t => ResolveTechStatus(t, _jobs.Where(j => j.TechnicianId == t.EmployeeID && j.ScheduledDate.Date == today && !IsClosed(j.PipelineStatus)).ToList()) == "Available").ToString();
             foreach (Button tab in _queueTabs)
                 tab.Text = _queueTabKeys[tab] + " (" + CountForQueue(_queueTabKeys[tab]).ToString() + ")";
         }
@@ -865,8 +969,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             _techList.Controls.Clear();
             _techCards.Clear();
-            _lblTechTitle.Text = "TECHNICIANS (" + _technicians.Count + ")";
-            foreach (Employee tech in _technicians.Take(8))
+            List<Employee> visibleTechnicians = GetVisibleTechnicians();
+            _lblTechTitle.Text = "TECHNICIANS (" + visibleTechnicians.Count + ")";
+            foreach (Employee tech in SortDispatchTechnicians(visibleTechnicians))
             {
                 Panel card = CreateTechnicianCard(tech);
                 _techCards.Add(card);
@@ -882,20 +987,24 @@ namespace HVAC_Pro_Desktop.UI
             string status = ResolveTechStatus(tech, todayJobs.Where(j => !IsClosed(j.PipelineStatus)).ToList());
             Color accent = TechStatusColor(status);
             string techName = DisplayTechnicianName(tech, todayJobs);
+            string roleText = EmployeeService.GetDispatchTechnicianRole(tech);
             string siteText = First(tech.ClientSite, todayJobs.Select(j => j.SiteName).FirstOrDefault(s => !string.IsNullOrWhiteSpace(s)) ?? "Field");
-            Panel card = new Panel { Width = 158, Height = 116, BackColor = White, Margin = new Padding(0, 0, 10, 4), Cursor = Cursors.Hand, Tag = tech };
+            Panel card = new Panel { Width = TechnicianCardWidth, Height = TechnicianCardHeight, BackColor = White, Margin = new Padding(0, 0, 10, 8), Cursor = Cursors.Hand, Tag = tech };
             card.Paint += (s, e) => DrawRoundedBorder(e.Graphics, card.ClientRectangle, Border);
+            AttachTechnicianCardResizeGrip(card);
             Label avatar = new Label { Text = Initials(techName), Location = new Point(10, 12), Size = new Size(32, 32), BackColor = Lighten(accent, 0.82f), ForeColor = accent, Font = new Font("Segoe UI", 8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            Label name = new Label { Text = techName, Location = new Point(50, 10), Size = new Size(96, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            Label name = new Label { Text = techName, Location = new Point(50, 10), Size = new Size(150, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
             Label stat = new Label { Text = "● " + status, Location = new Point(50, 30), Size = new Size(96, 18), Font = new Font("Segoe UI", 8f), ForeColor = accent };
-            Label site = new Label { Text = siteText, Location = new Point(10, 52), Size = new Size(136, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextSecondary, AutoEllipsis = true };
-            Label current = new Label { Text = todayJobs.Count + " jobs today, " + completed + " done", Location = new Point(10, 70), Size = new Size(136, 16), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TextPrimary };
-            Panel barBg = new Panel { Location = new Point(10, 94), Size = new Size(102, 5), BackColor = Color.FromArgb(226, 232, 240) };
-            Panel bar = new Panel { Location = new Point(10, 94), Size = new Size(progress == 0 ? 0 : Math.Max(4, (int)Math.Round(102m * progress / 100m)), 5), BackColor = accent };
-            Label pct = new Label { Text = progress + "%", Location = new Point(116, 88), Size = new Size(34, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextSecondary };
-            card.Controls.AddRange(new Control[] { avatar, name, stat, site, current, barBg, bar, pct });
-            _toolTip.SetToolTip(card, techName + "\r\n" + siteText);
+            Label role = new Label { Text = roleText, Location = new Point(10, 52), Size = new Size(190, 17), Font = new Font("Segoe UI", 7.6f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            Label site = new Label { Text = siteText, Location = new Point(10, 70), Size = new Size(190, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextSecondary, AutoEllipsis = true };
+            Label current = new Label { Text = todayJobs.Count + " jobs today, " + completed + " done", Location = new Point(10, 90), Size = new Size(190, 16), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TextPrimary };
+            Panel barBg = new Panel { Location = new Point(10, 114), Size = new Size(148, 5), BackColor = Color.FromArgb(226, 232, 240) };
+            Panel bar = new Panel { Location = new Point(10, 114), Size = new Size(progress == 0 ? 0 : Math.Max(4, (int)Math.Round(148m * progress / 100m)), 5), BackColor = accent };
+            Label pct = new Label { Text = progress + "%", Location = new Point(166, 108), Size = new Size(36, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = TextSecondary };
+            card.Controls.AddRange(new Control[] { avatar, name, stat, role, site, current, barBg, bar, pct });
+            _toolTip.SetToolTip(card, techName + "\r\n" + roleText + "\r\n" + siteText);
             _toolTip.SetToolTip(name, techName);
+            _toolTip.SetToolTip(role, roleText);
             _toolTip.SetToolTip(site, siteText);
             card.Click += (s, e) => SelectTechnician(tech);
             foreach (Control child in card.Controls) child.Click += (s, e) => SelectTechnician(tech);
@@ -939,6 +1048,26 @@ namespace HVAC_Pro_Desktop.UI
                 Label badge = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueBadge");
                 if (badge != null)
                     badge.Left = Math.Max(178, control.Width - badge.Width - 14);
+
+                Label title = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueTitle");
+                if (title != null)
+                    title.Width = Math.Max(120, control.Width - 166);
+
+                Label site = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueSite");
+                if (site != null)
+                    site.Width = Math.Max(120, control.Width - 180);
+
+                Label priority = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueuePriority");
+                if (priority != null)
+                    priority.SetBounds(Math.Max(170, control.Width - 110), 54, 96, 18);
+
+                Label sla = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueSla");
+                if (sla != null)
+                    sla.SetBounds(Math.Max(150, control.Width - 148), 76, 134, 18);
+
+                Label tech = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueTech");
+                if (tech != null)
+                    tech.SetBounds(Math.Max(150, control.Width - 148), 94, 134, 16);
             }
         }
 
@@ -1003,12 +1132,12 @@ namespace HVAC_Pro_Desktop.UI
             Label number = new Label { Text = First(job.JobNumber, "JOB"), Location = new Point(12, 12), Size = new Size(132, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue };
             Label badge = CreateBadge(QueueLabel(job), StatusColor(job), new Point(card.Width - 110, 10), 92);
             badge.Tag = "QueueBadge";
-            Label title = new Label { Text = First(job.JobTitle, "Service job"), Location = new Point(12, 34), Size = new Size(card.Width - 126, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary };
+            Label title = new Label { Text = First(job.JobTitle, "Service job"), Location = new Point(12, 34), Size = new Size(card.Width - 166, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true, Tag = "QueueTitle" };
             Label client = new Label { Text = First(job.ClientName, "No client"), Location = new Point(12, 56), Size = new Size(card.Width - 24, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary };
-            Label site = new Label { Text = First(job.SiteName, "No site"), Location = new Point(12, 76), Size = new Size(card.Width - 160, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary };
-            Label priority = new Label { Text = First(job.Priority, "Medium"), Location = new Point(card.Width - 78, 54), Size = new Size(62, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = accent, TextAlign = ContentAlignment.MiddleRight };
-            Label sla = new Label { Text = SlaText(job), Location = new Point(card.Width - 118, 76), Size = new Size(104, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = SlaColor(job), TextAlign = ContentAlignment.MiddleRight };
-            Label tech = new Label { Text = First(job.TechnicianName, "Unassigned"), Location = new Point(card.Width - 138, 94), Size = new Size(124, 16), Font = new Font("Segoe UI", 7.6f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleRight };
+            Label site = new Label { Text = First(job.SiteName, "No site"), Location = new Point(12, 76), Size = new Size(card.Width - 180, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary, AutoEllipsis = true, Tag = "QueueSite" };
+            Label priority = new Label { Text = First(job.Priority, "Medium"), Location = new Point(card.Width - 110, 54), Size = new Size(96, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = accent, TextAlign = ContentAlignment.MiddleRight, Tag = "QueuePriority" };
+            Label sla = new Label { Text = SlaText(job), Location = new Point(card.Width - 148, 76), Size = new Size(134, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = SlaColor(job), TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Tag = "QueueSla" };
+            Label tech = new Label { Text = First(job.TechnicianName, "Unassigned"), Location = new Point(card.Width - 148, 94), Size = new Size(134, 16), Font = new Font("Segoe UI", 7.6f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Tag = "QueueTech" };
             card.Controls.AddRange(new Control[] { number, badge, title, client, site, priority, sla, tech });
             card.Click += (s, e) => SelectJob(job);
             foreach (Control child in card.Controls) child.Click += (s, e) => SelectJob(job);
@@ -1153,7 +1282,8 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("DispatchCenter.SaveAssignment", ex);
-                MessageBox.Show("Could not save assignment:\r\n\r\n" + ex.Message, "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Saving dispatch assignment", ex);
+                MessageBox.Show("Assignment could not be saved. Review the job status and technician, then try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1184,7 +1314,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Could not escalate job:\r\n\r\n" + ex.Message, "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Escalating job", ex);
+                MessageBox.Show("Job could not be escalated right now. Refresh the dispatch list and try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1225,7 +1356,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private Employee SuggestTechnician(JobSummaryDto job)
         {
-            return _technicians
+            List<Employee> candidates = GetVisibleTechnicians();
+            if (candidates.Count == 0)
+                candidates = _technicians ?? new List<Employee>();
+
+            return candidates
                 .OrderBy(t => _jobs.Count(j => j.TechnicianId == t.EmployeeID && j.ScheduledDate.Date == DateTime.Today && !IsClosed(j.PipelineStatus)))
                 .ThenBy(t => t.Name)
                 .FirstOrDefault();
@@ -1292,7 +1427,7 @@ namespace HVAC_Pro_Desktop.UI
             int techNameW = 142;
             int timeW = 72;
             int statusW = 84;
-            var techRows = _technicians.Take(5).ToList();
+            var techRows = GetVisibleTechnicians().Take(5).ToList();
             if (techRows.Count == 0)
             {
                 using (Brush b = new SolidBrush(Muted))
@@ -1374,14 +1509,18 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddQuickAction(TableLayoutPanel parent, string text, Action action)
         {
-            Button b = MakeToolbarButton(text, 104);
+            int index = parent.Controls.Count;
+            int columns = Math.Max(1, parent.ColumnCount);
+            int column = index % columns;
+            int row = index / columns;
+            Button b = MakeToolbarButton(text, 132);
             b.Dock = DockStyle.Fill;
-            b.Margin = new Padding(0, 0, 8, 8);
-            b.AutoEllipsis = true;
+            b.Height = 42;
+            b.Margin = new Padding(column == columns - 1 ? 0 : 8, 0, 0, row >= parent.RowCount - 1 ? 0 : 8);
+            b.AutoEllipsis = false;
             b.Click += (s, e) => action();
             _jobActionButtons.Add(b);
-            int index = parent.Controls.Count;
-            parent.Controls.Add(b, index % 3, index / 3);
+            parent.Controls.Add(b, column, row);
         }
 
         private Panel CreateCard()
@@ -1389,6 +1528,45 @@ namespace HVAC_Pro_Desktop.UI
             Panel p = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(12) };
             p.Paint += (s, e) => DrawRoundedBorder(e.Graphics, p.ClientRectangle, Border);
             return p;
+        }
+
+        private void AttachDispatchRowResizeGrip(Panel card, int minimumHeight)
+        {
+            if (card == null)
+                return;
+
+            card.MinimumSize = new Size(Math.Max(card.MinimumSize.Width, 260), Math.Max(card.MinimumSize.Height, minimumHeight));
+            Action<Control, Size> resizeRow = (control, size) => ResizeDispatchTableRow(control, size, minimumHeight);
+            CardResizeGripService.Attach(card, resizeRow, resizeRow);
+        }
+
+        private void AttachTechnicianCardResizeGrip(Panel card)
+        {
+            if (card == null)
+                return;
+
+            card.MinimumSize = new Size(TechnicianCardWidth, TechnicianCardHeight);
+            CardResizeGripService.Attach(card, (control, size) =>
+            {
+                if (_techList != null && !_techList.IsDisposed)
+                    _techList.PerformLayout();
+            });
+        }
+
+        private void ResizeDispatchTableRow(Control control, Size size, int minimumHeight)
+        {
+            TableLayoutPanel table = control == null ? null : control.Parent as TableLayoutPanel;
+            if (table == null)
+                return;
+
+            int row = table.GetRow(control);
+            if (row < 0 || row >= table.RowStyles.Count)
+                return;
+
+            int targetHeight = Math.Max(minimumHeight, size.Height + control.Margin.Vertical);
+            table.RowStyles[row].SizeType = SizeType.Absolute;
+            table.RowStyles[row].Height = targetHeight;
+            table.PerformLayout();
         }
 
         private Label SectionTitle(string text)
@@ -1407,15 +1585,29 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeToolbarButton(string text, int width)
         {
-            Button b = new Button { Text = text, Width = width, Height = 32, BackColor = White, ForeColor = TextPrimary, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            Button b = new Button { Text = text, Width = width, Height = 36, BackColor = White, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
             b.FlatAppearance.BorderColor = Border;
             b.FlatAppearance.BorderSize = 1;
+            UIHelper.ApplyActionButton(b);
             return b;
         }
 
         private ComboBox MakeCombo()
         {
             return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.System, Font = new Font("Segoe UI", 9f), Height = 30 };
+        }
+
+        /// <summary>Wraps an editable input in a shared visible-outline host.</summary>
+        private Panel WrapInput(Control input, string name)
+        {
+            Panel host = new Panel { Name = name, Dock = DockStyle.Fill, BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
+            if (input != null)
+            {
+                input.Dock = DockStyle.Fill;
+                input.Margin = Padding.Empty;
+                host.Controls.Add(input);
+            }
+            return host;
         }
 
         private DataGridView MakeSmallGrid()
@@ -1628,6 +1820,50 @@ namespace HVAC_Pro_Desktop.UI
                 default: return MapOffline;
             }
         }
+        private IEnumerable<Employee> SortDispatchTechnicians(IEnumerable<Employee> technicians)
+        {
+            return (technicians ?? new List<Employee>())
+                .OrderBy(EmployeeService.GetDispatchTechnicianSortRank)
+                .ThenBy(EmployeeService.GetDispatchTechnicianRole)
+                .ThenBy(t => t.Name ?? string.Empty);
+        }
+
+        private List<Employee> GetVisibleTechnicians()
+        {
+            IEnumerable<Employee> query = _technicians ?? new List<Employee>();
+            string designation = Convert.ToString(_cmbTechnicianDesignationFilter?.SelectedItem ?? "All Designations");
+            if (!string.IsNullOrWhiteSpace(designation) && !string.Equals(designation, "All Designations", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(t => string.Equals(GetTechnicianDesignationFilterLabel(t), designation, StringComparison.OrdinalIgnoreCase));
+            return SortDispatchTechnicians(query).ToList();
+        }
+
+        private static string GetTechnicianDesignationFilterLabel(Employee tech)
+        {
+            if (tech == null)
+                return string.Empty;
+
+            string designation = (tech.Designation ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(designation))
+                return designation;
+
+            string nature = (tech.NatureOfWork ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(nature))
+                return nature;
+
+            string department = (tech.Department ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(department) ? "Technician" : department;
+        }
+        private string FormatTechnicianOption(Employee tech)
+        {
+            if (tech == null)
+                return "Unassigned";
+
+            string name = DisplayTechnicianName(tech);
+            string role = EmployeeService.GetDispatchTechnicianRole(tech);
+            return string.IsNullOrWhiteSpace(role) || string.Equals(role, "Technician", StringComparison.OrdinalIgnoreCase)
+                ? name
+                : name + " - " + role;
+        }
         private string DisplayTechnicianName(Employee tech, List<JobSummaryDto> assigned = null)
         {
             string name = First(tech?.Name, "");
@@ -1712,10 +1948,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowTechnicianTimelineSummary()
         {
-            int available = _technicians == null ? 0 : _technicians.Count;
+            int available = GetVisibleTechnicians().Count;
             int assigned = _visibleJobs == null ? 0 : _visibleJobs.Count(j => j.TechnicianId.HasValue);
             MessageBox.Show(
-                "Technicians: " + available + Environment.NewLine +
+                "Visible technicians: " + available + Environment.NewLine +
                 "Visible assigned jobs: " + assigned + Environment.NewLine +
                 "Use job cards to inspect and reschedule assignments.",
                 "Technician Timeline",
@@ -1730,6 +1966,12 @@ namespace HVAC_Pro_Desktop.UI
 
             _techList.FlowDirection = FlowDirection.TopDown;
             _techList.WrapContents = false;
+            int width = Math.Max(TechnicianCardWidth, _techList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
+            foreach (Panel card in _techCards)
+            {
+                card.Width = width;
+                card.Height = Math.Max(card.Height, TechnicianCardHeight);
+            }
             SetStatus("Technician list view enabled.", Info);
         }
 
@@ -1740,6 +1982,11 @@ namespace HVAC_Pro_Desktop.UI
 
             _techList.FlowDirection = FlowDirection.LeftToRight;
             _techList.WrapContents = false;
+            foreach (Panel card in _techCards)
+            {
+                card.Width = TechnicianCardWidth;
+                card.Height = Math.Max(card.Height, TechnicianCardHeight);
+            }
             SetStatus("Technician map board view enabled.", Info);
         }
 

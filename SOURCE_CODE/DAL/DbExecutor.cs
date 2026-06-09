@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Diagnostics;
+using System.Threading;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.DAL
 {
@@ -21,7 +24,7 @@ namespace HVAC_Pro_Desktop.DAL
         }
 
         public DbExecutor(string connectionString, int commandTimeoutSeconds = 120)
-            : this(() => new SqlConnection(connectionString), commandTimeoutSeconds)
+            : this(() => DatabaseConnectionFactory.CreateConnection(connectionString), commandTimeoutSeconds)
         {
         }
 
@@ -39,19 +42,30 @@ namespace HVAC_Pro_Desktop.DAL
             if (map == null)
                 throw new ArgumentNullException(nameof(map));
 
-            var result = new List<T>();
-            using (SqlConnection conn = _connectionFactory())
-            using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+            try
             {
-                conn.Open();
-                using (SqlDataReader reader = cmd.ExecuteReader())
+                var result = new List<T>();
+                using (SqlConnection conn = _connectionFactory())
+                using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
                 {
-                    while (reader.Read())
-                        result.Add(map(reader));
+                    OpenWithRetry(conn, "DbExecutor.Query");
+                    Stopwatch sw = Stopwatch.StartNew();
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            result.Add(map(reader));
+                    }
+                    DatabaseConnectionFactory.LogQueryDuration("DbExecutor.Query", sql, sw.ElapsedMilliseconds);
                 }
-            }
 
-            return result;
+                return result;
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.Query", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.Query", ex, false);
+                throw;
+            }
         }
 
         public T QuerySingle<T>(string sql, Func<SqlDataReader, T> map, params SqlParameter[] parameters)
@@ -62,40 +76,75 @@ namespace HVAC_Pro_Desktop.DAL
 
         public DataTable QueryTable(string sql, params SqlParameter[] parameters)
         {
-            var table = new DataTable();
-            using (SqlConnection conn = _connectionFactory())
-            using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
-            using (SqlDataAdapter adapter = new SqlDataAdapter(cmd))
+            try
             {
-                conn.Open();
-                adapter.Fill(table);
-            }
+                var table = new DataTable();
+                using (SqlConnection conn = _connectionFactory())
+                using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+                using (SqlDataAdapter adapter = new SqlDataAdapter(cmd))
+                {
+                    OpenWithRetry(conn, "DbExecutor.QueryTable");
+                    Stopwatch sw = Stopwatch.StartNew();
+                    adapter.Fill(table);
+                    DatabaseConnectionFactory.LogQueryDuration("DbExecutor.QueryTable", sql, sw.ElapsedMilliseconds);
+                }
 
-            return table;
+                return table;
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.QueryTable", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.QueryTable", ex, false);
+                throw;
+            }
         }
 
         public int Execute(string sql, params SqlParameter[] parameters)
         {
-            using (SqlConnection conn = _connectionFactory())
-            using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+            try
             {
-                conn.Open();
-                return cmd.ExecuteNonQuery();
+                DatabaseConnectionStateService.EnsureBusinessWritesAvailable("DbExecutor.Execute");
+                using (SqlConnection conn = _connectionFactory())
+                using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+                {
+                    OpenWithRetry(conn, "DbExecutor.Execute");
+                    Stopwatch sw = Stopwatch.StartNew();
+                    int affected = cmd.ExecuteNonQuery();
+                    DatabaseConnectionFactory.LogQueryDuration("DbExecutor.Execute", sql, sw.ElapsedMilliseconds);
+                    return affected;
+                }
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.Execute", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.Execute", ex, false);
+                throw;
             }
         }
 
         public T Scalar<T>(string sql, params SqlParameter[] parameters)
         {
-            using (SqlConnection conn = _connectionFactory())
-            using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+            try
             {
-                conn.Open();
-                object value = cmd.ExecuteScalar();
-                if (value == null || value == DBNull.Value)
-                    return default(T);
+                using (SqlConnection conn = _connectionFactory())
+                using (SqlCommand cmd = BuildCommand(sql, conn, null, parameters))
+                {
+                    OpenWithRetry(conn, "DbExecutor.Scalar");
+                    Stopwatch sw = Stopwatch.StartNew();
+                    object value = cmd.ExecuteScalar();
+                    DatabaseConnectionFactory.LogQueryDuration("DbExecutor.Scalar", sql, sw.ElapsedMilliseconds);
+                    if (value == null || value == DBNull.Value)
+                        return default(T);
 
-                Type targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
-                return (T)Convert.ChangeType(value, targetType);
+                    Type targetType = Nullable.GetUnderlyingType(typeof(T)) ?? typeof(T);
+                    return (T)Convert.ChangeType(value, targetType);
+                }
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.Scalar", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.Scalar", ex, false);
+                throw;
             }
         }
 
@@ -104,29 +153,55 @@ namespace HVAC_Pro_Desktop.DAL
             if (work == null)
                 throw new ArgumentNullException(nameof(work));
 
-            using (SqlConnection conn = _connectionFactory())
+            try
             {
-                conn.Open();
-                using (SqlTransaction tx = conn.BeginTransaction())
+                DatabaseConnectionStateService.EnsureBusinessWritesAvailable("DbExecutor.ExecuteInTransaction");
+                using (SqlConnection conn = _connectionFactory())
                 {
-                    try
+                    OpenWithRetry(conn, "DbExecutor.ExecuteInTransaction");
+                    using (SqlTransaction tx = conn.BeginTransaction())
                     {
-                        work(conn, tx);
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        try { tx.Rollback(); } catch { }
-                        throw;
+                        try
+                        {
+                            Stopwatch sw = Stopwatch.StartNew();
+                            work(conn, tx);
+                            DatabaseConnectionFactory.LogQueryDuration("DbExecutor.ExecuteInTransaction", "transaction delegate", sw.ElapsedMilliseconds);
+                            tx.Commit();
+                        }
+                        catch
+                        {
+                            try { tx.Rollback(); } catch { }
+                            throw;
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.ExecuteInTransaction", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.ExecuteInTransaction", ex, false);
+                throw;
             }
         }
 
         public int Execute(SqlConnection conn, SqlTransaction tx, string sql, params SqlParameter[] parameters)
         {
-            using (SqlCommand cmd = BuildCommand(sql, conn, tx, parameters))
-                return cmd.ExecuteNonQuery();
+            try
+            {
+                using (SqlCommand cmd = BuildCommand(sql, conn, tx, parameters))
+                {
+                    Stopwatch sw = Stopwatch.StartNew();
+                    int affected = cmd.ExecuteNonQuery();
+                    DatabaseConnectionFactory.LogQueryDuration("DbExecutor.ExecuteTransactionCommand", sql, sw.ElapsedMilliseconds);
+                    return affected;
+                }
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("DbExecutor.ExecuteTransactionCommand", ex);
+                CrashProtectionService.LogException("(database)", "DbExecutor.ExecuteTransactionCommand", ex, false);
+                throw;
+            }
         }
 
         public static SqlParameter Param(string name, object value)
@@ -154,6 +229,21 @@ namespace HVAC_Pro_Desktop.DAL
             }
 
             return cmd;
+        }
+
+        private static void OpenWithRetry(SqlConnection conn, string context)
+        {
+            try
+            {
+                DatabaseConnectionFactory.Open(conn, context);
+            }
+            catch (SqlException ex) when (DatabaseConnectionFactory.IsTransientSqlError(ex))
+            {
+                AppLogger.LogInfo("Transient SQL open failure; retrying once | " + context + " | " + ex.Message);
+                try { conn.Close(); } catch { }
+                Thread.Sleep(300);
+                DatabaseConnectionFactory.Open(conn, context + ".Retry");
+            }
         }
     }
 }

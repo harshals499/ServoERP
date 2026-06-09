@@ -29,6 +29,7 @@ namespace HVAC_Pro_Desktop.Models
         public string SqlInstance { get; set; }
         public string DatabaseName { get; set; }
         public string ConnectionTarget { get; set; }
+        public string FallbackSqlitePath { get; set; }
         public string ClientConfigPath { get; set; }
         public string ClientScriptPath { get; set; }
     }

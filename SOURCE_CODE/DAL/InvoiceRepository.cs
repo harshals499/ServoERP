@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
+using Dapper;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -9,6 +11,7 @@ namespace HVAC_Pro_Desktop.DAL
     public class InvoiceRepository
     {
         private readonly DatabaseManager _db = new DatabaseManager();
+        private const int DefaultRecentRows = 1000;
         private const string InvoiceSelect = @"
             SELECT i.*, c.CompanyName AS ClientName, s.SiteName
             FROM Invoices i
@@ -18,16 +21,62 @@ namespace HVAC_Pro_Desktop.DAL
         // ── READ (with client name join) ─────────────────────
         public List<Invoice> GetAll()
         {
+            return GetRecent(DefaultRecentRows);
+        }
+
+        public List<Invoice> GetRecent(int maxRows)
+        {
             var list = new List<Invoice>();
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                const string sql = InvoiceSelect + " ORDER BY i.InvoiceDate DESC";
+                const string sql = @"
+            SELECT TOP (@maxRows) i.*, c.CompanyName AS ClientName, s.SiteName
+            FROM Invoices i
+            LEFT JOIN B2BClients c ON i.ClientID = c.ClientID
+            LEFT JOIN ClientSites s ON i.SiteID = s.SiteID
+            ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
-                using (var r = cmd.ExecuteReader())
-                    while (r.Read()) list.Add(Map(r));
+                {
+                    cmd.Parameters.AddWithValue("@maxRows", Math.Max(1, maxRows));
+                    using (var r = cmd.ExecuteReader())
+                        while (r.Read()) list.Add(Map(r));
+                }
             }
             return list;
+        }
+
+        public decimal GetPendingBalanceTotal()
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand(@"
+                    SELECT ISNULL(SUM(BalanceDue), 0)
+                    FROM Invoices
+                    WHERE PaymentStatus IN ('Pending','Overdue','Partial','Draft')", conn))
+                {
+                    return Convert.ToDecimal(cmd.ExecuteScalar());
+                }
+            }
+        }
+
+        public bool InvoiceNumberExists(string invoiceNumber, int excludeInvoiceId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand(@"
+                    SELECT TOP 1 1
+                    FROM Invoices
+                    WHERE InvoiceID <> @excludeInvoiceId
+                      AND InvoiceNumber = @invoiceNumber", conn))
+                {
+                    cmd.Parameters.AddWithValue("@excludeInvoiceId", excludeInvoiceId);
+                    cmd.Parameters.AddWithValue("@invoiceNumber", invoiceNumber ?? string.Empty);
+                    return cmd.ExecuteScalar() != null;
+                }
+            }
         }
 
         public Invoice GetById(int id)
@@ -52,7 +101,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                const string sql = InvoiceSelect + " WHERE i.ClientID = @id ORDER BY i.InvoiceDate DESC";
+                const string sql = InvoiceSelect + " WHERE i.ClientID = @id ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@id", clientId);
@@ -70,7 +119,7 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 using (var cmd = new SqlCommand(
-                    InvoiceSelect + " WHERE i.ContractID=@id ORDER BY i.InvoiceDate DESC", conn))
+                    InvoiceSelect + " WHERE i.ContractID=@id ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", contractId);
                     using (var r = cmd.ExecuteReader())
@@ -88,7 +137,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 const string sql = InvoiceSelect + @"
                     WHERE i.PaymentStatus IN ('Pending','Overdue','Partial','Draft')
-                    ORDER BY i.DueDate ASC";
+                    ORDER BY i.DueDate ASC, i.InvoiceID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
                 using (var r = cmd.ExecuteReader())
                     while (r.Read()) list.Add(Map(r));
@@ -105,7 +154,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = InvoiceSelect + @"
                     WHERE i.PaymentStatus IN ('Pending','Partial','Overdue')
                     AND i.DueDate < GETDATE()
-                    ORDER BY i.DueDate ASC";
+                    ORDER BY i.DueDate ASC, i.InvoiceID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
                 using (var r = cmd.ExecuteReader())
                     while (r.Read()) list.Add(Map(r));
@@ -160,41 +209,34 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     try
                     {
-                        // Delete existing
-                        using (var del = new SqlCommand(
-                            "DELETE FROM InvoiceLineItems WHERE InvoiceID = @id", conn, tx))
-                        {
-                            del.Parameters.AddWithValue("@id", invoiceId);
-                            del.ExecuteNonQuery();
-                        }
+                        conn.Execute("DELETE FROM InvoiceLineItems WHERE InvoiceID = @id", new { id = invoiceId }, tx);
 
-                        // Re-insert
-                        foreach (var item in items)
+                        foreach (var item in CleanInvoiceLineItems(items))
                         {
-                            using (var ins = new SqlCommand(@"
+                            conn.Execute(@"
                                 INSERT INTO InvoiceLineItems
                                     (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                 VALUES
-                                    (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
+                                    (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
+                                new
                             {
-                                ins.Parameters.AddWithValue("@inv",  invoiceId);
-                                ins.Parameters.AddWithValue("@stockItemId", item.StockItemID.HasValue ? (object)item.StockItemID.Value : DBNull.Value);
-                                ins.Parameters.AddWithValue("@desc", item.Description ?? "");
-                                ins.Parameters.AddWithValue("@hsn",  string.IsNullOrWhiteSpace(item.HSNCode) ? (object)DBNull.Value : item.HSNCode.Trim());
-                                ins.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim());
-                                ins.Parameters.AddWithValue("@unit", string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim());
-                                ins.Parameters.AddWithValue("@qty",  item.Quantity);
-                                ins.Parameters.AddWithValue("@rate", item.Rate);
-                                ins.Parameters.AddWithValue("@discount", item.DiscountPercent);
-                                ins.Parameters.AddWithValue("@gst",  item.GSTPercent);
-                                ins.Parameters.AddWithValue("@taxType", string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim());
-                                ins.Parameters.AddWithValue("@tax",  item.TaxAmount);
-                                ins.Parameters.AddWithValue("@isStockItem", item.IsStockItem);
-                                ins.Parameters.AddWithValue("@isBillable", item.IsBillable);
-                                ins.Parameters.AddWithValue("@coverageNote", string.IsNullOrWhiteSpace(item.CoverageNote) ? (object)DBNull.Value : item.CoverageNote.Trim());
-                                ins.Parameters.AddWithValue("@amt",  item.Amount);
-                                ins.ExecuteNonQuery();
-                            }
+                                inv = invoiceId,
+                                stockItemId = item.StockItemID,
+                                desc = item.Description ?? "",
+                                hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),
+                                category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim(),
+                                unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim(),
+                                qty = item.Quantity,
+                                rate = item.Rate,
+                                discount = item.DiscountPercent,
+                                gst = item.GSTPercent,
+                                taxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim(),
+                                tax = item.TaxAmount,
+                                isStockItem = item.IsStockItem,
+                                isBillable = item.IsBillable,
+                                coverageNote = string.IsNullOrWhiteSpace(item.CoverageNote) ? null : item.CoverageNote.Trim(),
+                                amt = item.Amount
+                            }, tx);
                         }
                         tx.Commit();
                     }
@@ -277,34 +319,35 @@ namespace HVAC_Pro_Desktop.DAL
                         }
 
                         // Save line items
-                        if (inv.LineItems != null && inv.LineItems.Count > 0)
+                        List<InvoiceLineItem> lineItems = CleanInvoiceLineItems(inv.LineItems).ToList();
+                        if (lineItems.Count > 0)
                         {
-                            foreach (var item in inv.LineItems)
+                            foreach (var item in lineItems)
                             {
-                                using (var ins = new SqlCommand(@"
+                                conn.Execute(@"
                                     INSERT INTO InvoiceLineItems
                                         (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                     VALUES
-                                        (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)", conn, tx))
+                                        (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
+                                    new
                                 {
-                                    ins.Parameters.AddWithValue("@inv",  newId);
-                                    ins.Parameters.AddWithValue("@stockItemId", item.StockItemID.HasValue ? (object)item.StockItemID.Value : DBNull.Value);
-                                    ins.Parameters.AddWithValue("@desc", item.Description ?? "");
-                                    ins.Parameters.AddWithValue("@hsn",  string.IsNullOrWhiteSpace(item.HSNCode) ? (object)DBNull.Value : item.HSNCode.Trim());
-                                    ins.Parameters.AddWithValue("@category", string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim());
-                                    ins.Parameters.AddWithValue("@unit", string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim());
-                                    ins.Parameters.AddWithValue("@qty",  item.Quantity);
-                                    ins.Parameters.AddWithValue("@rate", item.Rate);
-                                    ins.Parameters.AddWithValue("@discount", item.DiscountPercent);
-                                    ins.Parameters.AddWithValue("@gst",  item.GSTPercent);
-                                    ins.Parameters.AddWithValue("@taxType", string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim());
-                                    ins.Parameters.AddWithValue("@tax",  item.TaxAmount);
-                                    ins.Parameters.AddWithValue("@isStockItem", item.IsStockItem);
-                                    ins.Parameters.AddWithValue("@isBillable", item.IsBillable);
-                                    ins.Parameters.AddWithValue("@coverageNote", string.IsNullOrWhiteSpace(item.CoverageNote) ? (object)DBNull.Value : item.CoverageNote.Trim());
-                                    ins.Parameters.AddWithValue("@amt",  item.Amount);
-                                    ins.ExecuteNonQuery();
-                                }
+                                    inv = newId,
+                                    stockItemId = item.StockItemID,
+                                    desc = item.Description ?? "",
+                                    hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),
+                                    category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim(),
+                                    unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim(),
+                                    qty = item.Quantity,
+                                    rate = item.Rate,
+                                    discount = item.DiscountPercent,
+                                    gst = item.GSTPercent,
+                                    taxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim(),
+                                    tax = item.TaxAmount,
+                                    isStockItem = item.IsStockItem,
+                                    isBillable = item.IsBillable,
+                                    coverageNote = string.IsNullOrWhiteSpace(item.CoverageNote) ? null : item.CoverageNote.Trim(),
+                                    amt = item.Amount
+                                }, tx);
                             }
                         }
 
@@ -607,6 +650,17 @@ namespace HVAC_Pro_Desktop.DAL
                 if (string.Equals(reader.GetName(i), columnName, StringComparison.OrdinalIgnoreCase))
                     return true;
             return false;
+        }
+
+        private static IEnumerable<InvoiceLineItem> CleanInvoiceLineItems(IEnumerable<InvoiceLineItem> items)
+        {
+            return (items ?? Enumerable.Empty<InvoiceLineItem>())
+                .Where(item => item != null)
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.Description)
+                    || item.Rate > 0m
+                    || item.Amount > 0m
+                    || item.Quantity > 1m);
         }
     }
 }

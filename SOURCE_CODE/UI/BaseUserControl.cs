@@ -4,10 +4,11 @@ using System.Linq;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI.Helpers;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class BaseUserControl : UserControl
+    public class BaseUserControl : ServoPageBase
     {
         protected const int DESIGN_WIDTH = 1920;
         protected const int DESIGN_HEIGHT = 1080;
@@ -17,6 +18,12 @@ namespace HVAC_Pro_Desktop.UI
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
         private bool _autoSaveAttached;
         private bool _persistentLayoutAttached;
+
+        protected BaseUserControl()
+        {
+            LanguageManager.LanguageChanged += OnLanguageChanged;
+            Disposed += (s, e) => LanguageManager.LanguageChanged -= OnLanguageChanged;
+        }
 
         protected bool IsSmallScreen
         {
@@ -35,10 +42,67 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
+            if (SuppressBaseAutomaticChildPolish)
+                return;
+
             LayoutScaler.ApplyGlobalScale(this);
             ApplyIdeaPadLayout();
             AttachPersistentLayoutMemory();
             AttachAutoSave();
+            ApplyLanguage();
+            DS.ApplyTheme(this);
+            UIHelper.ApplyInputStyles(Controls);
+            InputOutlineService.ApplyToTree(this);
+            UIHelper.ApplyButtonAlignment(this);
+            SharedUiPrimitives.ApplyToTree(this);
+            CrashProtectionService.AttachToTree(this);
+            GlobalCardContextMenu.ApplyToTree(this);
+            GlobalDashboardLayoutService.ApplyToTree(this);
+            LayoutAuditService.AuditAndFix(this);
+        }
+
+        protected override void OnControlAdded(ControlEventArgs e)
+        {
+            base.OnControlAdded(e);
+            if (SuppressBaseAutomaticChildPolish)
+                return;
+
+            if (e.Control != null)
+            {
+                LanguageManager.ApplyControlTree(e.Control);
+                DS.ApplyTheme(e.Control);
+                UIHelper.ApplyInputStyle(e.Control);
+                UIHelper.ApplyInputStyles(e.Control.Controls);
+                InputOutlineService.ApplyToTree(e.Control);
+                UIHelper.ApplyButtonAlignment(e.Control);
+                SharedUiPrimitives.ApplyToTree(e.Control);
+                CrashProtectionService.AttachToTree(e.Control);
+                GlobalCardContextMenu.ApplyToTree(e.Control);
+                GlobalDashboardLayoutService.ApplyToTree(e.Control);
+                LayoutAuditService.AuditAndFix(e.Control);
+            }
+        }
+
+        protected virtual bool SuppressBaseAutomaticChildPolish => false;
+
+        /// <summary>Refreshes translated labels and language-specific fonts.</summary>
+        protected virtual void ApplyLanguage()
+        {
+            LanguageManager.ApplyFont(this);
+        }
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)ApplyLanguage);
+                return;
+            }
+
+            ApplyLanguage();
         }
 
         protected virtual bool EnableAutoSaveRecovery => true;
@@ -214,8 +278,8 @@ namespace HVAC_Pro_Desktop.UI
             if (_autoSave.HasDraft(key, out savedAt))
             {
                 DialogResult restore = MessageBox.Show(
-                    "An autosaved draft exists for this screen from " + savedAt.ToString("dd MMM yyyy hh:mm tt") + ". Restore it?",
-                    BrandingService.WindowTitle("Autosave"),
+                    string.Format(LanguageManager.Get("An autosaved draft exists for this screen from {0}. Restore it?"), savedAt.ToString("dd MMM yyyy hh:mm tt")),
+                    BrandingService.WindowTitle(LanguageManager.Get("Autosave")),
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
                 if (restore == DialogResult.Yes)

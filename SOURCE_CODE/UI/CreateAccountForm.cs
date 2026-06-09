@@ -9,7 +9,7 @@ using HVAC_Pro_Desktop.UI.Controls;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class CreateAccountForm : Form
+    public sealed class CreateAccountForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly AuthService _authService = new AuthService();
         private Panel _card;
@@ -115,7 +115,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Color.FromArgb(51, 65, 85),
                 Font = new Font("Segoe UI", 10.5f)
             };
-            cancel.FlatAppearance.BorderColor = Color.FromArgb(203, 213, 225);
+            cancel.FlatAppearance.BorderColor = DS.Border;
             cancel.Click += (s, e) => Close();
             cancel.TabIndex = 6;
             _card.Controls.Add(cancel);
@@ -169,13 +169,12 @@ namespace HVAC_Pro_Desktop.UI
                 RoleDto[] roles = _authService.GetRoles()
                     .Where(r =>
                         (!_hasUsers && string.Equals(r.RoleName, "Admin", StringComparison.OrdinalIgnoreCase)) ||
-                        (_hasUsers && string.Equals(r.RoleName, "Viewer", StringComparison.OrdinalIgnoreCase)))
+                        (_hasUsers && string.Equals(r.RoleName, "Admin", StringComparison.OrdinalIgnoreCase)))
                     .ToArray();
 
                 if (_hasUsers && roles.Length == 0)
                 {
                     roles = _authService.GetRoles()
-                        .Where(r => !string.Equals(r.RoleName, "Admin", StringComparison.OrdinalIgnoreCase))
                         .Take(1)
                         .ToArray();
                 }
@@ -191,12 +190,12 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 else
                 {
-                    RoleDto viewer = roles.FirstOrDefault(r => string.Equals(r.RoleName, "Viewer", StringComparison.OrdinalIgnoreCase));
-                    if (viewer != null)
-                        _cmbRole.SelectedItem = viewer;
+                    RoleDto admin = roles.FirstOrDefault(r => string.Equals(r.RoleName, "Admin", StringComparison.OrdinalIgnoreCase));
+                    if (admin != null)
+                        _cmbRole.SelectedItem = admin;
                     _cmbRole.Enabled = roles.Length > 1;
                     _lblStatus.ForeColor = Color.FromArgb(37, 99, 235);
-                    _lblStatus.Text = "Self-created accounts start as Viewer. Admins can change roles in Settings.";
+                    _lblStatus.Text = "New accounts receive full ServoERP access.";
                 }
             }
             catch (Exception ex)
@@ -257,7 +256,7 @@ namespace HVAC_Pro_Desktop.UI
             Rectangle rect = new Rectangle(0, 0, _card.Width - 1, _card.Height - 1);
             using (GraphicsPath path = Rounded(rect, 18))
             using (SolidBrush bg = new SolidBrush(Color.White))
-            using (Pen border = new Pen(Color.FromArgb(218, 226, 236)))
+            using (Pen border = new Pen(DS.Border))
             {
                 e.Graphics.FillPath(bg, path);
                 e.Graphics.DrawPath(border, path);
@@ -293,3 +292,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

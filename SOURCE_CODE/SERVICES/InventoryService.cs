@@ -18,15 +18,25 @@ namespace HVAC_Pro_Desktop.Services
 
         public List<StockItem> GetAll()                    => AppDataCache.GetOrCreate("inventory:all", CacheTtl, _repo.GetAll);
         public StockItem       GetById(int id)             => _repo.GetById(id);
-        public List<StockItem> GetLowStock()               => GetAll().FindAll(i => i.CurrentStock <= i.ReorderLevel);
+        public List<StockItem> GetLowStock()               => _repo.GetLowStock();
+        public List<InventoryDuplicateGroup> FindDuplicateItems() => _repo.FindDuplicateItems();
+        public InventoryDuplicateCleanupResult MergeDuplicateItems()
+        {
+            SessionManager.DemandPermission("Inventory", "Delete");
+            InventoryDuplicateCleanupResult result = _repo.MergeDuplicateItems();
+            AppDataCache.RemovePrefix("inventory:");
+            SessionManager.LogAction("MERGE", "Inventory", null, "Duplicate material cleanup");
+            _audit.Record("MERGE", "Inventory", null, "Duplicate material cleanup archived " + result.ItemsArchived + " duplicate rows.");
+            return result;
+        }
         public int Create(StockItem item)
         {
             SessionManager.DemandPermission("Inventory", "Create");
             ValidateInventoryItem(item);
             int id = _repo.Create(item);
             AppDataCache.RemovePrefix("inventory:");
-            SessionManager.LogAction("CREATE", "Inventory", id, "Inventory item saved");
-            _audit.Record("CREATE", "Inventory", id, "Inventory item saved with data-quality validation");
+            SessionManager.LogAction("CREATE", "Inventory", id, "Material item saved");
+            _audit.Record("CREATE", "Inventory", id, "Material item saved with data-quality validation");
             return id;
         }
         public void Update(StockItem item)
@@ -35,26 +45,35 @@ namespace HVAC_Pro_Desktop.Services
             ValidateInventoryItem(item);
             _repo.Update(item);
             AppDataCache.RemovePrefix("inventory:");
-            SessionManager.LogAction("EDIT", "Inventory", item.ItemID, "Inventory item saved");
-            _audit.Record("EDIT", "Inventory", item.ItemID, "Inventory item saved with data-quality validation");
+            SessionManager.LogAction("EDIT", "Inventory", item.ItemID, "Material item saved");
+            _audit.Record("EDIT", "Inventory", item.ItemID, "Material item saved with data-quality validation");
+        }
+        public void Delete(int itemId)
+        {
+            SessionManager.DemandPermission("Inventory", "Delete");
+            StockItem existing = _repo.GetById(itemId);
+            if (existing == null)
+                throw new Exception("Material item not found.");
+
+            _repo.Delete(itemId);
+            AppDataCache.RemovePrefix("inventory:");
+            SessionManager.LogAction("DELETE", "Inventory", itemId, "Material item archived");
+            _audit.Record("DELETE", "Inventory", itemId, "Material item archived from active inventory: " + existing.ItemName);
         }
         public decimal GetTotalStockValue()
         {
-            decimal total = 0;
-            foreach (var item in GetAll())
-                total += item.CurrentStock * item.LastPurchaseRate;
-            return total;
+            return _repo.GetTotalStockValue();
         }
-        public int GetLowStockCount()          => GetLowStock().Count;
+        public int GetLowStockCount()          => _repo.GetLowStockCount();
         public void AddStock(int itemId, decimal qty)
         {
             SessionManager.DemandPermission("Inventory", "Edit");
             StockItem item = _repo.GetById(itemId);
             if (item == null)
-                throw new Exception("Inventory item not found.");
+                throw new Exception("Material item not found.");
             decimal newStock = item.CurrentStock + qty;
             if (newStock < 0)
-                throw new InvalidOperationException("Stock cannot go negative for " + item.ItemName + ". Available stock: " + item.CurrentStock.ToString("0.###") + ", requested movement: " + qty.ToString("0.###") + ".");
+                throw new InvalidOperationException("Material quantity cannot go below zero for " + item.ItemName + ". Current quantity: " + item.CurrentStock.ToString("0.###") + ", requested movement: " + qty.ToString("0.###") + ".");
             _repo.AddStock(itemId, qty);
             AppDataCache.RemovePrefix("inventory:");
             _audit.Record("STOCK", "Inventory", itemId, "Stock movement " + qty.ToString("0.###") + " validated");
@@ -64,7 +83,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             SessionManager.DemandPermission("Inventory", "Edit");
             if (itemId <= 0)
-                throw new InvalidOperationException("Inventory item is required.");
+                throw new InvalidOperationException("Material item is required.");
             if (qty <= 0)
                 throw new InvalidOperationException("Transfer quantity must be greater than zero.");
             if (string.IsNullOrWhiteSpace(fromLocation))
@@ -98,7 +117,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             SessionManager.DemandPermission("Inventory", "Edit");
             if (itemId <= 0)
-                throw new InvalidOperationException("Inventory item is required.");
+                throw new InvalidOperationException("Material item is required.");
             if (signedQty == 0)
                 throw new InvalidOperationException("Adjustment quantity cannot be zero.");
 
@@ -139,10 +158,7 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(name))
                 return null;
 
-            string needle = name.Trim();
-            return GetAll().Find(i =>
-                string.Equals(i.ItemName, needle, StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrWhiteSpace(i.ItemName) && i.ItemName.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0));
+            return _repo.GetByName(name.Trim());
         }
 
         public StockItem GetByExactName(string name)

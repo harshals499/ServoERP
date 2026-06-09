@@ -54,61 +54,7 @@ namespace HVAC_Pro_Desktop.Services
     {
         public static void ExportHtmlToPdf(string html, string outputPath)
         {
-            string tempHtml = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".html");
-            File.WriteAllText(tempHtml, html ?? string.Empty, Encoding.UTF8);
-
-            try
-            {
-                string browserPath = FindPdfBrowser();
-                if (string.IsNullOrWhiteSpace(browserPath))
-                    throw new Exception("Microsoft Edge or Google Chrome is required to generate PDF output.");
-
-                Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? Path.GetTempPath());
-
-                var psi = new ProcessStartInfo
-                {
-                    FileName = browserPath,
-                    Arguments = "--headless=new --disable-gpu --no-pdf-header-footer --print-to-pdf=\"" + outputPath + "\" \"" + new Uri(tempHtml).AbsoluteUri + "\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                };
-
-                using (Process proc = Process.Start(psi))
-                {
-                    proc.WaitForExit(30000);
-                }
-
-                if (!File.Exists(outputPath))
-                    throw new Exception("PDF generation did not complete.");
-            }
-            finally
-            {
-                try
-                {
-                    if (File.Exists(tempHtml))
-                        File.Delete(tempHtml);
-                }
-                catch
-                {
-                }
-            }
-        }
-
-        private static string FindPdfBrowser()
-        {
-            string[] candidates =
-            {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Microsoft", "Edge", "Application", "msedge.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft", "Edge", "Application", "msedge.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Google", "Chrome", "Application", "chrome.exe"),
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe")
-            };
-
-            foreach (string candidate in candidates)
-                if (File.Exists(candidate))
-                    return candidate;
-
-            return string.Empty;
+            HtmlPdfExportService.ExportHtmlToPdf(html, outputPath);
         }
     }
 

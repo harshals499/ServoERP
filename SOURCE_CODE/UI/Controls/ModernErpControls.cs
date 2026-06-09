@@ -21,23 +21,23 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
     public static class ModernERPTheme
     {
-        public static readonly Color Workspace = Color.FromArgb(244, 247, 251);
-        public static readonly Color Surface = Color.White;
-        public static readonly Color SurfaceAlt = Color.FromArgb(248, 250, 252);
-        public static readonly Color Border = Color.FromArgb(226, 232, 240);
-        public static readonly Color BorderStrong = Color.FromArgb(203, 213, 225);
-        public static readonly Color Text = Color.FromArgb(15, 23, 42);
-        public static readonly Color MutedText = Color.FromArgb(100, 116, 139);
-        public static readonly Color RoyalBlue = Color.FromArgb(18, 57, 183);
-        public static readonly Color Primary = Color.FromArgb(79, 70, 229);
-        public static readonly Color PrimaryHover = Color.FromArgb(67, 56, 202);
-        public static readonly Color Blue = Color.FromArgb(37, 99, 235);
-        public static readonly Color Success = Color.FromArgb(22, 163, 74);
-        public static readonly Color Warning = Color.FromArgb(245, 158, 11);
-        public static readonly Color Danger = Color.FromArgb(220, 38, 38);
-        public static readonly Color Info = Color.FromArgb(6, 182, 212);
-        public static readonly Color Purple = Color.FromArgb(124, 58, 237);
-        public static readonly Color Shadow = Color.FromArgb(204, 213, 225);
+        public static readonly Color Workspace = DS.BgPage;
+        public static readonly Color Surface = DS.BgCard;
+        public static readonly Color SurfaceAlt = DS.Slate50;
+        public static readonly Color Border = DS.Border;
+        public static readonly Color BorderStrong = DS.BorderStrong;
+        public static readonly Color Text = DS.Slate900;
+        public static readonly Color MutedText = DS.Slate500;
+        public static readonly Color RoyalBlue = DS.Primary600;
+        public static readonly Color Primary = DS.Primary600;
+        public static readonly Color PrimaryHover = DS.Primary700;
+        public static readonly Color Blue = DS.Primary500;
+        public static readonly Color Success = DS.Green600;
+        public static readonly Color Warning = DS.Amber500;
+        public static readonly Color Danger = DS.Red600;
+        public static readonly Color Info = DS.Teal500;
+        public static readonly Color Purple = DS.Primary600;
+        public static readonly Color Shadow = DS.Shadow;
 
         public static readonly Font Body = new Font("Segoe UI", 9f);
         public static readonly Font BodyBold = new Font("Segoe UI", 9f, FontStyle.Bold);
@@ -105,9 +105,9 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPButton()
         {
             Height = 36;
-            MinimumSize = new Size(32, 30);
+            MinimumSize = new Size(110, 36);
             Padding = new Padding(14, 0, 14, 0);
-            FlatStyle = FlatStyle.System;
+            FlatStyle = FlatStyle.Flat;
             UseVisualStyleBackColor = false;
             Cursor = Cursors.Hand;
             Font = ModernERPTheme.BodyBold;
@@ -158,25 +158,28 @@ namespace HVAC_Pro_Desktop.UI.Controls
             switch (_variant)
             {
                 case ModernERPButtonVariant.Secondary:
-                    bg = ModernERPTheme.Blue;
+                    bg = DS.BgCard;
+                    fg = DS.Slate800;
+                    border = DS.InputBorder;
                     break;
                 case ModernERPButtonVariant.Success:
-                    bg = ModernERPTheme.Success;
+                    bg = DS.Primary600;
                     break;
                 case ModernERPButtonVariant.Warning:
-                    bg = ModernERPTheme.Warning;
-                    fg = Color.FromArgb(69, 26, 3);
+                    bg = DS.BgCard;
+                    fg = DS.Slate800;
+                    border = DS.InputBorder;
                     break;
                 case ModernERPButtonVariant.Danger:
-                    bg = ModernERPTheme.Danger;
+                    bg = DS.Red600;
                     break;
                 case ModernERPButtonVariant.Ghost:
-                    bg = Color.White;
-                    fg = ModernERPTheme.Text;
-                    border = ModernERPTheme.BorderStrong;
+                    bg = DS.Slate50;
+                    fg = Color.FromArgb(55, 65, 81);
+                    border = DS.InputBorder;
                     break;
                 default:
-                    bg = ModernERPTheme.Primary;
+                    bg = DS.Primary600;
                     break;
             }
 
@@ -184,12 +187,11 @@ namespace HVAC_Pro_Desktop.UI.Controls
             ForeColor = fg;
             FlatAppearance.BorderSize = border == Color.Transparent ? 0 : 1;
             FlatAppearance.BorderColor = border == Color.Transparent ? bg : border;
-            FlatAppearance.MouseOverBackColor = _variant == ModernERPButtonVariant.Ghost
-                ? ModernERPTheme.SurfaceAlt
-                : ModernERPTheme.Lighten(bg, 0.08f);
-            FlatAppearance.MouseDownBackColor = _variant == ModernERPButtonVariant.Ghost
-                ? Color.FromArgb(241, 245, 249)
-                : ModernERPTheme.Darken(bg, 0.10f);
+            bool outlined = _variant == ModernERPButtonVariant.Ghost ||
+                            _variant == ModernERPButtonVariant.Secondary ||
+                            _variant == ModernERPButtonVariant.Warning;
+            FlatAppearance.MouseOverBackColor = outlined ? DS.Slate50 : DS.Darken(bg, 0.08f);
+            FlatAppearance.MouseDownBackColor = outlined ? DS.Slate100 : DS.Darken(bg, 0.16f);
         }
     }
 
@@ -197,18 +199,29 @@ namespace HVAC_Pro_Desktop.UI.Controls
     {
         public ModernERPTextBox()
         {
-            BorderStyle = BorderStyle.FixedSingle;
+            BorderStyle = BorderStyle.None;
             Font = ModernERPTheme.Body;
-            Height = 30;
+            Height = 32;
+            MinimumSize = new Size(0, 32);
             BackColor = Color.White;
             ForeColor = ModernERPTheme.Text;
-            Margin = new Padding(0, 4, 0, 10);
+            Margin = new Padding(0, 3, 0, 8);
+            Enter += (s, e) => InvalidateParentFrame();
+            Leave += (s, e) => InvalidateParentFrame();
         }
 
         protected override void OnReadOnlyChanged(EventArgs e)
         {
             base.OnReadOnlyChanged(e);
-            BackColor = ReadOnly ? ModernERPTheme.SurfaceAlt : Color.White;
+            BackColor = ReadOnly ? DS.InputDisabledBack : Color.White;
+            ForeColor = ReadOnly ? DS.InputMutedText : DS.InputText;
+            InvalidateParentFrame();
+        }
+
+        private void InvalidateParentFrame()
+        {
+            if (Parent != null)
+                Parent.Invalidate(new Rectangle(Left - 3, Top - 3, Width + 6, Height + 6));
         }
     }
 
@@ -217,14 +230,15 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPComboBox()
         {
             DropDownStyle = ComboBoxStyle.DropDownList;
-            FlatStyle = FlatStyle.System;
+            FlatStyle = FlatStyle.Flat;
             Font = ModernERPTheme.Body;
-            Height = 30;
+            Height = 32;
+            MinimumSize = new Size(0, 32);
             BackColor = Color.White;
             ForeColor = ModernERPTheme.Text;
             AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             AutoCompleteSource = AutoCompleteSource.ListItems;
-            Margin = new Padding(0, 4, 0, 10);
+            Margin = new Padding(0, 3, 0, 8);
         }
     }
 
@@ -233,11 +247,12 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPDatePicker()
         {
             Font = ModernERPTheme.Body;
-            Height = 30;
+            Height = 32;
+            MinimumSize = new Size(0, 32);
             Format = DateTimePickerFormat.Short;
             CalendarMonthBackground = Color.White;
             CalendarForeColor = ModernERPTheme.Text;
-            Margin = new Padding(0, 4, 0, 10);
+            Margin = new Padding(0, 3, 0, 8);
         }
     }
 
@@ -246,7 +261,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPDataGrid()
         {
             Dock = DockStyle.Fill;
-            BackgroundColor = Color.White;
+            BackgroundColor = DS.BgCard;
             BorderStyle = BorderStyle.None;
             CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
             GridColor = ModernERPTheme.Border;
@@ -269,24 +284,24 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
         public void ApplyModernGridStyle()
         {
-            ColumnHeadersDefaultCellStyle.BackColor = ModernERPTheme.RoyalBlue;
-            ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            ColumnHeadersDefaultCellStyle.BackColor = DS.Slate50;
+            ColumnHeadersDefaultCellStyle.ForeColor = DS.Slate900;
             ColumnHeadersDefaultCellStyle.Font = ModernERPTheme.BodyBold;
             ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
             ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 0, 0, 0);
-            ColumnHeadersDefaultCellStyle.SelectionBackColor = ModernERPTheme.RoyalBlue;
-            ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.White;
+            ColumnHeadersDefaultCellStyle.SelectionBackColor = DS.Slate100;
+            ColumnHeadersDefaultCellStyle.SelectionForeColor = DS.Slate900;
 
             DefaultCellStyle.Font = ModernERPTheme.Body;
             DefaultCellStyle.ForeColor = ModernERPTheme.Text;
-            DefaultCellStyle.BackColor = Color.White;
-            DefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
-            DefaultCellStyle.SelectionForeColor = ModernERPTheme.Text;
+            DefaultCellStyle.BackColor = GridTheme.RowNormal;
+            DefaultCellStyle.SelectionBackColor = GridTheme.RowSelected;
+            DefaultCellStyle.SelectionForeColor = Color.White;
             DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
 
-            AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(248, 251, 255);
-            AlternatingRowsDefaultCellStyle.SelectionBackColor = Color.FromArgb(219, 234, 254);
-            AlternatingRowsDefaultCellStyle.SelectionForeColor = ModernERPTheme.Text;
+            AlternatingRowsDefaultCellStyle.BackColor = GridTheme.RowAlt;
+            AlternatingRowsDefaultCellStyle.SelectionBackColor = GridTheme.RowSelected;
+            AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.White;
 
             foreach (DataGridViewColumn column in Columns)
             {
@@ -313,7 +328,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPCard()
         {
             DoubleBuffered = true;
-            BackColor = Color.White;
+            BackColor = ModernERPTheme.Surface;
             Padding = new Padding(18);
             Margin = new Padding(0, 0, 0, ModernERPTheme.Gap);
         }
@@ -400,7 +415,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Dock = DockStyle.Left;
             Width = 208;
             Padding = new Padding(14, 18, 14, 18);
-            BackColor = ModernERPTheme.RoyalBlue;
+            BackColor = Color.White;
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -409,8 +424,11 @@ namespace HVAC_Pro_Desktop.UI.Controls
             if (bounds.Width <= 0 || bounds.Height <= 0)
                 return;
 
-            using (LinearGradientBrush brush = new LinearGradientBrush(bounds, ModernERPTheme.RoyalBlue, Color.FromArgb(37, 99, 235), 72f))
+            using (LinearGradientBrush brush = new LinearGradientBrush(bounds, Color.White, Color.FromArgb(248, 250, 252), 90f))
                 e.Graphics.FillRectangle(brush, bounds);
+
+            using (Pen pen = new Pen(ModernERPTheme.Border))
+                e.Graphics.DrawLine(pen, bounds.Right - 1, bounds.Top, bounds.Right - 1, bounds.Bottom);
         }
     }
 
@@ -423,7 +441,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         {
             Dock = DockStyle.Top;
             Height = 64;
-            BackColor = Color.White;
+            BackColor = ModernERPTheme.Surface;
             Padding = new Padding(20, 12, 20, 12);
 
             TitleLabel = new Label
@@ -469,13 +487,13 @@ namespace HVAC_Pro_Desktop.UI.Controls
             bool selected = e.Index == SelectedIndex;
             Rectangle rect = e.Bounds;
             rect.Inflate(-3, -3);
-            Color bg = selected ? ModernERPTheme.Primary : Color.White;
-            Color fg = selected ? Color.White : ModernERPTheme.MutedText;
+            Color bg = selected ? DS.Primary50 : ModernERPTheme.Surface;
+            Color fg = selected ? DS.Primary700 : ModernERPTheme.MutedText;
 
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             using (GraphicsPath path = ModernERPTheme.RoundedRect(rect, ModernERPTheme.Radius))
             using (SolidBrush brush = new SolidBrush(bg))
-            using (Pen pen = new Pen(selected ? ModernERPTheme.Primary : ModernERPTheme.Border))
+            using (Pen pen = new Pen(selected ? DS.Primary100 : ModernERPTheme.Border))
             {
                 e.Graphics.FillPath(brush, path);
                 e.Graphics.DrawPath(pen, path);
@@ -611,8 +629,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
             AutoSize = false;
             Height = 38;
             Width = 320;
-            BackColor = ModernERPTheme.Text;
-            ForeColor = Color.White;
+            BackColor = DS.BgCard;
+            ForeColor = ModernERPTheme.Text;
             Font = ModernERPTheme.BodyBold;
             TextAlign = ContentAlignment.MiddleCenter;
             Padding = new Padding(14, 0, 14, 0);
@@ -636,7 +654,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
             ModernERPToast toast = new ModernERPToast
             {
                 Text = message ?? string.Empty,
-                BackColor = accent,
+                BackColor = DS.Lighten(accent, 0.86f),
+                ForeColor = accent.GetBrightness() < 0.5f ? DS.Darken(accent, 0.10f) : DS.Slate900,
                 Width = Math.Min(460, Math.Max(240, (message ?? string.Empty).Length * 7 + 42))
             };
             toast.Left = Math.Max(12, form.ClientSize.Width - toast.Width - 24);
@@ -709,36 +728,10 @@ namespace HVAC_Pro_Desktop.UI.Controls
             {
                 bool done = i < _activeIndex;
                 bool active = i == _activeIndex;
-                _steps[i].BackColor = active ? ModernERPTheme.Primary : done ? Color.FromArgb(220, 252, 231) : ModernERPTheme.SurfaceAlt;
-                _steps[i].ForeColor = active ? Color.White : done ? ModernERPTheme.Success : ModernERPTheme.MutedText;
+                _steps[i].BackColor = active ? DS.Primary50 : done ? DS.Green50 : ModernERPTheme.SurfaceAlt;
+                _steps[i].ForeColor = active ? DS.Primary700 : done ? ModernERPTheme.Success : ModernERPTheme.MutedText;
                 ModernERPTheme.ApplyRoundedRegion(_steps[i], ModernERPTheme.Radius);
             }
-        }
-    }
-
-    public class ModernERPActivityTimeline : ModernERPFlowLayout
-    {
-        public ModernERPActivityTimeline()
-        {
-            FlowDirection = FlowDirection.TopDown;
-            WrapContents = false;
-            AutoScroll = true;
-        }
-
-        public void AddActivity(string title, string detail, Color accent)
-        {
-            Panel row = new Panel { Width = Math.Max(280, ClientSize.Width - 24), Height = 56, Margin = new Padding(0, 0, 0, 8), BackColor = Color.Transparent };
-            Panel dot = new Panel { Width = 10, Height = 10, Left = 2, Top = 8, BackColor = accent };
-            dot.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (SolidBrush brush = new SolidBrush(dot.BackColor))
-                    e.Graphics.FillEllipse(brush, 0, 0, dot.Width - 1, dot.Height - 1);
-            };
-            row.Controls.Add(dot);
-            row.Controls.Add(new Label { Text = title, Left = 24, Top = 0, Width = row.Width - 28, Height = 22, Font = ModernERPTheme.BodyBold, ForeColor = ModernERPTheme.Text });
-            row.Controls.Add(new Label { Text = detail, Left = 24, Top = 23, Width = row.Width - 28, Height = 24, Font = ModernERPTheme.Small, ForeColor = ModernERPTheme.MutedText });
-            Controls.Add(row);
         }
     }
 
@@ -772,6 +765,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
                 BackColor = Color.White,
                 ForeColor = ModernERPTheme.Text
             };
+            _textBox.Enter += (s, e) => Invalidate();
+            _textBox.Leave += (s, e) => Invalidate();
             Controls.Add(_textBox);
         }
 
@@ -782,8 +777,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
         {
             base.OnPaint(e);
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath path = ModernERPTheme.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), ModernERPTheme.Radius))
-            using (Pen pen = new Pen(ModernERPTheme.BorderStrong))
+            using (GraphicsPath path = ModernERPTheme.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), 7))
+            using (Pen pen = new Pen(_textBox.Focused ? DS.FocusBlue : DS.InputBorder, _textBox.Focused ? 2f : 1f))
                 e.Graphics.DrawPath(pen, path);
         }
     }
@@ -838,7 +833,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public ModernERPLoadingOverlay()
         {
             Dock = DockStyle.Fill;
-            BackColor = Color.FromArgb(230, 248, 250, 252);
+            BackColor = Color.FromArgb(220, DS.BgPage);
             Visible = false;
             _message = new Label
             {
@@ -848,7 +843,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                 Font = ModernERPTheme.BodyBold,
                 ForeColor = ModernERPTheme.Text,
                 TextAlign = ContentAlignment.MiddleCenter,
-                BackColor = Color.White,
+                BackColor = DS.BgCard,
                 Text = "Loading..."
             };
             Controls.Add(_message);
@@ -878,7 +873,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         }
     }
 
-    public class ModernERPModalDialog : Form
+    public class ModernERPModalDialog : ServoERP.Infrastructure.ServoFormBase
     {
         public ModernERPTopBar Header { get; private set; }
         public ModernERPPanel Body { get; private set; }
@@ -992,3 +987,4 @@ namespace HVAC_Pro_Desktop.UI.Controls
         }
     }
 }
+

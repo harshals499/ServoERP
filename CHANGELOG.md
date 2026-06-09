@@ -1,5 +1,179 @@
 # Changelog
 
+## 1.1.11.0 - 2026-06-09
+
+- Added `/amctest` smoke test entry point that verifies the Add AMC save path (insert, update, fallback-insert, duplicate rejection) without requiring the full enterprise test suite. Fixed `ContractRepository.MapContract` to handle NULL values in newly-added schema columns (MonthlyValue, AnnualValue, SLAResponseTimeHours, SLAUptimePercent, SLARepairTimeHours, ContractStatus) that were NULL for pre-migration rows. All 7 AddAMC smoke tests pass in under 55 seconds.
+
+## 1.1.10.0 - 2026-06-09
+
+- Fixed "+ Add AMC" lag, blank, and dead-form symptoms by (1) guarding the client SelectedIndexChanged handler so the 3 spurious BeginLoadSitesAsync calls fired during SetReferenceLoadingState(true) no longer race with the main reference load, (2) reducing ReferenceLoadTimeoutMilliseconds from 8 s to 5 s so failures surface faster, (3) enabling DoubleBuffered on AddAMCForm to eliminate white-flash on open, (4) moving OpenDetailPage out of the AddAMCForm using block in AMCPage so the form is fully disposed before the control tree is rebuilt, and (5) making the dashboard "+ New AMC" shortcut navigate to the AMC module and open the newly created contract instead of silently refreshing the dashboard.
+
+## 1.1.9.0 - 2026-06-09
+
+- Fixed the AMC detail crash after Add/View flows by handling stale or invalid contract IDs gracefully, refreshing the AMC list instead of throwing, and allowing detail headers to load even if a linked client row is missing.
+
+## 1.1.8.0 - 2026-06-09
+
+- Fixed the Add AMC button lag by deferring modal launch out of the page click event, preventing duplicate opens, showing the form before database lookup work starts, and caching active client lookup data for repeated opens.
+
+## 1.1.7.0 - 2026-06-09
+
+- Permanently suppressed the developer-folder update warning and hardened the client installer to remove stale portable/developer shortcuts so ServoERP opens through the installed Velopack update channel.
+
+## 1.1.6.0 - 2026-06-09
+
+- Added no-touch background updates: ServoERP now checks, downloads, notifies, installs, and restarts automatically from the installed Velopack channel without requiring the user to press an update button.
+
+## 1.1.5.0 - 2026-06-09
+
+- Kept Add AMC and Add AMC Equipment as owner-launched modal dialogs only, removing them from page/navigation timing flows that were opening full shell-style windows.
+
+## 1.1.4.0 - 2026-06-09
+
+- Improved Add AMC open performance by caching the guarded AMC schema setup after first use and preventing duplicate client-site loads while the form binds reference data.
+
+## 1.1.3.0 - 2026-06-08
+
+- Applied shared WinForms frontend polish for text clipping, grid readability, compact input heights, disabled action states, and dense flow/table spacing across ServoERP screens.
+- Verified Release build output and recorded the frontend audit summary in `LOGS/frontend-engineer-summary.json`.
+
+## 1.1.2.0 - 2026-06-08
+
+- Verified the connected Client → Contract → Quotation → Job → Invoice → Payment chain against SQL Server with correct ID handoffs, INR totals, partial payment recalculation, and downstream cleanup.
+- Confirmed payment deletion restores invoice balance, invoice/quotation deletion removes list-visible records, and job deletion decrements the job counter.
+- Bumped ServoERP assembly and app version metadata to 1.1.2.0 for the clean Release build.
+
+## 1.1.1.0 - 2026-06-08
+
+- Fixed quotation save after visible line-item entry by committing active grid edits before collection and filtering null/empty line records before analysis and save.
+- Fixed invoice save validation so visible amount-bearing line rows are collected even when the description cell has not been committed, with safe India-first default descriptions for service/material charges.
+- Moved quotation and invoice line-item delete/insert persistence to Dapper inside the existing SQL transactions and added null-safe line filtering.
+- Repaired existing invoice balances by updating `Invoices.BalanceDue = TotalAmount - PaidAmount` for unpaid positive-total invoices where the balance had been stored as zero.
+
+## 1.1.0.0 - 2026-06-08
+
+- Unlocked the ServoERP engineering foundation for Dapper data access, FluentValidation form validation, Serilog rolling file logging, direct Designer edits, and targeted rewrites of broken forms or methods.
+- Installed Dapper 2.1.66, FluentValidation 11.11.0, Serilog 4.2.0, Serilog.Sinks.File 6.0.0, and required .NET Framework compatibility dependencies.
+- Replaced the long-form AGENTS manifest with compact current engineering rules and bumped ServoERP to the 1.1 release line.
+
+## 1.0.215.0 - 2026-06-08
+
+- Retired confirmed BackgroundWorker hang paths by moving Client Save, Employees initial load, AMC dashboard load, and Add/Edit AMC load/save/site loading to async/await with Task.Run.
+- Added QuestPDF 2026.5.0, startup community license setup, and a shared null-safe PDFGenerator for invoice and job-card PDF generation.
+- Migrated quotation table references from TenderBids/TenderBidLineItems to Quotations/QuotationLineItems with guarded startup sp_rename migration.
+- Kept AMC navigation cached through MainForm's central navigation pipeline and normalized local SQL configuration to .\SQLEXPRESS.
+
+## 1.0.214.0 - 2026-06-08
+
+- Fixed payment amount entry so typed INR values are not clamped to Rs.0.01 by zero-balance invoice selection, and saved payments now bind `AmountPaid` as an explicit `DECIMAL(12,2)` parameter.
+- Added a visible invoice delete action on the dashboard recent-invoices list and refreshed the invoice dashboard immediately after deletion.
+- Improved quotation save/list handling by surfacing save errors, returning to the refreshed quotation dashboard after save, and adding delete actions on quotation list surfaces.
+
+## 1.0.213.0 - 2026-06-08
+
+- Hardened E2E smoke-test paths for Clients, AMC, Employees, Vendors, and Jobs so SQL or validation failures return visible WinForms feedback instead of leaving pages blank or modal buttons disabled.
+- Ensured the AMC dashboard and Add/Edit AMC form call the guarded AMC schema setup before load/save, keep AMC Number editable, and show clear duplicate AMC Number warnings.
+- Moved the initial Employees navigation load onto a `BackgroundWorker` and kept the grid query aligned to the real `Employees.Name` column.
+- Saved a selected technician before advancing a job from Created to Assigned, preserving the technician-required validation while letting valid assignments progress.
+
+## 1.0.212.0 - 2026-06-08
+
+- Moved the New Client modal save operation into a `BackgroundWorker` so SQL validation, insert/update, cache invalidation, and audit work no longer block the WinForms UI thread.
+- Kept the New Client dialog open and restored the Save button when SQL or validation errors occur, while duplicate clients show the direct validation message and successful saves still close with `DialogResult.OK`.
+- Updated source SQL connection configuration to use portable `.\SQLEXPRESS` for local SQL Server Express installations.
+
+## 1.0.211.0 - 2026-06-08
+
+- Made the AMC Number field editable in the Add/Edit AMC form while preserving the generated default number.
+- Added AMC Number validation and duplicate-number handling so users get a clear warning instead of a raw SQL unique-index failure.
+- Saved edited AMC numbers on existing contracts while preserving the existing `AMCContracts.AMCNumber` unique index and parameterised SQL flow.
+
+## 1.0.210.0 - 2026-06-08
+
+- Added permanent `ServoPageBase` and expanded `ServoFormBase` foundation classes for automatic double-buffering, safe BackgroundWorker creation, UI-thread marshaling, branded error dialogs, load logging, batch panel rebuilds, and automatic DataGridView optimisation.
+- Routed existing page infrastructure through `ServoPageBase` by updating `BaseUserControl`, preserving deferred page behaviour while making the safety/performance layer unavoidable for all module pages.
+- Migrated existing modal/sub forms and direct page controls to the ServoERP base classes where applicable, excluding `MainForm`, `LoginForm`, and reusable non-page controls.
+- Replaced UI-layer `new BackgroundWorker()` construction with base `CreateWorker()` usage and kept worker completion handlers guarded with error checks plus `RunOnUI`.
+- Documented mandatory foundation rules in `AGENTS.md` so future ServoERP pages, forms, workers, grid setup, panel reloads, dropdowns, and navigation handlers follow the same base patterns.
+
+## 1.0.209.0 - 2026-06-08
+
+- Added shared ServoERP exception-safety infrastructure for UI-thread marshaling, monthly exception logs, safe BackgroundWorker completion, and friendly in-app error dialogs.
+- Registered global WinForms, AppDomain, and Task exception hooks at process startup before any other startup work.
+- Hardened existing BackgroundWorker completion handlers across Settings, Payments, Inventory, Invoices, Master Data, AMC, WhatsApp, Tally, backup, and setup flows with `e.Error` handling and UI-thread guarded updates.
+- Added Settings diagnostics controls to open the log folder, view the current monthly log, and clear old logs older than 90 days.
+
+## 1.0.208.0 - 2026-06-08
+
+- Added AMC equipment register, service visit schedule, service history, and AMC health detail page.
+- Added guarded `AMCEquipment`, `AMCVisits`, and `AMCContracts.CoverageType` schema through `DbHelper.EnsureAMCSchema()`.
+- Added automatic visit scheduling after new AMC creation plus dashboard equipment/visit/coverage indicators.
+
+## 1.0.207.0 - 2026-06-08
+
+- Completed AMC end-to-end workflow with real View/Edit support from dashboard cards.
+- Added AMC dashboard search, status/type filters, site/equipment details, derived renewal status, and days-left indicators.
+- Added edit-mode save, Renew 1 Year action, and parameterised update SQL while preserving existing contract table compatibility.
+
+## 1.0.206.0 - 2026-06-08
+
+- Added a separate AMC dashboard under Operations with KPI cards, scrollable AMC contract cards, and an Add AMC workflow.
+- Added guarded AMC schema compatibility columns on the existing `AMCContracts` table without renaming or dropping legacy contract columns.
+- Added a BackgroundWorker-based New AMC Contract form with generated AMC numbers, client/site dropdowns, live summary, validation, and parameterised insert SQL.
+
+## 1.0.205.0 - 2026-06-08
+
+- Reduced full navigation first-open times by deferring non-visible module work in WhatsApp Hub, Employees, Payments, and Master Data.
+- Stopped WhatsApp Hub from initializing embedded WebView2 on page open; it now loads contacts in a `BackgroundWorker` and starts WhatsApp Web only when a chat is opened.
+- Lazy-loaded Employee Jobs, Attendance, Skills, Documents, and Payroll tab data so the Employee page opens on the profile view first.
+- Delayed Payments and Master Data background refreshes until the user remains on those pages, preventing rapid navigation from carrying heavy SQL work into the next form.
+
+## 1.0.204.0 - 2026-06-08
+
+- Fixed Settings first-open blank/non-responsive behaviour by batching the large lazy card build with suspended drawing and applying shared polish once after construction.
+- Moved the Settings SQL Server health check, HSN/SAC master load, and Users & Logins summary load off the UI thread with `BackgroundWorker` so slow office SQL reads cannot freeze the app shell.
+- Restored the base visibility pipeline for Settings so cached page and deferred-load handling stays consistent when the page is shown again.
+
+## 1.0.203.0 - 2026-06-08
+
+- Rewrote terminal/client SQL connection repair scripts to update `HVACPro.config` and installed `HVAC_Pro_Desktop.exe.config` files with backups and support logs.
+- Added SQL connection validation, clearer operator errors, and optional SQL-login support for terminal PCs where Windows Authentication is not accepted.
+- Synced the repaired scripts and updated instructions into the existing terminal install pack.
+
+## 1.0.202.0 - 2026-06-07
+
+- Added `/navtiming` automation to open Settings first, then every ServoERP module and safe tab/subpage, writing page-open timings to `TEST_RESULTS`.
+- Logged Settings load failures through the shared crash logger so Settings no longer appears silently blank when its deferred load fails.
+- Exposed deferred page load state for QA timing so module pages are measured after their background-safe load completes.
+
+## 1.0.201.0 - 2026-06-07
+
+- Fixed Help & Support Center layout when opened as the app's narrow right-side support drawer.
+- Made Dashboard, Knowledge Base, System Health, and App Information content switch to single-column compact layouts below drawer width.
+- Resized support-card titles, summaries, status labels, buttons, and article steps so text stays inside the visible card area.
+
+## 1.0.200.0 - 2026-06-07
+
+- Changed the login owner lifecycle so closing ServoERP closes the hidden login form instead of reopening the login screen.
+- Locked login display to fresh shortcut/exe launches only; app close and logout now end the running process.
+
+## 1.0.199.0 - 2026-06-07
+
+- Locked the guided tour to a true first-login-only rule by recording a version-independent LocalAppData marker before the tour opens.
+- Kept the existing completion setting for Skip/Finish while preventing app updates or settings-version resets from reopening the tour.
+
+## 1.0.198.0 - 2026-06-07
+
+- Added shared UI performance helpers for double-buffered grids and redraw-suspended card/list rebuilds.
+- Moved inventory save/refresh, invoice list refresh, payment invoice lookup fallback, and payment recording refresh work off the UI thread with `BackgroundWorker` where synchronous DB calls still remained.
+- Reduced repaint lag in Inventory, Invoice, Payment, and Purchase card/list surfaces without touching MainForm, sidebar, or modal classes.
+
+## 1.0.197.0 - 2026-06-07
+
+- Added a self-contained WinForms first-launch tour for the ServoERP main shell with a dimmed GDI+ spotlight overlay and floating tooltip navigation.
+- Stored the tour completion state in per-user `Properties.Settings` so finishing or skipping the tour prevents it from reopening.
+- Covered 19 core navigation steps across Dashboard, Clients, Jobs, Invoices, Dispatch, GST/sales, operations, payroll, master data, WhatsApp, and Tally workflows.
+
 ## 1.0.196.0 - 2026-06-07
 
 - Removed stale resize-grip overlay artifacts from the right side of the New Job editor after card layout.

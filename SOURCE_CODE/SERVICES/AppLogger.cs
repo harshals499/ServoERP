@@ -13,7 +13,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             try
             {
-                string safeMessage = Truncate(message);
+                string safeMessage = Truncate(SensitiveDataRedactor.Redact(message));
                 lock (Sync)
                 {
                     Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath) ?? @"C:\HVAC_PRO_MSE\LOGS");

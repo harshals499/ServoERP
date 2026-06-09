@@ -7,7 +7,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class NotificationCenterDialog : Form
+    public sealed class NotificationCenterDialog : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly ListBox _list;
         private readonly Action<string> _navigate;
@@ -33,7 +33,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate900
             };
 
-            _list = new ListBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false };
+            _list = new ListBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false, Cursor = Cursors.Hand };
             _list.DoubleClick += (s, e) => OpenSelected();
 
             var footer = new FlowLayoutPanel
@@ -83,8 +83,9 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             FoundationNotification selected = _notifications[index];
+            Hide();
+            NavigationHelper.OpenNotification(this, selected, _navigate);
             Close();
-            _navigate?.Invoke(selected.PageKey);
         }
 
         private void DismissSelected()
@@ -113,3 +114,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

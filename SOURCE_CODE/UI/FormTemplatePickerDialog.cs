@@ -10,7 +10,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class FormTemplatePickerDialog : Form
+    public sealed class FormTemplatePickerDialog : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly FormTemplateLibraryService _library = new FormTemplateLibraryService();
         private readonly string _workflowName;
@@ -311,3 +311,4 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+

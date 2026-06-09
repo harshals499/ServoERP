@@ -34,8 +34,8 @@ namespace HVAC_Pro_Desktop.Services
 
         // ── READ ─────────────────────────────────────────────
         public List<Invoice> GetAllInvoices()       => AppDataCache.GetOrCreate("invoices:all", CacheTtl, _invoiceRepo.GetAll);
-        public List<Invoice> GetPendingInvoices()   => GetAllInvoices().Where(i => i.PaymentStatus == "Pending" || i.PaymentStatus == "Overdue" || i.PaymentStatus == "Partial" || i.PaymentStatus == "Draft").ToList();
-        public List<Invoice> GetOverdueInvoices()   => GetAllInvoices().Where(i => (i.PaymentStatus == "Pending" || i.PaymentStatus == "Partial" || i.PaymentStatus == "Overdue") && i.DueDate < DateTime.Today).ToList();
+        public List<Invoice> GetPendingInvoices()   => _invoiceRepo.GetPendingInvoices();
+        public List<Invoice> GetOverdueInvoices()   => _invoiceRepo.GetOverdueInvoices();
 
         public Invoice GetInvoiceById(int id)
         {
@@ -47,12 +47,12 @@ namespace HVAC_Pro_Desktop.Services
 
         public List<Invoice> GetInvoicesForContract(int contractId)
         {
-            return GetAllInvoices().Where(i => i.ContractID == contractId).ToList();
+            return _invoiceRepo.GetByContractId(contractId);
         }
 
         public List<Invoice> GetInvoicesForClient(int clientId)
         {
-            return GetAllInvoices().Where(i => i.ClientID == clientId).ToList();
+            return _invoiceRepo.GetByClientId(clientId);
         }
 
         public List<InvoiceLineItem> GetLineItems(int invoiceId)
@@ -119,6 +119,7 @@ namespace HVAC_Pro_Desktop.Services
         public int CreateInvoiceWithLineItems(Invoice inv)
         {
             SessionManager.DemandPermission("Invoices", "Create");
+            NormalizeInvoiceLineItems(inv);
             ValidateInvoice(inv);
             PopulateInvoiceDefaults(inv);
             RecalculateTotals(inv);
@@ -155,6 +156,7 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null || inv.InvoiceID <= 0)
                 throw new Exception("Invoice not found.");
 
+            NormalizeInvoiceLineItems(inv);
             ValidateInvoice(inv);
             PopulateInvoiceDefaults(inv);
             RecalculateTotals(inv);
@@ -384,10 +386,7 @@ namespace HVAC_Pro_Desktop.Services
         // ── SUMMARY KPIs ─────────────────────────────────────
         public decimal GetTotalPendingAmount()
         {
-            decimal total = 0;
-            foreach (Invoice inv in GetPendingInvoices())
-                total += inv.BalanceDue;
-            return total;
+            return _invoiceRepo.GetPendingBalanceTotal();
         }
 
         // ── PRIVATE HELPERS ──────────────────────────────────
@@ -397,7 +396,7 @@ namespace HVAC_Pro_Desktop.Services
             decimal tax = 0m;
             if (inv.LineItems != null)
             {
-                foreach (var item in inv.LineItems)
+                foreach (var item in inv.LineItems.Where(i => i != null))
                 {
                     item.GSTPercent = item.GSTPercent <= 0 ? (inv.GSTPercent <= 0 ? 18m : inv.GSTPercent) : item.GSTPercent;
                     item.Quantity = item.Quantity <= 0 ? 1m : item.Quantity;
@@ -439,8 +438,6 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Invoice details are missing.");
             if (inv.ClientID <= 0)
                 throw new Exception("Please select a client.");
-            if (inv.SiteID <= 0)
-                throw new Exception("Please select a site.");
             if (inv.InvoiceDate == default)
                 throw new Exception("Invoice date is required.");
             if (inv.DueDate == default)
@@ -449,7 +446,7 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Due date cannot be earlier than invoice date.");
             if (inv.LineItems == null || inv.LineItems.Count == 0)
                 throw new Exception("At least one line item is required.");
-            foreach (var item in inv.LineItems)
+            foreach (var item in inv.LineItems.Where(i => i != null))
             {
                 if (string.IsNullOrWhiteSpace(item.Description))
                     throw new Exception("All line items must have a description.");
@@ -460,15 +457,38 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        private static void NormalizeInvoiceLineItems(Invoice inv)
+        {
+            if (inv == null)
+                return;
+
+            inv.LineItems = (inv.LineItems ?? new List<InvoiceLineItem>())
+                .Where(item => item != null)
+                .Where(item =>
+                    !string.IsNullOrWhiteSpace(item.Description)
+                    || item.Rate > 0m
+                    || item.Amount > 0m
+                    || item.Quantity > 1m)
+                .ToList();
+
+            foreach (InvoiceLineItem item in inv.LineItems)
+            {
+                item.Category = string.IsNullOrWhiteSpace(item.Category) ? (item.IsStockItem ? "Material" : "Service") : item.Category.Trim();
+                if (string.IsNullOrWhiteSpace(item.Description))
+                    item.Description = string.Equals(item.Category, "Material", StringComparison.OrdinalIgnoreCase) ? "Material charges" : "Service charges";
+                item.Unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim();
+                item.TaxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim();
+                item.Quantity = item.Quantity <= 0m ? 1m : item.Quantity;
+            }
+        }
+
         private void ValidateInvoiceForSave(Invoice inv)
         {
             ValidationResult result = _businessRules.ValidateInvoice(inv);
             result.Merge(_calculationVerifier.VerifyInvoice(inv));
             if (inv != null && !string.IsNullOrWhiteSpace(inv.InvoiceNumber))
             {
-                bool duplicateNumber = GetAllInvoices().Any(existing =>
-                    existing.InvoiceID != inv.InvoiceID &&
-                    string.Equals((existing.InvoiceNumber ?? string.Empty).Trim(), inv.InvoiceNumber.Trim(), StringComparison.OrdinalIgnoreCase));
+                bool duplicateNumber = _invoiceRepo.InvoiceNumberExists(inv.InvoiceNumber.Trim(), inv.InvoiceID);
                 if (duplicateNumber)
                     result.Add(ValidationSeverity.Error, "Invoices", "InvoiceNumber", "Another invoice already uses this invoice number.", "Open the existing invoice or generate a new invoice number.");
             }
@@ -519,8 +539,7 @@ namespace HVAC_Pro_Desktop.Services
             string profTax = GetSetting(settings, "CompanyProfTax", GetSetting(settings, "CompanyProfessionalTax", ""));
             string msmeNumber = GetSetting(settings, "CompanyMSMENumber", "");
 
-            string clientAddress = FirstNonEmpty(site?.Address, client?.BillingAddress, string.Empty);
-            string clientGst = FirstNonEmpty(client?.GSTNumber, string.Empty);
+            string customerBlockHtml = BuildInvoiceCustomerBlock(client, site, inv.ClientName);
             string subject = FirstNonEmpty(inv.Subject, "Supply / service invoice.");
             string invoiceNo = FirstNonEmpty(inv.InvoiceNumber, "DRAFT-PREVIEW");
             string words = ToWords((long)Math.Round(inv.TotalAmount)) + " Only.";
@@ -557,7 +576,7 @@ namespace HVAC_Pro_Desktop.Services
             + DocumentBranding.BuildOfficialHeaderHtml()
             + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.Invoice)
             + "<div class='print-frame'><div class='doc-title'>" + Html(inv.InvoiceTitle) + "</div>"
-            + "<table class='doc-grid'><tr><td class='client-cell'>To,<br/>" + Html(client?.CompanyName ?? inv.ClientName) + "<br/>" + Html(clientAddress).Replace("\n", "<br/>") + "<br/>GST No. " + Html(clientGst) + "</td>"
+            + "<table class='doc-grid'><tr><td class='client-cell'>To,<br/>" + customerBlockHtml + "</td>"
             + "<td class='meta-cell'>Date : " + inv.InvoiceDate.ToString("dd/MM/yyyy") + "</td></tr>"
             + "<tr><td></td><td class='meta-cell'>Invoice No. " + Html(invoiceNo) + "</td></tr>"
             + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
@@ -591,7 +610,7 @@ namespace HVAC_Pro_Desktop.Services
             checks.Add(Check("HVAC template selected", !string.IsNullOrWhiteSpace(inv.TemplateCode)));
             checks.Add(Check("Workflow tagged", !string.IsNullOrWhiteSpace(inv.WorkflowType)));
             checks.Add(Check("Client selected", inv.ClientID > 0));
-            checks.Add(Check("Site selected", inv.SiteID > 0));
+            checks.Add(Check("Site selected when known", true));
             checks.Add(Check("Subject line present", !string.IsNullOrWhiteSpace(inv.Subject)));
             checks.Add(Check("Checklist captured", !string.IsNullOrWhiteSpace(inv.ServiceChecklist)));
             checks.Add(Check("Asset / equipment info present", !string.IsNullOrWhiteSpace(inv.AssetDetails)));
@@ -1010,6 +1029,49 @@ namespace HVAC_Pro_Desktop.Services
                     return value.Trim();
             }
             return string.Empty;
+        }
+
+        private static string BuildInvoiceCustomerBlock(B2BClient client, ClientSite site, string fallbackName)
+        {
+            var lines = new List<string>();
+            string customerName = FirstNonEmpty(client?.CompanyName, fallbackName, "Client");
+            lines.Add(customerName);
+            AddInvoiceAddressLines(lines, "Registered Address", client?.BillingAddress);
+            if (!string.IsNullOrWhiteSpace(site?.SiteName))
+                lines.Add("Site: " + site.SiteName.Trim());
+            if (!string.IsNullOrWhiteSpace(site?.Address) && !SameInvoiceAddress(client?.BillingAddress, site.Address))
+                AddInvoiceAddressLines(lines, "Site Address", site.Address);
+            if (!string.IsNullOrWhiteSpace(client?.GSTNumber))
+                lines.Add("GST No. " + client.GSTNumber.Trim());
+            return string.Join("<br/>", lines.Select(Html));
+        }
+
+        private static void AddInvoiceAddressLines(List<string> lines, string label, string address)
+        {
+            string[] addressLines = SplitInvoiceAddressLines(address);
+            if (addressLines.Length == 0)
+                return;
+            lines.Add(label + ": " + addressLines[0]);
+            for (int i = 1; i < addressLines.Length; i++)
+                lines.Add(addressLines[i]);
+        }
+
+        private static string[] SplitInvoiceAddressLines(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return new string[0];
+            return address.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .ToArray();
+        }
+
+        private static bool SameInvoiceAddress(string left, string right)
+        {
+            string normalizedLeft = string.Join(" ", SplitInvoiceAddressLines(left));
+            string normalizedRight = string.Join(" ", SplitInvoiceAddressLines(right));
+            return !string.IsNullOrWhiteSpace(normalizedLeft)
+                && string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ToWords(long number)

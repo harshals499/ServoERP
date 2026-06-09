@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -6,10 +6,12 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class ChangePasswordForm : Form
+    public class ChangePasswordForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly AuthService _authService = new AuthService();
         private readonly int _userId;
+        private readonly string _resetUsername;
+        private readonly bool _selfServiceReset;
         private TextBox _txtCurrent;
         private TextBox _txtNew;
         private TextBox _txtConfirm;
@@ -34,22 +36,45 @@ namespace HVAC_Pro_Desktop.UI
             DS.ApplyTheme(this);
         }
 
+        public ChangePasswordForm(string usernameOrEmail)
+        {
+            _resetUsername = usernameOrEmail ?? string.Empty;
+            _selfServiceReset = true;
+            AutoScaleMode = AutoScaleMode.Dpi;
+            Text = "Reset Password";
+            StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            ClientSize = new Size(420, 280);
+            BackColor = Color.White;
+            Font = new Font("Segoe UI", 9);
+            BuildLayout(false);
+            UIHelper.ApplyInputStyles(Controls);
+            DS.ApplyTheme(this);
+        }
+
         private void BuildLayout(bool forceChange)
         {
             Controls.Add(new Label
             {
-                Text = forceChange ? "Set a new password before continuing." : "Update your account password.",
+                Text = _selfServiceReset ? "Set a new password for your ServoERP account." : forceChange ? "Set a new password before continuing." : "Update your account password.",
                 Location = new Point(24, 20),
                 Size = new Size(360, 22),
                 ForeColor = Color.FromArgb(71, 85, 105)
             });
 
             _txtCurrent = CreatePasswordBox(new Point(24, 58));
+            if (_selfServiceReset)
+            {
+                _txtCurrent.PasswordChar = '\0';
+                _txtCurrent.Text = _resetUsername;
+            }
             _txtNew = CreatePasswordBox(new Point(24, 106));
             _txtConfirm = CreatePasswordBox(new Point(24, 154));
             _txtNew.TextChanged += (s, e) => UpdateStrength();
 
-            Controls.Add(MakeFieldLabel("Current Password", 24, 42));
+            Controls.Add(MakeFieldLabel(_selfServiceReset ? "Username / Email" : "Current Password", 24, 42));
             Controls.Add(MakeFieldLabel("New Password", 24, 90));
             Controls.Add(MakeFieldLabel("Confirm New Password", 24, 138));
             Controls.Add(_txtCurrent);
@@ -74,7 +99,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _btnSave = new Button
             {
-                Text = "Save Password",
+                Text = _selfServiceReset ? "Reset Password" : "Save Password",
                 Size = new Size(132, 38),
                 Location = new Point(252, 226),
                 BackColor = Color.FromArgb(13, 148, 136),
@@ -107,17 +132,28 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _btnSave.Enabled = false;
-            bool ok = _authService.ChangePassword(_userId, _txtCurrent.Text, _txtNew.Text);
+            bool ok;
+            string errorMessage = null;
+            if (_selfServiceReset)
+            {
+                var result = _authService.ResetOwnPassword(_txtCurrent.Text, _txtNew.Text);
+                ok = result.Success;
+                errorMessage = result.ErrorMessage;
+            }
+            else
+            {
+                ok = _authService.ChangePassword(_userId, _txtCurrent.Text, _txtNew.Text);
+            }
             _btnSave.Enabled = true;
 
             if (!ok)
             {
-                _lblStatus.Text = "Password change failed. Check your current password.";
+                _lblStatus.Text = string.IsNullOrWhiteSpace(errorMessage) ? "Password change failed. Check your current password." : errorMessage;
                 return;
             }
 
             _lblStatus.ForeColor = Color.FromArgb(22, 163, 74);
-            _lblStatus.Text = "Password changed.";
+            _lblStatus.Text = _selfServiceReset ? "Password reset." : "Password changed.";
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -160,4 +196,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
 

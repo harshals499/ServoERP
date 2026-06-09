@@ -1,20 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.UI.Controls;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.UI
 {
     public class ClientManagementForm : DeferredPageControl
     {
-        private const int PageSize = 7;
         private readonly ClientService _clientService = new ClientService();
         private readonly ContractService _contractService = new ContractService();
         private readonly InvoiceService _invoiceService = new InvoiceService();
@@ -25,39 +28,52 @@ namespace HVAC_Pro_Desktop.UI
         private readonly List<B2BClient> _clients = new List<B2BClient>();
         private readonly Dictionary<int, ClientCardControl> _cards = new Dictionary<int, ClientCardControl>();
         private readonly Dictionary<int, ClientCommandMetrics> _metricsCache = new Dictionary<int, ClientCommandMetrics>();
-        private readonly Dictionary<int, List<ActivityTimelineItem>> _activityCache = new Dictionary<int, List<ActivityTimelineItem>>();
 
         private Panel _leftPanel;
         private Panel _rightPanel;
         private FlowLayoutPanel _clientList;
         private TextBox _searchBox;
-        private FlowLayoutPanel _pagination;
+        private GlobalPaginationControl _pagination;
         private ClientHeaderControl _header;
         private LifecyclePipelineControl _pipeline;
         private TableLayoutPanel _kpiGrid;
         private TabControl _tabs;
-        private ActivityTimelineControl _timeline;
-        private ClientSummaryTableControl _summary;
         private Label _footer;
         private Panel _dashboardHost;
         private TextBox _dashboardSearch;
         private TextBox _dashboardTableSearch;
         private ComboBox _dashboardStatusFilter;
-        private int _dashboardPage = 1;
-        private int _dashboardPageSize = 10;
+        private DataGridView _dashboardClientsGrid;
+        private Label _dashboardClientsShowingLabel;
+        private GlobalPaginationControl _dashboardClientsPager;
+        private readonly Timer _clientSearchTimer = new Timer();
+        private readonly Timer _dashboardSearchTimer = new Timer();
         private string _dashboardStatus = "All Status";
+        private string _dashboardSearchText = string.Empty;
+        private string _dashboardTableSearchText = string.Empty;
+        private string _dashboardSearchFocus = string.Empty;
+        private int _dashboardSearchSelectionStart;
         private bool _dashboardClientsLoaded;
+        private bool _renderingDashboard;
+        private int _dashboardClientsPage = 1;
+        private int _dashboardClientsPageSize = 10;
+        private bool _bindingDashboardClientStatus;
         private readonly List<AMCContract> _dashboardContracts = new List<AMCContract>();
         private readonly List<Invoice> _dashboardInvoices = new List<Invoice>();
         private readonly List<TenderBid> _dashboardQuotes = new List<TenderBid>();
         private readonly List<ClientSite> _dashboardSites = new List<ClientSite>();
 
         private B2BClient _selectedClient;
-        private int _pageIndex;
         private int _metricsRequestVersion;
-        private int _activityRequestVersion;
         private bool _searchPlaceholderActive = true;
         private bool _showDashboard = true;
+        private int _clientPage = 1;
+        private int _clientPageSize = 10;
+
+        private const int EM_SETCUEBANNER = 0x1501;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 
         public Action<int> OnNavigate { get; set; }
         public Action<int> OnOpenClientDetail { get; set; }
@@ -67,10 +83,33 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = DS.BgPage;
             Font = new Font("Segoe UI", 9f);
+            DoubleBuffered = true;
+            ConfigureSearchTimers();
             BuildShell();
             if (!_showDashboard)
                 RenderClientCards();
-            EnableDeferredLoad(LoadClientsAsync, ex => ShowToast("Could not load clients: " + ex.Message));
+            EnableDeferredLoad(LoadClientsAsync, ex => AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Loading clients", ex));
+        }
+
+        /// <summary>Debounces client searches so the page does not rebuild after every typed character.</summary>
+        private void ConfigureSearchTimers()
+        {
+            _clientSearchTimer.Interval = 240;
+            _clientSearchTimer.Tick += (s, e) =>
+            {
+                _clientSearchTimer.Stop();
+                RenderClientCards();
+            };
+
+            _dashboardSearchTimer.Interval = 280;
+            _dashboardSearchTimer.Tick += (s, e) =>
+            {
+                _dashboardSearchTimer.Stop();
+                if (_dashboardClientsGrid != null && !_dashboardClientsGrid.IsDisposed)
+                    PopulateDashboardClientsGrid();
+                else
+                    RenderClientsDashboard();
+            };
         }
 
         public void SelectClientFromNavigation(int clientId)
@@ -82,12 +121,24 @@ namespace HVAC_Pro_Desktop.UI
             _ = LoadClientsAsync();
         }
 
+        /// <summary>Returns the clients module to the dashboard view after closing a sub-page.</summary>
+        public void ShowDashboardFromNavigation()
+        {
+            _showDashboard = true;
+            _selectedClient = null;
+            _dashboardClientsLoaded = false;
+            BuildShell();
+            ResetDeferredLoad();
+            _ = LoadClientsAsync();
+        }
+
         private void BuildShell()
         {
             Controls.Clear();
             if (_showDashboard)
             {
                 BuildDashboardShell();
+                SalesUiPolishService.ApplyAfterRebuild(this, "Clients");
                 return;
             }
 
@@ -95,6 +146,7 @@ namespace HVAC_Pro_Desktop.UI
             _rightPanel = BuildRightPanel();
             Controls.Add(_rightPanel);
             Controls.Add(_leftPanel);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Clients");
         }
 
         private Panel BuildLeftPanel()
@@ -131,15 +183,17 @@ namespace HVAC_Pro_Desktop.UI
             };
             _searchBox.TextChanged += (s, e) =>
             {
-                _pageIndex = 0;
-                RenderClientCards();
+                if (_searchPlaceholderActive)
+                    return;
+
+                ScheduleClientSearch();
             };
             searchWrap.Controls.Add(_searchBox);
 
             Button newClient = PrimaryButton("+ New Client", 42);
             newClient.Dock = DockStyle.Top;
             newClient.Click += (s, e) => ShowClientEditor(null, "New Client");
-            Button forms = PrimaryButton("Forms Library", 38);
+            Button forms = PrimaryButton("Service Forms", 38);
             forms.Dock = DockStyle.Top;
             forms.BackColor = Color.White;
             forms.ForeColor = DS.Primary600;
@@ -147,8 +201,21 @@ namespace HVAC_Pro_Desktop.UI
             ModernIconSystem.AddButtonIcon(forms, ModernIconKind.Document);
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Clients / Sites", "Clients", null, "site survey equipment inventory asset history customer feedback complaint handover sign-off client site");
 
-            _pagination = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 42, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = DS.BgPage, Padding = new Padding(0, 6, 0, 0) };
+            _pagination = new GlobalPaginationControl { Dock = DockStyle.Bottom, Height = 38, BackColor = DS.BgPage };
+            _pagination.PageChanged += (s, e) =>
+            {
+                _clientPage = _pagination.CurrentPage;
+                RenderClientCards();
+            };
+            _pagination.PageSizeChanged += (s, e) =>
+            {
+                _clientPageSize = _pagination.PageSize;
+                _clientPage = 1;
+                RenderClientCards();
+            };
             _clientList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = DS.BgPage, Padding = new Padding(0, 12, 6, 8) };
+            _clientList.HorizontalScroll.Enabled = false;
+            _clientList.HorizontalScroll.Visible = false;
             _clientList.Resize += (s, e) => ResizeClientCards();
 
             panel.Controls.Add(_clientList);
@@ -163,21 +230,45 @@ namespace HVAC_Pro_Desktop.UI
             return panel;
         }
 
+        /// <summary>Schedules the classic client-card search render.</summary>
+        private void ScheduleClientSearch()
+        {
+            _clientPage = 1;
+            _clientSearchTimer.Stop();
+            _clientSearchTimer.Start();
+        }
+
         private Panel BuildRightPanel()
         {
-            var panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(16, 16, 18, 14), AutoScroll = false };
+            var panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(16, 16, 18, 14), AutoScroll = true };
+            panel.HorizontalScroll.Enabled = false;
+            panel.HorizontalScroll.Visible = false;
 
-            Panel content = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage };
+            Panel content = new Panel { Dock = DockStyle.Top, BackColor = DS.BgPage, Height = 820 };
             content.Resize += (s, e) => LayoutRightContent(content);
 
             _header = new ClientHeaderControl { Location = new Point(0, 0) };
             _header.Dock = DockStyle.None;
             _header.Height = 94;
-            _header.LogActivityClicked += (s, e) => ShowActivityModal();
-            _header.AddJobClicked += (s, e) => ShowActionModal("Add Job", "Create HVAC job for " + SelectedName(), "Job title", "Preventive maintenance visit");
-            _header.CreateInvoiceClicked += (s, e) => ShowActionModal("Create Invoice", "Create invoice for " + SelectedName(), "Invoice subject", "AMC service invoice");
-            _header.EditProfileClicked += (s, e) => ShowClientEditor(_selectedClient, "Edit Profile");
+            _header.AddJobClicked += (s, e) =>
+            {
+                if (_selectedClient != null && _selectedClient.ClientID > 0)
+                    WorkflowLaunchContext.SetJobDraft(_selectedClient.ClientID, 0);
+                OnNavigate?.Invoke(15);
+                ShowToast("Opened Jobs. Start a new service job for " + SelectedName() + ".");
+            };
+            _header.CreateInvoiceClicked += (s, e) =>
+            {
+                OnNavigate?.Invoke(3);
+                ShowToast("Opened Invoices. Create the invoice for " + SelectedName() + ".");
+            };
+            _header.EditProfileClicked += (s, e) =>
+            {
+                if (_selectedClient != null && _selectedClient.ClientID > 0)
+                    OnOpenClientDetail?.Invoke(_selectedClient.ClientID);
+            };
             _header.MoreClicked += (s, e) => ShowMoreMenu();
+            _header.StatusClicked += (s, e) => ShowClientStatusMenu(_selectedClient, _header.StatusAnchor);
 
             _pipeline = new LifecyclePipelineControl { Location = new Point(0, 110) };
             _pipeline.Dock = DockStyle.None;
@@ -190,7 +281,7 @@ namespace HVAC_Pro_Desktop.UI
             _kpiGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             _tabs = new TabControl { Location = new Point(0, 354), Height = 410, Font = new Font("Segoe UI", 9f), Appearance = TabAppearance.Normal };
-            foreach (string tab in new[] { "Activity", "Details", "Notes", "Financials", "Documents" })
+            foreach (string tab in new[] { "Details", "Notes", "Financials", "Documents" })
                 _tabs.TabPages.Add(new TabPage(tab) { Name = tab, BackColor = Color.White });
             _tabs.SelectedIndexChanged += (s, e) => RenderSelectedTab();
 
@@ -202,6 +293,16 @@ namespace HVAC_Pro_Desktop.UI
             content.Controls.Add(_pipeline);
             content.Controls.Add(_header);
             panel.Controls.Add(content);
+            panel.Resize += (s, e) =>
+            {
+                content.Width = Math.Max(640, panel.ClientSize.Width - panel.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 4);
+                content.Height = Math.Max(820, _footer.Bottom + 18);
+                panel.AutoScrollMinSize = new Size(0, content.Height + panel.Padding.Vertical + 8);
+                LayoutRightContent(content);
+            };
+            content.Width = Math.Max(640, panel.ClientSize.Width - panel.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 4);
+            content.Height = Math.Max(820, _footer.Bottom + 18);
+            panel.AutoScrollMinSize = new Size(0, content.Height + panel.Padding.Vertical + 8);
             return panel;
         }
 
@@ -312,14 +413,15 @@ namespace HVAC_Pro_Desktop.UI
             _cards.Clear();
 
             List<B2BClient> filtered = FilteredClients().ToList();
-            int maxPage = Math.Max(0, (int)Math.Ceiling(filtered.Count / (double)PageSize) - 1);
-            _pageIndex = Math.Max(0, Math.Min(_pageIndex, maxPage));
-            foreach (B2BClient client in filtered.Skip(_pageIndex * PageSize).Take(PageSize))
+            int pageSize = Math.Max(1, _clientPageSize);
+            _clientPage = PaginationState.NormalizePage(_clientPage, filtered.Count, pageSize);
+            foreach (B2BClient client in filtered.Skip((_clientPage - 1) * pageSize).Take(pageSize))
             {
                 ClientCardControl card = new ClientCardControl();
                 card.Width = ClientCardWidth();
-                card.Bind(client.ClientID, Initials(client.CompanyName), Safe(client.CompanyName, "Client"), Safe(client.IndustryType, "HVAC Services"), Safe(client.City, "Mumbai"), client.IsActive, ProgressFor(client));
+                card.Bind(client.ClientID, Initials(client.CompanyName), Safe(client.CompanyName, "Client"), Safe(client.IndustryType, "HVAC Services"), Safe(client.City, "Mumbai"), GetClientStatus(client), ProgressFor(client));
                 card.Click += (s, e) => SelectClient(((ClientCardControl)s).ClientId);
+                card.StatusClicked += (s, e) => ShowClientStatusMenu(client, ((ClientCardControl)s).StatusAnchor);
                 _cards[client.ClientID] = card;
                 _clientList.Controls.Add(card);
             }
@@ -350,10 +452,10 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleCenter
             };
             DS.Rounded(icon, 12);
-            Label title = new Label { Text = "No clients found", Location = new Point(20, 174), Size = new Size(empty.Width - 40, 26), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleCenter };
-            Label message = new Label { Text = "Try adjusting your search or create a new client.", Location = new Point(34, 202), Size = new Size(empty.Width - 68, 42), Font = DS.Body, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter };
+            Label title = new Label { Text = "No clients added yet", Location = new Point(20, 174), Size = new Size(empty.Width - 40, 26), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleCenter };
+            Label message = new Label { Text = "Create the client first, then add sites, contacts, contracts, jobs, and invoices." + Environment.NewLine + UIHelper.BuildWorkflowHintText("Client", "Site", "Job", "Quotation", "Invoice", "Payment"), Location = new Point(34, 202), Size = new Size(empty.Width - 68, 66), Font = DS.Body, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter };
             Button create = DS.GhostBtn("+ New Client", 112, 32);
-            create.Location = new Point((empty.Width - create.Width) / 2, 262);
+            create.Location = new Point((empty.Width - create.Width) / 2, 278);
             create.Click += (s, e) => ShowClientEditor(null, "New Client");
             empty.Resize += (s, e) =>
             {
@@ -369,6 +471,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildDashboardShell()
         {
             _dashboardHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, AutoScroll = true, Padding = new Padding(22, 16, 22, 22) };
+            _dashboardHost.AutoScrollMinSize = new Size(0, 1240);
             Controls.Add(_dashboardHost);
         }
 
@@ -377,69 +480,80 @@ namespace HVAC_Pro_Desktop.UI
             if (_dashboardHost == null || _dashboardHost.IsDisposed)
                 return;
 
+            _renderingDashboard = true;
             _dashboardHost.SuspendLayout();
-            _dashboardHost.Controls.Clear();
-            Panel content = new Panel { BackColor = DS.BgPage, Location = new Point(22, 16), Size = new Size(Math.Max(1200, _dashboardHost.ClientSize.Width - 58), 1120) };
-            _dashboardHost.Controls.Add(content);
+            try
+            {
+                _dashboardHost.Controls.Clear();
+                int contentHeight = 1280;
+                Panel content = new Panel { BackColor = DS.BgPage, Location = new Point(22, 16), Size = new Size(Math.Max(960, _dashboardHost.ClientSize.Width - 58), contentHeight) };
+                _dashboardHost.AutoScrollMinSize = new Size(0, contentHeight + 44);
+                _dashboardHost.HorizontalScroll.Enabled = false;
+                _dashboardHost.HorizontalScroll.Visible = false;
+                _dashboardHost.Controls.Add(content);
 
-            Control header = BuildClientsDashboardHeader(content.Width);
-            header.Location = new Point(0, 0);
-            content.Controls.Add(header);
+                Control header = BuildClientsDashboardHeader(content.Width);
+                header.Location = new Point(0, 0);
+                content.Controls.Add(header);
 
-            FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 74), Size = new Size(content.Width, 96), BackColor = DS.BgPage, WrapContents = false, AutoScroll = true };
-            int cardWidth = Math.Max(214, (content.Width - 48) / 5);
-            foreach (Control card in BuildClientStatCards(cardWidth))
-                stats.Controls.Add(card);
-            content.Controls.Add(stats);
+                FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 74), Size = new Size(content.Width, 96), BackColor = DS.BgPage, WrapContents = false, AutoScroll = false };
+                int cardWidth = Math.Max(206, (content.Width - 64) / 5);
+                foreach (Control card in BuildClientStatCards(cardWidth))
+                    stats.Controls.Add(card);
+                content.Controls.Add(stats);
 
-            TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 188), Size = new Size(content.Width, 238), BackColor = DS.BgPage, ColumnCount = 4, RowCount = 1 };
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
-            top.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            top.Controls.Add(BuildClientStatusCard(), 0, 0);
-            top.Controls.Add(BuildClientTypeCard(), 1, 0);
-            top.Controls.Add(BuildRecentClientActivityCard(), 2, 0);
-            top.Controls.Add(BuildClientSummaryCard(), 3, 0);
-            content.Controls.Add(top);
+                TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 188), Size = new Size(content.Width, 238), BackColor = DS.BgPage, ColumnCount = 4, RowCount = 1 };
+                top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
+                top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
+                top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
+                top.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                top.Controls.Add(BuildClientStatusCard(), 0, 0);
+                top.Controls.Add(BuildClientTypeCard(), 1, 0);
+                top.Controls.Add(BuildClientSummaryCard(), 2, 0);
+                content.Controls.Add(top);
 
-            TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, 444), Size = new Size(content.Width, 366), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
-            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 80f));
-            middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
-            middle.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            middle.Controls.Add(BuildAllClientsCard(), 0, 0);
-            middle.Controls.Add(BuildClientDashboardSidebar(), 1, 0);
-            content.Controls.Add(middle);
+                TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, 444), Size = new Size(content.Width, 520), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
+                middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 76f));
+                middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
+                middle.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                middle.Controls.Add(BuildAllClientsCard(), 0, 0);
+                middle.Controls.Add(BuildClientDashboardSidebar(), 1, 0);
+                content.Controls.Add(middle);
 
-            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 828), Size = new Size(content.Width, 230), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            bottom.Controls.Add(BuildClientRenewalsCard(), 0, 0);
-            bottom.Controls.Add(BuildTopClientsRevenueCard(), 1, 0);
-            content.Controls.Add(bottom);
-
-            _dashboardHost.ResumeLayout();
+                TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 982), Size = new Size(content.Width, 230), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
+                bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                bottom.Controls.Add(BuildClientRenewalsCard(), 0, 0);
+                bottom.Controls.Add(BuildTopClientsRevenueCard(), 1, 0);
+                content.Controls.Add(bottom);
+            }
+            finally
+            {
+                _dashboardHost.ResumeLayout();
+                _renderingDashboard = false;
+            }
+            RestoreDashboardSearchFocus();
         }
 
         private Control BuildClientsDashboardHeader(int width)
         {
             Panel header = new Panel { Size = new Size(width, 58), BackColor = DS.BgPage };
             header.Controls.Add(new Label { Text = "Clients Management", Location = new Point(0, 0), Size = new Size(330, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            header.Controls.Add(new Label { Text = "Manage client relationships and account activities.", Location = new Point(1, 30), Size = new Size(520, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate500 });
+            header.Controls.Add(new Label { Text = "Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready.", Location = new Point(1, 30), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate500 });
 
             _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardSearchText(), Size = new Size(340, 30) };
             ConfigureDashboardPlaceholder(_dashboardSearch, "Search clients by name, email, phone, or company...");
-            _dashboardSearch.TextChanged += (s, e) => { _dashboardPage = 1; RenderClientsDashboard(); };
-            Button filters = DashboardButton("Filters", Color.White, DS.Slate900, 88, true);
+            _dashboardSearch.Enter += (s, e) => _dashboardSearchFocus = "global";
+            _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch, "global", "Search clients by name, email, phone, or company...");
+            Button filters = DashboardButton("Filter Clients", Color.White, DS.Slate900, 112, true);
             filters.Click += (s, e) => { if (_dashboardStatusFilter != null) _dashboardStatusFilter.DroppedDown = true; };
             Button add = DashboardButton("+ Add Client  v", DS.Primary600, Color.White, 136, false);
             add.Click += (s, e) =>
             {
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
                 menu.Items.Add("Add Client", null, (mi, ev) => OpenClientEditor(null, "New Client"));
-                menu.Items.Add("Import Clients", null, (mi, ev) => ImportUiHelper.RunImport(ExcelImportModule.Clients, FindForm()));
+                menu.Items.Add("Import Clients", null, (mi, ev) => ImportUiHelper.RunImport(ExcelImportModule.Clients, FindForm(), result => RefreshClientsAfterImport()));
                 menu.Items.Add("Add Contact", null, (mi, ev) => ShowActionModal("Add Contact", "Open a client record first, then add contact details.", "Contact name", ""));
                 menu.Show(add, new Point(0, add.Height));
             };
@@ -451,15 +565,30 @@ namespace HVAC_Pro_Desktop.UI
             {
                 user.Location = new Point(header.Width - user.Width, 2);
                 bell.Location = new Point(user.Left - 38, 2);
-                add.Location = new Point(bell.Left - 146, 1);
-                filters.Location = new Point(add.Left - 98, 1);
-                int searchWidth = Math.Min(320, Math.Max(190, filters.Left - 508));
+                add.Location = new Point(bell.Left - add.Width - 10, 1);
+                filters.Location = new Point(add.Left - filters.Width - 12, 1);
+                int searchWidth = Math.Min(340, Math.Max(220, filters.Left - 374));
                 _dashboardSearch.Size = new Size(searchWidth, 30);
                 _dashboardSearch.Location = new Point(Math.Max(360, filters.Left - searchWidth - 12), 1);
             };
             header.Resize += (s, e) => layoutHeaderControls();
             layoutHeaderControls();
             return header;
+        }
+
+        /// <summary>Clears client dashboard caches and reloads visible client counts after Excel import.</summary>
+        private void RefreshClientsAfterImport()
+        {
+            if (IsDisposed)
+                return;
+
+            AppDataCache.RemovePrefix("clients:");
+            AppDataCache.RemovePrefix("contracts:");
+            AppDataCache.RemovePrefix("invoices:");
+            AppDataCache.RemovePrefix("sites:");
+            _dashboardClientsLoaded = false;
+            _dashboardClientsPage = 1;
+            _ = LoadClientsAsync();
         }
 
         private IEnumerable<Control> BuildClientStatCards(int width)
@@ -514,26 +643,6 @@ namespace HVAC_Pro_Desktop.UI
             return card;
         }
 
-        private Panel BuildRecentClientActivityCard()
-        {
-            Panel card = DashboardCard("Recent Client Activity", "View All", (s, e) => ShowDashboardListModal("Recent Client Activity", ClientActivityFeed().Select(a => a.Item1 + "  " + a.Item2)));
-            List<Tuple<string, string, Color>> activities = ClientActivityFeed().Take(8).ToList();
-            if (activities.Count == 0)
-            {
-                AddEmptyState(card, "No recent client activity.", "Client interactions and updates will appear here.", 72);
-                return card;
-            }
-            int y = 48;
-            foreach (var activity in activities)
-            {
-                card.Controls.Add(new Label { Text = "●", Location = new Point(18, y + 4), Size = new Size(16, 16), ForeColor = activity.Item3 });
-                card.Controls.Add(new Label { Text = activity.Item1, Location = new Point(42, y), Size = new Size(card.Width - 142, 22), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate800, AutoEllipsis = true });
-                card.Controls.Add(new Label { Text = activity.Item2, Location = new Point(card.Width - 94, y + 1), Size = new Size(74, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 7f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true });
-                y += 28;
-            }
-            return card;
-        }
-
         private Panel BuildClientSummaryCard()
         {
             Panel card = DashboardCard("Client Summary", null, null);
@@ -561,73 +670,82 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = DashboardCard("All Clients", null, null);
             card.Size = new Size(900, 350);
 
-            _dashboardTableSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate900, Text = DashboardTableSearchText(), Location = new Point(card.Width - 560, 38), Size = new Size(190, 26), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Panel toolbar = new Panel { Location = new Point(16, 40), Size = new Size(card.Width - 32, 38), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = Color.White };
+            _dashboardTableSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardTableSearchText(), Size = new Size(220, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             ConfigureDashboardPlaceholder(_dashboardTableSearch, "Search clients...");
-            _dashboardTableSearch.TextChanged += (s, e) => { _dashboardPage = 1; RenderClientsDashboard(); };
+            _dashboardTableSearch.Enter += (s, e) => _dashboardSearchFocus = "table";
+            _dashboardTableSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardTableSearch, "table", "Search clients...");
 
-            _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 8f), Location = new Point(card.Width - 360, 38), Size = new Size(140, 26), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 8.5f), Size = new Size(150, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _dashboardStatusFilter.Items.AddRange(new object[] { "All Status", "Active", "Inactive", "Prospect", "On Hold", "Blacklisted" });
             int statusIndex = Math.Max(0, _dashboardStatusFilter.Items.IndexOf(_dashboardStatus));
             _dashboardStatusFilter.SelectedIndex = statusIndex;
-            _dashboardStatusFilter.SelectedIndexChanged += (s, e) => { _dashboardStatus = Convert.ToString(_dashboardStatusFilter.SelectedItem); _dashboardPage = 1; RenderClientsDashboard(); };
+            _dashboardStatusFilter.SelectedIndexChanged += (s, e) => { _dashboardStatus = Convert.ToString(_dashboardStatusFilter.SelectedItem); _dashboardClientsPage = 1; PopulateDashboardClientsGrid(); };
             Button export = DashboardButton("Export", Color.White, DS.Slate900, 76, true);
-            export.Location = new Point(card.Width - 88, 36);
             export.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             export.Click += (s, e) => ExportDashboardClientsCsv();
-            card.Controls.Add(_dashboardTableSearch);
-            card.Controls.Add(_dashboardStatusFilter);
-            card.Controls.Add(export);
-
-            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(16, 78), Size = new Size(card.Width - 32, 210), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, ColumnCount = 9, RowCount = 1, BackColor = Color.White };
-            foreach (float w in new[] { 4f, 21f, 10f, 13f, 10f, 16f, 8f, 8f, 10f })
-                table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, w));
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-            string[] heads = { "", "Client Name", "Type", "Primary Contact", "Phone", "Email", "Status", "Last Activity", "Actions" };
-            for (int i = 0; i < heads.Length; i++) table.Controls.Add(TableLabel(heads[i], true, DS.Slate900), i, 0);
-            List<B2BClient> filtered = DashboardFilteredClients().ToList();
-            if (filtered.Count == 0)
+            toolbar.Controls.Add(_dashboardTableSearch);
+            toolbar.Controls.Add(_dashboardStatusFilter);
+            toolbar.Controls.Add(export);
+            Action layoutToolbar = () =>
             {
-                AddEmptyState(card, "No clients found.", "Add your first client to get started.", 126);
-            }
-            else
+                export.Location = new Point(toolbar.Width - export.Width, 2);
+                _dashboardStatusFilter.Location = new Point(export.Left - _dashboardStatusFilter.Width - 10, 2);
+                _dashboardTableSearch.Location = new Point(_dashboardStatusFilter.Left - _dashboardTableSearch.Width - 10, 2);
+            };
+            toolbar.Resize += (s, e) => layoutToolbar();
+            layoutToolbar();
+            card.Controls.Add(toolbar);
+
+            _dashboardClientsGrid = new DataGridView
             {
-                int totalPages = Math.Max(1, (int)Math.Ceiling(filtered.Count / (double)_dashboardPageSize));
-                _dashboardPage = Math.Max(1, Math.Min(_dashboardPage, totalPages));
-                foreach (B2BClient client in filtered.Skip((_dashboardPage - 1) * _dashboardPageSize).Take(_dashboardPageSize))
-                    AddClientRow(table, client);
-                card.Controls.Add(table);
-                int from = ((_dashboardPage - 1) * _dashboardPageSize) + 1;
-                int to = Math.Min(filtered.Count, _dashboardPage * _dashboardPageSize);
-                card.Controls.Add(new Label { Text = "Showing " + from + " to " + to + " of " + filtered.Count + " entries", Location = new Point(16, 306), Size = new Size(260, 18), Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500 });
-
-                ComboBox pageSize = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 7.6f), Location = new Point(card.Width - 360, 300), Size = new Size(62, 26), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-                pageSize.Items.AddRange(new object[] { "10", "25", "50" });
-                pageSize.SelectedItem = _dashboardPageSize.ToString();
-                pageSize.SelectedIndexChanged += (s, e) => { int selected; if (int.TryParse(Convert.ToString(pageSize.SelectedItem), out selected)) _dashboardPageSize = selected; _dashboardPage = 1; RenderClientsDashboard(); };
-                card.Controls.Add(pageSize);
-                card.Controls.Add(new Label { Text = "per page", Location = new Point(card.Width - 292, 306), Size = new Size(58, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font("Segoe UI", 7.4f), ForeColor = DS.Slate500 });
-
-                FlowLayoutPanel pager = new FlowLayoutPanel { Location = new Point(card.Width - 228, 298), Size = new Size(214, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.White };
-                Button first = DashboardButton("|<", Color.White, DS.Slate900, 32, true);
-                first.Enabled = _dashboardPage > 1;
-                first.Click += (s, e) => { _dashboardPage = 1; RenderClientsDashboard(); };
-                Button prev = DashboardButton("<", Color.White, DS.Slate900, 30, true);
-                prev.Enabled = _dashboardPage > 1;
-                prev.Click += (s, e) => { _dashboardPage--; RenderClientsDashboard(); };
-                Button page = DashboardButton(_dashboardPage.ToString(), DS.Primary600, Color.White, 32, false);
-                Button next = DashboardButton(">", Color.White, DS.Slate900, 30, true);
-                next.Enabled = _dashboardPage < totalPages;
-                next.Click += (s, e) => { _dashboardPage++; RenderClientsDashboard(); };
-                Button last = DashboardButton(">|", Color.White, DS.Slate900, 32, true);
-                last.Enabled = _dashboardPage < totalPages;
-                last.Click += (s, e) => { _dashboardPage = totalPages; RenderClientsDashboard(); };
-                pager.Controls.Add(first);
-                pager.Controls.Add(prev);
-                pager.Controls.Add(page);
-                pager.Controls.Add(next);
-                pager.Controls.Add(last);
-                card.Controls.Add(pager);
-            }
+                Location = new Point(16, 90),
+                Size = new Size(card.Width - 32, 204),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                EnableHeadersVisualStyles = false,
+                ReadOnly = true,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            };
+            ConfigureDashboardClientsGrid();
+            GridTheme.Apply(_dashboardClientsGrid);
+            _dashboardClientsGrid.Dock = DockStyle.None;
+            _dashboardClientsShowingLabel = new Label { Location = new Point(16, 308), Size = new Size(360, 18), Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500 };
+            _dashboardClientsPager = new GlobalPaginationControl
+            {
+                Location = new Point(card.Width - 576, 304),
+                Size = new Size(560, 34),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.White
+            };
+            _dashboardClientsPager.PageChanged += (s, e) =>
+            {
+                _dashboardClientsPage = _dashboardClientsPager.CurrentPage;
+                PopulateDashboardClientsGrid();
+            };
+            _dashboardClientsPager.PageSizeChanged += (s, e) =>
+            {
+                _dashboardClientsPageSize = _dashboardClientsPager.PageSize;
+                _dashboardClientsPage = 1;
+                PopulateDashboardClientsGrid();
+            };
+            card.Controls.Add(_dashboardClientsGrid);
+            card.Controls.Add(_dashboardClientsShowingLabel);
+            card.Controls.Add(_dashboardClientsPager);
+            card.Resize += (s, e) =>
+            {
+                toolbar.Width = Math.Max(120, card.ClientSize.Width - 32);
+                _dashboardClientsGrid.Size = new Size(Math.Max(120, card.ClientSize.Width - 32), Math.Max(140, card.ClientSize.Height - 146));
+                _dashboardClientsShowingLabel.Location = new Point(16, Math.Max(300, card.ClientSize.Height - 42));
+                _dashboardClientsPager.Width = Math.Max(360, Math.Min(560, card.ClientSize.Width - 420));
+                _dashboardClientsPager.Location = new Point(card.ClientSize.Width - _dashboardClientsPager.Width - 16, Math.Max(298, card.ClientSize.Height - 44));
+            };
+            PopulateDashboardClientsGrid();
             return card;
         }
 
@@ -635,9 +753,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(10, 0, 0, 0) };
             TableLayoutPanel stack = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = DS.BgPage };
-            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 31f));
-            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 38f));
-            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 31f));
+            stack.RowStyles.Add(new RowStyle(SizeType.Absolute, 132f));
+            stack.RowStyles.Add(new RowStyle(SizeType.Absolute, 252f));
+            stack.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             stack.Controls.Add(BuildClientGroupsCard(), 0, 0);
             stack.Controls.Add(BuildClientQuickActionsCard(), 0, 1);
             stack.Controls.Add(BuildClientSmartAlertsCard(), 0, 2);
@@ -679,15 +797,30 @@ namespace HVAC_Pro_Desktop.UI
             };
             for (int i = 0; i < actions.Length; i++)
             {
-                Button b = DashboardButton(actions[i].Item1 + Environment.NewLine + actions[i].Item2, Color.White, DS.Slate900, 104, true);
-                b.Size = new Size(104, 48);
-                b.Location = new Point(16 + (i % 2) * 112, 46 + (i / 2) * 54);
-                b.Font = new Font("Segoe UI", 7.2f, FontStyle.Bold);
+                Button b = DashboardButton(actions[i].Item2, Color.White, DS.Slate900, 128, true);
+                b.Size = new Size(128, 42);
+                b.Location = new Point(16 + (i % 2) * 136, 42 + (i / 2) * 46);
+                b.Font = new Font("Segoe UI", 8.1f, FontStyle.Bold);
                 b.TextAlign = ContentAlignment.MiddleCenter;
                 string action = actions[i].Item2;
                 b.Click += (s, e) => HandleClientQuickAction(action);
                 card.Controls.Add(b);
             }
+            card.Resize += (s, e) =>
+            {
+                int gap = 8;
+                bool singleColumn = card.ClientSize.Width < 276;
+                int columns = singleColumn ? 1 : 2;
+                int width = Math.Max(112, (card.ClientSize.Width - 32 - (gap * (columns - 1))) / columns);
+                for (int i = 0; i < actions.Length; i++)
+                {
+                    Button b = card.Controls.OfType<Button>().ElementAtOrDefault(i);
+                    if (b == null)
+                        continue;
+                    b.Width = width;
+                    b.Location = new Point(16 + (i % columns) * (width + gap), 42 + (i / columns) * 46);
+                }
+            };
             return card;
         }
 
@@ -779,55 +912,112 @@ namespace HVAC_Pro_Desktop.UI
             if (!string.IsNullOrWhiteSpace(globalSearch))
             {
                 string needle = globalSearch.Trim().ToUpperInvariant();
-                query = query.Where(c => string.Join(" ", c.CompanyName, c.Email, c.Phone, c.PrimaryContact, c.IndustryType, c.City).ToUpperInvariant().Contains(needle));
+                query = query.Where(c => string.Join(" ", c.CompanyName, c.Email, c.Phone, c.PrimaryContact, c.IndustryType, c.BillingAddress, c.City).ToUpperInvariant().Contains(needle));
             }
             if (!string.IsNullOrWhiteSpace(tableSearch))
             {
                 string needle = tableSearch.Trim().ToUpperInvariant();
-                query = query.Where(c => string.Join(" ", c.CompanyName, c.Email, c.Phone, c.PrimaryContact, c.IndustryType, c.City).ToUpperInvariant().Contains(needle));
+                query = query.Where(c => string.Join(" ", c.CompanyName, c.Email, c.Phone, c.PrimaryContact, c.IndustryType, c.BillingAddress, c.City).ToUpperInvariant().Contains(needle));
             }
             return query.OrderBy(c => Safe(c.CompanyName, "Client"));
         }
 
         private string DashboardSearchText()
         {
-            if (_dashboardSearch == null || _dashboardSearch.ForeColor == DS.Slate500)
-                return string.Empty;
-            return _dashboardSearch.Text ?? string.Empty;
+            return _dashboardSearchText ?? string.Empty;
         }
 
         private string DashboardTableSearchText()
         {
-            if (_dashboardTableSearch == null || _dashboardTableSearch.ForeColor == DS.Slate500)
-                return string.Empty;
-            return _dashboardTableSearch.Text ?? string.Empty;
+            return _dashboardTableSearchText ?? string.Empty;
         }
 
         private void ConfigureDashboardPlaceholder(TextBox box, string placeholder)
         {
-            if (box == null) return;
-            bool empty = string.IsNullOrWhiteSpace(box.Text);
-            if (empty)
+            if (box == null)
+                return;
+
+            if (string.Equals((box.Text ?? string.Empty).Trim(), placeholder, StringComparison.OrdinalIgnoreCase))
+                box.Text = string.Empty;
+
+            box.ForeColor = DS.Slate900;
+            box.HandleCreated += (s, e) => SetCueBanner(box, placeholder);
+            if (box.IsHandleCreated)
+                SetCueBanner(box, placeholder);
+        }
+
+        /// <summary>Applies native placeholder text without inserting it into the editable value.</summary>
+        private static void SetCueBanner(TextBox box, string placeholder)
+        {
+            if (box == null || box.IsDisposed || !box.IsHandleCreated)
+                return;
+
+            SendMessage(box.Handle, EM_SETCUEBANNER, new IntPtr(1), placeholder ?? string.Empty);
+        }
+
+        /// <summary>Captures dashboard search text and schedules one filtered render after typing settles.</summary>
+        private void HandleDashboardSearchChanged(TextBox box, string focusKey, string placeholder)
+        {
+            if (_renderingDashboard || box == null)
+                return;
+
+            _dashboardSearchFocus = focusKey;
+            _dashboardSearchSelectionStart = box.SelectionStart;
+            string text = IsDashboardPlaceholder(box, placeholder) ? string.Empty : (box.Text ?? string.Empty);
+            if (focusKey == "table")
+                _dashboardTableSearchText = text;
+            else
+                _dashboardSearchText = text;
+
+            _dashboardClientsPage = 1;
+            _dashboardSearchTimer.Stop();
+            _dashboardSearchTimer.Start();
+        }
+
+        /// <summary>Restores the active dashboard search box after a debounced dashboard rebuild.</summary>
+        private void RestoreDashboardSearchFocus()
+        {
+            if (string.IsNullOrWhiteSpace(_dashboardSearchFocus) || !IsHandleCreated || IsDisposed)
+                return;
+
+            SafeClientBeginInvoke(() =>
             {
-                box.Text = placeholder;
-                box.ForeColor = DS.Slate500;
+                TextBox box = _dashboardSearchFocus == "table" ? _dashboardTableSearch : _dashboardSearch;
+                if (box == null || box.IsDisposed)
+                    return;
+
+                box.Focus();
+                int start = Math.Max(0, Math.Min(_dashboardSearchSelectionStart, box.TextLength));
+                box.SelectionStart = start;
+                box.SelectionLength = 0;
+            }, "ClientManagementForm.RestoreDashboardSearchFocus");
+        }
+
+        /// <summary>Queues UI work only while the client page still has a valid window handle.</summary>
+        private void SafeClientBeginInvoke(Action action, string source)
+        {
+            if (action == null || IsDisposed || !IsHandleCreated)
+                return;
+
+            try
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    if (!IsDisposed)
+                        action();
+                }));
             }
-            box.GotFocus += (s, e) =>
-            {
-                if (box.ForeColor == DS.Slate500 && box.Text == placeholder)
-                {
-                    box.Text = string.Empty;
-                    box.ForeColor = DS.Slate900;
-                }
-            };
-            box.LostFocus += (s, e) =>
-            {
-                if (string.IsNullOrWhiteSpace(box.Text))
-                {
-                    box.Text = placeholder;
-                    box.ForeColor = DS.Slate500;
-                }
-            };
+            catch (InvalidOperationException ex) { AppLogger.LogError(source, ex); }
+        }
+
+        private bool IsDashboardPlaceholder(TextBox box, string placeholder)
+        {
+            if (box == null)
+                return true;
+
+            string text = (box.Text ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(text)
+                   || string.Equals(text, placeholder, StringComparison.OrdinalIgnoreCase);
         }
 
         private string GetClientStatus(B2BClient client)
@@ -835,9 +1025,15 @@ namespace HVAC_Pro_Desktop.UI
             if (client == null) return "Inactive";
             string stage = client.RelationshipStage ?? string.Empty;
             if (stage.IndexOf("black", StringComparison.OrdinalIgnoreCase) >= 0) return "Blacklisted";
-            if (stage.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0) return "On Hold";
+            if (!client.IsActive) return stage.IndexOf("hold", StringComparison.OrdinalIgnoreCase) >= 0 ? "On Hold" : "Inactive";
             if (stage.IndexOf("prospect", StringComparison.OrdinalIgnoreCase) >= 0 || stage.IndexOf("lead", StringComparison.OrdinalIgnoreCase) >= 0) return "Prospect";
             return client.IsActive ? "Active" : "Inactive";
+        }
+
+        /// <summary>Returns the supported client lifecycle statuses shared by grids, cards, and editors.</summary>
+        private static string[] ClientStatusOptions()
+        {
+            return new[] { "Active", "Prospect", "On Hold", "Inactive", "Blacklisted" };
         }
 
         private string GetClientType(B2BClient client)
@@ -976,6 +1172,163 @@ namespace HVAC_Pro_Desktop.UI
             return new Label { Text = text, Dock = DockStyle.Fill, Font = new Font("Segoe UI", header ? 7.6f : 7.4f, header ? FontStyle.Bold : FontStyle.Regular), ForeColor = color, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true, Padding = new Padding(4, 0, 4, 0), BackColor = header ? DS.Slate50 : Color.White };
         }
 
+        /// <summary>Builds stable All Clients grid columns once so search can update rows without recreating the textbox.</summary>
+        private void ConfigureDashboardClientsGrid()
+        {
+            if (_dashboardClientsGrid == null)
+                return;
+
+            _dashboardClientsGrid.Columns.Clear();
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ClientId", HeaderText = "ID", Visible = false });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ClientName", HeaderText = "Client Name", FillWeight = 22 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Type", FillWeight = 10 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "PrimaryContact", HeaderText = "Primary Contact", FillWeight = 13 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Phone", HeaderText = "Phone", FillWeight = 10 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Email", HeaderText = "Email", FillWeight = 16 });
+            DataGridViewComboBoxColumn statusColumn = new DataGridViewComboBoxColumn
+            {
+                Name = "Status",
+                HeaderText = "Status",
+                FillWeight = 8,
+                FlatStyle = FlatStyle.Flat,
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
+                DisplayStyleForCurrentCellOnly = false
+            };
+            statusColumn.Items.AddRange(ClientStatusOptions().Cast<object>().ToArray());
+            _dashboardClientsGrid.Columns.Add(statusColumn);
+            _dashboardClientsGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LastActivity", HeaderText = "Last Update", FillWeight = 9 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewButtonColumn { Name = "View", HeaderText = "", Text = "View", UseColumnTextForButtonValue = true, FillWeight = 6 });
+            _dashboardClientsGrid.Columns.Add(new DataGridViewButtonColumn { Name = "More", HeaderText = "", Text = "...", UseColumnTextForButtonValue = true, FillWeight = 4 });
+            _dashboardClientsGrid.CellContentClick -= DashboardClientsGridCellContentClick;
+            _dashboardClientsGrid.CellClick -= DashboardClientsGridCellClick;
+            _dashboardClientsGrid.CellValueChanged -= DashboardClientsGridCellValueChanged;
+            _dashboardClientsGrid.CurrentCellDirtyStateChanged -= DashboardClientsGridCurrentCellDirtyStateChanged;
+            _dashboardClientsGrid.DataError -= DashboardClientsGridDataError;
+            _dashboardClientsGrid.CellContentClick += DashboardClientsGridCellContentClick;
+            _dashboardClientsGrid.CellClick += DashboardClientsGridCellClick;
+            _dashboardClientsGrid.CellValueChanged += DashboardClientsGridCellValueChanged;
+            _dashboardClientsGrid.CurrentCellDirtyStateChanged += DashboardClientsGridCurrentCellDirtyStateChanged;
+            _dashboardClientsGrid.DataError += DashboardClientsGridDataError;
+        }
+
+        /// <summary>Refreshes All Clients grid rows in place after search or status filtering.</summary>
+        private void PopulateDashboardClientsGrid()
+        {
+            if (_dashboardClientsGrid == null || _dashboardClientsGrid.IsDisposed)
+                return;
+
+            List<B2BClient> filtered = DashboardFilteredClients().ToList();
+            int pageSize = Math.Max(1, _dashboardClientsPageSize);
+            _dashboardClientsPage = PaginationState.NormalizePage(_dashboardClientsPage, filtered.Count, pageSize);
+            List<B2BClient> page = filtered.Skip((_dashboardClientsPage - 1) * pageSize).Take(pageSize).ToList();
+            _dashboardClientsGrid.SuspendLayout();
+            _bindingDashboardClientStatus = true;
+            try
+            {
+                _dashboardClientsGrid.Rows.Clear();
+                foreach (B2BClient client in page)
+                {
+                    string status = GetClientStatus(client);
+                    DateTime last = LastClientActivity(client);
+                    int rowIndex = _dashboardClientsGrid.Rows.Add(
+                        client.ClientID,
+                        Safe(client.CompanyName, "Client"),
+                        GetClientType(client),
+                        Safe(client.PrimaryContact, "-"),
+                        Safe(client.Phone, "-"),
+                        Safe(client.Email, "-"),
+                        status,
+                        last == DateTime.MinValue ? "-" : last.ToString("dd MMM yyyy"));
+                    _dashboardClientsGrid.Rows[rowIndex].Tag = client.ClientID;
+                    _dashboardClientsGrid.Rows[rowIndex].Cells["Status"].Style.ForeColor = StatusColor(status);
+                    _dashboardClientsGrid.Rows[rowIndex].Cells["Status"].ToolTipText = "Click to change client status";
+                }
+            }
+            finally
+            {
+                _bindingDashboardClientStatus = false;
+                _dashboardClientsGrid.ResumeLayout();
+            }
+
+            if (_dashboardClientsShowingLabel != null && !_dashboardClientsShowingLabel.IsDisposed)
+            {
+                string suffix = string.IsNullOrWhiteSpace(DashboardTableSearchText()) && (_dashboardStatus ?? "All Status") == "All Status"
+                    ? "entries"
+                    : "matching entries";
+                _dashboardClientsShowingLabel.Text = filtered.Count + " " + suffix;
+            }
+            if (_dashboardClientsPager != null && !_dashboardClientsPager.IsDisposed)
+                _dashboardClientsPager.SetState(_dashboardClientsPage, filtered.Count, pageSize);
+        }
+
+        /// <summary>Handles All Clients grid actions without forcing a dashboard rebuild.</summary>
+        private void DashboardClientsGridCellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || _dashboardClientsGrid == null)
+                return;
+
+            int clientId = Convert.ToInt32(_dashboardClientsGrid.Rows[e.RowIndex].Cells["ClientId"].Value);
+            B2BClient client = _clients.FirstOrDefault(c => c.ClientID == clientId);
+            if (client == null)
+                return;
+
+            string columnName = _dashboardClientsGrid.Columns[e.ColumnIndex].Name;
+            if (columnName == "View")
+            {
+                OnOpenClientDetail?.Invoke(client.ClientID);
+            }
+            else if (columnName == "More")
+            {
+                ShowClientDashboardRowMenu(client, _dashboardClientsGrid);
+            }
+        }
+
+        /// <summary>Opens the status dropdown immediately when a client status cell is clicked.</summary>
+        private void DashboardClientsGridCellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || _dashboardClientsGrid == null || e.ColumnIndex < 0)
+                return;
+
+            if (_dashboardClientsGrid.Columns[e.ColumnIndex].Name != "Status")
+                return;
+
+            _dashboardClientsGrid.BeginEdit(true);
+            ComboBox editor = _dashboardClientsGrid.EditingControl as ComboBox;
+            if (editor != null)
+                editor.DroppedDown = true;
+        }
+
+        /// <summary>Commits client status dropdown changes as soon as a value is selected.</summary>
+        private void DashboardClientsGridCurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (_dashboardClientsGrid != null && _dashboardClientsGrid.IsCurrentCellDirty)
+                _dashboardClientsGrid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        /// <summary>Persists status dropdown changes from the All Clients dashboard grid.</summary>
+        private void DashboardClientsGridCellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_bindingDashboardClientStatus || e.RowIndex < 0 || _dashboardClientsGrid == null || e.ColumnIndex < 0)
+                return;
+
+            if (_dashboardClientsGrid.Columns[e.ColumnIndex].Name != "Status")
+                return;
+
+            DataGridViewRow row = _dashboardClientsGrid.Rows[e.RowIndex];
+            int clientId = Convert.ToInt32(row.Cells["ClientId"].Value);
+            B2BClient client = _clients.FirstOrDefault(c => c.ClientID == clientId);
+            if (client == null)
+                return;
+
+            SetClientLifecycleStatus(client, Convert.ToString(row.Cells["Status"].Value));
+        }
+
+        /// <summary>Suppresses transient combo-box parse errors while dashboard rows are being rebound.</summary>
+        private void DashboardClientsGridDataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
+        }
+
         private void AddClientRow(TableLayoutPanel table, B2BClient client)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
@@ -989,12 +1342,12 @@ namespace HVAC_Pro_Desktop.UI
             table.Controls.Add(TableLabel(Safe(client.PrimaryContact, "-"), false, DS.Slate800), 3, row);
             table.Controls.Add(TableLabel(Safe(client.Phone, "-"), false, DS.Slate800), 4, row);
             table.Controls.Add(TableLabel(Safe(client.Email, "-"), false, DS.Slate800), 5, row);
-            table.Controls.Add(TableLabel(status, false, StatusColor(status)), 6, row);
+            table.Controls.Add(MakeClientStatusDropdown(client, status), 6, row);
             DateTime last = LastClientActivity(client);
             table.Controls.Add(TableLabel(last == DateTime.MinValue ? "-" : last.ToString("dd MMM yyyy"), false, DS.Slate500), 7, row);
             FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, WrapContents = false, Padding = new Padding(0, 4, 0, 0), Margin = Padding.Empty };
             Button view = DashboardActionIconButton("View client", false);
-            view.Click += (s, e) => OpenClientEditor(client, "Client Detail");
+            view.Click += (s, e) => OnOpenClientDetail?.Invoke(client.ClientID);
             Button menu = DashboardActionIconButton("More actions", true);
             menu.Click += (s, e) => ShowClientDashboardRowMenu(client, menu);
             actions.Controls.Add(view);
@@ -1093,22 +1446,134 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowClientDashboardRowMenu(B2BClient client, Control anchor)
         {
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
-            menu.Items.Add("View", null, (s, e) => OpenClientEditor(client, "Client Detail"));
+            menu.Items.Add("View", null, (s, e) => OnOpenClientDetail?.Invoke(client.ClientID));
             menu.Items.Add("Edit", null, (s, e) => OpenClientEditor(client, "Edit Client"));
             menu.Items.Add("Add Contact", null, (s, e) => ShowActionModal("Add Contact", "Add a contact for " + Safe(client.CompanyName, "client"), "Contact name", Safe(client.PrimaryContact, "")));
-            menu.Items.Add("New Contract", null, (s, e) => OnNavigate?.Invoke(2));
-            menu.Items.Add("New Quote", null, (s, e) => OnNavigate?.Invoke(6));
-            menu.Items.Add("Block", null, (s, e) => { client.RelationshipStage = "On Hold"; client.IsActive = false; _clientService.UpdateClient(client); _ = LoadClientsAsync(); });
-            menu.Items.Add("Delete", null, (s, e) =>
+            ToolStripMenuItem contractItem = new ToolStripMenuItem("New Contract", null, (s, e) => OnNavigate?.Invoke(2)) { Enabled = client.IsActive };
+            ToolStripMenuItem quoteItem = new ToolStripMenuItem("New Quote", null, (s, e) => OnNavigate?.Invoke(6)) { Enabled = client.IsActive };
+            menu.Items.Add(contractItem);
+            menu.Items.Add(quoteItem);
+            ToolStripMenuItem statusMenu = new ToolStripMenuItem("Change Status");
+            foreach (string status in ClientStatusOptions())
             {
-                if (MessageBox.Show("Mark " + client.CompanyName + " inactive?", "Clients", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
-                {
-                    client.IsActive = false;
-                    _clientService.UpdateClient(client);
-                    _ = LoadClientsAsync();
-                }
-            });
+                ToolStripMenuItem statusItem = new ToolStripMenuItem(status, null, (s, e) => SetClientLifecycleStatus(client, ((ToolStripMenuItem)s).Text));
+                statusItem.Checked = string.Equals(GetClientStatus(client), status, StringComparison.OrdinalIgnoreCase);
+                statusMenu.DropDownItems.Add(statusItem);
+            }
+            menu.Items.Add(statusMenu);
+            menu.Items.Add(client.IsActive ? "Mark Inactive" : "Activate Client", null, (s, e) => SetClientActiveStatus(client, !client.IsActive));
+            menu.Items.Add("Put On Hold", null, (s, e) => SetClientLifecycleStatus(client, "On Hold", false));
+            RecordDeletionUi.AddDeleteMenuItem(menu, async (s, e) => await DeleteClientAsync(client));
             menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        /// <summary>Shows a compact lifecycle menu from a client status badge or status bar.</summary>
+        private void ShowClientStatusMenu(B2BClient client, Control anchor)
+        {
+            if (client == null || anchor == null || anchor.IsDisposed)
+                return;
+
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            foreach (string status in ClientStatusOptions())
+            {
+                ToolStripMenuItem item = new ToolStripMenuItem(status, null, (s, e) => SetClientLifecycleStatus(client, ((ToolStripMenuItem)s).Text));
+                item.Checked = string.Equals(GetClientStatus(client), status, StringComparison.OrdinalIgnoreCase);
+                menu.Items.Add(item);
+            }
+            menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        /// <summary>Creates the client status dropdown used in dashboard table rows.</summary>
+        private ComboBox MakeClientStatusDropdown(B2BClient client, string selectedStatus)
+        {
+            ComboBox box = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = DS.Slate900,
+                Font = new Font("Segoe UI", 7.4f),
+                Margin = new Padding(3, 4, 3, 4),
+                Cursor = Cursors.Hand
+            };
+            box.Items.AddRange(ClientStatusOptions().Cast<object>().ToArray());
+            int index = box.Items.IndexOf(string.IsNullOrWhiteSpace(selectedStatus) ? "Active" : selectedStatus);
+            box.SelectedIndex = index >= 0 ? index : 0;
+            box.SelectedIndexChanged += (s, e) => SetClientLifecycleStatus(client, Convert.ToString(box.SelectedItem));
+            return box;
+        }
+
+        /// <summary>Updates a client's active flag and reloads every visible client surface.</summary>
+        private void SetClientActiveStatus(B2BClient client, bool active)
+        {
+            SetClientLifecycleStatus(client, active ? "Active" : "Inactive", active);
+        }
+
+        /// <summary>Persists a client lifecycle status and refreshes dashboard/list caches.</summary>
+        private void SetClientLifecycleStatus(B2BClient client, string relationshipStage, bool active)
+        {
+            SetClientLifecycleStatus(client, relationshipStage);
+        }
+
+        /// <summary>Persists a client lifecycle status and refreshes every visible client surface.</summary>
+        private void SetClientLifecycleStatus(B2BClient client, string relationshipStage)
+        {
+            if (client == null || client.ClientID <= 0)
+                return;
+
+            try
+            {
+                string status = string.IsNullOrWhiteSpace(relationshipStage) ? "Active" : relationshipStage.Trim();
+                ApplyClientLifecycleLocal(client, status);
+                _clientService.UpdateLifecycleStatus(client.ClientID, status);
+                AppDataCache.RemovePrefix("clients:");
+                ShowToast(Safe(client.CompanyName, "Client") + " is now " + GetClientStatus(client) + ".");
+                _ = LoadClientsAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Updating client status", ex);
+            }
+        }
+
+        /// <summary>Applies lifecycle status semantics to an in-memory client row.</summary>
+        private static void ApplyClientLifecycleLocal(B2BClient client, string status)
+        {
+            if (client == null)
+                return;
+
+            string value = string.IsNullOrWhiteSpace(status) ? "Active" : status.Trim();
+            client.RelationshipStage = value;
+            client.IsActive = value == "Active" || value == "Prospect";
+        }
+
+        private async Task DeleteClientAsync(B2BClient client)
+        {
+            if (client == null || client.ClientID <= 0)
+                return;
+
+            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
+                FindForm(),
+                "Client",
+                Safe(client.CompanyName, "selected client"),
+                "The client will be marked inactive. Existing jobs, invoices, payments, contracts, and sites remain preserved.");
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                await Task.Run(() => _clientService.DeleteClient(client.ClientID));
+                if (_selectedClient != null && _selectedClient.ClientID == client.ClientID)
+                    _selectedClient = null;
+                _clients.RemoveAll(c => c.ClientID == client.ClientID);
+                RenderClientsDashboard();
+                ShowToast("Client deleted from active list.");
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Deleting client", ex);
+            }
         }
 
         private void HandleClientQuickAction(string action)
@@ -1147,22 +1612,6 @@ namespace HVAC_Pro_Desktop.UI
             return alerts.Count == 0 ? "No alerts at this time." : string.Join(Environment.NewLine, alerts.Select(a => a.Item1));
         }
 
-        private IEnumerable<Tuple<string, string, Color>> ClientActivityFeed()
-        {
-            foreach (B2BClient client in _clients.OrderByDescending(LastClientActivity).Take(3))
-                if (client.CustomerSince != default(DateTime))
-                    yield return Tuple.Create("New client " + Safe(client.CompanyName, "Client") + " registered.", client.CustomerSince.ToString("dd MMM yyyy"), DS.Primary600);
-            foreach (Invoice invoice in _dashboardInvoices.OrderByDescending(i => i.PaymentDate ?? i.ModifiedDate ?? i.InvoiceDate).Take(4))
-                yield return Tuple.Create((invoice.PaidAmount > 0 ? "Invoice " + IndiaFormatHelper.FormatCurrency(invoice.PaidAmount) + " paid by " : "Invoice " + Safe(invoice.InvoiceNumber, "") + " raised for ") + ClientName(invoice.ClientID) + ".", (invoice.PaymentDate ?? invoice.InvoiceDate).ToString("dd MMM yyyy"), invoice.PaidAmount > 0 ? DS.Green600 : DS.Amber600);
-            foreach (TenderBid quote in _dashboardQuotes.OrderByDescending(q => q.ModifiedDate ?? q.SubmittedDate ?? q.DueDate).Take(3))
-                yield return Tuple.Create("Quote " + Safe(quote.QuotationNumber, "draft") + " sent to " + ClientName(quote.ClientID) + ".", (quote.SubmittedDate ?? quote.DueDate).ToString("dd MMM yyyy"), DS.Amber500);
-        }
-
-        private string BuildActivityText()
-        {
-            return string.Join(Environment.NewLine, ClientActivityFeed().Take(12).Select(a => a.Item1 + " " + a.Item2));
-        }
-
         private string BuildRenewalText()
         {
             return string.Join(Environment.NewLine, UpcomingClientRenewals().Take(12).Select(c => ClientName(c.ClientID) + " - " + Safe(c.ContractType, "Contract") + " - " + c.EndDate.ToString("dd MMM yyyy")));
@@ -1179,11 +1628,11 @@ namespace HVAC_Pro_Desktop.UI
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
                     StringBuilder sb = new StringBuilder();
-                    sb.AppendLine("Client Name,Type,Primary Contact,Phone,Email,Status,Last Activity");
+                    sb.AppendLine("Client Name,Type,Primary Contact,Phone,Email,Address,Status,Last Update");
                     foreach (B2BClient c in DashboardFilteredClients())
                     {
                         DateTime last = LastClientActivity(c);
-                        sb.AppendLine(string.Join(",", Csv(Safe(c.CompanyName, "")), Csv(GetClientType(c)), Csv(Safe(c.PrimaryContact, "")), Csv(Safe(c.Phone, "")), Csv(Safe(c.Email, "")), Csv(GetClientStatus(c)), Csv(last == DateTime.MinValue ? "-" : last.ToString("dd MMM yyyy"))));
+                        sb.AppendLine(string.Join(",", Csv(Safe(c.CompanyName, "")), Csv(GetClientType(c)), Csv(Safe(c.PrimaryContact, "")), Csv(Safe(c.Phone, "")), Csv(Safe(c.Email, "")), Csv(Safe(c.BillingAddress, "")), Csv(GetClientStatus(c)), Csv(last == DateTime.MinValue ? "-" : last.ToString("dd MMM yyyy"))));
                     }
                     File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
                     ShowToast("Clients exported.");
@@ -1215,38 +1664,32 @@ namespace HVAC_Pro_Desktop.UI
 
         private IEnumerable<B2BClient> FilteredClients()
         {
-            string search = _searchBox == null || _searchPlaceholderActive ? string.Empty : (_searchBox.Text ?? string.Empty).Trim().ToLowerInvariant();
+            string search = CurrentClientSearchText().ToLowerInvariant();
             IEnumerable<B2BClient> filtered = _clients;
             if (!string.IsNullOrWhiteSpace(search))
             {
-                filtered = filtered.Where(c => string.Join(" ", c.CompanyName, c.Phone, c.Email, c.PrimaryContact, c.IndustryType, c.City)
+                filtered = filtered.Where(c => string.Join(" ", c.CompanyName, c.Phone, c.Email, c.PrimaryContact, c.IndustryType, c.BillingAddress, c.City)
                     .ToLowerInvariant()
                     .Contains(search));
             }
             return filtered;
         }
 
+        /// <summary>Returns the active classic client search text, excluding placeholder copy.</summary>
+        private string CurrentClientSearchText()
+        {
+            if (_searchBox == null || _searchPlaceholderActive)
+                return string.Empty;
+
+            return (_searchBox.Text ?? string.Empty).Trim();
+        }
+
         private void RenderPagination(int total)
         {
-            _pagination.Controls.Clear();
-            int pages = Math.Max(1, (int)Math.Ceiling(total / (double)PageSize));
-            Button prev = PageButton("<", _pageIndex > 0);
-            prev.Click += (s, e) => { if (_pageIndex > 0) { _pageIndex--; RenderClientCards(); } };
-            _pagination.Controls.Add(prev);
-            for (int i = 0; i < Math.Min(pages, 5); i++)
-            {
-                int page = i;
-                Button btn = PageButton((i + 1).ToString(), true);
-                btn.BackColor = page == _pageIndex ? DS.Primary600 : Color.White;
-                btn.ForeColor = page == _pageIndex ? Color.White : DS.Slate800;
-                btn.Click += (s, e) => { _pageIndex = page; RenderClientCards(); };
-                _pagination.Controls.Add(btn);
-            }
-            if (pages > 5)
-                _pagination.Controls.Add(new Label { Text = "... " + pages, Width = 48, Height = 28, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate600 });
-            Button next = PageButton(">", _pageIndex < pages - 1);
-            next.Click += (s, e) => { if (_pageIndex < pages - 1) { _pageIndex++; RenderClientCards(); } };
-            _pagination.Controls.Add(next);
+            if (_pagination == null)
+                return;
+
+            _pagination.SetState(_clientPage, total, _clientPageSize);
         }
 
         private void SelectClient(int clientId)
@@ -1271,12 +1714,11 @@ namespace HVAC_Pro_Desktop.UI
             if (_selectedClient == null)
                 return;
 
-            _header.Bind(Initials(_selectedClient.CompanyName), Safe(_selectedClient.CompanyName, "Client"), Safe(_selectedClient.IndustryType, "HVAC Services"), Safe(_selectedClient.City, "Mumbai"), _selectedClient.IsActive);
+            _header.Bind(Initials(_selectedClient.CompanyName), Safe(_selectedClient.CompanyName, "Client"), Safe(_selectedClient.IndustryType, "HVAC Services"), Safe(_selectedClient.City, "Mumbai"), GetClientStatus(_selectedClient));
             _pipeline.Bind(NormalizeStage(_selectedClient.RelationshipStage, _selectedClient.IsActive));
             RenderKpis(_metricsCache.ContainsKey(_selectedClient.ClientID) ? _metricsCache[_selectedClient.ClientID] : ClientCommandMetrics.Loading(_selectedClient));
             RenderSelectedTab();
             _footer.Text = "Client created on " + SafeDate(_selectedClient.CustomerSince) + "  -  Last updated by Admin";
-            LoadActivitiesAsync(_selectedClient.ClientID);
         }
 
         private void LoadMetricsAsync(int clientId)
@@ -1286,7 +1728,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (IsDisposed || !IsHandleCreated)
                     return;
-                BeginInvoke((Action)(() =>
+                SafeClientBeginInvoke(() =>
                 {
                     if (IsDisposed || _selectedClient == null || _selectedClient.ClientID != clientId || version != _metricsRequestVersion)
                         return;
@@ -1294,7 +1736,7 @@ namespace HVAC_Pro_Desktop.UI
                     _metricsCache[clientId] = metrics;
                     RenderKpis(metrics);
                     RenderSelectedTab();
-                }));
+                }, "ClientManagementForm.LoadMetricsAsync");
             });
         }
 
@@ -1326,13 +1768,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadMetrics.Invoices", ex); }
 
-            try { metrics.ActivityScore = _clientService.ComputeHealthScore(clientId); }
-            catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadMetrics.Score", ex); }
-            if (metrics.ActivityScore <= 0)
-                metrics.ActivityScore = client == null || client.HealthScore <= 0 ? 85 : client.HealthScore;
             metrics.OpenJobsText = metrics.OpenJobs.ToString();
             metrics.ActiveContractsText = metrics.ActiveContracts.ToString();
-            metrics.ActivityScoreText = metrics.ActivityScore + "/100";
             return metrics;
         }
 
@@ -1342,7 +1779,7 @@ namespace HVAC_Pro_Desktop.UI
             AddKpi("Open Jobs", metrics.OpenJobsText, "View Jobs", "J", DS.Slate900, () => OnNavigate?.Invoke(15));
             AddKpi("Active Contracts", metrics.ActiveContractsText, "View Contracts", "C", DS.Primary700, () => OnNavigate?.Invoke(2));
             AddKpi("Outstanding Amount", FormatMoney(metrics.OutstandingAmount), "View Invoices", "₹", metrics.OutstandingAmount > 0 ? DS.Red600 : DS.Green600, () => OnNavigate?.Invoke(3));
-            AddKpi("Recent Activity Score", metrics.ActivityScoreText, "View Details", "↗", DS.Primary600, () => _tabs.SelectedTab = _tabs.TabPages["Activity"] ?? _tabs.TabPages[0]);
+            AddKpi("Pipeline Value", FormatMoney(metrics.TotalExpectedValue), "View Financials", "₹", DS.Primary600, () => _tabs.SelectedTab = _tabs.TabPages["Financials"] ?? _tabs.TabPages[0]);
         }
 
         private void AddKpi(string label, string value, string link, string icon, Color color, Action action)
@@ -1359,9 +1796,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             TabPage page = _tabs.SelectedTab ?? _tabs.TabPages[0];
             page.Controls.Clear();
-            if (page.Text == "Activity")
-                BuildActivityTab(page);
-            else if (page.Text == "Details")
+            if (page.Text == "Details")
                 BuildDetailsTab(page);
             else if (page.Text == "Notes")
                 BuildNotesTab(page);
@@ -1369,111 +1804,6 @@ namespace HVAC_Pro_Desktop.UI
                 BuildFinancialsTab(page);
             else
                 BuildDocumentsTab(page);
-        }
-
-        private void BuildActivityTab(TabPage page)
-        {
-            var split = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.White };
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48f));
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52f));
-            _timeline = new ActivityTimelineControl();
-            _summary = new ClientSummaryTableControl();
-            _timeline.Bind(BuildActivities());
-            ClientCommandMetrics metrics = CurrentMetrics();
-            _summary.Bind(BuildSummaryRows(metrics), FormatMoney(metrics.TotalExpectedValue));
-            split.Controls.Add(_timeline, 0, 0);
-            split.Controls.Add(_summary, 1, 0);
-            page.Controls.Add(split);
-        }
-
-        private IEnumerable<ActivityTimelineItem> BuildActivities()
-        {
-            if (_selectedClient != null && _activityCache.ContainsKey(_selectedClient.ClientID))
-                return _activityCache[_selectedClient.ClientID];
-
-            return BuildSampleActivities();
-        }
-
-        private void LoadActivitiesAsync(int clientId)
-        {
-            if (clientId <= 0 || _activityCache.ContainsKey(clientId))
-                return;
-
-            int version = ++_activityRequestVersion;
-            Task.Run(() =>
-            {
-                var items = new List<ActivityTimelineItem>();
-                try
-                {
-                    foreach (ClientActivity activity in _clientService.GetActivities(clientId, "All").Take(8))
-                    {
-                        string type = activity.ActivityType;
-                        string title = Safe(activity.Title, type);
-                        string detail = Safe(activity.Detail, "Client activity logged.");
-                        string when = activity.CreatedAt.ToString("dd MMM yyyy  -  hh:mm tt");
-                        items.Add(new ActivityTimelineItem
-                        {
-                            Icon = ActivityIcon(type),
-                            IconBackColor = ActivityColor(type),
-                            Title = title,
-                            Description = detail,
-                            When = when,
-                            ActionText = "View Details",
-                            Action = () => ShowActivityDetails(title, type, when, detail)
-                        });
-                    }
-                }
-                catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadActivitiesAsync", ex); }
-                return items.Count == 0 ? BuildSampleActivities().ToList() : items;
-            }).ContinueWith(task =>
-            {
-                if (IsDisposed || !IsHandleCreated)
-                    return;
-                BeginInvoke((Action)(() =>
-                {
-                    if (IsDisposed || _selectedClient == null || _selectedClient.ClientID != clientId || version != _activityRequestVersion)
-                        return;
-                    _activityCache[clientId] = task.Status == TaskStatus.RanToCompletion ? task.Result : BuildSampleActivities().ToList();
-                    if (_tabs.SelectedTab != null && _tabs.SelectedTab.Text == "Activity")
-                        RenderSelectedTab();
-                }));
-            });
-        }
-
-        private void ShowActivityDetails(string title, string type, string when, string detail)
-        {
-            ShowDashboardListModal(
-                string.IsNullOrWhiteSpace(title) ? "Activity Details" : title,
-                new[]
-                {
-                    "Type: " + Safe(type, "Activity"),
-                    "When: " + Safe(when, "-"),
-                    "",
-                    Safe(detail, "No details recorded.")
-                });
-        }
-
-        private IEnumerable<ActivityTimelineItem> BuildSampleActivities()
-        {
-            var items = new List<ActivityTimelineItem>();
-            items.Add(new ActivityTimelineItem { Icon = "SR", IconBackColor = DS.Primary600, Title = "Service Request in need", When = "15 May 2026  -  10:30 AM", Description = "Industrial HVAC inspection requested for " + SelectedName(), ActionText = "View Details", Action = () => OnNavigate?.Invoke(15) });
-            items.Add(new ActivityTimelineItem { Icon = "PR", IconBackColor = DS.Green600, Title = "Proposal in need", When = "19 Apr 2026  -  02:15 PM", Description = "AMC renewal proposal pending approval.", ActionText = "View Proposal", Action = () => OnNavigate?.Invoke(6) });
-            items.Add(new ActivityTimelineItem { Icon = "IN", IconBackColor = DS.Amber600, Title = "Service Summary", When = "28 Mar 2026  -  03:20 PM", Description = "Preventive maintenance visit completed at Mumbai site.", ActionText = "View Summary", Action = () => OnNavigate?.Invoke(15) });
-            items.Add(new ActivityTimelineItem { Icon = "PM", IconBackColor = DS.Teal600, Title = "Payment follow-up", When = "13 Mar 2026  -  11:45 AM", Description = "Accounts team requested invoice ledger copy.", ActionText = "View Ledger", Action = () => OnNavigate?.Invoke(4) });
-            return items;
-        }
-
-        private IEnumerable<ClientSummaryRow> BuildSummaryRows(ClientCommandMetrics metrics)
-        {
-            string client = SelectedName();
-            return new[]
-            {
-                new ClientSummaryRow { Stage = "Prospect", Details = client, ExpectedValue = FormatMoney(Math.Max(250000m, metrics.JobValue)) },
-                new ClientSummaryRow { Stage = "Qualified", Details = "Site survey complete", ExpectedValue = FormatMoney(Math.Max(180000m, metrics.JobValue / 2m)) },
-                new ClientSummaryRow { Stage = "Active AMC", Details = "Active contracts", ExpectedValue = FormatMoney(Math.Max(250000m, metrics.ContractValue)) },
-                new ClientSummaryRow { Stage = "Renewal", Details = "Renewal due pipeline", ExpectedValue = FormatMoney(Math.Max(125000m, metrics.ContractValue / 4m)) },
-                new ClientSummaryRow { Stage = "Inactive", Details = "Reactivation value", ExpectedValue = FormatMoney(75000m) }
-            };
         }
 
         private void BuildDetailsTab(TabPage page)
@@ -1484,8 +1814,9 @@ namespace HVAC_Pro_Desktop.UI
                 Pair("Contact", Safe(_selectedClient.PrimaryContact, "Facilities Manager")),
                 Pair("Phone", Safe(_selectedClient.Phone, "+91 98200 41000")),
                 Pair("Email", Safe(_selectedClient.Email, "facility@" + Slug(_selectedClient.CompanyName) + ".in")),
-                Pair("GSTIN", Safe(_selectedClient.GSTNumber, "27ABCDE1234F1Z5")),
+                Pair("GSTIN", Safe(_selectedClient.GSTNumber, "27ABCDE1234F1Z0")),
                 Pair("Client Type", Safe(_selectedClient.IndustryType, "Commercial HVAC")),
+                Pair("Address", Safe(_selectedClient.BillingAddress, "-")),
                 Pair("City", Safe(_selectedClient.City, "Mumbai")),
                 Pair("Lifecycle", NormalizeStage(_selectedClient.RelationshipStage, _selectedClient.IsActive))
             }));
@@ -1547,8 +1878,12 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowClientEditor(B2BClient client, string title)
         {
             B2BClient target = client == null ? new B2BClient { IsActive = true, RelationshipStage = "Prospect", CustomerSince = DateTime.Today } : CloneClient(client);
-            using (Form form = Modal(title, 560, 720))
+            using (Form form = Modal(title, 560, 780))
             {
+                Rectangle workArea = Screen.FromControl(this).WorkingArea;
+                form.Height = Math.Min(form.Height, Math.Max(560, workArea.Height - 80));
+                form.AutoScroll = true;
+                form.AutoScrollMinSize = new Size(0, 742);
                 form.Padding = new Padding(24);
                 form.BackColor = Color.White;
                 form.Controls.Add(new Label
@@ -1586,74 +1921,177 @@ namespace HVAC_Pro_Desktop.UI
                 TextBox phone = ModalIconField(form, "T", "Phone", target.Phone, 216);
                 TextBox email = ModalIconField(form, "@", "Email", target.Email, 276);
                 TextBox gst = ModalIconField(form, "%", "GSTIN", target.GSTNumber, 336);
-                TextBox address = ModalIconField(form, "#", "Address", target.BillingAddress, 396);
-                TextBox city = ModalIconField(form, "C", "City", target.City, 456);
-                TextBox state = ModalIconField(form, "S", "State", "", 516);
+                TextBox address = ModalIconField(form, "#", "Billing / registered address", target.BillingAddress, 396, true, 72);
+                TextBox city = ModalIconField(form, "C", "City", target.City, 496);
+                TextBox state = ModalIconField(form, "S", "State", "", 556);
+                ComboBox status = ModalStatusField(form, "Status", GetClientStatus(target), 616);
                 Button cancel = DS.GhostBtn("Cancel", 92, 36);
-                cancel.Location = new Point(24, 620);
+                cancel.Location = new Point(24, 680);
                 cancel.Click += (s, e) => form.Close();
+                Button dashboard = DS.GhostBtn("Client Dashboard", 148, 36);
+                dashboard.Location = new Point(126, 680);
+                dashboard.Click += (s, e) =>
+                {
+                    form.Close();
+                    ShowDashboardFromNavigation();
+                };
                 Button save = PrimaryButton("Save", 36);
                 save.Width = 112;
-                save.Location = new Point(420, 620);
-                save.Click += (s, e) =>
+                save.Location = new Point(420, 680);
+                save.Click += async (s, e) =>
                 {
-                    if (string.IsNullOrWhiteSpace(company.Text))
+                    string gstValue = gst.Text.Trim().ToUpperInvariant();
+                    target.CompanyName = CleanClientInput(company);
+                    target.PrimaryContact = CleanClientInput(contact);
+                    target.Phone = CleanClientInput(phone);
+                    target.Email = CleanClientInput(email);
+                    target.GSTNumber = gstValue;
+                    target.BillingAddress = CleanClientInput(address);
+                    target.City = CleanClientInput(city);
+                    target.GeocodeAddress = BuildClientGeocodeAddress(target.BillingAddress, target.City, CleanClientInput(state));
+                    ApplyClientEditorStatus(target, Convert.ToString(status.SelectedItem));
+                    if (string.IsNullOrWhiteSpace(target.IndustryType)) target.IndustryType = "Commercial HVAC";
+                    var validation = new B2BClientValidator().Validate(target);
+                    if (!validation.IsValid)
                     {
-                        MessageBox.Show("Company name is required.", "Clients", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show(form, ValidationMessageFormatter.ToMessage(validation), BrandingService.WindowTitle("Clients"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         company.Focus();
                         return;
                     }
-                    string gstValue = gst.Text.Trim().ToUpperInvariant();
-                    if (!string.IsNullOrWhiteSpace(gstValue) && !System.Text.RegularExpressions.Regex.IsMatch(gstValue, @"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$"))
-                    {
-                        MessageBox.Show("GSTIN format is invalid. Example: 27ABCDE1234F1Z5", "Clients", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        gst.Focus();
-                        return;
-                    }
-                    target.CompanyName = company.Text.Trim();
-                    target.PrimaryContact = contact.Text.Trim();
-                    target.Phone = phone.Text.Trim();
-                    target.Email = email.Text.Trim();
-                    target.GSTNumber = gstValue;
-                    target.BillingAddress = address.Text.Trim();
-                    target.City = city.Text.Trim();
-                    if (!string.IsNullOrWhiteSpace(state.Text))
-                        target.GeocodeAddress = string.Join(", ", new[] { target.BillingAddress, target.City, state.Text.Trim() }.Where(x => !string.IsNullOrWhiteSpace(x)));
-                    if (string.IsNullOrWhiteSpace(target.IndustryType)) target.IndustryType = "Commercial HVAC";
+                    B2BClient saveTarget = target;
+                    save.Enabled = false;
+                    cancel.Enabled = false;
+                    dashboard.Enabled = false;
+                    close.Enabled = false;
+                    save.Text = "Saving...";
                     try
                     {
-                        if (target.ClientID <= 0)
-                            target.ClientID = _clientService.CreateClient(target);
-                        else
-                            _clientService.UpdateClient(target);
+                        target = await Task.Run(() =>
+                        {
+                            B2BClient clientToSave = saveTarget;
+                            if (clientToSave.ClientID <= 0)
+                                clientToSave.ClientID = _clientService.CreateClient(clientToSave);
+                            else
+                                _clientService.UpdateClient(clientToSave);
+                            return clientToSave;
+                        });
                         form.DialogResult = DialogResult.OK;
                         form.Close();
                     }
                     catch (Exception ex)
                     {
-                        AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Saving client", ex);
+                        AppLogger.LogError("ClientManagementForm.SaveClient", ex);
+                        if (IsClientSaveValidationError(ex))
+                        {
+                            MessageBox.Show(form, BuildClientSaveValidationMessage(ex), BrandingService.WindowTitle("Clients"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            company.Focus();
+                        }
+                        else
+                        {
+                            AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Saving client", ex);
+                        }
+                    }
+                    finally
+                    {
+                        if (!form.IsDisposed)
+                        {
+                            save.Enabled = true;
+                            cancel.Enabled = true;
+                            dashboard.Enabled = true;
+                            close.Enabled = true;
+                            save.Text = "Save";
+                        }
                     }
                 };
                 form.Controls.Add(cancel);
+                form.Controls.Add(dashboard);
                 form.Controls.Add(save);
                 if (form.ShowDialog(this) == DialogResult.OK)
                 {
-                    _clients.RemoveAll(c => c.ClientID == target.ClientID);
-                    _clients.Add(target);
-                    _clients.Sort((a, b) => string.Compare(a.CompanyName, b.CompanyName, StringComparison.OrdinalIgnoreCase));
-                    RenderClientCards();
-                    SelectClient(target.ClientID);
-                    ShowToast(title + " saved");
+                    RefreshAfterClientEditorSave(target);
+                    ShowToast(title + " saved. Next: add a site, contact, or service job.");
                 }
             }
         }
 
-        private TextBox ModalIconField(Form form, string icon, string label, string value, int y)
+        private void RefreshAfterClientEditorSave(B2BClient target)
         {
+            if (target == null || target.ClientID <= 0)
+                return;
+
+            try
+            {
+                _clients.RemoveAll(c => c.ClientID == target.ClientID);
+                _clients.Add(target);
+                _clients.Sort((a, b) => string.Compare(Safe(a == null ? null : a.CompanyName, string.Empty), Safe(b == null ? null : b.CompanyName, string.Empty), StringComparison.OrdinalIgnoreCase));
+
+                if (_showDashboard || _clientList == null || _clientList.IsDisposed || _tabs == null || _tabs.IsDisposed || _header == null || _header.IsDisposed)
+                {
+                    _dashboardClientsLoaded = true;
+                    RenderClientsDashboard();
+                    _ = LoadClientsAsync();
+                    return;
+                }
+
+                RenderClientCards();
+                SelectClient(target.ClientID);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("ClientManagementForm.RefreshAfterClientEditorSave", ex);
+                try
+                {
+                    ResetDeferredLoad();
+                    _ = LoadClientsAsync();
+                }
+                catch { }
+            }
+        }
+
+        private static string CleanClientInput(TextBox box)
+        {
+            return box == null || box.Text == null ? string.Empty : box.Text.Trim();
+        }
+
+        /// <summary>Returns true for client save validation failures that should be shown without the generic screen-error wrapper.</summary>
+        private static bool IsClientSaveValidationError(Exception ex)
+        {
+            return ex is InvalidOperationException
+                && !string.IsNullOrWhiteSpace(ex.Message)
+                && ex.Message.IndexOf("Client validation failed", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>Builds a direct user-facing validation message for failed client saves.</summary>
+        private static string BuildClientSaveValidationMessage(Exception ex)
+        {
+            if (ex == null || string.IsNullOrWhiteSpace(ex.Message))
+                return "Client could not be saved. Check duplicate client details and try again.";
+
+            return ex.Message.Trim();
+        }
+
+        private static string BuildClientGeocodeAddress(params string[] parts)
+        {
+            string value = string.Join(", ", (parts ?? new string[0]).Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => x.Trim()));
+            return value.Length <= 500 ? value : value.Substring(0, 500);
+        }
+
+        /// <summary>Applies the client editor lifecycle dropdown to the model before saving.</summary>
+        private static void ApplyClientEditorStatus(B2BClient target, string status)
+        {
+            if (target == null)
+                return;
+
+            ApplyClientLifecycleLocal(target, status);
+        }
+
+        private TextBox ModalIconField(Form form, string icon, string label, string value, int y, bool multiline = false, int fieldHeight = 28)
+        {
+            int actualHeight = multiline ? Math.Max(56, fieldHeight) : 28;
             Panel iconBox = new Panel
             {
                 Location = new Point(24, y + 11),
-                Size = new Size(42, 42),
+                Size = new Size(42, multiline ? Math.Min(64, actualHeight) : 42),
                 BackColor = DS.Primary50
             };
             DS.Rounded(iconBox, 7);
@@ -1680,10 +2118,41 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = value ?? string.Empty,
                 Location = new Point(82, y + 22),
-                Size = new Size(420, 28),
+                Size = new Size(420, actualHeight),
                 BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font("Segoe UI", 9f),
+                Multiline = multiline,
+                AcceptsReturn = multiline,
+                ScrollBars = multiline ? ScrollBars.Vertical : ScrollBars.None
             };
+            form.Controls.Add(box);
+            return box;
+        }
+
+        /// <summary>Creates the client lifecycle status selector used by the client editor.</summary>
+        private ComboBox ModalStatusField(Form form, string label, string selected, int y)
+        {
+            form.Controls.Add(new Label
+            {
+                Text = label,
+                Location = new Point(82, y),
+                Size = new Size(400, 18),
+                ForeColor = DS.Slate700,
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold)
+            });
+
+            ComboBox box = new ComboBox
+            {
+                Location = new Point(82, y + 22),
+                Size = new Size(420, 30),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                BackColor = Color.White,
+                ForeColor = DS.Slate900
+            };
+            box.Items.AddRange(ClientStatusOptions().Cast<object>().ToArray());
+            int index = box.Items.IndexOf(string.IsNullOrWhiteSpace(selected) ? "Active" : selected);
+            box.SelectedIndex = index >= 0 ? index : 0;
             form.Controls.Add(box);
             return box;
         }
@@ -1725,35 +2194,6 @@ namespace HVAC_Pro_Desktop.UI
                 form.Controls.Add(list);
                 form.Controls.Add(close);
                 form.ShowDialog(this);
-            }
-        }
-
-        private void ShowActivityModal()
-        {
-            if (_selectedClient == null)
-                return;
-            using (Form form = Modal("Log Activity", 430, 300))
-            {
-                TextBox title = ModalField(form, "Activity title", "Client follow-up", 24);
-                TextBox detail = ModalField(form, "Details", "Spoke with facility manager about AMC schedule.", 84);
-                Button save = PrimaryButton("Log Activity", 38);
-                save.Location = new Point(268, 202);
-                save.Click += (s, e) =>
-                {
-                    try
-                    {
-                        _clientService.LogActivity(new ClientActivity { ClientId = _selectedClient.ClientID, ActivityType = "Call", Title = title.Text.Trim(), Detail = detail.Text.Trim(), CreatedAt = DateTime.Now });
-                        form.DialogResult = DialogResult.OK;
-                        form.Close();
-                    }
-                    catch (Exception ex) { AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Logging activity", ex); }
-                };
-                form.Controls.Add(save);
-                if (form.ShowDialog(this) == DialogResult.OK)
-                {
-                    RenderSelectedTab();
-                    ShowToast("Activity logged");
-                }
             }
         }
 
@@ -1824,9 +2264,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedClient == null)
                 return;
-            _selectedClient.RelationshipStage = stage;
-            _selectedClient.IsActive = stage != "Inactive";
-            try { if (_selectedClient.ClientID > 0) _clientService.UpdateClient(_selectedClient); }
+            ApplyClientLifecycleLocal(_selectedClient, stage);
+            try { if (_selectedClient.ClientID > 0) _clientService.UpdateLifecycleStatus(_selectedClient.ClientID, stage); }
             catch (Exception ex) { AppLogger.LogError("ClientManagementForm.ChangeStage", ex); }
             _pipeline.Bind(stage);
             RenderClientCards();
@@ -1862,14 +2301,6 @@ namespace HVAC_Pro_Desktop.UI
             return button;
         }
 
-        private Button PageButton(string text, bool enabled)
-        {
-            Button button = new Button { Text = text, Width = 30, Height = 28, Enabled = enabled, BackColor = Color.White, ForeColor = DS.Slate800, FlatStyle = FlatStyle.Flat, Margin = new Padding(0, 0, 6, 0), Cursor = Cursors.Hand };
-            button.FlatAppearance.BorderColor = DS.Border;
-            DS.Rounded(button, 6);
-            return button;
-        }
-
         private static Tuple<string, string> Pair(string label, string value) => Tuple.Create(label, value);
 
         private static string Safe(string value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
@@ -1879,9 +2310,6 @@ namespace HVAC_Pro_Desktop.UI
         private static string Slug(string value) => new string((value ?? "client").ToLowerInvariant().Where(char.IsLetterOrDigit).Take(16).ToArray());
         private static string NormalizeStage(string stage, bool active) => active ? (string.IsNullOrWhiteSpace(stage) ? "Active AMC" : stage) : "Inactive";
         private static string FormatMoney(decimal value) => "Rs " + value.ToString("N0");
-        private static string ActivityIcon(string type) => string.IsNullOrWhiteSpace(type) ? "AC" : type.Trim().Substring(0, Math.Min(2, type.Trim().Length)).ToUpperInvariant();
-        private static Color ActivityColor(string type) => (type ?? "").ToLowerInvariant().Contains("invoice") ? DS.Amber600 : (type ?? "").ToLowerInvariant().Contains("job") ? DS.Green600 : DS.Primary600;
-
         private void ShowToast(string message)
         {
             MessageBox.Show(this, message, BrandingService.WindowTitle("Clients"), MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1930,20 +2358,17 @@ namespace HVAC_Pro_Desktop.UI
             public int OpenJobs { get; set; }
             public int ActiveContracts { get; set; }
             public decimal OutstandingAmount { get; set; }
-            public int ActivityScore { get; set; }
             public decimal JobValue { get; set; }
             public decimal ContractValue { get; set; }
             public decimal InvoiceValue { get; set; }
             public string OpenJobsText { get; set; }
             public string ActiveContractsText { get; set; }
-            public string ActivityScoreText { get; set; }
             public decimal TotalExpectedValue => Math.Max(250000m, JobValue) + Math.Max(250000m, ContractValue) + Math.Max(75000m, InvoiceValue / 10m);
 
-            public static ClientCommandMetrics Loading(B2BClient client) => new ClientCommandMetrics { OpenJobsText = "...", ActiveContractsText = "...", ActivityScoreText = "..." };
+            public static ClientCommandMetrics Loading(B2BClient client) => new ClientCommandMetrics { OpenJobsText = "...", ActiveContractsText = "..." };
             public static ClientCommandMetrics Empty(B2BClient client)
             {
-                int score = client == null || client.HealthScore <= 0 ? 85 : client.HealthScore;
-                return new ClientCommandMetrics { OpenJobsText = "0", ActiveContractsText = "0", ActivityScore = score, ActivityScoreText = score + "/100" };
+                return new ClientCommandMetrics { OpenJobsText = "0", ActiveContractsText = "0" };
             }
         }
     }

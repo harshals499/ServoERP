@@ -51,20 +51,39 @@ namespace HVAC_Pro_Desktop.Services
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
-                using (SqlCommand cmd = new SqlCommand("SELECT 1", conn))
-                {
-                    conn.Open();
-                    cmd.ExecuteScalar();
-                    SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(conn.ConnectionString);
-                    AppLogger.LogInfo("Support Center: database checked.");
-                    return Ok("Database check complete", "ServoERP connected to the configured database.", "Server: " + SafeValue(builder.DataSource) + Environment.NewLine + "Database: " + SafeValue(builder.InitialCatalog));
-                }
+                DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.CheckNow("SupportCenterService.CheckDatabase", true);
+
+                if (!state.BusinessWritesAllowed)
+                    return Fail(
+                        "Database check failed",
+                        DatabaseConnectionStateService.BuildUserMessage(),
+                        DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                        Environment.NewLine +
+                        LocalSqliteFallbackStore.BuildStatusText());
+
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(DatabaseManager.RequireConfiguredConnectionString());
+                AppLogger.LogInfo("Support Center: database checked.");
+                return Ok(
+                    "Database check complete",
+                    DatabaseConnectionStateService.BuildUserMessage(),
+                    "Server: " + SafeValue(builder.DataSource) + Environment.NewLine +
+                    "Database: " + SafeValue(builder.InitialCatalog) + Environment.NewLine +
+                    "Max Pool Size: " + builder.MaxPoolSize + Environment.NewLine +
+                    Environment.NewLine +
+                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                    Environment.NewLine +
+                    LocalSqliteFallbackStore.BuildStatusText());
             }
             catch (Exception ex)
             {
+                DatabaseConnectionStateService.RecordOperationFailure("SupportCenterService.CheckDatabase", ex);
                 AppLogger.LogError("SupportCenterService.CheckDatabase", ex);
-                return Fail("Database check failed", ex.Message);
+                return Fail(
+                    "Database check failed",
+                    DatabaseConnectionStateService.BuildUserMessage(),
+                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                    Environment.NewLine +
+                    LocalSqliteFallbackStore.BuildStatusText());
             }
         }
 
@@ -213,7 +232,7 @@ namespace HVAC_Pro_Desktop.Services
                 string scriptPath = Path.Combine(folder, "Apply-ServoERP-ClientConnection.ps1");
                 string guidePath = Path.Combine(folder, "READ_ME_CLIENT_CONNECTION.txt");
                 File.WriteAllText(configPath, BuildClientConfigXml(profile), Encoding.UTF8);
-                File.WriteAllText(scriptPath, BuildClientConnectionScript(), Encoding.UTF8);
+                File.WriteAllText(scriptPath, BuildClientConnectionScript(profile), Encoding.UTF8);
                 File.WriteAllText(guidePath, BuildClientServerGuide(profile), Encoding.UTF8);
 
                 string zipPath = folder + ".zip";
@@ -375,7 +394,8 @@ namespace HVAC_Pro_Desktop.Services
                 PrimaryIpAddress = ip,
                 SqlInstance = instance,
                 DatabaseName = string.IsNullOrWhiteSpace(builder.InitialCatalog) ? "HVAC_PRO" : builder.InitialCatalog,
-                ConnectionTarget = target
+                ConnectionTarget = target,
+                FallbackSqlitePath = LocalSqliteFallbackStore.GetDatabasePath()
             };
         }
 
@@ -389,22 +409,57 @@ namespace HVAC_Pro_Desktop.Services
                    "    <UseWindowsAuth>true</UseWindowsAuth>" + Environment.NewLine +
                    "    <Username></Username>" + Environment.NewLine +
                    "    <Password></Password>" + Environment.NewLine +
+                   "    <ServerRole>AlwaysOnOfficeServer</ServerRole>" + Environment.NewLine +
                    "  </Database>" + Environment.NewLine +
+                   "  <Fallback>" + Environment.NewLine +
+                   "    <Mode>LocalSQLiteDiagnostics</Mode>" + Environment.NewLine +
+                   "    <SqlitePath>" + EscapeXml(profile.FallbackSqlitePath) + "</SqlitePath>" + Environment.NewLine +
+                   "    <AllowBusinessWrites>false</AllowBusinessWrites>" + Environment.NewLine +
+                   "  </Fallback>" + Environment.NewLine +
                    "  <Tenant>" + Environment.NewLine +
                    "    <SeedDemoData>false</SeedDemoData>" + Environment.NewLine +
                    "  </Tenant>" + Environment.NewLine +
                    "</HVACProConfig>" + Environment.NewLine;
         }
 
-        private static string BuildClientConnectionScript()
+        private static string BuildClientConnectionScript(ServerSetupProfile profile)
         {
-            return "$ErrorActionPreference = 'Stop'" + Environment.NewLine +
-                   "$target = 'C:\\HVAC_PRO_MSE\\HVACPro.config'" + Environment.NewLine +
+            return "param(" + Environment.NewLine +
+                   "    [string]$SqlServer = '" + EscapePowerShell(profile.ConnectionTarget) + "'," + Environment.NewLine +
+                   "    [string]$Database = '" + EscapePowerShell(profile.DatabaseName) + "'," + Environment.NewLine +
+                   "    [string]$InstallRoot = 'C:\\HVAC_PRO_MSE'" + Environment.NewLine +
+                   ")" + Environment.NewLine +
+                   Environment.NewLine +
+                   "$ErrorActionPreference = 'Stop'" + Environment.NewLine +
                    "$source = Join-Path $PSScriptRoot 'HVACPro.config'" + Environment.NewLine +
-                   "if (!(Test-Path $source)) { throw 'HVACPro.config not found beside this script.' }" + Environment.NewLine +
-                   "New-Item -ItemType Directory -Force -Path 'C:\\HVAC_PRO_MSE' | Out-Null" + Environment.NewLine +
-                   "Copy-Item -LiteralPath $source -Destination $target -Force" + Environment.NewLine +
-                   "Write-Host 'ServoERP client connection applied:' $target -ForegroundColor Green" + Environment.NewLine;
+                   "if (!(Test-Path -LiteralPath $source)) { throw 'HVACPro.config not found beside this script.' }" + Environment.NewLine +
+                   "New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null" + Environment.NewLine +
+                   "New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot 'DATABASE') | Out-Null" + Environment.NewLine +
+                   "$target = Join-Path $InstallRoot 'HVACPro.config'" + Environment.NewLine +
+                   "[xml]$config = Get-Content -LiteralPath $source" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.Server = $SqlServer" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.DatabaseName = $Database" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.UseWindowsAuth = 'true'" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.Username = ''" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.Password = ''" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.ServerRole = 'AlwaysOnOfficeServer'" + Environment.NewLine +
+                   "$config.Save($target)" + Environment.NewLine +
+                   "$connectionString = \"Server=$SqlServer;Database=$Database;Integrated Security=True;\"" + Environment.NewLine +
+                   "$exeConfigs = Get-ChildItem -LiteralPath $InstallRoot -Filter 'HVAC_Pro_Desktop.exe.config' -Recurse -ErrorAction SilentlyContinue" + Environment.NewLine +
+                   "foreach ($exeConfig in $exeConfigs) {" + Environment.NewLine +
+                   "    [xml]$appConfig = Get-Content -LiteralPath $exeConfig.FullName" + Environment.NewLine +
+                   "    $node = $appConfig.configuration.connectionStrings.add | Where-Object { $_.name -eq 'HVACPro_Connection' } | Select-Object -First 1" + Environment.NewLine +
+                   "    if ($null -ne $node) {" + Environment.NewLine +
+                   "        $node.connectionString = $connectionString" + Environment.NewLine +
+                   "        $node.providerName = 'System.Data.SqlClient'" + Environment.NewLine +
+                   "        $appConfig.Save($exeConfig.FullName)" + Environment.NewLine +
+                   "    }" + Environment.NewLine +
+                   "}" + Environment.NewLine +
+                   "Write-Host 'ServoERP client connection applied:' $target -ForegroundColor Green" + Environment.NewLine +
+                   "Write-Host 'Always-on SQL target:' $SqlServer -ForegroundColor Cyan" + Environment.NewLine +
+                   "Write-Host 'Database:' $Database -ForegroundColor Cyan" + Environment.NewLine +
+                   "Write-Host 'Updated exe configs:' ($exeConfigs.Count) -ForegroundColor DarkCyan" + Environment.NewLine +
+                   "Write-Host 'Restart ServoERP, then open Help & Support > System Health > Check Database.' -ForegroundColor Yellow" + Environment.NewLine;
         }
 
         private static string BuildClientServerGuide(ServerSetupProfile profile)
@@ -414,13 +469,18 @@ namespace HVAC_Pro_Desktop.Services
                    "Server IP: " + profile.PrimaryIpAddress + Environment.NewLine +
                    "SQL Target: " + profile.ConnectionTarget + Environment.NewLine +
                    "Database: " + profile.DatabaseName + Environment.NewLine +
+                   "SQLite Fallback: " + profile.FallbackSqlitePath + Environment.NewLine +
                    Environment.NewLine +
                    "Client PC steps:" + Environment.NewLine +
                    "1. Extract this ZIP on the client PC." + Environment.NewLine +
                    "2. Right-click Apply-ServoERP-ClientConnection.ps1 and run with PowerShell as Administrator." + Environment.NewLine +
                    "3. Open ServoERP and use Help & Support > System Health > Check Database." + Environment.NewLine +
                    Environment.NewLine +
-                   "Firewall requirement on server PC: allow SQL Server TCP 1433 and SQL Browser UDP 1434 if using named instances." + Environment.NewLine;
+                   "Server PC requirements:" + Environment.NewLine +
+                   "- Use a dedicated always-on office/server PC, not a personal laptop." + Environment.NewLine +
+                   "- SQL Server Express SQLEXPRESS must run automatically after reboot." + Environment.NewLine +
+                   "- Allow SQL Server TCP 1433 and SQL Browser UDP 1434 if using named instances." + Environment.NewLine +
+                   "- Keep ServoERP business entries locked to SQL Server; SQLite fallback stores diagnostics only to avoid split GST, ledger, inventory, and payroll records." + Environment.NewLine;
         }
 
         private string BuildOfficeHealthText()
@@ -434,8 +494,14 @@ namespace HVAC_Pro_Desktop.Services
                    "Database: " + SafeValue(builder.InitialCatalog) + Environment.NewLine +
                    "Server: " + SafeValue(builder.DataSource) + Environment.NewLine +
                    "SQL Reachability: " + (db.Success ? "OK" : "FAILED") + Environment.NewLine +
+                   "Terminal SQL State: " + DatabaseConnectionStateService.GetCurrentState().State + Environment.NewLine +
                    "Backup Root: " + BackupService.BackupRoot + Environment.NewLine +
                    "Last Backup: " + LastFileInfo(BackupService.BackupRoot, "*.bak") + Environment.NewLine +
+                   "SQLite Fallback: " + LocalSqliteFallbackStore.GetDatabasePath() + Environment.NewLine +
+                   Environment.NewLine +
+                   DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                   Environment.NewLine +
+                   LocalSqliteFallbackStore.BuildStatusText() + Environment.NewLine +
                    Environment.NewLine +
                    BuildCountsBlock();
         }
@@ -455,11 +521,11 @@ namespace HVAC_Pro_Desktop.Services
                    QueryMetric("Inventory reorder risk", "SELECT COUNT(*) FROM StockItems WHERE CurrentStock <= ReorderLevel") + Environment.NewLine +
                    Environment.NewLine +
                    "Supply Chain" + Environment.NewLine +
-                   QueryMetric("Open purchase orders", "SELECT COUNT(*) FROM PurchaseOrders WHERE ISNULL(Status,'') NOT IN ('Paid','Closed','Cancelled')") + Environment.NewLine +
-                   QueryMoney("Vendor payables", "SELECT ISNULL(SUM(TotalAmount-ISNULL(PaidAmount,0)),0) FROM PurchaseOrders WHERE ISNULL(Status,'') NOT IN ('Paid','Closed','Cancelled')") + Environment.NewLine +
+                   QueryMetric("Open purchase orders", "SELECT COUNT(*) FROM PurchaseOrders WHERE ISNULL(Status,'') NOT IN ('Paid','Closed','Cancelled','Fully Received','Received')") + Environment.NewLine +
+                   QueryMoney("Vendor payables", "SELECT ISNULL(SUM(CASE WHEN TotalAmount-ISNULL(PaidAmount,0) > 0 THEN TotalAmount-ISNULL(PaidAmount,0) ELSE 0 END),0) FROM PurchaseOrders WHERE ISNULL(Status,'') NOT IN ('Paid','Closed','Cancelled','Fully Received','Received')") + Environment.NewLine +
                    Environment.NewLine +
                    "Commercial" + Environment.NewLine +
-                   QueryMetric("Open quotations", "SELECT COUNT(*) FROM TenderBids WHERE ISNULL(Status,'') NOT IN ('Won','Lost','Cancelled')") + Environment.NewLine;
+                   QueryMetric("Open quotations", "SELECT COUNT(*) FROM Quotations WHERE ISNULL(Status,'') NOT IN ('Won','Lost','Cancelled')") + Environment.NewLine;
         }
 
         private string BuildMaterialPriceText()
@@ -467,7 +533,7 @@ namespace HVAC_Pro_Desktop.Services
             return "Material Price Intelligence" + Environment.NewLine +
                    "Generated: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
                    QueryMetric("Supplier item price rows", "SELECT COUNT(*) FROM SupplierItemPrices") + Environment.NewLine +
-                   QueryMetric("Quoted lines with supplier mapping", "SELECT COUNT(*) FROM TenderBidLineItems WHERE BestSupplierId IS NOT NULL") + Environment.NewLine +
+                   QueryMetric("Quoted lines with supplier mapping", "SELECT COUNT(*) FROM QuotationLineItems WHERE BestSupplierId IS NOT NULL") + Environment.NewLine +
                    QueryMetric("Purchase lines with price variance", "SELECT COUNT(*) FROM PurchaseLineItems WHERE PriceVariance > 10") + Environment.NewLine +
                    QueryMetric("Accepted client price memory rows", "SELECT COUNT(*) FROM ClientPriceMemory WHERE WasAccepted=1") + Environment.NewLine +
                    Environment.NewLine +
@@ -571,6 +637,7 @@ ORDER BY sip.ItemName, sip.Rate");
             Uri uri;
             string updateHost = Uri.TryCreate(updateUrl, UriKind.Absolute, out uri) ? uri.Host : "Not configured";
             return "Database: " + (database.Success ? "Connected" : "Failed") + Environment.NewLine +
+                   DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
                    "Database Detail: " + SanitizeText(database.Detail ?? database.Message) + Environment.NewLine +
                    "Version Check Enabled: " + ConfigService.IsVersionCheckEnabled() + Environment.NewLine +
                    "Update Host: " + SafeValue(updateHost) + Environment.NewLine +
@@ -609,7 +676,7 @@ ORDER BY sip.ItemName, sip.Rate");
             string[] tables =
             {
                 "B2BClients", "ClientSites", "Vendors", "Employees", "StockItems", "PurchaseOrders",
-                "Invoices", "Payments", "TenderBids", "Jobs", "AMCContracts", "SupplierItemPrices"
+                "Invoices", "Payments", "Quotations", "Jobs", "AMCContracts", "SupplierItemPrices"
             };
             return string.Join(Environment.NewLine, tables.Select(t => t + ": " + SafeCount(t)));
         }
@@ -618,10 +685,10 @@ ORDER BY sip.ItemName, sip.Rate");
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
+                using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())
                 using (SqlCommand cmd = new SqlCommand("IF OBJECT_ID('dbo." + tableName.Replace("'", "''") + "','U') IS NOT NULL EXEC('SELECT COUNT(*) FROM dbo." + tableName.Replace("]", "]]") + "') ELSE SELECT 0", conn))
                 {
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "SupportCenterService.SafeCount");
                     return Convert.ToInt32(cmd.ExecuteScalar());
                 }
             }
@@ -635,11 +702,11 @@ ORDER BY sip.ItemName, sip.Rate");
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
+                using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 30;
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "SupportCenterService.QueryMetric");
                     object value = cmd.ExecuteScalar();
                     return label + ": " + Convert.ToString(value ?? 0);
                 }
@@ -654,11 +721,11 @@ ORDER BY sip.ItemName, sip.Rate");
         {
             try
             {
-                using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
+                using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 30;
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "SupportCenterService.QueryMoney");
                     decimal value = Convert.ToDecimal(cmd.ExecuteScalar());
                     return label + ": Rs " + value.ToString("N2");
                 }
@@ -674,11 +741,11 @@ ORDER BY sip.ItemName, sip.Rate");
             try
             {
                 List<string> rows = new List<string>();
-                using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
+                using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
                     cmd.CommandTimeout = 30;
-                    conn.Open();
+                    DatabaseConnectionFactory.Open(conn, "SupportCenterService.QueryRows");
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -737,6 +804,11 @@ ORDER BY sip.ItemName, sip.Rate");
                 .Replace(">", "&gt;")
                 .Replace("\"", "&quot;")
                 .Replace("'", "&apos;");
+        }
+
+        private static string EscapePowerShell(string value)
+        {
+            return (value ?? string.Empty).Replace("'", "''");
         }
 
         private static string BuildRecentLogs()
@@ -856,7 +928,7 @@ ORDER BY sip.ItemName, sip.Rate");
                     "Click New Job.",
                     "Enter job title, client, site, job type, schedule date, and linked contract if applicable.",
                     "Assign technician and priority.",
-                    "Use checklist, parts, notes, and activity log to track execution."),
+                    "Use checklist, parts, and notes to track execution."),
                 Article("Accounting", "How to backup data", "Create a manual safety backup before maintenance or updates.", "backup,database,settings",
                     "Open Help & Support.",
                     "Go to System Health.",

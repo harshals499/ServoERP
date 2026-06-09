@@ -194,6 +194,7 @@ namespace HVAC_Pro_Desktop.DAL
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT RoleId, RoleName, Description
                     FROM AppRoles
+                    WHERE RoleName <> 'Viewer'
                     ORDER BY CASE RoleName
                         WHEN 'Admin' THEN 1
                         WHEN 'Accountant' THEN 2
@@ -202,7 +203,6 @@ namespace HVAC_Pro_Desktop.DAL
                         WHEN 'Manager' THEN 5
                         WHEN 'Accounts' THEN 6
                         WHEN 'Supervisor' THEN 7
-                        WHEN 'Viewer' THEN 8
                         ELSE 99
                     END, RoleName", conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
@@ -465,7 +465,7 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 const string sql = @"
-                    SELECT LogDate, Username, Action, ModuleKey, Description
+                    SELECT TOP (100) LogDate, Username, Action, ModuleKey, Description
                     FROM AuditLog
                     WHERE LogDate >= @fromDate
                       AND LogDate < DATEADD(day, 1, @toDate)

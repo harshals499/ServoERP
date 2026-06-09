@@ -112,14 +112,14 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.DemandPermission("WorkOrders", "Create");
             if (incident == null || incident.IncidentId <= 0)
                 throw new Exception("Save the incident first.");
-            if (!incident.ClientId.HasValue || !incident.SiteId.HasValue)
-                throw new Exception("Client and site are required before creating a job.");
+            if (!incident.ClientId.HasValue)
+                throw new Exception("Client is required before creating a job.");
 
             Job job = new Job
             {
                 JobNumber = _jobService.GenerateJobNumber(),
                 ClientID = incident.ClientId.Value,
-                SiteID = incident.SiteId.Value,
+                SiteID = incident.SiteId.GetValueOrDefault(),
                 AssignedEmployeeID = incident.AssignedEmployeeId,
                 Title = incident.ShortDescription,
                 JobTitle = incident.ShortDescription,

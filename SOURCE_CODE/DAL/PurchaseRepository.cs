@@ -31,7 +31,7 @@ namespace HVAC_Pro_Desktop.DAL
                     LEFT JOIN B2BClients c ON p.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON p.SiteID = s.SiteID
                     LEFT JOIN Jobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
-                    ORDER BY CASE WHEN p.PaidAmount < p.TotalAmount THEN 0 ELSE 1 END,
+                    ORDER BY CASE WHEN ISNULL(p.Status,'') IN ('Fully Received','Received','Paid','Closed') OR p.PaidAmount >= p.TotalAmount THEN 1 ELSE 0 END,
                              p.PayByDate ASC,
                              p.PODate DESC", conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
@@ -128,6 +128,7 @@ namespace HVAC_Pro_Desktop.DAL
 
         public int Create(PurchaseOrder po)
         {
+            po.ApplyPaymentCompletionRule();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
@@ -202,6 +203,7 @@ namespace HVAC_Pro_Desktop.DAL
 
         public void Update(PurchaseOrder po)
         {
+            po.ApplyPaymentCompletionRule();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
@@ -331,11 +333,114 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand(
-                    "UPDATE PurchaseOrders SET Status='Received' WHERE POID=@id", conn))
+                using (SqlTransaction tx = conn.BeginTransaction())
                 {
-                    cmd.Parameters.AddWithValue("@id", poId);
-                    cmd.ExecuteNonQuery();
+                    try
+                    {
+                        string previousStatus;
+                        string poNumber;
+                        using (SqlCommand statusCmd = new SqlCommand(
+                            "SELECT Status, PONumber FROM PurchaseOrders WITH (UPDLOCK, ROWLOCK) WHERE POID=@id", conn, tx))
+                        {
+                            statusCmd.Parameters.AddWithValue("@id", poId);
+                            using (SqlDataReader reader = statusCmd.ExecuteReader())
+                            {
+                                if (!reader.Read())
+                                    throw new InvalidOperationException("Purchase order not found.");
+
+                                previousStatus = reader["Status"] == DBNull.Value ? string.Empty : Convert.ToString(reader["Status"]);
+                                poNumber = reader["PONumber"] == DBNull.Value ? string.Empty : Convert.ToString(reader["PONumber"]);
+                            }
+                        }
+
+                        bool wasAlreadyReceived = PurchaseOrder.IsPaymentCompletedStatus(previousStatus);
+                        if (!wasAlreadyReceived)
+                            PostReceivedInventory(conn, tx, poId, poNumber);
+
+                        using (SqlCommand cmd = new SqlCommand(
+                            "UPDATE PurchaseOrders SET Status='Fully Received', PaidAmount=TotalAmount WHERE POID=@id", conn, tx))
+                        {
+                            cmd.Parameters.AddWithValue("@id", poId);
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        tx.Commit();
+                    }
+                    catch
+                    {
+                        tx.Rollback();
+                        throw;
+                    }
+                }
+            }
+        }
+
+        private static void PostReceivedInventory(SqlConnection conn, SqlTransaction tx, int poId, string poNumber)
+        {
+            var lines = new List<PurchaseLineItem>();
+            using (SqlCommand cmd = new SqlCommand(@"
+                SELECT InventoryItemId, Description, Quantity, Rate
+                FROM PurchaseLineItems
+                WHERE POID=@id
+                  AND InventoryItemId IS NOT NULL
+                  AND Quantity > 0", conn, tx))
+            {
+                cmd.Parameters.AddWithValue("@id", poId);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        lines.Add(new PurchaseLineItem
+                        {
+                            InventoryItemId = reader["InventoryItemId"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["InventoryItemId"]),
+                            Description = reader["Description"] == DBNull.Value ? string.Empty : Convert.ToString(reader["Description"]),
+                            Quantity = reader["Quantity"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["Quantity"]),
+                            Rate = reader["Rate"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["Rate"])
+                        });
+                    }
+                }
+            }
+
+            foreach (PurchaseLineItem line in lines)
+            {
+                decimal stockBefore;
+                using (SqlCommand stockCmd = new SqlCommand(
+                    "SELECT CurrentStock FROM StockItems WITH (UPDLOCK, ROWLOCK) WHERE ItemID=@itemId AND ISNULL(IsActive, 1)=1", conn, tx))
+                {
+                    stockCmd.Parameters.AddWithValue("@itemId", line.InventoryItemId.Value);
+                    object value = stockCmd.ExecuteScalar();
+                    if (value == null || value == DBNull.Value)
+                        throw new InvalidOperationException("A material linked to this purchase order was not found in inventory.");
+                    stockBefore = Convert.ToDecimal(value);
+                }
+
+                decimal stockAfter = stockBefore + line.Quantity;
+                using (SqlCommand updateCmd = new SqlCommand(@"
+                    UPDATE StockItems
+                    SET CurrentStock=@stockAfter,
+                        LastPurchaseRate=CASE WHEN @rate > 0 THEN @rate ELSE LastPurchaseRate END,
+                        LastUpdated=GETDATE()
+                    WHERE ItemID=@itemId AND ISNULL(IsActive, 1)=1", conn, tx))
+                {
+                    updateCmd.Parameters.AddWithValue("@stockAfter", stockAfter);
+                    updateCmd.Parameters.AddWithValue("@rate", line.Rate);
+                    updateCmd.Parameters.AddWithValue("@itemId", line.InventoryItemId.Value);
+                    updateCmd.ExecuteNonQuery();
+                }
+
+                using (SqlCommand movementCmd = new SqlCommand(@"
+                    INSERT INTO StockMovements
+                        (ItemID, MovementType, Quantity, StockBefore, StockAfter, ToLocation, ReferenceNo, Notes, CreatedDate)
+                    VALUES
+                        (@itemId, 'PurchaseReceive', @qty, @before, @after, 'Main Stock', @ref, @notes, GETDATE())", conn, tx))
+                {
+                    movementCmd.Parameters.AddWithValue("@itemId", line.InventoryItemId.Value);
+                    movementCmd.Parameters.AddWithValue("@qty", line.Quantity);
+                    movementCmd.Parameters.AddWithValue("@before", stockBefore);
+                    movementCmd.Parameters.AddWithValue("@after", stockAfter);
+                    movementCmd.Parameters.AddWithValue("@ref", string.IsNullOrWhiteSpace(poNumber) ? "PO#" + poId.ToString() : poNumber);
+                    movementCmd.Parameters.AddWithValue("@notes", "Received from purchase order " + (string.IsNullOrWhiteSpace(poNumber) ? "#" + poId.ToString() : poNumber) + ": " + (line.Description ?? string.Empty));
+                    movementCmd.ExecuteNonQuery();
                 }
             }
         }
@@ -509,7 +614,7 @@ namespace HVAC_Pro_Desktop.DAL
             ModifiedByName = r["ModifiedByName"] == DBNull.Value ? null : r["ModifiedByName"] as string,
             ModifiedDate = r["ModifiedDate"] == DBNull.Value ? (DateTime?)null : (DateTime)r["ModifiedDate"],
             TotalAmount = (decimal)r["TotalAmount"],
-            PaidAmount  = (decimal)r["PaidAmount"],
+            PaidAmount  = PurchaseOrder.IsPaymentCompletedStatus(r["Status"] as string) ? (decimal)r["TotalAmount"] : (decimal)r["PaidAmount"],
             Status      = r["Status"]     as string,
             PaymentReference = r["PaymentReference"] == DBNull.Value ? null : r["PaymentReference"] as string,
             ComparisonNotes = r["ComparisonNotes"] as string,

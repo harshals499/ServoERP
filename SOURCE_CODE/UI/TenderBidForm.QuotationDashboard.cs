@@ -25,9 +25,12 @@ namespace HVAC_Pro_Desktop.UI
         private QuotationDashboardTile _quoteDashboardDragCard;
         private readonly Dictionary<string, Size> _quoteDashboardBaseSizes = new Dictionary<string, Size>();
         private QuotationOverviewChart _quoteOverviewChart;
-        private QuotationStatusDonut _quoteStatusDonut;
-        private QuotationFunnelChart _quoteFunnelChart;
-        private DataGridView _quoteRecentGrid;
+        private DataGridView _quoteRecentGrid = null;
+        private FlowLayoutPanel _quoteVendorReceived;
+        private FlowLayoutPanel _quoteClientSent;
+        private FlowLayoutPanel _quoteVendorSent;
+        private FlowLayoutPanel _quoteClientReceived;
+        private FlowLayoutPanel _quoteAttachedWork;
         private FlowLayoutPanel _quoteTopClients;
         private FlowLayoutPanel _quoteBusinessCards;
         private QuotationValueTrendChart _quoteValueTrend;
@@ -50,22 +53,22 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Fill,
                 BackColor = QuotePageBg,
                 ColumnCount = 1,
-                RowCount = 3
+                RowCount = 2
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 86));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            root.Controls.Add(BuildQuoteDashboardHeader(), 0, 0);
-            _quoteDashKpis = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuotePageBg, WrapContents = false, AutoScroll = true, Padding = new Padding(0, 4, 0, 2) };
-            root.Controls.Add(_quoteDashKpis, 0, 1);
-            root.Controls.Add(BuildQuoteDashboardCardBoard(), 0, 2);
+            _quoteDashKpis = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuotePageBg, WrapContents = false, AutoScroll = false, Padding = new Padding(0, 4, 0, 2) };
+            _quoteDashKpis.Resize += (s, e) => LayoutQuotationDashboardKpis();
+            root.Controls.Add(_quoteDashKpis, 0, 0);
+            root.Controls.Add(BuildQuoteDashboardCardBoard(), 0, 1);
+            _quoteDashStatus = new Label { Visible = false, Text = "Loading..." };
 
             _quotationDashboardPanel.Controls.Add(root);
             _quotationDashboardPanel.HandleCreated += (s, e) =>
             {
                 ApplySavedQuotationDashboardLayout();
-                RefreshQuotationDashboardSafe();
+                BeginInvoke((Action)RefreshQuotationDashboardSafe);
             };
             return _quotationDashboardPanel;
         }
@@ -85,17 +88,19 @@ namespace HVAC_Pro_Desktop.UI
             _quoteDashboardCards.DragDrop += QuoteDashboardCards_DragDrop;
 
             _quoteOverviewChart = new QuotationOverviewChart { Dock = DockStyle.Fill };
-            _quoteStatusDonut = new QuotationStatusDonut { Dock = DockStyle.Fill };
-            _quoteFunnelChart = new QuotationFunnelChart { Dock = DockStyle.Fill };
+            _quoteVendorReceived = CreateRecentQuoteFlow();
+            _quoteClientSent = CreateRecentQuoteFlow();
+            _quoteVendorSent = CreateRecentQuoteFlow();
+            _quoteClientReceived = CreateRecentQuoteFlow();
+            _quoteAttachedWork = CreateRecentQuoteFlow();
             _quoteTopClients = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(4), BackColor = QuoteSurface };
-            _quoteRecentGrid = CreateRecentQuotationGrid();
             _quoteBusinessCards = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuoteSurface, WrapContents = true, AutoScroll = true, Padding = new Padding(4) };
             _quoteValueTrend = new QuotationValueTrendChart { Dock = DockStyle.Fill };
             _quoteTopItems = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(4), BackColor = QuoteSurface };
             _quoteFollowUps = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(4), BackColor = QuoteSurface };
             _quoteLostDonut = new QuotationLostReasonDonut { Dock = DockStyle.Fill };
             _quoteInsights = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuoteSurface, WrapContents = true, AutoScroll = true, Padding = new Padding(4) };
-            FlowLayoutPanel quick = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuoteSurface, WrapContents = true, AutoScroll = true, Padding = new Padding(4) };
+            FlowLayoutPanel quick = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = QuoteSurface, WrapContents = true, AutoScroll = true, Padding = new Padding(4), Tag = "TOOLBAR" };
             quick.Controls.Add(QuickAction("New Quotation", () => NewRecord()));
             quick.Controls.Add(QuickAction("Create from Template", () => NewRecord()));
             quick.Controls.Add(QuickAction("Create Customer Invoice", async () => await CreateInvoiceAsync()));
@@ -104,18 +109,18 @@ namespace HVAC_Pro_Desktop.UI
             quick.Controls.Add(QuickAction("Quotation Report", () => OnNavigate?.Invoke(12)));
             quick.Controls.Add(QuickAction("Export Data", () => MessageBox.Show("Use the quotation PDF/export tools after selecting a quotation.", "Export Data", MessageBoxButtons.OK, MessageBoxIcon.Information)));
 
-            AddDashboardCard("overview", "Overview", _quoteOverviewChart, 430, 206, "Large");
-            AddDashboardCard("status", "Status", _quoteStatusDonut, 360, 206, "Medium");
-            AddDashboardCard("funnel", "Conversion", _quoteFunnelChart, 360, 206, "Medium");
-            AddDashboardCard("top_clients", "Top Clients", _quoteTopClients, 360, 206, "Medium");
-            AddDashboardCard("recent", "Recent Quotations", _quoteRecentGrid, 720, 226, "Full width");
-            AddDashboardCard("business", "Business Health", _quoteBusinessCards, 360, 226, "Medium");
-            AddDashboardCard("trend", "Value Trend", _quoteValueTrend, 430, 196, "Large");
-            AddDashboardCard("top_items", "Top Items", _quoteTopItems, 360, 196, "Medium");
-            AddDashboardCard("followups", "Follow Ups", _quoteFollowUps, 360, 196, "Medium");
-            AddDashboardCard("lost_reasons", "Lost Reasons", _quoteLostDonut, 360, 196, "Medium");
-            AddDashboardCard("insights", "Insights", _quoteInsights, 520, 168, "Large");
-            AddDashboardCard("quick_actions", "Quick Actions", quick, 450, 168, "Large");
+            AddDashboardCard("vendor_workflow", "Supplier Workflow", BuildQuotationWorkflowSection("Sent to Suppliers", _quoteVendorSent, "Received from Suppliers", _quoteVendorReceived), 360, 452, "Workflow");
+            AddDashboardCard("client_workflow", "Client Workflow", BuildQuotationWorkflowSection("Sent to Clients", _quoteClientSent, "Received from Clients", _quoteClientReceived), 360, 452, "Workflow");
+            AddDashboardCard("work_attached", "Work Attached", _quoteAttachedWork, 360, 452, "Workflow");
+            AddDashboardCard("overview", "Overview", _quoteOverviewChart, 560, 216, "Large");
+            AddDashboardCard("business", "Business Health", _quoteBusinessCards, 560, 214, "Large");
+            AddDashboardCard("trend", "Value Trend", _quoteValueTrend, 560, 214, "Large");
+            AddDashboardCard("top_clients", "Top Clients", _quoteTopClients, 280, 196, "Compact");
+            AddDashboardCard("top_items", "Top Items", _quoteTopItems, 280, 196, "Compact");
+            AddDashboardCard("followups", "Follow Ups", _quoteFollowUps, 280, 196, "Compact");
+            AddDashboardCard("lost_reasons", "Lost Reasons", _quoteLostDonut, 280, 196, "Compact");
+            AddDashboardCard("insights", "Insights", _quoteInsights, 560, 178, "Large");
+            AddDashboardCard("quick_actions", "Quick Actions", quick, 560, 178, "Large");
 
             _quoteDashboardCards.Resize += (s, e) => LayoutQuotationDashboardCards();
             ApplySavedQuotationDashboardOrder();
@@ -124,51 +129,58 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildQuoteDashboardHeader()
         {
-            var header = new Panel { Dock = DockStyle.Fill, BackColor = QuotePageBg };
+            var header = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(16, 8, 16, 8) };
+            header.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(BorderColor))
+                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+            };
             header.Controls.Add(new Label
             {
                 Text = "Quotation Dashboard",
-                Location = new Point(0, 4),
-                AutoSize = true,
-                Font = new Font("Segoe UI", 15, FontStyle.Bold),
-                ForeColor = QuoteText
+                Location = new Point(16, 8),
+                Size = new Size(300, 24),
+                Font = new Font("Segoe UI", 15.5f, FontStyle.Bold),
+                ForeColor = QuoteText,
+                AutoEllipsis = true
             });
             header.Controls.Add(new Label
             {
                 Text = "Overview of all quotations and business analytics",
-                Location = new Point(0, 32),
-                AutoSize = true,
+                Location = new Point(17, 34),
+                Size = new Size(420, 18),
                 Font = new Font("Segoe UI", 9),
-                ForeColor = QuoteMuted
+                ForeColor = QuoteMuted,
+                AutoEllipsis = true
             });
 
             Button more = MakeDashButton("...", 38, QuoteSurface, QuoteText);
-            more.Location = new Point(header.Width - 40, 10);
+            more.Location = new Point(header.Width - 56, 12);
             more.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             more.Click += (s, e) => MessageBox.Show("Quotation dashboard actions are available from the quick action cards below.", "Quotation Dashboard", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Button newQuote = MakeDashButton("+ New Quotation", 154, CargoPurple, Color.White);
-            newQuote.Location = new Point(header.Width - 202, 10);
+            newQuote.Location = new Point(header.Width - 218, 12);
             newQuote.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             newQuote.Click += (s, e) => NewRecord();
 
             Button refresh = MakeDashButton("Refresh", 82, QuoteSurface, InfoBlue);
-            refresh.Location = new Point(header.Width - 292, 10);
+            refresh.Location = new Point(header.Width - 308, 12);
             refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             refresh.Click += (s, e) => RefreshQuotationDashboardSafe();
 
-            _quoteDashGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 94, Height = 30, Location = new Point(header.Width - 520, 12), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _quoteDashGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 94, Height = 30, Location = new Point(header.Width - 536, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _quoteDashGroup.Items.AddRange(new object[] { "Week", "Day", "Month" });
             _quoteDashGroup.SelectedIndex = 0;
             _quoteDashGroup.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
 
             DateTime today = DateTime.Today;
-            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, 1), Location = new Point(header.Width - 760, 12), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _quoteDashTo = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)), Location = new Point(header.Width - 640, 12), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, 1), Location = new Point(header.Width - 776, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _quoteDashTo = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)), Location = new Point(header.Width - 656, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _quoteDashFrom.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();
             _quoteDashTo.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();
 
-            _quoteDashStatus = new Label { AutoSize = true, ForeColor = QuoteMuted, Font = new Font("Segoe UI", 8), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(header.Width - 910, 18), Text = "Loading..." };
+            _quoteDashStatus = new Label { AutoSize = true, ForeColor = QuoteMuted, Font = new Font("Segoe UI", 8), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(header.Width - 926, 20), Text = "Loading..." };
 
             header.Controls.AddRange(new Control[] { _quoteDashStatus, _quoteDashFrom, _quoteDashTo, _quoteDashGroup, refresh, newQuote, more });
             return header;
@@ -193,7 +205,7 @@ namespace HVAC_Pro_Desktop.UI
             grid.EnableHeadersVisualStyles = false;
             grid.ColumnHeadersHeight = 28;
             grid.RowTemplate.Height = 30;
-            grid.GridColor = Color.FromArgb(226, 232, 240);
+            grid.GridColor = DS.Border;
             grid.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
             grid.ColumnHeadersDefaultCellStyle.ForeColor = QuoteMuted;
             grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.4f, FontStyle.Bold);
@@ -253,14 +265,13 @@ namespace HVAC_Pro_Desktop.UI
             AddKpi(snapshot.Kpis.ConversionRate, false, "0.0'%'");
             AddKpi(snapshot.Kpis.PendingValue, true, "N2");
             AddKpi(snapshot.Kpis.AverageQuotationValue, true, "N2");
+            LayoutQuotationDashboardKpis();
 
             _quoteOverviewChart.SetData(snapshot.Overview);
-            _quoteStatusDonut.SetData(snapshot.Statuses);
-            _quoteFunnelChart.SetData(snapshot.Funnel);
             _quoteValueTrend.SetData(snapshot.ValueTrend);
             _quoteLostDonut.SetData(snapshot.LostReasons);
             BindTopClients(snapshot.TopClients);
-            BindRecentQuotations(snapshot.RecentQuotations);
+            BindRecentQuotationCards(snapshot.RecentQuotations);
             BindBusinessCards(snapshot.Kpis);
             BindTopItems(snapshot.TopItems);
             BindFollowUps(snapshot.UpcomingFollowUps);
@@ -269,7 +280,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddKpi(QuotationKpi kpi, bool currency, string format)
         {
-            Panel card = new Panel { Width = 168, Height = 78, BackColor = QuoteSurface, Margin = new Padding(0, 0, 8, 0), Padding = new Padding(12, 10, 10, 8) };
+            Panel card = new Panel { Width = 168, Height = 78, MinimumSize = new Size(148, 78), BackColor = QuoteSurface, Margin = new Padding(0, 0, 8, 0), Padding = new Padding(12, 10, 10, 8) };
             DS.Rounded(card, 10);
             card.Paint += (s, e) => { using (Pen p = new Pen(BorderColor)) e.Graphics.DrawRectangle(p, 0, 0, card.Width - 1, card.Height - 1); };
             card.Controls.Add(new Label { Text = kpi.Title, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = QuoteMuted, AutoSize = true, Location = new Point(12, 9) });
@@ -279,6 +290,269 @@ namespace HVAC_Pro_Desktop.UI
             string arrow = kpi.MonthOverMonthPercent >= 0m ? "^ " : "v ";
             card.Controls.Add(new Label { Text = arrow + Math.Abs(kpi.MonthOverMonthPercent).ToString("0.#") + "% from last month", Font = new Font("Segoe UI", 7.6f), ForeColor = changeColor, Size = new Size(144, 16), Location = new Point(12, 57), AutoEllipsis = true });
             _quoteDashKpis.Controls.Add(card);
+        }
+
+        private void LayoutQuotationDashboardKpis()
+        {
+            if (_quoteDashKpis == null || _quoteDashKpis.ClientSize.Width < 360 || _quoteDashKpis.Controls.Count == 0)
+                return;
+
+            const int gap = 8;
+            int count = _quoteDashKpis.Controls.Count;
+            int usable = Math.Max(360, _quoteDashKpis.ClientSize.Width - 2);
+            int width = Math.Max(148, (usable - count * gap) / count);
+            foreach (Control card in _quoteDashKpis.Controls)
+            {
+                card.Width = width;
+                card.Height = 78;
+                card.Margin = new Padding(0, 0, gap, 0);
+            }
+
+            _quoteDashKpis.PerformLayout();
+        }
+
+        private FlowLayoutPanel CreateRecentQuoteFlow()
+        {
+            return new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                Padding = new Padding(4, 2, 4, 4),
+                BackColor = QuoteSurface
+            };
+        }
+
+        private Control BuildQuotationWorkflowSection(string topTitle, FlowLayoutPanel topFlow, string bottomTitle, FlowLayoutPanel bottomFlow)
+        {
+            var table = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = QuoteSurface,
+                ColumnCount = 1,
+                RowCount = 2,
+                Padding = new Padding(0)
+            };
+            table.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            table.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            table.Controls.Add(BuildQuotationWorkflowBucket(topTitle, topFlow), 0, 0);
+            table.Controls.Add(BuildQuotationWorkflowBucket(bottomTitle, bottomFlow), 0, 1);
+            return table;
+        }
+
+        private Control BuildQuotationWorkflowBucket(string title, FlowLayoutPanel flow)
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = QuoteSurface,
+                Margin = new Padding(0, 0, 0, 8),
+                Padding = new Padding(0, 0, 0, 0)
+            };
+
+            var header = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                Height = 24,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = QuoteText,
+                Padding = new Padding(2, 2, 0, 0),
+                AutoEllipsis = true
+            };
+            flow.Dock = DockStyle.Fill;
+            flow.Padding = new Padding(2, 2, 4, 4);
+            panel.Controls.Add(flow);
+            panel.Controls.Add(header);
+            return panel;
+        }
+
+        private void BindRecentQuotationCards(List<QuotationRecentRow> rows)
+        {
+            List<QuotationRecentRow> safeRows = rows ?? new List<QuotationRecentRow>();
+            BindQuoteWorkflowList(
+                _quoteVendorReceived,
+                safeRows.Where(IsVendorReceivedQuotation).Take(5).ToList(),
+                "No vendor quotations received yet.");
+            BindQuoteWorkflowList(
+                _quoteClientSent,
+                safeRows.Where(IsClientSentQuotation).Take(5).ToList(),
+                "No quotations sent to clients yet.");
+            BindQuoteWorkflowList(
+                _quoteVendorSent,
+                safeRows.Where(IsVendorSentQuotation).Take(5).ToList(),
+                "No vendor quotation requests sent yet.");
+            BindQuoteWorkflowList(
+                _quoteClientReceived,
+                safeRows.Where(IsClientReceivedQuotation).Take(5).ToList(),
+                "No client responses received yet.");
+            BindQuoteWorkflowList(
+                _quoteAttachedWork,
+                safeRows.Where(IsWorkAttachedQuotation).Take(5).ToList(),
+                "No attached work found yet.");
+        }
+
+        private void BindQuoteWorkflowList(FlowLayoutPanel flow, List<QuotationRecentRow> rows, string emptyText)
+        {
+            if (flow == null)
+                return;
+
+            flow.Controls.Clear();
+            foreach (QuotationRecentRow row in rows ?? new List<QuotationRecentRow>())
+                flow.Controls.Add(QuoteWorkflowRow(row));
+
+            if (flow.Controls.Count == 0)
+                flow.Controls.Add(EmptyLabel(emptyText));
+
+            ResizeQuoteWorkflowRows(flow);
+            flow.Resize -= QuoteWorkflowFlow_Resize;
+            flow.Resize += QuoteWorkflowFlow_Resize;
+        }
+
+        private void QuoteWorkflowFlow_Resize(object sender, EventArgs e)
+        {
+            ResizeQuoteWorkflowRows(sender as FlowLayoutPanel);
+        }
+
+        private static void ResizeQuoteWorkflowRows(FlowLayoutPanel flow)
+        {
+            if (flow == null || flow.ClientSize.Width <= 0)
+                return;
+
+            int width = Math.Max(220, flow.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - flow.Padding.Horizontal - 8);
+            foreach (Panel card in flow.Controls.OfType<Panel>())
+                card.Width = width;
+        }
+
+        private Control QuoteWorkflowRow(QuotationRecentRow row)
+        {
+            Panel card = new Panel
+            {
+                Width = 280,
+                Height = 54,
+                BackColor = Color.FromArgb(248, 250, 252),
+                Margin = new Padding(0, 0, 0, 8),
+                Padding = new Padding(10, 7, 10, 6),
+                Cursor = Cursors.Hand,
+                Tag = row
+            };
+            DS.Rounded(card, 8);
+            card.Paint += (s, e) =>
+            {
+                using (Pen p = new Pen(DS.Border))
+                    e.Graphics.DrawRectangle(p, 0, 0, card.Width - 1, card.Height - 1);
+            };
+
+            Label title = new Label
+            {
+                Text = SafeQuoteText(row.QuotationNumber, "Quotation") + "  -  " + SafeQuoteText(row.ClientName, "Client"),
+                Location = new Point(10, 6),
+                Size = new Size(card.Width - 20, 18),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = QuoteText,
+                AutoEllipsis = true,
+                Cursor = Cursors.Hand
+            };
+            Label meta = new Label
+            {
+                Text = BuildQuoteWorkflowMeta(row),
+                Location = new Point(10, 27),
+                Size = new Size(card.Width - 20, 17),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 7.5f),
+                ForeColor = QuoteMuted,
+                AutoEllipsis = true,
+                Cursor = Cursors.Hand
+            };
+            card.Controls.Add(title);
+            card.Controls.Add(meta);
+            card.Click += QuoteWorkflowRow_Click;
+            title.Click += QuoteWorkflowRow_Click;
+            meta.Click += QuoteWorkflowRow_Click;
+            return card;
+        }
+
+        private async void QuoteWorkflowRow_Click(object sender, EventArgs e)
+        {
+            Control source = sender as Control;
+            while (source != null && !(source.Tag is QuotationRecentRow))
+                source = source.Parent;
+
+            QuotationRecentRow row = source == null ? null : source.Tag as QuotationRecentRow;
+            if (row == null || row.BidId <= 0)
+                return;
+
+            await LoadQuotationFromDashboardAsync(row.BidId);
+        }
+
+        private static string BuildQuoteWorkflowMeta(QuotationRecentRow row)
+        {
+            if (row == null)
+                return string.Empty;
+
+            string status = SafeQuoteText(row.Status, "Draft");
+            string date = row.FollowUpDate.HasValue
+                ? "Follow-up " + IndiaFormatHelper.FormatDate(row.FollowUpDate.Value)
+                : IndiaFormatHelper.FormatDate(row.QuotationDate);
+            return status + " | " + IndiaFormatHelper.FormatCurrency(row.Value) + " | " + date;
+        }
+
+        private static bool IsVendorReceivedQuotation(QuotationRecentRow row)
+        {
+            string supplier = NormalizeQuoteText(row == null ? null : row.SupplierDocumentStatus);
+            return ContainsAnyQuoteText(supplier, "received", "vendor quote", "supplier quote", "quote received", "rate received", "available", "selected");
+        }
+
+        private static bool IsClientSentQuotation(QuotationRecentRow row)
+        {
+            string customer = NormalizeQuoteText(row == null ? null : row.CustomerDocumentStatus);
+            string status = NormalizeQuoteText(row == null ? null : row.Status);
+            return ContainsAnyQuoteText(customer, "sent", "submitted", "shared", "emailed", "issued", "delivered") ||
+                   ContainsAnyQuoteText(status, "sent", "submitted", "negotiation", "follow up");
+        }
+
+        private static bool IsVendorSentQuotation(QuotationRecentRow row)
+        {
+            string supplier = NormalizeQuoteText(row == null ? null : row.SupplierDocumentStatus);
+            return ContainsAnyQuoteText(supplier, "sent", "requested", "needed", "supplier quote needed", "supplier quote requested", "rfq", "vendor request", "po sent");
+        }
+
+        private static bool IsClientReceivedQuotation(QuotationRecentRow row)
+        {
+            string customer = NormalizeQuoteText(row == null ? null : row.CustomerDocumentStatus);
+            string status = NormalizeQuoteText(row == null ? null : row.Status);
+            return ContainsAnyQuoteText(customer, "received", "accepted", "approved", "client response", "customer response", "confirmation received") ||
+                   ContainsAnyQuoteText(status, "accepted", "approved", "won", "converted");
+        }
+
+        private static bool IsWorkAttachedQuotation(QuotationRecentRow row)
+        {
+            string flow = NormalizeQuoteText(row == null ? null : row.CommercialFlow);
+            string customer = NormalizeQuoteText(row == null ? null : row.CustomerDocumentStatus);
+            string status = NormalizeQuoteText(row == null ? null : row.Status);
+            return ContainsAnyQuoteText(flow, "service", "job", "work", "mixed") ||
+                   ContainsAnyQuoteText(customer, "accepted", "approved", "work") ||
+                   ContainsAnyQuoteText(status, "won", "converted", "approved");
+        }
+
+        private static string NormalizeQuoteText(string text)
+        {
+            return (text ?? string.Empty).Trim().ToLowerInvariant();
+        }
+
+        private static string SafeQuoteText(string text, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(text) ? fallback : text.Trim();
+        }
+
+        private static bool ContainsAnyQuoteText(string text, params string[] needles)
+        {
+            if (string.IsNullOrWhiteSpace(text) || needles == null)
+                return false;
+
+            return needles.Any(needle => text.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0);
         }
 
         private void BindRecentQuotations(List<QuotationRecentRow> rows)
@@ -298,6 +572,7 @@ namespace HVAC_Pro_Desktop.UI
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Pdf", HeaderText = "", Text = "PDF", UseColumnTextForButtonValue = true, FillWeight = 50 });
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Edit", HeaderText = "", Text = "Edit", UseColumnTextForButtonValue = true, FillWeight = 50 });
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Convert", HeaderText = "", Text = "Invoice", UseColumnTextForButtonValue = true, FillWeight = 60 });
+            _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true, FillWeight = 60 });
             foreach (QuotationRecentRow row in rows ?? new List<QuotationRecentRow>())
                 _quoteRecentGrid.Rows.Add(row.BidId, row.QuotationNumber, row.ClientName, row.SiteName, IndiaFormatHelper.FormatDate(row.QuotationDate), IndiaFormatHelper.FormatCurrency(row.Value), row.CommercialFlow, row.CustomerDocumentStatus, row.SupplierDocumentStatus, row.Status);
             _quoteRecentGrid.Invalidate();
@@ -309,7 +584,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             string column = _quoteRecentGrid.Columns[e.ColumnIndex].Name;
-            if (column == "Pdf" || column == "Edit" || column == "Convert")
+            if (column == "Pdf" || column == "Edit" || column == "Convert" || column == "Delete" || GlobalStatusEditor.IsEditableStatusCell(_quoteRecentGrid, e.RowIndex, e.ColumnIndex))
                 return;
 
             int bidId;
@@ -324,7 +599,7 @@ namespace HVAC_Pro_Desktop.UI
             if (e.RowIndex < 0 || e.ColumnIndex < 0)
                 return;
             string column = _quoteRecentGrid.Columns[e.ColumnIndex].Name;
-            if (column != "Pdf" && column != "Edit" && column != "Convert")
+            if (column != "Pdf" && column != "Edit" && column != "Convert" && column != "Delete")
                 return;
             int bidId;
             if (!int.TryParse(Convert.ToString(_quoteRecentGrid.Rows[e.RowIndex].Cells["BidId"].Value), out bidId) || bidId <= 0)
@@ -334,10 +609,49 @@ namespace HVAC_Pro_Desktop.UI
                 RecentDocumentOpenService.OpenQuotationPdf(this, bidId);
                 return;
             }
+            if (column == "Delete")
+            {
+                await DeleteQuotationFromDashboardAsync(bidId);
+                return;
+            }
 
             await LoadQuotationFromDashboardAsync(bidId);
             if (column == "Convert")
                 await CreateInvoiceAsync();
+        }
+
+        private async Task DeleteQuotationFromDashboardAsync(int bidId)
+        {
+            HVAC_Pro_Desktop.Models.TenderBid quote = await Task.Run(() => _svc.GetById(bidId));
+            if (quote == null)
+            {
+                SetStatus("Quotation not found. Refresh and try again.", Color.Firebrick);
+                return;
+            }
+
+            string quoteNo = string.IsNullOrWhiteSpace(quote.QuotationNumber) ? "this quotation" : quote.QuotationNumber;
+            DialogResult confirm = MessageBox.Show(
+                "Permanently delete " + quoteNo + " including quotation line items and links from generated invoices or POs?\r\n\r\nThis cannot be undone.",
+                "Delete Quotation",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                SetStatus("Deleting quotation...", InfoBlue);
+                await Task.Run(() => _svc.Delete(bidId));
+                if (_current != null && _current.BidID == bidId)
+                    NewRecord(false);
+                await RefreshListsAsync();
+                SetStatus("Quotation deleted.", Color.FromArgb(220, 38, 38));
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Delete failed: " + ex.Message, Color.Firebrick);
+                MessageBox.Show("Delete quotation failed: " + ex.Message, "Delete Quotation", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private async Task LoadQuotationFromDashboardAsync(int bidId)
@@ -451,7 +765,7 @@ namespace HVAC_Pro_Desktop.UI
                 CardTitle = string.Empty,
                 Title = title,
                 Size = new Size(width, height),
-                MinimumSize = new Size(340, 148),
+                MinimumSize = new Size(260, 148),
                 MaximumSize = new Size(1600, 900),
                 BorderColor = BorderColor,
                 BackgroundColor = QuoteSurface,
@@ -527,8 +841,13 @@ namespace HVAC_Pro_Desktop.UI
 
             int usable = Math.Max(360, _quoteDashboardCards.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 18);
             int gap = 12;
-            int third = Math.Max(340, (usable - gap * 2) / 3);
-            int half = Math.Max(430, (usable - gap) / 2);
+            bool wideCanvas = usable >= 1060;
+            int quarter = wideCanvas ? Math.Max(260, (usable - (gap * 4)) / 4) : 0;
+            int third = Math.Max(260, (usable - gap * 3) / 3);
+            int workflow = wideCanvas ? Math.Max(340, (usable - (gap * 3)) / 3) : third;
+            int half = wideCanvas ? (quarter * 2) + gap : Math.Max(360, (usable - gap * 2) / 2);
+            int full = Math.Max(360, usable - gap);
+
             foreach (QuotationDashboardTile card in _quoteDashboardCards.Controls.OfType<QuotationDashboardTile>())
             {
                 Size baseSize;
@@ -536,20 +855,38 @@ namespace HVAC_Pro_Desktop.UI
                     baseSize = card.Size;
 
                 bool fullWidth = IsAny(card.CardKey, "quote_dash_recent");
+                bool workflowCard = IsAny(card.CardKey, "quote_dash_vendor_workflow", "quote_dash_client_workflow", "quote_dash_work_attached");
                 bool wide = IsAny(card.CardKey, "quote_dash_overview", "quote_dash_trend", "quote_dash_business", "quote_dash_insights", "quote_dash_quick_actions");
-                int targetWidth = fullWidth ? usable : wide ? half : third;
+                int targetWidth = fullWidth ? full : workflowCard ? workflow : wide ? half : (wideCanvas ? quarter : third);
                 targetWidth = Math.Max(card.MinimumSize.Width, Math.Min(card.MaximumSize.Width, targetWidth));
 
                 if (Math.Abs(card.Width - targetWidth) > 4)
                     card.Width = targetWidth;
 
-                if (card.Height < baseSize.Height)
-                    card.Height = baseSize.Height;
+                int targetHeight = ResolveQuotationDashboardCardHeight(card.CardKey, baseSize.Height, wideCanvas);
+                if (Math.Abs(card.Height - targetHeight) > 4)
+                    card.Height = targetHeight;
             }
             int contentHeight = 0;
             foreach (Control child in _quoteDashboardCards.Controls)
                 contentHeight = Math.Max(contentHeight, child.Bottom + child.Margin.Bottom + 18);
             _quoteDashboardCards.AutoScrollMinSize = new Size(0, Math.Max(_quoteDashboardCards.ClientSize.Height, contentHeight));
+        }
+
+        private static int ResolveQuotationDashboardCardHeight(string cardKey, int baseHeight, bool wideCanvas)
+        {
+            if (IsAny(cardKey, "quote_dash_recent"))
+                return wideCanvas ? 244 : Math.Max(baseHeight, 232);
+            if (IsAny(cardKey, "quote_dash_vendor_workflow", "quote_dash_client_workflow", "quote_dash_work_attached"))
+                return Math.Max(baseHeight, 452);
+            if (IsAny(cardKey, "quote_dash_overview"))
+                return wideCanvas ? 216 : Math.Max(baseHeight, 206);
+            if (IsAny(cardKey, "quote_dash_business", "quote_dash_trend"))
+                return wideCanvas ? 214 : Math.Max(baseHeight, 206);
+            if (IsAny(cardKey, "quote_dash_insights", "quote_dash_quick_actions"))
+                return wideCanvas ? 178 : Math.Max(baseHeight, 172);
+
+            return wideCanvas ? 196 : Math.Max(baseHeight, 190);
         }
 
         private static bool IsAny(string value, params string[] options)
@@ -573,6 +910,9 @@ namespace HVAC_Pro_Desktop.UI
                     .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(k => k.Trim())
                     .ToArray();
+                string[] requiredCards = { "quote_dash_vendor_workflow", "quote_dash_client_workflow", "quote_dash_work_attached" };
+                if (requiredCards.Any(required => !keys.Contains(required, StringComparer.OrdinalIgnoreCase)))
+                    return;
 
                 for (int i = keys.Length - 1; i >= 0; i--)
                 {
@@ -610,18 +950,26 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button QuickAction(string text, Action action)
         {
-            Button button = MakeDashButton(text, 142, QuoteSurface, InfoBlue);
+            Button button = MakeDashButton(text, 190, QuoteSurface, InfoBlue);
             button.Height = 42;
+            button.AutoSize = false;
+            button.MinimumSize = new Size(190, 42);
+            button.MaximumSize = new Size(190, 42);
             button.Margin = new Padding(0, 0, 10, 8);
+            button.Tag = "FIXED_WIDTH";
             button.Click += (s, e) => action();
             return button;
         }
 
         private Button QuickAction(string text, Func<Task> action)
         {
-            Button button = MakeDashButton(text, 142, QuoteSurface, InfoBlue);
+            Button button = MakeDashButton(text, 190, QuoteSurface, InfoBlue);
             button.Height = 42;
+            button.AutoSize = false;
+            button.MinimumSize = new Size(190, 42);
+            button.MaximumSize = new Size(190, 42);
             button.Margin = new Padding(0, 0, 10, 8);
+            button.Tag = "FIXED_WIDTH";
             button.Click += async (s, e) => await action();
             return button;
         }
@@ -677,10 +1025,12 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Label _title;
         private readonly Button _sizeButton;
         private readonly Panel _grip;
+        private readonly Panel _heightGrip;
         private Size _small;
         private Size _medium;
         private Size _large;
         private bool _resizing;
+        private bool _heightOnly;
         private Point _resizeStart;
         private Size _resizeStartSize;
 
@@ -693,14 +1043,22 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = Color.White;
             Padding = new Padding(1);
 
-            _header = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = Color.White, Cursor = Cursors.SizeAll, Padding = new Padding(0, 0, 8, 0) };
+            _header = new Panel
+            {
+                Name = CardSurfacePolicy.QuotationTileHeaderName,
+                Dock = DockStyle.Top,
+                Height = 24,
+                BackColor = Color.White,
+                Cursor = Cursors.SizeAll,
+                Padding = new Padding(0, 0, 8, 0)
+            };
             _title = new Label
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(17, 24, 39),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 0, 0, 0),
+                Padding = new Padding(10, 0, 0, 0),
                 AutoEllipsis = true
             };
             _sizeButton = new Button
@@ -716,7 +1074,7 @@ namespace HVAC_Pro_Desktop.UI
                 Cursor = Cursors.Hand,
                 Visible = false
             };
-            _sizeButton.FlatAppearance.BorderColor = Color.FromArgb(221, 227, 234);
+            _sizeButton.FlatAppearance.BorderColor = DS.Border;
             _sizeButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(241, 245, 249);
             _sizeButton.Click += SizeButton_Click;
             _header.Controls.Add(_title);
@@ -724,28 +1082,51 @@ namespace HVAC_Pro_Desktop.UI
             _header.MouseDown += Header_MouseDown;
             _title.MouseDown += Header_MouseDown;
 
-            ContentHost = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(12, 6, 12, 12) };
+            ContentHost = new Panel
+            {
+                Name = CardSurfacePolicy.QuotationTileContentName,
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Padding = new Padding(10, 2, 10, 10)
+            };
             _grip = new Panel
             {
-                Width = 1,
-                Height = 1,
+                Name = CardResizeGripService.CornerGripName,
+                Width = CardResizeGripService.CornerGripSize,
+                Height = CardResizeGripService.CornerGripSize,
                 Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
                 Cursor = Cursors.SizeNWSE,
-                BackColor = Color.White,
-                Visible = false
+                BackColor = Color.White
             };
+            _grip.Paint += CornerGrip_Paint;
             _grip.MouseDown += Grip_MouseDown;
             _grip.MouseMove += Grip_MouseMove;
             _grip.MouseUp += Grip_MouseUp;
 
+            _heightGrip = new Panel
+            {
+                Name = CardResizeGripService.HeightGripName,
+                Width = CardResizeGripService.HeightGripWidth,
+                Height = CardResizeGripService.HeightGripHeight,
+                Anchor = AnchorStyles.Bottom,
+                Cursor = Cursors.SizeNS,
+                BackColor = Color.White
+            };
+            _heightGrip.Paint += HeightGrip_Paint;
+            _heightGrip.MouseDown += HeightGrip_MouseDown;
+            _heightGrip.MouseMove += Grip_MouseMove;
+            _heightGrip.MouseUp += Grip_MouseUp;
+
             Controls.Add(_grip);
+            Controls.Add(_heightGrip);
             Controls.Add(ContentHost);
             Controls.Add(_header);
             Resize += (s, e) =>
             {
                 _sizeButton.Margin = new Padding(0, 5, 0, 5);
-                _grip.Location = new Point(Math.Max(1, Width - _grip.Width - 2), Math.Max(1, Height - _grip.Height - 2));
+                PositionResizeGrips();
             };
+            PositionResizeGrips();
         }
 
         public string CardKey { get; set; }
@@ -755,7 +1136,7 @@ namespace HVAC_Pro_Desktop.UI
             get { return _title.Text; }
             set { _title.Text = value ?? string.Empty; }
         }
-        public Color BorderColor { get; set; } = Color.FromArgb(221, 227, 234);
+        public Color BorderColor { get; set; } = DS.Border;
         public Color BackgroundColor { get; set; } = Color.White;
         public Panel ContentHost { get; }
 
@@ -807,9 +1188,21 @@ namespace HVAC_Pro_Desktop.UI
             if (e.Button != MouseButtons.Left)
                 return;
             _resizing = true;
+            _heightOnly = false;
             _resizeStart = Control.MousePosition;
             _resizeStartSize = Size;
             _grip.Capture = true;
+        }
+
+        private void HeightGrip_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left)
+                return;
+            _resizing = true;
+            _heightOnly = true;
+            _resizeStart = Control.MousePosition;
+            _resizeStartSize = Size;
+            _heightGrip.Capture = true;
         }
 
         private void Grip_MouseMove(object sender, MouseEventArgs e)
@@ -817,10 +1210,13 @@ namespace HVAC_Pro_Desktop.UI
             if (!_resizing)
                 return;
             Point now = Control.MousePosition;
-            int width = Math.Max(MinimumSize.Width, Math.Min(MaximumSize.Width, _resizeStartSize.Width + now.X - _resizeStart.X));
+            int width = _heightOnly
+                ? _resizeStartSize.Width
+                : Math.Max(MinimumSize.Width, Math.Min(MaximumSize.Width, _resizeStartSize.Width + now.X - _resizeStart.X));
             int height = Math.Max(MinimumSize.Height, Math.Min(MaximumSize.Height, _resizeStartSize.Height + now.Y - _resizeStart.Y));
             Size = new Size(width, height);
             Parent?.PerformLayout();
+            PositionResizeGrips();
         }
 
         private void Grip_MouseUp(object sender, MouseEventArgs e)
@@ -828,8 +1224,33 @@ namespace HVAC_Pro_Desktop.UI
             if (!_resizing)
                 return;
             _resizing = false;
+            _heightOnly = false;
             _grip.Capture = false;
+            _heightGrip.Capture = false;
             ResizeCompleted?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void PositionResizeGrips()
+        {
+            if (!_grip.IsDisposed)
+            {
+                CardResizeGripService.PositionCornerGrip(this, _grip, 2);
+            }
+
+            if (!_heightGrip.IsDisposed)
+            {
+                CardResizeGripService.PositionHeightGrip(this, _heightGrip, 2);
+            }
+        }
+
+        private void CornerGrip_Paint(object sender, PaintEventArgs e)
+        {
+            CardResizeGripService.PaintCornerGrip(_grip, e);
+        }
+
+        private void HeightGrip_Paint(object sender, PaintEventArgs e)
+        {
+            CardResizeGripService.PaintHeightGrip(_heightGrip, e);
         }
     }
 
@@ -977,7 +1398,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle icon = new Rectangle(bounds.Left + bounds.Width / 2 - 20, bounds.Top + bounds.Height / 2 - 34, 40, 32);
-            using (Pen pen = new Pen(Color.FromArgb(203, 213, 225), 2f))
+            using (Pen pen = new Pen(DS.Border, 1f))
             {
                 g.DrawLine(pen, icon.Left + 6, icon.Bottom - 4, icon.Right - 6, icon.Bottom - 4);
                 g.DrawRectangle(pen, icon.Left + 10, icon.Top + 13, 5, 13);
@@ -1017,7 +1438,7 @@ namespace HVAC_Pro_Desktop.UI
             int totalHeight = 86;
             int top = bounds.Top + Math.Max(4, (bounds.Height - totalHeight) / 2);
             Rectangle icon = new Rectangle(bounds.Left + bounds.Width / 2 - iconSize / 2, top, iconSize, iconSize);
-            using (Pen pen = new Pen(Color.FromArgb(203, 213, 225), 2f))
+            using (Pen pen = new Pen(DS.Border, 1f))
             {
                 g.DrawRectangle(pen, icon.Left + 9, icon.Top + 5, 24, 31);
                 g.DrawLine(pen, icon.Left + 15, icon.Top + 15, icon.Right - 12, icon.Top + 15);

@@ -145,7 +145,7 @@ namespace HVAC_Pro_Desktop.DAL
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
                     cmd.Parameters.AddWithValue("@clientId", contract.ClientID);
-                    cmd.Parameters.AddWithValue("@siteId", contract.SiteID);
+                    cmd.Parameters.AddWithValue("@siteId", contract.SiteID > 0 ? (object)contract.SiteID : DBNull.Value);
                     cmd.Parameters.AddWithValue("@startDate", contract.StartDate);
                     cmd.Parameters.AddWithValue("@endDate", contract.EndDate);
                     cmd.Parameters.AddWithValue("@monthlyValue", contract.MonthlyValue);
@@ -171,6 +171,7 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 string query = @"UPDATE AMCContracts SET
+                    ClientID = @clientId, SiteID = @siteId,
                     StartDate = @startDate, EndDate = @endDate,
                     MonthlyValue = @monthlyValue, AnnualValue = @annualValue,
                     ContractStatus = @contractStatus,
@@ -182,6 +183,8 @@ namespace HVAC_Pro_Desktop.DAL
 
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
+                    cmd.Parameters.AddWithValue("@clientId", contract.ClientID);
+                    cmd.Parameters.AddWithValue("@siteId", contract.SiteID > 0 ? (object)contract.SiteID : DBNull.Value);
                     cmd.Parameters.AddWithValue("@startDate", contract.StartDate);
                     cmd.Parameters.AddWithValue("@endDate", contract.EndDate);
                     cmd.Parameters.AddWithValue("@monthlyValue", contract.MonthlyValue);
@@ -243,15 +246,15 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 ContractID = (int)reader["ContractID"],
                 ClientID = (int)reader["ClientID"],
-                SiteID = (int)reader["SiteID"],
+                SiteID = reader["SiteID"] != DBNull.Value ? (int)reader["SiteID"] : 0,
                 StartDate = (DateTime)reader["StartDate"],
                 EndDate = (DateTime)reader["EndDate"],
-                MonthlyValue = (decimal)reader["MonthlyValue"],
-                AnnualValue = (decimal)reader["AnnualValue"],
-                ContractStatus = reader["ContractStatus"].ToString(),
-                SLAResponseTimeHours = (int)reader["SLAResponseTimeHours"],
-                SLAUptimePercent = (decimal)reader["SLAUptimePercent"],
-                SLARepairTimeHours = (int)reader["SLARepairTimeHours"],
+                MonthlyValue = reader["MonthlyValue"] != DBNull.Value ? (decimal)reader["MonthlyValue"] : 0m,
+                AnnualValue = reader["AnnualValue"] != DBNull.Value ? (decimal)reader["AnnualValue"] : 0m,
+                ContractStatus = reader["ContractStatus"] != DBNull.Value ? reader["ContractStatus"].ToString() : "",
+                SLAResponseTimeHours = reader["SLAResponseTimeHours"] != DBNull.Value ? (int)reader["SLAResponseTimeHours"] : 0,
+                SLAUptimePercent = reader["SLAUptimePercent"] != DBNull.Value ? (decimal)reader["SLAUptimePercent"] : 0m,
+                SLARepairTimeHours = reader["SLARepairTimeHours"] != DBNull.Value ? (int)reader["SLARepairTimeHours"] : 0,
                 MaintenanceFrequency = reader["MaintenanceFrequency"].ToString(),
                 ContractType = reader["ContractType"] != DBNull.Value ? reader["ContractType"].ToString() : "AMC",
                 Notes        = reader["Notes"]        != DBNull.Value ? reader["Notes"].ToString()        : "",

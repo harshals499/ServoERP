@@ -71,7 +71,7 @@ namespace HVAC_Pro_Desktop.UI
 
             HeaderText = "Section";
             HeaderBackground = Color.White;
-            HeaderBorderColor = Color.FromArgb(230, 230, 230);
+            HeaderBorderColor = DS.Border;
             HeaderTextColor = Color.FromArgb(60, 60, 60);
             HeaderFontSize = 12;
             BadgeBackground = ColorTranslator.FromHtml("#E1F5EE");
@@ -276,7 +276,7 @@ namespace HVAC_Pro_Desktop.UI
                 _owner = owner;
                 DoubleBuffered = true;
                 HeaderBackground = Color.White;
-                HeaderBorderColor = Color.FromArgb(230, 230, 230);
+                HeaderBorderColor = DS.Border;
                 IsExpanded = true;
                 MouseEnter += (s, e) => { _hover = true; Invalidate(); };
                 MouseLeave += (s, e) => { _hover = false; Invalidate(); };

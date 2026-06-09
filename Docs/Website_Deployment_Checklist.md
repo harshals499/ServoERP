@@ -24,6 +24,13 @@ Upload the Windows setup EXE to the `servoerp-downloads` R2 bucket:
 
 - `ServoERP.Setup.1.0.25.0.exe`
 
+Preferred automation path:
+
+- `SOURCE_CODE\Installer\Publish-ServoERPR2Installer.ps1` for the installer upload
+- `SOURCE_CODE\Installer\Publish-ServoERPCloudflare.ps1` for installer upload + Pages deploy
+- Large installers can now publish without static R2 access keys by using the built-in Cloudflare Worker multipart fallback.
+- Release verification is built into `Publish-ServoERPCloudflare.ps1`.
+
 ## Hosting Requirements
 
 - Keep the folder structure exactly the same.
@@ -71,8 +78,6 @@ Before uploading a new release:
 1. Build ServoERP Release.
 2. Run smoke tests.
 3. Rebuild installer only after the app is stable.
-4. Copy the new setup EXE into `marketing_site/download/`.
-5. Update website download URL if the file name changes.
-6. Update `version.txt`.
-7. Update `changelog.json`.
-8. Commit the website/app changes in Git.
+4. Set `CLOUDFLARE_API_TOKEN`, `R2_ACCOUNT_ID`, and optionally `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY`.
+5. Run `SOURCE_CODE\Installer\Publish-ServoERPCloudflare.ps1 -Version <x.x.x.x>`.
+6. Verify `https://servoerp.in/version.txt`, `/latest.json`, `/download/`, the update ZIP URL, and the installer EXE URL under `https://downloads.servoerp.in/`.

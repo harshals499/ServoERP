@@ -184,6 +184,35 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        public (bool Success, string ErrorMessage, int UserId) ResetOwnPassword(string usernameOrEmail, string newPassword)
+        {
+            try
+            {
+                string safeUsername = (usernameOrEmail ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(safeUsername))
+                    return (false, "Enter your username or email.", 0);
+
+                if (!SecurityHelpers.MeetsPasswordPolicy(newPassword))
+                    return (false, "Password must be 8+ chars with 1 uppercase and 1 number.", 0);
+
+                AppUserDto user = _repo.GetUserByUsername(safeUsername);
+                if (user == null || !user.IsActive)
+                    return (false, "No active account found for this username or email.", 0);
+
+                string salt = "bcrypt";
+                string hash = SecurityHelpers.HashPasswordWithBcrypt(newPassword);
+                _repo.UpdatePassword(user.UserId, hash, salt, false);
+                _repo.ResetFailedAttempts(user.UserId);
+                SessionManager.LogAction("EDIT", "Login", user.UserId, "Self-service password reset");
+                return (true, null, user.UserId);
+            }
+            catch (Exception ex)
+            {
+                SecurityHelpers.LogAuthEvent("ResetOwnPassword failed for '" + usernameOrEmail + "'.", ex);
+                return (false, "Unable to reset password.", 0);
+            }
+        }
+
         public void Logout()
         {
             try
@@ -264,7 +293,7 @@ namespace HVAC_Pro_Desktop.Services
                     return false;
 
                 AppUserDto user = _repo.GetUserByUsername(safeUsername);
-                if (user == null || !user.IsActive || !string.Equals(user.RoleName, "Admin", StringComparison.OrdinalIgnoreCase))
+                if (user == null || !user.IsActive)
                     return false;
 
                 return SecurityHelpers.VerifyPassword(password, credentials.Value.PasswordHash, credentials.Value.PasswordSalt);

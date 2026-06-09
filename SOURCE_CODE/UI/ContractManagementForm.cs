@@ -9,6 +9,7 @@ using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.UI.Controls;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -33,9 +34,9 @@ namespace HVAC_Pro_Desktop.UI
         private TypeDonutChart _typeChart;
         private FlowLayoutPanel _statsFlow;
         private TableLayoutPanel _recentTable;
-        private FlowLayoutPanel _paginationFlow;
+        private GlobalPaginationControl _pagination;
         private int _tablePage = 1;
-        private const int PageSize = 5;
+        private int _tablePageSize = 10;
 
         private FlowLayoutPanel _contractListFlow;
         private TextBox _sidebarSearch;
@@ -71,7 +72,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color CardBg = Color.White;
         private static readonly Color Ink = Color.FromArgb(15, 23, 42);
         private static readonly Color Muted = Color.FromArgb(100, 116, 139);
-        private static readonly Color Border = Color.FromArgb(226, 232, 240);
+        private static readonly Color Border = DS.Border;
         private static readonly Color Blue = Color.FromArgb(37, 99, 235);
         private static readonly Color Green = Color.FromArgb(16, 185, 129);
         private static readonly Color Amber = Color.FromArgb(245, 158, 11);
@@ -81,6 +82,10 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly string[] DashboardStatuses = { "Draft", "Pending Approval", "Active", "Expired" };
         private static readonly string[] ContractTypes = { "Service Agreement", "NDA", "Vendor Agreement", "Employment Contract", "Others" };
         private static readonly string[] ContractStatuses = { "Active", "Draft", "Pending Approval", "Expiring Soon", "Expired", "On Hold", "Cancelled" };
+
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
 
         public ContractManagementForm()
         {
@@ -92,11 +97,13 @@ namespace HVAC_Pro_Desktop.UI
                 () =>
                 {
                     LoadReferenceData();
-                    EnsureSeedContracts();
-                    LoadReferenceData();
                     RefreshDashboard();
                 },
-                ex => SetStatus("Load error: " + ex.Message, Red));
+                ex =>
+                {
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Contracts"), "Loading contracts", ex);
+                    SetStatus("Contracts could not load. Refresh and try again.", Red);
+                });
         }
 
         public static void QueueSiteNavigation(int siteId)
@@ -187,7 +194,7 @@ namespace HVAC_Pro_Desktop.UI
             });
             header.Controls.Add(new Label
             {
-                Text = "Overview of all contracts",
+                Text = "Track AMC agreements, renewals, SLA terms, and optional site links.",
                 Location = new Point(1, 38),
                 Size = new Size(420, 22),
                 Font = new Font("Segoe UI", 10f),
@@ -212,17 +219,26 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bell, 16);
 
-            _dashboardSearch = new TextBox
+            Panel dashboardSearchHost = new Panel
             {
+                Name = "ContractDashboardSearchHost",
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(Math.Max(0, header.Width - 520), 7),
                 Size = new Size(280, 32),
+                BackColor = DS.BgInput,
+                Padding = new Padding(8, 2, 8, 2)
+            };
+            _dashboardSearch = new TextBox
+            {
+                Name = "ContractDashboardSearchTextBox",
+                Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", 10f),
-                BorderStyle = BorderStyle.FixedSingle,
+                BorderStyle = BorderStyle.None,
                 Text = "Search contracts...",
                 ForeColor = Muted
             };
             AddPlaceholder(_dashboardSearch, "Search contracts...");
+            dashboardSearchHost.Controls.Add(_dashboardSearch);
             _dashboardSearch.TextChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
 
             _statusLabel = new Label
@@ -236,14 +252,14 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             header.Controls.Add(_statusLabel);
-            header.Controls.Add(_dashboardSearch);
+            header.Controls.Add(dashboardSearchHost);
             header.Controls.Add(bell);
             header.Controls.Add(newButton);
             header.Resize += (s, e) =>
             {
                 newButton.Location = new Point(header.ClientSize.Width - 150, 6);
                 bell.Location = new Point(header.ClientSize.Width - 208, 10);
-                _dashboardSearch.Location = new Point(header.ClientSize.Width - 520, 7);
+                dashboardSearchHost.Location = new Point(header.ClientSize.Width - 520, 7);
                 _statusLabel.Location = new Point(header.ClientSize.Width - 685, 12);
             };
             return header;
@@ -261,22 +277,31 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 ForeColor = Ink
             });
-            _statusPeriodFilter = new ComboBox
+            Panel statusPeriodHost = new Panel
             {
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(140, 32),
+                BackColor = DS.BgInput,
+                Padding = new Padding(6, 1, 6, 1),
+                Name = "ContractStatusPeriodFilterHost"
+            };
+            _statusPeriodFilter = new ComboBox
+            {
+                Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("Segoe UI", 9f),
-                Size = new Size(140, 32)
+                Name = "ContractStatusPeriodFilter"
             };
             _statusPeriodFilter.Items.AddRange(new object[] { "This Month", "This Quarter", "All Time" });
             _statusPeriodFilter.SelectedIndex = 2;
             _statusPeriodFilter.SelectedIndexChanged += (s, e) => RefreshDashboard();
-            card.Controls.Add(_statusPeriodFilter);
+            statusPeriodHost.Controls.Add(_statusPeriodFilter);
+            card.Controls.Add(statusPeriodHost);
             _statusChart = new StatusBarChart { Location = new Point(18, 54), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             card.Controls.Add(_statusChart);
             card.Resize += (s, e) =>
             {
-                _statusPeriodFilter.Location = new Point(card.ClientSize.Width - 160, 12);
+                statusPeriodHost.Location = new Point(card.ClientSize.Width - 160, 12);
                 _statusChart.Size = new Size(card.ClientSize.Width - 36, card.ClientSize.Height - 70);
             };
             return card;
@@ -312,18 +337,27 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Ink
             });
 
-            _tableStatusFilter = new ComboBox
+            Panel tableStatusHost = new Panel
             {
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Size = new Size(136, 32),
+                BackColor = DS.BgInput,
+                Padding = new Padding(6, 1, 6, 1),
+                Name = "ContractTableStatusFilterHost"
+            };
+            _tableStatusFilter = new ComboBox
+            {
+                Dock = DockStyle.Fill,
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 Font = new Font("Segoe UI", 9f),
-                Size = new Size(136, 32)
+                Name = "ContractTableStatusFilter"
             };
             _tableStatusFilter.Items.Add("All Status");
             foreach (string status in ContractStatuses) _tableStatusFilter.Items.Add(status);
             _tableStatusFilter.SelectedIndex = 0;
             _tableStatusFilter.SelectedIndexChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
-            card.Controls.Add(_tableStatusFilter);
+            tableStatusHost.Controls.Add(_tableStatusFilter);
+            card.Controls.Add(tableStatusHost);
 
             Button export = MakeButton("Export", Color.White, 92);
             export.ForeColor = Ink;
@@ -337,38 +371,40 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom,
                 Location = new Point(18, 58),
-                ColumnCount = 8,
+                ColumnCount = 9,
                 RowCount = 6,
                 BackColor = CardBg,
                 CellBorderStyle = TableLayoutPanelCellBorderStyle.None
             };
-            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
             _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18));
-            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15));
+            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16));
             _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 13));
-            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 11));
-            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 11));
+            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12));
+            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10));
+            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10));
+            _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 9));
             _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 8));
             _recentTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 4));
             card.Controls.Add(_recentTable);
 
-            _paginationFlow = new FlowLayoutPanel
+            _pagination = new GlobalPaginationControl
             {
                 Anchor = AnchorStyles.Bottom,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
                 Height = 38,
+                Width = 560,
                 BackColor = Color.Transparent
             };
-            card.Controls.Add(_paginationFlow);
+            _pagination.PageChanged += (s, e) => { _tablePage = _pagination.CurrentPage; RefreshDashboardTablesOnly(); };
+            _pagination.PageSizeChanged += (s, e) => { _tablePageSize = _pagination.PageSize; _tablePage = 1; RefreshDashboardTablesOnly(); };
+            card.Controls.Add(_pagination);
 
             card.Resize += (s, e) =>
             {
-                _tableStatusFilter.Location = new Point(card.ClientSize.Width - 250, 12);
+                tableStatusHost.Location = new Point(card.ClientSize.Width - 250, 12);
                 export.Location = new Point(card.ClientSize.Width - 104, 12);
                 _recentTable.Size = new Size(card.ClientSize.Width - 36, Math.Max(205, card.ClientSize.Height - 112));
-                _paginationFlow.Width = 260;
-                _paginationFlow.Location = new Point((card.ClientSize.Width - _paginationFlow.Width) / 2, card.ClientSize.Height - 44);
+                _pagination.Width = Math.Min(560, Math.Max(360, card.ClientSize.Width - 36));
+                _pagination.Location = new Point((card.ClientSize.Width - _pagination.Width) / 2, card.ClientSize.Height - 44);
             };
             return card;
         }
@@ -449,12 +485,12 @@ namespace HVAC_Pro_Desktop.UI
             };
             Button newContract = MakeButton("+  New Contract", Blue, 130);
             Button save = MakeButton("Save", Green, 82);
-            Button forms = MakeButton("Forms", Color.White, 82);
+            Button forms = MakeButton("Service Forms", Color.White, 108);
             Button whatsapp = MakeButton("WhatsApp", Green, 104);
             Button invoice = MakeButton("Create Invoice", Color.FromArgb(67, 56, 202), 126);
-            Button review = MakeButton("Review", Blue, 94);
+            Button review = MakeButton("Prepare Renewal", Blue, 128);
             Button sla = MakeButton("SLA Log", Color.FromArgb(88, 28, 135), 92);
-            Button refresh = MakeButton("Refresh", Color.White, 92);
+            Button refresh = MakeButton("Refresh Contracts", Color.White, 122);
             foreach (Button white in new[] { forms, refresh })
             {
                 white.ForeColor = Ink;
@@ -602,7 +638,7 @@ namespace HVAC_Pro_Desktop.UI
                 UpdateLiveSummary();
             };
 
-            AddLabel(group, "Site *", 360, 42);
+            AddLabel(group, "Site (optional)", 360, 42);
             _cmbSite = MakeCombo(group, 360, 62, 320);
             _cmbSite.SelectedIndexChanged += (s, e) => UpdateLiveSummary();
 
@@ -704,7 +740,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label hint = new Label
             {
-                Text = "Renewals, SLA, invoices, reminders.",
+                Text = "Use this panel for renewal, invoice, SLA log, and reminder actions.",
                 Location = new Point(20, 136),
                 Size = new Size(220, 28),
                 Font = new Font("Segoe UI", 8f),
@@ -813,11 +849,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_recentTable == null) return;
             List<AMCContract> contracts = GetFilteredDashboardContracts();
-            int totalPages = Math.Max(1, (int)Math.Ceiling(contracts.Count / (double)PageSize));
-            if (_tablePage > totalPages) _tablePage = totalPages;
-            List<AMCContract> page = contracts.Skip((_tablePage - 1) * PageSize).Take(PageSize).ToList();
+            int pageSize = Math.Max(1, _tablePageSize);
+            int totalPages = Math.Max(1, PaginationState.GetTotalPages(contracts.Count, pageSize));
+            _tablePage = PaginationState.NormalizePage(_tablePage, contracts.Count, pageSize);
+            List<AMCContract> page = contracts.Skip((_tablePage - 1) * pageSize).Take(pageSize).ToList();
             RenderRecentTable(page);
-            RenderPagination(totalPages);
+            _pagination?.SetState(_tablePage, contracts.Count, pageSize);
         }
 
         private List<AMCContract> GetFilteredDashboardContracts()
@@ -844,15 +881,16 @@ namespace HVAC_Pro_Desktop.UI
             _recentTable.SuspendLayout();
             _recentTable.Controls.Clear();
             _recentTable.RowStyles.Clear();
-            _recentTable.RowCount = 6;
+            int pageSize = Math.Max(1, _tablePageSize);
+            _recentTable.RowCount = pageSize + 1;
             _recentTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            for (int i = 0; i < 5; i++) _recentTable.RowStyles.Add(new RowStyle(SizeType.Percent, 20));
+            for (int i = 0; i < pageSize; i++) _recentTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
 
-            string[] headers = { "Contract Name", "Party", "Type", "Status", "Start Date", "End Date", "Value", "Actions" };
+            string[] headers = { "Contract Name", "Party", "Type", "Status", "Start Date", "End Date", "Renewal", "Value", "Actions" };
             for (int c = 0; c < headers.Length; c++)
                 _recentTable.Controls.Add(MakeCell(headers[c], true, ContentAlignment.MiddleLeft), c, 0);
 
-            for (int row = 0; row < 5; row++)
+            for (int row = 0; row < pageSize; row++)
             {
                 if (row >= page.Count)
                 {
@@ -867,42 +905,11 @@ namespace HVAC_Pro_Desktop.UI
                 _recentTable.Controls.Add(MakeStatusPill(GetDisplayStatus(contract)), 3, row + 1);
                 _recentTable.Controls.Add(MakeCell(FormatDate(contract.StartDate), false, ContentAlignment.MiddleLeft), 4, row + 1);
                 _recentTable.Controls.Add(MakeCell(FormatDate(contract.EndDate), false, ContentAlignment.MiddleLeft), 5, row + 1);
-                _recentTable.Controls.Add(MakeCell(FormatCurrency(contract.AnnualValue > 0 ? contract.AnnualValue : contract.MonthlyValue * 12), false, ContentAlignment.MiddleLeft), 6, row + 1);
-                _recentTable.Controls.Add(MakeActionsButton(contract), 7, row + 1);
+                _recentTable.Controls.Add(MakeRenewalCell(contract), 6, row + 1);
+                _recentTable.Controls.Add(MakeCell(FormatCurrency(contract.AnnualValue > 0 ? contract.AnnualValue : contract.MonthlyValue * 12), false, ContentAlignment.MiddleLeft), 7, row + 1);
+                _recentTable.Controls.Add(MakeActionsButton(contract), 8, row + 1);
             }
             _recentTable.ResumeLayout(true);
-        }
-
-        private void RenderPagination(int totalPages)
-        {
-            _paginationFlow.Controls.Clear();
-            AddPageButton("<", Math.Max(1, _tablePage - 1), _tablePage > 1);
-            for (int page = 1; page <= Math.Min(totalPages, 3); page++)
-                AddPageButton(page.ToString(CultureInfo.InvariantCulture), page, true, page == _tablePage);
-            if (totalPages > 4)
-                _paginationFlow.Controls.Add(new Label { Text = "...", Width = 28, Height = 30, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Muted });
-            if (totalPages > 3)
-                AddPageButton(totalPages.ToString(CultureInfo.InvariantCulture), totalPages, true, totalPages == _tablePage);
-            AddPageButton(">", Math.Min(totalPages, _tablePage + 1), _tablePage < totalPages);
-        }
-
-        private void AddPageButton(string text, int page, bool enabled, bool selected = false)
-        {
-            Button b = new Button
-            {
-                Text = text,
-                Width = 32,
-                Height = 30,
-                Enabled = enabled,
-                BackColor = selected ? Blue : Color.White,
-                ForeColor = selected ? Color.White : Ink,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Margin = new Padding(3)
-            };
-            b.FlatAppearance.BorderColor = Border;
-            b.Click += (s, e) => { _tablePage = page; RefreshDashboardTablesOnly(); };
-            _paginationFlow.Controls.Add(b);
         }
 
         private void LoadReferenceData()
@@ -940,7 +947,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbSite == null) return;
             int previous = ((_cmbSite.SelectedItem as ComboItem)?.Id).GetValueOrDefault();
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- Select Site --" });
+            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
             foreach (ClientSite site in _sitesById.Values.Where(s => s.ClientID == clientId).OrderBy(SiteService.GetDisplayName))
                 _cmbSite.Items.Add(new ComboItem { Id = site.SiteID, Text = SiteService.GetDisplayName(site) });
             _cmbSite.SelectedIndex = 0;
@@ -1097,11 +1104,12 @@ namespace HVAC_Pro_Desktop.UI
                 BuildDashboardLayout();
                 LoadReferenceData();
                 RefreshDashboard();
-                SetStatus("Contract saved successfully.", Green);
+                SetStatus("Contract saved successfully. Next: send renewal updates, create an invoice, or log SLA activity.", Green);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Contract validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Contracts"), "Saving contract", ex);
+                SetStatus("Contract could not be saved. Review the highlighted details and try again.", Red);
             }
         }
 
@@ -1143,15 +1151,14 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("ContractManagementForm.DeleteContractAsync", ex);
-                MessageBox.Show(ex.Message, "Delete Contract", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                SetStatus("Delete failed: " + ex.Message, Red);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Contracts"), "Deleting contract", ex);
+                SetStatus("Contract could not be deleted. Refresh and try again.", Red);
             }
         }
 
         private void ValidateForm(AMCContract contract)
         {
             if (contract.ClientID <= 0) throw new Exception("Please select Client.");
-            if (contract.SiteID <= 0) throw new Exception("Please select Site.");
             if (string.IsNullOrWhiteSpace(contract.ContractType)) throw new Exception("Please select Contract Type.");
             if (string.IsNullOrWhiteSpace(contract.ContractStatus)) throw new Exception("Please select Status.");
             if (contract.EndDate <= contract.StartDate) throw new Exception("End Date must be after Start Date.");
@@ -1269,7 +1276,8 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Create Invoice", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Contracts"), "Creating invoice from contract", ex);
+                SetStatus("Invoice could not be created from this contract. Review the contract details and try again.", Red);
             }
         }
 
@@ -1331,7 +1339,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             List<AMCContract> contracts = GetFilteredDashboardContracts();
             StringBuilder csv = new StringBuilder();
-            csv.AppendLine("Contract Name,Party,Type,Status,Start Date,End Date,Value");
+            csv.AppendLine("Contract Name,Party,Type,Status,Start Date,End Date,Renewal,Value");
             foreach (AMCContract c in contracts)
             {
                 csv.AppendLine(string.Join(",", new[]
@@ -1342,6 +1350,7 @@ namespace HVAC_Pro_Desktop.UI
                     Csv(GetDisplayStatus(c)),
                     Csv(FormatDate(c.StartDate)),
                     Csv(FormatDate(c.EndDate)),
+                    Csv(GetRenewalText(c)),
                     Csv((c.AnnualValue > 0 ? c.AnnualValue : c.MonthlyValue * 12).ToString(CultureInfo.InvariantCulture))
                 }));
             }
@@ -1447,21 +1456,33 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control MakeStatusPill(string status)
         {
-            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(8, 9, 8, 9) };
+            string cleanStatus = string.IsNullOrWhiteSpace(status) ? "-" : status.Trim();
+            string displayStatus = cleanStatus.StartsWith("Expiring", StringComparison.OrdinalIgnoreCase) ? "Expiring" : cleanStatus;
+            int measuredWidth = TextRenderer.MeasureText(displayStatus, new Font("Segoe UI", 8f, FontStyle.Bold)).Width + 26;
+            int pillWidth = Math.Min(150, Math.Max(76, measuredWidth));
             Label pill = new Label
             {
-                Text = status,
+                Text = displayStatus,
                 AutoSize = false,
                 Height = 23,
-                Width = Math.Min(120, Math.Max(66, TextRenderer.MeasureText(status, new Font("Segoe UI", 8f, FontStyle.Bold)).Width + 18)),
+                Width = pillWidth,
                 Font = new Font("Segoe UI", 8f, FontStyle.Bold),
-                ForeColor = StatusColor(status),
-                BackColor = StatusBackColor(status),
-                TextAlign = ContentAlignment.MiddleCenter
+                ForeColor = StatusColor(cleanStatus),
+                BackColor = StatusBackColor(cleanStatus),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = new Padding(8, 8, 8, 0),
+                Dock = DockStyle.None
             };
             DS.Rounded(pill, 11);
-            host.Controls.Add(pill);
-            return host;
+            return pill;
+        }
+
+        private Control MakeRenewalCell(AMCContract contract)
+        {
+            Label label = MakeCell(GetRenewalText(contract), false, ContentAlignment.MiddleLeft);
+            label.ForeColor = GetRenewalColor(contract);
+            label.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            return label;
         }
 
         private Control MakeActionsButton(AMCContract contract)
@@ -1494,7 +1515,7 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawLine(pen, 0, card.Height - 1, card.Width, card.Height - 1);
             };
             Label name = new Label { Text = ContractName(contract), Location = new Point(8, 8), Size = new Size(170, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
-            Label meta = new Label { Text = FormatDate(contract.EndDate), Location = new Point(8, 32), Size = new Size(126, 20), Font = new Font("Segoe UI", 8f), ForeColor = Muted };
+            Label meta = new Label { Text = FormatDate(contract.EndDate) + " - " + GetRenewalText(contract), Location = new Point(8, 32), Size = new Size(126, 20), Font = new Font("Segoe UI", 8f), ForeColor = GetRenewalColor(contract), AutoEllipsis = true };
             Label status = new Label { Text = GetDisplayStatus(contract), Location = new Point(138, 32), Size = new Size(76, 20), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = StatusColor(GetDisplayStatus(contract)), TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true };
             card.Controls.Add(name);
             card.Controls.Add(meta);
@@ -1510,7 +1531,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Contract, 54, Color.FromArgb(239, 246, 255), Blue);
             icon.Location = new Point((empty.Width - icon.Width) / 2, 34);
             Label title = new Label { Text = "No contracts found", Location = new Point(10, 102), Size = new Size(200, 24), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink, TextAlign = ContentAlignment.MiddleCenter };
-            Label helper = new Label { Text = "Create a contract or adjust filters.", Location = new Point(20, 132), Size = new Size(180, 44), Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, TextAlign = ContentAlignment.TopCenter };
+            Label helper = new Label { Text = "Create a contract after selecting a client. Site can stay blank until the AMC location is decided.", Location = new Point(20, 132), Size = new Size(180, 58), Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, TextAlign = ContentAlignment.TopCenter };
             empty.Controls.Add(icon);
             empty.Controls.Add(title);
             empty.Controls.Add(helper);
@@ -1532,7 +1553,7 @@ namespace HVAC_Pro_Desktop.UI
             MoveControl(_dtpEnd, x2, 204, col, 30);
             MoveControl(_txtNotes, x1, 268, inner, 42);
             MoveLabel(_cmbClient?.Parent, "Client *", x1, 42, col);
-            MoveLabel(_cmbSite?.Parent, "Site *", x2, 42, col);
+            MoveLabel(_cmbSite?.Parent, "Site (optional)", x2, 42, col);
             MoveLabel(_cmbType?.Parent, "Contract Type *", x1, 112, col);
             MoveLabel(_cmbStatus?.Parent, "Status *", x2, 112, col);
             MoveLabel(_dtpStart?.Parent, "Start Date *", x1, 184, col);
@@ -1623,6 +1644,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private string GetSiteName(int siteId)
         {
+            if (siteId <= 0)
+                return "No site";
             ClientSite site;
             return _sitesById.TryGetValue(siteId, out site) ? SiteService.GetDisplayName(site) : "Site #" + siteId;
         }
@@ -1664,6 +1687,32 @@ namespace HVAC_Pro_Desktop.UI
         private static bool IsStatus(AMCContract contract, string status)
         {
             return string.Equals(contract.ContractStatus, status, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetRenewalText(AMCContract contract)
+        {
+            if (contract == null || contract.EndDate == default(DateTime))
+                return "-";
+
+            int days = (contract.EndDate.Date - DateTime.Today).Days;
+            if (days < 0)
+                return Math.Abs(days).ToString(CultureInfo.InvariantCulture) + " days overdue";
+            if (days == 0)
+                return "Due today";
+            return days.ToString(CultureInfo.InvariantCulture) + " days left";
+        }
+
+        private static Color GetRenewalColor(AMCContract contract)
+        {
+            if (contract == null)
+                return Muted;
+
+            int days = (contract.EndDate.Date - DateTime.Today).Days;
+            if (days < 0)
+                return Color.FromArgb(220, 38, 38);
+            if (days <= 30)
+                return Color.FromArgb(217, 119, 6);
+            return Color.FromArgb(5, 150, 105);
         }
 
         private static Color StatusColor(string status)

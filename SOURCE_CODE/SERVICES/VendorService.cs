@@ -31,6 +31,8 @@ namespace HVAC_Pro_Desktop.Services
         private readonly AuditTrailService _audit = new AuditTrailService();
 
         public List<Vendor> GetAll() => AppDataCache.GetOrCreate("vendors:all", CacheTtl, () => _repo.GetAll(false).Where(v => v.IsActive && !v.IsArchived).ToList());
+        public List<Vendor> GetSuppliers() => AppDataCache.GetOrCreate("vendors:suppliers", CacheTtl, () => _repo.GetSuppliers(false).Where(v => v.IsActive && !v.IsArchived).ToList());
+        public List<Vendor> GetServiceVendors() => AppDataCache.GetOrCreate("vendors:service", CacheTtl, () => _repo.GetServiceVendors(false).Where(v => v.IsActive && !v.IsArchived).ToList());
         public List<Vendor> GetAllIncludingArchived() => _repo.GetAll(true);
         public Vendor GetById(int id) => _repo.GetById(id);
 
@@ -66,6 +68,30 @@ namespace HVAC_Pro_Desktop.Services
             InvalidateVendorCaches();
         }
 
+        public void UpdateLifecycleStatus(int vendorId, string status)
+        {
+            SessionManager.DemandPermission("Vendors", "Edit");
+            if (vendorId <= 0)
+                return;
+
+            string normalized = (status ?? string.Empty).Trim();
+            bool isArchived = string.Equals(normalized, "Blocked", StringComparison.OrdinalIgnoreCase);
+            bool isActive = !string.Equals(normalized, "Inactive", StringComparison.OrdinalIgnoreCase) && !isArchived;
+
+            if (isArchived)
+            {
+                int openPoCount = _repo.CountOpenPurchaseOrders(vendorId);
+                if (openPoCount > 0)
+                    throw new Exception("Cannot block vendor with " + openPoCount + " open purchase orders.");
+            }
+
+            _repo.SetLifecycleStatus(vendorId, isActive, isArchived);
+            InvalidateVendorCaches();
+            SessionManager.LogAction("EDIT", "Vendors", vendorId, "Vendor status changed to " + normalized);
+            _audit.Record("EDIT", "Vendors", vendorId, "Vendor lifecycle status changed to " + normalized);
+            LogVendorEvent("STATUS", vendorId, normalized);
+        }
+
         public void Delete(int id)
         {
             SessionManager.DemandPermission("Vendors", "Delete");
@@ -77,23 +103,37 @@ namespace HVAC_Pro_Desktop.Services
 
         public int GetActiveCount() => GetAll().Count;
 
+        /// <summary>Moves supplier records that only qualified for derived pending approval into inactive status.</summary>
+        public int MovePendingApprovalSuppliersToInactive()
+        {
+            int updated = _repo.MovePendingApprovalSuppliersToInactive();
+            if (updated > 0)
+            {
+                InvalidateVendorCaches();
+                SessionManager.LogAction("EDIT", "Vendors", 0, updated + " pending approval suppliers moved to inactive");
+                _audit.Record("EDIT", "Vendors", 0, updated + " pending approval suppliers moved to inactive");
+                LogVendorEvent("STATUS", 0, updated + " pending approval suppliers moved to inactive");
+            }
+            return updated;
+        }
+
         public List<VendorSummaryDto> GetAllVendorsWithSummary()
         {
             try
             {
                 List<Vendor> vendors = _repo.GetAll(true);
-                List<PurchaseOrder> orders = _purchaseRepo.GetAll();
-                HashSet<int> duplicateIds = new HashSet<int>(DetectDuplicates().SelectMany(g => g.Vendors.Select(v => v.VendorId)));
+                List<PurchaseOrder> orders = SafeLoadPurchaseOrders("VendorService.GetAllVendorsWithSummary.Purchases");
+                HashSet<int> duplicateIds = SafeLoadDuplicateVendorIds();
 
                 return vendors
                     .Select(v =>
                     {
                         List<PurchaseOrder> vendorOrders = orders.Where(po => po.VendorID == v.VendorID).ToList();
                         decimal outstanding = vendorOrders
-                            .Where(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase))
-                            .Sum(po => po.BalanceDue > 0 ? po.BalanceDue : po.TotalAmount);
+                            .Where(IsOpenVendorPurchaseOrder)
+                            .Sum(GetOutstandingPurchaseBalance);
 
-                        int openCount = vendorOrders.Count(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase));
+                        int openCount = vendorOrders.Count(IsOpenVendorPurchaseOrder);
                         bool hasOverdue = vendorOrders.Any(po => po.IsOverdue);
 
                         return new VendorSummaryDto
@@ -105,6 +145,8 @@ namespace HVAC_Pro_Desktop.Services
                             City = v.City,
                             State = ResolveStateName(v.StateCode),
                             Phone = v.Phone,
+                            IsSupplier = v.IsSupplier,
+                            IsServiceVendor = v.IsServiceVendor,
                             IsActive = v.IsActive,
                             IsArchived = v.IsArchived,
                             OutstandingBalance = outstanding,
@@ -134,7 +176,7 @@ namespace HVAC_Pro_Desktop.Services
                     return _duplicateCache.Select(CloneDuplicateGroup).ToList();
 
                 List<Vendor> vendors = _repo.GetAll(true).Where(v => !v.IsArchived).ToList();
-                List<PurchaseOrder> orders = _purchaseRepo.GetAll();
+                List<PurchaseOrder> orders = SafeLoadPurchaseOrders("VendorService.DetectDuplicates.Purchases");
 
                 _duplicateCache = vendors
                     .GroupBy(v => NormalizeVendorName(v.VendorName))
@@ -150,14 +192,14 @@ namespace HVAC_Pro_Desktop.Services
                         {
                             List<PurchaseOrder> vendorOrders = orders.Where(po => po.VendorID == vendor.VendorID).ToList();
                             decimal outstanding = vendorOrders
-                                .Where(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase))
-                                .Sum(po => po.BalanceDue > 0 ? po.BalanceDue : po.TotalAmount);
+                                .Where(IsOpenVendorPurchaseOrder)
+                                .Sum(GetOutstandingPurchaseBalance);
 
                             group.Vendors.Add(new DuplicateVendorItemDto
                             {
                                 VendorId = vendor.VendorID,
                                 VendorName = vendor.VendorName,
-                                OpenPOCount = vendorOrders.Count(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase)),
+                                OpenPOCount = vendorOrders.Count(IsOpenVendorPurchaseOrder),
                                 OutstandingBalance = outstanding
                             });
                         }
@@ -182,11 +224,11 @@ namespace HVAC_Pro_Desktop.Services
 
             List<PurchaseOrder> vendorOrders = _purchaseRepo.GetByVendorId(vendorId);
             decimal outstanding = vendorOrders
-                .Where(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase))
-                .Sum(po => po.BalanceDue > 0 ? po.BalanceDue : po.TotalAmount);
+                .Where(IsOpenVendorPurchaseOrder)
+                .Sum(GetOutstandingPurchaseBalance);
 
             decimal totalPurchased = vendorOrders.Sum(po => po.TotalAmount);
-            int openPoCount = vendorOrders.Count(po => string.Equals(po.Status, "Pending", StringComparison.OrdinalIgnoreCase) || string.Equals(po.Status, "Partial", StringComparison.OrdinalIgnoreCase));
+            int openPoCount = vendorOrders.Count(IsOpenVendorPurchaseOrder);
 
             if (vendor.TotalPurchased != totalPurchased)
                 _repo.UpdateTotalPurchased(vendorId, totalPurchased);
@@ -212,6 +254,8 @@ namespace HVAC_Pro_Desktop.Services
                 TDSSection = vendor.TDSSection,
                 TDSRate = vendor.TDSRate,
                 RCMApplicable = vendor.RCMApplicable,
+                IsSupplier = vendor.IsSupplier,
+                IsServiceVendor = vendor.IsServiceVendor,
                 BankAccountNumber = vendor.BankAccountNumber,
                 BankIFSC = vendor.BankIFSC,
                 BankAccountName = vendor.BankAccountName,
@@ -394,6 +438,7 @@ namespace HVAC_Pro_Desktop.Services
                     WHERE (sip.ItemName LIKE @item OR (@category <> '' AND sip.Category = @category))
                       AND ISNULL(v.IsActive, 1) = 1
                       AND ISNULL(v.IsArchived, 0) = 0
+                      AND ISNULL(v.IsSupplier, 1) = 1
                     ORDER BY sip.Rate ASC, v.VendorName ASC", conn))
                 {
                     supplierCmd.Parameters.AddWithValue("@item", "%" + itemDescription.Trim() + "%");
@@ -432,6 +477,7 @@ namespace HVAC_Pro_Desktop.Services
                         WHERE (pli.Description LIKE @item OR (@category <> '' AND pli.Description LIKE '%' + @category + '%'))
                           AND ISNULL(v.IsActive, 1) = 1
                           AND ISNULL(v.IsArchived, 0) = 0
+                          AND ISNULL(v.IsSupplier, 1) = 1
                         GROUP BY p.VendorID, v.VendorName, v.Phone, v.Email
                         HAVING MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) IS NOT NULL
                         ORDER BY MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) ASC", conn))
@@ -481,12 +527,40 @@ namespace HVAC_Pro_Desktop.Services
             vendor.BankIFSC = string.IsNullOrWhiteSpace(vendor.BankIFSC) ? null : vendor.BankIFSC.Trim().ToUpperInvariant();
             vendor.GSTRegistrationType = string.IsNullOrWhiteSpace(vendor.GSTRegistrationType) ? "Regular" : vendor.GSTRegistrationType.Trim();
             vendor.VendorType = string.IsNullOrWhiteSpace(vendor.VendorType) ? "Supplier" : vendor.VendorType.Trim();
+            ApplyRoleDefaults(vendor);
             vendor.MSMERegistered = string.IsNullOrWhiteSpace(vendor.MSMERegistered) ? "No" : vendor.MSMERegistered.Trim();
             vendor.SpecialisationTags = NormalizeTags(vendor.SpecialisationTags);
 
             OnGSTINChanged(vendor);
             if (string.Equals(vendor.GSTRegistrationType, "Unregistered", StringComparison.OrdinalIgnoreCase))
                 vendor.RCMApplicable = true;
+        }
+
+        /// <summary>Applies safe supplier/vendor role defaults from the legacy VendorType field.</summary>
+        private static void ApplyRoleDefaults(Vendor vendor)
+        {
+            if (vendor == null)
+                return;
+
+            string type = (vendor.VendorType ?? string.Empty).Trim();
+            bool supplierType = string.Equals(type, "Supplier", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "Distributor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "Trader", StringComparison.OrdinalIgnoreCase);
+            bool serviceType = string.Equals(type, "Vendor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "Subcontractor", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "Labour", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, "Service Provider", StringComparison.OrdinalIgnoreCase);
+
+            if (!vendor.IsSupplier && !vendor.IsServiceVendor)
+            {
+                vendor.IsSupplier = supplierType || !serviceType;
+                vendor.IsServiceVendor = serviceType;
+            }
+
+            if (supplierType)
+                vendor.IsSupplier = true;
+            if (serviceType)
+                vendor.IsServiceVendor = true;
         }
 
         private void ValidateVendorForSave(Vendor vendor)
@@ -503,6 +577,34 @@ namespace HVAC_Pro_Desktop.Services
             {
                 _duplicateCacheStamp = DateTime.MinValue;
                 _duplicateCache = new List<DuplicateGroupDto>();
+            }
+        }
+
+        /// <summary>Loads purchase orders for vendor metrics without blocking vendor master visibility.</summary>
+        private List<PurchaseOrder> SafeLoadPurchaseOrders(string context)
+        {
+            try
+            {
+                return _purchaseRepo.GetAll();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException(context, ex);
+                return new List<PurchaseOrder>();
+            }
+        }
+
+        /// <summary>Loads duplicate vendor ids without blanking the vendor dashboard when duplicate analysis fails.</summary>
+        private HashSet<int> SafeLoadDuplicateVendorIds()
+        {
+            try
+            {
+                return new HashSet<int>(DetectDuplicates().SelectMany(g => g.Vendors.Select(v => v.VendorId)));
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("VendorService.GetAllVendorsWithSummary.Duplicates", ex);
+                return new HashSet<int>();
             }
         }
 
@@ -534,6 +636,48 @@ namespace HVAC_Pro_Desktop.Services
 
             normalized = Regex.Replace(normalized, @"\s+", " ").Trim();
             return normalized;
+        }
+
+        private static bool IsOpenVendorPurchaseOrder(PurchaseOrder po)
+        {
+            if (po == null || po.IsPaymentCompleted)
+                return false;
+            if (po.TotalAmount > 0m && po.PaidAmount >= po.TotalAmount)
+                return false;
+
+            return IsPurchaseStatus(po.Status,
+                "Draft",
+                "Pending",
+                "Pending Approval",
+                "Approval Pending",
+                "Approved",
+                "Partial",
+                "Partially Received");
+        }
+
+        private static decimal GetOutstandingPurchaseBalance(PurchaseOrder po)
+        {
+            if (!IsOpenVendorPurchaseOrder(po))
+                return 0m;
+
+            if (po.BalanceDue > 0.01m)
+                return po.BalanceDue;
+
+            return po.PaidAmount <= 0.01m ? Math.Max(0m, po.TotalAmount) : 0m;
+        }
+
+        private static bool IsPurchaseStatus(string status, params string[] allowed)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return false;
+
+            foreach (string item in allowed)
+            {
+                if (string.Equals(status.Trim(), item, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private static DuplicateGroupDto CloneDuplicateGroup(DuplicateGroupDto group)

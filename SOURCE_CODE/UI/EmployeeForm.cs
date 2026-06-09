@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -42,6 +42,14 @@ namespace HVAC_Pro_Desktop.UI
         private Employee _currentEmployee;
         private EmployeeSalaryProfileDto _currentSalaryProfile;
         private byte[] _currentPhoto;
+        private bool _suppressEmployeeFilterEvents;
+        private int _tabDataEmployeeId;
+        private bool _jobsLoaded;
+        private bool _attendanceLoaded;
+        private bool _skillsLoaded;
+        private bool _documentsLoaded;
+        private bool _payrollLoaded;
+        private bool _initialLoadInProgress;
 
         private Button _btnNew;
         private Button _btnSave;
@@ -57,7 +65,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblOnLeave;
         private Label _lblStatus;
         private TextBox _txtSearch;
-        private ComboBox _cmbDepartmentFilter;
+        private ComboBox _cmbClientFilter;
         private ComboBox _cmbStatusFilter;
         private DataGridView _gridEmployees;
         private TabControl _tabs;
@@ -130,7 +138,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                LoadData();
+                BeginInitialLoad();
             }
             catch (Exception ex)
             {
@@ -139,51 +147,168 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        /// <summary>Starts the first employee page load asynchronously so navigation stays responsive.</summary>
+        private async void BeginInitialLoad()
+        {
+            if (_initialLoadInProgress)
+                return;
+
+            _initialLoadInProgress = true;
+            try
+            {
+                SetStatus("Loading employee module...", TextSecondary);
+                EmployeeInitialPayload payload = await Task.Run(() => LoadInitialPayload());
+                BindInitialPayload(payload);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("EmployeeForm.InitialLoad", ex);
+                SetStatus("Employee load failed: " + ex.Message, Red);
+            }
+            finally
+            {
+                _initialLoadInProgress = false;
+            }
+        }
+
+        /// <summary>Loads initial employee data without touching UI controls.</summary>
+        private EmployeeInitialPayload LoadInitialPayload()
+        {
+            var payload = new EmployeeInitialPayload();
+            try { payload.ExpiringSkills = _employeeService.GetExpiringSkills(30) ?? new List<EmployeeSkillDto>(); }
+            catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.ExpiringSkills", ex); }
+
+            try { payload.Stats = _employeeService.GetDashboardStats() ?? new EmployeeDashboardStats(); }
+            catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.Stats", ex); }
+
+            payload.EmployeeTable = LoadEmployeeTable(string.Empty, "All", "All");
+            payload.CheckedInTodayEmployeeIds = LoadCheckedInEmployeesTodaySet();
+            try
+            {
+                payload.SiteNames = _siteService.GetAll()
+                    .Select(SiteService.GetDisplayName)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList();
+            }
+            catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.Sites", ex); }
+
+            return payload;
+        }
+
+        /// <summary>Binds the initial employee payload after the async load completes.</summary>
+        private void BindInitialPayload(EmployeeInitialPayload payload)
+        {
+            payload = payload ?? new EmployeeInitialPayload();
+            _currentEmployee = null;
+            _currentSalaryProfile = new EmployeeSalaryProfileDto { EffectiveFrom = DateTime.Today };
+            _currentPhoto = null;
+            ClearCurrentEmployeeView();
+
+            _expiringSkills = payload.ExpiringSkills ?? new List<EmployeeSkillDto>();
+            _checkedInTodayEmployeeIds = payload.CheckedInTodayEmployeeIds ?? new HashSet<int>();
+            _lblTotalEmployees.Text = payload.Stats.TotalEmployees.ToString();
+            _lblActiveToday.Text = payload.Stats.ActiveToday.ToString();
+            _lblOnDuty.Text = payload.Stats.OnDuty.ToString();
+            _lblOnLeave.Text = payload.Stats.OnLeave.ToString();
+            UpdateExpiringBanner();
+            BindEmployeeTable(payload.EmployeeTable, string.Empty, "All", "All");
+
+            _suppressEmployeeFilterEvents = true;
+            try
+            {
+                PopulateLeftFilters();
+                PopulateSiteOptions(payload.SiteNames);
+            }
+            finally
+            {
+                _suppressEmployeeFilterEvents = false;
+            }
+
+            if (_gridEmployees.Rows.Count > 0)
+                _gridEmployees.Rows[0].Selected = true;
+
+            SetStatus("Employee module loaded.", TextSecondary);
+        }
+
         private void BuildLayout()
         {
             Controls.Clear();
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = PageBg, Padding = new Padding(24, 16, 24, 12) };
-            Panel titleStack = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
-            titleStack.Controls.Add(new Label { Text = "Employees > Workforce profile > Payroll readiness", Font = new Font("Segoe UI", 8.5F), ForeColor = TextSecondary, Dock = DockStyle.Bottom, Height = 24, TextAlign = ContentAlignment.MiddleLeft });
-            titleStack.Controls.Add(new Label { Text = "Employee Operations", Font = new Font("Segoe UI", 19F, FontStyle.Bold), ForeColor = TextPrimary, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft });
-            _btnNew = MakeButton("New Employee", Teal, Color.White, 120);
-            _btnSave = MakeButton("Save", Teal, Color.White, 90);
-            _btnDelete = MakeButton("Delete", Color.White, Red, 90);
-            _btnExport = MakeButton("Export", Color.White, TextPrimary, 90);
-            _btnImport = MakeButton("Import", Color.White, TextPrimary, 90);
-            _btnTemplate = MakeButton("Template", Color.White, TextPrimary, 96);
-            Button btnForms = MakeButton("Forms", Color.White, Blue, 86);
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = PageBg, Padding = Padding.Empty };
+            Panel titleStack = new Panel { BackColor = Color.Transparent, MinimumSize = new Size(320, 64) };
+            Label titleLabel = new Label
+            {
+                Text = "Employee Operations",
+                Font = new Font("Segoe UI", 19F, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                Location = new Point(0, 0),
+                Size = new Size(420, 36),
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            Label subtitleLabel = new Label
+            {
+                Text = "Employees > Workforce profile > Payroll readiness",
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = TextSecondary,
+                Location = new Point(1, 38),
+                Size = new Size(420, 20),
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            titleStack.Controls.Add(titleLabel);
+            titleStack.Controls.Add(subtitleLabel);
+            _btnNew = MakeButton("New Employee", Teal, Color.White, 118);
+            _btnSave = MakeButton("Save", Teal, Color.White, 76);
+            _btnDelete = MakeButton("Delete", Color.White, Red, 76);
+            _btnExport = MakeButton("Export", Color.White, TextPrimary, 76);
+            _btnImport = MakeButton("Import", Color.White, TextPrimary, 76);
+            _btnTemplate = MakeButton("Template", Color.White, TextPrimary, 86);
+            Button btnForms = MakeButton("Forms", Color.White, Blue, 76);
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
-            _btnWhatsapp = MakeButton("WhatsApp", Color.White, Blue, 100);
+            _btnWhatsapp = MakeButton("WhatsApp", Color.White, Blue, 92);
 
             _lblStatus = new Label
             {
                 AutoSize = false,
-                Width = 180,
-                Height = 36,
+                Location = new Point(1, 59),
+                Size = new Size(420, 18),
                 ForeColor = TextSecondary,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleRight,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true,
-                Margin = new Padding(8, 0, 0, 0)
+                Margin = Padding.Empty,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-            FlowLayoutPanel actions = new FlowLayoutPanel
+            Panel buttonRail = new Panel
             {
-                Dock = DockStyle.Right,
-                Width = 924,
-                AutoSize = false,
-                WrapContents = false,
-                AutoScroll = true,
-                FlowDirection = FlowDirection.RightToLeft,
+                Name = "EmployeeHeaderButtonRail",
                 Margin = Padding.Empty,
                 Padding = Padding.Empty,
-                MinimumSize = new Size(760, 36),
-                BackColor = Color.Transparent
+                BackColor = Color.Transparent,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            actions.Controls.AddRange(new Control[] { _lblStatus, _btnWhatsapp, _btnExport, _btnTemplate, btnForms, _btnImport, _btnDelete, _btnSave, _btnNew });
+            Button[] headerButtons = { _btnDelete, _btnImport, btnForms, _btnTemplate, _btnExport, _btnWhatsapp, _btnNew, _btnSave };
+            foreach (Button button in headerButtons)
+            {
+                button.AutoSize = false;
+                button.Height = 34;
+                button.Width = button == _btnNew ? 126 : 110;
+                button.MinimumSize = new Size(button.Width, button.Height);
+                button.Margin = Padding.Empty;
+                button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
+            }
+            buttonRail.Controls.AddRange(headerButtons);
+            titleStack.Controls.Add(_lblStatus);
             header.Controls.Add(titleStack);
-            header.Controls.Add(actions);
+            header.Controls.Add(buttonRail);
+            header.Resize += (s, e) => LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
+            header.Layout += (s, e) => LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
+            LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
 
             _lnkExpiringBanner = new LinkLabel
             {
@@ -247,17 +372,17 @@ namespace HVAC_Pro_Desktop.UI
             Button clearFilters = MakeButton("Clear", Color.White, Blue, 80);
             clearFilters.FlatAppearance.BorderColor = Border;
             clearFilters.FlatAppearance.BorderSize = 1;
-            _cmbDepartmentFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
+            _cmbClientFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
             _cmbStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
 
             Label lblSearch = new Label { Text = "Search employees", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 6) };
             _txtSearch.Location = new Point(14, 24);
             clearFilters.Location = new Point(252, 23);
-            Label lblDept = new Label { Text = "Department", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 58) };
-            _cmbDepartmentFilter.Location = new Point(14, 76);
+            Label lblClient = new Label { Text = "Client / Site", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 58) };
+            _cmbClientFilter.Location = new Point(14, 76);
             Label lblStatusFilter = new Label { Text = "Status", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(178, 58) };
             _cmbStatusFilter.Location = new Point(178, 76);
-            top.Controls.AddRange(new Control[] { lblSearch, _txtSearch, clearFilters, lblDept, _cmbDepartmentFilter, lblStatusFilter, _cmbStatusFilter });
+            top.Controls.AddRange(new Control[] { lblSearch, _txtSearch, clearFilters, lblClient, _cmbClientFilter, lblStatusFilter, _cmbStatusFilter });
 
             _gridEmployees = new DataGridView
             {
@@ -279,15 +404,15 @@ namespace HVAC_Pro_Desktop.UI
             _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Code", DataPropertyName = "EmployeeCode", Width = 80 });
             _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Name", DataPropertyName = "EmployeeName", Width = 180 });
             _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Designation", DataPropertyName = "Designation", Width = 130, AutoSizeMode = DataGridViewAutoSizeColumnMode.None });
-            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Department", DataPropertyName = "Department", Width = 140 });
+            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client / Site", DataPropertyName = "ClientSite", Width = 160 });
             StyleDataGrid(_gridEmployees);
 
             parent.Controls.Add(_gridEmployees);
             parent.Controls.Add(top);
 
-            _txtSearch.TextChanged += (s, e) => LoadEmployees();
-            _cmbDepartmentFilter.SelectedIndexChanged += (s, e) => LoadEmployees();
-            _cmbStatusFilter.SelectedIndexChanged += (s, e) => LoadEmployees();
+            _txtSearch.TextChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
+            _cmbClientFilter.SelectedIndexChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
+            _cmbStatusFilter.SelectedIndexChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
             clearFilters.Click += (s, e) => ClearEmployeeFilters();
             _gridEmployees.SelectionChanged += (s, e) => LoadSelectedEmployeeSafe();
             _gridEmployees.CellFormatting += GridEmployees_CellFormattingSafe;
@@ -320,6 +445,7 @@ namespace HVAC_Pro_Desktop.UI
             _tabs.TabPages.Add(BuildSkillsTab());
             _tabs.TabPages.Add(BuildDocumentsTab());
             _tabs.TabPages.Add(BuildPayrollTab());
+            _tabs.SelectedIndexChanged += (s, e) => LoadCurrentEmployeeTabData();
             wrap.Controls.Add(_tabs);
             parent.Controls.Add(wrap);
         }
@@ -662,8 +788,16 @@ namespace HVAC_Pro_Desktop.UI
                 LoadKpis();
                 UpdateExpiringBanner();
                 LoadEmployees();
-                PopulateLeftFilters();
-                PopulateSiteOptions();
+                _suppressEmployeeFilterEvents = true;
+                try
+                {
+                    PopulateLeftFilters();
+                    PopulateSiteOptions();
+                }
+                finally
+                {
+                    _suppressEmployeeFilterEvents = false;
+                }
 
                 if (_gridEmployees.Rows.Count > 0)
                     _gridEmployees.Rows[0].Selected = true;
@@ -746,51 +880,12 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 string search = (_txtSearch.Text ?? string.Empty).Trim();
-                string department = _cmbDepartmentFilter.SelectedItem as string ?? "All";
+                string clientSite = _cmbClientFilter.SelectedItem as string ?? "All";
                 string status = _cmbStatusFilter.SelectedItem as string ?? "All";
 
-                DataTable table = new DataTable();
-                using (SqlConnection conn = _db.GetConnection())
-                {
-                    conn.Open();
-                    using (SqlCommand cmd = new SqlCommand(@"
-                        SELECT EmployeeID, EmployeeCode, Name AS EmployeeName, Designation, Department, Status
-                        FROM dbo.Employees
-                        WHERE (@search = ''
-                               OR Name LIKE '%' + @search + '%'
-                               OR EmployeeCode LIKE '%' + @search + '%'
-                               OR Designation LIKE '%' + @search + '%')
-                          AND (@department = '' OR Department = @department)
-                          AND (@status = '' OR Status = @status)
-                        ORDER BY Name ASC;", conn))
-                    {
-                        cmd.Parameters.AddWithValue("@search", search);
-                        cmd.Parameters.AddWithValue("@department", string.Equals(department, "All", StringComparison.OrdinalIgnoreCase) ? string.Empty : department);
-                        cmd.Parameters.AddWithValue("@status", string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) ? string.Empty : status);
-
-                        using (SqlDataAdapter adapter = new SqlDataAdapter(cmd))
-                            adapter.Fill(table);
-                    }
-                }
-
+                DataTable table = LoadEmployeeTable(search, clientSite, status);
                 LoadCheckedInEmployeesToday();
-                _employeeSummaries = new List<EmployeeSummaryDto>();
-                foreach (DataRow row in table.Rows)
-                {
-                    _employeeSummaries.Add(new EmployeeSummaryDto
-                    {
-                        EmployeeID = row["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(row["EmployeeID"]),
-                        EmployeeCode = row["EmployeeCode"] == DBNull.Value ? string.Empty : Convert.ToString(row["EmployeeCode"]),
-                        Name = row["EmployeeName"] == DBNull.Value ? string.Empty : Convert.ToString(row["EmployeeName"]),
-                        Designation = row["Designation"] == DBNull.Value ? string.Empty : Convert.ToString(row["Designation"]),
-                        Department = row["Department"] == DBNull.Value ? string.Empty : Convert.ToString(row["Department"]),
-                        Status = row["Status"] == DBNull.Value ? string.Empty : Convert.ToString(row["Status"])
-                    });
-                }
-
-                _gridEmployees.DataSource = table;
-                if (table.Rows.Count == 0 && HasEmployeeFilters(search, department, status))
-                    SetStatus("No employees match current filters. Clear filters to show all employees.", Amber);
+                BindEmployeeTable(table, search, clientSite, status);
             }
             catch (Exception ex)
             {
@@ -800,11 +895,72 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        /// <summary>Loads employee grid rows using the real Employees.Name column.</summary>
+        private DataTable LoadEmployeeTable(string search, string clientSite, string status)
+        {
+            DataTable table = new DataTable();
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                        SELECT EmployeeID, EmployeeCode, Name AS EmployeeName, Designation, Department, ClientSite, Status
+                        FROM dbo.Employees
+                        WHERE (@search = ''
+                               OR Name LIKE '%' + @search + '%'
+                               OR EmployeeCode LIKE '%' + @search + '%'
+                               OR Designation LIKE '%' + @search + '%'
+                               OR ClientSite LIKE '%' + @search + '%')
+                          AND (@clientSite = '' OR ClientSite = @clientSite)
+                          AND (@status = '' OR Status = @status)
+                        ORDER BY Name ASC;", conn))
+                {
+                    cmd.Parameters.AddWithValue("@search", search ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@clientSite", string.Equals(clientSite, "All", StringComparison.OrdinalIgnoreCase) ? string.Empty : (clientSite ?? string.Empty));
+                    cmd.Parameters.AddWithValue("@status", string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) ? string.Empty : (status ?? string.Empty));
+
+                    using (SqlDataAdapter adapter = new SqlDataAdapter(cmd))
+                        adapter.Fill(table);
+                }
+            }
+
+            return table;
+        }
+
+        /// <summary>Binds employee grid rows and refreshes the in-memory summary list.</summary>
+        private void BindEmployeeTable(DataTable table, string search, string clientSite, string status)
+        {
+            table = table ?? new DataTable();
+            _employeeSummaries = new List<EmployeeSummaryDto>();
+            foreach (DataRow row in table.Rows)
+            {
+                _employeeSummaries.Add(new EmployeeSummaryDto
+                {
+                    EmployeeID = row["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(row["EmployeeID"]),
+                    EmployeeCode = row["EmployeeCode"] == DBNull.Value ? string.Empty : Convert.ToString(row["EmployeeCode"]),
+                    Name = row["EmployeeName"] == DBNull.Value ? string.Empty : Convert.ToString(row["EmployeeName"]),
+                    Designation = row["Designation"] == DBNull.Value ? string.Empty : Convert.ToString(row["Designation"]),
+                    Department = row["Department"] == DBNull.Value ? string.Empty : Convert.ToString(row["Department"]),
+                    ClientSite = row["ClientSite"] == DBNull.Value ? string.Empty : Convert.ToString(row["ClientSite"]),
+                    Status = row["Status"] == DBNull.Value ? string.Empty : Convert.ToString(row["Status"])
+                });
+            }
+
+            _gridEmployees.DataSource = table;
+            if (table.Rows.Count == 0 && HasEmployeeFilters(search, clientSite, status))
+                SetStatus("No employees match current filters. Clear filters to show all employees.", Amber);
+        }
+
         private void LoadCheckedInEmployeesToday()
         {
-            _checkedInTodayEmployeeIds.Clear();
+            _checkedInTodayEmployeeIds = LoadCheckedInEmployeesTodaySet();
+        }
+
+        /// <summary>Returns employees checked in today without touching UI state.</summary>
+        private HashSet<int> LoadCheckedInEmployeesTodaySet()
+        {
+            var ids = new HashSet<int>();
             if (!EmployeeAttendanceTableExists())
-                return;
+                return ids;
 
             try
             {
@@ -819,15 +975,16 @@ namespace HVAC_Pro_Desktop.UI
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
-                            _checkedInTodayEmployeeIds.Add(reader["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(reader["EmployeeID"]));
+                            ids.Add(reader["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(reader["EmployeeID"]));
                     }
                 }
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("EmployeeForm.LoadCheckedInEmployeesToday", ex);
-                SetStatus("Could not load employee duty status: " + ex.Message, Red);
             }
+
+            return ids;
         }
 
         private void GridEmployees_CellFormattingSafe(object sender, DataGridViewCellFormattingEventArgs e)
@@ -888,6 +1045,13 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
+                _tabDataEmployeeId = 0;
+                _jobsLoaded = false;
+                _attendanceLoaded = false;
+                _skillsLoaded = false;
+                _documentsLoaded = false;
+                _payrollLoaded = false;
+
                 using (SqlConnection conn = _db.GetConnection())
                 {
                     conn.Open();
@@ -955,22 +1119,10 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 _currentPhoto = _currentEmployee?.Photo;
-                try
-                {
-                    _currentSalaryProfile = _employeeService.GetSalaryProfile(employeeId) ?? new EmployeeSalaryProfileDto { EmployeeID = employeeId, EffectiveFrom = DateTime.Today };
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError("EmployeeForm.LoadEmployeeDetailsSafe.SalaryProfile", ex);
-                    _currentSalaryProfile = new EmployeeSalaryProfileDto { EmployeeID = employeeId, EffectiveFrom = DateTime.Today };
-                }
-
+                _currentSalaryProfile = new EmployeeSalaryProfileDto { EmployeeID = employeeId, EffectiveFrom = DateTime.Today };
                 BindOverviewSafe();
-                BindJobs();
-                RefreshAttendance();
-                BindSkills();
-                BindDocuments();
-                BindPayroll();
+                ClearDeferredTabData();
+                LoadCurrentEmployeeTabData();
                 SetStatus("Loaded " + (_currentEmployee?.Name ?? string.Empty), TextSecondary);
             }
             catch (Exception ex)
@@ -1013,7 +1165,20 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ClearCurrentEmployeeView()
         {
+            _tabDataEmployeeId = 0;
+            _jobsLoaded = false;
+            _attendanceLoaded = false;
+            _skillsLoaded = false;
+            _documentsLoaded = false;
+            _payrollLoaded = false;
             ClearOverviewFields();
+            ClearDeferredTabData();
+            if (_btnWhatsapp != null)
+                _btnWhatsapp.Enabled = false;
+        }
+
+        private void ClearDeferredTabData()
+        {
             _gridJobs.DataSource = null;
             _gridAttendance.DataSource = null;
             _gridSkills.DataSource = null;
@@ -1035,8 +1200,6 @@ namespace HVAC_Pro_Desktop.UI
             _txtEsicDeduction.Text = "0.00";
             SetDatePicker(_dtpSalaryEffectiveFrom, DateTime.Today);
             RecalculateSalaryLabels();
-            if (_btnWhatsapp != null)
-                _btnWhatsapp.Enabled = false;
         }
 
         private void ClearOverviewFields()
@@ -1437,14 +1600,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateLeftFilters()
         {
-            string department = _cmbDepartmentFilter.SelectedItem as string;
+            string clientSite = _cmbClientFilter.SelectedItem as string;
             string status = _cmbStatusFilter.SelectedItem as string;
 
-            _cmbDepartmentFilter.Items.Clear();
-            _cmbDepartmentFilter.Items.Add("All");
-            foreach (string item in _employeeSummaries.Select(x => x.Department).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x))
-                _cmbDepartmentFilter.Items.Add(item);
-            _cmbDepartmentFilter.SelectedItem = !string.IsNullOrWhiteSpace(department) && _cmbDepartmentFilter.Items.Contains(department) ? department : "All";
+            _cmbClientFilter.Items.Clear();
+            _cmbClientFilter.Items.Add("All");
+            foreach (string item in _employeeSummaries.Select(x => x.ClientSite).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x))
+                _cmbClientFilter.Items.Add(item);
+            _cmbClientFilter.SelectedItem = !string.IsNullOrWhiteSpace(clientSite) && _cmbClientFilter.Items.Contains(clientSite) ? clientSite : "All";
 
             _cmbStatusFilter.Items.Clear();
             _cmbStatusFilter.Items.AddRange(new object[] { "All", "Active", "Inactive", "Leave" });
@@ -1453,16 +1616,33 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateSiteOptions()
         {
-            string current = _cmbSite?.Text ?? string.Empty;
-            _cmbSite.Items.Clear();
+            List<string> siteNames = null;
             try
             {
-                foreach (string site in _siteService.GetAll().Select(SiteService.GetDisplayName).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
-                    _cmbSite.Items.Add(site);
+                siteNames = _siteService.GetAll()
+                    .Select(SiteService.GetDisplayName)
+                    .Where(s => !string.IsNullOrWhiteSpace(s))
+                    .Distinct()
+                    .OrderBy(s => s)
+                    .ToList();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("EmployeeForm.PopulateSiteOptions", ex);
+            }
+
+            PopulateSiteOptions(siteNames);
+        }
+
+        /// <summary>Populates the employee site picker from preloaded site names and employee summaries.</summary>
+        private void PopulateSiteOptions(IEnumerable<string> siteNames)
+        {
+            string current = _cmbSite?.Text ?? string.Empty;
+            _cmbSite.Items.Clear();
+            foreach (string site in (siteNames ?? Enumerable.Empty<string>()).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
+            {
+                if (_cmbSite.Items.IndexOf(site) < 0)
+                    _cmbSite.Items.Add(site);
             }
 
             foreach (string site in _employeeSummaries.Select(x => x.ClientSite).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x))
@@ -1481,11 +1661,19 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ClearEmployeeFilters()
         {
-            _txtSearch.Text = string.Empty;
-            if (_cmbDepartmentFilter.Items.Contains("All"))
-                _cmbDepartmentFilter.SelectedItem = "All";
-            if (_cmbStatusFilter.Items.Contains("All"))
-                _cmbStatusFilter.SelectedItem = "All";
+            _suppressEmployeeFilterEvents = true;
+            try
+            {
+                _txtSearch.Text = string.Empty;
+                if (_cmbClientFilter.Items.Contains("All"))
+                    _cmbClientFilter.SelectedItem = "All";
+                if (_cmbStatusFilter.Items.Contains("All"))
+                    _cmbStatusFilter.SelectedItem = "All";
+            }
+            finally
+            {
+                _suppressEmployeeFilterEvents = false;
+            }
             LoadEmployees();
         }
 
@@ -1570,6 +1758,78 @@ namespace HVAC_Pro_Desktop.UI
             _lblJobsTotal.Text = jobs.Count.ToString();
             _lblJobsCompleted.Text = jobs.Count(x => IsClosedStatus(x.Status)).ToString();
             _lblAverageClosure.Text = jobs.Count == 0 ? "0" : Math.Round(jobs.Average(x => x.ClosureDays), 1).ToString("0.0");
+        }
+
+        private void LoadCurrentEmployeeTabData()
+        {
+            if (_currentEmployee == null || _currentEmployee.EmployeeID <= 0 || _tabs == null)
+                return;
+
+            if (_tabDataEmployeeId != _currentEmployee.EmployeeID)
+            {
+                _tabDataEmployeeId = _currentEmployee.EmployeeID;
+                _jobsLoaded = false;
+                _attendanceLoaded = false;
+                _skillsLoaded = false;
+                _documentsLoaded = false;
+                _payrollLoaded = false;
+            }
+
+            switch (_tabs.SelectedIndex)
+            {
+                case 1:
+                    if (!_jobsLoaded)
+                    {
+                        BindJobs();
+                        _jobsLoaded = true;
+                    }
+                    break;
+                case 2:
+                    if (!_attendanceLoaded)
+                    {
+                        RefreshAttendance();
+                        _attendanceLoaded = true;
+                    }
+                    break;
+                case 3:
+                    if (!_skillsLoaded)
+                    {
+                        BindSkills();
+                        _skillsLoaded = true;
+                    }
+                    break;
+                case 4:
+                    if (!_documentsLoaded)
+                    {
+                        BindDocuments();
+                        _documentsLoaded = true;
+                    }
+                    break;
+                case 5:
+                    if (!_payrollLoaded)
+                    {
+                        LoadSalaryProfileForCurrentEmployee();
+                        BindPayroll();
+                        _payrollLoaded = true;
+                    }
+                    break;
+            }
+        }
+
+        private void LoadSalaryProfileForCurrentEmployee()
+        {
+            if (_currentEmployee == null || _currentEmployee.EmployeeID <= 0)
+                return;
+
+            try
+            {
+                _currentSalaryProfile = _employeeService.GetSalaryProfile(_currentEmployee.EmployeeID) ?? new EmployeeSalaryProfileDto { EmployeeID = _currentEmployee.EmployeeID, EffectiveFrom = DateTime.Today };
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("EmployeeForm.LoadSalaryProfileForCurrentEmployee", ex);
+                _currentSalaryProfile = new EmployeeSalaryProfileDto { EmployeeID = _currentEmployee.EmployeeID, EffectiveFrom = DateTime.Today };
+            }
         }
 
         private void RefreshAttendance()
@@ -1972,6 +2232,86 @@ namespace HVAC_Pro_Desktop.UI
             return button;
         }
 
+        /// <summary>Positions the Employee dashboard header so action buttons never force the page header to balloon vertically.</summary>
+        private void LayoutEmployeeHeader(Panel header, Panel titleStack, Panel buttonRail, Button[] headerButtons)
+        {
+            if (header == null || titleStack == null || buttonRail == null || headerButtons == null)
+                return;
+
+            const int outerPad = 24;
+            const int gap = 8;
+            bool compact = header.ClientSize.Width > 0 && header.ClientSize.Width < 1380;
+            int targetHeaderHeight = compact ? 118 : 92;
+            if (header.Height != targetHeaderHeight)
+                header.Height = targetHeaderHeight;
+
+            int railWidth = compact
+                ? Math.Min(560, Math.Max(360, header.ClientSize.Width - outerPad * 2))
+                : Math.Min(980, Math.Max(560, header.ClientSize.Width - 520));
+            int railHeight = compact ? 76 : 38;
+            buttonRail.SetBounds(
+                Math.Max(outerPad, header.ClientSize.Width - outerPad - railWidth),
+                compact ? 14 : 16,
+                railWidth,
+                railHeight);
+
+            int titleRight = compact ? header.ClientSize.Width - outerPad : buttonRail.Left - 18;
+            titleStack.SetBounds(outerPad, 12, Math.Max(320, titleRight - outerPad), compact ? 92 : 70);
+            foreach (Control child in titleStack.Controls)
+                child.Width = Math.Max(120, titleStack.ClientSize.Width - child.Left);
+
+            for (int i = 0; i < headerButtons.Length; i++)
+            {
+                Button button = headerButtons[i];
+                if (button == null)
+                    continue;
+
+                button.Width = button == _btnNew ? 126 : 110;
+                button.Height = 34;
+                button.MinimumSize = new Size(button.Width, button.Height);
+            }
+
+            if (compact)
+            {
+                LayoutHeaderButtonRow(headerButtons, 0, 4, 0, gap);
+                LayoutHeaderButtonRow(headerButtons, 4, headerButtons.Length - 4, 40, gap);
+            }
+            else
+            {
+                int x = 0;
+                foreach (Button button in headerButtons)
+                {
+                    if (button == null || !button.Visible)
+                        continue;
+
+                    button.SetBounds(x, 0, button.Width, 34);
+                    x += button.Width + gap;
+                }
+            }
+
+            buttonRail.Visible = true;
+            buttonRail.BringToFront();
+        }
+
+        /// <summary>Places a contiguous row of Employee header buttons inside the fixed header rail.</summary>
+        private void LayoutHeaderButtonRow(Button[] buttons, int startIndex, int count, int top, int gap)
+        {
+            if (buttons == null || startIndex >= buttons.Length || count <= 0)
+                return;
+
+            int x = 0;
+            int end = Math.Min(buttons.Length, startIndex + count);
+            for (int i = startIndex; i < end; i++)
+            {
+                Button button = buttons[i];
+                if (button == null || !button.Visible)
+                    continue;
+
+                button.SetBounds(x, top, button.Width, 34);
+                x += button.Width + gap;
+            }
+        }
+
         private Label AddKpiCard(TableLayoutPanel table, int column, string title, Color valueColor)
         {
             Panel card = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Margin = new Padding(column == 0 ? 0 : 10, 0, 0, 0), Padding = new Padding(14, 12, 14, 12) };
@@ -1991,7 +2331,16 @@ namespace HVAC_Pro_Desktop.UI
             return lblValue;
         }
 
-        private sealed class EmployeeSkillDialog : Form
+        private sealed class EmployeeInitialPayload
+        {
+            public EmployeeDashboardStats Stats { get; set; } = new EmployeeDashboardStats();
+            public List<EmployeeSkillDto> ExpiringSkills { get; set; } = new List<EmployeeSkillDto>();
+            public DataTable EmployeeTable { get; set; } = new DataTable();
+            public HashSet<int> CheckedInTodayEmployeeIds { get; set; } = new HashSet<int>();
+            public List<string> SiteNames { get; set; } = new List<string>();
+        }
+
+        private sealed class EmployeeSkillDialog : ServoERP.Infrastructure.ServoFormBase
         {
             private readonly TextBox _txtSkill;
             private readonly TextBox _txtCertification;
@@ -2026,7 +2375,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class EmployeeDocumentDialog : Form
+        private sealed class EmployeeDocumentDialog : ServoERP.Infrastructure.ServoFormBase
         {
             private readonly TextBox _txtType;
             private readonly DateTimePicker _dtpExpiry;
@@ -2060,4 +2409,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
 

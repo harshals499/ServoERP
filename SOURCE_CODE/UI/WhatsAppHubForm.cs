@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
@@ -10,14 +12,14 @@ using Microsoft.Web.WebView2.WinForms;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class WhatsAppHubForm : UserControl
+    public sealed class WhatsAppHubForm : BaseUserControl
     {
         private static readonly Color WhatsAppGreen = Color.FromArgb(22, 163, 74);
         private static readonly Color WhatsAppGreenDark = Color.FromArgb(5, 150, 105);
         private static readonly Color WhatsAppGreenLight = Color.FromArgb(220, 252, 231);
         private static readonly Color BubbleGreen = Color.FromArgb(220, 252, 231);
         private static readonly Color NoticeBack = Color.FromArgb(255, 251, 235);
-        private static readonly Color NoticeBorder = Color.FromArgb(253, 230, 138);
+        private static readonly Color NoticeBorder = DS.Border;
 
         private readonly WhatsAppHubService _service = new WhatsAppHubService();
         private readonly List<Button> _tabButtons = new List<Button>();
@@ -30,9 +32,11 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TextBox _messageInput = new TextBox();
         private readonly Label _conversationCount = new Label();
         private readonly Label _webStatus = new Label();
+        private readonly ToolTip _toolTip = new ToolTip();
         private WebView2 _whatsAppWeb;
         private Button _markSentButton;
         private WhatsAppQuickActionContext _pendingContext;
+        private BackgroundWorker _loadWorker;
 
         private List<WhatsAppContact> _contacts = new List<WhatsAppContact>();
         private List<WhatsAppTemplate> _templates = new List<WhatsAppTemplate>();
@@ -48,6 +52,10 @@ namespace HVAC_Pro_Desktop.UI
             DoubleBuffered = true;
             Load += (s, e) => LoadHubData();
             BuildLayout();
+            RenderLoadingState();
+            PageHeaderPolishService.Apply(this);
+            UIHelper.ApplyInputStyles(Controls);
+            InputOutlineService.ApplyToTree(this);
         }
 
         private void BuildLayout()
@@ -98,13 +106,13 @@ namespace HVAC_Pro_Desktop.UI
             };
             header.Controls.Add(subtitle);
 
-            Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White);
+            Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 36, "WhatsApp settings");
             settings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             settings.Location = new Point(header.Width - 42, 8);
             settings.Click += (s, e) => MessageBox.Show("WhatsApp Hub uses embedded WhatsApp Web or browser deep links only. ServoERP does not auto-send messages, scrape chats, or claim live sync without the official API.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
             header.Controls.Add(settings);
 
-            Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White);
+            Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 36, "Refresh WhatsApp contacts");
             refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             refresh.Location = new Point(header.Width - 92, 8);
             refresh.Click += (s, e) => LoadHubData();
@@ -209,7 +217,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel search = SearchBox(_conversationSearch, "Search or start new chat...");
             _conversationSearch.TextChanged += (s, e) => RenderConversations();
             searchRow.Controls.Add(search, 0, 0);
-            Button filter = IconOnlyButton(ModernIconKind.Filter, DS.Slate700, DS.White);
+            Button filter = IconOnlyButton(ModernIconKind.Filter, DS.Slate700, DS.White, 36, "Filter WhatsApp contacts");
             filter.Margin = new Padding(8, 0, 0, 0);
             filter.Dock = DockStyle.Fill;
             searchRow.Controls.Add(filter, 1, 0);
@@ -235,29 +243,83 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadHubData()
         {
+            if (_loadWorker != null && _loadWorker.IsBusy)
+                return;
+
             Cursor = Cursors.WaitCursor;
-            try
+            SetLoadingText("Loading contacts...");
+
+            _loadWorker = CreateWorker();
+            _loadWorker.DoWork += (s, e) =>
             {
-                _contacts = _service.LoadContacts()
+                List<WhatsAppContact> contacts = _service.LoadContacts()
                     .OrderByDescending(c => !string.IsNullOrWhiteSpace(c.Phone))
                     .ThenByDescending(c => c.LastMessageAt)
                     .ToList();
-                _templates = _service.LoadTemplates();
-                _selectedContact = _selectedContact == null
-                    ? _contacts.FirstOrDefault()
-                    : _contacts.FirstOrDefault(c => c.SourceType == _selectedContact.SourceType && c.SourceId == _selectedContact.SourceId) ?? _contacts.FirstOrDefault();
-                _selectedTemplate = _templates.FirstOrDefault(t => t.TemplateType == "Payment reminder") ?? _templates.FirstOrDefault();
-
-                _conversationCount.Text = _contacts.Count.ToString();
-                RenderTabs();
-                RenderConversations();
-                RenderChat();
-                RenderDetails();
-            }
-            finally
+                List<WhatsAppTemplate> templates = _service.LoadTemplates();
+                e.Result = new WhatsAppHubLoadResult { Contacts = contacts, Templates = templates };
+            };
+            _loadWorker.RunWorkerCompleted += (s, e) =>
             {
-                Cursor = Cursors.Default;
-            }
+                if (e.Error != null)
+                {
+                    AppLogger.LogError("WhatsAppHubForm.LoadHubData", e.Error);
+                    RunOnUI(() =>
+                    {
+                        Cursor = Cursors.Default;
+                        SetLoadingText("Could not load contacts. Click refresh to try again.");
+                    });
+                    ShowError( "Failed to load WhatsApp contacts. Please try again.", e.Error);
+                    return;
+                }
+                if (e.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    Cursor = Cursors.Default;
+                    var result = e.Result as WhatsAppHubLoadResult ?? new WhatsAppHubLoadResult();
+                    _contacts = result.Contacts ?? new List<WhatsAppContact>();
+                    _templates = result.Templates ?? new List<WhatsAppTemplate>();
+                    _selectedContact = _selectedContact == null
+                        ? _contacts.FirstOrDefault()
+                        : _contacts.FirstOrDefault(c => c.SourceType == _selectedContact.SourceType && c.SourceId == _selectedContact.SourceId) ?? _contacts.FirstOrDefault();
+                    _selectedTemplate = _templates.FirstOrDefault(t => t.TemplateType == "Payment reminder") ?? _templates.FirstOrDefault();
+
+                    _conversationCount.Text = _contacts.Count.ToString();
+                    RenderTabs();
+                    RenderConversations();
+                    RenderChat();
+                    RenderDetails();
+                });
+            };
+            _loadWorker.RunWorkerAsync();
+        }
+
+        private void RenderLoadingState()
+        {
+            _conversationCount.Text = "...";
+            SetLoadingText("Loading contacts...");
+            _detailHost.Controls.Clear();
+        }
+
+        private void SetLoadingText(string text)
+        {
+            if (_chatHost == null)
+                return;
+
+            _chatHost.SuspendLayout();
+            _chatHost.Controls.Clear();
+            Label loading = new Label
+            {
+                Dock = DockStyle.Fill,
+                Text = text,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = DS.BodyBold,
+                ForeColor = DS.Slate600,
+                BackColor = DS.White
+            };
+            _chatHost.Controls.Add(loading);
+            _chatHost.ResumeLayout();
         }
 
         private void RenderTabs()
@@ -426,13 +488,13 @@ namespace HVAC_Pro_Desktop.UI
                 header.Controls.Add(phone);
             }
 
-            Button more = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White);
+            Button more = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 36, "Chat settings");
             more.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             more.Location = new Point(header.Width - 58, 22);
-            Button video = IconOnlyButton(ModernIconKind.Activity, DS.Slate700, DS.White);
+            Button video = IconOnlyButton(ModernIconKind.Document, DS.Slate700, DS.White, 36, "Open related record");
             video.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             video.Location = new Point(header.Width - 106, 22);
-            Button call = IconOnlyButton(ModernIconKind.Phone, DS.Slate700, DS.White);
+            Button call = IconOnlyButton(ModernIconKind.Phone, DS.Slate700, DS.White, 36, "Call contact");
             call.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             call.Location = new Point(header.Width - 154, 22);
             header.Controls.Add(call);
@@ -450,7 +512,7 @@ namespace HVAC_Pro_Desktop.UI
             composer.Dock = DockStyle.Bottom;
             _chatHost.Controls.Add(composer);
 
-            Panel browserPanel = BuildWhatsAppWebPanel();
+            Panel browserPanel = HasUsablePhone(_selectedContact) ? BuildManualWhatsAppPanel() : BuildMissingPhonePanel();
             _chatHost.Controls.Add(browserPanel);
             browserPanel.BringToFront();
             composer.BringToFront();
@@ -470,8 +532,8 @@ namespace HVAC_Pro_Desktop.UI
             inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
             inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 56));
             inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Status, DS.Slate600, DS.White), 0, 0);
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Document, DS.Slate600, DS.White), 1, 0);
+            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Status, DS.Slate600, DS.White, 36, "Insert saved template"), 0, 0);
+            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Document, DS.Slate600, DS.White, 36, "Attach document reference"), 1, 0);
 
             Panel messageHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(12, 8, 12, 6), Margin = new Padding(4, 0, 4, 0) };
             DS.Rounded(messageHost, 10);
@@ -484,12 +546,23 @@ namespace HVAC_Pro_Desktop.UI
             messageHost.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 10);
             messageHost.Controls.Add(_messageInput);
             inputRow.Controls.Add(messageHost, 2, 0);
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Phone, DS.Slate600, DS.White), 3, 0);
+            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Phone, DS.Slate600, DS.White, 36, "Contact phone status"), 3, 0);
 
-            Button send = IconOnlyButton(ModernIconKind.Email, Color.White, WhatsAppGreen, 44);
+            Button send = IconOnlyButton(ModernIconKind.Email, Color.White, WhatsAppGreen, 44, "Open prefilled WhatsApp chat");
+            if (!HasUsablePhone(_selectedContact))
+            {
+                send.Enabled = false;
+                send.BackColor = DS.Slate200;
+                send.ForeColor = DS.Slate500;
+                send.Image = ModernIconSystem.IconBitmap(ModernIconKind.Email, 26, DS.Slate500);
+                send.FlatAppearance.BorderSize = 1;
+                send.FlatAppearance.BorderColor = DS.Border;
+                send.FlatAppearance.MouseOverBackColor = DS.Slate200;
+                _toolTip.SetToolTip(send, "Add a phone number before opening WhatsApp");
+            }
             send.Click += SendCurrentMessage;
             inputRow.Controls.Add(send, 4, 0);
-            _markSentButton = DS.GhostBtn("Mark as Sent", 108, 36);
+            _markSentButton = DS.GhostBtn("Mark Sent", 96, 36);
             _markSentButton.Enabled = false;
             _markSentButton.Margin = new Padding(6, 6, 0, 6);
             _markSentButton.Click += (s, e) => MarkPendingMessageSent();
@@ -545,6 +618,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (_selectedContact == null)
                     throw new InvalidOperationException("Select a contact before opening WhatsApp.");
+                if (!HasUsablePhone(_selectedContact))
+                    throw new InvalidOperationException("This contact does not have a saved phone number. Add a mobile number before opening WhatsApp.");
 
                 _pendingContext = BuildContext(_selectedContact, _selectedTemplate, _messageInput.Text);
                 string url = _service.BuildWhatsAppWebUrl(_pendingContext.Phone, _pendingContext.Message);
@@ -622,19 +697,72 @@ namespace HVAC_Pro_Desktop.UI
 
             _whatsAppWeb = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.White };
             browserHost.Controls.Add(_whatsAppWeb);
-            BeginInvoke((Action)(async () => await InitializeWhatsAppWebAsync()));
+            if (!IsDisposed && IsHandleCreated)
+                BeginInvoke((Action)(async () => await InitializeWhatsAppWebAsync()));
 
+            return host;
+        }
+
+        private Panel BuildManualWhatsAppPanel()
+        {
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(250, 252, 255), Padding = new Padding(28) };
+            Panel card = new Panel { Width = 520, Height = 190, BackColor = DS.White, Padding = new Padding(24) };
+            DS.Rounded(card, 12);
+            card.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
+            Label title = new Label { Text = "Ready to open WhatsApp", Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            Label body = new Label
+            {
+                Text = "Choose a template, review the message, then click send to open the prefilled WhatsApp Web chat. The embedded browser starts only when needed.",
+                Dock = DockStyle.Top,
+                Height = 74,
+                Font = DS.Body,
+                ForeColor = DS.Slate700
+            };
+            Label hint = new Label { Text = "ServoERP prepares the message; the operator sends it manually.", Dock = DockStyle.Top, Height = 28, Font = DS.Small, ForeColor = DS.Slate600 };
+            card.Controls.Add(hint);
+            card.Controls.Add(body);
+            card.Controls.Add(title);
+            host.Controls.Add(card);
+            host.Resize += (s, e) => card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
+            card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
+            _webStatus.Text = "WhatsApp Web will load when a chat is opened.";
+            return host;
+        }
+
+        private Panel BuildMissingPhonePanel()
+        {
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(250, 252, 255), Padding = new Padding(28) };
+            Panel card = new Panel { Width = 480, Height = 170, BackColor = DS.White, Padding = new Padding(24) };
+            DS.Rounded(card, 12);
+            card.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
+            Label title = new Label { Text = "Phone number required", Dock = DockStyle.Top, Height = 30, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            Label body = new Label
+            {
+                Text = "This contact cannot be opened in WhatsApp because no phone number is saved. Add the mobile number in the client, vendor, or employee record, then refresh this hub.",
+                Dock = DockStyle.Top,
+                Height = 70,
+                Font = DS.Body,
+                ForeColor = DS.Slate700
+            };
+            Label hint = new Label { Text = "Sending is disabled until the phone number is available.", Dock = DockStyle.Top, Height = 24, Font = DS.Small, ForeColor = DS.Red600 };
+            card.Controls.Add(hint);
+            card.Controls.Add(body);
+            card.Controls.Add(title);
+            host.Controls.Add(card);
+            host.Resize += (s, e) => card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
+            card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
+            _webStatus.Text = "Phone number missing.";
             return host;
         }
 
         private async System.Threading.Tasks.Task InitializeWhatsAppWebAsync()
         {
-            if (_whatsAppWeb == null || _whatsAppWeb.IsDisposed)
+            if (IsDisposed || _whatsAppWeb == null || _whatsAppWeb.IsDisposed)
                 return;
 
             if (!WebView2RuntimeHelper.IsRuntimeAvailable(out _, out string message))
             {
-                _webStatus.Text = "WebView2 runtime is not available. Use the browser link actions instead.";
+                SetWebStatus("WebView2 runtime is not available. Use the browser link actions instead.");
                 AppLogger.LogInfo("WhatsAppHubForm WebView2 unavailable: " + message);
                 return;
             }
@@ -642,23 +770,60 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 await _whatsAppWeb.EnsureCoreWebView2Async(await WebView2RuntimeHelper.CreateEnvironmentAsync());
+                if (IsDisposed || _whatsAppWeb == null || _whatsAppWeb.IsDisposed || _whatsAppWeb.CoreWebView2 == null)
+                    return;
                 _whatsAppWeb.CoreWebView2.Settings.AreDefaultContextMenusEnabled = true;
                 _whatsAppWeb.CoreWebView2.Settings.AreDevToolsEnabled = false;
                 _whatsAppWeb.CoreWebView2.NavigationCompleted += (s, e) =>
                 {
-                    _webStatus.Text = e.IsSuccess ? "WhatsApp Web ready. Session is stored in the ServoERP WebView2 user data folder." : "WhatsApp Web navigation failed.";
+                    SetWebStatus(e.IsSuccess ? "WhatsApp Web ready. Session is stored in the ServoERP WebView2 user data folder." : "WhatsApp Web navigation failed.");
                 };
                 _whatsAppWeb.Source = new Uri("https://web.whatsapp.com/");
+            }
+            catch (COMException ex)
+            {
+                const int OPERATION_ABORTED = unchecked((int)0x80004004);
+                if (ex.ErrorCode != OPERATION_ABORTED || (!IsDisposed && _whatsAppWeb != null && !_whatsAppWeb.IsDisposed))
+                    AppLogger.LogError("WhatsAppHubForm.InitializeWhatsAppWebAsync", ex);
+                SetWebStatus("Could not load embedded WhatsApp Web.");
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("WhatsAppHubForm.InitializeWhatsAppWebAsync", ex);
-                _webStatus.Text = "Could not load embedded WhatsApp Web.";
+                SetWebStatus("Could not load embedded WhatsApp Web.");
             }
+        }
+
+        private void SetWebStatus(string text)
+        {
+            try
+            {
+                if (IsDisposed || _webStatus == null || _webStatus.IsDisposed)
+                    return;
+                if (_webStatus.InvokeRequired)
+                {
+                    if (_webStatus.IsHandleCreated)
+                        _webStatus.BeginInvoke((Action)(() => SetWebStatus(text)));
+                    return;
+                }
+                _webStatus.Text = text;
+            }
+            catch { }
         }
 
         private void NavigateWhatsAppWeb(string url)
         {
+            if (_whatsAppWeb == null || _whatsAppWeb.IsDisposed)
+            {
+                RenderChat();
+                Control manualPanel = _chatHost.Controls.Cast<Control>().FirstOrDefault(c => c.Dock == DockStyle.Fill);
+                if (manualPanel != null)
+                    _chatHost.Controls.Remove(manualPanel);
+                Panel webPanel = BuildWhatsAppWebPanel();
+                _chatHost.Controls.Add(webPanel);
+                webPanel.BringToFront();
+            }
+
             if (_whatsAppWeb != null && _whatsAppWeb.CoreWebView2 != null)
             {
                 _whatsAppWeb.CoreWebView2.Navigate(url);
@@ -669,7 +834,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    if (!IsDisposed && _whatsAppWeb != null && _whatsAppWeb.CoreWebView2 != null)
+                    if (!IsDisposed && IsHandleCreated && _whatsAppWeb != null && _whatsAppWeb.CoreWebView2 != null)
                         BeginInvoke((Action)(() => _whatsAppWeb.CoreWebView2.Navigate(url)));
                 }
                 catch { }
@@ -684,7 +849,7 @@ namespace HVAC_Pro_Desktop.UI
             _detailHost.BackColor = DS.BgPage;
 
             int y = 0;
-            foreach (Control card in new[] { ContactCard(), QuickActionsCard(), OpenInvoicesCard(), RecentActionsCard(), LinkedRecordsCard() })
+            foreach (Control card in new[] { ContactCard(), QuickActionsCard(), OpenInvoicesCard(), LinkedRecordsCard() })
             {
                 card.Location = new Point(0, y);
                 card.Width = Math.Max(280, _detailHost.ClientSize.Width - 8);
@@ -771,44 +936,6 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(date);
             card.Controls.Add(amt);
             card.Controls.Add(pill);
-        }
-
-        private Control RecentActionsCard()
-        {
-            Panel card = RightCard("Recent WhatsApp Actions", 212);
-            LinkLabel view = new LinkLabel { Text = "View all", AutoSize = true, Location = new Point(card.Width - 70, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, LinkColor = DS.Primary600, Font = DS.Caption };
-            card.Controls.Add(view);
-            List<WhatsAppActionLog> logs = _service.LoadRecentActions(3);
-            if (logs.Count == 0)
-            {
-                AddActionRow(card, "No manual actions yet", "Open a prepared WhatsApp chat", "-", "Prepared", 58);
-                return card;
-            }
-
-            int y = 58;
-            foreach (WhatsAppActionLog log in logs)
-            {
-                AddActionRow(card, log.TemplateType, log.ActionDate.ToString("dd MMM HH:mm"), FirstNonEmpty(log.LinkedRecord, log.Module), NormalizeActionStatus(log.Status), y);
-                y += 46;
-            }
-            return card;
-        }
-
-        private void AddActionRow(Panel card, string title, string meta, string record, string statusText, int y)
-        {
-            Label icon = ModernIconSystem.Icon(ModernIconKind.Document, 15, DS.Slate700);
-            icon.Size = new Size(20, 20);
-            icon.Location = new Point(16, y + 2);
-            Label lbl = new Label { Text = title, Location = new Point(43, y), Size = new Size(130, 20), Font = DS.SmallBold, ForeColor = DS.Slate900 };
-            Label sub = new Label { Text = meta, Location = new Point(43, y + 20), Size = new Size(115, 18), Font = DS.Caption, ForeColor = DS.Slate500 };
-            Label rec = new Label { Text = record, Location = new Point(card.Width - 126, y), Size = new Size(74, 20), Font = DS.Small, ForeColor = DS.Slate800, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            Label status = new Label { Text = statusText, Location = new Point(card.Width - 98, y + 20), Size = new Size(90, 20), Font = DS.Caption, ForeColor = DS.Green600, BackColor = DS.Green50, TextAlign = ContentAlignment.MiddleCenter, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            DS.Rounded(status, 7);
-            card.Controls.Add(icon);
-            card.Controls.Add(lbl);
-            card.Controls.Add(sub);
-            card.Controls.Add(rec);
-            card.Controls.Add(status);
         }
 
         private Control LinkedRecordsCard()
@@ -949,7 +1076,7 @@ namespace HVAC_Pro_Desktop.UI
             return host;
         }
 
-        private Button IconOnlyButton(ModernIconKind kind, Color foreColor, Color backColor, int size = 36)
+        private Button IconOnlyButton(ModernIconKind kind, Color foreColor, Color backColor, int size = 36, string tooltip = null)
         {
             Button button = new Button
             {
@@ -968,7 +1095,17 @@ namespace HVAC_Pro_Desktop.UI
             button.FlatAppearance.BorderColor = backColor == WhatsAppGreen ? backColor : DS.Border;
             button.FlatAppearance.MouseOverBackColor = backColor == WhatsAppGreen ? WhatsAppGreenDark : DS.Slate50;
             DS.Rounded(button, size / 3);
+            if (!string.IsNullOrWhiteSpace(tooltip))
+            {
+                button.AccessibleName = tooltip;
+                _toolTip.SetToolTip(button, tooltip);
+            }
             return button;
+        }
+
+        private static bool HasUsablePhone(WhatsAppContact contact)
+        {
+            return contact != null && !string.IsNullOrWhiteSpace(contact.Phone);
         }
 
         private Panel Card(Padding padding, int radius)
@@ -1097,5 +1234,14 @@ namespace HVAC_Pro_Desktop.UI
             if (type == "Job") return "Service job update";
             return string.Empty;
         }
+
+        private sealed class WhatsAppHubLoadResult
+        {
+            public List<WhatsAppContact> Contacts { get; set; }
+            public List<WhatsAppTemplate> Templates { get; set; }
+        }
     }
 }
+
+
+

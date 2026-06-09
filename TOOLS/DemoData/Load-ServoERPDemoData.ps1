@@ -230,7 +230,7 @@ try {
         'SD CoolEdge HVAC Spares Pvt Ltd','SD Bharat Electrical Traders','SD AquaLine Plumbing Supplies','SD SafeGuard Fire Systems',
         'SD ThermoWrap Insulation LLP','SD Western Refrigeration Co','SD Metro Tools and Gauges','SD Prime Copper Tubes',
         'SD National Controls Corporation','SD AirFlow Filters India','SD Reliable Pumps and Valves','SD Zenith Safety Equipment',
-        'SD Shakti Switchgear House','SD BlueStar Service Consumables','SD Rapid Logistics and Crane','SD EcoChem Coil Cleaners',
+        'SD Shakti Switchgear House','SD Monsoon Service Consumables','SD Rapid Logistics and Crane','SD EcoChem Coil Cleaners',
         'SD Precision Duct Fabricators','SD Delta Compressor Works','SD City Hardware Mart','SD Galaxy PPE Suppliers'
     )
     for ($i = 0; $i -lt 20; $i++) {

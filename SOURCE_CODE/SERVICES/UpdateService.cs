@@ -1,23 +1,13 @@
-// Release update checklist:
-// 1. Bump version in AssemblyInfo.cs
-// 2. Build Release in Visual Studio
-// 3. Create app update ZIP from bin\Release
-// 4. Upload update ZIP to servoerp.in/updates/
-// 5. Update version.txt and changelog.json on Cloudflare Pages
-// Every client PC gets the update on next app launch.
-
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using System.IO;
-using System.Net.Http;
 using System.Reflection;
-using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
+using System.Windows.Forms;
+using Velopack;
+using Velopack.Exceptions;
+using Velopack.Sources;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -28,17 +18,126 @@ namespace HVAC_Pro_Desktop.Services
         public string DownloadUrl { get; set; }
         public string PackageUrl { get; set; }
         public string ChangelogText { get; set; }
+        public string StatusMessage { get; set; }
         public bool IsUpdateAvailable { get; set; }
+        public bool CanApplyUpdate { get; set; }
+        internal UpdateInfo VelopackUpdateInfo { get; set; }
     }
 
     public static class UpdateService
     {
-        private const string VersionUrl = "https://servoerp.in/version.txt";
-        private const string ChangelogUrl = "https://servoerp.in/changelog.json";
-        private const string DefaultInstallerDownloadUrl = "https://servoerp.in/download/";
-        private const string DefaultPackageBaseUrl = "https://servoerp.in/updates/";
+        public const string DefaultGitHubRepositoryUrl = "https://github.com/harshals499/ServoERP";
         private const string UpdatesFolder = @"C:\HVAC_PRO_MSE\UPDATES";
-        private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(6);
+        private const string LogContext = "Velopack update";
+        private static readonly object SilentUpdateSync = new object();
+        private static bool _silentUpdateWorkerRunning;
+        private static UpdateCheckResult _downloadedSilentUpdate;
+
+        public static string GetGitHubRepositoryUrl()
+        {
+            string configured = ConfigService.Get("App", "GitHubRepositoryUrl", DefaultGitHubRepositoryUrl);
+            return string.IsNullOrWhiteSpace(configured) ? DefaultGitHubRepositoryUrl : configured.Trim().TrimEnd('/');
+        }
+
+        public static string GetCurrentAssemblyVersion()
+        {
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            return version == null ? "0.0.0" : ToSemVer(version);
+        }
+
+        public static string GetLastUpdateStatus()
+        {
+            return ConfigService.Get("App", "LastUpdateCheckStatus", "Updates have not been checked in this session.");
+        }
+
+        /// <summary>Starts a best-effort background update check, silent download, and no-touch apply/restart.</summary>
+        public static void StartSilentBackgroundUpdateCheck(Control owner = null, Action<UpdateCheckResult> installingNotification = null)
+        {
+            if (!ConfigService.IsVersionCheckEnabled() || !ConfigService.IsSilentAutoUpdateEnabled())
+            {
+                AppLogger.LogInfo(LogContext + " silent check skipped: disabled.");
+                return;
+            }
+
+            if (!ShouldRunSilentUpdateCheck())
+            {
+                AppLogger.LogInfo(LogContext + " silent check skipped: interval not reached.");
+                return;
+            }
+
+            lock (SilentUpdateSync)
+            {
+                if (_silentUpdateWorkerRunning)
+                    return;
+
+                _silentUpdateWorkerRunning = true;
+            }
+
+            Task.Run(async () =>
+            {
+                UpdateCheckResult result = null;
+                try
+                {
+                    result = RunSilentUpdateCheckAndDownload();
+                    if (result != null && result.IsUpdateAvailable && result.CanApplyUpdate && ConfigService.ShouldApplySilentUpdateImmediately())
+                    {
+                        ServoERP.Infrastructure.UIThread.Post(owner, () => installingNotification?.Invoke(result));
+                        SaveLastStatus("ServoERP v" + result.LatestVersion + " is installing automatically. Please wait.");
+                        await Task.Delay(2500).ConfigureAwait(false);
+
+                        lock (SilentUpdateSync)
+                        {
+                            _downloadedSilentUpdate = null;
+                        }
+
+                        AppLogger.LogInfo(LogContext + " no-touch apply starting. latest=" + result.LatestVersion);
+                        ApplyUpdateAndRestart(result);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SaveLastStatus("Silent update check failed. ServoERP will continue normally. " + ex.Message);
+                    AppLogger.LogError("UpdateService.StartSilentBackgroundUpdateCheck", ex);
+                }
+                finally
+                {
+                    lock (SilentUpdateSync)
+                    {
+                        _silentUpdateWorkerRunning = false;
+                    }
+                }
+            });
+        }
+
+        /// <summary>Applies a downloaded silent update when ServoERP is closing.</summary>
+        public static bool TryApplySilentUpdateOnExit()
+        {
+            if (!ConfigService.ShouldApplySilentUpdateOnExit())
+                return false;
+
+            UpdateCheckResult update;
+            lock (SilentUpdateSync)
+            {
+                update = _downloadedSilentUpdate;
+                _downloadedSilentUpdate = null;
+            }
+
+            if (update == null || update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
+                return false;
+
+            try
+            {
+                AppLogger.LogInfo(LogContext + " applying downloaded silent update on app exit. latest=" + update.LatestVersion);
+                ApplyUpdateAndRestart(update);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SaveLastStatus("Silent update could not be applied on exit. " + ex.Message);
+                AppLogger.LogError("UpdateService.TryApplySilentUpdateOnExit", ex);
+                return false;
+            }
+        }
 
         public static Task<UpdateCheckResult> CheckForUpdatesAsync()
         {
@@ -47,460 +146,311 @@ namespace HVAC_Pro_Desktop.Services
 
         public static async Task<UpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken)
         {
+            string currentVersion = GetCurrentAssemblyVersion();
             var result = new UpdateCheckResult
             {
-                CurrentVersion = GetCurrentAssemblyVersion(),
-                LatestVersion = GetCurrentAssemblyVersion(),
-                DownloadUrl = GetInstallerDownloadUrl(),
+                CurrentVersion = currentVersion,
+                LatestVersion = currentVersion,
+                DownloadUrl = GetGitHubRepositoryUrl() + "/releases/latest",
                 PackageUrl = string.Empty,
                 ChangelogText = string.Empty,
-                IsUpdateAvailable = false
+                StatusMessage = "No update checked yet.",
+                IsUpdateAvailable = false,
+                CanApplyUpdate = false
             };
 
             try
             {
-                using (var client = new HttpClient())
-                using (var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                if (!ConfigService.IsVersionCheckEnabled())
                 {
-                    client.Timeout = RequestTimeout;
-                    timeout.CancelAfter(RequestTimeout);
-
-                    Task<string> versionTask = client.GetStringAsync(VersionUrl);
-                    Task<string> changelogTask = client.GetStringAsync(ChangelogUrl);
-
-                    string latestVersionText = (await versionTask.ConfigureAwait(false) ?? string.Empty).Trim();
-                    if (!IsValidVersion(latestVersionText))
-                        return result;
-
-                    result.LatestVersion = latestVersionText;
-                    result.IsUpdateAvailable = IsNewerVersion(result.LatestVersion, result.CurrentVersion);
-
-                    if (result.IsUpdateAvailable)
-                    {
-                        string changelogJson = string.Empty;
-                        try
-                        {
-                            changelogJson = await changelogTask.ConfigureAwait(false);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppLogger.LogInfo("Update changelog fetch failed silently: " + ex.Message);
-                        }
-
-                        ResolveDownloadUrls(changelogJson, result);
-                        result.ChangelogText = BuildChangelogText(changelogJson, result.LatestVersion);
-                    }
+                    result.StatusMessage = "Update checks are turned off in Settings.";
+                    SaveLastStatus(result.StatusMessage);
+                    return result;
                 }
+
+                string repositoryUrl = GetGitHubRepositoryUrl();
+                AppLogger.LogInfo(LogContext + " check started. source=" + repositoryUrl + " current=" + currentVersion);
+
+                UpdateManager manager = CreateManager(repositoryUrl);
+                string installedVersion = GetInstalledPackageVersion(manager, currentVersion);
+                string effectiveCurrentVersion = GetNewestVersion(currentVersion, installedVersion);
+                UpdateInfo update = await manager.CheckForUpdatesAsync().ConfigureAwait(false);
+                if (update == null)
+                {
+                    result.StatusMessage = "ServoERP is up to date. Checked " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) + ".";
+                    SaveLastStatus(result.StatusMessage);
+                    return result;
+                }
+
+                result.LatestVersion = update.TargetFullRelease == null ? currentVersion : update.TargetFullRelease.Version.ToString();
+                if (update.TargetFullRelease == null || !IsNewerVersion(result.LatestVersion, effectiveCurrentVersion))
+                {
+                    result.LatestVersion = effectiveCurrentVersion;
+                    result.StatusMessage = "ServoERP is up to date. Checked " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture) + ".";
+                    SaveLastStatus(result.StatusMessage);
+                    AppLogger.LogInfo(
+                        LogContext + " ignored non-newer target. current=" + currentVersion +
+                        " installed=" + installedVersion +
+                        " target=" + (update.TargetFullRelease == null ? "(none)" : update.TargetFullRelease.Version.ToString()));
+                    return result;
+                }
+
+                result.VelopackUpdateInfo = update;
+                result.PackageUrl = update.TargetFullRelease == null ? string.Empty : update.TargetFullRelease.FileName;
+                result.ChangelogText = BuildChangelogText(update);
+                result.IsUpdateAvailable = true;
+                result.CanApplyUpdate = update.TargetFullRelease != null;
+                result.StatusMessage = "Update available: v" + result.LatestVersion + ".";
+                SaveLastStatus(result.StatusMessage);
+                AppLogger.LogInfo(LogContext + " available. latest=" + result.LatestVersion + " package=" + result.PackageUrl);
+                return result;
+            }
+            catch (NotInstalledException ex)
+            {
+                result.StatusMessage = "ServoERP is running normally. Automatic updates will activate from the installed Desktop shortcut.";
+                SaveLastStatus(result.StatusMessage);
+                AppLogger.LogInfo(LogContext + " skipped: not a Velopack install. " + ex.Message);
+                return result;
             }
             catch (Exception ex)
             {
-                AppLogger.LogInfo("Startup update check failed silently: " + ex.Message);
+                result.StatusMessage = "Update check failed. ServoERP will continue normally. " + ex.Message;
+                SaveLastStatus(result.StatusMessage);
+                AppLogger.LogError("UpdateService.CheckForUpdatesAsync", ex);
                 result.IsUpdateAvailable = false;
+                result.CanApplyUpdate = false;
+                return result;
+            }
+        }
+
+        /// <summary>Runs the silent update check and download on a BackgroundWorker thread.</summary>
+        private static UpdateCheckResult RunSilentUpdateCheckAndDownload()
+        {
+            MarkSilentUpdateCheckAttempt();
+            UpdateCheckResult result = CheckForUpdatesAsync(CancellationToken.None).GetAwaiter().GetResult();
+            if (result == null || !result.IsUpdateAvailable || !result.CanApplyUpdate)
+                return result;
+
+            AppLogger.LogInfo(LogContext + " silent download starting. latest=" + result.LatestVersion);
+            DownloadUpdatePackageAsync(result, null, CancellationToken.None).GetAwaiter().GetResult();
+            BackupConfigurationFiles(result.LatestVersion);
+
+            lock (SilentUpdateSync)
+            {
+                _downloadedSilentUpdate = result;
             }
 
+            ConfigService.Set("App", "PendingSilentUpdateVersion", result.LatestVersion ?? string.Empty);
+            SaveLastStatus("ServoERP v" + result.LatestVersion + " downloaded silently. It will apply when ServoERP closes.");
+            AppLogger.LogInfo(LogContext + " silent download ready. latest=" + result.LatestVersion);
             return result;
+        }
+
+        /// <summary>Checks the configured silent update interval.</summary>
+        private static bool ShouldRunSilentUpdateCheck()
+        {
+            string raw = ConfigService.Get("App", "LastSilentUpdateCheckUtc", string.Empty);
+            DateTime lastCheckUtc;
+            if (!DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out lastCheckUtc))
+                return true;
+
+            int intervalHours = ConfigService.GetVersionCheckIntervalHours();
+            return DateTime.UtcNow.Subtract(lastCheckUtc).TotalHours >= intervalHours;
+        }
+
+        /// <summary>Records a silent update check attempt before network work starts.</summary>
+        private static void MarkSilentUpdateCheckAttempt()
+        {
+            ConfigService.Set("App", "LastSilentUpdateCheckUtc", DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture));
         }
 
         public static async Task<string> DownloadUpdatePackageAsync(UpdateCheckResult update, IProgress<int> progress, CancellationToken cancellationToken)
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
-
-            string packageUrl = update.PackageUrl;
-            if (string.IsNullOrWhiteSpace(packageUrl))
-                packageUrl = DefaultPackageBaseUrl + "ServoERP_Update_" + update.LatestVersion + ".zip";
+            if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
+                throw new InvalidOperationException("No Velopack update package is available to download.");
 
             Directory.CreateDirectory(UpdatesFolder);
-            string targetPath = Path.Combine(UpdatesFolder, "ServoERP_Update_" + update.LatestVersion + ".zip");
-            return await DownloadFileAsync(packageUrl, targetPath, "update package", progress, cancellationToken).ConfigureAwait(false);
+            string repositoryUrl = GetGitHubRepositoryUrl();
+            SaveLastStatus("Downloading update v" + update.LatestVersion + "...");
+            AppLogger.LogInfo(LogContext + " download started. latest=" + update.LatestVersion);
+
+            UpdateManager manager = CreateManager(repositoryUrl);
+            Action<int> progressAction = value =>
+            {
+                if (progress != null)
+                    progress.Report(value);
+            };
+            await manager.DownloadUpdatesAsync(update.VelopackUpdateInfo, progressAction, cancellationToken).ConfigureAwait(false);
+            string status = "Update v" + update.LatestVersion + " downloaded. Ready to restart.";
+            SaveLastStatus(status);
+            AppLogger.LogInfo(LogContext + " download completed. latest=" + update.LatestVersion);
+            return update.VelopackUpdateInfo.TargetFullRelease.FileName;
         }
 
-        public static async Task<string> DownloadInstallerAsync(UpdateCheckResult update, IProgress<int> progress, CancellationToken cancellationToken)
+        public static void ApplyUpdateAndRestart(UpdateCheckResult update)
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
+            if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
+                throw new InvalidOperationException("No downloaded Velopack update is ready to apply.");
 
-            string downloadUrl = update.DownloadUrl;
-            if (string.IsNullOrWhiteSpace(downloadUrl))
-                throw new InvalidOperationException("The update download URL is not configured.");
+            BackupConfigurationFiles(update.LatestVersion);
+            SaveLastStatus("Applying update v" + update.LatestVersion + " and restarting ServoERP...");
+            AppLogger.LogInfo(LogContext + " apply requested. latest=" + update.LatestVersion);
 
-            string fileName = "ServoERP_Setup_" + update.LatestVersion + ".exe";
-            string targetPath = Path.Combine(UpdatesFolder, fileName);
-            return await DownloadFileAsync(downloadUrl, targetPath, "installer", progress, cancellationToken).ConfigureAwait(false);
-        }
-
-        private static async Task<string> DownloadFileAsync(string downloadUrl, string targetPath, string expectedName, IProgress<int> progress, CancellationToken cancellationToken)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? UpdatesFolder);
-            string tempPath = targetPath + ".download";
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-
-            using (var client = new HttpClient())
-            {
-                client.Timeout = TimeSpan.FromMinutes(15);
-                downloadUrl = await ResolveDirectDownloadUrlAsync(client, downloadUrl, cancellationToken).ConfigureAwait(false);
-
-                using (HttpResponseMessage response = await client.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
-                {
-                    response.EnsureSuccessStatusCode();
-
-                    string contentType = response.Content.Headers.ContentType == null
-                        ? string.Empty
-                        : response.Content.Headers.ContentType.MediaType;
-                    if (contentType.IndexOf("html", StringComparison.OrdinalIgnoreCase) >= 0)
-                        throw new InvalidOperationException("The update link returned a web page, not a direct " + expectedName + " download.");
-
-                    long totalBytes = response.Content.Headers.ContentLength.GetValueOrDefault();
-                    long receivedBytes = 0;
-                    byte[] buffer = new byte[81920];
-
-                    using (Stream source = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
-                    using (FileStream target = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    {
-                        int read;
-                        while ((read = await source.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
-                        {
-                            await target.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
-                            receivedBytes += read;
-                            if (totalBytes > 0 && progress != null)
-                                progress.Report((int)Math.Min(100, receivedBytes * 100 / totalBytes));
-                        }
-                    }
-                }
-            }
-
-            if (File.Exists(targetPath))
-                File.Delete(targetPath);
-            File.Move(tempPath, targetPath);
-            progress?.Report(100);
-            return targetPath;
+            UpdateManager manager = CreateManager(GetGitHubRepositoryUrl());
+            manager.ApplyUpdatesAndRestart(update.VelopackUpdateInfo.TargetFullRelease, null);
         }
 
         public static void StartPackageUpdater(string packagePath)
         {
-            if (string.IsNullOrWhiteSpace(packagePath) || !File.Exists(packagePath))
-                throw new FileNotFoundException("Update package was not found.", packagePath);
-
-            Directory.CreateDirectory(UpdatesFolder);
-            string scriptPath = Path.Combine(UpdatesFolder, "Apply-ServoERPUpdate.ps1");
-            File.WriteAllText(scriptPath, BuildPackageUpdaterScript(), Encoding.UTF8);
-
-            string appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            string exeName = Path.GetFileName(Assembly.GetExecutingAssembly().Location);
-            int parentPid = System.Diagnostics.Process.GetCurrentProcess().Id;
-
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -ExecutionPolicy Bypass -File " + QuoteArg(scriptPath) +
-                            " -PackagePath " + QuoteArg(packagePath) +
-                            " -AppDir " + QuoteArg(appDir) +
-                            " -ExeName " + QuoteArg(exeName) +
-                            " -ParentPid " + parentPid.ToString(),
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
-            };
-            System.Diagnostics.Process.Start(startInfo);
+            throw new NotSupportedException("Legacy ZIP updates are disabled. ServoERP now applies updates through Velopack packages from GitHub Releases.");
         }
 
         public static void StartInstallerElevated(string installerPath)
         {
-            if (string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath))
-                throw new FileNotFoundException("Installer was not found.", installerPath);
-
-            var startInfo = new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = installerPath,
-                UseShellExecute = true,
-                Verb = "runas"
-            };
-            System.Diagnostics.Process.Start(startInfo);
+            throw new NotSupportedException("Manual installer launching is disabled for auto-updates. Upload and install Velopack setup assets from GitHub Releases.");
         }
 
-        public static string GetCurrentAssemblyVersion()
+        private static UpdateManager CreateManager(string repositoryUrl)
         {
-            Version version = Assembly.GetExecutingAssembly().GetName().Version;
-            return version == null ? "0.0.0.0" : version.ToString();
+            return new UpdateManager(new GithubSource(repositoryUrl, null, false, null), null, null);
         }
 
-        private static string GetInstallerDownloadUrl()
+        private static void BackupConfigurationFiles(string version)
         {
             try
             {
-                string configured = ConfigService.Get("App", "InstallerDownloadUrl", string.Empty);
-                if (!string.IsNullOrWhiteSpace(configured))
-                    return configured.Trim();
-            }
-            catch
-            {
-            }
+                string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
+                string safeVersion = string.IsNullOrWhiteSpace(version) ? "unknown" : version.Replace("/", "-").Replace("\\", "-");
+                string backupDir = Path.Combine(UpdatesFolder, "config-backup-v" + safeVersion + "-" + timestamp);
+                Directory.CreateDirectory(backupDir);
 
-            return DefaultInstallerDownloadUrl;
-        }
-
-        private static void ResolveDownloadUrls(string changelogJson, UpdateCheckResult result)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(changelogJson))
-                    return;
-
-                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
-                var root = serializer.Deserialize<Dictionary<string, object>>(changelogJson);
-                if (root == null || !root.TryGetValue("download", out object downloadObj))
-                    return;
-
-                var download = downloadObj as Dictionary<string, object>;
-                if (download == null)
-                    return;
-
-                string url = GetString(download, "url");
-                if (!string.IsNullOrWhiteSpace(url))
-                    result.DownloadUrl = ToAbsoluteServoErpUrl(url);
-
-                string packageUrl = GetString(download, "packageUrl");
-                if (string.IsNullOrWhiteSpace(packageUrl))
-                    packageUrl = GetString(download, "package");
-                if (!string.IsNullOrWhiteSpace(packageUrl))
-                    result.PackageUrl = ToAbsoluteServoErpUrl(packageUrl);
+                CopyIfExists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config"), Path.Combine(backupDir, "HVACPro.config"));
+                CopyIfExists(@"C:\HVAC_PRO_MSE\HVACPro.config", Path.Combine(backupDir, "HVACPro.root.config"));
+                CopyIfExists(AppDomain.CurrentDomain.SetupInformation.ConfigurationFile, Path.Combine(backupDir, "HVAC_Pro_Desktop.exe.config"));
+                AppLogger.LogInfo(LogContext + " config backup created: " + backupDir);
             }
             catch (Exception ex)
             {
-                AppLogger.LogInfo("Update download URL parse failed silently: " + ex.Message);
+                AppLogger.LogError("UpdateService.BackupConfigurationFiles", ex);
+                throw new InvalidOperationException("Could not back up ServoERP configuration before applying update. Update cancelled.", ex);
             }
         }
 
-        private static string ToAbsoluteServoErpUrl(string url)
+        private static void CopyIfExists(string source, string destination)
         {
-            if (Uri.TryCreate(url, UriKind.Absolute, out Uri absolute))
-                return absolute.ToString();
+            if (string.IsNullOrWhiteSpace(source) || !File.Exists(source))
+                return;
 
-            return new Uri(new Uri("https://servoerp.in/"), url.TrimStart('/')).ToString();
+            Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? UpdatesFolder);
+            File.Copy(source, destination, true);
         }
 
-        private static string QuoteArg(string value)
+        private static string BuildChangelogText(UpdateInfo update)
         {
-            return "\"" + (value ?? string.Empty).Replace("\"", "\\\"") + "\"";
+            if (update == null || update.TargetFullRelease == null)
+                return "No release notes were provided for this version.";
+
+            string notes = update.TargetFullRelease.NotesMarkdown;
+            if (string.IsNullOrWhiteSpace(notes))
+                notes = update.TargetFullRelease.NotesHTML;
+
+            return string.IsNullOrWhiteSpace(notes)
+                ? "No release notes were provided for this version."
+                : notes.Trim();
         }
 
-        private static string BuildPackageUpdaterScript()
+        private static void SaveLastStatus(string status)
         {
-            return @"
-param(
-  [Parameter(Mandatory=$true)][string]$PackagePath,
-  [Parameter(Mandatory=$true)][string]$AppDir,
-  [Parameter(Mandatory=$true)][string]$ExeName,
-  [Parameter(Mandatory=$true)][int]$ParentPid
-)
-$ErrorActionPreference = 'Stop'
-$logDir = Join-Path $AppDir 'LOGS'
-New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-$log = Join-Path $logDir 'update-apply.log'
-function Write-UpdateLog([string]$message) {
-  Add-Content -Path $log -Value ((Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + ' | ' + $message)
-}
-try {
-  Write-UpdateLog ('Starting update from ' + $PackagePath)
-  for ($i = 0; $i -lt 90; $i++) {
-    $p = Get-Process -Id $ParentPid -ErrorAction SilentlyContinue
-    if (-not $p) { break }
-    Start-Sleep -Seconds 1
-  }
-  Get-Process -Name 'HVAC_Pro_Desktop','ServoERP' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-  Start-Sleep -Seconds 2
-
-  $stage = Join-Path (Split-Path -Parent $PackagePath) ('stage-' + [IO.Path]::GetFileNameWithoutExtension($PackagePath))
-  if (Test-Path $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
-  New-Item -ItemType Directory -Force -Path $stage | Out-Null
-  Expand-Archive -LiteralPath $PackagePath -DestinationPath $stage -Force
-
-  $sourceDir = $stage
-  $expectedExe = Join-Path $stage $ExeName
-  if (-not (Test-Path -LiteralPath $expectedExe)) {
-    $exeMatch = Get-ChildItem -LiteralPath $stage -Recurse -Filter $ExeName -File -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $exeMatch) {
-      $exeMatch = Get-ChildItem -LiteralPath $stage -Recurse -Filter 'HVAC_Pro_Desktop.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-    }
-    if ($exeMatch) {
-      $sourceDir = Split-Path -Parent $exeMatch.FullName
-      Write-UpdateLog ('Using package source directory: ' + $sourceDir)
-    } else {
-      throw ('Update package does not contain ' + $ExeName)
-    }
-  }
-
-  $backupDir = Join-Path (Split-Path -Parent $PackagePath) ('backup-' + (Get-Date).ToString('yyyyMMdd-HHmmss'))
-  New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
-  foreach ($name in @($ExeName, 'HVAC_Pro_Desktop.exe.config')) {
-    $existing = Join-Path $AppDir $name
-    if (Test-Path -LiteralPath $existing) {
-      Copy-Item -LiteralPath $existing -Destination (Join-Path $backupDir $name) -Force -ErrorAction SilentlyContinue
-    }
-  }
-
-  Get-ChildItem -LiteralPath $sourceDir -Force | ForEach-Object {
-    if ($_.Name -ieq 'HVACPro.config') { return }
-    if ($_.Name -ieq 'LOGS') { return }
-    if ($_.Name -ieq 'UPDATES') { return }
-    if ($_.Name -ieq 'BACKUPS') { return }
-    $dest = Join-Path $AppDir $_.Name
-    Copy-Item -LiteralPath $_.FullName -Destination $dest -Recurse -Force
-  }
-
-  $updatedExe = Join-Path $AppDir $ExeName
-  if (-not (Test-Path -LiteralPath $updatedExe)) {
-    throw ('Updated executable was not found after copy: ' + $updatedExe)
-  }
-  $fileVersion = (Get-Item -LiteralPath $updatedExe).VersionInfo.FileVersion
-  Write-UpdateLog ('Update copied successfully. Installed file version: ' + $fileVersion)
-  Start-Process -FilePath (Join-Path $AppDir $ExeName)
-} catch {
-  Write-UpdateLog ('FAILED: ' + $_.Exception.Message)
-  Start-Process -FilePath (Join-Path $AppDir $ExeName) -ErrorAction SilentlyContinue
-}
-";
+            try
+            {
+                string text = (status ?? string.Empty).Trim();
+                ConfigService.Set("App", "LastUpdateCheckStatus", text);
+                AppLogger.LogInfo(LogContext + " status: " + text);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("UpdateService.SaveLastStatus", ex);
+            }
         }
 
-        private static async Task<string> ResolveDirectDownloadUrlAsync(HttpClient client, string url, CancellationToken cancellationToken)
+        /// <summary>Returns the Velopack installed package version, falling back to the running assembly version.</summary>
+        private static string GetInstalledPackageVersion(UpdateManager manager, string fallbackVersion)
         {
-            if (string.IsNullOrWhiteSpace(url) || !url.TrimEnd('/').EndsWith("/download", StringComparison.OrdinalIgnoreCase))
-                return url;
-
-            string html = await client.GetStringAsync(url).ConfigureAwait(false);
-            Match hrefMatch = Regex.Match(html, "<a\\s+[^>]*href=[\"'](?<url>https?://[^\"']+)[\"']", RegexOptions.IgnoreCase);
-            if (hrefMatch.Success)
-                return hrefMatch.Groups["url"].Value.Replace("&amp;", "&");
-
-            Match refreshMatch = Regex.Match(html, "url=(?<url>https?://[^\"'>\\s]+)", RegexOptions.IgnoreCase);
-            if (refreshMatch.Success)
-                return refreshMatch.Groups["url"].Value.Replace("&amp;", "&");
-
-            return url;
+            try
+            {
+                string version = manager == null || manager.CurrentVersion == null
+                    ? null
+                    : manager.CurrentVersion.ToString();
+                return string.IsNullOrWhiteSpace(version) ? fallbackVersion : version;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogInfo(LogContext + " installed version read failed: " + ex.Message);
+                return fallbackVersion;
+            }
         }
 
+        /// <summary>Returns the newest parseable version from two version strings.</summary>
+        private static string GetNewestVersion(string first, string second)
+        {
+            Version firstVersion;
+            Version secondVersion;
+            if (TryParseComparableVersion(first, out firstVersion) && TryParseComparableVersion(second, out secondVersion))
+                return secondVersion > firstVersion ? second : first;
+
+            return string.IsNullOrWhiteSpace(first) ? second : first;
+        }
+
+        /// <summary>Checks whether latest is greater than current after normalizing missing revision parts.</summary>
         private static bool IsNewerVersion(string latest, string current)
         {
-            try
-            {
-                return new Version(latest) > new Version(current);
-            }
-            catch
-            {
+            Version latestVersion;
+            Version currentVersion;
+            return TryParseComparableVersion(latest, out latestVersion)
+                && TryParseComparableVersion(current, out currentVersion)
+                && latestVersion > currentVersion;
+        }
+
+        /// <summary>Parses semantic versions like 1.0.148 and assembly versions like 1.0.148.0 as comparable four-part versions.</summary>
+        private static bool TryParseComparableVersion(string value, out Version version)
+        {
+            version = null;
+            string text = (value ?? string.Empty).Trim().TrimStart('v', 'V');
+            if (string.IsNullOrWhiteSpace(text))
                 return false;
-            }
-        }
 
-        private static bool IsValidVersion(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value) || value.Length > 64)
+            int suffixIndex = text.IndexOfAny(new[] { '-', '+' });
+            if (suffixIndex >= 0)
+                text = text.Substring(0, suffixIndex);
+
+            string[] parts = text.Split('.');
+            if (parts.Length < 2 || parts.Length > 4)
                 return false;
 
-            Version parsed;
-            return Version.TryParse(value.Trim(), out parsed);
-        }
-
-        private static string BuildChangelogText(string changelogJson, string latestVersion)
-        {
-            if (string.IsNullOrWhiteSpace(changelogJson))
-                return "No changelog details were provided for this version.";
-
-            try
+            int[] numbers = new[] { 0, 0, 0, 0 };
+            for (int i = 0; i < parts.Length; i++)
             {
-                var serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
-                var root = serializer.Deserialize<Dictionary<string, object>>(changelogJson);
-                if (root == null || !root.TryGetValue("versions", out object versionsObj))
-                    return "No changelog details were provided for this version.";
+                int parsed;
+                if (!int.TryParse(parts[i], NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed) || parsed < 0)
+                    return false;
 
-                var versions = versionsObj as IEnumerable;
-                if (versions == null || versionsObj is string)
-                    return "No changelog details were provided for this version.";
-
-                foreach (object versionObj in versions)
-                {
-                    var version = versionObj as Dictionary<string, object>;
-                    if (version == null)
-                        continue;
-
-                    string versionNumber = GetString(version, "version");
-                    if (!string.Equals(versionNumber, latestVersion, StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    return FormatVersionChangelog(version);
-                }
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogInfo("Update changelog parse failed silently: " + ex.Message);
+                numbers[i] = parsed;
             }
 
-            return "No changelog details were provided for this version.";
+            version = new Version(numbers[0], numbers[1], numbers[2], numbers[3]);
+            return true;
         }
 
-        private static string FormatVersionChangelog(Dictionary<string, object> version)
+        private static string ToSemVer(Version version)
         {
-            var builder = new StringBuilder();
-            string title = GetString(version, "title");
-            if (!string.IsNullOrWhiteSpace(title))
-                builder.AppendLine(title.Trim());
-
-            string date = GetString(version, "date");
-            if (!string.IsNullOrWhiteSpace(date))
-                builder.AppendLine("Released: " + date.Trim());
-
-            if (builder.Length > 0)
-                builder.AppendLine();
-
-            if (version.TryGetValue("changes", out object changesObj) && changesObj is IEnumerable changes && !(changesObj is string))
-            {
-                foreach (object changeObj in changes)
-                {
-                    var change = changeObj as Dictionary<string, object>;
-                    if (change == null)
-                        continue;
-
-                    string type = GetString(change, "type");
-                    if (!string.IsNullOrWhiteSpace(type))
-                        builder.AppendLine(ToTitleCase(type) + ":");
-
-                    if (change.TryGetValue("items", out object itemsObj) && itemsObj is IEnumerable items && !(itemsObj is string))
-                    {
-                        foreach (object item in items)
-                        {
-                            string text = Convert.ToString(item);
-                            if (!string.IsNullOrWhiteSpace(text))
-                                builder.AppendLine("  - " + text.Trim());
-                        }
-                    }
-
-                    builder.AppendLine();
-                }
-            }
-
-            string formatted = builder.ToString().Trim();
-            return string.IsNullOrWhiteSpace(formatted)
-                ? "No changelog details were provided for this version."
-                : formatted;
-        }
-
-        private static string GetString(Dictionary<string, object> source, string key)
-        {
-            if (source == null || !source.TryGetValue(key, out object value) || value == null)
-                return string.Empty;
-
-            return Convert.ToString(value) ?? string.Empty;
-        }
-
-        private static string ToTitleCase(string value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-                return string.Empty;
-
-            string normalized = value.Replace("_", " ").Replace("-", " ").Trim();
-            return string.Join(" ", normalized
-                .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(part => char.ToUpperInvariant(part[0]) + (part.Length > 1 ? part.Substring(1).ToLowerInvariant() : string.Empty)));
+            int patch = Math.Max(0, version.Build);
+            return version.Major.ToString(CultureInfo.InvariantCulture) + "." +
+                   version.Minor.ToString(CultureInfo.InvariantCulture) + "." +
+                   patch.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

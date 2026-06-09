@@ -15,6 +15,12 @@ namespace HVAC_Pro_Desktop.UI
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
         private bool _windowLayoutApplied;
 
+        protected BaseForm()
+        {
+            LanguageManager.LanguageChanged += OnLanguageChanged;
+            Disposed += (s, e) => LanguageManager.LanguageChanged -= OnLanguageChanged;
+        }
+
         protected bool IsSmallScreen
         {
             get { return Screen.FromControl(this).Bounds.Width < 1400 || DpiScale >= 1.25f; }
@@ -35,6 +41,55 @@ namespace HVAC_Pro_Desktop.UI
             ApplyWindowLayoutMemory();
             LayoutScaler.ApplyGlobalScale(this);
             ApplyIdeaPadLayout();
+            ApplyLanguage();
+            DS.ApplyTheme(this);
+            UIHelper.ApplyInputStyles(Controls);
+            InputOutlineService.ApplyToTree(this);
+            UIHelper.ApplyButtonAlignment(this);
+            SharedUiPrimitives.ApplyToTree(this);
+            CrashProtectionService.AttachToTree(this);
+            GlobalCardContextMenu.ApplyToTree(this);
+            GlobalDashboardLayoutService.ApplyToTree(this);
+            LayoutAuditService.AuditAndFix(this);
+        }
+
+        protected override void OnControlAdded(ControlEventArgs e)
+        {
+            base.OnControlAdded(e);
+            if (e.Control != null)
+            {
+                LanguageManager.ApplyControlTree(e.Control);
+                DS.ApplyTheme(e.Control);
+                UIHelper.ApplyInputStyle(e.Control);
+                UIHelper.ApplyInputStyles(e.Control.Controls);
+                InputOutlineService.ApplyToTree(e.Control);
+                UIHelper.ApplyButtonAlignment(e.Control);
+                SharedUiPrimitives.ApplyToTree(e.Control);
+                CrashProtectionService.AttachToTree(e.Control);
+                GlobalCardContextMenu.ApplyToTree(e.Control);
+                GlobalDashboardLayoutService.ApplyToTree(e.Control);
+                LayoutAuditService.AuditAndFix(e.Control);
+            }
+        }
+
+        /// <summary>Refreshes translated labels and language-specific fonts.</summary>
+        protected virtual void ApplyLanguage()
+        {
+            LanguageManager.ApplyFont(this);
+        }
+
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action)ApplyLanguage);
+                return;
+            }
+
+            ApplyLanguage();
         }
 
         protected override void OnFormClosing(FormClosingEventArgs e)

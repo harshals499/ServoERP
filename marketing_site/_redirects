@@ -1,6 +1,9 @@
 /version.txt /version.txt 200
 /changelog.json /changelog.json 200
-/download/* /download/:splat 200
+/latest.json /latest.json 200
+/download /download/index.html 200
+/download/* /download/index.html 200
+/updates /404.html 404
 /updates/* /updates/:splat 200
 / /index.html 200
 /* /404.html 404

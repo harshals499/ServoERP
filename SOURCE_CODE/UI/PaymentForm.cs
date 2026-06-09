@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.UI.Controls;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -41,6 +43,7 @@ namespace HVAC_Pro_Desktop.UI
         private DateTimePicker _dtpPayDate;
         private NumericUpDown  _numAmount;
         private TextBox        _txtRef, _txtNotes;
+        private Panel _payClientHost, _payInvoiceHost, _payAmountHost, _payDateHost, _payModeHost, _payRefHost, _payNotesHost;
         private AutoCompleteStringCollection _clientEntrySource = new AutoCompleteStringCollection();
         private AutoCompleteStringCollection _invoiceSource = new AutoCompleteStringCollection();
 
@@ -58,6 +61,8 @@ namespace HVAC_Pro_Desktop.UI
         private List<Invoice> _invoiceLookup = new List<Invoice>();
         private List<Payment> _filteredPayments = new List<Payment>();
         private int _renderedPayments;
+        private bool _invoiceDropdownLoading;
+        private bool _recordPaymentInProgress;
         private const int PaymentBatchSize = 60;
 
         // â”€â”€ Colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -70,12 +75,14 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color PaySurface = Color.White;
         private static readonly Color PayText = Color.FromArgb(15, 23, 42);
         private static readonly Color PayMuted = Color.FromArgb(100, 116, 139);
-        private static readonly Color PayBorder = Color.FromArgb(226, 232, 240);
+        private static readonly Color PayBorder = DS.Border;
         private static readonly Color PayRed = Color.FromArgb(239, 68, 68);
         private static readonly Color PayPurple = Color.FromArgb(124, 58, 237);
 
         private static bool UsePaymentsOverview { get { return true; } }
-        private readonly NotificationCenterService _notificationSvc = new NotificationCenterService();
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
         private List<PaymentTxn> _overviewTransactions = new List<PaymentTxn>();
         private List<ReceivableRow> _overviewReceivables = new List<ReceivableRow>();
         private DateTime _overviewStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
@@ -83,19 +90,21 @@ namespace HVAC_Pro_Desktop.UI
         private string _overviewTab = "All Transactions";
         private int _overviewPage = 1;
         private bool _showOverview = true;
-        private const int OverviewPageSize = 8;
+        private int _overviewPageSize = 10;
         private FlowLayoutPanel _payStatsFlow;
         private PayCashFlowChart _payCashChart;
         private PayDonutChart _payDonutChart;
         private TableLayoutPanel _agingTable;
         private FlowLayoutPanel _methodList;
         private TableLayoutPanel _txnTable;
-        private FlowLayoutPanel _txnPager;
+        private GlobalPaginationControl _txnPager;
         private FlowLayoutPanel _settlementsList;
         private FlowLayoutPanel _alertsList;
         private TextBox _txnSearch;
         private ComboBox _txnTypeFilter;
         private Label _dateRangeLabel;
+        private bool _paymentsOverviewLoading;
+        private Timer _paymentsOverviewLoadTimer;
 
         public PaymentForm()
         {
@@ -103,24 +112,106 @@ namespace HVAC_Pro_Desktop.UI
             this.BackColor = DS.BgPage;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Payments");
             ApplyPaymentActionHierarchy(Controls);
             ApplyPermissions();
+            NormalizePaymentEditorCards();
             Func<Task> loader = UsePaymentsOverview && _showOverview ? (Func<Task>)LoadPaymentsOverviewAsync : LoadInitialDataAsync;
             EnableDeferredLoad(
                 loader,
-                ex => { if (_lblStatus != null) { _lblStatus.Text = "Load error: " + ex.Message; _lblStatus.ForeColor = Color.Red; } });
+                ex =>
+                {
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Loading payments", ex);
+                    if (_lblStatus != null)
+                    {
+                        _lblStatus.Text = "Payments could not load. Refresh and try again.";
+                        _lblStatus.ForeColor = Color.Red;
+                    }
+                });
         }
 
-        private async Task LoadPaymentsOverviewAsync()
+        protected override void OnLoad(EventArgs e)
         {
-            var paymentsTask = Task.Run(() => _paySvc.GetAllPayments() ?? new List<Payment>());
-            var invoicesTask = Task.Run(() => _invSvc.GetAllInvoices() ?? new List<Invoice>());
-            await Task.WhenAll(paymentsTask, invoicesTask);
-            _allPayments = paymentsTask.Result;
-            _invoiceLookup = invoicesTask.Result;
-            BuildOverviewData();
-            if (_showOverview && IsHandleCreated)
-                BeginInvoke((Action)(() => { if (_showOverview) RefreshPaymentsOverview(); }));
+            base.OnLoad(e);
+            NormalizePaymentEditorCards();
+            BeginInvoke((Action)NormalizePaymentEditorCards);
+        }
+
+        private Task LoadPaymentsOverviewAsync()
+        {
+            QueuePaymentsOverviewLoad();
+            return Task.CompletedTask;
+        }
+
+        private void QueuePaymentsOverviewLoad()
+        {
+            if (_paymentsOverviewLoading || _paymentsOverviewLoadTimer != null)
+                return;
+
+            _paymentsOverviewLoadTimer = new Timer { Interval = 1200 };
+            _paymentsOverviewLoadTimer.Tick += (s, e) =>
+            {
+                _paymentsOverviewLoadTimer.Stop();
+                _paymentsOverviewLoadTimer.Dispose();
+                _paymentsOverviewLoadTimer = null;
+                if (_showOverview && Visible && !IsDisposed)
+                    StartPaymentsOverviewLoad();
+            };
+            _paymentsOverviewLoadTimer.Start();
+        }
+
+        private void StartPaymentsOverviewLoad()
+        {
+            if (_paymentsOverviewLoading)
+                return;
+
+            _paymentsOverviewLoading = true;
+            if (_lblStatus != null)
+                ShowStatus("Loading payment overview...", Color.Gray);
+
+            var worker = CreateWorker();
+            worker.DoWork += (s, e) =>
+            {
+                e.Result = new PaymentOverviewSnapshot
+                {
+                    Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
+                    Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                };
+            };
+            worker.RunWorkerCompleted += (s, e) =>
+            {
+                if (e.Error != null)
+                {
+                    RunOnUI(() =>
+                    {
+                        _paymentsOverviewLoading = false;
+                        ShowStatus("Payments could not load. Refresh and try again.", PayRed);
+                    });
+                    ShowError( "Failed to load payment overview. Please try again.", e.Error);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Loading payment overview", e.Error);
+                    return;
+                }
+                if (e.Cancelled) return;
+
+                RunOnUI(() =>
+                {
+                    _paymentsOverviewLoading = false;
+                    PaymentOverviewSnapshot snapshot = e.Result as PaymentOverviewSnapshot ?? new PaymentOverviewSnapshot();
+                    _allPayments = snapshot.Payments ?? new List<Payment>();
+                    _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                    BuildOverviewData();
+                    if (_showOverview && !IsDisposed)
+                        RefreshPaymentsOverview();
+                });
+            };
+            worker.RunWorkerAsync();
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+            if (Visible && _showOverview && !_paymentsOverviewLoading && (_overviewTransactions == null || _overviewTransactions.Count == 0))
+                QueuePaymentsOverviewLoad();
         }
 
         private async Task LoadInitialDataAsync()
@@ -158,25 +249,28 @@ namespace HVAC_Pro_Desktop.UI
             Panel header = new Panel { Dock = DockStyle.Top, Height = 94, BackColor = DS.BgPage, Padding = new Padding(28, 16, 28, 10) };
             Label title = new Label { Text = "PAYMENT RECORDING", Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 18), Width = 390, Height = 30 };
             Label subtitle = new Label { Text = "Record, reconcile and review customer invoice payments.", Font = DS.Body, ForeColor = DS.Slate600, Location = new Point(29, 53), Width = 520, Height = 22 };
-            FlowLayoutPanel headerActions = new FlowLayoutPanel
+            Panel headerActions = new Panel
             {
                 Dock = DockStyle.Right,
                 Width = 768,
                 Height = 46,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
                 Padding = new Padding(0, 10, 0, 0),
                 BackColor = Color.Transparent
             };
 
             _btnNewPayment = MakeBtn("+ New Payment", DS.Primary600, 130);
             Button btnRefresh = MakeBtn("Refresh", DS.White, 88, DS.Slate700, DS.BorderStrong);
-            Button btnImport = MakeBtn("Import", DS.White, 88, DS.Slate700, DS.BorderStrong);
-            Button btnTemplate = MakeBtn("Template", DS.White, 100, DS.Slate700, DS.BorderStrong);
-            Button btnForms = MakeBtn("Forms", DS.White, 86, DS.Primary600, DS.BorderStrong);
-            Button btnBackToOverview = MakeBtn("<- Overview", DS.White, 112, DS.Slate700, DS.BorderStrong);
-            foreach (Button button in new[] { _btnNewPayment, btnRefresh, btnImport, btnTemplate, btnForms, btnBackToOverview })
-                button.Margin = new Padding(10, 0, 0, 0);
+            Button btnImport = MakeBtn("Import Excel", DS.White, 104, DS.Slate700, DS.BorderStrong);
+            Button btnTemplate = MakeBtn("Excel Template", DS.White, 116, DS.Slate700, DS.BorderStrong);
+            Button btnForms = MakeBtn("Service Forms", DS.White, 108, DS.Primary600, DS.BorderStrong);
+            Button btnBackToOverview = MakeBtn("Back to Overview", DS.White, 132, DS.Slate700, DS.BorderStrong);
+            Button[] headerButtons = { _btnNewPayment, btnRefresh, btnImport, btnTemplate, btnForms, btnBackToOverview };
+            foreach (Button button in headerButtons)
+            {
+                button.Margin = Padding.Empty;
+                button.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
+            }
             ModernIconSystem.AddButtonIcon(_btnNewPayment, ModernIconKind.Payment);
             ModernIconSystem.AddButtonIcon(btnRefresh, ModernIconKind.Refresh);
             ModernIconSystem.AddButtonIcon(btnImport, ModernIconKind.Import);
@@ -185,10 +279,22 @@ namespace HVAC_Pro_Desktop.UI
             _btnNewPayment.Click += (s, e) => StartNewPayment();
             btnBackToOverview.Click += async (s, e) => await BackToPaymentsOverviewAsync();
             btnRefresh.Click += (s, e) => LoadPaymentHistory();
-            btnImport.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.Payments, FindForm());
+            btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Payments, FindForm());
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Payments, FindForm());
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payments", "Finance / Payments", null, "payment receipt collections follow-up invoice approval credit note customer sign-off");
-            headerActions.Controls.AddRange(new Control[] { btnBackToOverview, btnTemplate, btnForms, btnImport, btnRefresh, _btnNewPayment });
+            headerActions.Controls.AddRange(headerButtons.Cast<Control>().ToArray());
+            Action layoutHeaderButtons = () =>
+            {
+                int actionRight = headerActions.ClientSize.Width;
+                foreach (Button button in headerButtons)
+                {
+                    actionRight -= button.Width;
+                    button.Location = new Point(Math.Max(0, actionRight), 10);
+                    actionRight -= 10;
+                }
+            };
+            headerActions.Resize += (s, e) => layoutHeaderButtons();
+            layoutHeaderButtons();
             header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
 
             _lblStatus = new Label { AutoSize = false, Font = DS.Small, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleLeft };
@@ -247,20 +353,20 @@ namespace HVAC_Pro_Desktop.UI
         {
             Controls.Clear();
             BackColor = PayPageBg;
-            Panel root = new Panel { Dock = DockStyle.Fill, BackColor = PayPageBg, Padding = new Padding(22, 16, 22, 16) };
+            Panel root = new Panel { Dock = DockStyle.Fill, BackColor = PayPageBg, Padding = new Padding(22, 18, 22, 16) };
             Control header = BuildPaymentsOverviewHeader();
-            header.Dock = DockStyle.Top;
-            header.Height = 58;
+            header.Dock = DockStyle.Fill;
 
             TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = PayPageBg };
             body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 292));
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 330));
             body.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             Panel main = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PayPageBg, Padding = new Padding(0, 0, 10, 0) };
             FlowLayoutPanel stack = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = PayPageBg };
-            _payStatsFlow = new FlowLayoutPanel { Height = 100, WrapContents = false, AutoScroll = true, BackColor = PayPageBg, Padding = new Padding(0, 2, 0, 4) };
+            _payStatsFlow = new FlowLayoutPanel { Height = 98, WrapContents = false, AutoScroll = false, BackColor = PayPageBg, Padding = new Padding(0, 2, 0, 4) };
             stack.Controls.Add(_payStatsFlow);
+            stack.Controls.Add(BuildPaymentsWorkflowRow());
             stack.Controls.Add(BuildPaymentsChartsRow());
             stack.Controls.Add(BuildTransactionsCard());
             main.Controls.Add(stack);
@@ -273,8 +379,12 @@ namespace HVAC_Pro_Desktop.UI
 
             body.Controls.Add(main, 0, 0);
             body.Controls.Add(BuildPaymentsRightSidebar(), 1, 0);
-            root.Controls.Add(body);
-            root.Controls.Add(header);
+            TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PayPageBg, ColumnCount = 1, RowCount = 2 };
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 86f));
+            shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            shell.Controls.Add(header, 0, 0);
+            shell.Controls.Add(body, 0, 1);
+            root.Controls.Add(shell);
             Controls.Add(root);
             BuildOverviewData();
             if (_showOverview && IsHandleCreated)
@@ -292,32 +402,47 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildPaymentsOverviewHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PayPageBg };
-            header.Controls.Add(new Label { Text = "Payments Management", Location = new Point(0, 0), Size = new Size(330, 26), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = PayText });
-            header.Controls.Add(new Label { Text = "Track, reconcile and manage all incoming and outgoing payments.", Location = new Point(1, 29), Size = new Size(520, 20), Font = new Font("Segoe UI", 8.8f), ForeColor = PayMuted });
+            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PayPageBg, Padding = new Padding(0, 0, 0, 8) };
+            Label title = new Label { Text = "Payments Management", Location = new Point(0, 0), Size = new Size(360, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = PayText, BackColor = PayPageBg };
+            Label subtitle = new Label { Text = "Track receipts, receivables, refunds, and supplier payments.", Location = new Point(1, 31), Size = new Size(560, 20), Font = new Font("Segoe UI", 8.8f), ForeColor = PayMuted, BackColor = PayPageBg };
+            header.Controls.Add(title);
+            header.Controls.Add(subtitle);
 
-            _dateRangeLabel = MakePayHeaderButton(_overviewStart.ToString("dd MMM yyyy") + " - " + _overviewEnd.ToString("dd MMM yyyy"), 188, PayText);
+            _dateRangeLabel = MakePayHeaderButton(_overviewStart.ToString("dd MMM yyyy") + " - " + _overviewEnd.ToString("dd MMM yyyy"), 196, PayText);
             _dateRangeLabel.Click += (s, e) => SelectPaymentDateRange();
-            Label filters = MakePayHeaderButton("Filters", 78, PayText);
+            Label filters = MakePayHeaderButton("Filters", 82, PayText);
             filters.Click += (s, e) => OpenPaymentFilters();
-            Label report = MakePayHeaderButton("Download Report", 126, InfoBlue);
+            Label import = MakePayHeaderButton("Import", 82, InfoBlue);
+            import.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(import, ExcelImportModule.Payments, FindForm());
+            Label report = MakePayHeaderButton("Download Report", 132, InfoBlue);
             report.Click += (s, e) => ExportPaymentsCsv();
-            Button newPayment = MakePayButton("+ New Payment", InfoBlue, 120);
+            Button newPayment = MakePayButton("+ New Payment", InfoBlue, 126);
             newPayment.Click += async (s, e) => await OpenNewPaymentFormAsync();
             Label bell = MakePayIcon("!", Color.FromArgb(254, 226, 226), PayRed);
             bell.Cursor = Cursors.Hand;
             bell.Click += (s, e) => ShowPaymentAlerts();
             Panel user = BuildSessionUserPanel();
-            header.Controls.AddRange(new Control[] { _dateRangeLabel, filters, report, newPayment, bell, user });
-            header.Resize += (s, e) =>
+            header.Controls.AddRange(new Control[] { _dateRangeLabel, filters, import, report, newPayment, bell, user });
+            Action layoutHeaderControls = () =>
             {
-                user.Location = new Point(header.Width - user.Width, 2);
-                bell.Location = new Point(user.Left - 38, 3);
-                newPayment.Location = new Point(bell.Left - 128, 2);
-                report.Location = new Point(newPayment.Left - 134, 3);
-                filters.Location = new Point(report.Left - 86, 3);
-                _dateRangeLabel.Location = new Point(filters.Left - 198, 3);
+                int top = header.Width < 1260 ? 38 : 4;
+                user.Visible = header.Width >= 1220;
+                user.Location = new Point(header.Width - user.Width, top);
+                bell.Location = new Point((user.Visible ? user.Left : header.Width) - 38, top + 1);
+                newPayment.Location = new Point(bell.Left - 134, top);
+                report.Location = new Point(newPayment.Left - 140, top + 1);
+                import.Location = new Point(report.Left - 90, top + 1);
+                filters.Location = new Point(import.Left - 90, top + 1);
+                _dateRangeLabel.Location = new Point(filters.Left - 206, top + 1);
+                bool showAllActions = _dateRangeLabel.Left > title.Right + 16;
+                _dateRangeLabel.Visible = showAllActions;
+                filters.Visible = showAllActions;
+                import.Visible = showAllActions;
+                report.Visible = showAllActions;
+                bell.Visible = showAllActions;
             };
+            header.Resize += (s, e) => layoutHeaderControls();
+            layoutHeaderControls();
             return header;
         }
 
@@ -336,6 +461,47 @@ namespace HVAC_Pro_Desktop.UI
             return panel;
         }
 
+        private Control BuildPaymentsWorkflowRow()
+        {
+            Panel card = MakePayCard("Payment Workflow");
+            card.Dock = DockStyle.None;
+            card.Height = 300;
+            card.Margin = new Padding(0, 0, 0, 12);
+            Control workflow = SharedUiPrimitives.BuildDirectionalWorkflowLayout(
+                "Supplier Workflow",
+                "Sent to Suppliers",
+                Enumerable.Empty<string>(),
+                "Received from Suppliers",
+                Enumerable.Empty<string>(),
+                "Client Workflow",
+                "Sent to Clients",
+                BuildPaymentInvoiceLines(false),
+                "Received from Clients",
+                BuildPaymentReceiptLines());
+            workflow.Location = new Point(10, 42);
+            workflow.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+            card.Controls.Add(workflow);
+            card.Resize += (s, e) => workflow.Size = new Size(Math.Max(120, card.ClientSize.Width - 20), Math.Max(120, card.ClientSize.Height - 54));
+            return card;
+        }
+
+        private IEnumerable<string> BuildPaymentReceiptLines()
+        {
+            return (_allPayments ?? new List<Payment>())
+                .OrderByDescending(payment => payment.PaymentDate)
+                .Take(4)
+                .Select(payment => Safe(payment.PaymentNumber, "Receipt") + " - " + Safe(payment.ClientName, "Client") + " - " + IndiaFormatHelper.FormatCurrency(payment.AmountPaid));
+        }
+
+        private IEnumerable<string> BuildPaymentInvoiceLines(bool paid)
+        {
+            return (_invoiceLookup ?? new List<Invoice>())
+                .Where(invoice => paid ? invoice.TotalAmount - invoice.PaidAmount <= 0.01m : invoice.TotalAmount - invoice.PaidAmount > 0.01m)
+                .OrderByDescending(invoice => invoice.InvoiceDate)
+                .Take(4)
+                .Select(invoice => Safe(invoice.InvoiceNumber, "Invoice") + " - " + Safe(invoice.ClientName, "Client") + " - " + IndiaFormatHelper.FormatCurrency(Math.Max(0m, invoice.TotalAmount - invoice.PaidAmount)));
+        }
+
         private Control BuildPaymentsChartsRow()
         {
             TableLayoutPanel row = new TableLayoutPanel { Height = 238, ColumnCount = 4, RowCount = 1, BackColor = PayPageBg, Margin = new Padding(0, 0, 0, 12) };
@@ -346,10 +512,17 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel cash = MakePayCard("Cash Flow Trend");
             _payCashChart = new PayCashFlowChart { Location = new Point(14, 48), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
-            cash.Controls.Add(new Label { Text = "● Receipts    ● Payments    ● Net Cash Flow", Location = new Point(18, 30), Size = new Size(280, 18), Font = new Font("Segoe UI", 7.5f), ForeColor = PayMuted });
-            cash.Controls.Add(MakeSmallFilter("This Month", cash));
+            Label cashLegend = new Label { Text = "● Receipts    ● Payments    ● Net Cash Flow", Location = new Point(18, 30), Size = new Size(280, 18), Font = new Font("Segoe UI", 7.5f), ForeColor = PayMuted, AutoEllipsis = true };
+            Label cashFilter = MakeSmallFilter("This Month", cash);
+            cash.Controls.Add(cashLegend);
+            cash.Controls.Add(cashFilter);
             cash.Controls.Add(_payCashChart);
-            cash.Resize += (s, e) => _payCashChart.Size = new Size(cash.Width - 28, cash.Height - 62);
+            cash.Resize += (s, e) =>
+            {
+                cashLegend.Width = Math.Max(120, cash.ClientSize.Width - 142);
+                cashFilter.Visible = cash.ClientSize.Width >= 300;
+                _payCashChart.Size = new Size(Math.Max(120, cash.Width - 28), Math.Max(110, cash.Height - 62));
+            };
 
             Panel donut = MakePayCard("Receipts vs Payments");
             _payDonutChart = new PayDonutChart { Location = new Point(12, 42), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
@@ -393,25 +566,31 @@ namespace HVAC_Pro_Desktop.UI
                 card.Controls.Add(label);
                 x += label.Width + 14;
             }
-            _txnTypeFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(0, 0), Size = new Size(110, 28), Font = new Font("Segoe UI", 8f) };
+            Panel txnTypeHost = new Panel { Name = "TxnTypeFilterHost", Size = new Size(110, 32), BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
+            _txnTypeFilter = new ComboBox { Name = "TxnTypeFilter", DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f) };
             _txnTypeFilter.Items.AddRange(new object[] { "All Types", "Receipt", "Payment Made", "Refund" });
             _txnTypeFilter.SelectedIndex = 0;
             _txnTypeFilter.SelectedIndexChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
-            _txnSearch = new TextBox { Size = new Size(210, 28), Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.FixedSingle, Text = "Search by reference, customer, invoice...", ForeColor = DS.Slate400 };
+            txnTypeHost.Controls.Add(_txnTypeFilter);
+            Panel txnSearchHost = new Panel { Name = "TxnSearchHost", Size = new Size(210, 32), BackColor = DS.BgInput, Padding = new Padding(8, 2, 8, 2) };
+            _txnSearch = new TextBox { Name = "TxnSearchTextBox", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.None, Text = "Search by reference, customer, invoice...", ForeColor = DS.Slate400 };
             AddDashboardPlaceholder(_txnSearch, "Search by reference, customer, invoice...");
             _txnSearch.TextChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
+            txnSearchHost.Controls.Add(_txnSearch);
             Button export = MakePayOutlineButton("Export", 76);
             export.Click += (s, e) => ExportPaymentsCsv();
             _txnTable = new TableLayoutPanel { ColumnCount = 9, RowCount = 9, Location = new Point(14, 76), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = Color.White };
             int[] widths = { 10, 11, 13, 16, 13, 10, 10, 10, 7 };
             foreach (int width in widths) _txnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, width));
-            _txnPager = new FlowLayoutPanel { Height = 32, Width = 340, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, BackColor = Color.Transparent };
-            card.Controls.AddRange(new Control[] { _txnTypeFilter, _txnSearch, export, _txnTable, _txnPager });
+            _txnPager = new GlobalPaginationControl { Height = 34, Width = 560, BackColor = Color.Transparent };
+            _txnPager.PageChanged += (s, e) => { _overviewPage = _txnPager.CurrentPage; RefreshTransactionsTable(); };
+            _txnPager.PageSizeChanged += (s, e) => { _overviewPageSize = _txnPager.PageSize; _overviewPage = 1; RefreshTransactionsTable(); };
+            card.Controls.AddRange(new Control[] { txnTypeHost, txnSearchHost, export, _txnTable, _txnPager });
             card.Resize += (s, e) =>
             {
                 export.Location = new Point(card.Width - 92, 44);
-                _txnSearch.Location = new Point(export.Left - 220, 44);
-                _txnTypeFilter.Location = new Point(_txnSearch.Left - 120, 44);
+                txnSearchHost.Location = new Point(export.Left - 220, 42);
+                txnTypeHost.Location = new Point(txnSearchHost.Left - 120, 42);
                 _txnTable.Size = new Size(card.Width - 28, card.Height - 126);
                 _txnPager.Location = new Point(card.Width - _txnPager.Width - 16, card.Height - 40);
             };
@@ -420,30 +599,30 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildPaymentsRightSidebar()
         {
-            FlowLayoutPanel side = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = false, Padding = new Padding(8, 0, 0, 0), BackColor = PayPageBg };
+            FlowLayoutPanel side = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(8, 0, 0, 0), BackColor = PayPageBg };
             Panel settlements = MakePayCard("Upcoming Settlements");
-            settlements.Dock = DockStyle.None; settlements.Width = 276; settlements.Height = 214;
-            Label viewSettlements = new Label { Text = "View All", Location = new Point(216, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
+            settlements.Dock = DockStyle.None; settlements.Width = 314; settlements.Height = 214;
+            Label viewSettlements = new Label { Text = "View All", Location = new Point(254, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
             viewSettlements.Click += (s, e) => ShowUpcomingSettlements();
             settlements.Controls.Add(viewSettlements);
-            _settlementsList = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(248, 160), FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White };
+            _settlementsList = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(286, 160), FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White };
             settlements.Controls.Add(_settlementsList);
 
             Panel quick = MakePayCard("Quick Actions");
-            quick.Dock = DockStyle.None; quick.Width = 276; quick.Height = 170;
-            AddPayQuickButton(quick, "Record Receipt", 14, 42, 118, SaveGreen);
-            AddPayQuickButton(quick, "Make Payment", 144, 42, 118, PayRed);
-            AddPayQuickButton(quick, "Add Refund", 14, 78, 118, InfoBlue);
-            AddPayQuickButton(quick, "Create Link", 144, 78, 118, PayPurple);
-            AddPayQuickButton(quick, "Reconcile Bank", 14, 114, 118, PayMuted);
-            AddPayQuickButton(quick, "View Reports", 144, 114, 118, OrangeCol);
+            quick.Dock = DockStyle.None; quick.Width = 314; quick.Height = 178;
+            AddPayQuickButton(quick, "Record Receipt", 14, 42, 138, SaveGreen);
+            AddPayQuickButton(quick, "Make Payment", 162, 42, 138, PayRed);
+            AddPayQuickButton(quick, "Add Refund", 14, 80, 138, InfoBlue);
+            AddPayQuickButton(quick, "Create Link", 162, 80, 138, PayPurple);
+            AddPayQuickButton(quick, "Reconcile Bank", 14, 118, 138, PayMuted);
+            AddPayQuickButton(quick, "View Reports", 162, 118, 138, OrangeCol);
 
             Panel alerts = MakePayCard("Smart Alerts  i");
-            alerts.Dock = DockStyle.None; alerts.Width = 276; alerts.Height = 180;
-            Label viewAlerts = new Label { Text = "View All", Location = new Point(216, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
+            alerts.Dock = DockStyle.None; alerts.Width = 314; alerts.Height = 180;
+            Label viewAlerts = new Label { Text = "View All", Location = new Point(254, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
             viewAlerts.Click += (s, e) => ShowPaymentAlerts();
             alerts.Controls.Add(viewAlerts);
-            _alertsList = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(248, 126), FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White };
+            _alertsList = new FlowLayoutPanel { Location = new Point(14, 42), Size = new Size(286, 126), FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White };
             alerts.Controls.Add(_alertsList);
             side.Controls.Add(settlements);
             side.Controls.Add(quick);
@@ -558,18 +737,18 @@ namespace HVAC_Pro_Desktop.UI
         private void RefreshTransactionsTable()
         {
             List<PaymentTxn> rows = GetFilteredTransactions();
-            int pages = Math.Max(1, (int)Math.Ceiling(rows.Count / (double)OverviewPageSize));
-            _overviewPage = Math.Max(1, Math.Min(_overviewPage, pages));
-            List<PaymentTxn> page = rows.Skip((_overviewPage - 1) * OverviewPageSize).Take(OverviewPageSize).ToList();
+            int pageSize = Math.Max(1, _overviewPageSize);
+            _overviewPage = PaginationState.NormalizePage(_overviewPage, rows.Count, pageSize);
+            List<PaymentTxn> page = rows.Skip((_overviewPage - 1) * pageSize).Take(pageSize).ToList();
             _txnTable.SuspendLayout();
             _txnTable.Controls.Clear();
             _txnTable.RowStyles.Clear();
-            _txnTable.RowCount = OverviewPageSize + 1;
+            _txnTable.RowCount = pageSize + 1;
             _txnTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-            for (int i = 0; i < OverviewPageSize; i++) _txnTable.RowStyles.Add(new RowStyle(SizeType.Percent, 12.5f));
-            string[] headers = { "Date", "Type", "Reference No.", "Customer / Vendor", "Invoice / Bill No.", "Mode", "Amount (₹)", "Status", "Actions" };
+            for (int i = 0; i < pageSize; i++) _txnTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / pageSize));
+            string[] headers = { "Date", "Type", "Reference No.", "Customer / Supplier", "Invoice / Bill No.", "Mode", "Amount (₹)", "Status", "Actions" };
             for (int i = 0; i < headers.Length; i++) _txnTable.Controls.Add(MakePayCell(headers[i], true, PayText), i, 0);
-            for (int r = 0; r < OverviewPageSize; r++)
+            for (int r = 0; r < pageSize; r++)
             {
                 if (r >= page.Count)
                 {
@@ -588,11 +767,7 @@ namespace HVAC_Pro_Desktop.UI
                 _txnTable.Controls.Add(MakePayCell("👁   ↓", false, PayMuted), 8, r + 1);
             }
             _txnTable.ResumeLayout(true);
-            _txnPager.Controls.Clear();
-            AddPayPageButton(">", Math.Min(pages, _overviewPage + 1), _overviewPage < pages);
-            for (int i = Math.Min(pages, 3); i >= 1; i--) AddPayPageButton(i.ToString(), i, true, i == _overviewPage);
-            AddPayPageButton("<", Math.Max(1, _overviewPage - 1), _overviewPage > 1);
-            _txnPager.Controls.Add(new Label { Text = "Showing " + (rows.Count == 0 ? 0 : ((_overviewPage - 1) * OverviewPageSize + 1)) + " to " + Math.Min(rows.Count, _overviewPage * OverviewPageSize) + " of " + rows.Count + " entries", Width = 150, Height = 28, TextAlign = ContentAlignment.MiddleLeft, ForeColor = PayMuted, Font = new Font("Segoe UI", 7.5f) });
+            _txnPager.SetState(_overviewPage, rows.Count, pageSize);
         }
 
         private void RefreshPaymentsSidebar()
@@ -666,6 +841,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel MakePayCard(string title)
         {
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = PaySurface, Margin = new Padding(0, 0, 10, 0) };
+            panel.MinimumSize = GetPaymentDashboardCardMinimum(title);
             panel.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -679,7 +855,54 @@ namespace HVAC_Pro_Desktop.UI
             };
             if (!string.IsNullOrWhiteSpace(title))
                 panel.Controls.Add(new Label { Text = title, Location = new Point(14, 12), Size = new Size(230, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = PayText });
+            AttachPaymentDashboardResize(panel);
             return panel;
+        }
+
+        private static Size GetPaymentDashboardCardMinimum(string title)
+        {
+            if (string.Equals(title, "Cash Flow Trend", StringComparison.OrdinalIgnoreCase))
+                return new Size(330, 170);
+            if (string.Equals(title, "Receipts vs Payments", StringComparison.OrdinalIgnoreCase))
+                return new Size(260, 170);
+            if (!string.IsNullOrWhiteSpace(title) && title.IndexOf("Aging Summary", StringComparison.OrdinalIgnoreCase) >= 0)
+                return new Size(270, 170);
+            if (!string.IsNullOrWhiteSpace(title) && title.IndexOf("Payment Methods", StringComparison.OrdinalIgnoreCase) >= 0)
+                return new Size(250, 170);
+            return new Size(180, 96);
+        }
+
+        private void AttachPaymentDashboardResize(Panel card)
+        {
+            CardResizeGripService.Attach(card, ApplyPaymentDashboardCardSize, ApplyPaymentDashboardCardSize);
+        }
+
+        private void ApplyPaymentDashboardCardSize(Control card, Size size)
+        {
+            if (card == null || card.Parent == null)
+                return;
+
+            TableLayoutPanel table = card.Parent as TableLayoutPanel;
+            if (table != null)
+            {
+                int targetHeight = Math.Max(card.MinimumSize.Height, size.Height);
+                int targetWidth = Math.Max(card.MinimumSize.Width, size.Width);
+                if (table.RowCount == 1 && table.Height < targetHeight)
+                    table.Height = targetHeight;
+                if (table.RowCount == 1 && table.RowStyles.Count > 0)
+                    table.RowStyles[0] = new RowStyle(SizeType.Absolute, targetHeight);
+
+                int column = table.GetColumn(card);
+                if (column >= 0 && column < table.ColumnStyles.Count && size.Width > 0)
+                    table.ColumnStyles[column] = new ColumnStyle(SizeType.Absolute, targetWidth);
+            }
+            else if (card.Parent is FlowLayoutPanel)
+            {
+                card.Dock = DockStyle.None;
+                card.Size = new Size(Math.Max(card.MinimumSize.Width, size.Width), Math.Max(card.MinimumSize.Height, size.Height));
+            }
+
+            card.Parent.PerformLayout();
         }
 
         private Panel MakePayStat(string label, string value, string trend, Color accent, ModernIconKind icon)
@@ -731,6 +954,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Label filter = MakePayHeaderButton(text + "  v", 96, PayText);
             filter.Size = new Size(96, 26);
+            filter.Location = new Point(Math.Max(12, parent.Width - 110), 12);
             parent.Resize += (s, e) => filter.Location = new Point(parent.Width - 110, 12);
             return filter;
         }
@@ -806,6 +1030,7 @@ namespace HVAC_Pro_Desktop.UI
         private void AddPayQuickButton(Panel parent, string text, int x, int y, int width, Color color)
         {
             Button b = MakePayButton(text, Color.White, width);
+            b.Tag = "FIXED_WIDTH";
             b.Location = new Point(x, y);
             b.Height = 28;
             b.ForeColor = color;
@@ -833,6 +1058,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Payments");
             ApplyPaymentActionHierarchy(Controls);
             ApplyPermissions();
             await LoadInitialDataAsync();
@@ -845,6 +1071,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            SalesUiPolishService.ApplyAfterRebuild(this, "Payments");
             ApplyPaymentActionHierarchy(Controls);
             ApplyPermissions();
             await LoadPaymentsOverviewAsync();
@@ -904,7 +1131,7 @@ namespace HVAC_Pro_Desktop.UI
                 dlg.FileName = "payments-" + DateTime.Today.ToString("yyyyMMdd") + ".csv";
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
                 StringBuilder csv = new StringBuilder();
-                csv.AppendLine("Date,Type,Reference No,Customer / Vendor,Invoice / Bill No,Mode,Amount,Status");
+                csv.AppendLine("Date,Type,Reference No,Customer / Supplier,Invoice / Bill No,Mode,Amount,Status");
                 foreach (PaymentTxn txn in rows)
                     csv.AppendLine(string.Join(",", new[] { Csv(txn.Date.ToString("dd MMM yyyy")), Csv(txn.Type), Csv(txn.ReferenceNo), Csv(txn.CustomerVendor), Csv(txn.InvoiceBillNo), Csv(txn.Mode), Csv(txn.Amount.ToString("0.##")), Csv(txn.Status) }));
                 File.WriteAllText(dlg.FileName, csv.ToString(), Encoding.UTF8);
@@ -1006,7 +1233,7 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle plot = new Rectangle(36, 12, Math.Max(20, Width - 48), Math.Max(20, Height - 30));
                 decimal max = Math.Max(1m, _points.SelectMany(p => new[] { p.Receipts, p.Payments, Math.Abs(p.Net) }).DefaultIfEmpty(1m).Max());
-                using (Pen grid = new Pen(Color.FromArgb(226, 232, 240)))
+                using (Pen grid = new Pen(DS.Border))
                 using (Brush text = new SolidBrush(PayMuted))
                 {
                     for (int i = 0; i <= 4; i++)
@@ -1127,7 +1354,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildPaymentForm(Panel container)
         {
-            container.Padding = new Padding(16, 42, 16, 16);
+            container.Padding = new Padding(16, 58, 16, 16);
 
             Label hint = new Label
             {
@@ -1146,39 +1373,40 @@ namespace HVAC_Pro_Desktop.UI
             _cmbClient.AutoCompleteSource = AutoCompleteSource.CustomSource;
             _cmbClient.AutoCompleteCustomSource = _clientEntrySource;
             _cmbClient.SelectedIndexChanged += CmbClient_Changed;
-            container.Controls.Add(_cmbClient);
+            _payClientHost = AddPaymentInputHost(container, _cmbClient);
 
             AddFieldLabel(container, "Invoice *", 370, 82);
-            _cmbInvoice = new ComboBox { Location = new Point(370, 102), Width = 360, Height = 26, Font = DS.Body, DropDownStyle = ComboBoxStyle.DropDown, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _cmbInvoice = new ComboBox { Location = new Point(370, 102), Width = 360, Height = 26, Font = DS.Body, DropDownStyle = ComboBoxStyle.DropDown, Anchor = AnchorStyles.Top | AnchorStyles.Left };
             _cmbInvoice.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             _cmbInvoice.AutoCompleteSource = AutoCompleteSource.CustomSource;
             _cmbInvoice.AutoCompleteCustomSource = _invoiceSource;
             _cmbInvoice.SelectedIndexChanged += CmbInvoice_Changed;
-            container.Controls.Add(_cmbInvoice);
+            _payInvoiceHost = AddPaymentInputHost(container, _cmbInvoice);
 
             AddFieldLabel(container, "Amount Paid (INR) *", 16, 146);
             _numAmount = new NumericUpDown { Location = new Point(16, 166), Width = 170, Height = 26, Font = DS.Body, Minimum = 0, Maximum = 99999999, DecimalPlaces = 2 };
-            container.Controls.Add(_numAmount);
+            _payAmountHost = AddPaymentInputHost(container, _numAmount);
 
             AddFieldLabel(container, "Payment Date *", 210, 146);
             _dtpPayDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Font = DS.Body, Location = new Point(210, 166), Width = 170, Height = 26, Value = DateTime.Today };
-            container.Controls.Add(_dtpPayDate);
+            _payDateHost = AddPaymentInputHost(container, _dtpPayDate);
 
             AddFieldLabel(container, "Payment Mode", 405, 146);
             _cmbMode = new ComboBox { Location = new Point(405, 166), Width = 180, Height = 26, Font = DS.Body, DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbMode.Items.AddRange(new object[] { "Bank Transfer", "NEFT/RTGS", "UPI", "Cash", "Cheque", "DD" });
             _cmbMode.SelectedIndex = 0;
-            container.Controls.Add(_cmbMode);
+            _payModeHost = AddPaymentInputHost(container, _cmbMode);
 
             AddFieldLabel(container, "Reference / UTR / Cheque No.", 16, 210);
             _txtRef = new TextBox { Location = new Point(16, 230), Width = 330, Height = 24, Font = DS.Body, BorderStyle = BorderStyle.FixedSingle };
-            container.Controls.Add(_txtRef);
+            _payRefHost = AddPaymentInputHost(container, _txtRef);
 
             AddFieldLabel(container, "Notes", 370, 210);
-            _txtNotes = new TextBox { Location = new Point(370, 230), Width = 360, Height = 58, Multiline = true, Font = DS.Body, BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            container.Controls.Add(_txtNotes);
+            _txtNotes = new TextBox { Location = new Point(370, 230), Width = 360, Height = 58, Multiline = true, Font = DS.Body, BorderStyle = BorderStyle.FixedSingle, Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            _payNotesHost = AddPaymentInputHost(container, _txtNotes);
             container.Resize += (s, e) => ResizePaymentFields(container);
             ResizePaymentFields(container);
+            UIHelper.ApplyInputStyles(container.Controls);
         }
 
         private void BuildHistoryCard(Panel container)
@@ -1226,6 +1454,8 @@ namespace HVAC_Pro_Desktop.UI
             paymentActions.Dock = DockStyle.Fill;
             _btnSavePayment.Margin = new Padding(0, 0, 0, 8);
             paymentActions.Margin = new Padding(0, 0, 0, 8);
+            _btnSavePayment.Tag = ((_btnSavePayment.Tag == null ? string.Empty : _btnSavePayment.Tag + " ") + "FIXED_WIDTH").Trim();
+            paymentActions.Tag = ((paymentActions.Tag == null ? string.Empty : paymentActions.Tag + " ") + "FIXED_WIDTH").Trim();
             paymentActions.Click += (s, e) => ShowPaymentActionsMenu(paymentActions, btnClear);
             Label hint = new Label
             {
@@ -1307,6 +1537,63 @@ namespace HVAC_Pro_Desktop.UI
             return amount;
         }
 
+        private void NormalizePaymentEditorCards()
+        {
+            RemovePaymentEditorResizeGrips(this);
+            NormalizePaymentActionButtons();
+        }
+
+        private void RemovePaymentEditorResizeGrips(Control root)
+        {
+            if (root == null || root.IsDisposed)
+                return;
+
+            foreach (Control control in root.Controls.Cast<Control>().ToList())
+            {
+                string metadata = ((control.Name ?? string.Empty) + " " + (control.Tag == null ? string.Empty : control.Tag.ToString())).ToUpperInvariant();
+                if (metadata.Contains("PAYMENT_EDITOR_SECTION"))
+                {
+                    CardResizeGripService.Detach(control);
+                    RemoveResizeGripChildren(control);
+                }
+
+                RemovePaymentEditorResizeGrips(control);
+            }
+        }
+
+        private static void RemoveResizeGripChildren(Control root)
+        {
+            if (root == null || root.IsDisposed)
+                return;
+
+            foreach (Control child in root.Controls.Cast<Control>().ToList())
+            {
+                if (string.Equals(child.Name, CardResizeGripService.CornerGripName, StringComparison.Ordinal) ||
+                    string.Equals(child.Name, CardResizeGripService.HeightGripName, StringComparison.Ordinal) ||
+                    string.Equals(child.Name, CardResizeGripService.LockBadgeName, StringComparison.Ordinal))
+                {
+                    root.Controls.Remove(child);
+                    child.Dispose();
+                    continue;
+                }
+
+                RemoveResizeGripChildren(child);
+            }
+        }
+
+        private void NormalizePaymentActionButtons()
+        {
+            if (_btnSavePayment != null && !_btnSavePayment.IsDisposed)
+            {
+                _btnSavePayment.BackColor = SaveGreen;
+                _btnSavePayment.ForeColor = Color.White;
+                _btnSavePayment.FlatStyle = FlatStyle.Flat;
+                _btnSavePayment.FlatAppearance.BorderSize = 0;
+                _btnSavePayment.TextAlign = ContentAlignment.MiddleCenter;
+                _btnSavePayment.Height = 34;
+            }
+        }
+
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         //  DATA LOAD
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -1340,29 +1627,92 @@ namespace HVAC_Pro_Desktop.UI
             if (clientId <= 0) { _cmbInvoice.SelectedIndex = 0; return; }
             try
             {
-                foreach (Invoice inv in _invSvc.GetInvoicesForClient(clientId))
+                List<Invoice> invoices = (_invoiceLookup ?? new List<Invoice>())
+                    .Where(inv => inv.ClientID == clientId)
+                    .ToList();
+                if (invoices.Count > 0)
                 {
-                    if (inv.PaymentStatus == "Paid") continue;
-                    _cmbInvoice.Items.Add(new ComboItem { Id = inv.InvoiceID, Text = inv.InvoiceNumber + " - " + IndiaFormatHelper.FormatCurrency(inv.BalanceDue) + " due  [" + inv.PaymentStatus + "]" });
+                    PopulateInvoiceDropdown(invoices);
+                    AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1) + ";source=cache");
+                    return;
                 }
+
+                if (_invoiceDropdownLoading)
+                    return;
+
+                _invoiceDropdownLoading = true;
+                ShowStatus("Loading client invoices...", Color.Gray);
+                var worker = CreateWorker();
+                worker.DoWork += (s, args) => args.Result = _invSvc.GetInvoicesForClient(clientId) ?? new List<Invoice>();
+                worker.RunWorkerCompleted += (s, args) =>
+                {
+                    if (args.Error != null)
+                    {
+                        AppRuntime.LogException("PaymentForm.LoadInvoiceDropdown", args.Error);
+                        RunOnUI(() =>
+                        {
+                            _invoiceDropdownLoading = false;
+                            ShowStatus("Client invoices could not load. Refresh and try again.", PayRed);
+                        });
+                        ShowError( "Failed to load client invoices. Please try again.", args.Error);
+                        return;
+                    }
+                    if (args.Cancelled) return;
+
+                    RunOnUI(() =>
+                    {
+                        _invoiceDropdownLoading = false;
+                        PopulateInvoiceDropdown(args.Result as List<Invoice>);
+                        AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1) + ";source=db");
+                    });
+                };
+                worker.RunWorkerAsync();
+                return;
             }
             catch { }
             _cmbInvoice.SelectedIndex = 0;
             AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1));
         }
 
-        private async void LoadPaymentHistory()
+        private void PopulateInvoiceDropdown(IEnumerable<Invoice> invoices)
+        {
+            foreach (Invoice inv in invoices ?? Enumerable.Empty<Invoice>())
+            {
+                if (inv == null || inv.InvoiceID <= 0) continue;
+                decimal balance = inv.BalanceDue > 0 ? inv.BalanceDue : inv.TotalAmount - inv.PaidAmount;
+                if (string.Equals(inv.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || balance <= 0.01m) continue;
+                string text = inv.InvoiceNumber + " - " + IndiaFormatHelper.FormatCurrency(balance) + " due  [" + inv.PaymentStatus + "]";
+                _cmbInvoice.Items.Add(new ComboItem { Id = inv.InvoiceID, Text = text });
+                _invoiceSource.Add(text);
+            }
+            _cmbInvoice.SelectedIndex = _cmbInvoice.Items.Count > 1 ? 1 : 0;
+        }
+
+        private void LoadPaymentHistory()
         {
             var sw = Stopwatch.StartNew();
-            try
+            ShowStatus("Refreshing payments...", Color.Gray);
+            var worker = CreateWorker();
+            worker.DoWork += (s, args) =>
             {
-                ShowStatus("Refreshing payments...", Color.Gray);
-                _allPayments = await Task.Run(() => _paySvc.GetAllPayments());
-                _invoiceLookup = await Task.Run(() => _invSvc.GetAllInvoices());
-            }
-            catch { }
-            ApplyClientFilter();
-            AppRuntime.LogTiming("Payments.LoadPaymentHistory", sw.ElapsedMilliseconds, "payments=" + _allPayments.Count);
+                args.Result = new PaymentRecordSnapshot
+                {
+                    Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
+                    Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                };
+            };
+            worker.RunWorkerCompleted += (s, args) =>
+            {
+                if (args.Error == null && !args.Cancelled)
+                {
+                    PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot ?? new PaymentRecordSnapshot();
+                    _allPayments = snapshot.Payments ?? new List<Payment>();
+                    _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                }
+                ApplyClientFilter();
+                AppRuntime.LogTiming("Payments.LoadPaymentHistory", sw.ElapsedMilliseconds, "payments=" + _allPayments.Count);
+            };
+            worker.RunWorkerAsync();
         }
 
         private void ApplyClientFilter()
@@ -1400,48 +1750,45 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderPaymentBatch(bool reset)
         {
-            if (reset)
+            UiPerformanceService.WithSuspendedDrawing(_historyFlow, () =>
             {
-                _renderedPayments = 0;
-                _historyFlow.SuspendLayout();
-                _historyFlow.Controls.Clear();
-                if (_filteredPayments.Count == 0)
-                    _historyFlow.Controls.Add(BuildPaymentEmptyState());
-                _historyFlow.ResumeLayout();
-            }
-
-            int start = _renderedPayments;
-            int end = Math.Min(start + PaymentBatchSize, _filteredPayments.Count);
-
-            _historyFlow.SuspendLayout();
-            for (int i = start; i < end; i++)
-                _historyFlow.Controls.Add(MakePaymentCard(_filteredPayments[i]));
-            _renderedPayments = end;
-
-            if (_renderedPayments < _filteredPayments.Count)
-            {
-                var btn = new Button
+                if (reset)
                 {
-                    Text = "Load More",
-                    Width = Math.Max(280, _historyFlow.ClientSize.Width - 30),
-                    Height = 36,
-                    BackColor = Color.FromArgb(241, 245, 249),
-                    ForeColor = InfoBlue,
-                    FlatStyle = FlatStyle.Flat,
-                    Margin = new Padding(0, 0, 0, 10),
-                    Cursor = Cursors.Hand
-                };
-                btn.FlatAppearance.BorderColor = DS.Slate200;
-                btn.FlatAppearance.BorderSize = 1;
-                btn.Click += (s, e) =>
-                {
-                    _historyFlow.Controls.Remove(btn);
-                    BeginInvoke((Action)(() => RenderPaymentBatch(false)));
-                };
-                _historyFlow.Controls.Add(btn);
-            }
+                    _renderedPayments = 0;
+                    _historyFlow.Controls.Clear();
+                    if (_filteredPayments.Count == 0)
+                        _historyFlow.Controls.Add(BuildPaymentEmptyState());
+                }
 
-            _historyFlow.ResumeLayout();
+                int start = _renderedPayments;
+                int end = Math.Min(start + PaymentBatchSize, _filteredPayments.Count);
+                for (int i = start; i < end; i++)
+                    _historyFlow.Controls.Add(MakePaymentCard(_filteredPayments[i]));
+                _renderedPayments = end;
+
+                if (_renderedPayments < _filteredPayments.Count)
+                {
+                    var btn = new Button
+                    {
+                        Text = "Load More",
+                        Width = Math.Max(280, _historyFlow.ClientSize.Width - 30),
+                        Height = 36,
+                        BackColor = Color.FromArgb(241, 245, 249),
+                        ForeColor = InfoBlue,
+                        FlatStyle = FlatStyle.Flat,
+                        Margin = new Padding(0, 0, 0, 10),
+                        Cursor = Cursors.Hand
+                    };
+                    btn.FlatAppearance.BorderColor = DS.Border;
+                    btn.FlatAppearance.BorderSize = 1;
+                    btn.Click += (s, e) =>
+                    {
+                        _historyFlow.Controls.Remove(btn);
+                        BeginInvoke((Action)(() => RenderPaymentBatch(false)));
+                    };
+                    _historyFlow.Controls.Add(btn);
+                }
+            });
         }
 
         private Panel BuildPaymentEmptyState()
@@ -1489,9 +1836,71 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(new Label { Text = payment.InvoiceNumber ?? "-", Font = DS.Small, ForeColor = InfoBlue, Location = new Point(260, 12), Width = 150, Height = 20, AutoEllipsis = true });
             card.Controls.Add(new Label { Text = payment.PaymentMode ?? "-", Font = DS.Small, ForeColor = DS.Slate700, Location = new Point(260, 38), Width = 140, Height = 20, AutoEllipsis = true });
             card.Controls.Add(new Label { Text = payment.PaymentDate.ToString("dd/MM/yyyy"), Font = DS.Small, ForeColor = DS.Slate500, Location = new Point(430, 12), Width = 120, Height = 20 });
-            card.Controls.Add(new Label { Text = payment.ReferenceNumber ?? "-", Font = DS.Small, ForeColor = DS.Slate500, Location = new Point(430, 38), Width = Math.Max(120, cardWidth - 640), Height = 20, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
-            card.Controls.Add(new Label { Text = IndiaFormatHelper.FormatCurrency(payment.AmountPaid), Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = SaveGreen, Location = new Point(cardWidth - 178, 26), Width = 150, Height = 24, TextAlign = ContentAlignment.MiddleRight, Anchor = AnchorStyles.Top | AnchorStyles.Right });
+            card.Controls.Add(new Label { Text = payment.ReferenceNumber ?? "-", Font = DS.Small, ForeColor = DS.Slate500, Location = new Point(430, 38), Width = Math.Max(120, cardWidth - 720), Height = 20, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+            card.Controls.Add(new Label { Text = IndiaFormatHelper.FormatCurrency(payment.AmountPaid), Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = SaveGreen, Location = new Point(cardWidth - 248, 26), Width = 150, Height = 24, TextAlign = ContentAlignment.MiddleRight, Anchor = AnchorStyles.Top | AnchorStyles.Right });
+            Button delete = new Button
+            {
+                Text = "Delete",
+                Location = new Point(cardWidth - 82, 25),
+                Size = new Size(64, 28),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = Color.White,
+                ForeColor = PayRed,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            delete.FlatAppearance.BorderColor = DS.Border;
+            delete.FlatAppearance.BorderSize = 1;
+            delete.Click += (s, e) => DeletePayment(payment);
+            card.Controls.Add(delete);
             return card;
+        }
+
+        private void DeletePayment(Payment payment)
+        {
+            if (payment == null || payment.PaymentID <= 0)
+                return;
+
+            string label = string.IsNullOrWhiteSpace(payment.PaymentNumber) ? "payment #" + payment.PaymentID : payment.PaymentNumber;
+            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
+                FindForm(),
+                "Payment",
+                label,
+                "The linked invoice paid amount, balance, and payment status will be recalculated.");
+            if (confirm != DialogResult.Yes)
+                return;
+
+            ShowStatus("Deleting payment...", Color.Gray);
+            var worker = CreateWorker();
+            worker.DoWork += (s, args) =>
+            {
+                _paySvc.DeletePayment(payment.PaymentID);
+                args.Result = new PaymentRecordSnapshot
+                {
+                    Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
+                    Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                };
+            };
+            worker.RunWorkerCompleted += (s, args) =>
+            {
+                if (args.Error != null)
+                {
+                    ShowError("Payment could not be deleted. Refresh and try again.", args.Error);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Deleting payment", args.Error);
+                    ShowStatus("Delete failed. Refresh and try again.", PayRed);
+                    return;
+                }
+
+                PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot ?? new PaymentRecordSnapshot();
+                _allPayments = snapshot.Payments ?? new List<Payment>();
+                _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                ApplyClientFilter();
+                ComboItem selectedClient = ResolveComboItem(_cmbClient);
+                LoadInvoiceDropdown(selectedClient?.Id ?? 0);
+                ShowStatus("Payment deleted and invoice balance recalculated.", SaveGreen);
+            };
+            worker.RunWorkerAsync();
         }
 
         private void ResizeHistoryCards()
@@ -1505,31 +1914,86 @@ namespace HVAC_Pro_Desktop.UI
         private void ResizePaymentFields(Control container)
         {
             if (container == null || container.Width <= 0) return;
-            int usable = Math.Max(620, container.ClientSize.Width - 32);
-            int gap = 24;
-            int col = Math.Max(280, (usable - gap) / 2);
-            int leftX = 16;
+            int maxFormWidth = 980;
+            int usable = Math.Max(620, Math.Min(maxFormWidth, container.ClientSize.Width - 44));
+            int gap = 22;
+            int col = Math.Max(270, (usable - gap) / 2);
+            int leftX = Math.Max(16, (container.ClientSize.Width - usable) / 2);
             int rightX = leftX + col + gap;
-            int small = Math.Max(145, (col - gap) / 2);
             int third = Math.Max(142, (usable - gap * 2) / 3);
 
             MoveLabel(container, "Client *", leftX, 82, col);
-            if (_cmbClient != null) _cmbClient.SetBounds(leftX, 104, col, 30);
+            SetPaymentInputBounds(_payClientHost, _cmbClient, leftX, 104, col, 38);
             MoveLabel(container, "Invoice *", rightX, 82, col);
-            if (_cmbInvoice != null) _cmbInvoice.SetBounds(rightX, 104, col, 30);
+            SetPaymentInputBounds(_payInvoiceHost, _cmbInvoice, rightX, 104, col, 38);
 
             MoveLabel(container, "Amount Paid (INR) *", leftX, 148, third);
-            if (_numAmount != null) _numAmount.SetBounds(leftX, 170, third, 30);
+            SetPaymentInputBounds(_payAmountHost, _numAmount, leftX, 170, third, 38);
             MoveLabel(container, "Payment Date *", leftX + third + gap, 148, third);
-            if (_dtpPayDate != null) _dtpPayDate.SetBounds(leftX + third + gap, 170, third, 30);
+            SetPaymentInputBounds(_payDateHost, _dtpPayDate, leftX + third + gap, 170, third, 38);
             MoveLabel(container, "Payment Mode", leftX + (third + gap) * 2, 148, third);
-            if (_cmbMode != null) _cmbMode.SetBounds(leftX + (third + gap) * 2, 170, third, 30);
+            SetPaymentInputBounds(_payModeHost, _cmbMode, leftX + (third + gap) * 2, 170, third, 38);
 
             MoveLabel(container, "Reference / UTR / Cheque No.", leftX, 214, col);
-            if (_txtRef != null) _txtRef.SetBounds(leftX, 236, col, 30);
+            SetPaymentInputBounds(_payRefHost, _txtRef, leftX, 236, col, 38);
             MoveLabel(container, "Notes", rightX, 214, col);
-            if (_txtNotes != null) _txtNotes.SetBounds(rightX, 236, col, 58);
+            SetPaymentInputBounds(_payNotesHost, _txtNotes, rightX, 236, col, 64);
             container.Invalidate();
+        }
+
+        private Panel AddPaymentInputHost(Control parent, Control input)
+        {
+            Panel host = new Panel
+            {
+                BackColor = Color.White,
+                Tag = "CUSTOM_INPUT_SHELL",
+                Size = new Size(Math.Max(120, input.Width), input is TextBox && ((TextBox)input).Multiline ? 64 : 38)
+            };
+            host.Paint += PaintPaymentInputHost;
+            input.Parent = host;
+            input.BackColor = Color.White;
+            if (input is TextBox)
+                ((TextBox)input).BorderStyle = BorderStyle.None;
+            if (input is ComboBox)
+                ((ComboBox)input).FlatStyle = FlatStyle.Flat;
+            if (input is NumericUpDown)
+                ((NumericUpDown)input).BorderStyle = BorderStyle.None;
+
+            input.GotFocus += (s, e) => host.Invalidate();
+            input.LostFocus += (s, e) => host.Invalidate();
+            parent.Controls.Add(host);
+            return host;
+        }
+
+        private void SetPaymentInputBounds(Panel host, Control input, int x, int y, int width, int height)
+        {
+            if (host == null || input == null)
+                return;
+
+            host.SetBounds(x, y, width, height);
+            int horizontalPad = input is DateTimePicker ? 8 : 12;
+            int topPad = input is TextBox && ((TextBox)input).Multiline ? 8 : 7;
+            int innerHeight = Math.Max(22, height - topPad - 6);
+            input.SetBounds(horizontalPad, topPad, Math.Max(20, width - horizontalPad * 2), innerHeight);
+            host.Invalidate();
+        }
+
+        private void PaintPaymentInputHost(object sender, PaintEventArgs e)
+        {
+            Panel host = sender as Panel;
+            if (host == null)
+                return;
+
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Rectangle rect = new Rectangle(0, 0, host.Width - 1, host.Height - 1);
+            bool focused = host.Controls.Cast<Control>().Any(c => c.Focused || c.ContainsFocus);
+            using (GraphicsPath path = DS.RoundedRect(rect, 7))
+            using (SolidBrush brush = new SolidBrush(Color.White))
+            using (Pen pen = new Pen(focused ? DS.FocusBlue : DS.InputBorder, focused ? 2f : 1f))
+            {
+                e.Graphics.FillPath(brush, path);
+                e.Graphics.DrawPath(pen, path);
+            }
         }
 
         private static void MoveLabel(Control parent, string text, int x, int y, int width)
@@ -1549,26 +2013,31 @@ namespace HVAC_Pro_Desktop.UI
 
         private void CmbClient_Changed(object sender, EventArgs e)
         {
-            ComboItem ci = _cmbClient.SelectedItem as ComboItem;
+            ComboItem ci = ResolveComboItem(_cmbClient);
+            if (ci != null && _cmbClient.SelectedItem == null)
+                _cmbClient.SelectedItem = ci;
             LoadInvoiceDropdown(ci?.Id ?? 0);
             ResetInvoiceSummary();
         }
 
         private void CmbInvoice_Changed(object sender, EventArgs e)
         {
-            ComboItem ci = _cmbInvoice.SelectedItem as ComboItem;
+            ComboItem ci = ResolveComboItem(_cmbInvoice);
+            if (ci != null && _cmbInvoice.SelectedItem == null)
+                _cmbInvoice.SelectedItem = ci;
             if (ci == null || ci.Id == 0) { ResetInvoiceSummary(); return; }
             try
             {
                 Invoice inv = _invoiceLookup.FirstOrDefault(i => i.InvoiceID == ci.Id) ?? _invSvc.GetInvoiceById(ci.Id);
                 if (inv == null) return;
-                decimal balance = inv.TotalAmount - inv.PaidAmount;
+                decimal balance = inv.BalanceDue > 0 ? inv.BalanceDue : inv.TotalAmount - inv.PaidAmount;
                 _lblInvTotal.Text   = IndiaFormatHelper.FormatCurrency(inv.TotalAmount);
                 _lblInvPaid.Text    = IndiaFormatHelper.FormatCurrency(inv.PaidAmount);
                 _lblInvBalance.Text = IndiaFormatHelper.FormatCurrency(balance);
                 _lblInvStatus.Text  = inv.PaymentStatus;
-                _numAmount.Maximum  = balance + 0.01m > 0 ? balance + 0.01m : 0;
-                _numAmount.Value    = balance > 0 ? balance : 0;
+                _numAmount.Maximum  = 99999999m;
+                if (_numAmount.Value <= 0 || _numAmount.Value > _numAmount.Maximum)
+                    _numAmount.Value = balance > 0 ? Math.Min(balance, _numAmount.Maximum) : 0;
             }
             catch { }
         }
@@ -1587,10 +2056,26 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void BtnRecord_Click(object sender, EventArgs e)
         {
+            if (_recordPaymentInProgress)
+                return;
+
             try
             {
-                ComboItem cClient  = _cmbClient.SelectedItem  as ComboItem;
-                ComboItem cInvoice = _cmbInvoice.SelectedItem as ComboItem;
+                ComboItem cClient  = ResolveComboItem(_cmbClient);
+                ComboItem cInvoice = ResolveComboItem(_cmbInvoice);
+                if ((cInvoice == null || cInvoice.Id <= 0) && _cmbInvoice.Items.Count == 2)
+                    cInvoice = _cmbInvoice.Items[1] as ComboItem;
+                Invoice selectedInvoice = cInvoice != null && cInvoice.Id > 0
+                    ? (_invoiceLookup.FirstOrDefault(i => i.InvoiceID == cInvoice.Id) ?? _invSvc.GetInvoiceById(cInvoice.Id))
+                    : null;
+                if ((cClient == null || cClient.Id <= 0) && selectedInvoice != null)
+                    cClient = FindClientItem(selectedInvoice.ClientID);
+                if (cClient == null || cClient.Id <= 0)
+                    throw new Exception("Select a valid client before recording payment.");
+                if (cInvoice == null || cInvoice.Id <= 0)
+                    throw new Exception("Select an outstanding invoice before recording payment.");
+                if (_numAmount.Value <= 0)
+                    throw new Exception("Enter a payment amount greater than zero.");
 
                 Payment pay = new Payment
                 {
@@ -1603,14 +2088,64 @@ namespace HVAC_Pro_Desktop.UI
                     Notes           = _txtNotes.Text.Trim()
                 };
 
-                int id = _paySvc.RecordPayment(pay);
-                ShowStatus("Payment recorded: PAY #" + id, SaveGreen);
-                ClearForm();
-                LoadPaymentHistory();
+                _recordPaymentInProgress = true;
+                if (_btnSavePayment != null)
+                    _btnSavePayment.Enabled = false;
+                ShowStatus("Recording payment...", Color.Gray);
+                var worker = CreateWorker();
+                worker.DoWork += (s, args) =>
+                {
+                    int id = _paySvc.RecordPayment(pay);
+                    args.Result = new PaymentRecordSnapshot
+                    {
+                        PaymentId = id,
+                        Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
+                        Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                    };
+                };
+                worker.RunWorkerCompleted += (s, args) =>
+                {
+                    if (args.Error != null)
+                    {
+                        RunOnUI(() =>
+                        {
+                            _recordPaymentInProgress = false;
+                            if (_btnSavePayment != null)
+                                _btnSavePayment.Enabled = true;
+                            ShowStatus("Payment could not be recorded. Check the details and try again.", PayRed);
+                        });
+                        ShowError( "Payment could not be recorded. Check the details and try again.", args.Error);
+                        AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Recording payment", args.Error);
+                        return;
+                    }
+                    if (args.Cancelled) return;
+
+                    RunOnUI(() =>
+                    {
+                        _recordPaymentInProgress = false;
+                        if (_btnSavePayment != null)
+                            _btnSavePayment.Enabled = true;
+
+                        PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot;
+                        if (snapshot != null)
+                        {
+                            _allPayments = snapshot.Payments ?? new List<Payment>();
+                            _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                            ClearForm();
+                            ApplyClientFilter();
+                            ShowStatus("Payment recorded: PAY #" + snapshot.PaymentId + ". Next: review the updated invoice balance or record the next receipt.", SaveGreen);
+                        }
+                    });
+                };
+                worker.RunWorkerAsync();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _recordPaymentInProgress = false;
+                if (_btnSavePayment != null)
+                    _btnSavePayment.Enabled = true;
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Recording payment", ex);
+                ShowStatus("Payment could not be recorded. Check the details and try again.", PayRed);
             }
         }
 
@@ -1618,13 +2153,15 @@ namespace HVAC_Pro_Desktop.UI
         {
             _cmbClient.SelectedIndex = 0;
             _cmbInvoice.Items.Clear();
+            _cmbInvoice.Items.Add(new ComboItem { Id = 0, Text = "-- Select Invoice --" });
+            _cmbInvoice.SelectedIndex = 0;
             _numAmount.Value  = 0;
             _dtpPayDate.Value = DateTime.Today;
             _cmbMode.SelectedIndex = 0;
             _txtRef.Text   = "";
             _txtNotes.Text = "";
             ResetInvoiceSummary();
-            ShowStatus("New payment entry ready.", Color.Gray);
+            ShowStatus("New payment entry ready. Select client, invoice, and amount to continue.", Color.Gray);
         }
 
         private void StartNewPayment()
@@ -1632,13 +2169,47 @@ namespace HVAC_Pro_Desktop.UI
             ClearForm();
             if (_cmbClient != null)
                 _cmbClient.Focus();
-            ShowStatus("New payment form opened. Select client, invoice and save.", Color.Gray);
+            ShowStatus("New payment form opened. Select client, invoice, payment mode, and save.", Color.Gray);
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         //  HELPERS
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void ShowStatus(string msg, Color color) { _lblStatus.Text = msg; _lblStatus.ForeColor = color; }
+
+        private ComboItem ResolveComboItem(ComboBox combo)
+        {
+            if (combo == null)
+                return null;
+            ComboItem selected = combo.SelectedItem as ComboItem;
+            if (selected != null)
+                return selected;
+            string text = (combo.Text ?? string.Empty).Trim();
+            if (text.Length == 0)
+                return null;
+            foreach (object item in combo.Items)
+            {
+                ComboItem candidate = item as ComboItem;
+                if (candidate == null)
+                    continue;
+                if (string.Equals(candidate.Text, text, StringComparison.OrdinalIgnoreCase) ||
+                    candidate.Text.StartsWith(text, StringComparison.OrdinalIgnoreCase) ||
+                    text.StartsWith(candidate.Text, StringComparison.OrdinalIgnoreCase))
+                    return candidate;
+            }
+            return null;
+        }
+
+        private ComboItem FindClientItem(int clientId)
+        {
+            foreach (object item in _cmbClient.Items)
+            {
+                ComboItem candidate = item as ComboItem;
+                if (candidate != null && candidate.Id == clientId)
+                    return candidate;
+            }
+            return null;
+        }
 
         private GroupBox MakeGroup(string title) =>
             new ModernPaymentGroupBox { Text = title, Font = new Font("Segoe UI", 8.25f, FontStyle.Bold), ForeColor = InfoBlue, BackColor = DS.White, Padding = new Padding(10) };
@@ -1689,21 +2260,30 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
                 Margin = new Padding(0, 0, 0, 12),
-                Padding = new Padding(16)
+                Padding = new Padding(16),
+                Tag = "PAYMENT_EDITOR_SECTION"
             };
             DS.Rounded(card, 10);
             card.Paint += (s, e) =>
             {
-                using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle rect = new Rectangle(0, 0, card.Width - 1, card.Height - 1);
+                using (GraphicsPath path = DS.RoundedRect(rect, 8))
+                using (SolidBrush brush = new SolidBrush(Color.White))
+                using (Pen pen = new Pen(DS.InputBorder))
+                {
+                    e.Graphics.FillPath(brush, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
             };
             card.Controls.Add(new Label
             {
                 Text = title,
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 ForeColor = DS.Primary600,
+                BackColor = Color.White,
                 Location = new Point(46, 14),
-                Width = 230,
+                Width = 260,
                 Height = 22
             });
             Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 22, DS.Indigo50, DS.Primary600, 8);
@@ -1765,7 +2345,22 @@ namespace HVAC_Pro_Desktop.UI
             public string Text { get; set; }
             public override string ToString() => Text;
         }
+
+        private sealed class PaymentRecordSnapshot
+        {
+            public int PaymentId { get; set; }
+            public List<Payment> Payments { get; set; }
+            public List<Invoice> Invoices { get; set; }
+        }
+
+        private sealed class PaymentOverviewSnapshot
+        {
+            public List<Payment> Payments { get; set; }
+            public List<Invoice> Invoices { get; set; }
+        }
     }
 }
+
+
 
 

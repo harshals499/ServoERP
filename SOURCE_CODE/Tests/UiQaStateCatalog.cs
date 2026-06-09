@@ -48,6 +48,7 @@ namespace HVAC_Pro_Desktop.Tests
             new UiQaModule("Contracts", "HVAC_Pro_Desktop.UI.ContractManagementForm", 2, true),
             new UiQaModule("Invoices", "HVAC_Pro_Desktop.UI.InvoiceForm", 3, true),
             new UiQaModule("Payments", "HVAC_Pro_Desktop.UI.PaymentForm", 4, true),
+            new UiQaModule("SlaDashboard", "HVAC_Pro_Desktop.UI.SLADashboardForm", 5, false),
             new UiQaModule("Quotations", "HVAC_Pro_Desktop.UI.TenderBidForm", 6, false),
             new UiQaModule("Reports", "HVAC_Pro_Desktop.UI.ReportForm", 7, true),
             new UiQaModule("Settings", "HVAC_Pro_Desktop.UI.SettingsForm", 8, true),
@@ -58,8 +59,10 @@ namespace HVAC_Pro_Desktop.Tests
             new UiQaModule("Payroll", "HVAC_Pro_Desktop.UI.PayrollForm", 13, true),
             new UiQaModule("GeoIntelligence", "HVAC_Pro_Desktop.UI.GeoIntelligenceForm", 14, false),
             new UiQaModule("Jobs", "HVAC_Pro_Desktop.UI.JobManagementForm", 15, true),
+            new UiQaModule("RetiredServiceDesk", "HVAC_Pro_Desktop.UI.ServiceDeskForm", 16, false),
             new UiQaModule("MasterData", "HVAC_Pro_Desktop.UI.MasterDataForm", 17, false),
-            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false)
+            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false),
+            new UiQaModule("Tally", "HVAC_Pro_Desktop.UI.TallyIntegrationForm", 19, false)
         };
 
         public static IEnumerable<Tuple<UiQaModule, string>> Matrix()

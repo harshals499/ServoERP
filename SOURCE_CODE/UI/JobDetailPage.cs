@@ -11,11 +11,11 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class JobDetailPage : UserControl
+    public class JobDetailPage : BaseUserControl
     {
         private static readonly Color White = Color.White;
         private static readonly Color PageBg = Color.FromArgb(248, 250, 252);
-        private static readonly Color Border = Color.FromArgb(226, 232, 240);
+        private static readonly Color Border = DS.Border;
         private static readonly Color TextPrimary = Color.FromArgb(15, 23, 42);
         private static readonly Color TextSecondary = Color.FromArgb(100, 116, 139);
         private static readonly Color Teal = Color.FromArgb(29, 158, 117);
@@ -62,6 +62,13 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = PageBg;
             Font = new Font("Segoe UI", 9f);
             BuildLayout();
+        }
+
+        /// <summary>Applies shared load behaviour and keeps table-cell inputs visibly outlined.</summary>
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            ApplyVisibleInputFallbacks(this);
         }
 
         public void LoadJob()
@@ -158,10 +165,12 @@ namespace HVAC_Pro_Desktop.UI
 
             BuildLeftColumn();
             BuildRightColumn();
+            ApplyVisibleInputFallbacks(body);
 
             Controls.Add(body);
             Controls.Add(_pipeline);
             Controls.Add(top);
+            ApplyVisibleInputFallbacks(this);
         }
 
         private void BuildLeftColumn()
@@ -223,13 +232,13 @@ namespace HVAC_Pro_Desktop.UI
             Panel techBody;
             Control tech = MakeCard("Technician", out techBody, 82);
             _cmbTechnician = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
-            techBody.Controls.Add(_cmbTechnician);
+            techBody.Controls.Add(WrapEditor(_cmbTechnician));
 
             Panel priorityBody;
             Control priority = MakeCard("Priority", out priorityBody, 62);
             _cmbPriority = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High" });
-            priorityBody.Controls.Add(_cmbPriority);
+            priorityBody.Controls.Add(WrapEditor(_cmbPriority));
 
             Panel costBody;
             Control cost = MakeCard("Job cost", out costBody, 194);
@@ -293,6 +302,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BindSitesAndContracts(int clientId, int selectedSiteId, int selectedContractId)
         {
             _cmbSite.Items.Clear();
+            _cmbSite.Items.Add(new ComboItem(0, "-- No site / site not decided --"));
             foreach (ClientSite site in _siteService.GetByClientId(clientId).OrderBy(s => s.SiteName))
                 _cmbSite.Items.Add(new ComboItem(site.SiteID, SiteService.GetDisplayName(site)));
             SelectValue(_cmbSite, selectedSiteId);
@@ -483,6 +493,30 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
+        /// <summary>Restores native borders for editable inputs in the job detail editor.</summary>
+        private static void ApplyVisibleInputFallbacks(Control root)
+        {
+            if (root == null)
+                return;
+
+            foreach (Control child in root.Controls)
+            {
+                TextBoxBase textBox = child as TextBoxBase;
+                if (textBox != null && textBox.BorderStyle == BorderStyle.None)
+                    textBox.BorderStyle = BorderStyle.FixedSingle;
+
+                ComboBox combo = child as ComboBox;
+                if (combo != null && combo.FlatStyle == FlatStyle.Flat)
+                    combo.FlatStyle = FlatStyle.Standard;
+
+                NumericUpDown numeric = child as NumericUpDown;
+                if (numeric != null && numeric.BorderStyle == BorderStyle.None)
+                    numeric.BorderStyle = BorderStyle.FixedSingle;
+
+                ApplyVisibleInputFallbacks(child);
+            }
+        }
+
         private Control MakeCard(string title, out Panel body, int contentHeight)
         {
             AccordionPanel card = new AccordionPanel
@@ -499,6 +533,7 @@ namespace HVAC_Pro_Desktop.UI
             body = card.ContentPanel;
             body.BackColor = White;
             body.Padding = new Padding(14, 10, 14, 14);
+            body.Tag = "NO_CARD_SURFACE";
             card.Resize += (s, e) => { if (card.Parent != null) card.Width = Math.Max(240, card.Parent.ClientSize.Width - 28); };
             if (string.Equals(title, "Job checklist", StringComparison.OrdinalIgnoreCase))
             {
@@ -555,7 +590,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
             table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary }, 0, row);
-            table.Controls.Add(editor, 1, row);
+            table.Controls.Add(WrapEditor(editor), 1, row);
         }
 
         private TextBox AddCostRow(TableLayoutPanel table, int row, string label, bool editable)
@@ -563,8 +598,29 @@ namespace HVAC_Pro_Desktop.UI
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
             table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary }, 0, row);
             TextBox box = new TextBox { Dock = DockStyle.Fill, ReadOnly = !editable, TextAlign = HorizontalAlignment.Right };
-            table.Controls.Add(box, 1, row);
+            table.Controls.Add(WrapEditor(box), 1, row);
             return box;
+        }
+
+        /// <summary>Wraps editor controls in an outline host recognised by the shared input painter.</summary>
+        private static Panel WrapEditor(Control editor)
+        {
+            Panel host = new Panel
+            {
+                Name = "JobDetailFieldHost",
+                Dock = DockStyle.Fill,
+                BackColor = DS.BgInput,
+                Padding = new Padding(6, 2, 6, 2),
+                Margin = new Padding(0, 1, 0, 1)
+            };
+
+            if (editor != null)
+            {
+                editor.Dock = DockStyle.Fill;
+                host.Controls.Add(editor);
+            }
+
+            return host;
         }
 
         private Label AddValueRow(TableLayoutPanel table, int row, string label)
@@ -665,3 +721,5 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
+
+

@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.UI;
 
 namespace HVAC_Pro_Desktop.UI.Controls
 {
@@ -22,7 +23,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
             _inner.BorderStyle = BorderStyle.None;
             _inner.Font = new Font("Segoe UI", 10.5f);
-            _inner.ForeColor = Color.FromArgb(15, 23, 42);
+            _inner.ForeColor = DS.InputText;
             _inner.BackColor = Color.White;
             _inner.TextChanged += (s, e) => OnTextChanged(e);
             _inner.Enter += (s, e) => { _isFocused = true; Invalidate(); };
@@ -73,9 +74,9 @@ namespace HVAC_Pro_Desktop.UI.Controls
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle rect = new Rectangle(0, 0, Width - 1, Height - 1);
-            using (GraphicsPath path = Rounded(rect, 12))
-            using (SolidBrush bg = new SolidBrush(Color.White))
-            using (Pen border = new Pen(_isFocused ? Color.FromArgb(37, 99, 235) : (_isHovered ? Color.FromArgb(148, 163, 184) : Color.FromArgb(203, 213, 225)), _isFocused ? 2f : 1f))
+            using (GraphicsPath path = Rounded(rect, 7))
+            using (SolidBrush bg = new SolidBrush(Enabled ? Color.White : DS.InputDisabledBack))
+            using (Pen border = new Pen(_isFocused ? DS.FocusBlue : DS.InputBorder, _isFocused ? 2f : 1f))
             {
                 e.Graphics.FillPath(bg, path);
                 e.Graphics.DrawPath(border, path);
@@ -91,7 +92,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
             if (string.IsNullOrEmpty(_inner.Text) && !_isFocused && !string.IsNullOrWhiteSpace(_placeholder))
             {
-                using (Brush brush = new SolidBrush(Color.FromArgb(100, 116, 139)))
+                using (Brush brush = new SolidBrush(DS.InputMutedText))
                 using (StringFormat format = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
                     e.Graphics.DrawString(_placeholder, _inner.Font, brush, new RectangleF(Padding.Left, 0, Width - Padding.Left - Padding.Right, Height), format);
             }
