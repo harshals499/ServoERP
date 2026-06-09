@@ -109,7 +109,7 @@ namespace HVAC_Pro_Desktop.DAL
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
                     object result = cmd.ExecuteScalar();
-                    return result != DBNull.Value ? (decimal)result : 0;
+                    return result != null && result != DBNull.Value ? (decimal)result : 0m;
                 }
             }
         }
@@ -255,7 +255,7 @@ namespace HVAC_Pro_Desktop.DAL
                 SLAResponseTimeHours = reader["SLAResponseTimeHours"] != DBNull.Value ? (int)reader["SLAResponseTimeHours"] : 0,
                 SLAUptimePercent = reader["SLAUptimePercent"] != DBNull.Value ? (decimal)reader["SLAUptimePercent"] : 0m,
                 SLARepairTimeHours = reader["SLARepairTimeHours"] != DBNull.Value ? (int)reader["SLARepairTimeHours"] : 0,
-                MaintenanceFrequency = reader["MaintenanceFrequency"].ToString(),
+                MaintenanceFrequency = reader["MaintenanceFrequency"] != DBNull.Value ? reader["MaintenanceFrequency"].ToString() : "Monthly",
                 ContractType = reader["ContractType"] != DBNull.Value ? reader["ContractType"].ToString() : "AMC",
                 Notes        = reader["Notes"]        != DBNull.Value ? reader["Notes"].ToString()        : "",
                 CreatedByUserId = reader["CreatedByUserId"] != DBNull.Value ? (int?)reader["CreatedByUserId"] : null,

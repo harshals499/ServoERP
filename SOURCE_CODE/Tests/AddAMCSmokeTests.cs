@@ -115,7 +115,10 @@ namespace HVAC_Pro_Desktop.Tests
         private static void TestDuplicateRejection(int clientId)
         {
             string amcNumber = QaAMCPrefix + "DUP-" + DateTime.Today.Year;
-            try { DirectInsert(clientId, amcNumber); } catch { }
+            // First insert: may already exist from a previous run; only swallow unique-key violations.
+            // Any other exception (e.g. connection failure) propagates so the test fails with a meaningful message.
+            try { DirectInsert(clientId, amcNumber); }
+            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627) { }
 
             bool gotDuplicate = false;
             try
