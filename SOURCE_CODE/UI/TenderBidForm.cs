@@ -829,11 +829,11 @@ namespace HVAC_Pro_Desktop.UI
             };
             StyleQuotationGrid(_grid);
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sr", HeaderText = "#", Width = 36, MinimumWidth = 34, ReadOnly = true });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item / Service", Width = 170, MinimumWidth = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, DisplayStyleForCurrentCellOnly = true, FlatStyle = FlatStyle.Standard });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item / Service", Width = 240, MinimumWidth = 220, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, DisplayStyleForCurrentCellOnly = true, FlatStyle = FlatStyle.Standard });
             _grid.Columns["ItemDescription"].DefaultCellStyle.NullValue = "Click to select item...";
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 70, MinimumWidth = 66 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 42, MinimumWidth = 40 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "RMT", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 80, MinimumWidth = 72, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost (" + "\u20B9" + ")", Width = 66, MinimumWidth = 62 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price (" + "\u20B9" + ")", Width = 74, MinimumWidth = 68 });
@@ -851,7 +851,7 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Columns["Category"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             _grid.Columns["Actions"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             SetFillWeight("Sr", 40);
-            SetFillWeight("ItemDescription", 135);
+            SetFillWeight("ItemDescription", 200);
             SetFillWeight("Category", 82);
             SetFillWeight("Qty", 46);
             SetFillWeight("Unit", 52);
@@ -1497,7 +1497,7 @@ namespace HVAC_Pro_Desktop.UI
             StyleQuotationGrid(_grid);
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item", Width = 220, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 60 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 60, DataSource = new[] { "Nos", "Mtr", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr" } });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 60, DataSource = new[] { "Nos", "Mtr", "RMT", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr" } });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost/Unit", Width = 75 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price", Width = 80 });
@@ -3353,6 +3353,9 @@ namespace HVAC_Pro_Desktop.UI
             grid.DefaultCellStyle.Font = new Font("Segoe UI", 9f);
             grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
             grid.DefaultCellStyle.SelectionForeColor = QuoteText;
+            grid.DefaultCellStyle.SelectionBackColor = Color.White;
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = QuoteText;
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = Color.White;
         }
 
         private static Panel CreateSectionPanel(string title, int width, int height)
@@ -3739,10 +3742,10 @@ namespace HVAC_Pro_Desktop.UI
 
             combo.Font = new Font("Segoe UI", 10.5f);
             combo.Height = QuoteEditorFieldHeight;
-            combo.ItemHeight = 26;
-            combo.MaxDropDownItems = 12;
+            combo.ItemHeight = 28;
+            combo.MaxDropDownItems = 14;
             combo.IntegralHeight = false;
-            combo.DropDownWidth = Math.Max(combo.Width, 320);
+            combo.DropDownWidth = Math.Max(combo.Width, 380);
         }
 
         private void RegisterFilledButton(Button button, Color color)
@@ -3839,7 +3842,7 @@ namespace HVAC_Pro_Desktop.UI
             GridTheme.ApplyColumnPolicy(_grid, new[]
             {
                 new GridColumnPolicy("Sr", 44, GridColumnPriority.Required),
-                new GridColumnPolicy("ItemDescription", 150, GridColumnPriority.Required),
+                new GridColumnPolicy("ItemDescription", 220, GridColumnPriority.Required),
                 new GridColumnPolicy("Category", 90, GridColumnPriority.Secondary),
                 new GridColumnPolicy("Qty", 56, GridColumnPriority.Required),
                 new GridColumnPolicy("Unit", 64, GridColumnPriority.Secondary),

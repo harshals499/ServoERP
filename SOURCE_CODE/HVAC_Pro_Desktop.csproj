@@ -378,6 +378,7 @@
     <Compile Include="SERVICES\Integrations\GstEinvoiceIntegrationService.cs" />
     <Compile Include="SERVICES\Recovery\FormStateRecoveryService.cs" />
     <Compile Include="Tests\AddAMCSmokeTests.cs" />
+    <Compile Include="Tests\AddAMCFormTimingTest.cs" />
     <Compile Include="Tests\DataQualitySmokeTests.cs" />
     <Compile Include="Tests\EndToEndWorkflowSmokeTests.cs" />
     <Compile Include="Tests\ImportPreflightSmokeTests.cs" />

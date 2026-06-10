@@ -188,6 +188,16 @@ namespace HVAC_Pro_Desktop.UI
             if (control.Parent is DataGridView || control.Parent is ToolStrip || control is ToolStrip)
                 return;
 
+            // TableLayoutPanel assigns every direct child to a cell and grows (adds rows/columns)
+            // when controls are added without an explicit cell position. The 4 frame panels below
+            // are added with no assigned cell, so on a fully-populated grid (e.g. AddAMCForm's
+            // 13-row x 2-col layout) every input's frame forces 4 new auto-grown rows, and the
+            // resulting Resize/Layout cascade across all frames made forms with grid layouts take
+            // 50+ seconds to open. Inputs already get a native border from ApplyInputStyle/
+            // ConfigureInput in this case, so skip the cosmetic overlay frame entirely.
+            if (control.Parent is TableLayoutPanel)
+                return;
+
             InputFrame frame;
             if (!InputFrames.TryGetValue(control, out frame) || frame == null || frame.Parent != control.Parent)
             {
@@ -210,9 +220,13 @@ namespace HVAC_Pro_Desktop.UI
                 if (text != null)
                     text.ReadOnlyChanged += InputFrameControlChanged;
 
+                control.Parent.Resize -= InputFrameParentChanged;
                 control.Parent.Resize += InputFrameParentChanged;
+                control.Parent.Layout -= InputFrameParentLayoutChanged;
                 control.Parent.Layout += InputFrameParentLayoutChanged;
+                control.Parent.ControlAdded -= ControlAdded;
                 control.Parent.ControlAdded += ControlAdded;
+                control.Parent.Disposed -= InputFrameParentDisposed;
                 control.Parent.Disposed += InputFrameParentDisposed;
             }
 
@@ -399,6 +413,16 @@ namespace HVAC_Pro_Desktop.UI
             return null;
         }
 
+        // Caches the (expensive, recursive) IsInputHost verdict for a control, keyed alongside the
+        // direct child count at the time it was computed. ApplyToTree revisits the same controls
+        // many times (once per ancestor's tree-walk plus the top-level pass), and each call used to
+        // re-run two full subtree scans (CountDescendants) regardless of whether anything changed.
+        // On forms with many inputs (e.g. AddAMCForm's 13-row grid) that quadratic re-scanning was
+        // the dominant cost of opening the form. The child count is a safe invalidation key here
+        // because the only structural mutations this service performs are adding the 4 frame panels
+        // directly under an input's parent.
+        private static readonly Dictionary<Control, KeyValuePair<int, bool>> InputHostCache = new Dictionary<Control, KeyValuePair<int, bool>>();
+
         private static bool IsInputHost(Control control)
         {
             if (control == null || control is Form || control is UserControl || control is TabPage)
@@ -413,22 +437,43 @@ namespace HVAC_Pro_Desktop.UI
             if (control is DataGridView || control is FlowLayoutPanel || control is TableLayoutPanel || control is SplitContainer || control is SplitterPanel)
                 return false;
 
+            int childCount = control.Controls.Count;
+            KeyValuePair<int, bool> cached;
+            if (InputHostCache.TryGetValue(control, out cached) && cached.Key == childCount)
+                return cached.Value;
+
             int editableInputs = CountDescendants(control, IsEditableInput);
+            bool result;
             if (editableInputs == 0)
-                return false;
+            {
+                result = false;
+            }
+            else
+            {
+                int blockingControls = CountDescendants(control, c => c is DataGridView || c is ListView || c is TreeView);
+                if (blockingControls > 0)
+                {
+                    result = false;
+                }
+                else
+                {
+                    string name = ((control.Name ?? string.Empty) + " " + Convert.ToString(control.Tag)).ToUpperInvariant();
+                    bool namedLikeField = ContainsAny(name, "INPUT", "FIELD", "SEARCH", "FILTER", "WRAP", "HOST", "BOX", "EDITOR");
+                    bool compact = control.Height > 0 && control.Height <= 120;
+                    bool fieldLabel = control.Controls.OfType<Label>().Any(label => !string.IsNullOrWhiteSpace(label.Text) && label.Text.Length <= 90);
+                    bool inputDominant = editableInputs >= CountDescendants(control, c => c is Button || c is PictureBox);
+                    bool whiteSurface = control.BackColor == Color.White || control.BackColor == DS.White || control.BackColor == DS.BgInput || control.BackColor == SystemColors.Window;
 
-            int blockingControls = CountDescendants(control, c => c is DataGridView || c is ListView || c is TreeView);
-            if (blockingControls > 0)
-                return false;
+                    result = whiteSurface && inputDominant && (compact || namedLikeField || fieldLabel);
+                }
+            }
 
-            string name = ((control.Name ?? string.Empty) + " " + Convert.ToString(control.Tag)).ToUpperInvariant();
-            bool namedLikeField = ContainsAny(name, "INPUT", "FIELD", "SEARCH", "FILTER", "WRAP", "HOST", "BOX", "EDITOR");
-            bool compact = control.Height > 0 && control.Height <= 120;
-            bool fieldLabel = control.Controls.OfType<Label>().Any(label => !string.IsNullOrWhiteSpace(label.Text) && label.Text.Length <= 90);
-            bool inputDominant = editableInputs >= CountDescendants(control, c => c is Button || c is PictureBox);
-            bool whiteSurface = control.BackColor == Color.White || control.BackColor == DS.White || control.BackColor == DS.BgInput || control.BackColor == SystemColors.Window;
-
-            return whiteSurface && inputDominant && (compact || namedLikeField || fieldLabel);
+            if (!InputHostCache.ContainsKey(control))
+            {
+                control.Disposed += (s, e) => InputHostCache.Remove(control);
+            }
+            InputHostCache[control] = new KeyValuePair<int, bool>(childCount, result);
+            return result;
         }
 
         private static bool ShouldSkipInputHost(Control control)
@@ -659,15 +704,23 @@ namespace HVAC_Pro_Desktop.UI
                 int thickness = ContainsFocus(_input) ? 2 : 1;
                 Rectangle bounds = _input.Bounds;
 
-                SetEdge(_top, new Rectangle(bounds.Left, bounds.Top, bounds.Width, thickness), color, visible);
-                SetEdge(_bottom, new Rectangle(bounds.Left, bounds.Bottom - thickness, bounds.Width, thickness), color, visible);
-                SetEdge(_left, new Rectangle(bounds.Left, bounds.Top, thickness, bounds.Height), color, visible);
-                SetEdge(_right, new Rectangle(bounds.Right - thickness, bounds.Top, thickness, bounds.Height), color, visible);
+                bool topChanged = SetEdge(_top, new Rectangle(bounds.Left, bounds.Top, bounds.Width, thickness), color, visible);
+                bool bottomChanged = SetEdge(_bottom, new Rectangle(bounds.Left, bounds.Bottom - thickness, bounds.Width, thickness), color, visible);
+                bool leftChanged = SetEdge(_left, new Rectangle(bounds.Left, bounds.Top, thickness, bounds.Height), color, visible);
+                bool rightChanged = SetEdge(_right, new Rectangle(bounds.Right - thickness, bounds.Top, thickness, bounds.Height), color, visible);
 
-                _top.BringToFront();
-                _right.BringToFront();
-                _bottom.BringToFront();
-                _left.BringToFront();
+                // Only re-order Z-order (an expensive Win32 SetWindowPos call) when something
+                // actually changed. Without this, every redundant ApplyToTree pass over the
+                // same already-up-to-date frame still issued 4 BringToFront calls per input,
+                // which compounds badly on forms with many inputs (e.g. AddAMCForm).
+                if (topChanged)
+                    _top.BringToFront();
+                if (rightChanged)
+                    _right.BringToFront();
+                if (bottomChanged)
+                    _bottom.BringToFront();
+                if (leftChanged)
+                    _left.BringToFront();
             }
 
             public void Dispose()
@@ -691,14 +744,20 @@ namespace HVAC_Pro_Desktop.UI
                 };
             }
 
-            private static void SetEdge(Panel edge, Rectangle bounds, Color color, bool visible)
+            /// <summary>Applies the edge's bounds/color/visibility, returning true only if something actually changed.</summary>
+            private static bool SetEdge(Panel edge, Rectangle bounds, Color color, bool visible)
             {
                 if (edge == null || edge.IsDisposed)
-                    return;
+                    return false;
+
+                bool changed = edge.Bounds != bounds || edge.BackColor != color || edge.Visible != visible;
+                if (!changed)
+                    return false;
 
                 edge.Bounds = bounds;
                 edge.BackColor = color;
                 edge.Visible = visible;
+                return true;
             }
 
             private static void DisposeEdge(Control edge)

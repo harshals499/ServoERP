@@ -1,22 +1,23 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.3.0",
-  "updatedAt": "2026-06-09",
+  "latestVersion": "1.1.11.0",
+  "updatedAt": "2026-06-10",
   "download": {
     "available": false,
     "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
-    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.3.0.zip"
+    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.11.0.zip"
   },
   "versions": [
     {
-      "version": "1.1.3.0",
-      "date": "2026-06-09",
+      "version": "1.1.11.0",
+      "date": "2026-06-10",
       "title": "ServoERP client update",
       "changes": [
         {
           "type": "release",
           "items": [
-            "Publishes ServoERP v1.1.3.0 update package for client rollout.",
+            "Publishes ServoERP v1.1.11.0 update package for client rollout.",
+            "Includes Add AMC smoke-test coverage and compatibility fixes for older AMC contract rows.",
             "Refreshes website update metadata for the client update workflow."
           ]
         }

@@ -363,6 +363,22 @@ namespace HVAC_Pro_Desktop
                     return;
                 AppRuntime.LogTiming("Startup.LegalAgreement", stageWatch.ElapsedMilliseconds);
 
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/amcformtiming", StringComparison.OrdinalIgnoreCase)))
+                {
+                    stageWatch.Restart();
+                    string bypassMessage2;
+                    if (!LocalLoginBypassService.TryStartSession(out bypassMessage2))
+                        throw new InvalidOperationException("AddAMCForm timing requires the authorized local login bypass. " + bypassMessage2);
+
+                    string formTimingPath = AddAMCFormTimingTest.WriteReport();
+                    if (File.Exists(formTimingPath) && File.ReadAllText(formTimingPath).Contains(Environment.NewLine + "FAIL "))
+                        Environment.ExitCode = 1;
+                    else
+                        Environment.ExitCode = 0;
+                    AppRuntime.LogTiming("AddAMCFormTimingTest", stageWatch.ElapsedMilliseconds, formTimingPath);
+                    return;
+                }
+
                 if (args.Skip(1).Any(arg => string.Equals(arg, "/navtiming", StringComparison.OrdinalIgnoreCase)))
                 {
                     stageWatch.Restart();

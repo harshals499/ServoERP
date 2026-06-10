@@ -8,6 +8,8 @@ namespace ServoERP.Infrastructure
     /// <summary>Base class for ServoERP modal and sub forms with safe workers, rendering helpers, and diagnostics.</summary>
     public class ServoFormBase : Form
     {
+        private bool _loaded;
+
         /// <summary>Creates a low-flicker form surface and enables Escape key handling.</summary>
         protected ServoFormBase()
         {
@@ -21,15 +23,22 @@ namespace ServoERP.Infrastructure
             RenderHelper.EnableDoubleBufferAll(this);
             RenderHelper.OptimiseAllGrids(this);
             base.OnLoad(e);
+            _loaded = true;
             ApplySharedFrontendPolish(this);
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");
         }
 
-        /// <summary>Applies the same shared frontend polish used by full application pages to modal forms.</summary>
+        /// <summary>
+        /// Applies the same shared frontend polish used by full application pages to controls added
+        /// after the form has loaded. Controls added during construction (before OnLoad) are skipped
+        /// here because OnLoad's full-tree pass over the form already polishes them; polishing twice
+        /// doubled the cost of opening forms with large control trees (e.g. AddAMCForm) and forced
+        /// native window handles to be created before the form itself had one.
+        /// </summary>
         protected override void OnControlAdded(ControlEventArgs e)
         {
             base.OnControlAdded(e);
-            if (e.Control != null)
+            if (e.Control != null && _loaded)
                 ApplySharedFrontendPolish(e.Control);
         }
 
