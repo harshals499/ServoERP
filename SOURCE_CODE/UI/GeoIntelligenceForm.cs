@@ -31,7 +31,6 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Color MapTraveling = Color.FromArgb(245, 158, 11);
         private readonly Color MapBusy = Color.FromArgb(239, 68, 68);
         private readonly Color MapOffline = Color.FromArgb(156, 163, 175);
-        private readonly Color MapUnassigned = Color.FromArgb(30, 41, 59);
 
         private ComboBox _cmbLocation;
         private CheckBox _chkAutoRefresh;
@@ -43,7 +42,6 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cmbPriority;
         private FlowLayoutPanel _jobList;
         private FlowLayoutPanel _techList;
-        private Panel _mapPanel;
         private Panel _timelinePanel;
         private Label _lblStatus;
         private Label _lblTechTitle;
@@ -93,8 +91,6 @@ namespace HVAC_Pro_Desktop.UI
         private string _activeQueue = "All";
         private bool _binding;
         private bool _usingFallbackJobs;
-        private bool _satelliteMapEnabled;
-        private bool _trafficOverlayEnabled = true;
         private Timer _initialDispatchLoadTimer;
 
         public Action<int> OnNavigate { get; set; }
@@ -233,8 +229,6 @@ namespace HVAC_Pro_Desktop.UI
                 Visible = false
             };
 
-            Button notify = MakeToolbarButton("Bell", 64);
-            notify.Click += (s, e) => ShowNotificationCenter();
             _btnRefresh = MakeToolbarButton("Refresh", 92);
             _btnRefresh.Click += (s, e) => QueueLoadDispatchData();
             Button forms = MakeToolbarButton("Forms", 84);
@@ -246,7 +240,6 @@ namespace HVAC_Pro_Desktop.UI
             {
                 bool compact = header.Width < 1120;
                 locationHost.Width = compact ? 150 : 190;
-                notify.Visible = !compact;
                 int x = compact ? Math.Max(500, header.Width - 560) : Math.Max(520, header.Width - 800);
                 title.Width = Math.Max(260, Math.Min(460, x - 18));
                 subtitle.Width = title.Width;
@@ -254,14 +247,13 @@ namespace HVAC_Pro_Desktop.UI
                 locationHost.Location = new Point(x, 18);
                 _chkAutoRefresh.Location = new Point(locationHost.Right + (compact ? 8 : 18), 25);
                 _autoRefreshPulse.Location = new Point(_chkAutoRefresh.Right + 6, 24);
-                notify.Location = new Point((_autoRefreshPulse.Visible ? _autoRefreshPulse.Right : _chkAutoRefresh.Right) + 18, 20);
-                _btnRefresh.Location = new Point(compact ? (_autoRefreshPulse.Visible ? _autoRefreshPulse.Right + 8 : _chkAutoRefresh.Right + 8) : notify.Right + 18, 20);
+                _btnRefresh.Location = new Point((_autoRefreshPulse.Visible ? _autoRefreshPulse.Right : _chkAutoRefresh.Right) + 18, 20);
                 forms.Location = new Point(_btnRefresh.Right + 10, 20);
                 newJob.Location = new Point(forms.Right + 10, 20);
                 UIHelper.ApplyButtonContainerLayout(header);
             };
             header.Resize += (s, e) => layoutHeader();
-            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, notify, _btnRefresh, forms, newJob });
+            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob });
             layoutHeader();
             return header;
         }
@@ -481,13 +473,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildOperationsBoard(Control jobQueue)
         {
-            TableLayoutPanel center = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 1, RowCount = 3, Margin = new Padding(8, 0, 8, 0) };
-            center.RowStyles.Add(new RowStyle(SizeType.Percent, 52));
-            center.RowStyles.Add(new RowStyle(SizeType.Percent, 25));
-            center.RowStyles.Add(new RowStyle(SizeType.Percent, 23));
+            TableLayoutPanel center = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 1, RowCount = 2, Margin = new Padding(8, 0, 8, 0) };
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 65));
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 35));
             center.Controls.Add(jobQueue, 0, 0);
-            center.Controls.Add(BuildMapCard(), 0, 1);
-            center.Controls.Add(BuildTimelineCard(), 0, 2);
+            center.Controls.Add(BuildTimelineCard(), 0, 1);
             return center;
         }
 
@@ -516,91 +506,10 @@ namespace HVAC_Pro_Desktop.UI
             Panel designationHost = WrapInput(_cmbTechnicianDesignationFilter, "TechnicianDesignationFilterHost");
             designationHost.Location = new Point(0, 34);
             designationHost.Size = new Size(220, 32);
-            Panel viewGroup = new Panel
-            {
-                Dock = DockStyle.Right,
-                Width = 246,
-                Height = 32,
-                BackColor = White,
-                Padding = Padding.Empty
-            };
-            viewGroup.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(Border))
-                    e.Graphics.DrawRectangle(pen, 0, 0, viewGroup.Width - 1, viewGroup.Height - 1);
-            };
-            Button timeline = MakeToolbarButton("View Timeline", 112);
-            timeline.Location = new Point(0, 0);
-            timeline.Click += (s, e) => ShowTechnicianTimelineSummary();
-            Button list = MakeToolbarButton("List", 64);
-            list.Location = new Point(112, 0);
-            list.Click += (s, e) => ToggleTechnicianListView();
-            Button map = MakeToolbarButton("Map", 64);
-            map.Location = new Point(176, 0);
-            map.Click += (s, e) => SetTechnicianMapView();
-            foreach (Button button in new[] { timeline, list, map })
-            {
-                button.Margin = Padding.Empty;
-                button.Height = 32;
-                button.FlatAppearance.BorderSize = 0;
-                button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
-                viewGroup.Controls.Add(button);
-            }
-            _techList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = false, FlowDirection = FlowDirection.LeftToRight, BackColor = White, Padding = new Padding(0, 4, 18, 12) };
+            _techList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, WrapContents = false, FlowDirection = FlowDirection.TopDown, BackColor = White, Padding = new Padding(0, 4, 18, 12) };
             card.Controls.Add(_techList);
-            header.Controls.AddRange(new Control[] { viewGroup, designationHost, _lblTechTitle });
+            header.Controls.AddRange(new Control[] { designationHost, _lblTechTitle });
             card.Controls.Add(header);
-            return card;
-        }
-
-        private Control BuildMapCard()
-        {
-            Panel card = CreateCard();
-            card.Margin = new Padding(0, 0, 0, 8);
-            card.Padding = new Padding(14);
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = White };
-            Button map = MakePrimaryButton("Map View", 92);
-            Button sat = MakeToolbarButton("Satellite View", 112);
-            CheckBox traffic = new CheckBox { Text = "Show Traffic", Dock = DockStyle.Right, Width = 120, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, BackColor = White };
-            traffic.Checked = true;
-            map.Click += (s, e) =>
-            {
-                _satelliteMapEnabled = false;
-                map.BackColor = Primary;
-                map.ForeColor = White;
-                sat.BackColor = White;
-                sat.ForeColor = TextSecondary;
-                _mapPanel.Invalidate();
-                SetStatus("Map view enabled.", TextSecondary);
-            };
-            sat.Click += (s, e) =>
-            {
-                _satelliteMapEnabled = true;
-                sat.BackColor = Primary;
-                sat.ForeColor = White;
-                map.BackColor = White;
-                map.ForeColor = TextSecondary;
-                _mapPanel.Invalidate();
-                SetStatus("Satellite view enabled.", TextSecondary);
-            };
-            traffic.CheckedChanged += (s, e) =>
-            {
-                _trafficOverlayEnabled = traffic.Checked;
-                _mapPanel.Invalidate();
-                SetStatus(_trafficOverlayEnabled ? "Traffic overlay enabled." : "Traffic overlay hidden.", TextSecondary);
-            };
-            header.Controls.AddRange(new Control[] { traffic, sat, map });
-            card.Controls.Add(header);
-            Label loading = new Label { Text = "Map view uses live dispatch coordinates when available; fallback map shown otherwise.", Dock = DockStyle.Bottom, Height = 24, Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, TextAlign = ContentAlignment.MiddleLeft, BackColor = White };
-            _mapPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(229, 241, 248), Cursor = Cursors.Hand };
-            _mapPanel.Paint += DrawMapPlaceholder;
-            _mapPanel.MouseClick += (s, e) =>
-            {
-                if (_visibleJobs.Count > 0)
-                    SelectJob(_visibleJobs[Math.Abs(e.X + e.Y) % _visibleJobs.Count]);
-            };
-            card.Controls.Add(_mapPanel);
-            card.Controls.Add(loading);
             return card;
         }
 
@@ -791,19 +700,19 @@ namespace HVAC_Pro_Desktop.UI
             card.MinimumSize = new Size(0, 226);
             Label title = SectionTitle("Quick Actions");
             title.Dock = DockStyle.Top;
-            card.Controls.Add(title);
             _quickActionsPanel = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(0, 8, 0, 0), ColumnCount = 2, RowCount = 3 };
             _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             _quickActionsPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
-            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
-            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 33.34f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
             AddQuickAction(_quickActionsPanel, "Assign", SaveAssignment);
             AddQuickAction(_quickActionsPanel, "Schedule", SaveSchedule);
             AddQuickAction(_quickActionsPanel, "Escalate SLA", EscalateSelected);
             AddQuickAction(_quickActionsPanel, "Add Note", AddNote);
             AddQuickAction(_quickActionsPanel, "Print Job", PrintJob);
             card.Controls.Add(_quickActionsPanel);
+            card.Controls.Add(title);
             return card;
         }
 
@@ -968,9 +877,11 @@ namespace HVAC_Pro_Desktop.UI
             _techCards.Clear();
             List<Employee> visibleTechnicians = GetVisibleTechnicians();
             _lblTechTitle.Text = "TECHNICIANS (" + visibleTechnicians.Count + ")";
+            int width = Math.Max(TechnicianCardWidth, _techList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
             foreach (Employee tech in SortDispatchTechnicians(visibleTechnicians))
             {
                 Panel card = CreateTechnicianCard(tech);
+                card.Width = width;
                 _techCards.Add(card);
                 _techList.Controls.Add(card);
             }
@@ -1397,54 +1308,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderMapAndTimeline()
         {
-            _mapPanel?.Invalidate();
             _timelinePanel?.Invalidate();
-        }
-
-        private void DrawMapPlaceholder(object sender, PaintEventArgs e)
-        {
-            Panel p = (Panel)sender;
-            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            if (_satelliteMapEnabled)
-            {
-                using (SolidBrush bg = new SolidBrush(Color.FromArgb(54, 83, 70))) e.Graphics.FillRectangle(bg, p.ClientRectangle);
-                using (SolidBrush field = new SolidBrush(Color.FromArgb(72, 112, 82)))
-                {
-                    e.Graphics.FillRectangle(field, new Rectangle(18, 16, Math.Max(40, p.Width / 3), Math.Max(40, p.Height / 3)));
-                    e.Graphics.FillRectangle(field, new Rectangle(p.Width / 2, p.Height / 2, Math.Max(40, p.Width / 3), Math.Max(40, p.Height / 3)));
-                }
-                using (SolidBrush roof = new SolidBrush(Color.FromArgb(112, 102, 88)))
-                {
-                    e.Graphics.FillRectangle(roof, new Rectangle(p.Width / 2, 28, p.Width / 4, p.Height / 5));
-                    e.Graphics.FillRectangle(roof, new Rectangle(76, p.Height - 112, p.Width / 3, 72));
-                }
-                using (Pen road = new Pen(Color.FromArgb(154, 146, 130), 7))
-                    for (int y = 24; y < p.Height; y += 58) e.Graphics.DrawLine(road, 0, y, p.Width, y + 18);
-            }
-            else
-            {
-                using (SolidBrush bg = new SolidBrush(Color.FromArgb(219, 237, 229))) e.Graphics.FillRectangle(bg, p.ClientRectangle);
-                using (SolidBrush water = new SolidBrush(Color.FromArgb(191, 224, 238))) e.Graphics.FillEllipse(water, -80, p.Height / 3, p.Width / 2, p.Height / 2);
-                using (SolidBrush zone = new SolidBrush(Color.FromArgb(237, 231, 214)))
-                {
-                    e.Graphics.FillRectangle(zone, new Rectangle(p.Width / 2, 22, p.Width / 3, p.Height / 3));
-                    e.Graphics.FillRectangle(zone, new Rectangle(80, p.Height - 96, p.Width / 3, 68));
-                }
-                using (Pen road = new Pen(Color.White, 9)) for (int y = 34; y < p.Height; y += 54) e.Graphics.DrawLine(road, 0, y, p.Width, y + 24);
-                using (Pen road2 = new Pen(Color.FromArgb(174, 197, 210), 2)) for (int x = 42; x < p.Width; x += 84) e.Graphics.DrawLine(road2, x, 0, x - 28, p.Height);
-            }
-            if (_trafficOverlayEnabled)
-            {
-                using (Pen arterial = new Pen(Color.FromArgb(249, 194, 91), 5)) e.Graphics.DrawLine(arterial, 0, p.Height - 58, p.Width, 42);
-                using (Pen congested = new Pen(Color.FromArgb(239, 68, 68), 4)) e.Graphics.DrawLine(congested, p.Width / 4, p.Height - 74, p.Width / 2, p.Height / 2);
-            }
-            DrawMapMarker(e.Graphics, p.Width / 3, p.Height / 2, MapUnassigned, "3");
-            DrawMapMarker(e.Graphics, p.Width / 2, p.Height / 3, MapBusy, "!");
-            DrawMapMarker(e.Graphics, p.Width * 2 / 3, p.Height / 2, MapOnJob, "J");
-            DrawMapMarker(e.Graphics, p.Width - 92, 58, MapAvailable, "T");
-            DrawLegend(e.Graphics, p.Height - 42);
-            ButtonLike(e.Graphics, p.Width - 42, 58, "+");
-            ButtonLike(e.Graphics, p.Width - 42, 96, "-");
         }
 
         private void DrawTimeline(object sender, PaintEventArgs e)
@@ -1496,44 +1360,6 @@ namespace HVAC_Pro_Desktop.UI
                     using (Brush br = new SolidBrush(StatusColor(job))) e.Graphics.DrawString(TrimForWidth(NormalizeStatus(job.PipelineStatus), 10), new Font("Segoe UI", 6.8f, FontStyle.Bold), br, badge.X + 5, badge.Y + 1);
                 }
             }
-        }
-
-        private static void DrawMapMarker(Graphics g, int x, int y, Color color, string text)
-        {
-            using (Brush b = new SolidBrush(color)) g.FillEllipse(b, x - 13, y - 13, 26, 26);
-            using (Brush b = new SolidBrush(Color.White)) g.DrawString(text, new Font("Segoe UI", 8f, FontStyle.Bold), b, x - 5, y - 7);
-        }
-
-        private void DrawLegend(Graphics g, int y)
-        {
-            string[] labels = { "Available", "On Job", "Traveling", "Busy", "Offline", "Unassigned Job", "SLA Risk / Emergency" };
-            Color[] colors = { MapAvailable, MapOnJob, MapTraveling, MapBusy, MapOffline, MapUnassigned, MapBusy };
-            int x = 12;
-            int rowY = y;
-            int maxX = (int)Math.Max(260, g.VisibleClipBounds.Width - 12);
-            for (int i = 0; i < labels.Length; i++)
-            {
-                int width = labels[i].Length > 14 ? 140 : 96;
-                if (x + width > maxX)
-                {
-                    x = 12;
-                    rowY -= 28;
-                }
-                using (Brush bg = new SolidBrush(Color.FromArgb(245, 248, 250))) g.FillRectangle(bg, x - 6, rowY - 5, width, 26);
-                using (Brush b = new SolidBrush(colors[i])) g.FillEllipse(b, x, rowY + 4, 10, 10);
-                if (labels[i].StartsWith("SLA", StringComparison.OrdinalIgnoreCase))
-                    using (Brush b = new SolidBrush(Color.White)) g.DrawString("!", new Font("Segoe UI", 6f, FontStyle.Bold), b, x + 3, rowY + 2);
-                using (Brush b = new SolidBrush(TextPrimary)) g.DrawString(labels[i], new Font("Segoe UI", 8f, FontStyle.Bold), b, x + 14, rowY);
-                x += width + 10;
-            }
-        }
-
-        private void ButtonLike(Graphics g, int x, int y, string text)
-        {
-            Rectangle r = new Rectangle(x, y, 28, 28);
-            using (Brush b = new SolidBrush(White)) g.FillRectangle(b, r);
-            using (Pen p = new Pen(Border)) g.DrawRectangle(p, r);
-            using (Brush b = new SolidBrush(TextPrimary)) g.DrawString(text, new Font("Segoe UI", 10f, FontStyle.Bold), b, x + 8, y + 4);
         }
 
         private void AddQuickAction(TableLayoutPanel parent, string text, Action action)
@@ -1943,13 +1769,6 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < combo.Items.Count; i++)
                 if (string.Equals(Convert.ToString(combo.Items[i]), text, StringComparison.OrdinalIgnoreCase)) { combo.SelectedIndex = i; return; }
         }
-        private void ShowNotificationCenter()
-        {
-            MainForm main = FindForm() as MainForm;
-            using (var dialog = new NotificationCenterDialog(main != null ? new Action<string>(main.NavigateTo) : null))
-                dialog.ShowDialog(FindForm());
-        }
-
 
         private void OpenDispatchFilters()
         {
@@ -1965,50 +1784,6 @@ namespace HVAC_Pro_Desktop.UI
             _txtSearch.Text = DateTime.Today.ToString("dd/MM/yyyy");
             ApplyJobFilters();
             SetStatus("Filtered dispatch queue to today's date.", Info);
-        }
-
-        private void ShowTechnicianTimelineSummary()
-        {
-            int available = GetVisibleTechnicians().Count;
-            int assigned = _visibleJobs == null ? 0 : _visibleJobs.Count(j => j.TechnicianId.HasValue);
-            MessageBox.Show(
-                "Visible technicians: " + available + Environment.NewLine +
-                "Visible assigned jobs: " + assigned + Environment.NewLine +
-                "Use job cards to inspect and reschedule assignments.",
-                "Technician Timeline",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-
-        private void ToggleTechnicianListView()
-        {
-            if (_techList == null)
-                return;
-
-            _techList.FlowDirection = FlowDirection.TopDown;
-            _techList.WrapContents = false;
-            int width = Math.Max(TechnicianCardWidth, _techList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
-            foreach (Panel card in _techCards)
-            {
-                card.Width = width;
-                card.Height = Math.Max(card.Height, TechnicianCardHeight);
-            }
-            SetStatus("Technician list view enabled.", Info);
-        }
-
-        private void SetTechnicianMapView()
-        {
-            if (_techList == null)
-                return;
-
-            _techList.FlowDirection = FlowDirection.LeftToRight;
-            _techList.WrapContents = false;
-            foreach (Panel card in _techCards)
-            {
-                card.Width = TechnicianCardWidth;
-                card.Height = Math.Max(card.Height, TechnicianCardHeight);
-            }
-            SetStatus("Technician map board view enabled.", Info);
         }
 
         private void UpdateAutoRefreshState()
