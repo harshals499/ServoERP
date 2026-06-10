@@ -1318,7 +1318,7 @@ namespace HVAC_Pro_Desktop.UI
             _searchSection = new Panel { Dock = DockStyle.Top, Height = 152, Padding = new Padding(12, 10, 12, 10), BackColor = White };
             Label railTitle = new Label
             {
-                Text = "VENDOR MANAGEMENT",
+                Text = "Vendor Management",
                 Location = new Point(12, 10),
                 Size = new Size(260, 24),
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),

@@ -532,7 +532,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Margin = new Padding(0, 0, 12, 0);
             card.Controls.Add(new Label
             {
-                Text = "CONTRACTS",
+                Text = "Contracts",
                 Location = new Point(16, 16),
                 Size = new Size(190, 22),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
@@ -712,7 +712,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel summary = MakeCard(new Padding(16));
             summary.Dock = DockStyle.Top;
             summary.Height = 300;
-            summary.Controls.Add(new Label { Text = "CONTRACT SUMMARY", Location = new Point(18, 18), Size = new Size(200, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
+            summary.Controls.Add(new Label { Text = "Contract Summary", Location = new Point(18, 18), Size = new Size(200, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
             _summaryClient = AddSummaryLine(summary, "Client", 62);
             _summarySite = AddSummaryLine(summary, "Site", 96);
             _summaryType = AddSummaryLine(summary, "Contract Type", 130);
@@ -725,7 +725,7 @@ namespace HVAC_Pro_Desktop.UI
             actions.Dock = DockStyle.Top;
             actions.Height = 178;
             actions.Margin = new Padding(0, 16, 0, 0);
-            actions.Controls.Add(new Label { Text = "ACTIONS", Location = new Point(18, 18), Size = new Size(160, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
+            actions.Controls.Add(new Label { Text = "Actions", Location = new Point(18, 18), Size = new Size(160, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
             Button saveContract = MakeButton("Save Contract", Green, 220);
             saveContract.Location = new Point(20, 50);
             saveContract.Size = new Size(220, 34);

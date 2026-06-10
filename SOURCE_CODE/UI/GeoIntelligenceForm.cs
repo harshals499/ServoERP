@@ -235,8 +235,6 @@ namespace HVAC_Pro_Desktop.UI
 
             Button notify = MakeToolbarButton("Bell", 64);
             notify.Click += (s, e) => ShowNotificationCenter();
-            Button help = MakeToolbarButton("?", 42);
-            help.Click += (s, e) => ShowDispatchHelp();
             _btnRefresh = MakeToolbarButton("Refresh", 92);
             _btnRefresh.Click += (s, e) => QueueLoadDispatchData();
             Button forms = MakeToolbarButton("Forms", 84);
@@ -248,7 +246,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 bool compact = header.Width < 1120;
                 locationHost.Width = compact ? 150 : 190;
-                notify.Visible = help.Visible = !compact;
+                notify.Visible = !compact;
                 int x = compact ? Math.Max(500, header.Width - 560) : Math.Max(520, header.Width - 800);
                 title.Width = Math.Max(260, Math.Min(460, x - 18));
                 subtitle.Width = title.Width;
@@ -257,14 +255,13 @@ namespace HVAC_Pro_Desktop.UI
                 _chkAutoRefresh.Location = new Point(locationHost.Right + (compact ? 8 : 18), 25);
                 _autoRefreshPulse.Location = new Point(_chkAutoRefresh.Right + 6, 24);
                 notify.Location = new Point((_autoRefreshPulse.Visible ? _autoRefreshPulse.Right : _chkAutoRefresh.Right) + 18, 20);
-                help.Location = new Point(notify.Right + 8, 20);
-                _btnRefresh.Location = new Point(compact ? (_autoRefreshPulse.Visible ? _autoRefreshPulse.Right + 8 : _chkAutoRefresh.Right + 8) : help.Right + 18, 20);
+                _btnRefresh.Location = new Point(compact ? (_autoRefreshPulse.Visible ? _autoRefreshPulse.Right + 8 : _chkAutoRefresh.Right + 8) : notify.Right + 18, 20);
                 forms.Location = new Point(_btnRefresh.Right + 10, 20);
                 newJob.Location = new Point(forms.Right + 10, 20);
                 UIHelper.ApplyButtonContainerLayout(header);
             };
             header.Resize += (s, e) => layoutHeader();
-            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, notify, help, _btnRefresh, forms, newJob });
+            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, notify, _btnRefresh, forms, newJob });
             layoutHeader();
             return header;
         }
@@ -368,7 +365,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Margin = new Padding(0, 0, 8, 0);
             card.Padding = new Padding(14);
 
-            Label title = SectionTitle("JOB QUEUE");
+            Label title = SectionTitle("Job Queue");
             title.Dock = DockStyle.None;
             card.Controls.Add(title);
 
@@ -651,7 +648,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Padding = new Padding(14);
 
             Panel header = new Panel { Dock = DockStyle.None, Height = 72, BackColor = White };
-            Label title = SectionTitle("JOB DETAILS");
+            Label title = SectionTitle("Job Details");
             title.Location = new Point(0, 0);
             _detailJobNumber = new Label { Location = new Point(0, 36), Size = new Size(150, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextPrimary };
             _detailBadge = new Label { Location = new Point(154, 35), Size = new Size(96, 22), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
@@ -792,7 +789,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Margin = new Padding(0, 0, 0, 8);
             card.Padding = new Padding(14);
             card.MinimumSize = new Size(0, 226);
-            Label title = SectionTitle("QUICK ACTIONS");
+            Label title = SectionTitle("Quick Actions");
             title.Dock = DockStyle.Top;
             card.Controls.Add(title);
             _quickActionsPanel = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(0, 8, 0, 0), ColumnCount = 2, RowCount = 3 };
@@ -802,7 +799,7 @@ namespace HVAC_Pro_Desktop.UI
             _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
             _quickActionsPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
             AddQuickAction(_quickActionsPanel, "Assign", SaveAssignment);
-            AddQuickAction(_quickActionsPanel, "Schedule", SaveAssignment);
+            AddQuickAction(_quickActionsPanel, "Schedule", SaveSchedule);
             AddQuickAction(_quickActionsPanel, "Escalate SLA", EscalateSelected);
             AddQuickAction(_quickActionsPanel, "Add Note", AddNote);
             AddQuickAction(_quickActionsPanel, "Print Job", PrintJob);
@@ -816,7 +813,7 @@ namespace HVAC_Pro_Desktop.UI
             _jobInformationCard = card;
             card.Visible = false;
             card.Padding = new Padding(14);
-            Label title = SectionTitle("JOB INFORMATION");
+            Label title = SectionTitle("Job Information");
             title.Dock = DockStyle.Top;
             _lblJobInfo = new Label { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
             card.Controls.Add(_lblJobInfo);
@@ -1290,6 +1287,38 @@ namespace HVAC_Pro_Desktop.UI
         private void UpdateJobStatus()
         {
             SaveAssignment();
+        }
+
+        private void SaveSchedule()
+        {
+            if (_selectedJob == null)
+            {
+                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (_usingFallbackJobs)
+            {
+                MessageBox.Show("Demo job selected. Add or select a real job to update the schedule.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                Job job = _jobService.GetById(_selectedJob.JobId);
+                if (job == null)
+                    throw new Exception("Job not found.");
+
+                job.ScheduledDate = _dtpSchedule.Value;
+                _jobService.Update(job);
+                _jobService.LogActivity(job.JobID, "Job schedule updated from Dispatch Center.", "Info");
+                QueueLoadDispatchData();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("DispatchCenter.SaveSchedule", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Updating job schedule", ex);
+                MessageBox.Show("Schedule could not be saved. Review the date/time, then try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void EscalateSelected()
@@ -1921,14 +1950,6 @@ namespace HVAC_Pro_Desktop.UI
                 dialog.ShowDialog(FindForm());
         }
 
-        private void ShowDispatchHelp()
-        {
-            MessageBox.Show(
-                "Dispatch Center uses the search, type, priority, technician and auto-refresh controls on this screen. Select a job card to update assignment, status and schedule.",
-                "Dispatch Center Help",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
 
         private void OpenDispatchFilters()
         {

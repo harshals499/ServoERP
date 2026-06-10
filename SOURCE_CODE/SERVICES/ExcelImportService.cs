@@ -24,7 +24,8 @@ namespace HVAC_Pro_Desktop.Services
         Employees,
         Vendors,
         Sites,
-        Inventory
+        Inventory,
+        AMC
     }
 
     public sealed class ExcelImportResult
@@ -338,6 +339,7 @@ END");
                 case ExcelImportModule.Vendors: return "Vendors";
                 case ExcelImportModule.Sites: return "Clients";
                 case ExcelImportModule.Inventory: return "Inventory";
+                case ExcelImportModule.AMC: return "Contracts";
                 default: return "Settings";
             }
         }
@@ -1311,6 +1313,8 @@ VALUES (@name, @category, @stock, @unit, @rate, @reorder, 1, GETDATE())",
                     return new[] { "SiteName", "ClientName", "Address", "City", "ContactPerson", "Phone", "SiteType", "Notes" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName", "Category", "CurrentStock", "Unit", "LastPurchaseRate", "ReorderLevel", "StockValue", "Notes" };
+                case ExcelImportModule.AMC:
+                    return new[] { "ContractNumber", "ClientName", "SiteName", "ContractStartDate", "ContractEndDate", "ContractValue", "Status", "EquipmentType", "Notes" };
                 default:
                     return Array.Empty<string>();
             }
@@ -1340,6 +1344,8 @@ VALUES (@name, @category, @stock, @unit, @rate, @reorder, 1, GETDATE())",
                     return new[] { "SiteName", "ClientName" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName" };
+                case ExcelImportModule.AMC:
+                    return new[] { "ContractNumber", "ClientName" };
                 default:
                     return Array.Empty<string>();
             }
@@ -1369,6 +1375,8 @@ VALUES (@name, @category, @stock, @unit, @rate, @reorder, 1, GETDATE())",
                     return new[] { "Main Plant", "ABC Corp", "Industrial Area", "Thane", "Anita Sharma", "9876543210", "Industrial", "Primary service site" };
                 case ExcelImportModule.Inventory:
                     return new[] { "Copper Pipe 1/2 inch", "Copper", "25", "Mtr", "320", "5", "8000", "Opening stock" };
+                case ExcelImportModule.AMC:
+                    return new[] { "AMC-2026-001", "ABC Corp", "Main Plant", "01/04/2026", "31/03/2027", "50000", "Active", "HVAC Unit", "Annual maintenance" };
                 default:
                     return Array.Empty<string>();
             }

@@ -126,7 +126,7 @@ namespace HVAC_Pro_Desktop.UI
             DS.Rounded(overviewCard, 10);
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = White };
-            header.Controls.Add(new Label { Text = "INCIDENT OVERVIEW", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
+            header.Controls.Add(new Label { Text = "Incident Overview", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
             Label collapse = ModernIconSystem.Icon(ModernIconKind.ChevronDown, 11, DS.Slate700);
             collapse.Dock = DockStyle.Right;
             collapse.Width = 24;
@@ -167,7 +167,7 @@ namespace HVAC_Pro_Desktop.UI
             filterRow.Controls.Add(filterLayout);
 
             Panel recentHeader = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = White, Padding = new Padding(0, 8, 0, 8) };
-            recentHeader.Controls.Add(new Label { Text = "RECENT INCIDENTS", Dock = DockStyle.Left, Width = 160, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
+            recentHeader.Controls.Add(new Label { Text = "Recent Incidents", Dock = DockStyle.Left, Width = 160, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleLeft });
             Panel searchWrap = MakeInputHost();
             searchWrap.Dock = DockStyle.Right;
             searchWrap.Width = 172;

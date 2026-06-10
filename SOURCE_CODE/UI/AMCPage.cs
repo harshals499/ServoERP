@@ -28,6 +28,7 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _typeFilter;
         private Label _listCaption;
         private Button _btnAddAMC;
+        private Button _btnImportAMC;
         private bool _loadInProgress;
         private bool _addAmcDialogOpen;
 
@@ -96,10 +97,22 @@ namespace HVAC_Pro_Desktop.UI
             _btnAddAMC = MakeButton("+ Add AMC", Blue, 132);
             _btnAddAMC.Name = "btnAddAMC";
             _btnAddAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnAddAMC.Location = new Point(Math.Max(0, header.Width - 132), 6);
+            _btnAddAMC.Location = new Point(Math.Max(0, header.Width - 260), 6);
             _btnAddAMC.Click += (s, e) => BeginOpenAddAMCForm();
             header.Controls.Add(_btnAddAMC);
-            header.Resize += (s, e) => _btnAddAMC.Location = new Point(header.ClientSize.Width - 132, 6);
+
+            _btnImportAMC = MakeButton("Import Excel", Blue, 120);
+            _btnImportAMC.Name = "btnImportAMC";
+            _btnImportAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            _btnImportAMC.Location = new Point(Math.Max(0, header.Width - 132), 6);
+            _btnImportAMC.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.AMC, FindForm());
+            header.Controls.Add(_btnImportAMC);
+
+            header.Resize += (s, e) =>
+            {
+                _btnAddAMC.Location = new Point(header.ClientSize.Width - 260, 6);
+                _btnImportAMC.Location = new Point(header.ClientSize.Width - 132, 6);
+            };
             return header;
         }
 

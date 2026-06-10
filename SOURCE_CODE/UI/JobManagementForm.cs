@@ -73,7 +73,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel _cardJobDetails;
         private Panel _cardTechnician;
-        private Panel _cardCost;
         private Panel _cardChecklist;
         private Panel _cardParts;
         private Panel _cardNudges;
@@ -91,16 +90,6 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cmbTechnician;
         private ComboBox _cmbPriority;
         private ComboBox _cmbStatus;
-
-        private Label _lblQuotedRevenue;
-        private Label _lblLabourCost;
-        private Label _lblPartsCost;
-        private Label _lblTravelCost;
-        private Label _lblProfit;
-        private Label _lblMarginValue;
-        private Panel _marginFill;
-        private TextBox _txtQuotedRevenue;
-        private TextBox _txtEstimatedLabour;
 
         private Label _lblChecklistCount;
         private FlowLayoutPanel _checklistFlow;
@@ -1490,7 +1479,6 @@ namespace HVAC_Pro_Desktop.UI
         {
             _cardJobDetails = CreateCard("Job details", out Panel jobDetailsBody);
             _cardTechnician = CreateCard("Technician", out Panel technicianBody);
-            _cardCost = CreateCard("Cost vs revenue", out Panel costBody);
             _cardChecklist = CreateCard("Job checklist", out Panel checklistBody, out _lblChecklistCount);
             _cardParts = CreateCard("Parts used", out Panel partsBody);
             _cardNudges = CreateCard("Smart nudges", out Panel nudgesBody);
@@ -1498,7 +1486,6 @@ namespace HVAC_Pro_Desktop.UI
 
             BuildJobDetailsCard(jobDetailsBody);
             BuildTechnicianCard(technicianBody);
-            BuildCostCard(costBody);
             BuildChecklistCard(checklistBody);
             BuildPartsCard(partsBody);
             BuildNudgesCard(nudgesBody);
@@ -1506,7 +1493,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _cardsHost.Controls.AddRange(new Control[]
             {
-                _cardJobDetails, _cardTechnician, _cardCost,
+                _cardJobDetails, _cardTechnician,
                 _cardChecklist, _cardParts,
                 _cardNudges,
                 _cardNotes
@@ -1556,21 +1543,6 @@ namespace HVAC_Pro_Desktop.UI
                 if (!string.Equals(selected, NormalizePipeline(_currentDetail.Job.PipelineStatus), StringComparison.OrdinalIgnoreCase))
                     await HandlePipelineStepClickAsync(selected);
             };
-        }
-
-        private void BuildCostCard(Panel body)
-        {
-            body.AutoScroll = false;
-            body.Controls.Add(BuildMetricRow("Quoted revenue", out _lblQuotedRevenue, Teal));
-            body.Controls.Add(BuildMetricRow("Est. labour cost", out _lblLabourCost, TextPrimary));
-            body.Controls.Add(BuildMetricRow("Parts cost", out _lblPartsCost, TextPrimary));
-            body.Controls.Add(BuildMetricRow("Travel cost", out _lblTravelCost, TextPrimary));
-            body.Controls.Add(BuildProfitBlock());
-            body.Controls.Add(BuildMetricInputRow("Estimated labour cost", out _txtEstimatedLabour));
-            body.Controls.Add(BuildMetricInputRow("Revenue input", out _txtQuotedRevenue));
-
-            _txtQuotedRevenue.Leave += (s, e) => RefreshCostPreview();
-            _txtEstimatedLabour.Leave += (s, e) => RefreshCostPreview();
         }
 
         private void BuildChecklistCard(Panel body)
@@ -1844,8 +1816,6 @@ namespace HVAC_Pro_Desktop.UI
                 _cmbStatus.SelectedItem = "Created";
                 _cmbJobType.SelectedItem = "General";
                 _dtpScheduled.Value = DateTime.Today;
-                _txtQuotedRevenue.Text = "0";
-                _txtEstimatedLabour.Text = "0";
                 SetTextBoxValue(_txtNotes, "Add job notes, observations, or client instructions...", true);
             }
             finally
@@ -1889,7 +1859,6 @@ namespace HVAC_Pro_Desktop.UI
             RenderParts(new List<JobPartUsed>());
             RenderNudges(new List<NudgeDto>());
             RefreshHeader(null);
-            RefreshCostPreview();
             UpdatePipelineBar("Created");
             await RefreshTechnicianWorkloadAsync();
             LayoutCards();
@@ -1927,7 +1896,6 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _isBinding = false;
             }
-            RefreshCostPreview();
         }
 
         /// <summary>Creates a site for the selected client and selects it on the job form.</summary>
@@ -2111,8 +2079,6 @@ namespace HVAC_Pro_Desktop.UI
                 SelectText(_cmbStatus, NormalizePipeline(job.PipelineStatus), "Created");
                 SelectText(_cmbJobType, job.JobType, "General");
                 _dtpScheduled.Value = job.ScheduledDate == default(DateTime) ? DateTime.Today : job.ScheduledDate;
-                _txtQuotedRevenue.Text = (job.QuotedRevenue > 0 ? job.QuotedRevenue : job.Revenue).ToString("0.##");
-                _txtEstimatedLabour.Text = job.EstimatedCost.ToString("0.##");
                 SetTextBoxValue(_txtNotes, job.Notes, false);
             }
             finally
@@ -2124,7 +2090,6 @@ namespace HVAC_Pro_Desktop.UI
             RenderParts(detail.PartsUsed);
             RenderNudges(_jobSvc.GenerateNudges(detail.Job.JobID));
             RefreshHeader(detail);
-            RefreshCostPreview();
             UpdatePipelineBar(detail.Job.PipelineStatus);
             _ = RefreshTechnicianWorkloadAsync();
             LayoutCards();
@@ -2365,6 +2330,9 @@ namespace HVAC_Pro_Desktop.UI
                     job.InvoiceId = _currentDetail.Job.InvoiceId;
                     job.CompletedDate = _currentDetail.Job.CompletedDate;
                     job.ClosedDate = _currentDetail.Job.ClosedDate;
+                    job.QuotedRevenue = _currentDetail.Job.QuotedRevenue;
+                    job.Revenue = _currentDetail.Job.Revenue;
+                    job.EstimatedCost = _currentDetail.Job.EstimatedCost;
                     await Task.Run(() => _jobSvc.Update(job));
                     await ReloadJobsAsync(job.JobID);
                 }
@@ -2447,9 +2415,6 @@ namespace HVAC_Pro_Desktop.UI
                 AssignedEmployeeID = GetSelectedId(_cmbTechnician) > 0 ? (int?)GetSelectedId(_cmbTechnician) : null,
                 Priority = _cmbPriority.SelectedItem?.ToString() ?? "Medium",
                 PipelineStatus = _cmbStatus.SelectedItem?.ToString() ?? "Created",
-                QuotedRevenue = ParseMoney(_txtQuotedRevenue.Text),
-                Revenue = ParseMoney(_txtQuotedRevenue.Text),
-                EstimatedCost = ParseMoney(_txtEstimatedLabour.Text),
                 Notes = GetTextValue(_txtNotes)
             };
         }
@@ -2540,33 +2505,6 @@ namespace HVAC_Pro_Desktop.UI
             _btnCloseJob.Enabled = !_isNewMode;
             _btnPrintReport.Enabled = !_isNewMode;
             UpdatePipelineBar(status);
-        }
-
-        private void RefreshCostPreview()
-        {
-            if (_txtQuotedRevenue == null || _txtEstimatedLabour == null || _lblQuotedRevenue == null || _lblLabourCost == null || _lblPartsCost == null || _lblTravelCost == null || _lblProfit == null || _lblMarginValue == null || _marginFill == null)
-                return;
-
-            decimal revenue = ParseMoney(_txtQuotedRevenue.Text);
-            decimal labour = ParseMoney(_txtEstimatedLabour.Text);
-            decimal parts = _currentDetail?.PartsCost ?? 0m;
-            int siteId = GetSelectedId(_cmbSite);
-            ClientSite site = _sitesForClient.FirstOrDefault(s => s.SiteID == siteId) ?? _currentDetail?.Site;
-            decimal travel = site?.TravelRateINR ?? 0m;
-            decimal profit = revenue - labour - parts - travel;
-            decimal margin = revenue <= 0 ? 0m : Math.Round((profit / revenue) * 100m, 1);
-
-            _lblQuotedRevenue.Text = IndiaFormatHelper.FormatCurrency(revenue);
-            _lblLabourCost.Text = IndiaFormatHelper.FormatCurrency(labour);
-            _lblPartsCost.Text = IndiaFormatHelper.FormatCurrency(parts);
-            _lblTravelCost.Text = IndiaFormatHelper.FormatCurrency(travel);
-            _lblProfit.Text = IndiaFormatHelper.FormatCurrency(profit);
-            _lblProfit.ForeColor = profit >= 0 ? Teal : Red;
-            _lblMarginValue.Text = margin.ToString("0.0") + "%";
-            _lblMarginValue.ForeColor = GetMarginColor(margin);
-            int marginTrackWidth = _marginFill.Parent == null ? 220 : Math.Max(120, _marginFill.Parent.ClientSize.Width);
-            _marginFill.Width = Math.Max(0, Math.Min(marginTrackWidth, (int)Math.Round(marginTrackWidth * (Math.Min(Math.Abs(margin), 100m) / 100m))));
-            _marginFill.BackColor = margin >= 25m ? Teal : (margin >= 15m ? Amber : Red);
         }
 
         private void RenderChecklistPreview(List<JobChecklistItem> items)
@@ -2984,10 +2922,6 @@ namespace HVAC_Pro_Desktop.UI
             SetCardBounds(_cardTechnician, 0, y, contentWidth, technicianHeight);
             y += technicianHeight + gap;
 
-            int costHeight = ResolveCardHeight(_cardCost, 340);
-            SetCardBounds(_cardCost, 0, y, contentWidth, costHeight);
-            y += costHeight + gap;
-
             int checklistHeight = ResolveCardHeight(_cardChecklist, 360);
             SetCardBounds(_cardChecklist, 0, y, contentWidth, checklistHeight);
             y += checklistHeight + gap;
@@ -3246,46 +3180,6 @@ namespace HVAC_Pro_Desktop.UI
             textBox.MinimumSize = new Size(0, 32);
             row.Controls.Add(textBox);
             return row;
-        }
-
-        private Control BuildMetricRow(string label, out Label valueLabel, Color valueColor)
-        {
-            Panel row = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = White, Padding = new Padding(0, 4, 0, 4), Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
-            row.Controls.Add(new Label { Text = label, Dock = DockStyle.Left, Width = 220, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft });
-            valueLabel = new Label { Dock = DockStyle.Right, Width = 220, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = valueColor, TextAlign = ContentAlignment.MiddleRight };
-            row.Controls.Add(valueLabel);
-            return row;
-        }
-
-        private Control BuildMetricInputRow(string label, out TextBox textBox)
-        {
-            Panel row = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = White, Padding = new Padding(0, 0, 0, 10), Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
-            row.Controls.Add(new Label { Text = label, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft });
-            textBox = new TextBox { Dock = DockStyle.Bottom, Height = 32, Font = new Font("Segoe UI", 9.5f) };
-            textBox.MinimumSize = new Size(0, 32);
-            row.Controls.Add(textBox);
-            return row;
-        }
-
-        private Control BuildProfitBlock()
-        {
-            Panel wrap = new Panel { Dock = DockStyle.Top, Height = 112, BackColor = White, Padding = new Padding(0, 8, 0, 10), Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
-            Label profitLabel = new Label { Text = "Est. profit", Location = new Point(0, 8), Size = new Size(160, 18), Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
-            _lblProfit = new Label { Location = new Point(0, 30), Size = new Size(260, 30), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = Teal };
-            Label marginLabel = new Label { Text = "Margin", Location = new Point(0, 72), Size = new Size(100, 18), Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
-            _lblMarginValue = new Label { Location = new Point(300, 72), Size = new Size(86, 18), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TealDark, TextAlign = ContentAlignment.MiddleRight };
-            Panel track = new Panel { Location = new Point(0, 94), Size = new Size(300, 7), BackColor = BorderLight };
-            _marginFill = new Panel { Location = new Point(0, 0), Size = new Size(0, 6), BackColor = Teal };
-            track.Controls.Add(_marginFill);
-            wrap.Controls.AddRange(new Control[] { profitLabel, _lblProfit, marginLabel, _lblMarginValue, track });
-            wrap.Resize += (s, e) =>
-            {
-                int trackWidth = Math.Max(220, wrap.ClientSize.Width - 110);
-                track.Width = trackWidth;
-                _lblMarginValue.Left = Math.Max(120, track.Right - _lblMarginValue.Width);
-                RefreshCostPreview();
-            };
-            return wrap;
         }
 
         private static Button MakeHeaderButton(string text, Color backColor, Color foreColor, int width)

@@ -50,7 +50,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             header.Controls.Add(new Label
             {
-                Text = "SLA DASHBOARD", Font = new Font("Segoe UI", 14, FontStyle.Bold),
+                Text = "SLA Dashboard", Font = new Font("Segoe UI", 14, FontStyle.Bold),
                 ForeColor = DS.Slate900, Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft
             });

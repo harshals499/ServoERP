@@ -1425,7 +1425,8 @@ namespace HVAC_Pro_Desktop.UI
                 ExcelImportModule.Payments,
                 ExcelImportModule.Quotations,
                 ExcelImportModule.Jobs,
-                ExcelImportModule.Employees
+                ExcelImportModule.Employees,
+                ExcelImportModule.AMC
             };
         }
 
@@ -1444,6 +1445,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Quotations: return "Quotations";
                 case ExcelImportModule.Jobs: return "Jobs";
                 case ExcelImportModule.Employees: return "Employees";
+                case ExcelImportModule.AMC: return "AMC Contracts";
                 default: return module.ToString();
             }
         }
@@ -1463,6 +1465,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Quotations: return "Quotes, validity, client offers";
                 case ExcelImportModule.Jobs: return "Service calls, technician, priority";
                 case ExcelImportModule.Employees: return "Staff profiles, phone, ID details";
+                case ExcelImportModule.AMC: return "Maintenance contracts, dates, clients";
                 default: return "Excel data upload";
             }
         }

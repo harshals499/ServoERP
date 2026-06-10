@@ -1909,7 +1909,7 @@ namespace HVAC_Pro_Desktop.UI
                 form.Controls.Add(close);
                 form.Controls.Add(new Label
                 {
-                    Text = "CLIENT INFORMATION",
+                    Text = "Client Information",
                     Location = new Point(24, 68),
                     Size = new Size(220, 18),
                     Font = new Font("Segoe UI", 8f, FontStyle.Bold),

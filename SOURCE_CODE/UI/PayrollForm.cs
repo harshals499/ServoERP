@@ -115,7 +115,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = DS.BgPage, Padding = new Padding(22, 14, 22, 10) };
             Label title = new Label
             {
-                Text = "PAYROLL",
+                Text = "Payroll",
                 Location = new Point(22, 12),
                 Size = new Size(360, 30),
                 ForeColor = DS.Slate900,

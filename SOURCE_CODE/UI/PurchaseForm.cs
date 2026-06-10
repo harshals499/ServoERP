@@ -2690,7 +2690,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboVendor = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
             _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
             _txtVendorGstin = CreateReadonlyTextBox("Enter GSTIN");
-            _txtPONumber = CreateReadonlyTextBox("Auto generated");
+            _txtPONumber = CreateInputTextBox("Enter PO number");
             _txtVendorInvoiceNumber = CreateInputTextBox("Enter invoice number");
             _dtpDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
             _dtpDate.ValueChanged += (s, e) => RefreshPayByDate();

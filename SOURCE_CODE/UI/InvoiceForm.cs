@@ -1469,7 +1469,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label badge = new Label
             {
-                Text = "GST SUMMARY",
+                Text = "GST Summary",
                 AutoSize = false,
                 Width = 118,
                 Height = 28,

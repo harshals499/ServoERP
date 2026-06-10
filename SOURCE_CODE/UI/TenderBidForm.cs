@@ -264,7 +264,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label title = new Label
             {
-                Text = "QUOTATION TRACKING",
+                Text = "Quotation Tracking",
                 Dock = DockStyle.Top,
                 Height = 42,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold),

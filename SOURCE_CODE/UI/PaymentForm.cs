@@ -247,7 +247,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 94, BackColor = DS.BgPage, Padding = new Padding(28, 16, 28, 10) };
-            Label title = new Label { Text = "PAYMENT RECORDING", Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 18), Width = 390, Height = 30 };
+            Label title = new Label { Text = "Payment Recording", Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 18), Width = 390, Height = 30 };
             Label subtitle = new Label { Text = "Record, reconcile and review customer invoice payments.", Font = DS.Body, ForeColor = DS.Slate600, Location = new Point(29, 53), Width = 520, Height = 22 };
             Panel headerActions = new Panel
             {
