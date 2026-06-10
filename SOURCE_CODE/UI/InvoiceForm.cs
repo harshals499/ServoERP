@@ -111,13 +111,19 @@ namespace HVAC_Pro_Desktop.UI
         {
             this.Dock      = DockStyle.Fill;
             this.BackColor = DS.BgPage;
+            var ctorWatch = System.Diagnostics.Stopwatch.StartNew();
             BuildLayout();
+            AppRuntime.LogTiming("Invoice.Ctor.BuildLayout", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
             UIHelper.ApplyInputStyles(Controls);
+            AppRuntime.LogTiming("Invoice.Ctor.ApplyInputStyles", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
             SalesUiPolishService.ApplyAfterRebuild(this, "Invoices");
+            AppRuntime.LogTiming("Invoice.Ctor.SalesPolish", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
             ApplyInvoicePreviewSkin(Controls);
+            AppRuntime.LogTiming("Invoice.Ctor.PreviewSkin", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
             RestoreModernInvoiceInputStyles(Controls);
             RestoreInvoiceEditorInputState();
             ApplyPermissions();
+            AppRuntime.LogTiming("Invoice.Ctor.RestoreAndPermissions", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
             if (SessionManager.HasPermission("Invoices", "Create") || SessionManager.HasPermission("Invoices", "Edit"))
                 RestoreInvoiceEditorInputState();
             ShowInvoiceDashboard();
@@ -171,17 +177,26 @@ namespace HVAC_Pro_Desktop.UI
                     if (IsDisposed || !IsHandleCreated)
                         return;
 
+                    // Heavy, control-free work stays on this background thread: the
+                    // 1,500-item catalog rebuild (per-item HSN/GST resolution) and the
+                    // checklist-template DB round-trips used to freeze the UI for ~30s
+                    // when they ran inside the Invoke below.
+                    _inventoryItems = inventory ?? new List<StockItem>();
+                    _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
+                    _clientAssets = assets ?? new List<ClientAsset>();
+                    _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
+                    RebuildInvoiceCatalog();
+                    List<string> checklistSuggestions = BuildChecklistSuggestions().ToList();
+
+                    if (IsDisposed || !IsHandleCreated)
+                        return;
+
                     dispatcher.Invoke((Action)(() =>
                     {
-                        _inventoryItems = inventory ?? new List<StockItem>();
-                        _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
-                        _clientAssets = assets ?? new List<ClientAsset>();
-                        _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
-                        RebuildInvoiceCatalog();
                         _clients = clients ?? _clients ?? new List<B2BClient>();
                         _templates = templates ?? new List<InvoiceTemplate>();
                         BindInventoryItems();
-                        BindWorkflowPickers();
+                        BindWorkflowPickers(checklistSuggestions);
                         LoadClientDropdowns();
                         BindTemplateDropdown();
                         BindInvoiceList(invoices);
@@ -205,13 +220,14 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             descColumn.Items.Clear();
-            IEnumerable<string> names = GetCatalogForActiveSource()
+            object[] names = GetCatalogForActiveSource()
                 .Select(i => i.Description)
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(n => n);
-            foreach (string item in names)
-                descColumn.Items.Add(item);
+                .OrderBy(n => n)
+                .Cast<object>()
+                .ToArray();
+            descColumn.Items.AddRange(names);
         }
 
         private IEnumerable<InvoiceCatalogItem> GetCatalogForActiveSource()
@@ -596,29 +612,57 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _invoiceDashboardRefreshing = true;
-            try
+            InvoiceAnalyticsGrouping grouping = InvoiceAnalyticsGrouping.Week;
+            string selected = _invoiceDashGroupingCombo?.SelectedItem?.ToString() ?? "Week";
+            if (selected.Equals("Day", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Day;
+            if (selected.Equals("Month", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Month;
+            InvoiceAnalyticsFilter filter = new InvoiceAnalyticsFilter
             {
-                InvoiceAnalyticsGrouping grouping = InvoiceAnalyticsGrouping.Week;
-                string selected = _invoiceDashGroupingCombo?.SelectedItem?.ToString() ?? "Week";
-                if (selected.Equals("Day", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Day;
-                if (selected.Equals("Month", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Month;
+                DateFrom = _invoiceDashFromPicker.Value.Date,
+                DateTo = _invoiceDashToPicker.Value.Date,
+                Grouping = grouping
+            };
 
-                _invoiceDashboardSnapshot = _invoiceAnalyticsSvc.BuildSnapshot(new InvoiceAnalyticsFilter
+            // BuildSnapshot reloads every invoice and contract from SQL; running it
+            // on the UI thread froze the app for 20+ seconds on first open.
+            Task.Run(() =>
+            {
+                InvoiceDashboardSnapshot snapshot = null;
+                try { snapshot = _invoiceAnalyticsSvc.BuildSnapshot(filter); }
+                catch (Exception ex) { AppRuntime.LogException("InvoiceForm.RefreshInvoiceModuleDashboard", ex); }
+
+                if (IsDisposed || !IsHandleCreated || host.IsDisposed)
                 {
-                    DateFrom = _invoiceDashFromPicker.Value.Date,
-                    DateTo = _invoiceDashToPicker.Value.Date,
-                    Grouping = grouping
-                });
+                    _invoiceDashboardRefreshing = false;
+                    return;
+                }
 
-                foreach (Control child in host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList())
-                    host.Controls.Remove(child);
-                PopulateInvoiceDashboardCards(host);
-                LayoutInvoiceDashboard(host);
-            }
-            finally
-            {
-                _invoiceDashboardRefreshing = false;
-            }
+                try
+                {
+                    BeginInvoke((Action)(() =>
+                    {
+                        try
+                        {
+                            if (snapshot != null && !host.IsDisposed)
+                            {
+                                _invoiceDashboardSnapshot = snapshot;
+                                foreach (Control child in host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList())
+                                    host.Controls.Remove(child);
+                                PopulateInvoiceDashboardCards(host);
+                                LayoutInvoiceDashboard(host);
+                            }
+                        }
+                        finally
+                        {
+                            _invoiceDashboardRefreshing = false;
+                        }
+                    }));
+                }
+                catch
+                {
+                    _invoiceDashboardRefreshing = false;
+                }
+            });
         }
 
         private void PopulateInvoiceDashboardCards(Panel host)
@@ -2677,9 +2721,9 @@ namespace HVAC_Pro_Desktop.UI
                 grid.Rows.Add(string.Empty);
         }
 
-        private void BindWorkflowPickers()
+        private void BindWorkflowPickers(IEnumerable<string> checklistSuggestions = null)
         {
-            BindWorkflowCombo(_gridChecklist, BuildChecklistSuggestions());
+            BindWorkflowCombo(_gridChecklist, checklistSuggestions ?? BuildChecklistSuggestions());
             BindWorkflowCombo(_gridAssets, BuildAssetSuggestions());
         }
 
@@ -2689,8 +2733,13 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             combo.Items.Clear();
-            foreach (string value in (suggestions ?? Enumerable.Empty<string>()).Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(v => v))
-                combo.Items.Add(value);
+            object[] values = (suggestions ?? Enumerable.Empty<string>())
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => v)
+                .Cast<object>()
+                .ToArray();
+            combo.Items.AddRange(values);
         }
 
         private IEnumerable<string> BuildChecklistSuggestions()

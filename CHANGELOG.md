@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.12.0 - 2026-06-10
+
+- Purchase Orders dashboard now loads its data on first open (stat cards, recent PO table, aging, and top-supplier panels previously stayed empty until Refresh was pressed).
+- New PO form: removed grey backgrounds from read-only fields (Supplier GSTIN, Created By/On, Currency, Payment Terms, Delivery Address, line Category) by opting them out of the global input-theming watcher that re-applied the grey every 750 ms; fixed the line-item column header overlapping the "4 Items" title.
+- Inventory: the Save Item / New Item action bar was covered by the fixed-height detail panel and Quick Actions card on smaller screens, making saving impossible on typical laptops. The detail editor now fills and scrolls, Quick Actions is a compact 2x2 grid, and the Save bar is always pinned and visible. Verified at 1366x768.
+- Invoices: first open froze the app for 20-30 seconds ("Not Responding"). The dashboard analytics snapshot (full invoice + contract reload from SQL) now builds on a background thread, the 1,500-item catalog rebuild and checklist-template queries moved off the UI thread, and the item-picker combos bind via AddRange. Invoices now opens with zero UI freezing.
+- Audited every module page (Quotations, Invoices, Purchases, Payments, Dispatch, Inventory, Clients, Suppliers, Vendors, Jobs, AMC, Employees, Payroll, Master Data, Contracts) to confirm Save/Add actions exist, are wired, and are reachable.
+
 ## 1.1.11.0 - 2026-06-09
 
 - Added `/amctest` smoke test entry point that verifies the Add AMC save path (insert, update, fallback-insert, duplicate rejection) without requiring the full enterprise test suite. Fixed `ContractRepository.MapContract` to handle NULL values in newly-added schema columns (MonthlyValue, AnnualValue, SLAResponseTimeHours, SLAUptimePercent, SLARepairTimeHours, ContractStatus) that were NULL for pre-migration rows. All 7 AddAMC smoke tests pass in under 55 seconds.

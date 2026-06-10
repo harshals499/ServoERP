@@ -219,7 +219,7 @@ namespace HVAC_Pro_Desktop.UI
             right.MinimumSize = new Size(440, 0);
             right.Padding = new Padding(18, 44, 18, 14);
 
-            _detail = new Panel { Dock = DockStyle.Top, Height = 430, AutoScroll = true, BackColor = Color.White };
+            _detail = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
             _detail.HorizontalScroll.Enabled = false;
             _detail.HorizontalScroll.Visible = false;
             BuildDetailPanel();
@@ -234,8 +234,9 @@ namespace HVAC_Pro_Desktop.UI
             clearItem.Click += (s, e) => NewRecord();
             createPo.Click += (s, e) => CreatePO();
             Panel quick = BuildInventoryQuickActions();
-            right.Controls.Add(quick);
+            quick.Dock = DockStyle.Bottom;
             right.Controls.Add(_detail);
+            right.Controls.Add(quick);
             right.Controls.Add(BuildDetailActionBar(saveItem, clearItem, createPo));
             AppRuntime.LogTiming("Inventory.BuildLayout.RightPanel", phaseWatch.ElapsedMilliseconds);
             phaseWatch.Restart();
@@ -523,12 +524,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = CreateModernCard("QUICK ACTIONS");
             card.Dock = DockStyle.Top;
-            card.Height = 250;
+            card.Height = 150;
             card.Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE";
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, Padding = new Padding(0, 36, 0, 0) };
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 36, 0, 0) };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -540,7 +540,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 button.Dock = DockStyle.Fill;
                 button.Margin = new Padding(4, 3, 4, 5);
-                button.MinimumSize = new Size(190, 30);
+                button.MinimumSize = new Size(130, 30);
                 button.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
             }
             adjust.Click += (s, e) => FocusStockAdjustment();
@@ -552,9 +552,9 @@ namespace HVAC_Pro_Desktop.UI
             _toolTip.SetToolTip(open, "Open bulk update, material report, and purchase valuation actions.");
             _toolTip.SetToolTip(delete, "Archive the selected material from active inventory without deleting historical usage.");
             grid.Controls.Add(adjust, 0, 0);
-            grid.Controls.Add(reorder, 0, 1);
-            grid.Controls.Add(open, 0, 2);
-            grid.Controls.Add(delete, 0, 3);
+            grid.Controls.Add(reorder, 1, 0);
+            grid.Controls.Add(open, 0, 1);
+            grid.Controls.Add(delete, 1, 1);
             card.Controls.Add(grid);
             return card;
         }

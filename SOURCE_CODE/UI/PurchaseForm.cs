@@ -218,6 +218,11 @@ namespace HVAC_Pro_Desktop.UI
             BuildLayout();
             ApplyPermissions();
             MarkDeferredLoadCompleted();
+            if (UsePurchaseOrdersDashboard && _showDashboard)
+            {
+                RefreshPurchaseDashboard();
+                Load += async (s, e) => await RefreshPurchaseDashboardFromHeaderAsync();
+            }
         }
 
         private void BuildLayout()
@@ -2087,7 +2092,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboVendor = new ComboBox { Width = 150, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(_cboVendor);
             _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
-            _txtVendorGstin = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(248, 250, 252) };
+            _txtVendorGstin = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
             _txtPONumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             _txtVendorInvoiceNumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             _dtpDate = new DateTimePicker { Width = 150, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
@@ -2125,8 +2130,8 @@ namespace HVAC_Pro_Desktop.UI
             TextBox txtPriority = new TextBox { Text = "Normal", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             TextBox txtDepartment = new TextBox { Text = "Purchase", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             TextBox txtProjectSite = new TextBox { Text = "Select project", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtCreatedBy = new TextBox { Text = "Administrator", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.FromArgb(248, 250, 252) };
-            TextBox txtCreatedOn = new TextBox { Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm"), Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.FromArgb(248, 250, 252) };
+            TextBox txtCreatedBy = new TextBox { Text = "Administrator", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
+            TextBox txtCreatedOn = new TextBox { Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm"), Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
 
             headerGrid.Controls.Add(BuildFieldCell("PO Number *", _txtPONumber, 104, 150), 0, 0);
             headerGrid.Controls.Add(BuildFieldCell("PO Date *", _dtpDate, 104, 150), 1, 0);
@@ -2185,7 +2190,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _deliveryAddressPanel = new Panel { Location = new Point(0, 470), Size = new Size(840, 48), Visible = false };
             Label deliveryAddressLabel = new Label { Text = "Delivery Address", Width = 120, Location = new Point(0, 12), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _txtDeliveryAddress = new TextBox { Location = new Point(128, 8), Width = 676, Height = 34, Multiline = true, ReadOnly = true, BackColor = Color.FromArgb(248, 250, 252), BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9) };
+            _txtDeliveryAddress = new TextBox { Location = new Point(128, 8), Width = 676, Height = 34, Multiline = true, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9), Tag = "CUSTOM_INPUT_SHELL" };
             _toolTip.SetToolTip(_txtDeliveryAddress, "Delivery address auto-filled from linked site");
             _deliveryAddressPanel.Controls.AddRange(new Control[] { deliveryAddressLabel, _txtDeliveryAddress });
             fields.Controls.Add(_deliveryAddressPanel);
@@ -2357,6 +2362,7 @@ namespace HVAC_Pro_Desktop.UI
             lineActions.Controls.Add(lineActionLeft);
 
             _lineItemHeader = BuildLineItemHeader();
+            _lineItemHeader.Dock = DockStyle.Top;
 
             Panel lineScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
             lineScroll.Paint += (s, e) =>
@@ -2534,12 +2540,12 @@ namespace HVAC_Pro_Desktop.UI
             _btnDeleteReceipt.Click += (s, e) => DeleteReceiptReference();
 
             Panel itemsCard = CreateCardPanel();
-            itemsCard.Width = 860;
-            itemsCard.Height = 342;
+            itemsCard.Width = 960;
+            itemsCard.Height = 386;
             itemsCard.Margin = new Padding(0, 0, 0, 12);
             itemsCard.Padding = new Padding(14);
             itemsCard.Controls.Add(MakeStepHeader("4", "Items", new Point(18, 16)));
-            Panel itemActions = new Panel { Location = new Point(18, 48), Size = new Size(824, 42), BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            Panel itemActions = new Panel { Location = new Point(18, 48), Size = new Size(924, 42), BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             FlowLayoutPanel primaryItemActions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Left,
@@ -2580,8 +2586,8 @@ namespace HVAC_Pro_Desktop.UI
             _lblVarianceWarning = new Label { Visible = false };
             _lineItemHeader = BuildLineItemHeader();
             _lineItemHeader.Location = new Point(14, 96);
-            _lineItemHeader.Width = 832;
-            Panel lineHost = new Panel { Location = new Point(14, 128), Size = new Size(832, 150), BackColor = Color.White, AutoScroll = true };
+            _lineItemHeader.Width = 940;
+            Panel lineHost = new Panel { Location = new Point(14, 128), Size = new Size(940, 174), BackColor = Color.White, AutoScroll = true };
             lineHost.HorizontalScroll.Enabled = false;
             lineHost.HorizontalScroll.Visible = false;
             lineHost.Paint += (s, e) =>
@@ -2594,7 +2600,7 @@ namespace HVAC_Pro_Desktop.UI
             lineHost.Controls.Add(_lblLineItemEmptyState);
             lineHost.Controls.Add(_lineItemFlow);
             _lblLineItemEmptyState.BringToFront();
-            Panel totalBar = new Panel { Location = new Point(14, 286), Size = new Size(832, 42), BackColor = Color.FromArgb(248, 250, 252) };
+            Panel totalBar = new Panel { Location = new Point(14, 310), Size = new Size(940, 42), BackColor = Color.FromArgb(248, 250, 252) };
             _lblLineItemCount = new Label { Text = "Showing 1 item", Location = new Point(12, 10), Size = new Size(160, 22), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
             _lblTotal = new Label { Text = "Sub Total:  ₹0.00        Discount:  ₹0.00        GST:  ₹0.00        Other Charges:  ₹0.00        Total:  ₹0.00", Location = new Point(180, 10), Size = new Size(640, 22), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
             totalBar.Controls.Add(_lblLineItemCount);
@@ -2611,7 +2617,7 @@ namespace HVAC_Pro_Desktop.UI
 
             EventHandler resizePurchaseWorkspace = (s, e) =>
             {
-                int width = Math.Max(760, _detail.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8);
+                int width = Math.Max(960, _detail.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8);
                 workspace.Width = width;
                 int sectionY = 0;
                 foreach (Control control in workspace.Controls)
@@ -2626,7 +2632,7 @@ namespace HVAC_Pro_Desktop.UI
                     itemActions.Width = Math.Max(500, itemsCard.Width - 36);
                     primaryItemActions.Width = Math.Max(360, itemActions.ClientSize.Width - btnDiscount.Width - 24);
                     btnDiscount.Left = Math.Max(primaryItemActions.Right + 12, itemActions.ClientSize.Width - btnDiscount.Width);
-                    _lineItemHeader.Width = Math.Max(700, itemsCard.Width - 28);
+                    _lineItemHeader.Width = Math.Max(940, itemsCard.Width - 28);
                     lineHost.Width = _lineItemHeader.Width;
                     totalBar.Width = _lineItemHeader.Width;
                     _lblTotal.Width = Math.Max(420, totalBar.Width - 190);
@@ -2635,6 +2641,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Resize += resizePurchaseWorkspace;
             resizePurchaseWorkspace(_detail, EventArgs.Empty);
             UIHelper.ApplyInputStyles(workspace.Controls);
+            ForcePurchaseOrderInputBackColors(workspace);
         }
 
         private Panel CreatePurchaseWorkflowGuide()
@@ -2758,12 +2765,45 @@ namespace HVAC_Pro_Desktop.UI
 
         private TextBox CreateInputTextBox(string text)
         {
-            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ForeColor = DS.Slate500 };
+            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700 };
         }
 
         private TextBox CreateReadonlyTextBox(string text)
         {
-            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.FromArgb(248, 250, 252), ForeColor = DS.Slate700, ReadOnly = true };
+            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, ReadOnly = true, Tag = "CUSTOM_INPUT_SHELL" };
+        }
+
+        private static void ForcePurchaseOrderInputBackColors(Control root)
+        {
+            if (root == null)
+                return;
+
+            foreach (Control control in root.Controls)
+            {
+                TextBox textBox = control as TextBox;
+                if (textBox != null)
+                {
+                    textBox.BackColor = Color.White;
+                    textBox.ForeColor = DS.Slate700;
+                }
+
+                ComboBox comboBox = control as ComboBox;
+                if (comboBox != null)
+                {
+                    comboBox.BackColor = Color.White;
+                    comboBox.ForeColor = DS.Slate900;
+                }
+
+                NumericUpDown numeric = control as NumericUpDown;
+                if (numeric != null)
+                {
+                    numeric.BackColor = Color.White;
+                    numeric.ForeColor = DS.Slate900;
+                }
+
+                if (control.HasChildren)
+                    ForcePurchaseOrderInputBackColors(control);
+            }
         }
 
         private Panel BuildTabInfoPanel(string label1, string value1, string label2, string value2, string label3, string value3)
@@ -4662,7 +4702,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildLineItemHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(0, 2, 0, 0) };
+            Panel header = new Panel { Height = 42, BackColor = Color.FromArgb(248, 250, 252), Padding = new Padding(0, 2, 0, 0) };
             header.Paint += (s, e) =>
             {
                 using (Pen pen = new Pen(DS.Border))
@@ -4807,7 +4847,7 @@ namespace HVAC_Pro_Desktop.UI
                 cmbDesc.Items.Add(item.ItemName);
             cmbDesc.Tag = null;
 
-            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 16), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White };
+            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 16), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Tag = "CUSTOM_INPUT_SHELL" };
             ComboBox cmbHsn = new ComboBox { Name = "cmbHsn", Location = new Point(306, 16), Width = 52, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbHsn);
             foreach (HsnSacMasterEntry entry in _hsnEntries.Where(h => h.IsActive))
