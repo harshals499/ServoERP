@@ -1,13 +1,28 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.11.0",
-  "updatedAt": "2026-06-10",
+  "latestVersion": "1.1.14.0",
+  "updatedAt": "2026-06-11",
   "download": {
     "available": false,
     "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
-    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.11.0.zip"
+    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.14.0.zip"
   },
   "versions": [
+    {
+      "version": "1.1.14.0",
+      "date": "2026-06-11",
+      "title": "AMC import detection fix",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixes AMC Excel import detection so AMC uploads are no longer treated as Payments.",
+            "Adds the AMC contract save path for importing or refreshing contracts by contract number.",
+            "Publishes the 1.1.14.0 client update package for rollout."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.11.0",
       "date": "2026-06-10",
