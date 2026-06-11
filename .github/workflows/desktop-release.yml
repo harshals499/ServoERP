@@ -50,6 +50,15 @@ jobs:
       - name: Restore NuGet Packages
         run: nuget restore $env:SOLUTION_PATH
 
+      - name: Verify Restored Packages
+        shell: pwsh
+        run: |
+          $sqlite = "SOURCE_CODE\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\lib\net46\System.Data.SQLite.dll"
+          if (-not (Test-Path $sqlite)) {
+            Get-ChildItem SOURCE_CODE\packages -Directory | Sort-Object Name | Select-Object -ExpandProperty Name
+            throw "System.Data.SQLite was not restored at expected path: $sqlite"
+          }
+
       - name: Build Release
         run: >
           msbuild $env:SOLUTION_PATH
