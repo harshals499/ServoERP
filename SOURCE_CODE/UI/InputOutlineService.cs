@@ -79,6 +79,9 @@ namespace HVAC_Pro_Desktop.UI
             AttachNativeFocusFrame(control);
             AttachVisibleInputFrame(control);
 
+            if (IsCustomInputShell(control) && CountDescendants(control, IsEditableInput) > 0)
+                MarkOutlinedHost(control);
+
             if (IsInputHost(control))
                 AttachHostOutline(control);
         }
@@ -177,12 +180,15 @@ namespace HVAC_Pro_Desktop.UI
                 text.ReadOnlyChanged += InputStateChanged;
             }
 
-            AttachParentFocusPainter(control.Parent);
             EnsureFieldRowCanShowInput(control);
         }
 
         private static void AttachVisibleInputFrame(Control control)
         {
+            RemoveVisibleInputFrame(control);
+            return;
+
+#pragma warning disable CS0162
             if (!IsEditableInput(control) || control.Parent == null || IsInsideCustomInputShell(control))
                 return;
             if (control.Parent is DataGridView || control.Parent is ToolStrip || control is ToolStrip)
@@ -232,6 +238,7 @@ namespace HVAC_Pro_Desktop.UI
 
             frame.Update();
             EnsureFieldRowCanShowInput(control);
+#pragma warning restore CS0162
         }
 
         private static void RemoveVisibleInputFrame(Control control)
@@ -490,7 +497,7 @@ namespace HVAC_Pro_Desktop.UI
             if (host == null || OutlinedHosts.Contains(host))
                 return;
 
-            OutlinedHosts.Add(host);
+            MarkOutlinedHost(host);
             host.Paint += HostPaint;
             host.Resize += HostInvalidate;
             host.GotFocus += HostInvalidate;
@@ -503,6 +510,14 @@ namespace HVAC_Pro_Desktop.UI
             host.Invalidate();
         }
 
+        private static void MarkOutlinedHost(Control host)
+        {
+            if (host == null || OutlinedHosts.Contains(host))
+                return;
+
+            OutlinedHosts.Add(host);
+        }
+
         private static void HostPaint(object sender, PaintEventArgs e)
         {
             Control host = sender as Control;
@@ -511,11 +526,7 @@ namespace HVAC_Pro_Desktop.UI
 
             bool focused = ContainsFocus(host);
             Color border = focused ? DS.FocusBlue : DS.InputBorder;
-            Rectangle rect = new Rectangle(0, 0, host.Width - 1, host.Height - 1);
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            using (GraphicsPath path = DS.RoundedRect(rect, 7))
-            using (Pen pen = new Pen(border, 1))
-                e.Graphics.DrawPath(pen, path);
+            DS.DrawCleanBorder(e.Graphics, host.ClientRectangle, 7, border);
         }
 
         private static bool ContainsFocus(Control control)
@@ -641,6 +652,12 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             return false;
+        }
+
+        private static bool IsCustomInputShell(Control control)
+        {
+            string tag = control == null || control.Tag == null ? string.Empty : control.Tag.ToString();
+            return tag.IndexOf("CUSTOM_INPUT_SHELL", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static Color ResolveReadableBackColor(Control control)

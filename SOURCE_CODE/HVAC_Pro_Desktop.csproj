@@ -9,6 +9,8 @@
     <RootNamespace>HVAC_Pro_Desktop</RootNamespace>
     <AssemblyName>HVAC_Pro_Desktop</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
@@ -18,6 +20,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
@@ -27,6 +30,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
     <DefineConstants>TRACE</DefineConstants>
@@ -306,6 +310,7 @@
     <Compile Include="SERVICES\PersistentLayoutMemoryService.cs" />
     <Compile Include="SERVICES\LayoutManager.cs" />
     <Compile Include="SERVICES\DashboardShortcutService.cs" />
+    <Compile Include="SERVICES\CardActionStateService.cs" />
     <Compile Include="SERVICES\StatusUpdateService.cs" />
     <Compile Include="SERVICES\AgentSimulationModels.cs" />
     <Compile Include="SERVICES\SimulationClock.cs" />
@@ -392,6 +397,7 @@
     <Compile Include="Tests\EnterpriseUiSmokeTests.cs" />
     <Compile Include="Tests\SupportCenterOperationsSmokeTests.cs" />
     <Compile Include="Tests\ContextMenuActionAuditTests.cs" />
+    <Compile Include="Tests\GlobalCardContextMenuFormAuditTests.cs" />
     <Compile Include="Tests\UiErrorHandlingSmokeTests.cs" />
     <Compile Include="Tests\UiQaStateCatalog.cs" />
     <Compile Include="Tests\UiQaStateCatalogTests.cs" />
@@ -416,6 +422,7 @@
     <Compile Include="UI\CardSurfacePolicy.cs" />
     <Compile Include="UI\CardResizeGripService.cs" />
     <Compile Include="UI\GlobalCardContextMenu.cs" />
+    <Compile Include="UI\GlobalCardStateService.cs" />
     <Compile Include="UI\DraggableCard.cs" />
     <Compile Include="UI\GlobalDashboardLayoutService.cs" />
     <Compile Include="UI\LayoutAuditService.cs" />

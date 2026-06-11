@@ -11,6 +11,7 @@ namespace ServoERP.Infrastructure
         /// <summary>Creates a low-flicker page surface before child controls are added.</summary>
         protected ServoPageBase()
         {
+            AutoScaleMode = AutoScaleMode.Dpi;
             RenderHelper.EnableDoubleBuffer(this);
         }
 

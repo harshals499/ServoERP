@@ -8,8 +8,8 @@ namespace HVAC_Pro_Desktop.UI
 {
     internal static class SharedUiPrimitives
     {
-        public const int CardGap = DS.Space2;
-        public const int CardPadding = DS.Space2;
+        public const int CardGap = DS.Space3;
+        public const int CardPadding = DS.Space3;
         public const int FormMargin = DS.Space2;
         private static readonly HashSet<Button> DisabledStateButtons = new HashSet<Button>();
         private static readonly Dictionary<Button, Tuple<Color, Color, Color, Cursor>> ButtonEnabledState =
@@ -133,6 +133,9 @@ namespace HVAC_Pro_Desktop.UI
 
             if (panel.BackColor == SystemColors.Control || panel.BackColor == Color.Empty || DS.IsLegacyLightBackColor(panel.BackColor))
                 panel.BackColor = DS.BgCard;
+            panel.BorderStyle = BorderStyle.None;
+            panel.Padding = EnsureMinimumPadding(panel.Padding, 8);
+            panel.Margin = EnsureMinimumMargin(panel.Margin, CardGap);
             DS.Rounded(panel, DS.RadiusMd);
         }
 
@@ -140,6 +143,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             group.Font = DS.BodyBold;
             group.ForeColor = DS.Slate800;
+            group.Padding = EnsureMinimumPadding(group.Padding, 8);
+            group.Margin = EnsureMinimumMargin(group.Margin, CardGap);
         }
 
         private static void ApplyCommonControlPrimitive(Control control)
@@ -319,10 +324,28 @@ namespace HVAC_Pro_Desktop.UI
                 if (!child.Visible)
                     continue;
                 if (child.Margin == Padding.Empty)
-                    child.Margin = new Padding(0, 0, DS.Space2, DS.Space2);
+                    child.Margin = new Padding(0, 0, CardGap, CardGap);
                 if (child is Label && child.Dock == DockStyle.None && child.Anchor == AnchorStyles.Top)
                     child.Anchor = AnchorStyles.Left | AnchorStyles.Right;
             }
+        }
+
+        private static Padding EnsureMinimumPadding(Padding padding, int minimum)
+        {
+            return new Padding(
+                Math.Max(padding.Left, minimum),
+                Math.Max(padding.Top, minimum),
+                Math.Max(padding.Right, minimum),
+                Math.Max(padding.Bottom, minimum));
+        }
+
+        private static Padding EnsureMinimumMargin(Padding margin, int minimum)
+        {
+            return new Padding(
+                Math.Max(margin.Left, 0),
+                Math.Max(margin.Top, 0),
+                Math.Max(margin.Right, minimum),
+                Math.Max(margin.Bottom, minimum));
         }
 
         private static bool IsChromeContainer(Control control)

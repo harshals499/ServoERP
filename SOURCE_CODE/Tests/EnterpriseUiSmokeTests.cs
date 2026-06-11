@@ -190,6 +190,9 @@ namespace HVAC_Pro_Desktop.Tests
                 foreach (string result in ContextMenuActionAuditTests.RunAll())
                     lines.Add("PASS " + result);
                 CleanupUiResources();
+                foreach (string result in GlobalCardContextMenuFormAuditTests.RunAll())
+                    lines.Add("PASS " + result);
+                CleanupUiResources();
                 lines.Add("PASS " + UiErrorHandlingSmokeTests.RunAll());
                 CleanupUiResources();
                 foreach (string result in FullNavigationClickSmokeTests.RunAll())

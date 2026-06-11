@@ -1358,9 +1358,35 @@ namespace HVAC_Pro_Desktop.UI
             if (ContainsAny(name, "SIDEBAR", "NAV", "TOOLBAR", "HEADER", "FOOTER", "STRIP", "MENU", "BANNER"))
                 return false;
 
-            bool cardName = ContainsAny(name, "CARD", "PANEL", "SECTION", "SUMMARY", "DETAIL", "DETAILS", "KPI", "WIDGET", "FORM", "LIST", "FILTER");
+            if (HasLocallyPaintedSurfaceTag(panel))
+                return true;
+
+            bool cardName = ContainsAny(name, "CARD", "SUMMARY", "KPI", "WIDGET", "METRIC", "STAT", "TILE");
             bool whiteSurface = DS.IsLegacyLightBackColor(panel.BackColor) || panel.BackColor == DS.BgCard;
-            return panel.HasChildren && (cardName || whiteSurface);
+            return panel.HasChildren && cardName && whiteSurface && !HasCardLikeChild(panel);
+        }
+
+        private static bool HasLocallyPaintedSurfaceTag(Control control)
+        {
+            string metadata = ((control == null ? string.Empty : control.Name ?? string.Empty) + " " +
+                               (control == null || control.Tag == null ? string.Empty : control.Tag.ToString()))
+                .ToUpperInvariant();
+            return ContainsAny(metadata, "GLOBAL_CARD_SURFACE", "SERVO_CARD_SURFACE", "DASHBOARD-CARD", "DASHBOARD_CARD", "METRIC-CARD", "METRIC_CARD");
+        }
+
+        private static bool HasCardLikeChild(Control control)
+        {
+            if (control == null)
+                return false;
+
+            foreach (Control child in control.Controls)
+            {
+                string metadata = ((child.Name ?? string.Empty) + " " + (child.Tag == null ? string.Empty : child.Tag.ToString())).ToUpperInvariant();
+                if (ContainsAny(metadata, "CARD", "SUMMARY", "KPI", "WIDGET", "METRIC", "STAT", "TILE"))
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool ShouldConvertLegacyPanelBackColor(Panel panel)
@@ -1381,11 +1407,7 @@ namespace HVAC_Pro_Desktop.UI
             if (panel == null || panel.Width < 4 || panel.Height < 4)
                 return;
 
-            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-            Rectangle rect = new Rectangle(0, 0, panel.Width - 1, panel.Height - 1);
-            using (GraphicsPath path = ModernERPTheme.RoundedRect(rect, DS.RadiusLg))
-            using (Pen pen = new Pen(DS.Border))
-                e.Graphics.DrawPath(pen, path);
+            DS.DrawCleanBorder(e.Graphics, panel.ClientRectangle, DS.RadiusLg, DS.Border);
         }
 
         public static void AttachComboOutline(ComboBox comboBox)

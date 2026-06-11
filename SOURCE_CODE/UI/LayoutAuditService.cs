@@ -11,7 +11,7 @@ namespace HVAC_Pro_Desktop.UI
 {
     internal static class LayoutAuditService
     {
-        private const int DesiredGap = 8;
+        private const int DesiredGap = 12;
         private const int GapWarning = 16;
         private static readonly object Sync = new object();
         private static readonly Dictionary<int, Size> ProcessedRootSizes = new Dictionary<int, Size>();

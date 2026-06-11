@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.13.0 - 2026-06-10
+
+- Cleaned up global WinForms border rendering so input hosts, cards, grids, and reusable panels use a single #D1D5DB outline with safer 12 px section spacing and no stacked native/overlay input borders.
+- Standardized ServoERP base forms/pages and Tally integration to DPI autoscaling, and hardened the Release build to run as x64 so QuestPDF native dependencies load correctly.
+- Verified the priority pages and detail pages through Release `/navtiming` and `/smoketest` coverage.
+
 ## 1.1.12.0 - 2026-06-10
 
 - Purchase Orders dashboard now loads its data on first open (stat cards, recent PO table, aging, and top-supplier panels previously stayed empty until Refresh was pressed).

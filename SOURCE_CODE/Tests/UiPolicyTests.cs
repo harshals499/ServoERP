@@ -122,15 +122,15 @@ namespace HVAC_Pro_Desktop.Tests
 
         private static void EnsureSoftBorderDesignTokens()
         {
-            Color expected = Color.FromArgb(220, 220, 220);
+            Color expected = Color.FromArgb(209, 213, 219);
             if (DS.Border.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("DS.Border must remain soft light gray for app-wide outline consistency.");
+                throw new InvalidOperationException("DS.Border must remain #D1D5DB for app-wide outline consistency.");
             if (DS.BorderStrong.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("DS.BorderStrong must remain soft light gray for app-wide outline consistency.");
+                throw new InvalidOperationException("DS.BorderStrong must remain #D1D5DB for app-wide outline consistency.");
             if (GridTheme.BorderColor.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("Grid outer border token must remain soft light gray.");
+                throw new InvalidOperationException("Grid outer border token must remain #D1D5DB.");
             if (GridTheme.GridLine.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("Grid line token must remain soft light gray.");
+                throw new InvalidOperationException("Grid line token must remain #D1D5DB.");
         }
 
         private static void EnsureDispatchTechnicianClassification()

@@ -22,16 +22,21 @@ namespace HVAC_Pro_Desktop.Tests
             var actions = new WindowsFileContextMenuActions
             {
                 Open = ctx => actionCalls++,
-                AddToFavorites = ctx => actionCalls++,
+                IsFavorite = ctx => false,
+                ToggleFavorite = ctx => actionCalls++,
                 CopyAsPath = ctx => actionCalls++,
                 Share = ctx => actionCalls++,
-                SendToDesktop = ctx => actionCalls++,
-                SendToEmail = ctx => actionCalls++,
+                SendToDashboard = ctx => actionCalls++,
+                SendToFavorites = ctx => actionCalls++,
+                SendToShortcuts = ctx => actionCalls++,
                 Cut = ctx => actionCalls++,
                 Copy = ctx => actionCalls++,
                 CreateShortcut = ctx => actionCalls++,
-                ToggleLock = ctx => actionCalls++,
                 IsLocked = ctx => false,
+                ToggleLock = ctx => actionCalls++,
+                HideCard = ctx => actionCalls++,
+                DeleteCard = ctx => actionCalls++,
+                RestoreCard = ctx => actionCalls++,
                 Properties = ctx => actionCalls++
             };
 

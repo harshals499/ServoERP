@@ -9,18 +9,21 @@ namespace HVAC_Pro_Desktop.UI
     public sealed class WindowsFileContextMenuActions
     {
         public Action<object> Open { get; set; }
-        public Action<object> Delete { get; set; }
-        public Action<object> Rename { get; set; }
+        public Func<object, bool> IsFavorite { get; set; }
+        public Action<object> ToggleFavorite { get; set; }
         public Action<object> Copy { get; set; }
         public Action<object> Cut { get; set; }
         public Action<object> Share { get; set; }
         public Action<object> CopyAsPath { get; set; }
-        public Action<object> AddToFavorites { get; set; }
         public Action<object> CreateShortcut { get; set; }
-        public Action<object> SendToDesktop { get; set; }
-        public Action<object> SendToEmail { get; set; }
+        public Action<object> SendToDashboard { get; set; }
+        public Action<object> SendToFavorites { get; set; }
+        public Action<object> SendToShortcuts { get; set; }
         public Func<object, bool> IsLocked { get; set; }
         public Action<object> ToggleLock { get; set; }
+        public Action<object> HideCard { get; set; }
+        public Action<object> DeleteCard { get; set; }
+        public Action<object> RestoreCard { get; set; }
         public Action<object> Properties { get; set; }
     }
 
@@ -88,20 +91,22 @@ namespace HVAC_Pro_Desktop.UI
 
             AddItem(menu, "Open", context, actions.Open, true);
             AddSeparator(menu);
-            AddItem(menu, "Add to Favorites", context, actions.AddToFavorites);
-            AddItem(menu, "Copy as path", context, actions.CopyAsPath);
+            AddItem(menu, IsFavorite(context, actions) ? "Remove from Favorites" : "Add to Favorites", context, actions.ToggleFavorite);
+            AddItem(menu, "Copy as Path", context, actions.CopyAsPath);
             AddItem(menu, "Share", context, actions.Share);
-            AddSubmenu(menu, "Send to", context,
-                new MenuAction("Desktop shortcut", actions.SendToDesktop),
-                new MenuAction("Email link", actions.SendToEmail));
+            AddSubmenu(menu, "Send To", context,
+                new MenuAction("Dashboard", actions.SendToDashboard),
+                new MenuAction("Favorites", actions.SendToFavorites),
+                new MenuAction("Shortcuts", actions.SendToShortcuts));
             AddSeparator(menu);
             AddItem(menu, "Cut", context, actions.Cut);
             AddItem(menu, "Copy", context, actions.Copy);
+            AddItem(menu, "Create Shortcut", context, actions.CreateShortcut);
             AddSeparator(menu);
-            AddItem(menu, "Create shortcut", context, actions.CreateShortcut);
-            AddItem(menu, "Delete", context, actions.Delete, false, DangerColor);
-            AddItem(menu, "Rename", context, actions.Rename);
             AddItem(menu, IsLocked(context, actions) ? "Unlock Card" : "Lock Card", context, actions.ToggleLock);
+            AddItem(menu, "Hide Card", context, actions.HideCard);
+            AddItem(menu, "Delete Card", context, actions.DeleteCard, false, DangerColor);
+            AddItem(menu, "Restore Card", context, actions.RestoreCard);
             AddSeparator(menu);
             AddItem(menu, "Properties", context, actions.Properties);
             RemoveTrailingSeparators(menu);
@@ -196,6 +201,18 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 return actions != null && actions.IsLocked != null && actions.IsLocked(context);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsFavorite(object context, WindowsFileContextMenuActions actions)
+        {
+            try
+            {
+                return actions != null && actions.IsFavorite != null && actions.IsFavorite(context);
             }
             catch
             {

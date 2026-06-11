@@ -35,8 +35,8 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color RowNormal = Color.White;
         public static readonly Color RowSelected = Color.FromArgb(37, 99, 235);
         public static readonly Color RowSelectedFore = Color.White;
-        public static readonly Color GridLine = Color.FromArgb(220, 220, 220);
-        public static readonly Color BorderColor = Color.FromArgb(220, 220, 220);
+        public static readonly Color GridLine = Color.FromArgb(209, 213, 219);
+        public static readonly Color BorderColor = Color.FromArgb(209, 213, 219);
 
         private static readonly HashSet<DataGridView> BoundGrids = new HashSet<DataGridView>();
         private static readonly HashSet<DataGridView> StyledGrids = new HashSet<DataGridView>();

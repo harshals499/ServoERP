@@ -62,6 +62,12 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
+    /// <summary>
+    /// Single global, reusable right-click context menu (GlobalCardContextMenu) attached to every
+    /// ServoERP card. Every menu item below is wired to a real, persisted, logged action:
+    /// Open, Add/Remove Favorites, Copy as Path, Share, Send To (Dashboard/Favorites/Shortcuts),
+    /// Cut, Copy, Create Shortcut, Lock/Unlock Card, Hide Card, Delete Card, Restore Card, Properties.
+    /// </summary>
     internal static class GlobalCardContextMenu
     {
         private static readonly object Sync = new object();
@@ -70,6 +76,9 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly HashSet<ContextMenuStrip> ExtendedMenus = new HashSet<ContextMenuStrip>();
         private static readonly DashboardShortcutService ShortcutService = new DashboardShortcutService();
         private static readonly AuditTrailService Audit = new AuditTrailService();
+
+        /// <summary>When true, suppresses feedback/confirmation MessageBoxes so automated audits can run unattended.</summary>
+        public static bool SuppressFeedbackForTests { get; set; }
 
         /// <summary>Scans a form or page and attaches the global card context menu to detected cards.</summary>
         public static void ApplyToTree(Control root)
@@ -158,6 +167,18 @@ namespace HVAC_Pro_Desktop.UI
             return EnumerateControls(root).Count(control => IsCardLike(control) || control is ResizableCard);
         }
 
+        /// <summary>Builds the menu context for a card and exposes the wired action set for diagnostics/audits.</summary>
+        public static GlobalCardContextInfo BuildContextForAudit(Control card, string title, string pageKey, string cardKey)
+        {
+            return BuildContext(card, title, pageKey, cardKey);
+        }
+
+        /// <summary>Builds the wired action set for a card for diagnostics/audits.</summary>
+        public static WindowsFileContextMenuActions BuildActionsForAudit(Action open = null)
+        {
+            return BuildActions(open);
+        }
+
         private static void AttachCardTree(Control card, Control current, string title, string pageKey, string cardKey, Action open)
         {
             if (current == null || current.IsDisposed || ShouldSkipRightClickSurface(current))
@@ -206,16 +227,22 @@ namespace HVAC_Pro_Desktop.UI
 
             ContextMenuStrip menu = card.ContextMenuStrip;
             menu.Items.Add(new ToolStripSeparator());
-            AddStandardMenuItem(menu, "Open", card, ctx => FocusCard(ctx), true);
-            AddStandardMenuItem(menu, "Add to Favorites", card, SaveFavorite);
-            AddStandardMenuItem(menu, "Copy as path", card, CopyCardPath);
-            AddStandardMenuItem(menu, "Cut", card, ctx => CopyCardText(ctx, "Cut"));
-            AddStandardMenuItem(menu, "Copy", card, ctx => CopyCardText(ctx, "Copy"));
-            AddStandardMenuItem(menu, "Create shortcut", card, SaveShortcut);
+            AddStandardMenuItem(menu, "Open", card, FocusCard, true);
+            AddStandardMenuItem(menu, "Add to Favorites", card, ToggleFavorite);
+            AddStandardMenuItem(menu, "Copy as Path", card, CopyCardPath);
             AddStandardMenuItem(menu, "Share", card, ShareCard);
+            AddStandardMenuItem(menu, "Send to Dashboard", card, ctx => SendTo(ctx, "Dashboard"));
+            AddStandardMenuItem(menu, "Send to Favorites", card, ctx => SendTo(ctx, "Favorite"));
+            AddStandardMenuItem(menu, "Send to Shortcuts", card, ctx => SendTo(ctx, "Shortcut"));
+            AddStandardMenuItem(menu, "Cut", card, ctx => CopyCard(ctx, "Cut"));
+            AddStandardMenuItem(menu, "Copy", card, ctx => CopyCard(ctx, "Copy"));
+            AddStandardMenuItem(menu, "Create Shortcut", card, SaveShortcut);
             AddStandardMenuItem(menu, "Lock Card", card, ToggleCardLock);
+            AddStandardMenuItem(menu, "Hide Card", card, HideCard);
+            AddStandardMenuItem(menu, "Delete Card", card, DeleteCard, false, DS.Red600);
+            AddStandardMenuItem(menu, "Restore Card", card, RestoreCard);
             AddStandardMenuItem(menu, "Properties", card, ShowProperties);
-            menu.Opening += (s, e) => RefreshLockMenuText(menu, card);
+            menu.Opening += (s, e) => RefreshDynamicMenuText(menu, card);
         }
 
         private static void AddStandardMenuItem(ContextMenuStrip menu, string text, ResizableCard card, Action<object> action, bool bold = false, Color? foreColor = null)
@@ -233,23 +260,22 @@ namespace HVAC_Pro_Desktop.UI
         {
             return new WindowsFileContextMenuActions
             {
-                Open = ctx =>
-                {
-                    if (open != null)
-                        open();
-                    else
-                        FocusCard(ctx);
-                },
-                Copy = ctx => CopyCardText(ctx, "Copy"),
-                Cut = ctx => CopyCardText(ctx, "Cut"),
+                Open = ctx => OpenCard(ctx, open),
+                IsFavorite = IsCardFavorite,
+                ToggleFavorite = ToggleFavorite,
+                Copy = ctx => CopyCard(ctx, "Copy"),
+                Cut = ctx => CopyCard(ctx, "Cut"),
                 Share = ShareCard,
                 CopyAsPath = CopyCardPath,
-                AddToFavorites = SaveFavorite,
                 CreateShortcut = SaveShortcut,
-                SendToDesktop = SaveShortcut,
-                SendToEmail = ShareCard,
-                IsLocked = ctx => IsCardLocked(ctx),
+                SendToDashboard = ctx => SendTo(ctx, "Dashboard"),
+                SendToFavorites = ctx => SendTo(ctx, "Favorite"),
+                SendToShortcuts = ctx => SendTo(ctx, "Shortcut"),
+                IsLocked = IsCardLocked,
                 ToggleLock = ToggleCardLock,
+                HideCard = HideCard,
+                DeleteCard = DeleteCard,
+                RestoreCard = RestoreCard,
                 Properties = ShowProperties
             };
         }
@@ -299,28 +325,47 @@ namespace HVAC_Pro_Desktop.UI
             return CardSurfacePolicy.ShouldSkipRightClickSurface(control);
         }
 
+        // ---------------------------------------------------------------
+        // Menu actions: Open, Favorites, Copy as Path, Share, Send To,
+        // Cut/Copy, Create Shortcut, Lock/Unlock, Hide/Delete/Restore, Properties
+        // ---------------------------------------------------------------
+
+        private static void OpenCard(object context, Action open)
+        {
+            ExecuteCardAction(context, "OPEN", "View", info =>
+            {
+                if (open != null)
+                    open();
+                else
+                    FocusCardInternal(info);
+
+                return CardActionResult.Ok("Opened " + DisplayTitle(info) + ".");
+            });
+        }
+
         private static void FocusCard(object context)
         {
             ExecuteCardAction(context, "OPEN", "View", info =>
             {
-                Control control = info.Control;
-                if (control == null || control.IsDisposed)
-                    return;
-
-                control.BringToFront();
-                if (control.CanFocus)
-                    control.Focus();
-            }, false);
+                FocusCardInternal(info);
+                return CardActionResult.Ok("Opened " + DisplayTitle(info) + ".");
+            });
         }
 
-        private static void CopyCardText(object context, string action)
+        private static void FocusCardInternal(GlobalCardContextInfo info)
         {
-            ExecuteCardAction(context, action.ToUpperInvariant(), "View", info =>
-            {
-                Clipboard.SetText(info.ToString());
-                Debug.WriteLine("Global card menu " + action + ": " + info);
-                ShowActionFeedback(action, "Copied card details to clipboard.");
-            });
+            Control control = info == null ? null : info.Control;
+            if (control == null || control.IsDisposed)
+                return;
+
+            control.BringToFront();
+            if (control.CanFocus)
+                control.Focus();
+        }
+
+        private static void ToggleFavorite(object context)
+        {
+            ExecuteCardAction(context, "FAVORITE", "View", info => GlobalCardStateService.ToggleFavorite(info, ShortcutService), "Favorites");
         }
 
         private static void CopyCardPath(object context)
@@ -329,27 +374,67 @@ namespace HVAC_Pro_Desktop.UI
             {
                 string path = info.ToCardPath();
                 Clipboard.SetText(path);
-                Debug.WriteLine("Global card menu Copy as path: " + path);
-                ShowActionFeedback("Copy as path", "Copied card path to clipboard.");
-            });
+                Debug.WriteLine("Global card menu Copy as Path: " + path);
+                return CardActionResult.Ok("Copied card path to clipboard: " + path);
+            }, "Copy as Path");
         }
 
-        private static void ShowProperties(object context)
+        private static void ShareCard(object context)
         {
-            ExecuteCardAction(context, "PROPERTIES", "View", info =>
+            ExecuteCardAction(context, "SHARE", "View", info =>
             {
-                MessageBox.Show(
-                    info.ToPropertiesText(),
-                    BrandingService.WindowTitle("Card Properties"),
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
-            }, false);
+                string shareText = DisplayTitle(info) + Environment.NewLine + info.ToCardPath();
+                Clipboard.SetText(shareText);
+                return CardActionResult.Ok("Share link copied to clipboard for " + DisplayTitle(info) + ".");
+            }, "Share");
+        }
+
+        private static void SendTo(object context, string kind)
+        {
+            ExecuteCardAction(context, "SEND_TO_" + kind.ToUpperInvariant(), "View", info =>
+            {
+                string path = ShortcutService.SaveShortcut(info.Title, info.PageKey, info.CardKey, info.ToCardPath(), kind);
+
+                if (string.Equals(kind, "Favorite", StringComparison.OrdinalIgnoreCase))
+                {
+                    CardActionState state = GlobalCardStateService.Load(info);
+                    state.Favorite = true;
+                    GlobalCardStateService.Save(info, state);
+                }
+                else if (string.Equals(kind, "Shortcut", StringComparison.OrdinalIgnoreCase))
+                {
+                    GlobalCardStateService.SetShortcut(info, true, "SEND_TO_SHORTCUT");
+                }
+
+                return CardActionResult.Ok(DisplayTitle(info) + " sent to " + kind + "." + Environment.NewLine + path);
+            }, "Send To");
+        }
+
+        private static void CopyCard(object context, string clipboardState)
+        {
+            ExecuteCardAction(context, clipboardState.ToUpperInvariant(), "View", info => GlobalCardStateService.SetClipboardState(info, clipboardState), clipboardState);
+        }
+
+        private static void SaveShortcut(object context)
+        {
+            ExecuteCardAction(context, "CREATE_SHORTCUT", "View", info =>
+            {
+                string path = ShortcutService.SaveShortcut(info.Title, info.PageKey, info.CardKey, info.ToCardPath(), "Shortcut");
+                GlobalCardStateService.SetShortcut(info, true, "CREATE_SHORTCUT");
+                return CardActionResult.Ok("Shortcut saved for " + DisplayTitle(info) + "." + Environment.NewLine + path);
+            }, "Create Shortcut");
+        }
+
+        private static bool IsCardFavorite(object context)
+        {
+            var info = context as GlobalCardContextInfo;
+            return info != null && GlobalCardStateService.IsFavorite(info);
         }
 
         private static bool IsCardLocked(object context)
         {
             var info = context as GlobalCardContextInfo;
-            return info != null && GlobalDashboardLayoutService.IsCardLocked(info.Control);
+            return info != null && GlobalCardStateService.IsLocked(info);
         }
 
         private static void ToggleCardLock(object context)
@@ -357,64 +442,90 @@ namespace HVAC_Pro_Desktop.UI
             ExecuteCardAction(context, "LOCK", "View", info =>
             {
                 if (info.Control == null || info.Control.IsDisposed)
-                    return;
+                    return CardActionResult.Fail("Card control is not available.");
 
-                bool locked = GlobalDashboardLayoutService.ToggleCardLock(info.Control);
-                string title = string.IsNullOrWhiteSpace(info.Title) ? "card" : info.Title;
-                MessageBox.Show(
-                    locked ? title + " is locked. Right-click again and choose Unlock Card to resize or move it." : title + " is unlocked.",
-                    BrandingService.WindowTitle("Card Layout"),
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Information);
+                return GlobalCardStateService.ToggleLock(info);
+            }, "Card Layout");
+        }
+
+        private static void HideCard(object context)
+        {
+            ExecuteCardAction(context, "HIDE", "View", GlobalCardStateService.HideCard, "Hide Card");
+        }
+
+        private static void DeleteCard(object context)
+        {
+            var info = context as GlobalCardContextInfo;
+            string title = info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title.Trim() : "this card";
+
+            if (!SuppressFeedbackForTests)
+            {
+                DialogResult confirm = MessageBox.Show(
+                    "Delete " + title + "? It will be removed from this layout, but you can bring it back later with Restore Card.",
+                    BrandingService.WindowTitle("Delete Card"),
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (confirm != DialogResult.Yes)
+                    return;
+            }
+
+            ExecuteCardAction(context, "DELETE", "View", GlobalCardStateService.DeleteCard, "Delete Card");
+        }
+
+        private static void RestoreCard(object context)
+        {
+            ExecuteCardAction(context, "RESTORE", "View", GlobalCardStateService.RestoreCard, "Restore Card");
+        }
+
+        private static void ShowProperties(object context)
+        {
+            ExecuteCardAction(context, "PROPERTIES", "View", info =>
+            {
+                string text = GlobalCardStateService.BuildPropertiesText(info);
+                if (!SuppressFeedbackForTests)
+                {
+                    MessageBox.Show(
+                        text,
+                        BrandingService.WindowTitle("Card Properties"),
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+
+                return CardActionResult.Ok(text);
             });
         }
 
-        private static void RefreshLockMenuText(ContextMenuStrip menu, Control card)
+        private static void RefreshDynamicMenuText(ContextMenuStrip menu, ResizableCard card)
         {
             if (menu == null || card == null)
                 return;
+
+            GlobalCardContextInfo info = BuildContext(card, card.CardTitle, card.PageKey, card.CardKey);
+            bool locked = GlobalCardStateService.IsLocked(info);
+            bool favorite = GlobalCardStateService.IsFavorite(info);
 
             foreach (ToolStripMenuItem item in menu.Items.OfType<ToolStripMenuItem>())
             {
                 if (string.Equals(item.Text, "Lock Card", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(item.Text, "Unlock Card", StringComparison.OrdinalIgnoreCase))
                 {
-                    item.Text = GlobalDashboardLayoutService.IsCardLocked(card) ? "Unlock Card" : "Lock Card";
-                    return;
+                    item.Text = locked ? "Unlock Card" : "Lock Card";
+                }
+                else if (string.Equals(item.Text, "Add to Favorites", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.Text, "Remove from Favorites", StringComparison.OrdinalIgnoreCase))
+                {
+                    item.Text = favorite ? "Remove from Favorites" : "Add to Favorites";
                 }
             }
         }
 
-        private static void SaveFavorite(object context)
-        {
-            SaveDashboardShortcut(context, "Favorite");
-        }
+        // ---------------------------------------------------------------
+        // Shared execution wrapper: permission check, persistence, audit
+        // log, app log, and success/failure feedback for every action.
+        // ---------------------------------------------------------------
 
-        private static void SaveShortcut(object context)
-        {
-            SaveDashboardShortcut(context, "Shortcut");
-        }
-
-        private static void SaveDashboardShortcut(object context, string kind)
-        {
-            ExecuteCardAction(context, kind.ToUpperInvariant(), "View", info =>
-            {
-                string path = ShortcutService.SaveShortcut(info.Title, info.PageKey, info.CardKey, info.ToCardPath(), kind);
-                ShowActionFeedback(kind, kind + " saved for " + info.Title + "." + Environment.NewLine + path);
-            });
-        }
-
-        private static void ShareCard(object context)
-        {
-            ExecuteCardAction(context, "SHARE", "View", info =>
-            {
-                string shareText = info.Title + Environment.NewLine + info.ToCardPath();
-                Clipboard.SetText(shareText);
-                ShowActionFeedback("Share", "Share link copied to clipboard.");
-            });
-        }
-
-        private static void ExecuteCardAction(object context, string action, string permission, Action<GlobalCardContextInfo> execute, bool showSuccessAudit = true)
+        private static void ExecuteCardAction(object context, string action, string permission, Func<GlobalCardContextInfo, CardActionResult> execute, string feedbackTitle = null)
         {
             var info = context as GlobalCardContextInfo;
             if (info == null)
@@ -422,27 +533,54 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
-                string module = string.IsNullOrWhiteSpace(info.PageKey) ? "Dashboard" : info.PageKey;
+                string module = ResolvePermissionModule(info.PageKey);
                 SessionManager.DemandPermission(module, permission);
-                execute(info);
-                Audit.Record(action, module, null, "Card action executed for " + info.ToCardPath());
-                if (showSuccessAudit)
-                    Debug.WriteLine("Global card menu " + action + ": " + info.ToCardPath());
+
+                CardActionResult result = execute(info) ?? CardActionResult.Ok("Done.");
+                GlobalCardStateService.RecordAction(info, action);
+
+                Audit.Record(action, module, null, (result.Success ? "OK" : "FAIL") + ": " + result.Message + " (" + info.ToCardPath() + ")");
+                AppLogger.LogInfo("GlobalCardContextMenu." + action + " -> " + (result.Success ? "SUCCESS" : "FAILED") + ": " + result.Message);
+                Debug.WriteLine("Global card menu " + action + ": " + result.Message);
+
+                if (!string.IsNullOrWhiteSpace(feedbackTitle))
+                    ShowActionFeedback(feedbackTitle, result.Message, result.Success);
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("GlobalCardContextMenu." + action, ex);
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Card Menu"), action + " card", ex);
+                if (!SuppressFeedbackForTests)
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Card Menu"), action + " card", ex);
             }
         }
 
-        private static void ShowActionFeedback(string title, string message)
+        private static void ShowActionFeedback(string title, string message, bool success = true)
         {
+            if (SuppressFeedbackForTests)
+                return;
+
             MessageBox.Show(
                 message,
                 BrandingService.WindowTitle(title),
                 MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+                success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        }
+
+        private static string DisplayTitle(GlobalCardContextInfo info)
+        {
+            return info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title.Trim() : "ServoERP card";
+        }
+
+        private static string ResolvePermissionModule(string pageKey)
+        {
+            if (string.IsNullOrWhiteSpace(pageKey))
+                return "Dashboard";
+
+            string key = pageKey.Trim();
+            if (string.Equals(key, "ReportsCommandCenter", StringComparison.OrdinalIgnoreCase))
+                return "Reports";
+
+            return key;
         }
 
         private static IEnumerable<Control> EnumerateControls(Control root)

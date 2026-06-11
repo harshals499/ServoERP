@@ -306,6 +306,15 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (args.Skip(1).Any(arg => string.Equals(arg, "/cardmenuaudit", StringComparison.OrdinalIgnoreCase)))
+                {
+                    string reportPath = GlobalCardContextMenuFormAuditTests.WriteReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains("Failed: 0") ? 0 : 1;
+                    AppRuntime.LogTiming("GlobalCardContextMenuFormAuditTests", 0, reportPath);
+                    return;
+                }
+
                 if (args.Skip(1).Any(arg => string.Equals(arg, "/amctest", StringComparison.OrdinalIgnoreCase)))
                 {
                     string dir = System.IO.Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");

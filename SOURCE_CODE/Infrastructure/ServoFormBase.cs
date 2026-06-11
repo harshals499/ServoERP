@@ -13,6 +13,7 @@ namespace ServoERP.Infrastructure
         /// <summary>Creates a low-flicker form surface and enables Escape key handling.</summary>
         protected ServoFormBase()
         {
+            AutoScaleMode = AutoScaleMode.Dpi;
             RenderHelper.EnableDoubleBuffer(this);
             KeyPreview = true;
         }

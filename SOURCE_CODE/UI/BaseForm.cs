@@ -17,6 +17,7 @@ namespace HVAC_Pro_Desktop.UI
 
         protected BaseForm()
         {
+            AutoScaleMode = AutoScaleMode.Dpi;
             LanguageManager.LanguageChanged += OnLanguageChanged;
             Disposed += (s, e) => LanguageManager.LanguageChanged -= OnLanguageChanged;
         }

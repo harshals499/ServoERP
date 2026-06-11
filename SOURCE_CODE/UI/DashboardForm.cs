@@ -538,7 +538,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private DashboardDeptCard Dept(int width, ModernIconKind icon, string bg, string color, string title, string primaryValue, string primaryLabel, string secondaryValue, string secondaryLabel, IEnumerable<DashboardCardPill> pills, int nav, Color? primaryColor = null, Color? secondaryColor = null)
         {
-            DashboardContext context = new DashboardContext { Title = title, Kind = "Dashboard card", NavigationIndex = nav };
             var card = new DashboardDeptCard(icon, ColorTranslator.FromHtml(bg), ColorTranslator.FromHtml(color), title,
                 new DashboardCardMetric { Value = primaryValue, Label = primaryLabel, Color = primaryColor },
                 secondaryLabel == null ? null : new DashboardCardMetric { Value = secondaryValue, Label = secondaryLabel, Color = secondaryColor },
@@ -599,66 +598,6 @@ namespace HVAC_Pro_Desktop.UI
             for (int d = 1; d <= days; d += Math.Max(1, days / 7))
                 s.Points.AddXY(d.ToString("00") + " May", (double)Math.Max(0, total) * d / Math.Max(1, days));
             chart.Series.Add(s);
-        }
-
-        private WindowsFileContextMenuActions DashboardContextMenuActions(Action open)
-        {
-            return new WindowsFileContextMenuActions
-            {
-                Open = ctx => open?.Invoke(),
-                Delete = ctx => DeleteContextItem(ctx),
-                Rename = ctx => RenameContextItem(ctx),
-                Copy = ctx => CopyContextItem(ctx),
-                Cut = ctx => CopyContextItem(ctx),
-                Share = ctx => CopyContextItem(ctx),
-                CopyAsPath = ctx => CopyDashboardPath(ctx),
-                Properties = ctx => ShowDashboardProperties(ctx)
-            };
-        }
-
-        private void DeleteContextItem(object context)
-        {
-            DashboardContext ctx = context as DashboardContext;
-            string label = ctx == null ? "this item" : ctx.Title;
-            MessageBox.Show(this,
-                "Delete is wired for " + label + "." + Environment.NewLine + Environment.NewLine +
-                "Dashboard cards are generated from live business records, so this menu does not silently remove source data.",
-                BrandingService.WindowTitle("Delete"),
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-
-        private void RenameContextItem(object context)
-        {
-            DashboardContext ctx = context as DashboardContext;
-            string label = ctx == null ? "this item" : ctx.Title;
-            MessageBox.Show(this,
-                "Rename is wired for " + label + "." + Environment.NewLine + Environment.NewLine +
-                "Module and document labels are controlled by the owning records to preserve existing workflows.",
-                BrandingService.WindowTitle("Rename"),
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
-        }
-
-        private void CopyContextItem(object context)
-        {
-            string text = context == null ? string.Empty : context.ToString();
-            if (!string.IsNullOrWhiteSpace(text))
-                UIHelper.TrySetClipboardText(this, text, BrandingService.WindowTitle("Copy"));
-        }
-
-        private void CopyDashboardPath(object context)
-        {
-            DashboardContext ctx = context as DashboardContext;
-            string text = ctx == null ? "servoerp://dashboard" : ctx.ToDashboardPath();
-            UIHelper.TrySetClipboardText(this, text, BrandingService.WindowTitle("Copy as path"));
-        }
-
-        private void ShowDashboardProperties(object context)
-        {
-            DashboardContext ctx = context as DashboardContext;
-            string text = ctx == null ? "Dashboard item" : ctx.ToPropertiesText();
-            MessageBox.Show(this, text, BrandingService.WindowTitle("Dashboard Item Properties"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void AddAlertsBar()
@@ -734,48 +673,6 @@ namespace HVAC_Pro_Desktop.UI
         private static string CurrentUserName() => !string.IsNullOrWhiteSpace(SessionManager.CurrentUser?.DisplayName) ? SessionManager.CurrentUser.DisplayName : (!string.IsNullOrWhiteSpace(SessionManager.CurrentUser?.Username) ? SessionManager.CurrentUser.Username : "User");
         private static string Initials(string name) => string.Join("", (name ?? "User").Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Take(2).Select(s => s[0])).ToUpperInvariant();
         private static Color Blend(Color color, float amount) => Color.FromArgb(color.R + (int)((255 - color.R) * amount), color.G + (int)((255 - color.G) * amount), color.B + (int)((255 - color.B) * amount));
-
-        private sealed class DashboardContext
-        {
-            public string Title { get; set; }
-            public string Kind { get; set; }
-            public int NavigationIndex { get; set; }
-            public string DocumentType { get; set; }
-            public int RecordId { get; set; }
-
-            public override string ToString()
-            {
-                if (!string.IsNullOrWhiteSpace(DocumentType) && RecordId > 0)
-                    return Kind + ": " + Title + " (" + DocumentType + " #" + RecordId + ")";
-                return Kind + ": " + Title;
-            }
-
-            public string ToDashboardPath()
-            {
-                return "servoerp://dashboard/card/Nav" + NavigationIndex;
-            }
-
-            public string ToPropertiesText()
-            {
-                return "Title: " + (string.IsNullOrWhiteSpace(Title) ? "Dashboard item" : Title) + Environment.NewLine +
-                       "Kind: " + (string.IsNullOrWhiteSpace(Kind) ? "Dashboard item" : Kind) + Environment.NewLine +
-                       "Navigation: " + NavigationIndex + Environment.NewLine +
-                       "Document type: " + (string.IsNullOrWhiteSpace(DocumentType) ? "Not assigned" : DocumentType) + Environment.NewLine +
-                       "Record ID: " + (RecordId > 0 ? RecordId.ToString() : "Not assigned") + Environment.NewLine +
-                       "Path: " + ToDashboardPath();
-            }
-
-            private static string CleanPathPart(string value)
-            {
-                if (string.IsNullOrWhiteSpace(value))
-                    return string.Empty;
-
-                char[] chars = value.Trim()
-                    .Where(ch => char.IsLetterOrDigit(ch) || ch == '-' || ch == '_' || ch == '.')
-                    .ToArray();
-                return new string(chars);
-            }
-        }
     }
 }
 

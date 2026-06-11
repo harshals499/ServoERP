@@ -47,6 +47,38 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        /// <summary>Removes a saved shortcut/favorite entry that matches the card path and kind.</summary>
+        public bool RemoveShortcut(string cardPath, string kind)
+        {
+            if (string.IsNullOrWhiteSpace(cardPath))
+                return false;
+
+            string safeKind = string.IsNullOrWhiteSpace(kind) ? "Shortcut" : kind.Trim();
+
+            lock (Sync)
+            {
+                string path = GetShortcutFilePath();
+                if (!File.Exists(path))
+                    return false;
+
+                List<string> lines = File.ReadAllLines(path).ToList();
+                if (lines.Count == 0)
+                    return false;
+
+                string duplicateKey = "," + Escape(cardPath) + ",";
+                int removed = lines.RemoveAll(existing =>
+                    existing.IndexOf(duplicateKey, StringComparison.OrdinalIgnoreCase) >= 0
+                    && existing.StartsWith(Escape(safeKind) + ",", StringComparison.OrdinalIgnoreCase));
+
+                if (removed == 0)
+                    return false;
+
+                File.WriteAllLines(path, lines.ToArray());
+                _audit.Record("DELETE", "Dashboard", null, safeKind + " removed for " + cardPath);
+                return true;
+            }
+        }
+
         /// <summary>Returns the local CSV file used for saved card shortcuts.</summary>
         public static string GetShortcutFilePath()
         {

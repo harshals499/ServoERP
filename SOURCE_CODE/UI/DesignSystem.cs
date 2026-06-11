@@ -53,8 +53,8 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color Slate100 = Color.FromArgb(241, 245, 249);
         public static readonly Color Slate50 = Color.FromArgb(248, 250, 252);
 
-        public static readonly Color Border = Color.FromArgb(220, 220, 220);
-        public static readonly Color BorderStrong = Color.FromArgb(220, 220, 220);
+        public static readonly Color Border = Color.FromArgb(209, 213, 219);
+        public static readonly Color BorderStrong = Color.FromArgb(209, 213, 219);
         public static readonly Color FocusBlue = Color.FromArgb(37, 99, 235);
         public static readonly Color Shadow = Color.FromArgb(203, 213, 225);
         public static readonly Color Indigo600 = Primary700;
@@ -370,6 +370,28 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             UIHelper.ApplyButtonStyle(button, UIHelper.ResolveButtonRole(button));
+        }
+
+        public static void DrawCleanBorder(Graphics graphics, Rectangle bounds, int radius = RadiusMd, Color? borderColor = null, Color? fillColor = null)
+        {
+            if (graphics == null || bounds.Width <= 1 || bounds.Height <= 1)
+                return;
+
+            Rectangle rect = bounds;
+            rect.Width -= 1;
+            rect.Height -= 1;
+            graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath path = RoundedRect(rect, Math.Max(0, radius)))
+            {
+                if (fillColor.HasValue)
+                {
+                    using (SolidBrush brush = new SolidBrush(fillColor.Value))
+                        graphics.FillPath(brush, path);
+                }
+
+                using (Pen pen = new Pen(borderColor ?? Border, 1f))
+                    graphics.DrawPath(pen, path);
+            }
         }
 
         public static Color Lighten(Color color, float amount)
