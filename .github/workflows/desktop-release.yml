@@ -53,9 +53,24 @@ jobs:
       - name: Verify Restored Packages
         shell: pwsh
         run: |
-          $sqlite = "SOURCE_CODE\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\lib\net46\System.Data.SQLite.dll"
-          if (-not (Test-Path $sqlite)) {
+          $expectedStub = "SOURCE_CODE\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118"
+          $restoredStub = Get-ChildItem SOURCE_CODE\packages -Directory |
+            Where-Object { $_.Name -like "Stub.System.Data.SQLite.Core.NetFramework.1.0.118*" } |
+            Sort-Object Name |
+            Select-Object -First 1
+
+          if (-not $restoredStub) {
             Get-ChildItem SOURCE_CODE\packages -Directory | Sort-Object Name | Select-Object -ExpandProperty Name
+            throw "Stub.System.Data.SQLite.Core.NetFramework was not restored."
+          }
+
+          if (-not (Test-Path $expectedStub)) {
+            Copy-Item -LiteralPath $restoredStub.FullName -Destination $expectedStub -Recurse -Force
+          }
+
+          $sqlite = Join-Path $expectedStub "lib\net46\System.Data.SQLite.dll"
+          if (-not (Test-Path $sqlite)) {
+            Get-ChildItem $restoredStub.FullName -Recurse -Filter System.Data.SQLite.dll | Select-Object -ExpandProperty FullName
             throw "System.Data.SQLite was not restored at expected path: $sqlite"
           }
 
