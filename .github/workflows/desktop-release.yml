@@ -1,0 +1,143 @@
+name: ServoERP Desktop Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SOLUTION_PATH: SOURCE_CODE/HVAC_Pro_Desktop.sln
+  PROJECT_PATH: SOURCE_CODE/HVAC_Pro_Desktop.csproj
+  APP_ID: ServoERP.Desktop
+  APP_TITLE: ServoERP
+  MAIN_EXE: HVAC_Pro_Desktop.exe
+  BUILD_CONFIGURATION: Release
+  PLATFORM: "Any CPU"
+  VPK_VERSION: 1.2.0
+
+jobs:
+  build-package-release:
+    name: Build, Package, Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Stamp CI Version
+        id: version
+        shell: pwsh
+        run: |
+          $base = (Get-Content VERSION -Raw).Trim()
+          $increment = [int]$env:GITHUB_RUN_NUMBER
+          $line = & .\scripts\Set-ServoVersion.ps1 -Version $base -PatchIncrement $increment
+          $version = ($line | Select-String '^VERSION=').ToString().Replace('VERSION=', '')
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "SERVO_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Restore NuGet Packages
+        run: nuget restore $env:SOLUTION_PATH
+
+      - name: Build Release
+        run: >
+          msbuild $env:SOLUTION_PATH
+          /m
+          /t:Rebuild
+          /p:Configuration=$env:BUILD_CONFIGURATION
+          /p:Platform="$env:PLATFORM"
+          /p:OutDir="$env:GITHUB_WORKSPACE\artifacts\build\"
+
+      - name: Run Tests If Present
+        shell: pwsh
+        run: |
+          $testProjects = Get-ChildItem -Recurse -Filter *.csproj |
+            Where-Object { $_.FullName -match '(?i)(test|tests)' -and $_.FullName -ne (Resolve-Path $env:PROJECT_PATH).Path }
+
+          if (-not $testProjects) {
+            Write-Host "No separate test projects found. ServoERP smoke test classes are compiled into the desktop project and are not run in CI because they need an interactive Windows/SQL Server environment."
+            exit 0
+          }
+
+          foreach ($project in $testProjects) {
+            msbuild $project.FullName /m /t:Rebuild /p:Configuration=$env:BUILD_CONFIGURATION /p:Platform="$env:PLATFORM"
+          }
+
+          $vstest = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022" -Recurse -Filter vstest.console.exe |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $vstest) { throw "vstest.console.exe was not found." }
+
+          $testDlls = Get-ChildItem -Recurse -Path . -Filter *test*.dll |
+            Where-Object { $_.FullName -match "\\bin\\$env:BUILD_CONFIGURATION\\" -and $_.FullName -notmatch "\\obj\\" }
+          if ($testDlls) {
+            & $vstest @($testDlls.FullName)
+          }
+
+      - name: Prepare Publish Folder
+        shell: pwsh
+        run: |
+          .\scripts\Prepare-VelopackPublish.ps1 `
+            -BuildOutput "$env:GITHUB_WORKSPACE\artifacts\build" `
+            -PublishDir "$env:GITHUB_WORKSPACE\artifacts\publish"
+
+          if (-not (Test-Path "$env:GITHUB_WORKSPACE\artifacts\publish\$env:MAIN_EXE")) {
+            throw "Main executable was not produced: $env:MAIN_EXE"
+          }
+
+      - name: Install Velopack CLI
+        run: dotnet tool install --global vpk --version $env:VPK_VERSION
+
+      - name: Download Previous Velopack Release
+        shell: pwsh
+        continue-on-error: true
+        run: >
+          vpk download github
+          --repoUrl "https://github.com/${{ github.repository }}"
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
+
+      - name: Pack Installer and Updates
+        shell: pwsh
+        run: >
+          vpk pack
+          --packId "$env:APP_ID"
+          --packTitle "$env:APP_TITLE"
+          --packAuthors "Harshal Sonawane"
+          --packVersion "$env:SERVO_VERSION"
+          --packDir "$env:GITHUB_WORKSPACE\artifacts\publish"
+          --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
+          --mainExe "$env:MAIN_EXE"
+          --icon "$env:GITHUB_WORKSPACE\SOURCE_CODE\app.ico"
+          --runtime win-x64
+          --exclude "(?i)(^|[\\/])(HVACPro\.config|.*\.servoerp-license|.*\.sqlite|.*\.mdf|.*\.ldf|logs?|database|updates?)([\\/]|$)"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ServoERP-${{ steps.version.outputs.version }}-win-x64
+          path: |
+            artifacts/publish/**
+            artifacts/velopack/**
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        run: >
+          vpk upload github
+          --repoUrl "https://github.com/${{ github.repository }}"
+          --token "${{ secrets.GITHUB_TOKEN }}"
+          --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
+          --publish
+          --releaseName "ServoERP $env:SERVO_VERSION"
+          --tag "v$env:SERVO_VERSION"
+          --targetCommitish "${{ github.sha }}"

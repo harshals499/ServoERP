@@ -72,38 +72,15 @@ namespace HVAC_Pro_Desktop.UI
         {
             Dock = DockStyle.Fill;
             BackColor = Color.FromArgb(245, 247, 250);
-            BuildFastPayrollShell();
-            MarkDeferredLoadCompleted();
-        }
-
-        private void BuildFastPayrollShell()
-        {
-            Controls.Clear();
-            BackColor = DS.BgPage;
-            Panel root = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(32) };
-            Label title = new Label { Text = "Payroll", Location = new Point(32, 30), Size = new Size(420, 34), Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            Label subtitle = new Label { Text = "Payroll workspace is ready. Open full workspace when salary processing is required.", Location = new Point(33, 70), Size = new Size(760, 24), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate600 };
-            _lblStatus = new Label { Text = "Payroll ready.", Location = new Point(33, 116), Size = new Size(640, 24), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate500 };
-            Button refresh = NewButton("Refresh Employees", new Point(33, 158), 150, DS.Primary600);
-            refresh.Click += (s, e) =>
-            {
-                LoadEmployees();
-                SetStatus("Loaded " + _employees.Count + " employees for payroll.", DS.Green600);
-            };
-            Button full = NewButton("Open Full Workspace", new Point(195, 158), 170, DS.Primary600);
-            full.Click += (s, e) =>
-            {
-                BuildLayout();
-                UIHelper.ApplyInputStyles(Controls);
-                LoadEmployees();
-                RefreshAll();
-            };
-            root.Controls.Add(title);
-            root.Controls.Add(subtitle);
-            root.Controls.Add(_lblStatus);
-            root.Controls.Add(refresh);
-            root.Controls.Add(full);
-            Controls.Add(root);
+            BuildLayout();
+            UIHelper.ApplyInputStyles(Controls);
+            EnableDeferredLoad(
+                () =>
+                {
+                    LoadEmployees();
+                    RefreshAll();
+                },
+                ex => SetStatus("Payroll load error: " + ex.Message, Color.Firebrick));
         }
 
         private void BuildLayout()

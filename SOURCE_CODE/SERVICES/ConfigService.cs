@@ -34,6 +34,35 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        public static void EnsureLocalConfigFile()
+        {
+            lock (Sync)
+            {
+                try
+                {
+                    string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config");
+                    if (File.Exists(appPath))
+                        return;
+
+                    string machinePath = @"C:\HVAC_PRO_MSE\HVACPro.config";
+                    if (File.Exists(machinePath))
+                        return;
+
+                    string samplePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.sample.config");
+                    if (!File.Exists(samplePath))
+                        return;
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(appPath) ?? AppDomain.CurrentDomain.BaseDirectory);
+                    File.Copy(samplePath, appPath, false);
+                    AppLogger.LogInfo("Created first-run HVACPro.config from packaged sample.");
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("ConfigService.EnsureLocalConfigFile", ex);
+                }
+            }
+        }
+
         public static void Set(string section, string key, string value)
         {
             lock (Sync)
@@ -127,17 +156,17 @@ namespace HVAC_Pro_Desktop.Services
 
         public static bool IsSilentAutoUpdateEnabled()
         {
-            return string.Equals(Get("App", "SilentAutoUpdateEnabled", "true"), "true", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(Get("App", "SilentAutoUpdateEnabled", "false"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool ShouldApplySilentUpdateOnExit()
         {
-            return string.Equals(Get("App", "SilentAutoUpdateApplyOnExit", "true"), "true", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(Get("App", "SilentAutoUpdateApplyOnExit", "false"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool ShouldApplySilentUpdateImmediately()
         {
-            return string.Equals(Get("App", "SilentAutoUpdateApplyImmediately", "true"), "true", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(Get("App", "SilentAutoUpdateApplyImmediately", "false"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static string GetLicenseActivationUrl()

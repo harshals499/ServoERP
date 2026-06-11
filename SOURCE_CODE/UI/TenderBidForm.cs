@@ -100,8 +100,11 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color CargoPurple = Color.FromArgb(79, 70, 229);
         private static readonly Color BorderColor = DS.Border;
         private static readonly Color InputFill = Color.White;
-        private const int QuoteEditorFieldHeight = 40;
-        private const int QuoteEditorRowHeight = 62;
+        private const int QuoteEditorFieldHeight = 46;
+        private const int QuoteEditorRowHeight = 76;
+        private const int QuoteDetailLabelHeight = 22;
+        private const int QuoteDetailShellHeight = 38;
+        private const int QuoteDetailShellTop = 24;
 
         protected override bool EnableAutomaticLayoutScaling => false;
         protected override bool EnableMainScrollCanvas => false;
@@ -551,7 +554,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildQuoteDetailsCard()
         {
-            Panel card = MakeCard(900, 374);
+            Panel card = MakeCard(900, 334);
             card.Margin = new Padding(0, 0, 0, 16);
             card.Padding = new Padding(28, 24, 28, 28);
             Label title = new Label { Text = "Quote Details", Location = new Point(28, 26), AutoSize = true, Font = new Font("Segoe UI", 17.5f, FontStyle.Bold), ForeColor = Color.FromArgb(10, 31, 68) };
@@ -560,50 +563,21 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(title);
             card.Controls.Add(_quoteDetailsStatusPill);
 
-            Panel line1 = MakeQuoteDetailDivider();
-            line1.Location = new Point(28, 78);
-            line1.Width = card.Width - 56;
-            line1.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            card.Controls.Add(line1);
+            Panel line = MakeQuoteDetailDivider();
+            line.Location = new Point(28, 78);
+            line.Width = card.Width - 56;
+            line.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(line);
 
-            TableLayoutPanel row1 = MakeQuoteDetailRow(4, 68);
-            row1.Location = new Point(28, 100);
-            row1.Width = card.Width - 56;
-            row1.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 21f));
-            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
-            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 27f));
-            row1.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
-
-            Panel line2 = MakeQuoteDetailDivider();
-            line2.Location = new Point(28, 170);
-            line2.Width = card.Width - 56;
-            line2.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            card.Controls.Add(line2);
-
-            TableLayoutPanel row2 = MakeQuoteDetailRow(5, 68);
-            row2.Location = new Point(28, 192);
-            row2.Width = card.Width - 56;
-            row2.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
-            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
-            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 17f));
-            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
-            row2.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-
-            Panel line3 = MakeQuoteDetailDivider();
-            line3.Location = new Point(28, 262);
-            line3.Width = card.Width - 56;
-            line3.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            card.Controls.Add(line3);
-
-            TableLayoutPanel row3 = MakeQuoteDetailRow(3, 68);
-            row3.Location = new Point(28, 284);
-            row3.Width = card.Width - 56;
-            row3.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
-            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
-            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
-            row3.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
+            TableLayoutPanel detailGrid = MakeQuoteDetailGrid(4, 3);
+            detailGrid.Location = new Point(28, 100);
+            detailGrid.Width = Math.Min(1440, card.Width - 56);
+            detailGrid.Height = 210;
+            detailGrid.Anchor = AnchorStyles.Left | AnchorStyles.Top;
+            for (int i = 0; i < 4; i++)
+                detailGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+            for (int i = 0; i < 3; i++)
+                detailGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 70f));
 
             _txtQuoteNo = MakeTextBox(false);
             _txtQuoteNo.Text = string.Empty;
@@ -637,31 +611,25 @@ namespace HVAC_Pro_Desktop.UI
             _dtpRequiredBy = MakeDatePicker();
             _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
 
-            AddQuoteDetailField(row1, 0, "Quote Number", _txtQuoteNo, "E8A5", 150);
-            AddQuoteDetailField(row1, 1, "Client *", _cboClient, "E809", 168);
-            AddQuoteDetailField(row1, 2, "Site (optional)", _cboSite, "E707", 198);
-            AddQuoteDetailField(row1, 3, "Project / Quote Title", _txtTitle, "E70F", 210);
-            AddQuoteDetailField(row2, 0, "Date", _dtpDate, "E787", 130);
-            AddQuoteDetailField(row2, 1, "Due Date", _dtpDue, "E787", 130);
-            AddQuoteDetailField(row2, 2, "Validity", _cboValidity, "E121", 122);
-            AddQuoteDetailField(row2, 3, "Required By", _dtpRequiredBy, "E787", 152);
-            AddQuoteDetailField(row2, 4, "Status", _cboStatus, "E916", 145);
-            AddQuoteDetailField(row3, 0, "Commercial Flow", _cboCommercialFlow, "E9D9", 210);
-            AddQuoteDetailField(row3, 1, "Customer Side", _cboCustomerDocStatus, "E77B", 220);
-            AddQuoteDetailField(row3, 2, "Supplier Side", _cboSupplierDocStatus, "E8F8", 220);
-            card.Controls.Add(row3);
-            card.Controls.Add(row2);
-            card.Controls.Add(row1);
+            AddQuoteDetailField(detailGrid, 0, "Quote Number", _txtQuoteNo, "E8A5", 150, 0);
+            AddQuoteDetailField(detailGrid, 1, "Client *", _cboClient, "E809", 168, 0);
+            AddQuoteDetailField(detailGrid, 2, "Site (optional)", _cboSite, "E707", 198, 0);
+            AddQuoteDetailField(detailGrid, 3, "Project / Quote Title", _txtTitle, "E70F", 210, 0);
+            AddQuoteDetailField(detailGrid, 0, "Date", _dtpDate, "E787", 130, 1);
+            AddQuoteDetailField(detailGrid, 1, "Due Date", _dtpDue, "E787", 130, 1);
+            AddQuoteDetailField(detailGrid, 2, "Validity", _cboValidity, "E121", 122, 1);
+            AddQuoteDetailField(detailGrid, 3, "Required By", _dtpRequiredBy, "E787", 152, 1);
+            AddQuoteDetailField(detailGrid, 0, "Status", _cboStatus, "E916", 145, 2);
+            AddQuoteDetailField(detailGrid, 1, "Commercial Flow", _cboCommercialFlow, "E9D9", 210, 2);
+            AddQuoteDetailField(detailGrid, 2, "Customer Side", _cboCustomerDocStatus, "E77B", 220, 2);
+            AddQuoteDetailField(detailGrid, 3, "Supplier Side", _cboSupplierDocStatus, "E8F8", 220, 2);
+            card.Controls.Add(detailGrid);
 
             card.Resize += (s, e) =>
             {
                 int width = Math.Max(420, card.ClientSize.Width - 56);
-                line1.Width = width;
-                line2.Width = width;
-                line3.Width = width;
-                row1.Width = width;
-                row2.Width = width;
-                row3.Width = width;
+                line.Width = width;
+                detailGrid.Width = Math.Min(1440, width);
             };
             return card;
         }
@@ -3479,25 +3447,23 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Creates one polished field in the Quote Details reference layout.</summary>
-        private static void AddQuoteDetailField(TableLayoutPanel row, int col, string label, Control control, string iconHex, int shellWidth)
+        private static void AddQuoteDetailField(TableLayoutPanel row, int col, string label, Control control, string iconHex, int shellWidth, int rowIndex = 0)
         {
-            const int headerHeight = 20;
             const int iconSize = 16;
             const int iconLabelGap = 6;
-            const int fieldLeftInset = 8;
-            Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface, Margin = new Padding(0, 0, 18, 0), Tag = "CUSTOM_INPUT_SHELL" };
+            Panel wrap = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface, Margin = new Padding(0, 0, 16, 12), Tag = "CUSTOM_INPUT_SHELL" };
             Panel labelHeader = new Panel
             {
-                Location = new Point(fieldLeftInset, 0),
-                Height = headerHeight,
-                Width = Math.Max(40, shellWidth - fieldLeftInset),
+                Location = new Point(0, 0),
+                Height = QuoteDetailLabelHeight,
+                Width = Math.Max(120, shellWidth),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = QuoteSurface
             };
             Label icon = new Label
             {
                 Text = IconFromHex(iconHex),
-                Location = new Point(0, (headerHeight - iconSize) / 2),
+                Location = new Point(0, (QuoteDetailLabelHeight - iconSize) / 2),
                 Size = new Size(iconSize, iconSize),
                 MinimumSize = new Size(iconSize, iconSize),
                 MaximumSize = new Size(iconSize, iconSize),
@@ -3510,7 +3476,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = label,
                 Location = new Point(iconSize + iconLabelGap, 0),
-                Size = new Size(Math.Max(40, shellWidth - iconSize - iconLabelGap), headerHeight),
+                Size = new Size(Math.Max(40, shellWidth - iconSize - iconLabelGap), QuoteDetailLabelHeight),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 AutoSize = false,
                 Font = new Font("Segoe UI", 8.7f, FontStyle.Bold),
@@ -3523,23 +3489,23 @@ namespace HVAC_Pro_Desktop.UI
             labelHeader.Controls.Add(labelControl);
             Panel shell = new Panel
             {
-                Location = new Point(fieldLeftInset, 25),
-                Height = 32,
-                Width = Math.Max(40, shellWidth - fieldLeftInset),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top,
+                Location = new Point(0, 25),
+                Height = 36,
+                Width = Math.Max(120, shellWidth),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = Color.White,
-                Padding = new Padding(8, 4, 8, 4),
+                Padding = new Padding(0),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
             wrap.Resize += (s, e) =>
             {
-                int availableWidth = Math.Max(88, wrap.ClientSize.Width - fieldLeftInset - 2);
-                int correctedWidth = Math.Min(Math.Max(40, shellWidth - fieldLeftInset), availableWidth);
+                int correctedWidth = Math.Max(120, wrap.ClientSize.Width - 2);
                 if (shell.Width != correctedWidth)
                 {
                     shell.Width = correctedWidth;
                     shell.Invalidate();
                 }
+                LayoutQuoteDetailControl(shell, control);
                 if (labelHeader.Width != correctedWidth)
                     labelHeader.Width = correctedWidth;
                 int labelWidth = Math.Max(40, correctedWidth - iconSize - iconLabelGap);
@@ -3555,10 +3521,37 @@ namespace HVAC_Pro_Desktop.UI
 
             PrepareQuoteDetailControl(control);
             shell.Controls.Add(control);
-            AddQuoteDetailDisplayLayer(shell, control);
+            LayoutQuoteDetailControl(shell, control);
             wrap.Controls.Add(shell);
             wrap.Controls.Add(labelHeader);
-            row.Controls.Add(wrap, col, 0);
+            row.Controls.Add(wrap, col, rowIndex);
+        }
+
+        private static void LayoutQuoteDetailControl(Panel shell, Control control)
+        {
+            if (shell == null || control == null)
+                return;
+
+            if (control is TextBox)
+            {
+                control.Location = new Point(10, 8);
+                control.Size = new Size(Math.Max(40, shell.ClientSize.Width - 20), 22);
+                return;
+            }
+
+            control.Location = new Point(8, 6);
+            control.Size = new Size(Math.Max(40, shell.ClientSize.Width - 16), 24);
+        }
+
+        /// <summary>Creates the responsive Quote Details grid.</summary>
+        private static TableLayoutPanel MakeQuoteDetailGrid(int columns, int rows)
+        {
+            return new TableLayoutPanel
+            {
+                ColumnCount = columns,
+                RowCount = rows,
+                BackColor = QuoteSurface
+            };
         }
 
         /// <summary>Creates a single row in the polished Quote Details layout.</summary>
@@ -3582,9 +3575,9 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Places an existing editor control inside the polished Quote Details input shell.</summary>
         private static void PrepareQuoteDetailControl(Control control)
         {
-            control.Dock = DockStyle.Fill;
+            control.Dock = DockStyle.None;
             control.Margin = Padding.Empty;
-            control.Font = new Font("Segoe UI", 8.8f, FontStyle.Regular);
+            control.Font = new Font("Segoe UI", 10f, FontStyle.Regular);
             control.ForeColor = QuoteText;
             control.BackColor = Color.White;
             control.Tag = AppendTag(control.Tag, "CUSTOM_INPUT_SHELL");
@@ -3601,8 +3594,8 @@ namespace HVAC_Pro_Desktop.UI
             ComboBox combo = control as ComboBox;
             if (combo != null)
             {
-                combo.FlatStyle = IsInsideQuoteInputShell(combo) ? FlatStyle.Flat : FlatStyle.Standard;
-                combo.ItemHeight = 20;
+                combo.FlatStyle = FlatStyle.Flat;
+                combo.ItemHeight = 22;
                 combo.MaxDropDownItems = 12;
                 combo.IntegralHeight = false;
                 combo.DropDownWidth = Math.Max(260, combo.Width);
@@ -3628,12 +3621,12 @@ namespace HVAC_Pro_Desktop.UI
 
             Label display = new Label
             {
-                Location = new Point(8, 3),
-                Size = new Size(Math.Max(40, shell.Width - 36), 26),
+                Location = new Point(8, 6),
+                Size = new Size(Math.Max(40, shell.Width - 36), Math.Max(18, shell.Height - 12)),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = Color.White,
                 ForeColor = QuoteText,
-                Font = new Font("Segoe UI", 8.8f),
+                Font = new Font("Segoe UI", 10f),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Cursor = Cursors.Hand,
                 AutoEllipsis = true,
@@ -3641,8 +3634,8 @@ namespace HVAC_Pro_Desktop.UI
             };
             Label affordance = new Label
             {
-                Location = new Point(shell.Width - 24, 7),
-                Size = new Size(13, 17),
+                Location = new Point(shell.Width - 26, 8),
+                Size = new Size(14, 18),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(71, 85, 105),
@@ -3682,10 +3675,22 @@ namespace HVAC_Pro_Desktop.UI
             affordance.Click += open;
             shell.Click += open;
             if (combo != null)
+            {
                 combo.SelectedIndexChanged += (s, e) => refresh();
+                combo.TextChanged += (s, e) => refresh();
+                combo.DropDownClosed += (s, e) => refresh();
+            }
             if (picker != null)
                 picker.ValueChanged += (s, e) => refresh();
             refresh();
+
+            shell.Resize += (s, e) =>
+            {
+                if (display != null)
+                    display.Size = new Size(Math.Max(40, shell.Width - 36), Math.Max(18, shell.Height - 12));
+                if (affordance != null)
+                    affordance.Location = new Point(shell.Width - 26, 8);
+            };
 
             shell.Controls.Add(display);
             shell.Controls.Add(affordance);
@@ -3814,13 +3819,13 @@ namespace HVAC_Pro_Desktop.UI
             if (control == null)
                 return;
 
-            control.Font = new Font("Segoe UI", 8.8f);
+            control.Font = new Font("Segoe UI", 10f);
             control.ForeColor = QuoteText;
             control.BackColor = Color.White;
             if (control is ComboBox combo)
             {
                 combo.FlatStyle = IsInsideQuoteInputShell(combo) ? FlatStyle.Flat : FlatStyle.Standard;
-                combo.ItemHeight = 20;
+                combo.ItemHeight = 22;
                 combo.DropDownWidth = Math.Max(260, combo.Width);
             }
             else if (control is DateTimePicker picker)
@@ -3867,12 +3872,15 @@ namespace HVAC_Pro_Desktop.UI
                 if (child is TextBox textBox)
                 {
                     textBox.BorderStyle = IsInsideQuoteInputShell(textBox) ? BorderStyle.None : BorderStyle.FixedSingle;
+                    textBox.Font = new Font("Segoe UI", 10f);
                     textBox.BackColor = InputFill;
                     textBox.ForeColor = QuoteText;
                 }
                 else if (child is ComboBox comboBox)
                 {
                     comboBox.FlatStyle = IsInsideQuoteInputShell(comboBox) ? FlatStyle.Flat : FlatStyle.Standard;
+                    comboBox.Font = new Font("Segoe UI", 10f);
+                    comboBox.ItemHeight = 22;
                     comboBox.BackColor = InputFill;
                     comboBox.ForeColor = QuoteText;
                     ApplyQuotationComboSizing(comboBox);

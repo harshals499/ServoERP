@@ -1,15 +1,30 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.14.0",
+  "latestVersion": "1.1.14.1",
   "updatedAt": "2026-06-11",
   "download": {
     "available": false,
     "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
-    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.14.0.zip",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.14.0.exe",
-    "installer": "ServoERP_Setup_1.1.14.0.exe"
+    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.14.1.zip",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.14.1.exe",
+    "installer": "ServoERP_Setup_1.1.14.1.exe"
   },
   "versions": [
+    {
+      "version": "1.1.14.1",
+      "date": "2026-06-11",
+      "title": "Invoice dropdown and payroll workspace hotfix",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixes Invoice customer and line-item dropdowns so they stay open until the user selects a value or clicks outside.",
+            "Restores Payroll to open the full salary processing workspace immediately.",
+            "Improves global card menu clipboard reliability and publishes the 1.1.14.1 client update package."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.14.0",
       "date": "2026-06-11",

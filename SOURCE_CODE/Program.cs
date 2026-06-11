@@ -223,6 +223,7 @@ namespace HVAC_Pro_Desktop
             CrashProtectionService.InstallApplicationHooks();
             QuestPDF.Settings.License = LicenseType.Community;
             ConfigureSerilog();
+            ConfigService.EnsureLocalConfigFile();
             Log.Information("ServoERP startup requested. Version {Version}", Application.ProductVersion);
 
             string[] args = Environment.GetCommandLineArgs();
@@ -267,6 +268,7 @@ namespace HVAC_Pro_Desktop
                     dbManager.InitializeDatabase();
                     AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds);
                 }
+                dbManager.EnsureOperationalSeedData();
                 DbHelper.EnsureQuotationSchemaMigration();
                 DbHelper.EnsureAMCSchema();
                 LocalSqliteFallbackStore.RecordSqlAvailable(DatabaseManager.RequireConfiguredConnectionString());

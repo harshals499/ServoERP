@@ -69,6 +69,7 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _txtVersionCheckUrl;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
         private CheckBox _chkVersionCheckEnabled;
+        private CheckBox _chkSilentAutoUpdateEnabled;
         private Label _lblInstalledVersion;
         private Label _lblLastUpdateCheckStatus;
         private ComboBox _cmbDisplayFitMode;
@@ -91,6 +92,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblBackupStatus;
         private Label _lblLicenseStatus;
         private AgentSimulationPanel _agentSimulationPanel;
+        private DevTeamDashboardForm _devTeamDashboard;
         private bool _reflowingSettingsCards;
         private bool _initialLoadQueued;
         private bool _settingsCardsBuilt;
@@ -236,7 +238,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_lblInstalledVersion != null && !_lblInstalledVersion.IsDisposed)
                 _lblInstalledVersion.Text = "Current version: " + ConfigService.GetAppVersion();
             if (_lblLastUpdateCheckStatus != null && !_lblLastUpdateCheckStatus.IsDisposed)
-                _lblLastUpdateCheckStatus.Text = ConfigService.Get("App", "LastUpdateCheckStatus", "Updates have not been checked in this session.");
+                _lblLastUpdateCheckStatus.Text = UpdateService.GetLastUpdateStatusDisplay();
         }
 
         private void BuildLayout()
@@ -337,6 +339,7 @@ namespace HVAC_Pro_Desktop.UI
             BuildGeneralSettingsGuide(parent);
             BuildHelpSupportCard(parent);
             BuildAgentSimulationCard(parent);
+            BuildDevTeamDashboardCard(parent);
             BuildUpdateNotificationsCard(parent);
             AppRuntime.LogTiming("Settings.BuildForm.Guides.Complete", 0);
 
@@ -794,6 +797,43 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(openReport);
         }
 
+        private void BuildDevTeamDashboardCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "ServoERP Brain - Dev Team", "Local AI dev team (Ollama-powered) that audits and improves this app.", 200);
+            Label summary = new Label
+            {
+                Text = "Runs fully offline via the local Ollama models. Submit a task, watch the 8 agents work, and review the final report.",
+                Location = new Point(0, 2),
+                Size = new Size(520, 54),
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate600
+            };
+            body.Controls.Add(summary);
+
+            Button open = MakeBtn("Open Dev Team Dashboard", InfoBlue, 200);
+            open.Location = new Point(0, 76);
+            open.Name = "btnOpenDevTeamDashboard";
+            open.Click += (s, e) => OpenDevTeamDashboard();
+            body.Controls.Add(open);
+        }
+
+        private void OpenDevTeamDashboard()
+        {
+            MainForm main = FindForm() as MainForm;
+            if (main != null)
+            {
+                main.ShowDevTeamDashboard();
+                return;
+            }
+
+            if (_devTeamDashboard == null || _devTeamDashboard.IsDisposed)
+                _devTeamDashboard = new DevTeamDashboardForm();
+            if (!_devTeamDashboard.Visible)
+                _devTeamDashboard.Show(FindForm());
+            _devTeamDashboard.BringToFront();
+            _devTeamDashboard.Focus();
+        }
+
         private void OpenAgentSimulationPanel(bool start)
         {
             if (_agentSimulationPanel == null || _agentSimulationPanel.IsDisposed)
@@ -864,7 +904,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildUpdateNotificationsCard(Panel parent)
         {
-            Panel updatesBody = AddModernSettingsCard(parent, "About & Updates", "GitHub Releases powered updates and installed version information.", 340);
+            Panel updatesBody = AddModernSettingsCard(parent, "About & Updates", "GitHub Releases powered updates and installed version information.", 370);
             _txtVersionCheckUrl = new TextBox
             {
                 ReadOnly = true,
@@ -902,10 +942,22 @@ namespace HVAC_Pro_Desktop.UI
             };
             updatesBody.Controls.Add(_chkVersionCheckEnabled);
 
+            _chkSilentAutoUpdateEnabled = new CheckBox
+            {
+                Text = "Download updates automatically",
+                Location = new Point(0, 106),
+                Width = 300,
+                Height = 26,
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate700,
+                BackColor = Color.White
+            };
+            updatesBody.Controls.Add(_chkSilentAutoUpdateEnabled);
+
             _lblInstalledVersion = new Label
             {
                 Text = "Current version: " + ConfigService.GetAppVersion(),
-                Location = new Point(0, 122),
+                Location = new Point(0, 150),
                 Width = 320,
                 Height = 22,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
@@ -915,8 +967,8 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblLastUpdateCheckStatus = new Label
             {
-                Text = ConfigService.Get("App", "LastUpdateCheckStatus", "Updates have not been checked in this session."),
-                Location = new Point(0, 154),
+                Text = UpdateService.GetLastUpdateStatusDisplay(),
+                Location = new Point(0, 182),
                 Width = 520,
                 Height = 48,
                 Font = new Font("Segoe UI", 8.8f),
@@ -925,7 +977,7 @@ namespace HVAC_Pro_Desktop.UI
             updatesBody.Controls.Add(_lblLastUpdateCheckStatus);
 
             Button btnCheckNow = MakeBtn("Check for Updates", InfoBlue, 170);
-            btnCheckNow.Location = new Point(0, 216);
+            btnCheckNow.Location = new Point(0, 246);
             btnCheckNow.Click += async (s, e) => await CheckVersionNowAsync();
             updatesBody.Controls.Add(btnCheckNow);
         }
@@ -1169,6 +1221,8 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 if (_chkVersionCheckEnabled != null)
                     _chkVersionCheckEnabled.Checked = ConfigService.IsVersionCheckEnabled();
+                if (_chkSilentAutoUpdateEnabled != null)
+                    _chkSilentAutoUpdateEnabled.Checked = ConfigService.IsSilentAutoUpdateEnabled();
                 RefreshRuntimeSettingsLabels();
                 LoadDisplayFitSetting();
                 LoadUiScaleSetting();
@@ -1693,6 +1747,9 @@ namespace HVAC_Pro_Desktop.UI
                     ConfigService.Set("App", "VersionCheckUrl", ConfigService.ProductionVersionCheckUrl);
                     _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                     ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled != null && _chkVersionCheckEnabled.Checked ? "true" : "false");
+                    ConfigService.Set("App", "SilentAutoUpdateEnabled", _chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked ? "true" : "false");
+                    ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
+                    ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "false");
                     ConfigService.Set("App", "VersionCheckIntervalHours", ConfigService.GetVersionCheckIntervalHours().ToString());
                 }
                 RefreshIndiaDefaultsPreview();
@@ -3348,6 +3405,9 @@ namespace HVAC_Pro_Desktop.UI
                 if (_txtVersionCheckUrl != null)
                     _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                 ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled == null || _chkVersionCheckEnabled.Checked ? "true" : "false");
+                ConfigService.Set("App", "SilentAutoUpdateEnabled", _chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked ? "true" : "false");
+                ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
+                ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "false");
 
                 if (_chkVersionCheckEnabled != null && !_chkVersionCheckEnabled.Checked)
                 {
@@ -3363,7 +3423,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 UpdateCheckResult result = await UpdateService.CheckForUpdatesAsync();
                 if (_lblLastUpdateCheckStatus != null)
-                    _lblLastUpdateCheckStatus.Text = result.StatusMessage;
+                    _lblLastUpdateCheckStatus.Text = UpdateService.GetLastUpdateStatusDisplay();
 
                 if (result.IsUpdateAvailable)
                 {

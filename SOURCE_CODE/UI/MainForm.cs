@@ -36,6 +36,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnResetLayout;
         private SupportCenterDialog _supportCenterDrawer;
         private AgentSimulationPanel _agentSimulationPanel;
+        private DevTeamDashboardForm _devTeamDashboard;
         private Button _btnAiCopilot;
         private AiAssistantForm _aiAssistantForm;
         private System.Windows.Forms.Timer _backupScheduleTimer;
@@ -1049,6 +1050,16 @@ namespace HVAC_Pro_Desktop.UI
                 _agentSimulationPanel.Show(this);
             _agentSimulationPanel.BringToFront();
             _agentSimulationPanel.Focus();
+        }
+
+        public void ShowDevTeamDashboard()
+        {
+            if (_devTeamDashboard == null || _devTeamDashboard.IsDisposed)
+                _devTeamDashboard = new DevTeamDashboardForm();
+            if (!_devTeamDashboard.Visible)
+                _devTeamDashboard.Show(this);
+            _devTeamDashboard.BringToFront();
+            _devTeamDashboard.Focus();
         }
 
         private void AgentSimulationProgressChanged(object sender, AgentSimulationProgressEventArgs e)
@@ -2577,7 +2588,7 @@ namespace HVAC_Pro_Desktop.UI
                     this,
                     result => ToastNotification.Show(
                         this,
-                        "ServoERP update v" + result.LatestVersion + " is installing. Please wait a moment.",
+                        "ServoERP update v" + result.LatestVersion + " is downloaded. Open Settings to install.",
                         DS.Primary600));
                 return;
             }
@@ -2742,7 +2753,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             DialogResult confirm = MessageBox.Show(
-                "ServoERP will download version " + _latestUpdateResult.LatestVersion + ", close the app, apply the update, and reopen automatically.\r\n\r\nSave your work before continuing.",
+                "ServoERP will download version " + _latestUpdateResult.LatestVersion + ", back up local configuration, close the app, apply the update, and reopen automatically.\r\n\r\nSave your work before continuing.",
                 "Install update",
                 MessageBoxButtons.OKCancel,
                 MessageBoxIcon.Information);

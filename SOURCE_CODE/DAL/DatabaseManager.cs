@@ -882,6 +882,24 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "InvoiceLineItems", "IsBillable", "BIT NOT NULL DEFAULT 1");
                 AddColumn(conn, "InvoiceLineItems", "CoverageNote", "NVARCHAR(200) NULL");
 
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='UnitMeasurements')
+                CREATE TABLE UnitMeasurements (
+                    UnitMeasurementID INT IDENTITY(1,1) PRIMARY KEY,
+                    UnitCode         NVARCHAR(20) NOT NULL UNIQUE,
+                    DisplayName      NVARCHAR(80) NOT NULL,
+                    IsActive         BIT NOT NULL DEFAULT 1,
+                    IsSystem         BIT NOT NULL DEFAULT 0,
+                    Notes            NVARCHAR(255) NULL,
+                    CreatedAt        DATETIME NOT NULL DEFAULT GETDATE()
+                );");
+
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='UnitMeasurementAliases')
+                CREATE TABLE UnitMeasurementAliases (
+                    UnitAliasID INT IDENTITY(1,1) PRIMARY KEY,
+                    UnitAlias NVARCHAR(50) NOT NULL UNIQUE,
+                    UnitMeasurementId INT NOT NULL FOREIGN KEY REFERENCES UnitMeasurements(UnitMeasurementID)
+                );");
+
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='UserCardLayouts')
                 CREATE TABLE UserCardLayouts (
                     LayoutId      INT IDENTITY(1,1) PRIMARY KEY,
@@ -2368,6 +2386,7 @@ THEN 1 ELSE 0 END";
                 {
                     DatabaseConnectionFactory.Open(conn, "DatabaseManager.EnsureOperationalSeedData");
 
+                    EnsureUnitMeasurementSeedData(conn);
                     if (GetTableCount(conn, "InvoiceTemplates") == 0)
                         SeedInvoiceTemplateData(conn);
                 }
@@ -2376,6 +2395,74 @@ THEN 1 ELSE 0 END";
             {
                 System.Diagnostics.Debug.WriteLine("EnsureOperationalSeedData error: " + ex.Message);
                 HVAC_Pro_Desktop.AppRuntime.LogException("Startup operational seed skipped", ex);
+            }
+        }
+
+        private void EnsureUnitMeasurementSeedData(SqlConnection conn)
+        {
+            if (!TableExists(conn, "UnitMeasurements") || !TableExists(conn, "UnitMeasurementAliases"))
+                return;
+
+            string[] defaultUnits = { "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "KIT", "TIN", "SET", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT" };
+            string[] defaultDisplays = { "Nos", "Pcs", "Kg", "Ltr", "Mtr", "Sqft", "Kit", "Tin", "Set", "Job", "Visit", "Lot", "Hour", "Day", "Running Meter" };
+            for (int i = 0; i < defaultUnits.Length; i++)
+            {
+                EnsureUnitMeasurement(conn, defaultUnits[i], defaultDisplays[i]);
+            }
+
+            UpsertUnitAlias(conn, "R.M.T", "RMT");
+            UpsertUnitAlias(conn, "RMT ", "RMT");
+            UpsertUnitAlias(conn, "RUNNING METER", "RMT");
+            UpsertUnitAlias(conn, "RUNNINGMETER", "RMT");
+            UpsertUnitAlias(conn, "METER", "MTR");
+            UpsertUnitAlias(conn, "METERS", "MTR");
+            UpsertUnitAlias(conn, "UNITS", "PCS");
+        }
+
+        private bool TableExists(SqlConnection conn, string tableName)
+        {
+            using (SqlCommand cmd = new SqlCommand(
+                @"SELECT CASE WHEN OBJECT_ID(@tableName, 'U') IS NOT NULL THEN 1 ELSE 0 END",
+                conn))
+            {
+                cmd.Parameters.AddWithValue("@tableName", tableName);
+                return Convert.ToInt32(cmd.ExecuteScalar()) == 1;
+            }
+        }
+
+        private void EnsureUnitMeasurement(SqlConnection conn, string code, string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(displayName))
+                return;
+
+            using (SqlCommand cmd = new SqlCommand(
+                @"IF NOT EXISTS (SELECT 1 FROM UnitMeasurements WHERE UnitCode = @code)
+                  INSERT INTO UnitMeasurements (UnitCode, DisplayName, IsActive, IsSystem) VALUES (@code, @name, 1, 1)",
+                conn))
+            {
+                cmd.Parameters.AddWithValue("@code", code);
+                cmd.Parameters.AddWithValue("@name", displayName);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void UpsertUnitAlias(SqlConnection conn, string alias, string unitCode)
+        {
+            if (string.IsNullOrWhiteSpace(alias) || string.IsNullOrWhiteSpace(unitCode))
+                return;
+
+            using (SqlCommand cmd = new SqlCommand(
+                @"DECLARE @unitId INT = (SELECT TOP 1 UnitMeasurementID FROM UnitMeasurements WHERE UnitCode = @unitCode);
+                  IF @unitId IS NOT NULL
+                  BEGIN
+                      IF NOT EXISTS (SELECT 1 FROM UnitMeasurementAliases WHERE UnitAlias = @alias)
+                          INSERT INTO UnitMeasurementAliases (UnitAlias, UnitMeasurementId) VALUES (@alias, @unitId);
+                  END",
+                conn))
+            {
+                cmd.Parameters.AddWithValue("@alias", alias);
+                cmd.Parameters.AddWithValue("@unitCode", unitCode);
+                cmd.ExecuteNonQuery();
             }
         }
 

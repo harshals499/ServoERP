@@ -135,7 +135,7 @@ namespace HVAC_Pro_Desktop.UI
 
             string config = BuildCardConfigurationText(info, state);
             string prefix = string.Equals(clipboardState, "Cut", StringComparison.OrdinalIgnoreCase) ? "[CUT] " : "[COPY] ";
-            Clipboard.SetText(prefix + config);
+            SetClipboardText(prefix + config);
 
             string title = DisplayTitle(info);
             return string.Equals(clipboardState, "Cut", StringComparison.OrdinalIgnoreCase)
@@ -338,6 +338,11 @@ namespace HVAC_Pro_Desktop.UI
         private static string DisplayTitle(GlobalCardContextInfo info)
         {
             return info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title.Trim() : "ServoERP card";
+        }
+
+        private static void SetClipboardText(string text)
+        {
+            Clipboard.SetDataObject(text ?? string.Empty, true, 5, 100);
         }
 
         private static string ResolvePageKey(GlobalCardContextInfo info)

@@ -222,6 +222,8 @@
     <Compile Include="MODELS\LicenseModels.cs" />
     <Compile Include="MODELS\IntegrationModels.cs" />
     <Compile Include="MODELS\TallyIntegrationModels.cs" />
+    <Compile Include="MODELS\DevTeamBrainModels.cs" />
+    <Compile Include="MODELS\UnitMeasurement.cs" />
     <Compile Include="MODELS\Validation\ValidationSeverity.cs" />
     <Compile Include="MODELS\Validation\ValidationIssue.cs" />
     <Compile Include="MODELS\Validation\ValidationResult.cs" />
@@ -253,6 +255,7 @@
     <Compile Include="DAL\MailIntegrationRepository.cs" />
     <Compile Include="DAL\MasterDataRepository.cs" />
     <Compile Include="DAL\TallyIntegrationRepository.cs" />
+    <Compile Include="DAL\UnitMeasurementRepository.cs" />
     <!-- Services -->
     <Compile Include="SERVICES\ClientService.cs" />
     <Compile Include="SERVICES\ContractService.cs" />
@@ -327,6 +330,8 @@
     <Compile Include="SERVICES\IndiaFinancialYearHelper.cs" />
     <Compile Include="SERVICES\IndiaFormatHelper.cs" />
     <Compile Include="SERVICES\IndiaComplianceLogger.cs" />
+    <Compile Include="SERVICES\DevTeamBrainService.cs" />
+    <Compile Include="SERVICES\UnitMeasurementService.cs" />
     <Compile Include="SERVICES\HsnSacMasterService.cs" />
     <Compile Include="SERVICES\SessionManager.cs" />
     <Compile Include="SERVICES\GoogleGeocodingService.cs" />
@@ -433,6 +438,9 @@
     <Compile Include="UI\StatusOptionProvider.cs" />
     <Compile Include="UI\TourEngine.cs" />
     <Compile Include="UI\AgentSimulationPanel.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\DevTeamDashboardForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\HtmlPreviewDialog.cs">

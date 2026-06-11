@@ -373,7 +373,7 @@ namespace HVAC_Pro_Desktop.UI
             ExecuteCardAction(context, "COPY_PATH", "View", info =>
             {
                 string path = info.ToCardPath();
-                Clipboard.SetText(path);
+                SetClipboardText(path);
                 Debug.WriteLine("Global card menu Copy as Path: " + path);
                 return CardActionResult.Ok("Copied card path to clipboard: " + path);
             }, "Copy as Path");
@@ -384,7 +384,7 @@ namespace HVAC_Pro_Desktop.UI
             ExecuteCardAction(context, "SHARE", "View", info =>
             {
                 string shareText = DisplayTitle(info) + Environment.NewLine + info.ToCardPath();
-                Clipboard.SetText(shareText);
+                SetClipboardText(shareText);
                 return CardActionResult.Ok("Share link copied to clipboard for " + DisplayTitle(info) + ".");
             }, "Share");
         }
@@ -569,6 +569,11 @@ namespace HVAC_Pro_Desktop.UI
         private static string DisplayTitle(GlobalCardContextInfo info)
         {
             return info != null && !string.IsNullOrWhiteSpace(info.Title) ? info.Title.Trim() : "ServoERP card";
+        }
+
+        private static void SetClipboardText(string text)
+        {
+            Clipboard.SetDataObject(text ?? string.Empty, true, 5, 100);
         }
 
         private static string ResolvePermissionModule(string pageKey)

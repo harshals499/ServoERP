@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.14.1 - 2026-06-11
+
+- Restored Payroll to open the full salary processing workspace immediately, including month controls, payroll actions, KPI cards, tabs, and register grid.
+- Improved Global Card Context Menu clipboard actions so Copy as Path, Share, Cut, and Copy write reliably during UI smoke runs and normal use.
+- Fixed Invoice dropdowns so customer, GST, item, unit, status, template, and line-item ComboBoxes no longer close immediately from focus stealing, overlay labels, or recalculation/rebinding during dropdown interaction.
+- Reworked the New Quotation Quote Details card into a cleaner capped 4-column details grid with readable input boxes, clearer labels, and unclipped dropdown/date text.
+
 ## 1.1.14.0 - 2026-06-11
 
 - Fixed AMC Excel import detection so AMC uploads are no longer misclassified as Payments and skipped for missing AmountPaid values.
@@ -1193,3 +1200,11 @@
 - Fixed the login password visibility icon state so hidden passwords show the crossed-eye state and visible passwords show the open-eye state.
 - Improved the dashboard top-bar user identity layout so the Administrator name fits without being clipped.
 - Aligned the installer version include with the application assembly version.
+# 1.1.15 - 2026-06-11
+
+- Added GitHub Actions desktop release pipeline for Release builds, artifact upload, Velopack packaging, and GitHub Releases publishing.
+- Added CI version stamping with semantic versions and unique patch versions per workflow run.
+- Added Velopack publish preparation that excludes client-owned configuration, license, database, log, and output files from update packages.
+- Hardened ServoERP update flow so background update checks/downloads do not restart the app without user confirmation.
+- Added Settings controls for current version, update checks, automatic update download preference, and last update status.
+- Added CI/CD and auto-update operating documentation.
