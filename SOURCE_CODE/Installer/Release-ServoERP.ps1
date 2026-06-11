@@ -121,6 +121,20 @@ $newEntry = [pscustomobject]@{
 $existingVersions = @($changelog.versions | Where-Object { $_.version -ne $Version })
 $changelog.latestVersion = $Version
 $changelog.updatedAt = (Get-Date).ToString('yyyy-MM-dd')
+$downloadUrlValue = "https://downloads.servoerp.in/ServoERP_Setup_$Version.exe"
+$installerNameValue = "ServoERP_Setup_$Version.exe"
+if ($null -eq $changelog.download.PSObject.Properties['url']) {
+    $changelog.download | Add-Member -NotePropertyName 'url' -NotePropertyValue $downloadUrlValue
+}
+else {
+    $changelog.download.url = $downloadUrlValue
+}
+if ($null -eq $changelog.download.PSObject.Properties['installer']) {
+    $changelog.download | Add-Member -NotePropertyName 'installer' -NotePropertyValue $installerNameValue
+}
+else {
+    $changelog.download.installer = $installerNameValue
+}
 $changelog.download.packageUrl = "/updates/ServoERP_Update_$Version.zip"
 $changelog.versions = @($newEntry) + $existingVersions
 $changelog | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $changelogPath -Encoding UTF8

@@ -151,6 +151,7 @@ function Upload-ViaWorkerMultipart {
 
         $stream = [System.IO.File]::OpenRead($Path)
         $totalParts = [int][Math]::Ceiling($stream.Length / [double]$MULTIPART_CHUNK_SIZE_BYTES)
+        $chunkPath = Join-Path ([System.IO.Path]::GetTempPath()) ("servoerp-r2-part-{0}.bin" -f ([Guid]::NewGuid().ToString('N')))
         for ($index = 0; $index -lt $totalParts; $index++) {
             $remaining = $stream.Length - $stream.Position
             $bytesToRead = [Math]::Min([int64]$MULTIPART_CHUNK_SIZE_BYTES, $remaining)
@@ -160,12 +161,13 @@ function Upload-ViaWorkerMultipart {
                 throw "Failed to read chunk $($index + 1) from installer."
             }
 
+            [System.IO.File]::WriteAllBytes($chunkPath, $buffer)
             $partNumber = $index + 1
             $part = Invoke-RestMethod `
                 -Method Put `
                 -Uri ("{0}/{1}?action=mpu-uploadpart&uploadId={2}&partNumber={3}" -f $workerUrl, $encodedKey, [Uri]::EscapeDataString($uploadId), $partNumber) `
                 -Headers $headers `
-                -Body $buffer `
+                -InFile $chunkPath `
                 -ContentType 'application/octet-stream'
 
             $parts += [pscustomobject]@{
@@ -204,6 +206,10 @@ function Upload-ViaWorkerMultipart {
     finally {
         if ($stream) {
             $stream.Dispose()
+        }
+
+        if ($chunkPath -and (Test-Path -LiteralPath $chunkPath)) {
+            Remove-Item -LiteralPath $chunkPath -Force
         }
 
         if (-not $KeepUploadWorker) {

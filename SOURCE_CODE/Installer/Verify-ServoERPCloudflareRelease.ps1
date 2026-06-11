@@ -56,7 +56,7 @@ $zipName = "ServoERP_Update_$Version.zip"
 
 Assert-TextEquals -Url "$BaseUrl/version.txt" -Expected $Version
 Assert-JsonFieldEquals -Url "$BaseUrl/latest.json" -Field 'latestVersion' -Expected $Version
-Assert-HttpOk -Url "$BaseUrl/updates/$zipName" | Out-Null
+Assert-HttpOk -Url "$DownloadHost/updates/$zipName" | Out-Null
 Assert-HttpOk -Url "$DownloadHost/$installerName" | Out-Null
 Assert-HttpOk -Url "$BaseUrl/download/" | Out-Null
 
