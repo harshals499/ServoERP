@@ -73,6 +73,9 @@ namespace HVAC_Pro_Desktop.Services
         {
             options = options ?? new ExcelImportExecutionOptions();
             SessionManager.DemandPermission(ModuleKey(module), "Create");
+            if (module == ExcelImportModule.AMC)
+                DbHelper.EnsureAMCSchema();
+
             var result = new ExcelImportResult();
             using (var package = new ExcelPackage(new FileInfo(filePath)))
             using (SqlConnection conn = _db.GetConnection())
@@ -143,6 +146,9 @@ namespace HVAC_Pro_Desktop.Services
                                     break;
                                 case ExcelImportModule.Inventory:
                                     imported = ImportInventoryRow(conn, transaction, sheet, map, row, result, options);
+                                    break;
+                                case ExcelImportModule.AMC:
+                                    imported = ImportAmcRow(conn, transaction, sheet, map, row, result, options);
                                     break;
                             }
 
@@ -572,6 +578,13 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
                 case ExcelImportModule.Employees:
                     if (lower.Contains("leave")) normalized = "On Leave";
                     else if (lower.Contains("terminate")) normalized = "Terminated";
+                    else if (lower.Contains("inactive")) normalized = "Inactive";
+                    else normalized = "Active";
+                    break;
+                case ExcelImportModule.AMC:
+                    if (lower.Contains("cancel")) normalized = "Cancelled";
+                    else if (lower.Contains("draft")) normalized = "Draft";
+                    else if (lower.Contains("expire")) normalized = "Expired";
                     else if (lower.Contains("inactive")) normalized = "Inactive";
                     else normalized = "Active";
                     break;
@@ -1284,6 +1297,116 @@ VALUES (@name, @category, @stock, @unit, @rate, @reorder, 1, GETDATE())",
                     new SqlParameter("@unit", unit),
                     new SqlParameter("@rate", lastPurchaseRate),
                     new SqlParameter("@reorder", reorderLevel));
+            }
+
+            return true;
+        }
+
+        private bool ImportAmcRow(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result, ExcelImportExecutionOptions options)
+        {
+            string contractNumber = GetCell(sheet, row, map, "ContractNumber");
+            string clientName = GetCell(sheet, row, map, "ClientName");
+            string siteName = GetCell(sheet, row, map, "SiteName");
+            string equipmentType = NullIfEmpty(GetCell(sheet, row, map, "EquipmentType")) ?? "HVAC Equipment";
+            string notes = GetCell(sheet, row, map, "Notes");
+            decimal contractValue = GetDecimal(sheet, row, map, "ContractValue");
+            string status = NormalizeModuleStatus(ExcelImportModule.AMC, NullIfEmpty(GetCell(sheet, row, map, "Status")) ?? "Active", options);
+            DateTime startDate = GetDate(sheet, row, map, "ContractStartDate");
+            DateTime endDate = GetDate(sheet, row, map, "ContractEndDate");
+
+            if (string.IsNullOrWhiteSpace(contractNumber))
+                return AddError(result, row, "Missing required field: ContractNumber");
+            if (string.IsNullOrWhiteSpace(clientName))
+                return AddError(result, row, "Missing required field: ClientName");
+            if (contractValue < 0m)
+                return AddError(result, row, "ContractValue cannot be negative.");
+            if (endDate < startDate)
+                endDate = startDate.AddYears(1).AddDays(-1);
+
+            const string amcType = "Comprehensive";
+            const string billingCycle = "Annual";
+            const string coverageType = "Comprehensive";
+            const int visitsPerYear = 2;
+            const string maintenanceFrequency = "Annual";
+            const string contractType = "AMC";
+            decimal monthlyValue = contractValue / 12m;
+
+            int clientId = EnsureClientId(conn, transaction, clientName, null, null, null, null, null, null, null, options);
+            int? siteId = string.IsNullOrWhiteSpace(siteName) ? (int?)null : EnsureSiteId(conn, transaction, clientId, clientName, siteName, null, null, null, null, null, notes, options);
+
+            int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 ContractID FROM AMCContracts WHERE AMCNumber=@number",
+                new SqlParameter("@number", contractNumber));
+
+            if (existingId.HasValue)
+            {
+                Execute(conn, transaction, @"
+UPDATE AMCContracts
+SET ClientID=@clientId,
+    SiteID=@siteId,
+    EquipmentDesc=@equipment,
+    AMCType=@amcType,
+    StartDate=@startDate,
+    EndDate=@endDate,
+    ContractValue=@contractValue,
+    BillingCycle=@billingCycle,
+    CoverageType=@coverageType,
+    VisitsPerYear=@visitsPerYear,
+    Status=@status,
+    Notes=@notes,
+    UpdatedAt=GETDATE(),
+    MonthlyValue=@monthlyValue,
+    AnnualValue=@annualValue,
+    ContractStatus=@status,
+    MaintenanceFrequency=@maintenanceFrequency,
+    ContractType=@contractType
+WHERE ContractID=@id",
+                    new SqlParameter("@clientId", clientId),
+                    new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
+                    new SqlParameter("@equipment", equipmentType),
+                    new SqlParameter("@amcType", amcType),
+                    new SqlParameter("@startDate", startDate),
+                    new SqlParameter("@endDate", endDate),
+                    new SqlParameter("@contractValue", contractValue),
+                    new SqlParameter("@billingCycle", billingCycle),
+                    new SqlParameter("@coverageType", coverageType),
+                    new SqlParameter("@visitsPerYear", visitsPerYear),
+                    new SqlParameter("@status", status),
+                    new SqlParameter("@notes", (object)notes ?? DBNull.Value),
+                    new SqlParameter("@monthlyValue", monthlyValue),
+                    new SqlParameter("@annualValue", contractValue),
+                    new SqlParameter("@maintenanceFrequency", maintenanceFrequency),
+                    new SqlParameter("@contractType", contractType),
+                    new SqlParameter("@id", existingId.Value));
+                options.Diagnostics?.DuplicateRefreshes.Add("AMC: " + contractNumber);
+            }
+            else
+            {
+                Execute(conn, transaction, @"
+INSERT INTO AMCContracts
+    (AMCNumber, ClientID, SiteID, EquipmentDesc, AMCType, StartDate, EndDate,
+     ContractValue, BillingCycle, CoverageType, VisitsPerYear, Status, Notes, CreatedAt, UpdatedAt,
+     MonthlyValue, AnnualValue, ContractStatus, MaintenanceFrequency, ContractType)
+VALUES
+    (@contractNumber, @clientId, @siteId, @equipment, @amcType, @startDate, @endDate,
+     @contractValue, @billingCycle, @coverageType, @visitsPerYear, @status, @notes, GETDATE(), GETDATE(),
+     @monthlyValue, @annualValue, @status, @maintenanceFrequency, @contractType)",
+                    new SqlParameter("@contractNumber", contractNumber),
+                    new SqlParameter("@clientId", clientId),
+                    new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
+                    new SqlParameter("@equipment", equipmentType),
+                    new SqlParameter("@amcType", amcType),
+                    new SqlParameter("@startDate", startDate),
+                    new SqlParameter("@endDate", endDate),
+                    new SqlParameter("@contractValue", contractValue),
+                    new SqlParameter("@billingCycle", billingCycle),
+                    new SqlParameter("@coverageType", coverageType),
+                    new SqlParameter("@visitsPerYear", visitsPerYear),
+                    new SqlParameter("@status", status),
+                    new SqlParameter("@notes", (object)notes ?? DBNull.Value),
+                    new SqlParameter("@monthlyValue", monthlyValue),
+                    new SqlParameter("@annualValue", contractValue),
+                    new SqlParameter("@maintenanceFrequency", maintenanceFrequency),
+                    new SqlParameter("@contractType", contractType));
             }
 
             return true;

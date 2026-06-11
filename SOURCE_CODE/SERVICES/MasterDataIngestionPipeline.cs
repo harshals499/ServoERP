@@ -412,7 +412,8 @@ namespace HVAC_Pro_Desktop.Services
             { ExcelImportModule.Quotations, new[] { "quotationnumber", "validuntil", "bidvalue", "quotationdate", "description" } },
             { ExcelImportModule.Purchases, new[] { "vendorname", "itemdescription", "quantity", "unitprice", "purchasedate" } },
             { ExcelImportModule.Payments, new[] { "paymentdate", "invoice", "amountpaid", "paymentmode", "reference" } },
-            { ExcelImportModule.Jobs, new[] { "jobtype", "technician", "scheduleddate", "priority", "description" } }
+            { ExcelImportModule.Jobs, new[] { "jobtype", "technician", "scheduleddate", "priority", "description" } },
+            { ExcelImportModule.AMC, new[] { "contractnumber", "amcnumber", "contractstartdate", "contractenddate", "contractvalue", "amctype", "equipmenttype" } }
         };
 
         public DataTypeDetectionResult Detect(ExcelWorkbookImportData workbook, ExcelImportModule? preferredModule)
@@ -602,6 +603,19 @@ namespace HVAC_Pro_Desktop.Services
                     { "Priority", new[] { "Priority", "Urgency" } },
                     { "ScheduledDate", new[] { "Scheduled Date", "Visit Date", "Plan Date" } }
                 }
+            },
+            { ExcelImportModule.AMC, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "ContractNumber", new[] { "AMC Number", "AMC No", "AMCNumber", "Contract No", "Contract Number", "PO Number", "PO No", "PONumber" } },
+                    { "ClientName", new[] { "Client", "Client Name", "Customer", "Customer Name", "Company", "Company Name", "Party Name" } },
+                    { "SiteName", new[] { "Site", "Site Name", "Location", "Site Location", "Project Site" } },
+                    { "ContractStartDate", new[] { "Start Date", "Contract Start", "AMC Start Date", "From Date", "Period From" } },
+                    { "ContractEndDate", new[] { "End Date", "Contract End", "AMC End Date", "To Date", "Period To" } },
+                    { "ContractValue", new[] { "Contract Value", "AMC Value", "PO Value", "PO Amount", "Annual Value", "Amount" } },
+                    { "Status", new[] { "Status", "Contract Status", "AMC Status" } },
+                    { "EquipmentType", new[] { "Equipment", "Equipment Type", "System Type", "Asset Type", "Machine Type" } },
+                    { "Notes", new[] { "Notes", "Remarks", "Comments", "Description" } }
+                }
             }
         };
 
@@ -757,6 +771,13 @@ namespace HVAC_Pro_Desktop.Services
                 if (string.IsNullOrWhiteSpace(row["StockValue"]))
                     row["StockValue"] = NormalizeDecimal(SafeDecimal(row["CurrentStock"]) * SafeDecimal(row["LastPurchaseRate"]));
             }
+            else if (module == ExcelImportModule.AMC)
+            {
+                if (string.IsNullOrWhiteSpace(row["Status"]))
+                    row["Status"] = "Active";
+                if (string.IsNullOrWhiteSpace(row["ContractEndDate"]))
+                    row["ContractEndDate"] = ShiftDate(row["ContractStartDate"], 364);
+            }
         }
 
         private static string Cleanup(string value)
@@ -864,6 +885,12 @@ namespace HVAC_Pro_Desktop.Services
                 case ExcelImportModule.Employees:
                     if (normalized.Contains("leave")) return "On Leave";
                     if (normalized.Contains("terminate")) return "Terminated";
+                    if (normalized.Contains("inactive")) return "Inactive";
+                    return "Active";
+                case ExcelImportModule.AMC:
+                    if (normalized.Contains("cancel")) return "Cancelled";
+                    if (normalized.Contains("draft")) return "Draft";
+                    if (normalized.Contains("expire")) return "Expired";
                     if (normalized.Contains("inactive")) return "Inactive";
                     return "Active";
                 default:

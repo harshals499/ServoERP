@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.14.0 - 2026-06-11
+
+- Fixed AMC Excel import detection so AMC uploads are no longer misclassified as Payments and skipped for missing AmountPaid values.
+- Added the missing AMC import save path to create or refresh AMC contracts by contract number, including client/site resolution, contract dates, value, status, equipment, and notes.
+- Added AMC header aliases for common PO/contract workbook columns and created a one-sheet AMC upload workbook for the current client file.
+
 ## 1.1.13.0 - 2026-06-10
 
 - Cleaned up global WinForms border rendering so input hosts, cards, grids, and reusable panels use a single #D1D5DB outline with safer 12 px section spacing and no stacked native/overlay input borders.
