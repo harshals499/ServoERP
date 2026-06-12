@@ -33,6 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly EmployeeService _employeeSvc = new EmployeeService();
         private readonly ServiceDeskService _serviceDeskSvc = new ServiceDeskService();
+        private readonly NotificationCenterService _notificationSvc = new NotificationCenterService();
 
         private List<B2BClient> _clients = new List<B2BClient>();
         private List<Vendor> _vendors = new List<Vendor>();
@@ -79,16 +80,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadData()
         {
-            try { _clients = _clientSvc.GetAllClients() ?? new List<B2BClient>(); } catch { }
-            try { _vendors = _vendorSvc.GetSuppliers() ?? new List<Vendor>(); } catch { }
-            try { _jobs = _jobSvc.GetAll() ?? new List<Job>(); } catch { }
-            try { _invoices = _invoiceSvc.GetAllInvoices() ?? new List<Invoice>(); } catch { }
-            try { _payments = _paymentSvc.GetAllPayments() ?? new List<Payment>(); } catch { }
-            try { _purchaseOrders = _purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>(); } catch { }
-            try { _quotations = _tenderSvc.GetAll() ?? new List<TenderBid>(); } catch { }
-            try { _inventory = _inventorySvc.GetAll() ?? new List<StockItem>(); } catch { }
-            try { _employees = _employeeSvc.GetAll() ?? new List<Employee>(); } catch { }
-            try { _serviceTickets = _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>(); } catch { }
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
+            try { _clients = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(); } catch { }
+            try { _vendors = AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList(); } catch { }
+            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch { }
+            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch { }
+            try { _payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paymentSvc.GetAllPayments() ?? new List<Payment>()).ToList(); } catch { }
+            try { _purchaseOrders = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList(); } catch { }
+            try { _quotations = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); } catch { }
+            try { _inventory = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch { }
+            try { _employees = AppDataCache.GetOrCreate("employees:all", ttl, () => _employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch { }
+            try { _serviceTickets = AppDataCache.GetOrCreate("servicedesk:all", ttl, () => _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch { }
         }
 
         private void BuildShell()
@@ -198,13 +200,15 @@ namespace HVAC_Pro_Desktop.UI
             const int avatarSize = 32;
             const int languageWidth = 160;
             const int actionWidth = 116;
+            const int notificationSize = 38;
             const int gap = 10;
             bool showTopBarMeta = bar.Width >= 1120;
             int right = bar.Width - 22;
             int customizeX = right - actionWidth;
             int backupX = customizeX - actionWidth - gap;
             int userBlockWidth = avatarSize + 8 + userWidth;
-            int avatarX = backupX - userBlockWidth - gap;
+            int notificationX = backupX - notificationSize - gap;
+            int avatarX = notificationX - userBlockWidth - gap;
             int userX = avatarX + avatarSize + 8;
             int languageX = avatarX - languageWidth - gap;
             bool showLanguage = languageX >= 820;
@@ -215,11 +219,12 @@ namespace HVAC_Pro_Desktop.UI
             bool showActions = backupX >= 900;
             bool showBackup = backupX >= 1020;
             bool showCustomize = customizeX >= 900;
+            bool showNotifications = notificationX >= 840;
             if (!showUser)
             {
                 avatarX = -avatarSize;
                 userX = -userWidth;
-                rightClusterLeft = showActions ? Math.Min(backupX, customizeX) : right;
+                rightClusterLeft = showNotifications ? notificationX : (showActions ? Math.Min(backupX, customizeX) : right);
             }
             if (!showActions)
                 rightClusterLeft = right;
@@ -254,30 +259,46 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Location = new Point(searchX, 18),
                 Size = new Size(searchWidth, 40),
-                BackColor = DS.Slate50,
+                BackColor = Color.White,
                 Visible = showSearch
             };
             searchHost.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 8))
-                using (Pen pen = new Pen(DS.Border))
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 9))
+                using (Pen pen = new Pen(DS.BorderStrong))
                     e.Graphics.DrawPath(pen, path);
             };
             TextBox search = new TextBox
             {
-                Text = T("SearchPlaceholder"),
-                Location = new Point(38, 11),
-                Size = new Size(Math.Max(80, searchWidth - 118), 22),
+                Text = "Search apps, clients, jobs, invoices, purchases...",
+                Location = new Point(46, 11),
+                Size = new Size(Math.Max(80, searchWidth - 142), 22),
                 BorderStyle = BorderStyle.None,
-                Font = new Font(LanguageManager.GetUiFontFamily(), 8.4f),
-                ForeColor = DS.Slate600,
-                BackColor = DS.Slate50
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8.7f),
+                ForeColor = DS.Slate700,
+                BackColor = Color.White
             };
-            Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 16, DS.Slate600);
-            searchIcon.Location = new Point(14, 10);
-            searchIcon.Size = new Size(18, 20);
-            Label ctrl = new Label { Text = "Ctrl + K", Location = new Point(Math.Max(10, searchHost.Width - 66), 8), Size = new Size(54, 24), BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter };
+            Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 19, DS.Slate700);
+            searchIcon.Location = new Point(16, 9);
+            searchIcon.Size = new Size(22, 22);
+            Label ctrl = new Label
+            {
+                Text = "Ctrl + K",
+                Location = new Point(Math.Max(10, searchHost.Width - 76), 8),
+                Size = new Size(62, 24),
+                BackColor = Color.FromArgb(248, 250, 252),
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                ForeColor = DS.Slate700,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            ctrl.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, ctrl.Width - 1, ctrl.Height - 1), 4))
+                using (Pen pen = new Pen(DS.BorderStrong))
+                    e.Graphics.DrawPath(pen, path);
+            };
             searchHost.Controls.AddRange(new Control[] { searchIcon, search, ctrl });
 
             int timeX = showSearch ? searchHost.Right + 12 : 292;
@@ -288,12 +309,14 @@ namespace HVAC_Pro_Desktop.UI
             date.Visible = showTopBarMeta;
             _clockLabel.Visible = showTopBarMeta;
             Button customize = SecondaryButton(T("Customize"), customizeX, 22, actionWidth, 34);
+            Button notifications = BuildNotificationButton(notificationX, 20, notificationSize, GetNotificationCountText());
             Label avatar = new Label { Text = Initials(CurrentUserName()), Location = new Point(avatarX, 22), Size = new Size(avatarSize, avatarSize), BackColor = DS.Primary50, ForeColor = DS.Primary600, Font = new Font("Segoe UI", 8.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
             DS.Rounded(avatar, 16);
             Label user = new Label { Text = CurrentUserName(), Location = new Point(userX, 28), Size = new Size(userWidth, 20), Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
             Button backupNow = SecondaryButton("Backup Now", backupX, 22, actionWidth, 34);
             customize.Visible = showActions && showCustomize;
             backupNow.Visible = showActions && showBackup;
+            notifications.Visible = showNotifications;
             avatar.Visible = showUser;
             user.Visible = showUser;
             backupNow.Name = "btnDashboardBackupNow";
@@ -301,8 +324,80 @@ namespace HVAC_Pro_Desktop.UI
             Panel languagePanel = BuildLanguageSelector(languageX, 23, languageWidth, 30);
             languagePanel.Visible = showLanguage;
 
-            bar.Controls.AddRange(new Control[] { pageTitle, pageSubtitle, searchHost, timeBlock, customize, backupNow, languagePanel, avatar, user });
+            bar.Controls.AddRange(new Control[] { pageTitle, pageSubtitle, searchHost, timeBlock, customize, backupNow, notifications, languagePanel, avatar, user });
             _root.Controls.Add(bar);
+        }
+
+        private Button BuildNotificationButton(int x, int y, int size, string countText)
+        {
+            Button button = SecondaryButton("!", x, y, size, size);
+            button.Name = "btnDashboardNotifications";
+            button.AccessibleName = "Open alerts and notifications";
+            button.Text = string.Empty;
+            button.BackColor = Color.White;
+            button.FlatAppearance.BorderColor = DS.Border;
+            button.FlatAppearance.BorderSize = 1;
+            button.Click += (s, e) => OpenNotificationCenter();
+            button.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                Rectangle iconBounds = new Rectangle((button.Width - 18) / 2, (button.Height - 18) / 2 + 1, 18, 18);
+                using (Pen pen = new Pen(DS.Slate700, 1.6f))
+                {
+                    e.Graphics.DrawArc(pen, iconBounds.Left + 4, iconBounds.Top + 3, 10, 10, 205, 130);
+                    e.Graphics.DrawLine(pen, iconBounds.Left + 5, iconBounds.Top + 9, iconBounds.Left + 4, iconBounds.Bottom - 4);
+                    e.Graphics.DrawLine(pen, iconBounds.Right - 5, iconBounds.Top + 9, iconBounds.Right - 4, iconBounds.Bottom - 4);
+                    e.Graphics.DrawLine(pen, iconBounds.Left + 4, iconBounds.Bottom - 4, iconBounds.Right - 4, iconBounds.Bottom - 4);
+                    e.Graphics.DrawLine(pen, iconBounds.Left + 8, iconBounds.Top + 2, iconBounds.Right - 8, iconBounds.Top + 2);
+                    e.Graphics.DrawArc(pen, iconBounds.Left + 7, iconBounds.Bottom - 6, 4, 4, 0, 180);
+                }
+
+                if (!string.IsNullOrWhiteSpace(countText))
+                {
+                    Rectangle badge = new Rectangle(button.Width - 18, 3, 14, 14);
+                    using (GraphicsPath path = DS.RoundedRect(badge, 7))
+                    using (Brush brush = new SolidBrush(DS.Red500))
+                        e.Graphics.FillPath(brush, path);
+
+                    using (Font font = new Font("Segoe UI", 6.2f, FontStyle.Bold))
+                        TextRenderer.DrawText(e.Graphics, countText.Length > 2 ? "!" : countText, font, badge, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+            };
+
+            ToolTip tip = new ToolTip();
+            tip.SetToolTip(button, "Alerts and notifications");
+            return button;
+        }
+
+        private string GetNotificationCountText()
+        {
+            try
+            {
+                int count = _notificationSvc.GetActiveCount(99);
+                if (count <= 0)
+                    return string.Empty;
+                return count > 99 ? "99+" : count.ToString();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("DashboardForm.GetNotificationCountText", ex);
+                return string.Empty;
+            }
+        }
+
+        private void OpenNotificationCenter()
+        {
+            try
+            {
+                using (var dialog = new NotificationCenterDialog(pageKey => OnShortcut?.Invoke(pageKey)))
+                    dialog.ShowDialog(FindForm());
+
+                BuildShell();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Notifications"), "Opening alerts and notifications", ex);
+            }
         }
 
         /// <summary>Runs a manual backup from the dashboard shortcut without blocking the UI.</summary>
@@ -609,7 +704,16 @@ namespace HVAC_Pro_Desktop.UI
             int highTickets = _serviceTickets.Count(t => IsAny(t.Priority, "High", "Critical") && !IsAny(t.Status, "Resolved", "Closed", "Cancelled"));
 
             Panel bar = CardPanel(ContentWidth(), 74);
-            bar.Controls.Add(new Label { Text = "🔔  Alerts & Notifications", Location = new Point(22, 25), Size = new Size(210, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            bar.Name = "pnlDashboardAlertsNotifications";
+            bar.Cursor = Cursors.Hand;
+            bar.Click += (s, e) => OpenNotificationCenter();
+            Label title = new Label { Text = "Alerts & Notifications", Location = new Point(58, 25), Size = new Size(174, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            Label titleIcon = ModernIconSystem.Badge(ModernIconKind.Alert, 30, DS.Primary50, DS.Primary600, 8);
+            titleIcon.Location = new Point(20, 21);
+            title.Click += (s, e) => OpenNotificationCenter();
+            titleIcon.Click += (s, e) => OpenNotificationCenter();
+            bar.Controls.Add(titleIcon);
+            bar.Controls.Add(title);
             AddAlert(bar, 250, ModernIconKind.Refresh, Color.FromArgb(249, 115, 22), overdueJobs, "Overdue Jobs");
             AddAlert(bar, 450, ModernIconKind.Purchase, Color.FromArgb(59, 130, 246), openPos, "Open Purchase Orders");
             AddAlert(bar, 680, ModernIconKind.Invoice, DS.Red500, overdueInv, "Overdue Invoices");

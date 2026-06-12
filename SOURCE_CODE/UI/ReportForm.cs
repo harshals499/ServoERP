@@ -86,6 +86,8 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
 
         public static void QueueTechnicianEfficiencyNavigation()
         {
@@ -348,14 +350,15 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadData()
         {
-            try { _contracts = _contractSvc.GetAllContracts(); } catch { _contracts = new List<AMCContract>(); }
-            try { _invoices = _invoiceSvc.GetAllInvoices(); } catch { _invoices = new List<Invoice>(); }
-            try { _purchases = _purchaseSvc.GetAll(); } catch { _purchases = new List<PurchaseOrder>(); }
-            try { _jobs = _jobSvc.GetAll(); } catch { _jobs = new List<Job>(); }
-            try { _technicians = _employeeSvc.GetActiveTechnicians(); } catch { _technicians = new List<Employee>(); }
-            try { _stock = _inventorySvc.GetAll(); } catch { _stock = new List<StockItem>(); }
-            try { _vendorAdvances = _vendorAdvanceSvc.GetAll(); } catch { _vendorAdvances = new List<VendorAdvancePayment>(); }
-            try { _clientNames = _clientSvc.GetAllClients().ToDictionary(c => c.ClientID, c => c.CompanyName); } catch { _clientNames = new Dictionary<int, string>(); }
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
+            try { _contracts = AppDataCache.GetOrCreate("contracts:all", ttl, () => _contractSvc.GetAllContracts() ?? new List<AMCContract>()).ToList(); } catch { _contracts = new List<AMCContract>(); }
+            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch { _invoices = new List<Invoice>(); }
+            try { _purchases = AppDataCache.GetOrCreate("purchases:all", ttl, () => _purchaseSvc.GetAll() ?? new List<PurchaseOrder>()).ToList(); } catch { _purchases = new List<PurchaseOrder>(); }
+            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch { _jobs = new List<Job>(); }
+            try { _technicians = AppDataCache.GetOrCreate("employees:technicians-active", ttl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList(); } catch { _technicians = new List<Employee>(); }
+            try { _stock = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch { _stock = new List<StockItem>(); }
+            try { _vendorAdvances = AppDataCache.GetOrCreate("vendors:advances", ttl, () => _vendorAdvanceSvc.GetAll() ?? new List<VendorAdvancePayment>()).ToList(); } catch { _vendorAdvances = new List<VendorAdvancePayment>(); }
+            try { _clientNames = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToDictionary(c => c.ClientID, c => c.CompanyName); } catch { _clientNames = new Dictionary<int, string>(); }
         }
 
         private void BindKpis()

@@ -79,6 +79,8 @@ namespace HVAC_Pro_Desktop.UI
         private TenderBid _current;
         private Panel _selectedCard;
         private bool _loading;
+        private bool _initialized;
+        private Timer _initializeTimer;
         private bool _updatingGrid;
         private int _inventorySelectionRow = -1;
         private StockItem _inventorySelectionItem;
@@ -125,9 +127,9 @@ namespace HVAC_Pro_Desktop.UI
                 SalesUiPolishService.ApplyAfterRebuild(this, "Quotations");
                 ApplyQuotationVisualFixes();
             }));
-            HandleCreated += async (s, e) => await InitializeAsync();
-            ParentChanged += async (s, e) => await InitializeAsync();
-            Load += async (s, e) =>
+            HandleCreated += (s, e) => QueueInitialize();
+            ParentChanged += (s, e) => QueueInitialize();
+            Load += (s, e) =>
             {
                 BeginInvoke((Action)(() =>
                 {
@@ -135,8 +137,28 @@ namespace HVAC_Pro_Desktop.UI
                     SalesUiPolishService.ApplyAfterRebuild(this, "Quotations");
                     ApplyQuotationVisualFixes();
                 }));
-                await InitializeAsync();
+                QueueInitialize();
             };
+        }
+
+        private void QueueInitialize()
+        {
+            if (_initialized || _loading || IsDisposed)
+                return;
+
+            if (_initializeTimer != null)
+                return;
+
+            _initializeTimer = new Timer { Interval = 1500 };
+            _initializeTimer.Tick += async (s, e) =>
+            {
+                _initializeTimer.Stop();
+                _initializeTimer.Dispose();
+                _initializeTimer = null;
+                if (!IsDisposed && Visible)
+                    await InitializeAsync();
+            };
+            _initializeTimer.Start();
         }
 
         private async Task InitializeAsync()
@@ -144,17 +166,18 @@ namespace HVAC_Pro_Desktop.UI
             if (Parent == null)
                 return;
 
-            if (_loading)
+            if (_loading || _initialized)
                 return;
 
             _loading = true;
             SetStatus("Loading quotations...", DS.Slate500);
             try
             {
-                var inventoryTask = Task.Run(() => _inventorySvc.GetAll());
-                var clientsTask = Task.Run(() => _clientSvc.GetAllClients());
-                var vendorsTask = Task.Run(() => _vendorSvc.GetSuppliers());
-                var quotesTask = Task.Run(() => _svc.GetAll().OrderByDescending(q => q.RequiredByDate ?? q.DueDate).Take(80).ToList());
+                TimeSpan ttl = TimeSpan.FromMinutes(2);
+                var inventoryTask = Task.Run(() => AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList());
+                var clientsTask = Task.Run(() => AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList());
+                var vendorsTask = Task.Run(() => AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList());
+                var quotesTask = Task.Run(() => AppDataCache.GetOrCreate("quotations:recent-dashboard", ttl, LoadRecentQuotesForDashboard).ToList());
 
                 var clients = await clientsTask;
                 var vendors = await vendorsTask;
@@ -176,6 +199,7 @@ namespace HVAC_Pro_Desktop.UI
                 BindQuoteList(quotes);
                 BindRenewalAlerts();
                 NewRecord(false);
+                _initialized = true;
                 SetStatus("Quotation workspace ready.", DS.Slate500);
             }
             catch (Exception ex)
@@ -393,7 +417,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnBackToQuoteDashboard = MakeOutlineBtn("< Back to Dashboard", 150);
             _btnNewQuote = MakeBtn("+  New Quotation", InfoBlue, 142);
             Button btnPreview = MakeOutlineBtn("Preview", 86);
-            Button btnFileActions = MakeOutlineBtn("File Actions v", 124);
+            Button btnFileActions = MakeOutlineBtn("File Actions", 124);
             Button btnMore = MakeOutlineBtn("Compare / More", 122);
             RegisterFilledButton(_btnNewQuote, CargoPurple);
             RegisterSecondaryButton(btnPreview);
@@ -746,7 +770,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Button addItem = MakeBtn("+  Add Item", InfoBlue, 130);
             Button addLabour = MakeOutlineBtn("+  Add Service Labour", 190);
-            Button bulk = MakeOutlineBtn("Bulk Actions  v", 150);
+            Button bulk = MakeOutlineBtn("Bulk Actions", 150);
             foreach (Button button in new[] { addItem, addLabour, bulk })
                 button.Height = 42;
             ApplySecondaryButton(addItem);
@@ -1778,7 +1802,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             _renewalFlow.SuspendLayout();
             _renewalFlow.Controls.Clear();
-            foreach (TenderBid quote in _svc.GetRenewalAlerts())
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
+            foreach (TenderBid quote in AppDataCache.GetOrCreate("quotations:renewal-alerts", ttl, () => _svc.GetRenewalAlerts() ?? new List<TenderBid>()))
             {
                 Panel item = new Panel { Width = 248, Height = 34, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
                 item.Controls.Add(new Label { Text = quote.QuotationNumber, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(0, 2), AutoSize = true });

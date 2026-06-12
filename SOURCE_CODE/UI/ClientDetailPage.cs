@@ -900,7 +900,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private static string Prompt(string title, string label)
         {
-            using (Form dialog = new Form { Text = title, Width = 360, Height = 150, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false })
+            using (Form dialog = ServoModalForm.Create(title, 360, 150))
             {
                 dialog.Controls.Add(new Label { Text = label, Location = new Point(14, 14), Width = 310 });
                 TextBox box = new TextBox { Location = new Point(14, 38), Width = 310 };
@@ -921,7 +921,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private SitePromptResult PromptSiteDetails()
         {
-            using (Form dialog = new Form { Text = "Add site", Width = 420, Height = 280, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = Color.White })
+            using (Form dialog = ServoModalForm.Create("Add site", 420, 280))
             {
                 dialog.Controls.Add(new Label { Text = "Site name", Location = new Point(16, 16), Width = 360, ForeColor = TextMain });
                 TextBox txtName = new TextBox { Location = new Point(16, 40), Width = 360, Text = string.Empty };

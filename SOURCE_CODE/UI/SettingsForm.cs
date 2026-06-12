@@ -216,10 +216,23 @@ namespace HVAC_Pro_Desktop.UI
                 }
             };
 
+            Action queueWithDelay = () =>
+            {
+                var timer = new System.Windows.Forms.Timer { Interval = 1500 };
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                    if (!IsDisposed && IsHandleCreated)
+                        BeginInvoke(polish);
+                };
+                timer.Start();
+            };
+
             if (IsHandleCreated)
-                BeginInvoke(polish);
+                queueWithDelay();
             else
-                polish();
+                HandleCreated += (s, e) => queueWithDelay();
         }
 
         /// <summary>Refreshes runtime-only Settings labels whenever the cached page becomes visible again.</summary>
@@ -1644,17 +1657,8 @@ namespace HVAC_Pro_Desktop.UI
             int tempRoleId = 0;
             bool tempIsActive = true;
 
-            using (Form dialog = new Form())
+            using (Form dialog = ServoModalForm.Create(user == null ? "Add User" : "Edit User", 360, 230))
             {
-                dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.Text = user == null ? "Add User" : "Edit User";
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.ClientSize = new Size(360, 230);
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.Font = new Font("Segoe UI", 9);
-
                 TextBox txtUsername = new TextBox { Location = new Point(24, 34), Width = 300, Text = user?.Username ?? string.Empty };
                 TextBox txtDisplayName = new TextBox { Location = new Point(24, 84), Width = 300, Text = user?.DisplayName ?? string.Empty };
                 ComboBox cmbRole = new ComboBox { Location = new Point(24, 134), Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -3181,17 +3185,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RunFreshStart()
         {
-            using (Form dialog = new Form())
+            using (Form dialog = ServoModalForm.Create("Fresh Start Confirmation", 520, 280))
             {
-                dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.Text = "Fresh Start Confirmation";
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.ClientSize = new Size(520, 280);
-                dialog.Font = new Font("Segoe UI", 9);
-
                 var prompt = new Label
                 {
                     Text = "All data including master data will be deleted. This cannot be undone.\r\n\r\nType CONFIRM to proceed.",

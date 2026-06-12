@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI;
 
 namespace HVAC_Pro_Desktop.Tests
@@ -10,6 +11,51 @@ namespace HVAC_Pro_Desktop.Tests
     {
         public static string RunAll()
         {
+            using (var dashboard = new DashboardForm())
+            {
+                InvokePrivate(dashboard, "BuildShell");
+                Button notifications = FindControl<Button>(dashboard, "btnDashboardNotifications");
+                Panel alerts = FindControl<Panel>(dashboard, "pnlDashboardAlertsNotifications");
+                if (notifications == null || notifications.AccessibleName != "Open alerts and notifications")
+                    throw new InvalidOperationException("Dashboard notification icon should be globally accessible from the top bar.");
+                if (alerts == null || alerts.Cursor != Cursors.Hand)
+                    throw new InvalidOperationException("Dashboard alerts strip should open the notification center.");
+
+                NotificationCenterService service = new NotificationCenterService();
+                MethodInfo countMethod = service.GetType().GetMethod("GetActiveCount", BindingFlags.Instance | BindingFlags.Public);
+                if (countMethod == null)
+                    throw new InvalidOperationException("Notification service should expose a global active count for dashboard badges.");
+            }
+
+            using (var notificationDialog = new NotificationCenterDialog(pageKey => { }))
+            {
+                notificationDialog.Show();
+                notificationDialog.PerformLayout();
+                Application.DoEvents();
+                DataGridView grid = FindControl<DataGridView>(notificationDialog, null);
+                VScrollBar scrollBar = FindControl<VScrollBar>(notificationDialog, "vScrollNotificationRows");
+                if (grid == null || grid.Columns.Count != 5)
+                    throw new InvalidOperationException("Notification center should render as a five-column alert table.");
+                if (scrollBar == null || !scrollBar.Visible || scrollBar.Dock != DockStyle.Right)
+                    throw new InvalidOperationException("Notification center should show an internal right-side scrollbar.");
+                if (grid.Columns[0].HeaderText != "Priority" || grid.Columns[1].HeaderText != "Category" || grid.Columns[2].HeaderText != "Reference / Description")
+                    throw new InvalidOperationException("Notification center table headers should match the operational alert layout.");
+                if (!HasButton(notificationDialog, "Refresh") || !HasButton(notificationDialog, "Dismiss") || !HasButton(notificationDialog, "Open"))
+                    throw new InvalidOperationException("Notification center should expose Refresh, Dismiss, and Open actions.");
+            }
+
+            using (var supplierDialog = new SupplierPriceComparisonDialog("Copper Pipe", "Materials", 2m))
+            {
+                DataGridView supplierGrid = FindControl<DataGridView>(supplierDialog, null);
+                if (supplierGrid == null || supplierGrid.Columns.Count != 7)
+                    throw new InvalidOperationException("Supplier price comparison should render a ranked seven-column supplier grid.");
+                if (!HasButton(supplierDialog, "Use Supplier"))
+                    throw new InvalidOperationException("Supplier price comparison should expose a Use Supplier action.");
+            }
+
+            AssertPrivateMethod(typeof(PurchaseForm), "ShowSupplierComparisonForLineItem", "Purchase line items should expose supplier price comparison.");
+            AssertPrivateMethod(typeof(PurchaseForm), "SelectPurchaseVendorById", "Purchase supplier comparison should apply the selected supplier.");
+
             using (var invoices = new InvoiceForm())
             {
                 invoices.PerformLayout();
@@ -30,6 +76,42 @@ namespace HVAC_Pro_Desktop.Tests
             }
 
             return "module dashboard navigation opens dashboards first and routes New actions to existing forms";
+        }
+
+        private static T FindControl<T>(Control root, string name) where T : Control
+        {
+            if (root == null)
+                return null;
+
+            foreach (Control child in root.Controls)
+            {
+                if (child is T && (name == null || child.Name == name))
+                    return (T)child;
+
+                T nested = FindControl<T>(child, name);
+                if (nested != null)
+                    return nested;
+            }
+
+            return null;
+        }
+
+        private static bool HasButton(Control root, string text)
+        {
+            if (root == null)
+                return false;
+
+            foreach (Control child in root.Controls)
+            {
+                Button button = child as Button;
+                if (button != null && button.Text.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                if (HasButton(child, text))
+                    return true;
+            }
+
+            return false;
         }
 
         private static void AssertVisibility(Control owner, string fieldName, bool expected, string message)
@@ -69,6 +151,13 @@ namespace HVAC_Pro_Desktop.Tests
         private static void AssertPrivateMethod(object owner, string methodName, string message)
         {
             MethodInfo method = owner.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null)
+                throw new InvalidOperationException(message);
+        }
+
+        private static void AssertPrivateMethod(Type ownerType, string methodName, string message)
+        {
+            MethodInfo method = ownerType.GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null)
                 throw new InvalidOperationException(message);
         }

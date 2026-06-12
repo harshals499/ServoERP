@@ -434,6 +434,12 @@
     <Compile Include="UI\PageHeaderPolishService.cs" />
     <Compile Include="UI\SalesUiPolishService.cs" />
     <Compile Include="UI\SharedUiPrimitives.cs" />
+    <Compile Include="UI\ServoModalForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SupplierPriceComparisonDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\UiPerformanceService.cs" />
     <Compile Include="UI\StatusOptionProvider.cs" />
     <Compile Include="UI\TourEngine.cs" />

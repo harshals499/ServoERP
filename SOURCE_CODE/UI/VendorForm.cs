@@ -358,7 +358,7 @@ namespace HVAC_Pro_Desktop.UI
             Button filters = MakeDashboardButton("Filter Suppliers", White, TextPrimary, 124, true);
             filters.Click += (s, e) => { if (_dashboardCategoryFilter != null) _dashboardCategoryFilter.DroppedDown = true; };
 
-            Button addVendor = MakeDashboardButton("+ Add Supplier  v", Blue, White, 144, false);
+            Button addVendor = MakeDashboardButton("+ Add Supplier", Blue, White, 144, false);
             addVendor.Click += (s, e) =>
             {
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
@@ -1112,7 +1112,6 @@ namespace HVAC_Pro_Desktop.UI
             panel.Controls.Add(MakeInitialsAvatar(name, 0, 4, BlueLightBg, Blue));
             panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(92, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true });
             panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(84, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = TextSecondary, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = "v", Location = new Point(132, 8), Size = new Size(14, 18), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleCenter });
             return panel;
         }
 

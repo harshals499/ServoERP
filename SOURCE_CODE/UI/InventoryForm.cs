@@ -52,6 +52,11 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color DelRed = DS.Red600;
         private static readonly Color InfoBlue = DS.Primary600;
         private static readonly Color WarnOrange = DS.Amber500;
+        private const int DetailLabelX = 8;
+        private const int DetailLabelWidth = 128;
+        private const int DetailInputX = 150;
+        private const int DetailInputWidth = 220;
+        private const int DetailSectionWidth = 370;
 
         protected override bool EnableAutomaticLayoutScaling => false;
         protected override bool EnableMainScrollCanvas => false;
@@ -218,8 +223,9 @@ namespace HVAC_Pro_Desktop.UI
             right.Width = 440;
             right.MinimumSize = new Size(440, 0);
             right.Padding = new Padding(18, 44, 18, 14);
+            right.Tag = "NO_INPUT_HOST NO_INPUT_OUTLINE_HOST";
 
-            _detail = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
+            _detail = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Tag = "NO_INPUT_HOST NO_INPUT_OUTLINE_HOST" };
             _detail.HorizontalScroll.Enabled = false;
             _detail.HorizontalScroll.Visible = false;
             BuildDetailPanel();
@@ -647,14 +653,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildDetailPanel()
         {
-            int y = 10;
+            int y = 8;
 
-            _detail.Controls.Add(MakeSectionLabel("ITEM DETAILS", ref y));
             _detail.Controls.Add(new Label
             {
                 Text = "Required: Item Name. Supplier, price, reorder level, and quantity can be added later.",
-                Location = new Point(0, y),
-                Size = new Size(270, 34),
+                Location = new Point(DetailLabelX, y),
+                Size = new Size(DetailSectionWidth, 34),
                 Font = new Font("Segoe UI", 8f),
                 ForeColor = DS.Slate600
             });
@@ -675,28 +680,28 @@ namespace HVAC_Pro_Desktop.UI
 
             _detail.Controls.Add(MakeSectionLabel("PURCHASE PRICING", ref y));
 
-            _detail.Controls.Add(MakeLabel("Current Qty", new Point(0, y + 3)));
+            _detail.Controls.Add(MakeLabel("Current Qty", new Point(DetailLabelX, y + 3)));
             _numStock = new NumericUpDown
             {
-                Location = new Point(138, y), Width = 132,
+                Location = new Point(DetailInputX, y), Width = DetailInputWidth,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 99999
             };
             _detail.Controls.Add(_numStock);
             y += 30;
 
-            _detail.Controls.Add(MakeLabel("Last Purchase Rate", new Point(0, y + 3)));
+            _detail.Controls.Add(MakeLabel("Last Purchase Rate", new Point(DetailLabelX, y + 3)));
             _numRate = new NumericUpDown
             {
-                Location = new Point(138, y), Width = 132,
+                Location = new Point(DetailInputX, y), Width = DetailInputWidth,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 999999
             };
             _detail.Controls.Add(_numRate);
             y += 30;
 
-            _detail.Controls.Add(MakeLabel("Reorder Level", new Point(0, y + 3)));
+            _detail.Controls.Add(MakeLabel("Reorder Level", new Point(DetailLabelX, y + 3)));
             _numReorder = new NumericUpDown
             {
-                Location = new Point(138, y), Width = 132,
+                Location = new Point(DetailInputX, y), Width = DetailInputWidth,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2, Maximum = 99999
             };
             _detail.Controls.Add(_numReorder);
@@ -704,7 +709,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblStockValue = new Label
             {
-                Location = new Point(138, y), AutoSize = true,
+                Location = new Point(DetailInputX, y), AutoSize = true,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = InfoBlue
             };
             _detail.Controls.Add(_lblStockValue);
@@ -714,10 +719,10 @@ namespace HVAC_Pro_Desktop.UI
             _numRate.ValueChanged  += UpdateStockValue;
 
             _detail.Controls.Add(MakeSectionLabel("PREFERRED VENDOR", ref y));
-            _detail.Controls.Add(MakeLabel("Supplier", new Point(0, y + 3)));
+            _detail.Controls.Add(MakeLabel("Supplier", new Point(DetailLabelX, y + 3)));
             _cboVendor = new ComboBox
             {
-                Location = new Point(138, y), Width = 132,
+                Location = new Point(DetailInputX, y), Width = DetailInputWidth,
                 Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList
             };
             _cboVendor.Items.Add(new Vendor { VendorID = 0, VendorName = "(None)" });
@@ -1168,16 +1173,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            var dlg = new Form
-            {
-                Text            = "Create Purchase Request - " + _current.ItemName,
-                Width           = 380,
-                Height          = 280,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                StartPosition   = FormStartPosition.CenterParent,
-                MaximizeBox     = false,
-                MinimizeBox     = false
-            };
+            var dlg = ServoModalForm.Create("Create Purchase Request - " + _current.ItemName, 460, 350);
 
             int dy = 16;
 
@@ -1198,12 +1194,25 @@ namespace HVAC_Pro_Desktop.UI
             foreach (var v in vendors) cboVendor.Items.Add(v);
             if (cboVendor.Items.Count > 0) cboVendor.SelectedIndex = 0;
 
+            Action<int> selectVendorById = vendorId =>
+            {
+                if (vendorId <= 0)
+                    return;
+                for (int i = 0; i < cboVendor.Items.Count; i++)
+                {
+                    Vendor vendor = cboVendor.Items[i] as Vendor;
+                    if (vendor != null && vendor.VendorID == vendorId)
+                    {
+                        cboVendor.SelectedIndex = i;
+                        return;
+                    }
+                }
+            };
+
             // Pre-select preferred supplier if set
             if (_current.VendorID.HasValue)
             {
-                for (int i = 0; i < cboVendor.Items.Count; i++)
-                    if (((Vendor)cboVendor.Items[i]).VendorID == _current.VendorID.Value)
-                    { cboVendor.SelectedIndex = i; break; }
+                selectVendorById(_current.VendorID.Value);
             }
             dlg.Controls.Add(cboVendor);
             dy += 36;
@@ -1242,10 +1251,70 @@ namespace HVAC_Pro_Desktop.UI
             dlg.Controls.Add(numRate);
             dy += 44;
 
+            var lblSupplierInsight = new Label
+            {
+                Text = "Supplier comparison will use saved prices and purchase history.",
+                Location = new Point(24, dy),
+                Width = 400,
+                Height = 34,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = DS.Slate600
+            };
+            var btnCompare = new Button
+            {
+                Text = "Compare Suppliers",
+                Location = new Point(128, dy + 40),
+                Width = 150,
+                Height = 30,
+                BackColor = DS.Primary600,
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+            btnCompare.FlatAppearance.BorderSize = 0;
+            dlg.Controls.Add(lblSupplierInsight);
+            dlg.Controls.Add(btnCompare);
+
+            Action<SupplierOption> applySupplierOption = option =>
+            {
+                if (option == null)
+                    return;
+                selectVendorById(option.VendorID);
+                numRate.Value = Math.Max(numRate.Minimum, Math.Min(numRate.Maximum, option.Rate));
+                lblSupplierInsight.Text = "Selected: " + option.VendorName + " at " + IndiaFormatHelper.FormatCurrency(option.Rate) + " / " + (string.IsNullOrWhiteSpace(option.Unit) ? DisplayUnit(_current.Unit) : option.Unit) + ".";
+                lblSupplierInsight.ForeColor = SaveGreen;
+            };
+
+            try
+            {
+                SupplierOption best = _vndSvc.GetBestSupplierForItem(_current.ItemName, numQty.Value, _current.Category);
+                if (best != null)
+                    applySupplierOption(best);
+                else
+                    lblSupplierInsight.Text = "No supplier price is saved yet for this material. You can still create the request.";
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InventoryForm.CreatePO.SupplierComparison", ex);
+                lblSupplierInsight.Text = "Supplier comparison could not load. You can still create the request.";
+                lblSupplierInsight.ForeColor = WarnOrange;
+            }
+
+            btnCompare.Click += (s, e) =>
+            {
+                using (var comparison = new SupplierPriceComparisonDialog(_current.ItemName, _current.Category, numQty.Value, _vndSvc))
+                {
+                    if (comparison.ShowDialog(dlg) == DialogResult.OK && comparison.SelectedOption != null)
+                        applySupplierOption(comparison.SelectedOption);
+                }
+            };
+
+            dy += 84;
+
             var btnOK = new Button
             {
                 Text = "Create Request", DialogResult = DialogResult.OK,
-                Location = new Point(128, dy), Width = 110, Height = 30,
+                Location = new Point(208, dy), Width = 120, Height = 30,
                 BackColor = SaveGreen, ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9, FontStyle.Bold)
             };
@@ -1253,7 +1322,7 @@ namespace HVAC_Pro_Desktop.UI
             var btnCancel = new Button
             {
                 Text = "Cancel", DialogResult = DialogResult.Cancel,
-                Location = new Point(248, dy), Width = 80, Height = 30,
+                Location = new Point(338, dy), Width = 80, Height = 30,
                 Font = new Font("Segoe UI", 9)
             };
             dlg.Controls.AddRange(new Control[] { btnOK, btnCancel });
@@ -1349,17 +1418,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            using (var dialog = new Form())
+            using (var dialog = ServoModalForm.Create("Transfer Stock - " + _current.ItemName, 470, 320))
             {
-                dialog.Text = "Transfer Stock - " + _current.ItemName;
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.BackColor = Color.White;
-                dialog.ClientSize = new Size(470, 320);
-
                 Label title = new Label { Text = _current.ItemName, Location = new Point(18, 14), Size = new Size(420, 24), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 };
                 Label stock = new Label { Text = "Available quantity: " + _current.CurrentStock.ToString("N2") + " " + DisplayUnit(_current.Unit), Location = new Point(18, 42), Size = new Size(420, 20), Font = DS.Body, ForeColor = DS.Slate600 };
                 NumericUpDown qty = new NumericUpDown { Location = new Point(150, 82), Width = 150, DecimalPlaces = 2, Minimum = 0.01m, Maximum = Math.Max(0.01m, _current.CurrentStock), Value = Math.Min(Math.Max(0.01m, _current.CurrentStock), 1m), Font = DS.Body };
@@ -1727,10 +1787,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private ComboBox AddComboField(string label, ref int y, ComboBoxStyle style)
         {
-            _detail.Controls.Add(MakeLabel(label, new Point(0, y + 3)));
+            _detail.Controls.Add(MakeLabel(label, new Point(DetailLabelX, y + 3)));
             var combo = new ComboBox
             {
-                Location = new Point(138, y), Width = 132,
+                Location = new Point(DetailInputX, y), Width = DetailInputWidth,
                 Font = new Font("Segoe UI", 9), DropDownStyle = style
             };
             _detail.Controls.Add(combo);
@@ -1755,7 +1815,7 @@ namespace HVAC_Pro_Desktop.UI
             var lbl = new Label
             {
                 Text = text, Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                ForeColor = InfoBlue, Location = new Point(0, y), Width = 270, Height = 22,
+                ForeColor = InfoBlue, Location = new Point(DetailLabelX, y), Width = DetailSectionWidth, Height = 22,
                 BackColor = SectionBg, TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(4, 0, 0, 0)
             };
@@ -1766,7 +1826,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label MakeLabel(string text, System.Drawing.Point loc) => new Label
         {
             Text = text, Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray,
-            Location = loc, Width = 126, TextAlign = ContentAlignment.MiddleRight
+            Location = loc, Width = DetailLabelWidth, TextAlign = ContentAlignment.MiddleRight
         };
 
         private Button MakeBtn(string text, Color bg, int width)

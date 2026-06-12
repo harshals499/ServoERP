@@ -2051,15 +2051,19 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 3 || index == 4 || index == 6 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex
+                || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
                 || page is TenderBidForm
+                || page is ReportForm
+                || page is SettingsForm
                 || page is VendorForm
                 || page is PurchaseForm
                 || page is InventoryForm
                 || page is EmployeeForm
                 || page is GeoIntelligenceForm
+                || page is MasterDataForm
                 || page is WhatsAppHubForm
                 || page is TallyIntegrationForm
                 || page is JobManagementForm

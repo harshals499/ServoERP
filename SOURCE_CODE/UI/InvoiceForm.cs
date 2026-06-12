@@ -3624,17 +3624,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            using (Form dlg = new Form())
+            using (Form dlg = ServoModalForm.Create("Create Credit Note - " + _current.InvoiceNumber, 430, 255))
             {
-                dlg.AutoScaleMode = AutoScaleMode.Dpi;
-                dlg.Text = "Create Credit Note - " + _current.InvoiceNumber;
-                dlg.Width = 430;
-                dlg.Height = 255;
-                dlg.StartPosition = FormStartPosition.CenterParent;
-                dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dlg.MaximizeBox = false;
-                dlg.MinimizeBox = false;
-
                 Label lblAmount = new Label { Text = "Credit amount (max " + IndiaFormatHelper.FormatCurrency(balance) + ")", Location = new Point(16, 18), Width = 360, Font = new Font("Segoe UI", 9, FontStyle.Bold) };
                 NumericUpDown numAmount = new NumericUpDown { Location = new Point(16, 42), Width = 360, DecimalPlaces = 2, Minimum = 0.01m, Maximum = Math.Max(0.01m, balance), Value = balance, Font = new Font("Segoe UI", 9) };
                 Label lblReason = new Label { Text = "Reason", Location = new Point(16, 82), Width = 200, Font = new Font("Segoe UI", 9, FontStyle.Bold) };

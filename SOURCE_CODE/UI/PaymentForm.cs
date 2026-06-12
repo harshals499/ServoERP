@@ -172,10 +172,11 @@ namespace HVAC_Pro_Desktop.UI
             var worker = CreateWorker();
             worker.DoWork += (s, e) =>
             {
+                TimeSpan ttl = TimeSpan.FromMinutes(2);
                 e.Result = new PaymentOverviewSnapshot
                 {
-                    Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
-                    Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                    Payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paySvc.GetAllPayments() ?? new List<Payment>()).ToList(),
+                    Invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invSvc.GetAllInvoices() ?? new List<Invoice>()).ToList()
                 };
             };
             worker.RunWorkerCompleted += (s, e) =>
@@ -219,9 +220,10 @@ namespace HVAC_Pro_Desktop.UI
             ShowStatus("Loading payments...", Color.Gray);
             var sw = Stopwatch.StartNew();
             var fetch = Stopwatch.StartNew();
-            var clientsTask = Task.Run(() => _clientSvc.GetAllClients());
-            var paymentsTask = Task.Run(() => _paySvc.GetAllPayments());
-            var invoicesTask = Task.Run(() => _invSvc.GetAllInvoices());
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
+            var clientsTask = Task.Run(() => AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList());
+            var paymentsTask = Task.Run(() => AppDataCache.GetOrCreate("payments:all", ttl, () => _paySvc.GetAllPayments() ?? new List<Payment>()).ToList());
+            var invoicesTask = Task.Run(() => AppDataCache.GetOrCreate("invoices:all", ttl, () => _invSvc.GetAllInvoices() ?? new List<Invoice>()).ToList());
 
             _clients = await clientsTask;
             BindClientDropdowns(_clients);
@@ -457,7 +459,6 @@ namespace HVAC_Pro_Desktop.UI
             panel.Controls.Add(new Label { Text = initials, Location = new Point(0, 4), Size = new Size(30, 30), BackColor = Color.FromArgb(219, 234, 254), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
             panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(92, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = PayText, AutoEllipsis = true });
             panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(80, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = PayMuted, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = "v", Location = new Point(132, 8), Size = new Size(14, 18), ForeColor = PayMuted, TextAlign = ContentAlignment.MiddleCenter });
             return panel;
         }
 
@@ -952,7 +953,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label MakeSmallFilter(string text, Control parent)
         {
-            Label filter = MakePayHeaderButton(text + "  v", 96, PayText);
+            Label filter = MakePayHeaderButton(text, 96, PayText);
             filter.Size = new Size(96, 26);
             filter.Location = new Point(Math.Max(12, parent.Width - 110), 12);
             parent.Resize += (s, e) => filter.Location = new Point(parent.Width - 110, 12);

@@ -236,8 +236,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
             MinimumSize = new Size(0, 32);
             BackColor = Color.White;
             ForeColor = ModernERPTheme.Text;
-            AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            AutoCompleteSource = AutoCompleteSource.ListItems;
+            AutoCompleteMode = AutoCompleteMode.None;
+            AutoCompleteSource = AutoCompleteSource.None;
             Margin = new Padding(0, 3, 0, 8);
         }
     }

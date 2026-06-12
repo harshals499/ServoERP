@@ -866,17 +866,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowMailSetupDialog()
         {
-            using (Form dialog = new Form())
+            using (Form dialog = ServoModalForm.Create("Admin Mail Keys", 560, 285))
             {
-                dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.Text = "Admin Mail Keys";
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.ClientSize = new Size(560, 285);
-                dialog.BackColor = White;
-
                 TableLayoutPanel layout = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,

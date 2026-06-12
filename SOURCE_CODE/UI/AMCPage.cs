@@ -48,7 +48,20 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             BuildLayout();
-            Load += async (s, e) => await LoadAMCDataAsync();
+            Load += (s, e) => QueueAMCDataLoad();
+        }
+
+        private void QueueAMCDataLoad()
+        {
+            var timer = new Timer { Interval = 1500 };
+            timer.Tick += async (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                if (!IsDisposed && Visible)
+                    await LoadAMCDataAsync();
+            };
+            timer.Start();
         }
 
         /// <summary>Builds the dashboard shell, KPI strip, and scrollable cards area.</summary>
@@ -291,7 +304,8 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 SetLoading();
-                AMCPayload payload = await Task.Run(() => LoadPayload());
+                AMCPayload payload = await Task.Run(() =>
+                    AppDataCache.GetOrCreate("amc:dashboard-payload", TimeSpan.FromMinutes(2), LoadPayload));
                 BindPayload(payload ?? new AMCPayload());
             }
             catch (Exception ex)

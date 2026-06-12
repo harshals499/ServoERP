@@ -361,7 +361,7 @@ namespace HVAC_Pro_Desktop.UI
 
             var language = new Button
             {
-                Text = "◎  English  v",
+                Text = "◎  English",
                 Location = new Point(518, 28),
                 Size = new Size(140, 42),
                 FlatStyle = FlatStyle.Flat,

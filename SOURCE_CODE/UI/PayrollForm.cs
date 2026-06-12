@@ -1195,7 +1195,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private string PromptValue(string title, string prompt)
         {
-            using (var form = new Form { Text = title, Width = 360, Height = 150, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false })
+            using (var form = ServoModalForm.Create(title, 360, 150))
             {
                 var label = new Label { Text = prompt, Left = 12, Top = 14, Width = 320 };
                 var text = new TextBox { Left = 12, Top = 40, Width = 320 };

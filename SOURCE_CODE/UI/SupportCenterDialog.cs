@@ -671,14 +671,9 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowContactSupportBrief()
         {
             string brief = BuildSupportBriefText();
-            using (Form dialog = new Form())
+            using (Form dialog = ServoModalForm.Create("Contact Support", 820, 580))
             {
-                dialog.Text = BrandingService.WindowTitle("Contact Support");
-                dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.MinimumSize = new Size(720, 520);
-                dialog.Size = new Size(820, 580);
-                dialog.BackColor = DS.BgPage;
-                dialog.Font = DS.Body;
 
                 Panel header = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = DS.White, Padding = new Padding(24, 18, 24, 14) };
                 header.Paint += (s, e) =>

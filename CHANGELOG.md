@@ -1,5 +1,73 @@
 # Changelog
 
+## 1.1.29.0 - 2026-06-11
+
+- Improved first-open speed for dashboard, master data, reports, employee, purchase, payment, tender, AMC, WhatsApp, and other heavy pages by deferring non-critical polish and startup data refreshes until after the page is visible.
+- Added short-lived shared data caching for repeated dashboard/reference reads so switching between ERP modules avoids duplicate database work.
+- Fixed the Modern ERP combo box constructor crash caused by an invalid autocomplete/dropdown-style combination.
+
+## 1.1.28.0 - 2026-06-11
+
+- Added a shared ServoERP modal form shell for small view, setup, edit, and action dialogs.
+- Migrated client, inventory, service desk, and SLA popups to the shared modal shell so clicked View/Details dialogs inherit the global theme and input polish.
+
+## 1.1.27.0 - 2026-06-11
+
+- Fixed the Inventory item details card focus-outline bug that could paint the entire card as an input field.
+- Widened and inset the Inventory item details labels, dropdowns, numeric fields, and section bars so they no longer render cramped against the card edge.
+
+## 1.1.26.0 - 2026-06-11
+
+- Removed the duplicated inner `ITEM DETAILS` heading from the Inventory item details card so the form fields no longer overlap the card title.
+
+## 1.1.25.0 - 2026-06-11
+
+- Removed the visible prepared-message text block from the WhatsApp Hub composer while preserving message prefill internally.
+- Reworked the WhatsApp Hub composer into compact wired actions for template selection, document reference, phone status, send, mark sent, copy message, and quick templates.
+
+## 1.1.24.0 - 2026-06-11
+
+- Redesigned WhatsApp Hub into a connected workspace with embedded WhatsApp Web as the main chat surface.
+- Wired WhatsApp Hub filters, chat settings, browser fallback, call action, related-record hint, message copy, and contact edit guidance.
+- Improved the WhatsApp composer with selected template and contact context while keeping manual-send safeguards.
+
+## 1.1.23.0 - 2026-06-11
+
+- Removed stray trailing literal `v` characters from dashboard, purchase, payment, vendor, tender, client, job, and login button/filter labels.
+
+## 1.1.22.0 - 2026-06-11
+
+- Added a reusable supplier price comparison dialog that ranks material suppliers from saved supplier prices and purchase-history fallback data.
+- Wired supplier comparison into purchase order line items so users can compare suppliers, apply the selected rate, unit, and supplier directly to the PO.
+- Wired supplier comparison into inventory purchase requests so the best known supplier/rate is prefilled and can be reviewed before creating a draft request.
+
+## 1.1.21.0 - 2026-06-11
+
+- Redesigned the dashboard search bar with a rounded white container, aligned search icon, cleaner placeholder text, and a polished Ctrl+K keycap.
+
+## 1.1.20.0 - 2026-06-11
+
+- Redesigned the dashboard notification button as a compact bell icon with an inset unread badge so the badge no longer clips above the button.
+
+## 1.1.19.0 - 2026-06-11
+
+- Added a dedicated always-visible right-side scrollbar inside the Alerts & Notifications table and wired it to move between notification pages.
+
+## 1.1.18.0 - 2026-06-11
+
+- Added an internal vertical scrollbar to the Alerts & Notifications table so notification rows scroll inside the notification center.
+
+## 1.1.17.0 - 2026-06-11
+
+- Redesigned the global Alerts & Notifications dialog into a table view with priority pills, category/reference/details/date columns, pagination, and Refresh/Dismiss/Open actions.
+- Added smoke coverage for the notification center table and dashboard notification entry point.
+
+## 1.1.16.0 - 2026-06-11
+
+- Added a global Alerts & Notifications center for operational exceptions across invoices, payments, purchases, inventory, quotations, jobs, technicians, AMC contracts, service desk SLA, clients, vendors, employee compliance, and backup health.
+- Added a dashboard notification icon with active-count badge and made the dashboard alerts strip open the notification center.
+- Added smoke coverage to keep the dashboard notification entry point accessible.
+
 ## 1.1.14.1 - 2026-06-11
 
 - Restored Payroll to open the full salary processing workspace immediately, including month controls, payroll actions, KPI cards, tabs, and register grid.

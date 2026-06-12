@@ -1835,18 +1835,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private string PromptText(string title, string initial)
         {
-            using (Form dialog = new Form())
+            using (Form dialog = ServoModalForm.Create(title, 420, 150))
             using (TextBox input = new TextBox())
             using (Button ok = new Button())
             using (Button cancel = new Button())
             {
-                dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                dialog.Text = title;
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MinimizeBox = false;
-                dialog.MaximizeBox = false;
-                dialog.ClientSize = new Size(420, 150);
                 input.Multiline = true;
                 input.Text = initial ?? string.Empty;
                 input.Location = new Point(12, 12);

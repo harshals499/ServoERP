@@ -337,7 +337,7 @@ namespace HVAC_Pro_Desktop.UI
             Button reports = DashboardButton("View Reports", White, TextPrimary, 114, true);
             reports.MinimumSize = new Size(88, 30);
             reports.Click += (s, e) => ShowDashboardMessage("Reports", "Job reports will use the live filtered job data.");
-            Button add = DashboardButton("+ Add New Job  v", Blue, White, 146, false);
+            Button add = DashboardButton("+ Add New Job", Blue, White, 146, false);
             add.MinimumSize = new Size(146, 30);
             add.Click += (s, e) =>
             {
@@ -1944,7 +1944,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Prompts for a new service site name.</summary>
         private string PromptSiteName()
         {
-            using (Form dialog = new Form { Text = "Add site", Width = 380, Height = 154, StartPosition = FormStartPosition.CenterParent, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = White })
+            using (Form dialog = ServoModalForm.Create("Add site", 380, 154))
             {
                 Label label = new Label { Text = "Site name", Location = new Point(16, 16), Size = new Size(320, 20), Font = new Font("Segoe UI", 9f), ForeColor = TextPrimary };
                 TextBox input = new TextBox { Location = new Point(16, 42), Size = new Size(332, 24), Font = new Font("Segoe UI", 9f) };

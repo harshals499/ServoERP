@@ -17,6 +17,10 @@ namespace HVAC_Pro_Desktop.UI
 {
     public class EmployeeForm : DeferredPageControl
     {
+        protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
+
         private readonly EmployeeService _employeeService = new EmployeeService();
         private readonly SiteService _siteService = new SiteService();
         private readonly PayrollService _payrollService = new PayrollService();
@@ -138,13 +142,26 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                BeginInitialLoad();
+                QueueInitialLoad();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("EmployeeForm.FormLoadSafe", ex);
                 SetStatus("Employee form failed to load: " + ex.Message, Red);
             }
+        }
+
+        private void QueueInitialLoad()
+        {
+            var timer = new Timer { Interval = 1500 };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                if (!IsDisposed && Visible)
+                    BeginInitialLoad();
+            };
+            timer.Start();
         }
 
         /// <summary>Starts the first employee page load asynchronously so navigation stays responsive.</summary>
@@ -175,17 +192,18 @@ namespace HVAC_Pro_Desktop.UI
         private EmployeeInitialPayload LoadInitialPayload()
         {
             var payload = new EmployeeInitialPayload();
-            try { payload.ExpiringSkills = _employeeService.GetExpiringSkills(30) ?? new List<EmployeeSkillDto>(); }
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
+            try { payload.ExpiringSkills = AppDataCache.GetOrCreate("employees:expiring-skills:30", ttl, () => _employeeService.GetExpiringSkills(30) ?? new List<EmployeeSkillDto>()).ToList(); }
             catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.ExpiringSkills", ex); }
 
-            try { payload.Stats = _employeeService.GetDashboardStats() ?? new EmployeeDashboardStats(); }
+            try { payload.Stats = AppDataCache.GetOrCreate("employees:dashboard-stats", ttl, () => _employeeService.GetDashboardStats() ?? new EmployeeDashboardStats()); }
             catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.Stats", ex); }
 
             payload.EmployeeTable = LoadEmployeeTable(string.Empty, "All", "All");
             payload.CheckedInTodayEmployeeIds = LoadCheckedInEmployeesTodaySet();
             try
             {
-                payload.SiteNames = _siteService.GetAll()
+                payload.SiteNames = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteService.GetAll() ?? new List<ClientSite>())
                     .Select(SiteService.GetDisplayName)
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Distinct()

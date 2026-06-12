@@ -14,12 +14,18 @@ namespace HVAC_Pro_Desktop.Services
         {
             var list = new List<FoundationNotification>();
             AddOverdueInvoices(list, max);
+            AddOverduePurchasePayments(list, max);
             AddLowInventory(list, max);
             AddPendingApprovals(list, max);
             AddTechnicianDelays(list, max);
             AddOverdueJobs(list, max);
             AddExpiringContracts(list, max);
             AddServiceDeskSla(list, max);
+            AddClientDataQuality(list, max);
+            AddVendorDataQuality(list, max);
+            AddEmployeeCompliance(list, max);
+            AddPaymentReconciliation(list, max);
+            AddBackupHealth(list, max);
 
             RemoveDismissed(list);
             return list
@@ -27,6 +33,11 @@ namespace HVAC_Pro_Desktop.Services
                 .ThenBy(n => n.CreatedAt)
                 .Take(Math.Max(1, max))
                 .ToList();
+        }
+
+        public int GetActiveCount(int max = 99)
+        {
+            return GetActiveNotifications(max).Count;
         }
 
         public void Dismiss(FoundationNotification notification)
@@ -69,6 +80,11 @@ INSERT INTO NotificationDismissals (NotificationKey, UserId) VALUES (@key, @user
             AddRows(@"SELECT TOP (@max) ItemID AS Id, ItemName AS Title, 'Current stock below reorder level: ' + CONVERT(NVARCHAR(40), CurrentStock) + ' / ' + CONVERT(NVARCHAR(40), ReorderLevel) AS Detail, LastUpdated AS CreatedAt FROM StockItems WHERE CurrentStock <= ReorderLevel ORDER BY CurrentStock", max, "Medium", "Inventory", "Inventory", list);
         }
 
+        private void AddOverduePurchasePayments(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"SELECT TOP (@max) POID AS Id, ISNULL(NULLIF(PONumber,''), 'PO #' + CONVERT(NVARCHAR(20), POID)) AS Title, 'Supplier payable overdue: ' + CONVERT(NVARCHAR(40), TotalAmount - PaidAmount) + CASE WHEN PayByDate IS NOT NULL THEN ' | due ' + CONVERT(NVARCHAR(20), PayByDate, 106) ELSE '' END AS Detail, COALESCE(PayByDate, PODate) AS CreatedAt FROM PurchaseOrders WHERE (TotalAmount - PaidAmount) > 0 AND PayByDate IS NOT NULL AND PayByDate < CAST(GETDATE() AS DATE) AND ISNULL(Status,'') NOT IN ('Cancelled','Closed','Paid','Fully Paid','Fully Received') ORDER BY PayByDate", max, "High", "Payments", "Payments", list);
+        }
+
         private void AddPendingApprovals(List<FoundationNotification> list, int max)
         {
             AddRows(@"SELECT TOP (@max) BidID AS Id, ISNULL(NULLIF(QuotationNumber,''), 'Quotation #' + CONVERT(NVARCHAR(20), BidID)) AS Title, 'Pending approval: ' + ISNULL(NULLIF(Status,''), 'Draft') + CASE WHEN RequiredByDate IS NOT NULL THEN ' | required by ' + CONVERT(NVARCHAR(20), RequiredByDate, 106) ELSE '' END AS Detail, COALESCE(RequiredByDate, DueDate, SubmittedDate, GETDATE()) AS CreatedAt FROM Quotations WHERE ISNULL(Status,'') IN ('Draft','Pending','Submitted','Approval Pending','Pending Approval','Analysed','Analyzed') OR ISNULL(AnalysisStatus,'') IN ('Pending','Manual','Needs Review','Shortfall') ORDER BY COALESCE(RequiredByDate, DueDate, SubmittedDate, GETDATE())", max, "Medium", "Approvals", "Quotations", list);
@@ -90,6 +106,32 @@ INSERT INTO NotificationDismissals (NotificationKey, UserId) VALUES (@key, @user
         private void AddServiceDeskSla(List<FoundationNotification> list, int max)
         {
             AddRows(@"IF OBJECT_ID('ServiceDeskIncidents', 'U') IS NOT NULL SELECT TOP (@max) IncidentId AS Id, IncidentNumber AS Title, 'SLA due: ' + CONVERT(NVARCHAR(20), SlaDueAt, 106) AS Detail, SlaDueAt AS CreatedAt FROM ServiceDeskIncidents WHERE Status NOT IN ('Resolved','Closed') AND SlaDueAt <= DATEADD(hour, 4, GETDATE()) ORDER BY SlaDueAt", max, "High", "Service Desk", "ServiceDesk", list);
+        }
+
+        private void AddClientDataQuality(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"IF OBJECT_ID('B2BClients', 'U') IS NOT NULL SELECT TOP (@max) ClientID AS Id, ISNULL(NULLIF(CompanyName,''), 'Client #' + CONVERT(NVARCHAR(20), ClientID)) AS Title, 'Client record needs contact details' AS Detail, COALESCE(CustomerSince, GETDATE()) AS CreatedAt FROM B2BClients WHERE NULLIF(LTRIM(RTRIM(ISNULL(Phone,''))), '') IS NULL OR NULLIF(LTRIM(RTRIM(ISNULL(PrimaryContact,''))), '') IS NULL ORDER BY COALESCE(CustomerSince, GETDATE())", max, "Low", "Clients", "Clients", list);
+        }
+
+        private void AddVendorDataQuality(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"IF OBJECT_ID('Vendors', 'U') IS NOT NULL SELECT TOP (@max) VendorID AS Id, ISNULL(NULLIF(VendorName,''), 'Vendor #' + CONVERT(NVARCHAR(20), VendorID)) AS Title, 'Vendor master missing GST/PAN/contact details' AS Detail, COALESCE(CreatedDate, GETDATE()) AS CreatedAt FROM Vendors WHERE ISNULL(IsActive, 1) = 1 AND (NULLIF(LTRIM(RTRIM(ISNULL(GSTNumber,''))), '') IS NULL OR NULLIF(LTRIM(RTRIM(ISNULL(PANNumber,''))), '') IS NULL OR NULLIF(LTRIM(RTRIM(ISNULL(Phone,''))), '') IS NULL) ORDER BY COALESCE(CreatedDate, GETDATE())", max, "Low", "Vendors", "Vendors", list);
+        }
+
+        private void AddEmployeeCompliance(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"IF OBJECT_ID('EmployeeDocuments', 'U') IS NOT NULL SELECT TOP (@max) d.DocumentID AS Id, ISNULL(e.Name, 'Employee document') AS Title, 'Employee document expires on ' + CONVERT(NVARCHAR(20), d.ExpiryDate, 106) AS Detail, d.ExpiryDate AS CreatedAt FROM EmployeeDocuments d LEFT JOIN Employees e ON d.EmployeeID = e.EmployeeID WHERE d.ExpiryDate BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(day, 30, CAST(GETDATE() AS DATE)) ORDER BY d.ExpiryDate", max, "Medium", "Employees", "Employees", list);
+            AddRows(@"IF OBJECT_ID('EmployeeSkills', 'U') IS NOT NULL SELECT TOP (@max) s.SkillID AS Id, ISNULL(e.Name, 'Employee skill') AS Title, 'Certification expires on ' + CONVERT(NVARCHAR(20), s.ExpiryDate, 106) AS Detail, s.ExpiryDate AS CreatedAt FROM EmployeeSkills s LEFT JOIN Employees e ON s.EmployeeID = e.EmployeeID WHERE s.ExpiryDate BETWEEN CAST(GETDATE() AS DATE) AND DATEADD(day, 30, CAST(GETDATE() AS DATE)) ORDER BY s.ExpiryDate", max, "Medium", "Employees", "Employees", list);
+        }
+
+        private void AddPaymentReconciliation(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"IF OBJECT_ID('Payments', 'U') IS NOT NULL SELECT TOP (@max) PaymentID AS Id, ISNULL(NULLIF(PaymentNumber,''), 'Payment #' + CONVERT(NVARCHAR(20), PaymentID)) AS Title, 'Payment reference pending for reconciliation' AS Detail, PaymentDate AS CreatedAt FROM Payments WHERE PaymentDate < DATEADD(day, -3, GETDATE()) AND ISNULL(PaymentMode,'') NOT IN ('Cash') AND NULLIF(LTRIM(RTRIM(ISNULL(ReferenceNumber,''))), '') IS NULL ORDER BY PaymentDate", max, "Medium", "Payments", "Payments", list);
+        }
+
+        private void AddBackupHealth(List<FoundationNotification> list, int max)
+        {
+            AddRows(@"IF OBJECT_ID('BackupLog', 'U') IS NOT NULL AND COL_LENGTH('BackupLog', 'BackupTime') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM BackupLog WHERE BackupTime >= DATEADD(day, -7, GETDATE()) AND ISNULL(Success, 0) = 1) SELECT TOP (@max) 0 AS Id, 'Backup attention required' AS Title, 'No successful backup recorded in the last 7 days' AS Detail, DATEADD(day, -7, GETDATE()) AS CreatedAt", max, "Medium", "Settings", "Settings", list);
         }
 
         private void AddRows(string sql, int max, string severity, string module, string pageKey, List<FoundationNotification> list)

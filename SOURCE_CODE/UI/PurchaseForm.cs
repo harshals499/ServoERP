@@ -221,8 +221,21 @@ namespace HVAC_Pro_Desktop.UI
             if (UsePurchaseOrdersDashboard && _showDashboard)
             {
                 RefreshPurchaseDashboard();
-                Load += async (s, e) => await RefreshPurchaseDashboardFromHeaderAsync();
+                Load += (s, e) => QueuePurchaseDashboardRefresh();
             }
+        }
+
+        private void QueuePurchaseDashboardRefresh()
+        {
+            var timer = new Timer { Interval = 1500 };
+            timer.Tick += async (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                if (!IsDisposed && Visible)
+                    await RefreshPurchaseDashboardFromHeaderAsync();
+            };
+            timer.Start();
         }
 
         private void BuildLayout()
@@ -413,9 +426,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private async Task LoadPurchaseDashboardAsync()
         {
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
             await Task.Run(() =>
             {
-                _orderSource = _svc.GetAllFresh() ?? new List<PurchaseOrder>();
+                _orderSource = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _svc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList();
             });
             BeginInvoke((Action)(() =>
             {
@@ -521,7 +535,7 @@ namespace HVAC_Pro_Desktop.UI
             Button importPo = MakePoOutlineButton("Import", 92);
             importPo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             importPo.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(importPo, ExcelImportModule.Purchases, FindForm());
-            Button newPo = MakePoButton("+  New Purchase Order  v", InfoBlue, 166);
+            Button newPo = MakePoButton("+  New Purchase Order", InfoBlue, 166);
             newPo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             newPo.Click += async (s, e) => await OpenNewPurchaseOrderFormAsync();
             Label bell = MakeHeaderIcon("🔔", Color.White, PoMuted);
@@ -592,7 +606,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Label label = new Label
             {
-                Text = text + "  v",
+                Text = text,
                 Size = new Size(126, 28),
                 BackColor = Color.White,
                 ForeColor = PoText,
@@ -629,7 +643,7 @@ namespace HVAC_Pro_Desktop.UI
             if (next >= combo.Items.Count)
                 next = 0;
             combo.SelectedIndex = next;
-            visual.Text = combo.SelectedItem + "  v";
+            visual.Text = Convert.ToString(combo.SelectedItem);
         }
 
         private void ShowNewPurchaseMenu(Control owner)
@@ -824,7 +838,7 @@ namespace HVAC_Pro_Desktop.UI
             suppliers.Width = 280;
             suppliers.Height = 260;
             suppliers.Controls.Add(new Label { Text = "Top Suppliers", Location = new Point(16, 14), Size = new Size(120, 22), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
-            suppliers.Controls.Add(new Label { Text = "By PO Value v", Location = new Point(176, 15), Size = new Size(86, 20), Font = new Font("Segoe UI", 8f), ForeColor = PoMuted, TextAlign = ContentAlignment.MiddleRight });
+            suppliers.Controls.Add(new Label { Text = "By PO Value", Location = new Point(176, 15), Size = new Size(86, 20), Font = new Font("Segoe UI", 8f), ForeColor = PoMuted, TextAlign = ContentAlignment.MiddleRight });
             _poTopSuppliersFlow.Location = new Point(14, 44);
             suppliers.Controls.Add(_poTopSuppliersFlow);
             Label allSuppliers = new Label { Text = "View All Suppliers →", Location = new Point(18, 228), Size = new Size(230, 22), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = InfoBlue, Cursor = Cursors.Hand };
@@ -1395,8 +1409,8 @@ namespace HVAC_Pro_Desktop.UI
             if (_poTableSearch != null) _poTableSearch.Text = "Search PO, Supplier...";
             if (_poStatusFilter != null) _poStatusFilter.SelectedIndex = 0;
             if (_poPeriodFilter != null) _poPeriodFilter.SelectedItem = "This Year";
-            if (_poStatusFilterLabel != null) _poStatusFilterLabel.Text = "All Status  v";
-            if (_poPeriodFilterLabel != null) _poPeriodFilterLabel.Text = "This Year  v";
+            if (_poStatusFilterLabel != null) _poStatusFilterLabel.Text = "All Status";
+            if (_poPeriodFilterLabel != null) _poPeriodFilterLabel.Text = "This Year";
             _poPage = 1;
             RefreshPurchaseDashboard();
         }
@@ -2875,15 +2889,16 @@ namespace HVAC_Pro_Desktop.UI
         {
             SetStatus("Loading purchase orders...", Color.Gray);
             Stopwatch sw = Stopwatch.StartNew();
+            TimeSpan ttl = TimeSpan.FromMinutes(2);
 
-            var inventoryTask = Task.Run(() => _invSvc.GetAll());
-            var vendorTask = Task.Run(() => _vndSvc.GetSuppliers());
-            var contractTask = Task.Run(() => _cntSvc.GetAllContracts());
-            var jobTask = Task.Run(() => _jobSvc.GetAll());
-            var siteTask = Task.Run(() => _siteSvc.GetAll());
-            var technicianTask = Task.Run(() => _employeeSvc.GetActiveTechnicians());
-            var hsnTask = Task.Run(() => _hsnSvc.GetAll());
-            var orderTask = Task.Run(() => _svc.GetAllFresh());
+            var inventoryTask = Task.Run(() => AppDataCache.GetOrCreate("inventory:all", ttl, () => _invSvc.GetAll() ?? new List<StockItem>()).ToList());
+            var vendorTask = Task.Run(() => AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vndSvc.GetSuppliers() ?? new List<Vendor>()).ToList());
+            var contractTask = Task.Run(() => AppDataCache.GetOrCreate("contracts:all", ttl, () => _cntSvc.GetAllContracts() ?? new List<AMCContract>()).ToList());
+            var jobTask = Task.Run(() => AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList());
+            var siteTask = Task.Run(() => AppDataCache.GetOrCreate("sites:all", ttl, () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList());
+            var technicianTask = Task.Run(() => AppDataCache.GetOrCreate("employees:technicians-active", ttl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList());
+            var hsnTask = Task.Run(() => AppDataCache.GetOrCreate("hsnsac:all", ttl, () => _hsnSvc.GetAll() ?? new List<HsnSacMasterEntry>()).ToList());
+            var orderTask = Task.Run(() => AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _svc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList());
 
             _vendors = await vendorTask ?? new List<Vendor>();
             PopulateVendorCombo();
@@ -3957,16 +3972,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            using (Form prompt = new Form())
-            {
-                prompt.AutoScaleMode = AutoScaleMode.Dpi;
-                prompt.Text = "Batch Pay";
-                prompt.StartPosition = FormStartPosition.CenterParent;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.ClientSize = new Size(380, 150);
-                prompt.MaximizeBox = false;
-                prompt.MinimizeBox = false;
-
+                using (Form prompt = ServoModalForm.Create("Batch Pay", 380, 150))
+                {
                 Label lbl = new Label { Text = "Payment reference", Location = new Point(16, 20), Width = 120 };
                 TextBox txtRef = new TextBox { Location = new Point(16, 48), Width = 340, BorderStyle = BorderStyle.FixedSingle };
                 Button btnOk = MakeBtn("Confirm", SaveGreen, 96);
@@ -4017,16 +4024,8 @@ namespace HVAC_Pro_Desktop.UI
                 ? _vendors.FirstOrDefault(v => v.VendorID == _current.VendorID)
                 : _cboVendor.SelectedItem as Vendor;
 
-            using (Form prompt = new Form())
+            using (Form prompt = ServoModalForm.Create("Supplier Advance", 420, 250))
             {
-                prompt.AutoScaleMode = AutoScaleMode.Dpi;
-                prompt.Text = "Supplier Advance";
-                prompt.StartPosition = FormStartPosition.CenterParent;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.ClientSize = new Size(420, 250);
-                prompt.MaximizeBox = false;
-                prompt.MinimizeBox = false;
-
                 ComboBox cboVendor = new ComboBox { Location = new Point(16, 38), Width = 370, DropDownStyle = ComboBoxStyle.DropDownList };
                 cboVendor.DataSource = new List<Vendor>(_vendors);
                 cboVendor.DisplayMember = "VendorName";
@@ -4267,16 +4266,8 @@ namespace HVAC_Pro_Desktop.UI
                 Vendor vendor = _cboVendor.SelectedItem as Vendor;
                 string pdfPath = EnsurePdfForSend(po);
 
-                using (Form dlg = new Form())
+                using (Form dlg = ServoModalForm.Create("Send Purchase Order", 360, 132))
                 {
-                    dlg.AutoScaleMode = AutoScaleMode.Dpi;
-                    dlg.Text = "Send Purchase Order";
-                    dlg.StartPosition = FormStartPosition.CenterParent;
-                    dlg.FormBorderStyle = FormBorderStyle.FixedDialog;
-                    dlg.ClientSize = new Size(360, 132);
-                    dlg.MaximizeBox = false;
-                    dlg.MinimizeBox = false;
-
                     Label lbl = new Label { Text = "Choose how to send " + (po.PONumber ?? "this PO"), Location = new Point(16, 18), Width = 300 };
                     Button btnEmail = MakeBtn("Email", InfoBlue, 120);
                     Button btnWhatsApp = MakeBtn("WhatsApp", SaveGreen, 120);
@@ -4421,20 +4412,12 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                using (Form dialog = new Form())
+                using (Form dialog = ServoModalForm.Create("Add from RFQ / Quotation", 620, 390))
                 using (ComboBox cboQuote = new ComboBox())
                 using (CheckedListBox lineList = new CheckedListBox())
                 using (Button btnAdd = MakeBtn("Add Lines", SaveGreen, 96))
                 using (Button btnCancel = MakeBtn("Cancel", DelRed, 86))
                 {
-                    dialog.AutoScaleMode = AutoScaleMode.Dpi;
-                    dialog.Text = "Add from RFQ / Quotation";
-                    dialog.StartPosition = FormStartPosition.CenterParent;
-                    dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                    dialog.ClientSize = new Size(620, 390);
-                    dialog.MaximizeBox = false;
-                    dialog.MinimizeBox = false;
-
                     cboQuote.Location = new Point(18, 38);
                     cboQuote.Width = 570;
                     cboQuote.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -4517,15 +4500,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ApplyDiscountToLines()
         {
-            using (Form prompt = new Form())
+            using (Form prompt = ServoModalForm.Create("Apply Discount", 280, 126))
             {
-                prompt.AutoScaleMode = AutoScaleMode.Dpi;
-                prompt.Text = "Apply Discount";
-                prompt.StartPosition = FormStartPosition.CenterParent;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.ClientSize = new Size(280, 126);
-                prompt.MaximizeBox = false;
-                prompt.MinimizeBox = false;
                 Label lbl = new Label { Text = "Discount percent", Location = new Point(16, 18), Width = 160 };
                 NumericUpDown value = MakeDecimalBox("discount", new Point(16, 46), 120, 2, 100m, 0m);
                 Button ok = MakeBtn("Apply", InfoBlue, 80);
@@ -4549,15 +4525,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddCharges()
         {
-            using (Form prompt = new Form())
+            using (Form prompt = ServoModalForm.Create("Other Charges", 280, 126))
             {
-                prompt.AutoScaleMode = AutoScaleMode.Dpi;
-                prompt.Text = "Other Charges";
-                prompt.StartPosition = FormStartPosition.CenterParent;
-                prompt.FormBorderStyle = FormBorderStyle.FixedDialog;
-                prompt.ClientSize = new Size(280, 126);
-                prompt.MaximizeBox = false;
-                prompt.MinimizeBox = false;
                 Label lbl = new Label { Text = "Other charges amount", Location = new Point(16, 18), Width = 180 };
                 NumericUpDown value = MakeDecimalBox("charges", new Point(16, 46), 140, 2, 9999999m, _otherCharges);
                 Button ok = MakeBtn("Apply", InfoBlue, 80);
@@ -4875,10 +4844,11 @@ namespace HVAC_Pro_Desktop.UI
             ConfigureDropDownListCombo(cmbJobLink);
             cmbJobLink.Items.AddRange(new object[] { "General", "Project", "This Job" });
             cmbJobLink.SelectedItem = string.Equals(line?.JobLink, "Job", StringComparison.OrdinalIgnoreCase) ? "This Job" : (string.Equals(line?.JobLink, "Project", StringComparison.OrdinalIgnoreCase) ? "Project" : "General");
-            Button btnEdit = new Button { Text = "/", Location = new Point(858, 15), Width = 34, Height = 30, BackColor = Color.White, ForeColor = InfoBlue, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
+            Button btnEdit = new Button { Text = "Cmp", Location = new Point(852, 15), Width = 42, Height = 30, BackColor = Color.White, ForeColor = InfoBlue, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold) };
             Button btnRemove = new Button { Text = "X", Location = new Point(898, 15), Width = 34, Height = 30, BackColor = Color.White, ForeColor = DelRed, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
             btnEdit.FlatAppearance.BorderColor = DS.Border;
-            btnEdit.Click += (s, e) => cmbDesc.Focus();
+            _toolTip.SetToolTip(btnEdit, "Compare supplier prices for this material");
+            btnEdit.Click += (s, e) => ShowSupplierComparisonForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate);
             btnRemove.FlatAppearance.BorderSize = 0;
             btnRemove.Click += (s, e) => { _lineItemFlow.Controls.Remove(card); RenumberLineItems(); RecalcTotal(); };
 
@@ -4904,6 +4874,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 RecalcTotal();
+                ApplySupplierPriceHint(cmbDesc, txtCategory, numQty, btnEdit);
             };
             cmbDesc.SelectionChangeCommitted += (s, e) => applySelectedInventory();
             cmbJobLink.SelectedIndexChanged += (s, e) =>
@@ -4961,7 +4932,88 @@ namespace HVAC_Pro_Desktop.UI
             ResizeLineItemRows();
             ApplyLineItemTableTheme();
             ApplyRateVarianceVisual(card, line?.PriceVariance > 10m);
+            ApplySupplierPriceHint(cmbDesc, txtCategory, numQty, btnEdit);
             RecalcTotal();
+        }
+
+        private void ShowSupplierComparisonForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate)
+        {
+            string itemDescription = description?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemDescription))
+            {
+                _toolTip.Show("Select a material first.", description ?? (Control)rate, 2500);
+                SetStatus("Select a material before comparing supplier prices.", WarnOrange);
+                return;
+            }
+
+            using (var dialog = new SupplierPriceComparisonDialog(itemDescription, category?.Text, quantity?.Value ?? 1m, _vndSvc))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedOption == null)
+                    return;
+
+                SupplierOption option = dialog.SelectedOption;
+                if (rate != null)
+                    rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, option.Rate));
+                if (unit != null && !string.IsNullOrWhiteSpace(option.Unit))
+                {
+                    if (!unit.Items.Contains(option.Unit))
+                        unit.Items.Add(option.Unit);
+                    unit.SelectedItem = option.Unit;
+                }
+
+                SelectPurchaseVendorById(option.VendorID);
+                RecalcTotal();
+                SetStatus("Supplier comparison applied: " + option.VendorName + " at " + IndiaFormatHelper.FormatCurrency(option.Rate) + ".", SaveGreen);
+            }
+        }
+
+        private void ApplySupplierPriceHint(ComboBox description, TextBox category, NumericUpDown quantity, Button compareButton)
+        {
+            if (compareButton == null)
+                return;
+
+            string itemDescription = description?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemDescription))
+            {
+                _toolTip.SetToolTip(compareButton, "Compare supplier prices for this material");
+                return;
+            }
+
+            try
+            {
+                SupplierOption best = _vndSvc.GetBestSupplierForItem(itemDescription, quantity?.Value ?? 1m, category?.Text);
+                if (best == null)
+                {
+                    compareButton.ForeColor = DS.Slate500;
+                    _toolTip.SetToolTip(compareButton, "No saved supplier price found. Click to review purchase-history options.");
+                    return;
+                }
+
+                compareButton.ForeColor = SaveGreen;
+                _toolTip.SetToolTip(compareButton, "Best supplier: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + ". Click to compare all suppliers.");
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PurchaseForm.ApplySupplierPriceHint", ex);
+                compareButton.ForeColor = InfoBlue;
+                _toolTip.SetToolTip(compareButton, "Compare supplier prices for this material");
+            }
+        }
+
+        private void SelectPurchaseVendorById(int vendorId)
+        {
+            if (_cboVendor == null || vendorId <= 0)
+                return;
+
+            for (int i = 0; i < _cboVendor.Items.Count; i++)
+            {
+                Vendor vendor = _cboVendor.Items[i] as Vendor;
+                if (vendor != null && vendor.VendorID == vendorId)
+                {
+                    _cboVendor.SelectedIndex = i;
+                    return;
+                }
+            }
         }
 
         private NumericUpDown MakeDecimalBox(string name, Point location, int width, int decimals, decimal maximum, decimal value)

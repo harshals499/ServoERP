@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -32,6 +33,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TextBox _messageInput = new TextBox();
         private readonly Label _conversationCount = new Label();
         private readonly Label _webStatus = new Label();
+        private readonly Label _selectedTemplateLabel = new Label();
+        private readonly Label _selectedContactMeta = new Label();
         private readonly ToolTip _toolTip = new ToolTip();
         private WebView2 _whatsAppWeb;
         private Button _markSentButton;
@@ -50,12 +53,25 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
             Font = DS.Body;
             DoubleBuffered = true;
-            Load += (s, e) => LoadHubData();
+            Load += (s, e) => QueueHubDataLoad();
             BuildLayout();
             RenderLoadingState();
             PageHeaderPolishService.Apply(this);
             UIHelper.ApplyInputStyles(Controls);
             InputOutlineService.ApplyToTree(this);
+        }
+
+        private void QueueHubDataLoad()
+        {
+            var timer = new Timer { Interval = 1500 };
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+                if (!IsDisposed && Visible)
+                    LoadHubData();
+            };
+            timer.Start();
         }
 
         private void BuildLayout()
@@ -70,7 +86,7 @@ namespace HVAC_Pro_Desktop.UI
                 RowCount = 2,
                 Padding = new Padding(14, 14, 14, 12)
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 70));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             root.Controls.Add(BuildHeader(), 0, 0);
@@ -82,8 +98,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel header = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage };
 
-            Label icon = ModernIconSystem.Badge(ModernIconKind.Phone, 38, WhatsAppGreenLight, WhatsAppGreen, 12);
-            icon.Location = new Point(2, 8);
+            Label icon = ModernIconSystem.Badge(ModernIconKind.Phone, 42, WhatsAppGreenLight, WhatsAppGreen, 12);
+            icon.Location = new Point(2, 10);
             header.Controls.Add(icon);
 
             Label title = new Label
@@ -92,51 +108,52 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSize = true,
                 Font = new Font("Segoe UI", 15f, FontStyle.Bold),
                 ForeColor = DS.Slate950,
-                Location = new Point(52, 7)
+                Location = new Point(56, 7)
             };
             header.Controls.Add(title);
 
             Label subtitle = new Label
             {
-                Text = "Prepare WhatsApp messages for clients, vendors and team. Open chats manually through WhatsApp Web or browser links.",
+                Text = "Connected WhatsApp Web workspace for client, supplier, and team message follow-up.",
                 AutoSize = true,
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
-                Location = new Point(53, 36)
+                Location = new Point(57, 38)
             };
             header.Controls.Add(subtitle);
 
-            Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 36, "WhatsApp settings");
+            Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 38, "WhatsApp settings");
             settings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            settings.Location = new Point(header.Width - 42, 8);
+            settings.Location = new Point(header.Width - 44, 12);
             settings.Click += (s, e) => MessageBox.Show("WhatsApp Hub uses embedded WhatsApp Web or browser deep links only. ServoERP does not auto-send messages, scrape chats, or claim live sync without the official API.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
             header.Controls.Add(settings);
 
-            Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 36, "Refresh WhatsApp contacts");
+            Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 38, "Refresh WhatsApp contacts");
             refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            refresh.Location = new Point(header.Width - 92, 8);
-            refresh.Click += (s, e) => LoadHubData();
+            refresh.Location = new Point(header.Width - 94, 12);
+            refresh.Click += (s, e) => { LoadHubData(); ReloadWhatsAppHome(); };
             header.Controls.Add(refresh);
 
-            Button newMessage = DS.PrimaryBtn("New Message", 138, 38);
+            Button newMessage = DS.PrimaryBtn("Open WhatsApp Web", 168, 38);
             newMessage.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            newMessage.Location = new Point(header.Width - 238, 8);
+            newMessage.Location = new Point(header.Width - 270, 12);
             ModernIconSystem.AddButtonIcon(newMessage, ModernIconKind.Email);
-            newMessage.Click += (s, e) => MessageBox.Show("Select a contact from Conversations to start a WhatsApp message.", "New Message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            newMessage.Click += (s, e) => ReloadWhatsAppHome();
             header.Controls.Add(newMessage);
 
-            Panel searchHost = SearchBox(_globalSearch, "Search customer, mobile, invoice, job...");
+            Panel searchHost = SearchBox(_globalSearch, "Search name, mobile, invoice, job...");
             searchHost.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            searchHost.Size = new Size(330, 38);
-            searchHost.Location = new Point(header.Width - 582, 8);
+            searchHost.Size = new Size(340, 40);
+            searchHost.Location = new Point(header.Width - 626, 12);
+            _globalSearch.TextChanged += (s, e) => ApplyGlobalSearch();
             header.Controls.Add(searchHost);
 
             header.Resize += (s, e) =>
             {
-                settings.Location = new Point(header.Width - 42, 8);
-                refresh.Location = new Point(header.Width - 92, 8);
-                newMessage.Location = new Point(header.Width - 238, 8);
-                searchHost.Location = new Point(Math.Max(360, header.Width - 582), 8);
+                settings.Location = new Point(header.Width - 44, 12);
+                refresh.Location = new Point(header.Width - 94, 12);
+                newMessage.Location = new Point(header.Width - 270, 12);
+                searchHost.Location = new Point(Math.Max(380, header.Width - 626), 12);
             };
 
             return header;
@@ -178,8 +195,8 @@ namespace HVAC_Pro_Desktop.UI
             body.Resize += (s, e) =>
             {
                 int width = body.ClientSize.Width;
-                leftWrap.Width = width < 1280 ? 330 : 376;
-                rightWrap.Width = width < 1280 ? 320 : 360;
+                leftWrap.Width = width < 1280 ? 330 : 388;
+                rightWrap.Width = width < 1280 ? 314 : 354;
             };
             return body;
         }
@@ -202,11 +219,14 @@ namespace HVAC_Pro_Desktop.UI
             titleRow.Controls.Add(_conversationCount);
             host.Controls.Add(titleRow);
 
-            FlowLayoutPanel tabs = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false, BackColor = Color.Transparent };
+            TableLayoutPanel tabs = new TableLayoutPanel { Dock = DockStyle.Top, Height = 38, ColumnCount = 5, RowCount = 1, BackColor = Color.Transparent, Padding = new Padding(0), Margin = Padding.Empty };
+            for (int i = 0; i < 5; i++)
+                tabs.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
+            int tabColumn = 0;
             foreach (string tab in new[] { "All", "Unread", "Clients", "Vendors", "Team" })
             {
                 Button button = TabButton(tab);
-                tabs.Controls.Add(button);
+                tabs.Controls.Add(button, tabColumn++, 0);
                 _tabButtons.Add(button);
             }
             host.Controls.Add(tabs);
@@ -220,6 +240,7 @@ namespace HVAC_Pro_Desktop.UI
             Button filter = IconOnlyButton(ModernIconKind.Filter, DS.Slate700, DS.White, 36, "Filter WhatsApp contacts");
             filter.Margin = new Padding(8, 0, 0, 0);
             filter.Dock = DockStyle.Fill;
+            filter.Click += (s, e) => ShowConversationFilterMenu(filter);
             searchRow.Controls.Add(filter, 1, 0);
             host.Controls.Add(searchRow);
 
@@ -385,6 +406,40 @@ namespace HVAC_Pro_Desktop.UI
                 || (!string.IsNullOrWhiteSpace(query) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase));
         }
 
+        private void ApplyGlobalSearch()
+        {
+            string query = (_globalSearch.Text ?? string.Empty).Trim();
+            if (!string.Equals(_conversationSearch.Text, query, StringComparison.Ordinal))
+                _conversationSearch.Text = query;
+            RenderConversations();
+        }
+
+        private void ShowConversationFilterMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            foreach (string tab in new[] { "All", "Unread", "Clients", "Vendors", "Team" })
+            {
+                ToolStripMenuItem item = new ToolStripMenuItem(tab) { Checked = string.Equals(_activeTab, tab, StringComparison.OrdinalIgnoreCase) };
+                item.Click += (s, e) =>
+                {
+                    _activeTab = tab;
+                    RenderTabs();
+                    RenderConversations();
+                };
+                menu.Items.Add(item);
+            }
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Clear Search", null, (s, e) =>
+            {
+                _conversationSearch.Clear();
+                _globalSearch.Clear();
+                _activeTab = "All";
+                RenderTabs();
+                RenderConversations();
+            });
+            menu.Show(owner, new Point(0, owner.Height));
+        }
+
         private Panel BuildConversationEmptyState(bool filtered)
         {
             Panel panel = new Panel { Height = 176, BackColor = DS.White };
@@ -482,8 +537,10 @@ namespace HVAC_Pro_Desktop.UI
                 Label avatar = Avatar(_selectedContact.Name, 52, ContactColor(_selectedContact));
                 avatar.Location = new Point(20, 18);
                 header.Controls.Add(avatar);
-                Label name = new Label { Text = _selectedContact.Name, AutoSize = true, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(84, 18) };
-                Label phone = new Label { Text = PrettyPhone(_selectedContact.Phone), AutoSize = true, Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(86, 48) };
+                Label name = new Label { Text = _selectedContact.Name, AutoSize = false, Size = new Size(Math.Max(260, header.Width - 270), 24), Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(84, 18), AutoEllipsis = true };
+                Label phone = new Label { Text = PrettyPhone(_selectedContact.Phone), AutoSize = false, Size = new Size(Math.Max(220, header.Width - 300), 18), Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(86, 48), AutoEllipsis = true };
+                name.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                phone.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
                 header.Controls.Add(name);
                 header.Controls.Add(phone);
             }
@@ -497,6 +554,9 @@ namespace HVAC_Pro_Desktop.UI
             Button call = IconOnlyButton(ModernIconKind.Phone, DS.Slate700, DS.White, 36, "Call contact");
             call.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             call.Location = new Point(header.Width - 154, 22);
+            more.Click += (s, e) => ShowChatSettingsMenu(more);
+            video.Click += (s, e) => OpenRelatedRecordHint();
+            call.Click += (s, e) => OpenPhoneDialer();
             header.Controls.Add(call);
             header.Controls.Add(video);
             header.Controls.Add(more);
@@ -505,6 +565,11 @@ namespace HVAC_Pro_Desktop.UI
                 more.Location = new Point(header.Width - 58, 22);
                 video.Location = new Point(header.Width - 106, 22);
                 call.Location = new Point(header.Width - 154, 22);
+                foreach (Control control in header.Controls)
+                {
+                    if (control is Label label && label.Location.X >= 84)
+                        label.Width = Math.Max(220, header.Width - 270);
+                }
             };
             _chatHost.Controls.Add(header);
 
@@ -512,7 +577,7 @@ namespace HVAC_Pro_Desktop.UI
             composer.Dock = DockStyle.Bottom;
             _chatHost.Controls.Add(composer);
 
-            Panel browserPanel = HasUsablePhone(_selectedContact) ? BuildManualWhatsAppPanel() : BuildMissingPhonePanel();
+            Panel browserPanel = HasUsablePhone(_selectedContact) ? BuildWhatsAppWebPanel() : BuildMissingPhonePanel();
             _chatHost.Controls.Add(browserPanel);
             browserPanel.BringToFront();
             composer.BringToFront();
@@ -523,32 +588,28 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildComposer()
         {
-            Panel host = new Panel { Height = 128, Padding = new Padding(20, 10, 20, 14), BackColor = DS.White };
+            Panel host = new Panel { Height = 96, Padding = new Padding(20, 6, 20, 8), BackColor = DS.White };
 
-            TableLayoutPanel inputRow = new TableLayoutPanel { Dock = DockStyle.Top, Height = 48, ColumnCount = 6, BackColor = DS.White };
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 38));
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 56));
-            inputRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 118));
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Status, DS.Slate600, DS.White, 36, "Insert saved template"), 0, 0);
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Document, DS.Slate600, DS.White, 36, "Attach document reference"), 1, 0);
-
-            Panel messageHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(12, 8, 12, 6), Margin = new Padding(4, 0, 4, 0) };
-            DS.Rounded(messageHost, 10);
             _messageInput.BorderStyle = BorderStyle.None;
-            _messageInput.Dock = DockStyle.Fill;
+            _messageInput.Visible = false;
             _messageInput.Multiline = true;
             _messageInput.Font = DS.Body;
-            _messageInput.ForeColor = DS.Slate800;
-            _messageInput.BackColor = DS.White;
-            messageHost.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 10);
-            messageHost.Controls.Add(_messageInput);
-            inputRow.Controls.Add(messageHost, 2, 0);
-            inputRow.Controls.Add(IconOnlyButton(ModernIconKind.Phone, DS.Slate600, DS.White, 36, "Contact phone status"), 3, 0);
+            _messageInput.Size = new Size(1, 1);
+            host.Controls.Add(_messageInput);
 
-            Button send = IconOnlyButton(ModernIconKind.Email, Color.White, WhatsAppGreen, 44, "Open prefilled WhatsApp chat");
+            FlowLayoutPanel actionRow = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 40, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false, BackColor = DS.White };
+            Button templatePicker = IconOnlyButton(ModernIconKind.Status, DS.Slate600, DS.White, 34, "Choose saved template");
+            Button document = IconOnlyButton(ModernIconKind.Document, DS.Slate600, DS.White, 34, "Attach document reference");
+            Button phone = IconOnlyButton(ModernIconKind.Phone, DS.Slate600, DS.White, 34, "Contact phone status");
+            templatePicker.Margin = new Padding(0, 2, 8, 2);
+            document.Margin = new Padding(0, 2, 8, 2);
+            phone.Margin = new Padding(0, 2, 8, 2);
+            templatePicker.Click += (s, e) => ShowTemplatePickerMenu(templatePicker);
+            document.Click += (s, e) => AttachDocumentReference();
+            phone.Click += (s, e) => ShowPhoneStatus();
+
+            Button send = IconOnlyButton(ModernIconKind.Email, Color.White, WhatsAppGreen, 38, "Open prefilled WhatsApp chat");
+            send.Margin = new Padding(0, 0, 8, 0);
             if (!HasUsablePhone(_selectedContact))
             {
                 send.Enabled = false;
@@ -561,21 +622,28 @@ namespace HVAC_Pro_Desktop.UI
                 _toolTip.SetToolTip(send, "Add a phone number before opening WhatsApp");
             }
             send.Click += SendCurrentMessage;
-            inputRow.Controls.Add(send, 4, 0);
-            _markSentButton = DS.GhostBtn("Mark Sent", 96, 36);
+            _markSentButton = DS.GhostBtn("Mark Sent", 90, 32);
             _markSentButton.Enabled = false;
-            _markSentButton.Margin = new Padding(6, 6, 0, 6);
+            _markSentButton.Margin = new Padding(0, 3, 8, 3);
             _markSentButton.Click += (s, e) => MarkPendingMessageSent();
-            inputRow.Controls.Add(_markSentButton, 5, 0);
-            host.Controls.Add(inputRow);
+            Button copyMessage = DS.GhostBtn("Copy Message", 118, 32);
+            copyMessage.Margin = new Padding(0, 3, 8, 3);
+            copyMessage.Click += (s, e) => CopyPreparedMessage();
+            actionRow.Controls.Add(templatePicker);
+            actionRow.Controls.Add(document);
+            actionRow.Controls.Add(phone);
+            actionRow.Controls.Add(send);
+            actionRow.Controls.Add(_markSentButton);
+            actionRow.Controls.Add(copyMessage);
+            host.Controls.Add(actionRow);
 
-            FlowLayoutPanel templates = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 46, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = DS.White };
+            FlowLayoutPanel templates = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 40, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false, BackColor = DS.White };
             string[] quick = { "Send Invoice", "Send Quotation", "Payment Reminder", "AMC Reminder", "Job Update", "More" };
             foreach (string title in quick)
             {
-                Button button = DS.GhostBtn(title, title == "Payment Reminder" ? 138 : 118, 32);
+                Button button = DS.GhostBtn(title, title == "Payment Reminder" ? 130 : 108, 30);
                 button.Font = DS.Caption;
-                button.Margin = new Padding(0, 7, 8, 0);
+                button.Margin = new Padding(0, 5, 6, 0);
                 ModernIconSystem.AddButtonIcon(button, ModernIconSystem.KindForTitle(title));
                 button.Click += (s, e) => SelectTemplateFromButton(((Button)s).Text);
                 templates.Controls.Add(button);
@@ -602,13 +670,66 @@ namespace HVAC_Pro_Desktop.UI
             ApplyTemplate(match, true);
         }
 
+        private void ShowTemplatePickerMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            foreach (WhatsAppTemplate template in _templates)
+            {
+                WhatsAppTemplate selected = template;
+                ToolStripMenuItem item = new ToolStripMenuItem(template.Title ?? template.TemplateType);
+                item.Checked = _selectedTemplate != null && string.Equals(_selectedTemplate.TemplateType, template.TemplateType, StringComparison.OrdinalIgnoreCase);
+                item.Click += (s, e) => ApplyTemplate(selected, false);
+                menu.Items.Add(item);
+            }
+
+            if (menu.Items.Count == 0)
+                menu.Items.Add("No templates loaded").Enabled = false;
+            menu.Show(owner, new Point(0, owner.Height));
+        }
+
+        private void AttachDocumentReference()
+        {
+            if (_selectedContact == null)
+            {
+                MessageBox.Show("Select a WhatsApp contact before attaching a document reference.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string reference = ResolveRecordName(_selectedTemplate == null ? string.Empty : _selectedTemplate.TemplateType);
+            if (string.IsNullOrWhiteSpace(reference))
+                reference = "linked ServoERP document";
+            string suffix = Environment.NewLine + Environment.NewLine + "Reference: " + reference;
+            if ((_messageInput.Text ?? string.Empty).IndexOf(suffix, StringComparison.OrdinalIgnoreCase) < 0)
+                _messageInput.Text = (_messageInput.Text ?? string.Empty).TrimEnd() + suffix;
+            _webStatus.Text = "Document reference added to prepared message.";
+        }
+
+        private void ShowPhoneStatus()
+        {
+            if (_selectedContact == null)
+            {
+                MessageBox.Show("No contact selected.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            string normalized = _service.ValidatePhone(_selectedContact.Phone);
+            MessageBox.Show(
+                "Contact: " + _selectedContact.Name + Environment.NewLine +
+                "Saved phone: " + PrettyPhone(_selectedContact.Phone) + Environment.NewLine +
+                "WhatsApp number: " + (string.IsNullOrWhiteSpace(normalized) ? "Invalid or missing" : normalized),
+                "Phone Status",
+                MessageBoxButtons.OK,
+                string.IsNullOrWhiteSpace(normalized) ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
+        }
+
         private void ApplyTemplate(WhatsAppTemplate template, bool focus)
         {
             if (template == null)
                 return;
             _selectedTemplate = template;
             _messageInput.Text = _service.RenderTemplate(template, _selectedContact);
-            if (focus)
+            _selectedTemplateLabel.Text = "Template: " + (template.Title ?? template.TemplateType ?? "General update");
+            if (focus && _messageInput.Visible)
                 _messageInput.Focus();
         }
 
@@ -668,14 +789,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildWhatsAppWebPanel()
         {
-            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(250, 252, 255), Padding = new Padding(16, 12, 16, 12) };
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(250, 252, 255), Padding = new Padding(16, 12, 16, 8) };
 
-            Panel notice = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = NoticeBack, Padding = new Padding(12, 9, 12, 8) };
+            Panel notice = new Panel { Dock = DockStyle.Top, Height = 46, BackColor = NoticeBack, Padding = new Padding(12, 7, 12, 7) };
             DS.Rounded(notice, 8);
             notice.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, NoticeBorder, 8);
             Label noticeText = new Label
             {
-                Text = "Embedded WhatsApp Web. Scan the QR code if prompted. ServoERP only opens prefilled chats; you send manually.",
+                Text = "WhatsApp Web runs inside ServoERP. Scan the QR code once, then open prefilled chats from the send button.",
                 Dock = DockStyle.Fill,
                 Font = DS.Small,
                 ForeColor = DS.Slate800,
@@ -685,20 +806,18 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Add(notice);
 
             _webStatus.Dock = DockStyle.Bottom;
-            _webStatus.Height = 28;
+            _webStatus.Height = 24;
             _webStatus.Font = DS.Small;
             _webStatus.ForeColor = DS.Slate600;
-            _webStatus.Text = "Loading WhatsApp Web...";
+            _webStatus.Text = "WhatsApp Web will start when you open a chat.";
             host.Controls.Add(_webStatus);
 
-            Panel browserHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(0), Margin = new Padding(0, 10, 0, 8) };
+            Panel browserHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(0), Margin = new Padding(0, 8, 0, 4) };
             host.Controls.Add(browserHost);
             browserHost.BringToFront();
 
             _whatsAppWeb = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.White };
             browserHost.Controls.Add(_whatsAppWeb);
-            if (!IsDisposed && IsHandleCreated)
-                BeginInvoke((Action)(async () => await InitializeWhatsAppWebAsync()));
 
             return host;
         }
@@ -841,6 +960,93 @@ namespace HVAC_Pro_Desktop.UI
             });
         }
 
+        private void ReloadWhatsAppHome()
+        {
+            if (_whatsAppWeb == null || _whatsAppWeb.IsDisposed)
+            {
+                RenderChat();
+                return;
+            }
+
+            if (_whatsAppWeb.CoreWebView2 != null)
+            {
+                _whatsAppWeb.CoreWebView2.Navigate("https://web.whatsapp.com/");
+                SetWebStatus("Opening WhatsApp Web home.");
+                return;
+            }
+
+            BeginInvoke((Action)(async () => await InitializeWhatsAppWebAsync()));
+        }
+
+        private void ShowChatSettingsMenu(Control owner)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add("Reload WhatsApp Web", null, (s, e) => ReloadWhatsAppHome());
+            menu.Items.Add("Open Chat in Browser", null, (s, e) => OpenSelectedChatInBrowser());
+            menu.Items.Add("Copy Prepared Message", null, (s, e) => CopyPreparedMessage());
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Refresh Contacts", null, (s, e) => LoadHubData());
+            menu.Show(owner, new Point(0, owner.Height));
+        }
+
+        private void OpenSelectedChatInBrowser()
+        {
+            try
+            {
+                if (!HasUsablePhone(_selectedContact))
+                    throw new InvalidOperationException("Add a valid phone number before opening WhatsApp.");
+                string url = _service.BuildWhatsAppWebUrl(_selectedContact.Phone, _messageInput.Text);
+                Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                _webStatus.Text = "Opened WhatsApp chat in external browser.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void CopyPreparedMessage()
+        {
+            string text = _messageInput.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+            Clipboard.SetText(text);
+            _webStatus.Text = "Prepared message copied.";
+        }
+
+        private void OpenRelatedRecordHint()
+        {
+            if (_selectedContact == null)
+            {
+                MessageBox.Show("Select a WhatsApp contact first.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            MessageBox.Show(
+                _selectedContact.SourceType + " record: " + _selectedContact.Name + Environment.NewLine +
+                "Linked counts: " + _selectedContact.InvoiceCount + " invoices, " + _selectedContact.QuoteCount + " quotes, " + _selectedContact.JobCount + " jobs, " + _selectedContact.ContractCount + " contracts." + Environment.NewLine + Environment.NewLine +
+                "Open the related module from the main navigation to inspect the full record.",
+                "Related Records",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+
+        private void OpenPhoneDialer()
+        {
+            try
+            {
+                if (!HasUsablePhone(_selectedContact))
+                    throw new InvalidOperationException("This contact does not have a saved phone number.");
+                string phone = _service.ValidatePhone(_selectedContact.Phone);
+                Process.Start(new ProcessStartInfo { FileName = "tel:" + phone, UseShellExecute = true });
+                _webStatus.Text = "Opened phone dialer for " + PrettyPhone(_selectedContact.Phone) + ".";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void RenderDetails()
         {
             _detailHost.SuspendLayout();
@@ -877,12 +1083,31 @@ namespace HVAC_Pro_Desktop.UI
             edit.Location = new Point(card.Width - 96, 52);
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ModernIconSystem.AddButtonIcon(edit, ModernIconKind.Preference);
+            edit.Click += (s, e) => ShowContactEditGuidance();
             card.Controls.Add(name);
             card.Controls.Add(phone);
             card.Controls.Add(email);
             card.Controls.Add(location);
             card.Controls.Add(edit);
             return card;
+        }
+
+        private void ShowContactEditGuidance()
+        {
+            if (_selectedContact == null)
+            {
+                MessageBox.Show("Select a WhatsApp contact first.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            MessageBox.Show(
+                "Edit this " + _selectedContact.SourceType.ToLowerInvariant() + " from its master record." + Environment.NewLine + Environment.NewLine +
+                "Name: " + _selectedContact.Name + Environment.NewLine +
+                "Phone: " + PrettyPhone(_selectedContact.Phone) + Environment.NewLine +
+                "Email: " + FirstNonEmpty(_selectedContact.Email, "Not saved"),
+                "Edit Contact",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
         }
 
         private Control QuickActionsCard()
@@ -910,6 +1135,8 @@ namespace HVAC_Pro_Desktop.UI
             item.Controls.Add(icon);
             item.Controls.Add(text);
             item.Click += (s, e) => SelectTemplateFromButton(title);
+            icon.Click += (s, e) => SelectTemplateFromButton(title);
+            text.Click += (s, e) => SelectTemplateFromButton(title);
             grid.Controls.Add(item, column, 0);
         }
 
@@ -1042,10 +1269,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             int width = text == "All" ? 46 : text == "Unread" ? 64 : text == "Clients" ? 58 : text == "Vendors" ? 66 : 50;
             Button button = DS.GhostBtn(text, width, 30);
+            button.Dock = DockStyle.Fill;
             button.Tag = text;
-            button.Margin = new Padding(0, 0, 4, 0);
+            button.Margin = new Padding(0, 0, 4, 6);
             button.Padding = Padding.Empty;
-            button.Font = new Font("Segoe UI", 6.8f, FontStyle.Bold);
+            button.Font = new Font("Segoe UI", 7.4f, FontStyle.Bold);
             button.Click += (s, e) =>
             {
                 _activeTab = (string)((Button)s).Tag;

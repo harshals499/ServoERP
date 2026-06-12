@@ -16,6 +16,8 @@ namespace HVAC_Pro_Desktop.UI
     public class MasterDataForm : DeferredPageControl
     {
         protected override bool EnableAutomaticLayoutScaling => false;
+        protected override bool EnableMainScrollCanvas => false;
+        protected override bool SuppressAutomaticChildPolish => true;
 
         private readonly MasterDataService _svc = new MasterDataService();
         private readonly ClientService _clientSvc = new ClientService();
@@ -586,7 +588,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_masterDataLoading || _masterDataLoadTimer != null)
                 return;
 
-            _masterDataLoadTimer = new Timer { Interval = 1200 };
+            _masterDataLoadTimer = new Timer { Interval = 1500 };
             _masterDataLoadTimer.Tick += (s, e) =>
             {
                 _masterDataLoadTimer.Stop();
@@ -608,16 +610,17 @@ namespace HVAC_Pro_Desktop.UI
             var worker = CreateWorker();
             worker.DoWork += (s, e) =>
             {
+                TimeSpan ttl = TimeSpan.FromMinutes(2);
                 e.Result = new MasterDataSnapshot
                 {
-                    Clients = _clientSvc.GetAllClientsIncludingInactive(),
-                    Sites = _siteSvc.GetAll(),
-                    SetupStatus = _svc.GetSetupStatus(),
-                    Assets = _svc.GetAssets(),
-                    Documents = _svc.GetDocuments(),
-                    Rates = _svc.GetRateCards(),
-                    Connections = _svc.GetPrivateServerConnections(),
-                    ImportBatches = _svc.GetImportBatches()
+                    Clients = AppDataCache.GetOrCreate("clients:all-including-inactive", ttl, () => _clientSvc.GetAllClientsIncludingInactive() ?? new List<B2BClient>()).ToList(),
+                    Sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList(),
+                    SetupStatus = AppDataCache.GetOrCreate("masterdata:setup-status", ttl, () => _svc.GetSetupStatus() ?? new List<MasterDataStatus>()).ToList(),
+                    Assets = AppDataCache.GetOrCreate("masterdata:assets", ttl, () => _svc.GetAssets() ?? new List<ClientAsset>()).ToList(),
+                    Documents = AppDataCache.GetOrCreate("masterdata:documents", ttl, () => _svc.GetDocuments() ?? new List<ClientDocument>()).ToList(),
+                    Rates = AppDataCache.GetOrCreate("masterdata:rates", ttl, () => _svc.GetRateCards() ?? new List<ServiceRateCard>()).ToList(),
+                    Connections = AppDataCache.GetOrCreate("masterdata:connections", ttl, () => _svc.GetPrivateServerConnections() ?? new List<PrivateServerConnection>()).ToList(),
+                    ImportBatches = AppDataCache.GetOrCreate("masterdata:import-batches", ttl, () => _svc.GetImportBatches() ?? new List<DataImportBatch>()).ToList()
                 };
             };
             worker.RunWorkerCompleted += (s, e) =>
@@ -639,6 +642,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     _masterDataLoading = false;
                     MasterDataSnapshot snapshot = e.Result as MasterDataSnapshot ?? new MasterDataSnapshot();
+                    _lastSnapshot = snapshot;
                     _clients = snapshot.Clients ?? new List<B2BClient>();
                     _sites = snapshot.Sites ?? new List<ClientSite>();
                     if (_assetClient != null) BindClients(_assetClient, true);
@@ -1479,9 +1483,13 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Returns the current record count for a supported Excel import module.</summary>
         private int CountUploadRecords(ExcelImportModule module)
         {
+            if (_lastSnapshot == null)
+                return 0;
+
             try
             {
-                return _svc.GetUploadRecordCount(module);
+                string key = "masterdata:upload-count:" + module;
+                return AppDataCache.GetOrCreate(key, TimeSpan.FromMinutes(2), () => _svc.GetUploadRecordCount(module));
             }
             catch (Exception ex)
             {
@@ -1492,7 +1500,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowExistingTab(int index)
         {
-            using (Form dialog = new Form { Text = "Master data details", StartPosition = FormStartPosition.CenterParent, Size = new Size(1180, 760), BackColor = DS.BgPage })
+            using (Form dialog = ServoModalForm.Create("Master data details", 1180, 760))
             {
                 Control tabs = BuildTabs();
                 tabs.Dock = DockStyle.Fill;
@@ -1529,7 +1537,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private int CountCompanyTemplates()
         {
-            try { return _templateManager.GetTemplates().Count; }
+            if (_lastSnapshot == null)
+                return 0;
+
+            try { return AppDataCache.GetOrCreate("masterdata:company-template-count", TimeSpan.FromMinutes(2), () => _templateManager.GetTemplates().Count); }
             catch { return 0; }
         }
 

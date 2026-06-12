@@ -329,20 +329,19 @@ namespace HVAC_Pro_Desktop.UI
             {
                 await Task.Run(() =>
                 {
+                    TimeSpan ttl = TimeSpan.FromMinutes(2);
+                    loaded = AppDataCache.GetOrCreate(
+                        "clients:all-including-inactive",
+                        ttl,
+                        () => _clientService.GetAllClientsIncludingInactive() ?? new List<B2BClient>())
+                        .OrderBy(c => c.CompanyName)
+                        .ToList();
                     if (_showDashboard)
                     {
-                        AppDataCache.RemovePrefix("clients:");
-                        AppDataCache.RemovePrefix("contracts:");
-                        AppDataCache.RemovePrefix("invoices:");
-                        AppDataCache.RemovePrefix("sites:");
-                    }
-                    loaded = _clientService.GetAllClientsIncludingInactive().OrderBy(c => c.CompanyName).ToList();
-                    if (_showDashboard)
-                    {
-                        try { contracts = _contractService.GetAllContracts(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Contracts", ex); contracts = new List<AMCContract>(); }
-                        try { invoices = _invoiceService.GetAllInvoices(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Invoices", ex); invoices = new List<Invoice>(); }
-                        try { quotes = _tenderService.GetAll(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Quotes", ex); quotes = new List<TenderBid>(); }
-                        try { sites = _siteService.GetAll(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Sites", ex); sites = new List<ClientSite>(); }
+                        try { contracts = AppDataCache.GetOrCreate("contracts:all", ttl, () => _contractService.GetAllContracts() ?? new List<AMCContract>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Contracts", ex); contracts = new List<AMCContract>(); }
+                        try { invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceService.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Invoices", ex); invoices = new List<Invoice>(); }
+                        try { quotes = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderService.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Quotes", ex); quotes = new List<TenderBid>(); }
+                        try { sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteService.GetAll() ?? new List<ClientSite>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Sites", ex); sites = new List<ClientSite>(); }
                     }
                 });
             }
@@ -351,7 +350,6 @@ namespace HVAC_Pro_Desktop.UI
                 AppLogger.LogError("ClientManagementForm.LoadClients", ex);
                 try
                 {
-                    AppDataCache.RemovePrefix("clients:");
                     loaded = await Task.Run(() => _clientService.GetAllClients().OrderBy(c => c.CompanyName).ToList());
                 }
                 catch (Exception inner) { AppLogger.LogError("ClientManagementForm.LoadClients.Fallback", inner); }
@@ -548,7 +546,7 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch, "global", "Search clients by name, email, phone, or company...");
             Button filters = DashboardButton("Filter Clients", Color.White, DS.Slate900, 112, true);
             filters.Click += (s, e) => { if (_dashboardStatusFilter != null) _dashboardStatusFilter.DroppedDown = true; };
-            Button add = DashboardButton("+ Add Client  v", DS.Primary600, Color.White, 136, false);
+            Button add = DashboardButton("+ Add Client", DS.Primary600, Color.White, 136, false);
             add.Click += (s, e) =>
             {
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
@@ -1415,7 +1413,6 @@ namespace HVAC_Pro_Desktop.UI
             panel.Controls.Add(new Label { Text = initials, Location = new Point(0, 4), Size = new Size(30, 30), BackColor = DS.Primary50, ForeColor = DS.Primary600, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold) });
             panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(92, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
             panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(84, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = DS.Slate500, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = "v", Location = new Point(132, 8), Size = new Size(14, 18), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter });
             return panel;
         }
 
@@ -2337,7 +2334,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Form Modal(string title, int width, int height)
         {
-            return new Form { Text = BrandingService.WindowTitle(title), StartPosition = FormStartPosition.CenterParent, Width = width, Height = height, FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false, BackColor = Color.White, Font = Font };
+            return ServoModalForm.Create(title, width, height);
         }
 
         private TextBox ModalField(Form form, string label, string value, int y)

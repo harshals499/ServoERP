@@ -221,18 +221,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Form BuildLogDialog()
         {
-            Form dlg = new Form
-            {
-                Text            = "Log SLA Event",
-                Width           = 420,
-                Height          = 380,
-                StartPosition   = FormStartPosition.CenterParent,
-                FormBorderStyle = FormBorderStyle.FixedDialog,
-                MaximizeBox     = false,
-                MinimizeBox     = false,
-                BackColor       = Color.White,
-                Font            = new Font("Segoe UI", 9)
-            };
+            Form dlg = ServoModalForm.Create("Log SLA Event", 420, 380);
 
             int lx = 16, tx = 150, tw = 230, cy = 18;
 

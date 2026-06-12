@@ -15,6 +15,8 @@ namespace HVAC_Pro_Desktop.UI
         private bool _deferredLoadQueued;
         private bool _deferredLoadCompleted;
         private bool _hasDeferredLoad;
+        private bool _postLoadPolishQueued;
+        private bool _controlTreePolishQueued;
         protected virtual bool EnableAutomaticLayoutScaling => true;
 
         protected virtual bool EnableMainScrollCanvas => true;
@@ -60,24 +62,12 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             if (e.Control != null)
+            {
                 DS.ApplyTheme(e.Control);
-            if (e.Control != null)
                 UIHelper.ApplyInputStyle(e.Control);
-            if (e.Control != null)
-                UIHelper.ApplyInputStyles(e.Control.Controls);
-            if (e.Control != null)
-                UIHelper.ApplyGlobalScrollAndResize(e.Control);
-            if (e.Control != null)
-                UIHelper.ApplyButtonAlignment(e.Control);
-            if (EnableAutomaticLayoutScaling && e.Control != null)
-                LayoutScaler.ScaleControl(e.Control);
-            if (e.Control != null)
-                LayoutScaler.ApplyGlobalScale(e.Control);
-            if (e.Control != null)
-                LanguageManager.ApplyControlTree(e.Control);
-            if (e.Control != null)
-                GlobalCardContextMenu.ApplyToTree(e.Control);
+            }
             ApplyMainScrollCanvas();
+            QueueControlTreePolish();
         }
 
         /// <summary>Keeps dense module pages reachable on smaller desktops by exposing a page-level scroll canvas.</summary>
@@ -170,16 +160,8 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 loadAction();
-                DS.ApplyTheme(this);
-                if (EnableAutomaticLayoutScaling)
-                    LayoutScaler.ScaleControl(this);
-                LayoutScaler.ApplyGlobalScale(this);
-                UIHelper.ApplyGlobalScrollAndResize(this);
-                ApplyMainScrollCanvas();
-                UIHelper.ApplyButtonAlignment(this);
-                GlobalCardContextMenu.ApplyToTree(this);
-                PageHeaderPolishService.Apply(this);
                 _deferredLoadCompleted = true;
+                QueuePostLoadPolish();
             }
             catch (Exception ex)
             {
@@ -209,16 +191,8 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 await loadAsync();
-                DS.ApplyTheme(this);
-                if (EnableAutomaticLayoutScaling)
-                    LayoutScaler.ScaleControl(this);
-                LayoutScaler.ApplyGlobalScale(this);
-                UIHelper.ApplyGlobalScrollAndResize(this);
-                ApplyMainScrollCanvas();
-                UIHelper.ApplyButtonAlignment(this);
-                GlobalCardContextMenu.ApplyToTree(this);
-                PageHeaderPolishService.Apply(this);
                 _deferredLoadCompleted = true;
+                QueuePostLoadPolish();
             }
             catch (Exception ex)
             {
@@ -241,6 +215,51 @@ namespace HVAC_Pro_Desktop.UI
             _hasDeferredLoad = true;
             _deferredLoadQueued = false;
             _deferredLoadCompleted = true;
+        }
+
+        private void QueueControlTreePolish()
+        {
+            if (_controlTreePolishQueued || IsDisposed || !IsHandleCreated)
+                return;
+
+            _controlTreePolishQueued = true;
+            BeginInvoke((Action)(() =>
+            {
+                _controlTreePolishQueued = false;
+                QueuePostLoadPolish();
+            }));
+        }
+
+        private void QueuePostLoadPolish()
+        {
+            if (_postLoadPolishQueued || IsDisposed)
+                return;
+
+            Action polish = () =>
+            {
+                if (IsDisposed)
+                    return;
+
+                _postLoadPolishQueued = false;
+                UiPerformanceService.WithSuspendedDrawing(this, () =>
+                {
+                    DS.ApplyTheme(this);
+                    if (EnableAutomaticLayoutScaling)
+                        LayoutScaler.ScaleControl(this);
+                    LayoutScaler.ApplyGlobalScale(this);
+                    UIHelper.ApplyGlobalScrollAndResize(this);
+                    ApplyMainScrollCanvas();
+                    UIHelper.ApplyButtonAlignment(this);
+                    GlobalCardContextMenu.ApplyToTree(this);
+                    PageHeaderPolishService.Apply(this);
+                });
+            };
+
+            _postLoadPolishQueued = true;
+            if (IsHandleCreated)
+                BeginInvoke(polish);
+            else
+                HandleCreated += (s, e) => BeginInvoke(polish);
         }
     }
 }
