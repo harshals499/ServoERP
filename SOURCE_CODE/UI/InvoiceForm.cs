@@ -63,6 +63,7 @@ namespace HVAC_Pro_Desktop.UI
         private NumericUpDown _numGST;
         private NumericUpDown _numRoundOff;
         private Panel _documentHost;
+        private const int InvoiceDocumentMinWidth = 1450;
         private Panel _documentPage;
 
         // â”€â”€ GST summary labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1634,7 +1635,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _documentPage = new ModernCard
             {
-                Width = Math.Max(720, container.ClientSize.Width - 18),
+                Width = GetInvoiceDocumentWidth(container),
                 Height = 1180,
                 BackColor = Color.White,
                 Padding = new Padding(0),
@@ -1644,10 +1645,10 @@ namespace HVAC_Pro_Desktop.UI
             container.Controls.Add(_documentPage);
             container.Resize += (s, e) =>
             {
-                _documentPage.Width = Math.Max(720, container.ClientSize.Width - 18);
+                _documentPage.Width = GetInvoiceDocumentWidth(container);
                 _documentPage.Left = 0;
                 container.AutoScrollPosition = new Point(0, Math.Abs(container.AutoScrollPosition.Y));
-                container.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
+                RefreshInvoiceDocumentScrollBounds(container);
             };
 
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 54, BackColor = Color.White, Padding = new Padding(18, 12, 18, 8) };
@@ -1738,7 +1739,24 @@ namespace HVAC_Pro_Desktop.UI
             _documentPage.Controls.Add(content);
             _documentPage.Controls.Add(topBar);
             container.AutoScrollPosition = new Point(0, 0);
-            container.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
+            RefreshInvoiceDocumentScrollBounds(container);
+        }
+
+        private static int GetInvoiceDocumentWidth(Control container)
+        {
+            int availableWidth = container == null ? 0 : container.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 2;
+            return Math.Max(InvoiceDocumentMinWidth, availableWidth);
+        }
+
+        private static void RefreshInvoiceDocumentScrollBounds(ScrollableControl scrollHost)
+        {
+            if (scrollHost == null)
+                return;
+
+            Control document = scrollHost.Controls.Cast<Control>().FirstOrDefault(c => c is ModernCard);
+            int documentWidth = document == null ? InvoiceDocumentMinWidth : document.Width;
+            int documentHeight = document == null ? 0 : document.Height;
+            scrollHost.AutoScrollMinSize = new Size(documentWidth + 24, documentHeight + 24);
         }
 
         private void DockInvoiceSection(Panel parent, Control section)
@@ -2104,7 +2122,7 @@ namespace HVAC_Pro_Desktop.UI
             _documentPage.Height = Math.Max(_documentPage.Height, bottom + 16);
             ScrollableControl scrollHost = _documentPage.Parent as ScrollableControl;
             if (scrollHost != null)
-                scrollHost.AutoScrollMinSize = new Size(0, _documentPage.Height + 24);
+                RefreshInvoiceDocumentScrollBounds(scrollHost);
         }
 
         /// <summary>Applies live sizing while the outer HVAC workflow card is dragged.</summary>

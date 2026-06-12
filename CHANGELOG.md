@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.65.0 - 2026-06-12
+
+- Added a bottom horizontal scrollbar to the New Invoice editor so wide invoice fields and totals remain reachable on smaller client screens.
+
 ## 1.1.64.0 - 2026-06-12
 
 - Fixed Contracts dashboard `All Time` and `All Status` filters so refresh/pagination updates no longer retrigger flickering combo-box refreshes.
