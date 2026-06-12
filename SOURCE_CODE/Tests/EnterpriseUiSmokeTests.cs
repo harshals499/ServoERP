@@ -78,6 +78,7 @@ namespace HVAC_Pro_Desktop.Tests
                     GlobalCardContextMenu.ApplyToTree(control);
                     if (coreSet.Contains(type))
                         EnsureNoDeadButtons(control, type.Name);
+                    EnsureCriticalAddSaveButtonsAreWired(control, type.Name);
                     EnsureNoClippedButtons(control, type.Name);
                     EnsureNoTextButtonOverlap(control, type.Name);
                     EnsureButtonRoleStyling(control, type.Name);
@@ -95,6 +96,7 @@ namespace HVAC_Pro_Desktop.Tests
                     UIHelper.ApplyButtonAlignment(control);
                     InputOutlineService.ApplyToTree(control);
                     GlobalDashboardLayoutService.ApplyToTree(control);
+                    EnsureCriticalAddSaveButtonsAreWired(control, type.Name);
                     EnsureNoClippedButtons(control, type.Name);
                     EnsureNoTextButtonOverlap(control, type.Name);
                     EnsureButtonRoleStyling(control, type.Name);
@@ -121,6 +123,7 @@ namespace HVAC_Pro_Desktop.Tests
                     LayoutAuditService.AuditAndFix(control);
                     UIHelper.ApplyButtonAlignment(control);
                     InputOutlineService.ApplyToTree(control);
+                    EnsureCriticalAddSaveButtonsAreWired(control, control.GetType().Name);
                     EnsureNoClippedButtons(control, control.GetType().Name);
                     EnsureNoTextButtonOverlap(control, control.GetType().Name);
                     EnsureButtonRoleStyling(control, control.GetType().Name);
@@ -229,6 +232,35 @@ namespace HVAC_Pro_Desktop.Tests
                 if (button.Enabled && !HasClickHandler(button) && !IsContainerButton(button))
                     throw new InvalidOperationException(moduleName + " has an enabled button without a click handler: " + text);
             }
+        }
+
+        private static void EnsureCriticalAddSaveButtonsAreWired(Control root, string moduleName)
+        {
+            foreach (Button button in EnumerateControls(root).OfType<Button>().Where(button => button.Visible && button.Enabled))
+            {
+                string text = (button.Text ?? string.Empty).Trim();
+                if (!IsAddOrSaveButton(text) || IsContainerButton(button))
+                    continue;
+
+                if (!HasClickHandler(button))
+                    throw new InvalidOperationException(moduleName + " has an enabled Add/Save button without a click handler: " + text);
+            }
+        }
+
+        private static bool IsAddOrSaveButton(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return false;
+
+            string lower = text.Trim().ToLowerInvariant();
+            return lower == "add"
+                || lower == "save"
+                || lower == "save settings"
+                || lower == "save contract"
+                || lower.StartsWith("+ add")
+                || lower.StartsWith("+ new")
+                || lower.Contains(" add ")
+                || lower.Contains(" save ");
         }
 
         private static void EnsureGlobalCardMenus(Control root, string moduleName)

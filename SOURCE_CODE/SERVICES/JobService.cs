@@ -223,11 +223,10 @@ namespace HVAC_Pro_Desktop.Services
             decimal unitCost = unitCostOverride.HasValue ? unitCostOverride.Value : (item?.LastPurchaseRate ?? 0m);
             decimal available = item?.AvailableStock ?? 0m;
             string stockStatus = "InStock";
+            bool shouldPostStockMovement = item != null && available >= qty;
             if (item != null)
             {
                 if (available < qty)
-                    throw new InvalidOperationException("Cannot add part because stock would go negative for " + item.ItemName + ". Available: " + available.ToString("0.###") + ", requested: " + qty.ToString("0.###") + ".");
-                if (available <= 0)
                     stockStatus = "OutOfStock";
                 else if (available - qty <= item.ReorderLevel)
                     stockStatus = "LowStock";
@@ -252,10 +251,14 @@ namespace HVAC_Pro_Desktop.Services
             {
                 if (unitCostOverride.HasValue && Math.Abs(unitCostOverride.Value - item.LastPurchaseRate) >= 0.01m)
                     _inventoryService.UpdateMaterialRate(item.ItemID, unitCostOverride.Value, "job material selection");
-                _inventoryService.AddStock(item.ItemID, -qty);
+                if (shouldPostStockMovement)
+                    _inventoryService.AddStock(item.ItemID, -qty);
             }
 
-            LogActivity(jobId, "Part added: " + resolvedDescription + " x" + qty.ToString("0.###"), stockStatus == "InStock" ? "Info" : "Warning");
+            string activity = "Part added: " + resolvedDescription + " x" + qty.ToString("0.###");
+            if (item != null && !shouldPostStockMovement)
+                activity += " (stock not deducted; available " + available.ToString("0.###") + ")";
+            LogActivity(jobId, activity, stockStatus == "InStock" ? "Info" : "Warning");
             AppDataCache.RemovePrefix("jobs:");
             return part;
         }

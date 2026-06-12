@@ -375,6 +375,15 @@ namespace HVAC_Pro_Desktop.Tests
             Assert(afterRate != null && Math.Abs(afterRate.LastPurchaseRate - expectedRate) < 0.01m,
                 "Edited job material rate was not saved globally to inventory.");
 
+            decimal stockBeforeShortAdd = afterRate.AvailableStock;
+            decimal shortQty = stockBeforeShortAdd + 1m;
+            JobPartUsed shortStockPart = jobService.AddPartUsed(job.JobID, freshItem.ItemID, shortQty, freshItem.ItemName, expectedRate);
+            Assert(shortStockPart != null && string.Equals(shortStockPart.StockStatus, "OutOfStock", StringComparison.OrdinalIgnoreCase),
+                "Job material add should allow short-stock material rows and mark them OutOfStock.");
+            StockItem afterShortAdd = inventoryService.GetById(freshItem.ItemID);
+            Assert(afterShortAdd != null && Math.Abs(afterShortAdd.AvailableStock - stockBeforeShortAdd) < 0.001m,
+                "Short-stock job material add should not post a negative inventory movement.");
+
             report.Pass("Job material add path saved the selected inventory item and updated the global material rate.");
         }
 

@@ -507,7 +507,7 @@ namespace HVAC_Pro_Desktop.UI
             back.ForeColor = Ink;
             back.FlatAppearance.BorderColor = Border;
             back.FlatAppearance.BorderSize = 1;
-            back.Click += (s, e) => BuildDashboardLayout();
+            back.Click += async (s, e) => await ReturnToDashboardAsync();
             bar.Controls.Add(back);
             bar.Controls.Add(crumb);
 
@@ -965,6 +965,12 @@ namespace HVAC_Pro_Desktop.UI
                     _sitesById[site.SiteID] = site;
             }
             catch (Exception ex) { AppLogger.LogError("ContractManagementForm.LoadSites", ex); }
+        }
+
+        private async Task ReturnToDashboardAsync()
+        {
+            BuildDashboardLayout();
+            await LoadPageDataAndRefreshAsync();
         }
 
         private void EnsureReferenceDataLoaded()

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.47.0 - 2026-06-12
+
+- Fixed Jobs material Add so selected materials with low or zero stock still add to the job as out-of-stock planning rows without posting negative inventory.
+- Improved job material add feedback for low/out-of-stock rows and preserved global material rate updates from the Rate field.
+- Fixed Contracts Back to Dashboard so returning from the contract form rebuilds and refreshes the dashboard instead of showing blank cards/tables.
+- Added explicit smoke coverage for enabled Add/Save buttons so critical actions must be wired before release.
+
 ## 1.1.40.0 - 2026-06-12
 
 - Fixed job material entry so selecting a material reliably adds it to the saved job, refreshes stock, and shows the added part in job details.

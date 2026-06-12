@@ -2483,7 +2483,7 @@ namespace HVAC_Pro_Desktop.UI
                 string typed = selectedStock == null ? _cmbPartSearch.Text?.Trim() : selectedStock.ItemName;
                 decimal unitRate = _numPartRate == null ? 0m : _numPartRate.Value;
 
-                await Task.Run(() => _jobSvc.AddPartUsed(_currentDetail.Job.JobID, itemId, _numPartQty.Value, typed, unitRate));
+                JobPartUsed addedPart = await Task.Run(() => _jobSvc.AddPartUsed(_currentDetail.Job.JobID, itemId, _numPartQty.Value, typed, unitRate));
                 _inventory = await Task.Run(() => _inventorySvc.GetAll());
                 BindPartInventory();
                 _cmbPartSearch.Text = string.Empty;
@@ -2492,6 +2492,8 @@ namespace HVAC_Pro_Desktop.UI
                     _numPartRate.Value = 0;
                 UpdatePartStockHint();
                 await LoadJobDetailAsync(_currentDetail.Job.JobID);
+                if (addedPart != null && !string.Equals(addedPart.StockStatus, "InStock", StringComparison.OrdinalIgnoreCase))
+                    ShowChecklistBanner("Material added, but stock is " + (addedPart.StockStatus ?? "low") + ".");
             }
             catch (Exception ex)
             {
