@@ -1590,11 +1590,15 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildPartsCard(Panel body)
         {
             body.AutoScroll = false;
-            Panel headerAction = new Panel { Dock = DockStyle.Bottom, Height = 84, BackColor = White, Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
-            _partsAddPanel = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = White, Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
+            Panel headerAction = new Panel { Dock = DockStyle.Bottom, Height = 104, BackColor = White, Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
+            _partsAddPanel = new Panel { Dock = DockStyle.Top, Height = 98, BackColor = White, Tag = "NO_INPUT_HOST NO_CARD_SURFACE" };
+            Label materialHeading = MakePartInputHeading("Material");
+            Label qtyHeading = MakePartInputHeading("Qty");
+            Label rateHeading = MakePartInputHeading("Rate");
+            Label actionHeading = MakePartInputHeading("Action");
             _cmbPartSearch = new ComboBox
             {
-                Location = new Point(0, 10),
+                Location = new Point(0, 28),
                 Width = 380,
                 Font = new Font("Segoe UI", 9.5f),
                 DropDownStyle = ComboBoxStyle.DropDown
@@ -1603,12 +1607,12 @@ namespace HVAC_Pro_Desktop.UI
             _cmbPartSearch.AutoCompleteSource = AutoCompleteSource.ListItems;
             _cmbPartSearch.TextChanged += (s, e) => UpdatePartStockHint();
             _cmbPartSearch.SelectedIndexChanged += (s, e) => UpdatePartStockHint();
-            _numPartQty = new NumericUpDown { Location = new Point(392, 10), Width = 96, DecimalPlaces = 3, Minimum = 0.001m, Maximum = 9999, Value = 1 };
-            _numPartRate = new NumericUpDown { Location = new Point(502, 10), Width = 112, DecimalPlaces = 2, Minimum = 0, Maximum = 9999999, Value = 0, ThousandsSeparator = true };
+            _numPartQty = new NumericUpDown { Location = new Point(392, 28), Width = 96, DecimalPlaces = 3, Minimum = 0.001m, Maximum = 9999, Value = 1 };
+            _numPartRate = new NumericUpDown { Location = new Point(502, 28), Width = 112, DecimalPlaces = 2, Minimum = 0, Maximum = 9999999, Value = 0, ThousandsSeparator = true };
             Button btnAddPart = MakeInlineButton("Add", Teal, 86);
-            btnAddPart.Location = new Point(628, 9);
+            btnAddPart.Location = new Point(628, 27);
             btnAddPart.Click += async (s, e) => await AddPartAsync();
-            _lblPartStockHint = new Label { Location = new Point(0, 48), Size = new Size(520, 20), ForeColor = TextHint, Font = new Font("Segoe UI", 8.8f) };
+            _lblPartStockHint = new Label { Location = new Point(0, 66), Size = new Size(520, 20), ForeColor = TextHint, Font = new Font("Segoe UI", 8.8f) };
             _partsAddPanel.Resize += (s, e) =>
             {
                 int addWidth = 92;
@@ -1617,13 +1621,17 @@ namespace HVAC_Pro_Desktop.UI
                 int gap = 12;
                 int available = Math.Max(320, _partsAddPanel.ClientSize.Width);
                 int comboWidth = Math.Max(220, available - addWidth - qtyWidth - rateWidth - (gap * 3));
-                _cmbPartSearch.SetBounds(0, 10, comboWidth, 34);
-                _numPartQty.SetBounds(comboWidth + gap, 10, qtyWidth, 34);
-                _numPartRate.SetBounds(comboWidth + qtyWidth + (gap * 2), 10, rateWidth, 34);
-                btnAddPart.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 9, addWidth, 36);
-                _lblPartStockHint.SetBounds(0, 50, Math.Max(260, available - 8), 20);
+                materialHeading.SetBounds(0, 6, comboWidth, 18);
+                qtyHeading.SetBounds(comboWidth + gap, 6, qtyWidth, 18);
+                rateHeading.SetBounds(comboWidth + qtyWidth + (gap * 2), 6, rateWidth, 18);
+                actionHeading.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 6, addWidth, 18);
+                _cmbPartSearch.SetBounds(0, 28, comboWidth, 34);
+                _numPartQty.SetBounds(comboWidth + gap, 28, qtyWidth, 34);
+                _numPartRate.SetBounds(comboWidth + qtyWidth + (gap * 2), 28, rateWidth, 34);
+                btnAddPart.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 27, addWidth, 36);
+                _lblPartStockHint.SetBounds(0, 70, Math.Max(260, available - 8), 20);
             };
-            _partsAddPanel.Controls.AddRange(new Control[] { _cmbPartSearch, _numPartQty, _numPartRate, btnAddPart, _lblPartStockHint });
+            _partsAddPanel.Controls.AddRange(new Control[] { materialHeading, qtyHeading, rateHeading, actionHeading, _cmbPartSearch, _numPartQty, _numPartRate, btnAddPart, _lblPartStockHint });
 
             _partsFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = White, Padding = new Padding(0, 6, 0, 8) };
             _lblPartsTotal = new Label { Dock = DockStyle.Bottom, Height = 34, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight };
@@ -1632,6 +1640,19 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(_partsFlow);
             body.Controls.Add(_lblPartsTotal);
             body.Controls.Add(headerAction);
+        }
+
+        private Label MakePartInputHeading(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                Location = new Point(0, 6),
+                Size = new Size(90, 18),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
         }
 
         private void BuildNudgesCard(Panel body)

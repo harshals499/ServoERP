@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.55.0 - 2026-06-12
+
+- Added clear Material, Qty, Rate, and Action headings to the Jobs material entry row.
+
 ## 1.1.47.0 - 2026-06-12
 
 - Fixed Jobs material Add so selected materials with low or zero stock still add to the job as out-of-stock planning rows without posting negative inventory.
