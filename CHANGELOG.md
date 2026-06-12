@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.64.0 - 2026-06-12
+
+- Fixed Contracts dashboard `All Time` and `All Status` filters so refresh/pagination updates no longer retrigger flickering combo-box refreshes.
+- Fixed the Contracts `Active` status filter so active contracts that display as expiring soon are still included correctly.
+
 ## 1.1.55.0 - 2026-06-12
 
 - Added clear Material, Qty, Rate, and Action headings to the Jobs material entry row.

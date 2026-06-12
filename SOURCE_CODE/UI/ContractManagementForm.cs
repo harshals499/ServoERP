@@ -46,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private GlobalPaginationControl _pagination;
         private int _tablePage = 1;
         private int _tablePageSize = 10;
+        private bool _refreshingDashboard;
 
         private FlowLayoutPanel _contractListFlow;
         private TextBox _sidebarSearch;
@@ -330,7 +331,11 @@ namespace HVAC_Pro_Desktop.UI
             };
             _statusPeriodFilter.Items.AddRange(new object[] { "This Month", "This Quarter", "All Time" });
             _statusPeriodFilter.SelectedIndex = 2;
-            _statusPeriodFilter.SelectedIndexChanged += (s, e) => RefreshDashboard();
+            _statusPeriodFilter.SelectedIndexChanged += (s, e) =>
+            {
+                if (_refreshingDashboard) return;
+                RefreshDashboard();
+            };
             statusPeriodHost.Controls.Add(_statusPeriodFilter);
             card.Controls.Add(statusPeriodHost);
             _statusChart = new StatusBarChart { Location = new Point(18, 54), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
@@ -391,7 +396,12 @@ namespace HVAC_Pro_Desktop.UI
             _tableStatusFilter.Items.Add("All Status");
             foreach (string status in ContractStatuses) _tableStatusFilter.Items.Add(status);
             _tableStatusFilter.SelectedIndex = 0;
-            _tableStatusFilter.SelectedIndexChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
+            _tableStatusFilter.SelectedIndexChanged += (s, e) =>
+            {
+                if (_refreshingDashboard) return;
+                _tablePage = 1;
+                RefreshDashboardTablesOnly();
+            };
             tableStatusHost.Controls.Add(_tableStatusFilter);
             card.Controls.Add(tableStatusHost);
 
@@ -820,14 +830,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshDashboard()
         {
-            List<AMCContract> contracts = GetContracts();
-            if (_siteFilterSiteId.HasValue)
-                contracts = contracts.Where(c => c.SiteID == _siteFilterSiteId.Value).ToList();
+            if (_refreshingDashboard) return;
 
-            RefreshStats(contracts);
-            RefreshCharts(contracts);
-            RefreshDashboardTablesOnly();
-            SetStatus(contracts.Count + " contracts.", Muted);
+            try
+            {
+                _refreshingDashboard = true;
+                List<AMCContract> contracts = GetContracts();
+                if (_siteFilterSiteId.HasValue)
+                    contracts = contracts.Where(c => c.SiteID == _siteFilterSiteId.Value).ToList();
+
+                RefreshStats(contracts);
+                RefreshCharts(contracts);
+                RefreshDashboardTablesOnly();
+                SetStatus(contracts.Count + " contracts.", Muted);
+            }
+            finally
+            {
+                _refreshingDashboard = false;
+            }
         }
 
         private void RefreshStats(List<AMCContract> contracts)
@@ -890,7 +910,13 @@ namespace HVAC_Pro_Desktop.UI
             _tablePage = PaginationState.NormalizePage(_tablePage, contracts.Count, pageSize);
             List<AMCContract> page = contracts.Skip((_tablePage - 1) * pageSize).Take(pageSize).ToList();
             RenderRecentTable(page);
-            _pagination?.SetState(_tablePage, contracts.Count, pageSize);
+            if (_pagination != null)
+            {
+                bool previous = _refreshingDashboard;
+                _refreshingDashboard = true;
+                try { _pagination.SetState(_tablePage, contracts.Count, pageSize); }
+                finally { _refreshingDashboard = previous; }
+            }
         }
 
         private List<AMCContract> GetFilteredDashboardContracts()
@@ -908,7 +934,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             string status = _tableStatusFilter == null ? "All Status" : Convert.ToString(_tableStatusFilter.SelectedItem);
             if (!string.IsNullOrWhiteSpace(status) && status != "All Status")
-                contracts = contracts.Where(c => GetDisplayStatus(c) == status || IsStatus(c, status));
+                contracts = contracts.Where(c => MatchesDashboardStatus(c, status));
             return contracts.OrderByDescending(c => c.ContractID).ToList();
         }
 
@@ -1741,6 +1767,22 @@ namespace HVAC_Pro_Desktop.UI
         private static bool IsStatus(AMCContract contract, string status)
         {
             return string.Equals(contract.ContractStatus, status, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool MatchesDashboardStatus(AMCContract contract, string selectedStatus)
+        {
+            if (contract == null || string.IsNullOrWhiteSpace(selectedStatus) || selectedStatus == "All Status")
+                return true;
+
+            string selected = selectedStatus.Trim();
+            string display = GetDisplayStatus(contract);
+            if (string.Equals(display, selected, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(selected, "Active", StringComparison.OrdinalIgnoreCase))
+                return IsStatus(contract, "Active") && !string.Equals(display, "Expired", StringComparison.OrdinalIgnoreCase);
+
+            return IsStatus(contract, selected);
         }
 
         private static string GetRenewalText(AMCContract contract)
