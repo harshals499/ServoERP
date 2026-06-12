@@ -901,7 +901,7 @@ namespace HVAC_Pro_Desktop.UI
                 Image = ModernIconSystem.IconBitmap(ModernIconSystem.KindForTitle(title), 18, Blue),
                 ImageAlign = ContentAlignment.MiddleLeft,
                 TextImageRelation = TextImageRelation.ImageBeforeText,
-                Width = 160,
+                Width = 184,
                 Height = 62,
                 Margin = new Padding(0, 0, 12, 0),
                 BackColor = CardBg,

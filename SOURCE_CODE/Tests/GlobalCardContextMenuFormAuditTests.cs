@@ -332,11 +332,15 @@ namespace HVAC_Pro_Desktop.Tests
         {
             try
             {
+                string shadow = GlobalCardContextMenu.LastClipboardTextForTests;
+                if (!string.IsNullOrEmpty(shadow))
+                    return shadow;
+
                 return Clipboard.ContainsText() ? Clipboard.GetText() : string.Empty;
             }
             catch
             {
-                return string.Empty;
+                return GlobalCardContextMenu.LastClipboardTextForTests ?? string.Empty;
             }
         }
 

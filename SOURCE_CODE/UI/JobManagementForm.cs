@@ -101,6 +101,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblPartsTotal;
         private ComboBox _cmbPartSearch;
         private NumericUpDown _numPartQty;
+        private NumericUpDown _numPartRate;
         private Label _lblPartStockHint;
         private Panel _partsAddPanel;
 
@@ -1601,24 +1602,28 @@ namespace HVAC_Pro_Desktop.UI
             _cmbPartSearch.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
             _cmbPartSearch.AutoCompleteSource = AutoCompleteSource.ListItems;
             _cmbPartSearch.TextChanged += (s, e) => UpdatePartStockHint();
+            _cmbPartSearch.SelectedIndexChanged += (s, e) => UpdatePartStockHint();
             _numPartQty = new NumericUpDown { Location = new Point(392, 10), Width = 96, DecimalPlaces = 3, Minimum = 0.001m, Maximum = 9999, Value = 1 };
+            _numPartRate = new NumericUpDown { Location = new Point(502, 10), Width = 112, DecimalPlaces = 2, Minimum = 0, Maximum = 9999999, Value = 0, ThousandsSeparator = true };
             Button btnAddPart = MakeInlineButton("Add", Teal, 86);
-            btnAddPart.Location = new Point(502, 9);
+            btnAddPart.Location = new Point(628, 9);
             btnAddPart.Click += async (s, e) => await AddPartAsync();
             _lblPartStockHint = new Label { Location = new Point(0, 48), Size = new Size(520, 20), ForeColor = TextHint, Font = new Font("Segoe UI", 8.8f) };
             _partsAddPanel.Resize += (s, e) =>
             {
                 int addWidth = 92;
                 int qtyWidth = 104;
+                int rateWidth = 116;
                 int gap = 12;
                 int available = Math.Max(320, _partsAddPanel.ClientSize.Width);
-                int comboWidth = Math.Max(260, available - addWidth - qtyWidth - (gap * 2));
+                int comboWidth = Math.Max(220, available - addWidth - qtyWidth - rateWidth - (gap * 3));
                 _cmbPartSearch.SetBounds(0, 10, comboWidth, 34);
                 _numPartQty.SetBounds(comboWidth + gap, 10, qtyWidth, 34);
-                btnAddPart.SetBounds(comboWidth + qtyWidth + (gap * 2), 9, addWidth, 36);
+                _numPartRate.SetBounds(comboWidth + qtyWidth + (gap * 2), 10, rateWidth, 34);
+                btnAddPart.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 9, addWidth, 36);
                 _lblPartStockHint.SetBounds(0, 50, Math.Max(260, available - 8), 20);
             };
-            _partsAddPanel.Controls.AddRange(new Control[] { _cmbPartSearch, _numPartQty, btnAddPart, _lblPartStockHint });
+            _partsAddPanel.Controls.AddRange(new Control[] { _cmbPartSearch, _numPartQty, _numPartRate, btnAddPart, _lblPartStockHint });
 
             _partsFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = White, Padding = new Padding(0, 6, 0, 8) };
             _lblPartsTotal = new Label { Dock = DockStyle.Bottom, Height = 34, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight };
@@ -1730,7 +1735,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _cmbPartSearch.Items.Clear();
             foreach (StockItem item in _inventory.OrderBy(i => i.ItemName))
-                _cmbPartSearch.Items.Add(new LookupItem<int?>(item.ItemID, item.ItemName + " (" + item.AvailableStock.ToString("0.###") + " " + (item.Unit ?? "Nos") + ")"));
+                _cmbPartSearch.Items.Add(new LookupItem<int?>(item.ItemID, BuildPartLookupText(item)));
         }
 
         /// <summary>Opens the job editor with a fresh draft from external navigation.</summary>
@@ -2471,13 +2476,27 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            string typed = _cmbPartSearch.Text?.Trim();
-            LookupItem<int?> selected = _cmbPartSearch.SelectedItem as LookupItem<int?>;
-            int? itemId = selected != null && selected.Value.HasValue ? selected.Value : (int?)null;
-            await Task.Run(() => _jobSvc.AddPartUsed(_currentDetail.Job.JobID, itemId, _numPartQty.Value, typed));
-            _cmbPartSearch.Text = string.Empty;
-            _numPartQty.Value = 1;
-            await LoadJobDetailAsync(_currentDetail.Job.JobID);
+            try
+            {
+                StockItem selectedStock = ResolveSelectedPartStock();
+                int? itemId = selectedStock == null ? (int?)null : selectedStock.ItemID;
+                string typed = selectedStock == null ? _cmbPartSearch.Text?.Trim() : selectedStock.ItemName;
+                decimal unitRate = _numPartRate == null ? 0m : _numPartRate.Value;
+
+                await Task.Run(() => _jobSvc.AddPartUsed(_currentDetail.Job.JobID, itemId, _numPartQty.Value, typed, unitRate));
+                _inventory = await Task.Run(() => _inventorySvc.GetAll());
+                BindPartInventory();
+                _cmbPartSearch.Text = string.Empty;
+                _numPartQty.Value = 1;
+                if (_numPartRate != null)
+                    _numPartRate.Value = 0;
+                UpdatePartStockHint();
+                await LoadJobDetailAsync(_currentDetail.Job.JobID);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Jobs"), "Adding material to job", ex);
+            }
         }
 
         private async Task RefreshTechnicianWorkloadAsync()
@@ -3258,10 +3277,60 @@ namespace HVAC_Pro_Desktop.UI
 
         private void UpdatePartStockHint()
         {
-            StockItem stock = _inventorySvc.GetByName(_cmbPartSearch.Text);
-            _lblPartStockHint.Text = stock == null
-                ? "Search material item name"
-                : "Available qty: " + stock.AvailableStock.ToString("0.###") + " " + (stock.Unit ?? "Nos") + " - Rate " + IndiaFormatHelper.FormatCurrency(stock.LastPurchaseRate);
+            StockItem stock = ResolveSelectedPartStock();
+            if (stock == null)
+            {
+                _lblPartStockHint.Text = "Search material item name";
+                return;
+            }
+
+            if (_numPartRate != null && !_numPartRate.Focused)
+            {
+                decimal rate = Math.Max(_numPartRate.Minimum, Math.Min(_numPartRate.Maximum, stock.LastPurchaseRate));
+                _numPartRate.Value = rate;
+            }
+
+            _lblPartStockHint.Text = "Available qty: " + stock.AvailableStock.ToString("0.###") + " " + (stock.Unit ?? "Nos")
+                + " - Rate " + IndiaFormatHelper.FormatCurrency(stock.LastPurchaseRate)
+                + " (edit Rate to update globally)";
+        }
+
+        private StockItem ResolveSelectedPartStock()
+        {
+            if (_cmbPartSearch == null)
+                return null;
+
+            LookupItem<int?> selected = _cmbPartSearch.SelectedItem as LookupItem<int?>;
+            if (selected != null && selected.Value.HasValue)
+            {
+                StockItem byId = _inventory.FirstOrDefault(i => i.ItemID == selected.Value.Value);
+                if (byId != null)
+                    return byId;
+
+                return _inventorySvc.GetById(selected.Value.Value);
+            }
+
+            string text = (_cmbPartSearch.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            StockItem exactName = _inventory.FirstOrDefault(i => string.Equals(i.ItemName, text, StringComparison.OrdinalIgnoreCase));
+            if (exactName != null)
+                return exactName;
+
+            StockItem exactDisplay = _inventory.FirstOrDefault(i => string.Equals(BuildPartLookupText(i), text, StringComparison.OrdinalIgnoreCase));
+            if (exactDisplay != null)
+                return exactDisplay;
+
+            return _inventory.FirstOrDefault(i => i.ItemName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private static string BuildPartLookupText(StockItem item)
+        {
+            if (item == null)
+                return string.Empty;
+
+            return item.ItemName + " (" + item.AvailableStock.ToString("0.###") + " " + (item.Unit ?? "Nos") + ")";
         }
 
         private void ShowChecklistBanner(string text)

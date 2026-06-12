@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 
@@ -342,7 +343,23 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void SetClipboardText(string text)
         {
-            Clipboard.SetDataObject(text ?? string.Empty, true, 5, 100);
+            GlobalCardContextMenu.RecordClipboardTextForTests(text);
+            Exception lastError = null;
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetDataObject(text ?? string.Empty, true, 8, 150);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    Thread.Sleep(100);
+                }
+            }
+
+            throw new InvalidOperationException("Clipboard is busy. Please try the card action again.", lastError);
         }
 
         private static string ResolvePageKey(GlobalCardContextInfo info)

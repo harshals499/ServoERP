@@ -48,6 +48,19 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.LogAction("EDIT", "Inventory", item.ItemID, "Material item saved");
             _audit.Record("EDIT", "Inventory", item.ItemID, "Material item saved with data-quality validation");
         }
+        public void UpdateMaterialRate(int itemId, decimal rate, string source = null)
+        {
+            SessionManager.DemandPermission("Inventory", "Edit");
+            if (itemId <= 0)
+                throw new Exception("Material item is required.");
+            if (rate < 0)
+                throw new Exception("Material rate cannot be negative.");
+
+            _repo.UpdateLastPurchaseRate(itemId, rate);
+            AppDataCache.RemovePrefix("inventory:");
+            SessionManager.LogAction("EDIT", "Inventory", itemId, "Material rate updated");
+            _audit.Record("EDIT", "Inventory", itemId, "Material rate updated" + (string.IsNullOrWhiteSpace(source) ? "." : " from " + source.Trim() + "."));
+        }
         public void Delete(int itemId)
         {
             SessionManager.DemandPermission("Inventory", "Delete");

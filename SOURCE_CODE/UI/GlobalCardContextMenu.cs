@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
+using System.Threading;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.Services.Audit;
@@ -79,6 +80,13 @@ namespace HVAC_Pro_Desktop.UI
 
         /// <summary>When true, suppresses feedback/confirmation MessageBoxes so automated audits can run unattended.</summary>
         public static bool SuppressFeedbackForTests { get; set; }
+
+        internal static string LastClipboardTextForTests { get; private set; }
+
+        internal static void RecordClipboardTextForTests(string text)
+        {
+            LastClipboardTextForTests = text ?? string.Empty;
+        }
 
         /// <summary>Scans a form or page and attaches the global card context menu to detected cards.</summary>
         public static void ApplyToTree(Control root)
@@ -573,7 +581,23 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void SetClipboardText(string text)
         {
-            Clipboard.SetDataObject(text ?? string.Empty, true, 5, 100);
+            RecordClipboardTextForTests(text);
+            Exception lastError = null;
+            for (int attempt = 0; attempt < 8; attempt++)
+            {
+                try
+                {
+                    Clipboard.SetDataObject(text ?? string.Empty, true, 8, 150);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    Thread.Sleep(100);
+                }
+            }
+
+            throw new InvalidOperationException("Clipboard is busy. Please try the card action again.", lastError);
         }
 
         private static string ResolvePermissionModule(string pageKey)

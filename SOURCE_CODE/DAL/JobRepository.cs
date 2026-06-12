@@ -341,6 +341,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureJobPartsSchema(conn);
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT p.*,
                            ISNULL(s.CurrentStock - ISNULL(s.ReservedStock, 0), 0) AS AvailableStock
@@ -365,6 +366,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureJobPartsSchema(conn);
                 using (SqlCommand cmd = new SqlCommand(@"
                     INSERT INTO JobPartsUsed
                         (JobId, InventoryItemId, ItemDescription, QuantityUsed, Unit, UnitCost, TotalCost, IsFromInventory, StockStatus)
@@ -502,6 +504,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                EnsureJobPartsSchema(conn);
                 using (SqlCommand cmd = new SqlCommand("SELECT ISNULL(SUM(TotalCost), 0) FROM JobPartsUsed WHERE JobId=@jobId", conn))
                 {
                     cmd.Parameters.AddWithValue("@jobId", jobId);
@@ -818,6 +821,37 @@ namespace HVAC_Pro_Desktop.DAL
                 StockStatus = GetString(r, "StockStatus"),
                 AvailableStock = HasColumn(r, "AvailableStock") ? GetDecimal(r, "AvailableStock") : 0m
             };
+        }
+
+        private static void EnsureJobPartsSchema(SqlConnection conn)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+IF OBJECT_ID('dbo.JobPartsUsed', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.JobPartsUsed (
+        PartUsedId INT IDENTITY(1,1) PRIMARY KEY,
+        JobId INT NOT NULL,
+        InventoryItemId INT NULL,
+        ItemDescription NVARCHAR(255) NOT NULL DEFAULT '',
+        QuantityUsed DECIMAL(10,3) NOT NULL DEFAULT 0,
+        Unit NVARCHAR(30) NOT NULL DEFAULT 'Nos',
+        UnitCost DECIMAL(18,2) NOT NULL DEFAULT 0,
+        TotalCost DECIMAL(18,2) NOT NULL DEFAULT 0,
+        IsFromInventory BIT NOT NULL DEFAULT 1,
+        StockStatus NVARCHAR(20) NULL
+    );
+END
+IF COL_LENGTH('dbo.JobPartsUsed', 'InventoryItemId') IS NULL ALTER TABLE dbo.JobPartsUsed ADD InventoryItemId INT NULL;
+IF COL_LENGTH('dbo.JobPartsUsed', 'ItemDescription') IS NULL ALTER TABLE dbo.JobPartsUsed ADD ItemDescription NVARCHAR(255) NOT NULL DEFAULT '';
+IF COL_LENGTH('dbo.JobPartsUsed', 'QuantityUsed') IS NULL ALTER TABLE dbo.JobPartsUsed ADD QuantityUsed DECIMAL(10,3) NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.JobPartsUsed', 'Unit') IS NULL ALTER TABLE dbo.JobPartsUsed ADD Unit NVARCHAR(30) NOT NULL DEFAULT 'Nos';
+IF COL_LENGTH('dbo.JobPartsUsed', 'UnitCost') IS NULL ALTER TABLE dbo.JobPartsUsed ADD UnitCost DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.JobPartsUsed', 'TotalCost') IS NULL ALTER TABLE dbo.JobPartsUsed ADD TotalCost DECIMAL(18,2) NOT NULL DEFAULT 0;
+IF COL_LENGTH('dbo.JobPartsUsed', 'IsFromInventory') IS NULL ALTER TABLE dbo.JobPartsUsed ADD IsFromInventory BIT NOT NULL DEFAULT 1;
+IF COL_LENGTH('dbo.JobPartsUsed', 'StockStatus') IS NULL ALTER TABLE dbo.JobPartsUsed ADD StockStatus NVARCHAR(20) NULL;", conn))
+            {
+                cmd.ExecuteNonQuery();
+            }
         }
 
         private static JobActivityEntry MapActivityEntry(SqlDataReader r)

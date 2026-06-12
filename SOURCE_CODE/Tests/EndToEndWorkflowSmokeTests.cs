@@ -117,7 +117,7 @@ namespace HVAC_Pro_Desktop.Tests
             data.Site = EnsureSite(clientService, siteService, data.Client, report);
             data.Vendor = EnsureVendor(report);
             data.StockItem = EnsureStockItem(inventoryService, data.Vendor, report);
-            data.Job = EnsureJob(jobService, data.Client, data.Site, report);
+            data.Job = EnsureJob(jobService, inventoryService, data.Client, data.Site, data.StockItem, report);
             data.Quotation = EnsureQuotation(tenderService, data.Client, data.Site, data.Job, data.StockItem, data.Vendor, report);
             data.PurchaseOrder = EnsurePurchaseOrder(purchaseService, inventoryService, data.Client, data.Site, data.Job, data.Quotation, data.StockItem, data.Vendor, report);
             data.Invoice = EnsureInvoice(invoiceService, jobService, data.Client, data.Site, data.Job, data.Quotation, report);
@@ -302,7 +302,7 @@ namespace HVAC_Pro_Desktop.Tests
             return service.GetById(item.ItemID);
         }
 
-        private static Job EnsureJob(JobService service, B2BClient client, ClientSite site, WorkflowReport report)
+        private static Job EnsureJob(JobService service, InventoryService inventoryService, B2BClient client, ClientSite site, StockItem item, WorkflowReport report)
         {
             report.Start("Create job/service call");
             Job job = service.GetAll()
@@ -343,7 +343,39 @@ namespace HVAC_Pro_Desktop.Tests
             JobDetailDto detail = service.GetJobDetail(job.JobID);
             Assert(detail != null && detail.Job != null, "JobDetailPage data source failed.");
             Assert(detail.Job.ClientID == client.ClientID && detail.Job.SiteID == site.SiteID, "Job client/site links are incorrect.");
+            VerifyJobMaterialAddAndGlobalRate(service, inventoryService, job, item, report);
             return service.GetById(job.JobID);
+        }
+
+        private static void VerifyJobMaterialAddAndGlobalRate(JobService jobService, InventoryService inventoryService, Job job, StockItem item, WorkflowReport report)
+        {
+            report.Start("Add material to job with global rate update");
+            Assert(job != null && job.JobID > 0, "Job is required before adding material.");
+            Assert(item != null && item.ItemID > 0, "Inventory material is required before adding job material.");
+
+            StockItem freshItem = inventoryService.GetById(item.ItemID);
+            Assert(freshItem != null, "Inventory material could not be reloaded for job material test.");
+            decimal requiredQty = 1m;
+            if (freshItem.AvailableStock < requiredQty)
+            {
+                inventoryService.AddStock(freshItem.ItemID, requiredQty - freshItem.AvailableStock + 2m);
+                freshItem = inventoryService.GetById(freshItem.ItemID);
+            }
+
+            decimal expectedRate = 221.75m + ((Environment.TickCount & 0xFF) / 100m);
+            JobPartUsed added = jobService.AddPartUsed(job.JobID, freshItem.ItemID, requiredQty, freshItem.ItemName, expectedRate);
+            Assert(added != null && added.InventoryItemId == freshItem.ItemID, "JobService.AddPartUsed did not return the selected inventory material.");
+            Assert(Math.Abs(added.UnitCost - expectedRate) < 0.01m, "Job part did not use the edited material rate.");
+
+            JobDetailDto afterAdd = jobService.GetJobDetail(job.JobID);
+            Assert(afterAdd.PartsUsed.Any(p => p.InventoryItemId == freshItem.ItemID && Math.Abs(p.UnitCost - expectedRate) < 0.01m),
+                "Job detail did not show the added inventory material.");
+
+            StockItem afterRate = inventoryService.GetById(freshItem.ItemID);
+            Assert(afterRate != null && Math.Abs(afterRate.LastPurchaseRate - expectedRate) < 0.01m,
+                "Edited job material rate was not saved globally to inventory.");
+
+            report.Pass("Job material add path saved the selected inventory item and updated the global material rate.");
         }
 
         private static TenderBid EnsureQuotation(TenderService service, B2BClient client, ClientSite site, Job job, StockItem item, Vendor vendor, WorkflowReport report)

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.40.0 - 2026-06-12
+
+- Fixed job material entry so selecting a material reliably adds it to the saved job, refreshes stock, and shows the added part in job details.
+- Added an editable Rate field beside job material quantity; changing it while adding a selected material updates that material's global purchase rate.
+- Added smoke coverage for job material add plus global material-rate persistence.
+- Fixed report library tile sizing and hardened global card-menu clipboard audit behavior so `/smoketest` completes reliably.
+
 ## 1.1.34.0 - 2026-06-12
 
 - Made `RMT` available through the shared unit catalog and all major material/line-item unit selectors, including Inventory, Purchases, Invoices, and Quotations.

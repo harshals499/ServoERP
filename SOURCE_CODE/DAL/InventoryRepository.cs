@@ -108,6 +108,32 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void UpdateLastPurchaseRate(int itemId, decimal rate)
+        {
+            if (itemId <= 0)
+                throw new ArgumentException("Material item is required.", nameof(itemId));
+            if (rate < 0)
+                throw new ArgumentException("Material rate cannot be negative.", nameof(rate));
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                EnsureStockItemsSchema(conn, null);
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE StockItems
+                       SET LastPurchaseRate = @rate,
+                           LastUpdated = GETDATE()
+                     WHERE ItemID = @id
+                       AND ISNULL(IsActive, 1) = 1", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", itemId);
+                    cmd.Parameters.AddWithValue("@rate", rate);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+
         public void Delete(int itemId)
         {
             using (SqlConnection conn = _db.GetConnection())

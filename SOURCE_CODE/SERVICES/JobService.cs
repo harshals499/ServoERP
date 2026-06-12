@@ -207,17 +207,20 @@ namespace HVAC_Pro_Desktop.Services
             AppDataCache.RemovePrefix("jobs:");
         }
 
-        public JobPartUsed AddPartUsed(int jobId, int? inventoryItemId, decimal qty, string itemDescription = null)
+        public JobPartUsed AddPartUsed(int jobId, int? inventoryItemId, decimal qty, string itemDescription = null, decimal? unitCostOverride = null)
         {
             SessionManager.DemandPermission("WorkOrders", "Edit");
             if (qty <= 0)
                 throw new Exception("Quantity must be greater than zero.");
+            if (unitCostOverride.HasValue && unitCostOverride.Value < 0)
+                throw new Exception("Material rate cannot be negative.");
 
             StockItem item = inventoryItemId.HasValue ? _inventoryService.GetById(inventoryItemId.Value) : _inventoryService.GetByName(itemDescription);
             if (item == null && string.IsNullOrWhiteSpace(itemDescription))
                 throw new Exception("Select a valid inventory item.");
 
             string resolvedDescription = item?.ItemName ?? itemDescription?.Trim();
+            decimal unitCost = unitCostOverride.HasValue ? unitCostOverride.Value : (item?.LastPurchaseRate ?? 0m);
             decimal available = item?.AvailableStock ?? 0m;
             string stockStatus = "InStock";
             if (item != null)
@@ -237,8 +240,8 @@ namespace HVAC_Pro_Desktop.Services
                 ItemDescription = resolvedDescription,
                 QuantityUsed = qty,
                 Unit = item?.Unit ?? "Nos",
-                UnitCost = item?.LastPurchaseRate ?? 0m,
-                TotalCost = Math.Round(qty * (item?.LastPurchaseRate ?? 0m), 2),
+                UnitCost = unitCost,
+                TotalCost = Math.Round(qty * unitCost, 2),
                 IsFromInventory = item != null,
                 StockStatus = stockStatus,
                 AvailableStock = available
@@ -246,7 +249,11 @@ namespace HVAC_Pro_Desktop.Services
 
             _repo.AddPartUsed(part);
             if (item != null)
+            {
+                if (unitCostOverride.HasValue && Math.Abs(unitCostOverride.Value - item.LastPurchaseRate) >= 0.01m)
+                    _inventoryService.UpdateMaterialRate(item.ItemID, unitCostOverride.Value, "job material selection");
                 _inventoryService.AddStock(item.ItemID, -qty);
+            }
 
             LogActivity(jobId, "Part added: " + resolvedDescription + " x" + qty.ToString("0.###"), stockStatus == "InStock" ? "Info" : "Warning");
             AppDataCache.RemovePrefix("jobs:");
