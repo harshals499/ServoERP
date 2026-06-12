@@ -361,6 +361,7 @@
     <Compile Include="SERVICES\AppStartupService.cs" />
     <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
     <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
+    <Compile Include="SERVICES\OfflineSyncService.cs" />
     <Compile Include="SERVICES\UpdateService.cs" />
     <Compile Include="SERVICES\VersionCheckService.cs" />
     <Compile Include="SERVICES\AMCVisitScheduler.cs" />

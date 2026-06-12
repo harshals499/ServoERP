@@ -3474,6 +3474,13 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     int id = _invSvc.CreateInvoiceWithLineItems(inv);
                     inv.InvoiceID = id;
+                    if (id < 0)
+                    {
+                        _current = inv;
+                        ShowStatus("Invoice draft saved locally. It will sync when the office SQL Server is back.", OrangeCol);
+                        ToastNotification.Show(this, "Invoice saved locally pending sync.", OrangeCol);
+                        return;
+                    }
                     _current = _invSvc.GetInvoiceById(id);
                     PopulateForm(_current);
                     ShowStatus("Invoice saved: " + _current.InvoiceNumber, SaveGreen);
@@ -3486,6 +3493,14 @@ namespace HVAC_Pro_Desktop.UI
                     inv.InvoiceID = _current.InvoiceID;
                     inv.InvoiceNumber = _current.InvoiceNumber;
                     inv.PaidAmount = _current.PaidAmount;
+                    if (_current.InvoiceID < 0)
+                    {
+                        OfflineSyncService.Queue("Invoices", "CreateDraft", inv, null, false, "Updated local pending invoice before SQL sync.");
+                        _current = inv;
+                        ShowStatus("Invoice update saved locally. It will sync when the office SQL Server is back.", OrangeCol);
+                        ToastNotification.Show(this, "Invoice update saved locally pending sync.", OrangeCol);
+                        return;
+                    }
                     _invSvc.UpdateInvoiceWithLineItems(inv);
                     _current = _invSvc.GetInvoiceById(_current.InvoiceID);
                     PopulateForm(_current);

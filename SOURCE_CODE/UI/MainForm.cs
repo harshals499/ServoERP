@@ -45,6 +45,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _closeBackupAttempted;
         private bool _hideUpdateBannerForSession;
         private bool _silentUpdateApplyAttempted;
+        private bool _offlineSyncRunning;
         private UpdateCheckResult _latestUpdateResult;
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
         private readonly LinkedList<int> _pageUsage = new LinkedList<int>();
@@ -1002,6 +1003,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 RefreshDatabaseStatusBanner(e.Snapshot);
+                TryRunOfflineSync(e.Snapshot);
             }
             catch (Exception ex)
             {
@@ -1009,6 +1011,35 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void TryRunOfflineSync(DatabaseConnectionStateSnapshot snapshot)
+        {
+            if (snapshot == null || !snapshot.BusinessWritesAllowed || _offlineSyncRunning)
+                return;
+
+            _offlineSyncRunning = true;
+            Task.Run(() =>
+            {
+                try
+                {
+                    int synced = OfflineSyncService.TryReplayPending();
+                    if (synced > 0 && !IsDisposed && IsHandleCreated)
+                    {
+                        BeginInvoke((Action)(() =>
+                        {
+                            ToastNotification.Show(this, synced + " offline item(s) synced.", DS.Teal600);
+                        }));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("MainForm.TryRunOfflineSync", ex);
+                }
+                finally
+                {
+                    _offlineSyncRunning = false;
+                }
+            });
+        }
         private void RefreshDatabaseStatusBanner(DatabaseConnectionStateSnapshot snapshot)
         {
             if (_pnlDatabaseStatusBanner == null || _lblDatabaseStatusMessage == null || snapshot == null)

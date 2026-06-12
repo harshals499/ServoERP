@@ -176,11 +176,20 @@ namespace HVAC_Pro_Desktop.Services
             client.CustomerSince = client.CustomerSince == default
                 ? DateTime.Today
                 : client.CustomerSince;
-            int id = _clientRepo.Create(client);
-            _clientRepo.ReplaceClientContacts(id, client.Contacts ?? new List<ClientContact>());
-            AppDataCache.RemovePrefix("clients:");
-            _audit.Record("CREATE", "Clients", id, "Client saved with data-quality validation");
-            return id;
+            try
+            {
+                int id = _clientRepo.Create(client);
+                _clientRepo.ReplaceClientContacts(id, client.Contacts ?? new List<ClientContact>());
+                AppDataCache.RemovePrefix("clients:");
+                _audit.Record("CREATE", "Clients", id, "Client saved with data-quality validation");
+                return id;
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineQueueResult queued = OfflineSyncService.Queue("Clients", "Create", client, null, false, ex.Message);
+                AppDataCache.RemovePrefix("clients:");
+                return queued.LocalId;
+            }
         }
 
         // ── UPDATE ───────────────────────────────────────────
@@ -188,10 +197,18 @@ namespace HVAC_Pro_Desktop.Services
         {
             SessionManager.DemandPermission("Clients", "Edit");
             ValidateClientForSave(client);
-            _clientRepo.Update(client);
-            _clientRepo.ReplaceClientContacts(client.ClientID, client.Contacts ?? new List<ClientContact>());
-            AppDataCache.RemovePrefix("clients:");
-            _audit.Record("EDIT", "Clients", client.ClientID, "Client saved with data-quality validation");
+            try
+            {
+                _clientRepo.Update(client);
+                _clientRepo.ReplaceClientContacts(client.ClientID, client.Contacts ?? new List<ClientContact>());
+                AppDataCache.RemovePrefix("clients:");
+                _audit.Record("EDIT", "Clients", client.ClientID, "Client saved with data-quality validation");
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineSyncService.Queue("Clients", "Update", client, client.ClientID, false, ex.Message);
+                AppDataCache.RemovePrefix("clients:");
+            }
         }
 
         /// <summary>Updates a client's lifecycle status without rewriting the full client profile.</summary>

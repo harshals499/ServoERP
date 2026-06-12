@@ -54,38 +54,48 @@ namespace HVAC_Pro_Desktop.Services
             if (payment.PaymentDate == default)
                 payment.PaymentDate = DateTime.Today;
 
-            // Fetch invoice to check balance
-            Invoice inv = _invoiceRepo.GetById(payment.InvoiceID);
-            if (inv == null)
-                throw new Exception("Invoice not found.");
-            payment.ClientID = inv.ClientID;
-            ValidatePaymentForSave(payment);
-
-            decimal alreadyPaid = _paymentRepo.GetTotalPaidForInvoice(payment.InvoiceID);
-            decimal remaining   = inv.TotalAmount - alreadyPaid;
-
-            if (payment.AmountPaid > remaining + 0.01m)   // 1-paisa tolerance for rounding
-                throw new Exception(
-                    $"Amount paid (₹{payment.AmountPaid:N2}) exceeds the outstanding balance " +
-                    $"(₹{remaining:N2}) for this invoice.");
-
-            // Save payment
-            if (SessionManager.IsLoggedIn)
+            try
             {
-                payment.CreatedByUserId = SessionManager.CurrentUser.UserId;
-                payment.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                // Fetch invoice to check balance
+                Invoice inv = _invoiceRepo.GetById(payment.InvoiceID);
+                if (inv == null)
+                    throw new Exception("Invoice not found.");
+                payment.ClientID = inv.ClientID;
+                ValidatePaymentForSave(payment);
+
+                decimal alreadyPaid = _paymentRepo.GetTotalPaidForInvoice(payment.InvoiceID);
+                decimal remaining   = inv.TotalAmount - alreadyPaid;
+
+                if (payment.AmountPaid > remaining + 0.01m)   // 1-paisa tolerance for rounding
+                    throw new Exception(
+                        $"Amount paid (₹{payment.AmountPaid:N2}) exceeds the outstanding balance " +
+                        $"(₹{remaining:N2}) for this invoice.");
+
+                // Save payment
+                if (SessionManager.IsLoggedIn)
+                {
+                    payment.CreatedByUserId = SessionManager.CurrentUser.UserId;
+                    payment.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                }
+                payment.PaymentNumber = _paymentRepo.GeneratePaymentNumber();
+                int paymentId = _paymentRepo.Create(payment);
+
+                // Recalculate invoice status
+                RecalculateInvoiceStatus(payment.InvoiceID);
+                AppDataCache.RemovePrefix("payments:");
+                AppDataCache.RemovePrefix("invoices:");
+                SessionManager.LogAction("CREATE", "Payments", paymentId, "Payment recorded");
+                _audit.Record("CREATE", "Payments", paymentId, "Payment " + payment.PaymentNumber + " recorded against invoice #" + payment.InvoiceID + " for " + payment.AmountPaid.ToString("N2"));
+
+                return paymentId;
             }
-            payment.PaymentNumber = _paymentRepo.GeneratePaymentNumber();
-            int paymentId = _paymentRepo.Create(payment);
-
-            // Recalculate invoice status
-            RecalculateInvoiceStatus(payment.InvoiceID);
-            AppDataCache.RemovePrefix("payments:");
-            AppDataCache.RemovePrefix("invoices:");
-            SessionManager.LogAction("CREATE", "Payments", paymentId, "Payment recorded");
-            _audit.Record("CREATE", "Payments", paymentId, "Payment " + payment.PaymentNumber + " recorded against invoice #" + payment.InvoiceID + " for " + payment.AmountPaid.ToString("N2"));
-
-            return paymentId;
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineQueueResult queued = OfflineSyncService.Queue("Payments", "RecordDraft", payment, payment.InvoiceID, true, ex.Message);
+                AppDataCache.RemovePrefix("payments:");
+                AppDataCache.RemovePrefix("invoices:");
+                return queued.LocalId;
+            }
         }
 
         // ── STATUS RECALCULATION ─────────────────────────────

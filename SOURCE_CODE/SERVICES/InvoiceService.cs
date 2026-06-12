@@ -119,31 +119,43 @@ namespace HVAC_Pro_Desktop.Services
         public int CreateInvoiceWithLineItems(Invoice inv)
         {
             SessionManager.DemandPermission("Invoices", "Create");
-            NormalizeInvoiceLineItems(inv);
-            ValidateInvoice(inv);
-            PopulateInvoiceDefaults(inv);
-            RecalculateTotals(inv);
-            ValidateInvoiceForSave(inv);
-            if (SessionManager.IsLoggedIn)
+            try
             {
-                inv.CreatedByUserId = SessionManager.CurrentUser.UserId;
-                inv.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                NormalizeInvoiceLineItems(inv);
+                ValidateInvoice(inv);
+                PopulateInvoiceDefaults(inv);
+                RecalculateTotals(inv);
+                ValidateInvoiceForSave(inv);
+                if (SessionManager.IsLoggedIn)
+                {
+                    inv.CreatedByUserId = SessionManager.CurrentUser.UserId;
+                    inv.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                }
+                if (string.IsNullOrWhiteSpace(inv.InvoiceNumber))
+                    inv.InvoiceNumber = _invoiceRepo.GenerateInvoiceNumber();
+                inv.BalanceDue    = inv.TotalAmount - inv.PaidAmount;
+                if (string.IsNullOrEmpty(inv.PaymentStatus))
+                    inv.PaymentStatus = "Draft";
+                int id = _invoiceRepo.Create(inv);
+                if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
+                {
+                    _invoiceInventorySvc.SyncDraftReservations(id, inv.LineItems);
+                    MarkInventoryReservationStatus(id, "Reserved");
+                }
+                AppDataCache.RemovePrefix("invoices:");
+                SessionManager.LogAction("CREATE", "Invoices", id, "Invoice saved");
+                _audit.Record("CREATE", "Invoices", id, "Invoice saved with data-quality validation");
+                return id;
             }
-            if (string.IsNullOrWhiteSpace(inv.InvoiceNumber))
-                inv.InvoiceNumber = _invoiceRepo.GenerateInvoiceNumber();
-            inv.BalanceDue    = inv.TotalAmount - inv.PaidAmount;
-            if (string.IsNullOrEmpty(inv.PaymentStatus))
-                inv.PaymentStatus = "Draft";
-            int id = _invoiceRepo.Create(inv);
-            if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                _invoiceInventorySvc.SyncDraftReservations(id, inv.LineItems);
-                MarkInventoryReservationStatus(id, "Reserved");
+                if (string.IsNullOrEmpty(inv.PaymentStatus))
+                    inv.PaymentStatus = "Draft";
+                bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
+                OfflineQueueResult queued = OfflineSyncService.Queue("Invoices", "CreateDraft", inv, null, review, ex.Message);
+                AppDataCache.RemovePrefix("invoices:");
+                return queued.LocalId;
             }
-            AppDataCache.RemovePrefix("invoices:");
-            SessionManager.LogAction("CREATE", "Invoices", id, "Invoice saved");
-            _audit.Record("CREATE", "Invoices", id, "Invoice saved with data-quality validation");
-            return id;
         }
 
         /// <summary>
@@ -156,28 +168,37 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null || inv.InvoiceID <= 0)
                 throw new Exception("Invoice not found.");
 
-            NormalizeInvoiceLineItems(inv);
-            ValidateInvoice(inv);
-            PopulateInvoiceDefaults(inv);
-            RecalculateTotals(inv);
-            ValidateInvoiceForSave(inv);
-            if (SessionManager.IsLoggedIn)
+            try
             {
-                inv.ModifiedByUserId = SessionManager.CurrentUser.UserId;
-                inv.ModifiedByName = SessionManager.CurrentUser.DisplayName;
-                inv.ModifiedDate = DateTime.Now;
+                NormalizeInvoiceLineItems(inv);
+                ValidateInvoice(inv);
+                PopulateInvoiceDefaults(inv);
+                RecalculateTotals(inv);
+                ValidateInvoiceForSave(inv);
+                if (SessionManager.IsLoggedIn)
+                {
+                    inv.ModifiedByUserId = SessionManager.CurrentUser.UserId;
+                    inv.ModifiedByName = SessionManager.CurrentUser.DisplayName;
+                    inv.ModifiedDate = DateTime.Now;
+                }
+                inv.BalanceDue = inv.TotalAmount - inv.PaidAmount;
+                _invoiceRepo.Update(inv);
+                _invoiceRepo.SaveLineItems(inv.InvoiceID, inv.LineItems ?? new List<InvoiceLineItem>());
+                if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
+                {
+                    _invoiceInventorySvc.SyncDraftReservations(inv.InvoiceID, inv.LineItems);
+                    MarkInventoryReservationStatus(inv.InvoiceID, "Reserved");
+                }
+                AppDataCache.RemovePrefix("invoices:");
+                SessionManager.LogAction("EDIT", "Invoices", inv.InvoiceID, "Invoice saved");
+                _audit.Record("EDIT", "Invoices", inv.InvoiceID, "Invoice saved with data-quality validation");
             }
-            inv.BalanceDue = inv.TotalAmount - inv.PaidAmount;
-            _invoiceRepo.Update(inv);
-            _invoiceRepo.SaveLineItems(inv.InvoiceID, inv.LineItems ?? new List<InvoiceLineItem>());
-            if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                _invoiceInventorySvc.SyncDraftReservations(inv.InvoiceID, inv.LineItems);
-                MarkInventoryReservationStatus(inv.InvoiceID, "Reserved");
+                bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
+                OfflineSyncService.Queue("Invoices", "UpdateDraft", inv, inv.InvoiceID, review, ex.Message);
+                AppDataCache.RemovePrefix("invoices:");
             }
-            AppDataCache.RemovePrefix("invoices:");
-            SessionManager.LogAction("EDIT", "Invoices", inv.InvoiceID, "Invoice saved");
-            _audit.Record("EDIT", "Invoices", inv.InvoiceID, "Invoice saved with data-quality validation");
         }
 
         /// <summary>

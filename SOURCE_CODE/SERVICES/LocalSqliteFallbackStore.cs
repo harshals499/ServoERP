@@ -105,7 +105,8 @@ WHERE Id = 1;", conn))
                     builder.AppendLine("SQL Status: " + SafeRead(reader, 5));
                     builder.AppendLine("Last SQL Error: " + SafeRead(reader, 6));
                     builder.AppendLine("Last Successful SQL UTC: " + SafeRead(reader, 7));
-                    builder.AppendLine("Business Writes: disabled; SQL Server remains the source of truth.");
+                    builder.AppendLine("Offline Pending Items: " + OfflineSyncService.GetPendingCount());
+                    builder.AppendLine("Business Writes: local queue enabled; SQL Server remains the source of truth after sync.");
                     return builder.ToString();
                 }
             }

@@ -79,22 +79,31 @@ namespace HVAC_Pro_Desktop.Services
             if (job == null)
                 throw new Exception("Job payload is missing.");
 
-            NormalizeJob(job, isNewJob: true);
-            if (SessionManager.IsLoggedIn)
+            try
             {
-                job.CreatedByUserId = SessionManager.CurrentUser.UserId;
-                job.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                NormalizeJob(job, isNewJob: true);
+                if (SessionManager.IsLoggedIn)
+                {
+                    job.CreatedByUserId = SessionManager.CurrentUser.UserId;
+                    job.CreatedByName = SessionManager.CurrentUser.DisplayName;
+                }
+
+                int id = _repo.Create(job);
+                if (!string.IsNullOrWhiteSpace(job.JobType))
+                    _repo.ReplaceChecklistFromTemplate(id, job.JobType);
+
+                LogActivity(id, "Job created by " + GetCurrentUserLabel(), "Success");
+                AppDataCache.RemovePrefix("jobs:");
+                SessionManager.LogAction("CREATE", "WorkOrders", id, "Work order saved");
+                _audit.Record("CREATE", "WorkOrders", id, "Work order saved with data-quality validation");
+                return id;
             }
-
-            int id = _repo.Create(job);
-            if (!string.IsNullOrWhiteSpace(job.JobType))
-                _repo.ReplaceChecklistFromTemplate(id, job.JobType);
-
-            LogActivity(id, "Job created by " + GetCurrentUserLabel(), "Success");
-            AppDataCache.RemovePrefix("jobs:");
-            SessionManager.LogAction("CREATE", "WorkOrders", id, "Work order saved");
-            _audit.Record("CREATE", "WorkOrders", id, "Work order saved with data-quality validation");
-            return id;
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineQueueResult queued = OfflineSyncService.Queue("Jobs", "Create", job, null, false, ex.Message);
+                AppDataCache.RemovePrefix("jobs:");
+                return queued.LocalId;
+            }
         }
 
         public void Update(Job job)
@@ -103,19 +112,27 @@ namespace HVAC_Pro_Desktop.Services
             if (job == null || job.JobID <= 0)
                 throw new Exception("Job not found.");
 
-            NormalizeJob(job, isNewJob: false);
-            if (SessionManager.IsLoggedIn)
+            try
             {
-                job.ModifiedByUserId = SessionManager.CurrentUser.UserId;
-                job.ModifiedByName = SessionManager.CurrentUser.DisplayName;
-                job.ModifiedDate = DateTime.Now;
-            }
+                NormalizeJob(job, isNewJob: false);
+                if (SessionManager.IsLoggedIn)
+                {
+                    job.ModifiedByUserId = SessionManager.CurrentUser.UserId;
+                    job.ModifiedByName = SessionManager.CurrentUser.DisplayName;
+                    job.ModifiedDate = DateTime.Now;
+                }
 
-            _repo.Update(job);
-            AppDataCache.RemovePrefix("jobs:");
-            SessionManager.LogAction("EDIT", "WorkOrders", job.JobID, "Work order saved");
-            _audit.Record("EDIT", "WorkOrders", job.JobID, "Work order saved with data-quality validation");
-            LogActivity(job.JobID, "Job details updated by " + GetCurrentUserLabel(), "Info");
+                _repo.Update(job);
+                AppDataCache.RemovePrefix("jobs:");
+                SessionManager.LogAction("EDIT", "WorkOrders", job.JobID, "Work order saved");
+                _audit.Record("EDIT", "WorkOrders", job.JobID, "Work order saved with data-quality validation");
+                LogActivity(job.JobID, "Job details updated by " + GetCurrentUserLabel(), "Info");
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineSyncService.Queue("Jobs", "Update", job, job.JobID, false, ex.Message);
+                AppDataCache.RemovePrefix("jobs:");
+            }
         }
 
         public void Delete(int jobId)
@@ -215,52 +232,79 @@ namespace HVAC_Pro_Desktop.Services
             if (unitCostOverride.HasValue && unitCostOverride.Value < 0)
                 throw new Exception("Material rate cannot be negative.");
 
-            StockItem item = inventoryItemId.HasValue ? _inventoryService.GetById(inventoryItemId.Value) : _inventoryService.GetByName(itemDescription);
-            if (item == null && string.IsNullOrWhiteSpace(itemDescription))
-                throw new Exception("Select a valid inventory item.");
-
-            string resolvedDescription = item?.ItemName ?? itemDescription?.Trim();
-            decimal unitCost = unitCostOverride.HasValue ? unitCostOverride.Value : (item?.LastPurchaseRate ?? 0m);
-            decimal available = item?.AvailableStock ?? 0m;
-            string stockStatus = "InStock";
-            bool shouldPostStockMovement = item != null && available >= qty;
-            if (item != null)
+            try
             {
-                if (available < qty)
-                    stockStatus = "OutOfStock";
-                else if (available - qty <= item.ReorderLevel)
-                    stockStatus = "LowStock";
+                StockItem item = inventoryItemId.HasValue ? _inventoryService.GetById(inventoryItemId.Value) : _inventoryService.GetByName(itemDescription);
+                if (item == null && string.IsNullOrWhiteSpace(itemDescription))
+                    throw new Exception("Select a valid inventory item.");
+
+                string resolvedDescription = item?.ItemName ?? itemDescription?.Trim();
+                decimal unitCost = unitCostOverride.HasValue ? unitCostOverride.Value : (item?.LastPurchaseRate ?? 0m);
+                decimal available = item?.AvailableStock ?? 0m;
+                string stockStatus = "InStock";
+                bool shouldPostStockMovement = item != null && available >= qty;
+                if (item != null)
+                {
+                    if (available < qty)
+                        stockStatus = "OutOfStock";
+                    else if (available - qty <= item.ReorderLevel)
+                        stockStatus = "LowStock";
+                }
+
+                var part = new JobPartUsed
+                {
+                    JobId = jobId,
+                    InventoryItemId = item?.ItemID,
+                    ItemDescription = resolvedDescription,
+                    QuantityUsed = qty,
+                    Unit = item?.Unit ?? "Nos",
+                    UnitCost = unitCost,
+                    TotalCost = Math.Round(qty * unitCost, 2),
+                    IsFromInventory = item != null,
+                    StockStatus = stockStatus,
+                    AvailableStock = available
+                };
+
+                _repo.AddPartUsed(part);
+                if (item != null)
+                {
+                    if (unitCostOverride.HasValue && Math.Abs(unitCostOverride.Value - item.LastPurchaseRate) >= 0.01m)
+                        _inventoryService.UpdateMaterialRate(item.ItemID, unitCostOverride.Value, "job material selection");
+                    if (shouldPostStockMovement)
+                        _inventoryService.AddStock(item.ItemID, -qty);
+                }
+
+                string activity = "Part added: " + resolvedDescription + " x" + qty.ToString("0.###");
+                if (item != null && !shouldPostStockMovement)
+                    activity += " (stock not deducted; available " + available.ToString("0.###") + ")";
+                LogActivity(jobId, activity, stockStatus == "InStock" ? "Info" : "Warning");
+                AppDataCache.RemovePrefix("jobs:");
+                return part;
             }
-
-            var part = new JobPartUsed
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                JobId = jobId,
-                InventoryItemId = item?.ItemID,
-                ItemDescription = resolvedDescription,
-                QuantityUsed = qty,
-                Unit = item?.Unit ?? "Nos",
-                UnitCost = unitCost,
-                TotalCost = Math.Round(qty * unitCost, 2),
-                IsFromInventory = item != null,
-                StockStatus = stockStatus,
-                AvailableStock = available
-            };
+                OfflineSyncService.Queue("Jobs", "AddPart", new
+                {
+                    JobId = jobId,
+                    InventoryItemId = inventoryItemId,
+                    Quantity = qty,
+                    ItemDescription = itemDescription,
+                    UnitCostOverride = unitCostOverride
+                }, jobId, true, ex.Message);
 
-            _repo.AddPartUsed(part);
-            if (item != null)
-            {
-                if (unitCostOverride.HasValue && Math.Abs(unitCostOverride.Value - item.LastPurchaseRate) >= 0.01m)
-                    _inventoryService.UpdateMaterialRate(item.ItemID, unitCostOverride.Value, "job material selection");
-                if (shouldPostStockMovement)
-                    _inventoryService.AddStock(item.ItemID, -qty);
+                AppDataCache.RemovePrefix("jobs:");
+                return new JobPartUsed
+                {
+                    JobId = jobId,
+                    InventoryItemId = inventoryItemId,
+                    ItemDescription = string.IsNullOrWhiteSpace(itemDescription) ? "Material pending sync" : itemDescription.Trim(),
+                    QuantityUsed = qty,
+                    Unit = "Nos",
+                    UnitCost = unitCostOverride ?? 0m,
+                    TotalCost = Math.Round(qty * (unitCostOverride ?? 0m), 2),
+                    StockStatus = "PendingSync"
+                };
             }
-
-            string activity = "Part added: " + resolvedDescription + " x" + qty.ToString("0.###");
-            if (item != null && !shouldPostStockMovement)
-                activity += " (stock not deducted; available " + available.ToString("0.###") + ")";
-            LogActivity(jobId, activity, stockStatus == "InStock" ? "Info" : "Warning");
-            AppDataCache.RemovePrefix("jobs:");
-            return part;
         }
 
         public string AdvancePipeline(int jobId, string requestedStatus = null)

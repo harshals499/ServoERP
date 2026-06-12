@@ -2005,8 +2005,13 @@ namespace HVAC_Pro_Desktop.UI
                 form.Controls.Add(save);
                 if (form.ShowDialog(this) == DialogResult.OK)
                 {
-                    RefreshAfterClientEditorSave(target);
-                    ShowToast(title + " saved. Next: add a site, contact, or service job.");
+                    if (target != null && target.ClientID < 0)
+                        ShowToast(title + " saved locally. It will sync when the office SQL Server is back.");
+                    else
+                    {
+                        RefreshAfterClientEditorSave(target);
+                        ShowToast(title + " saved. Next: add a site, contact, or service job.");
+                    }
                 }
             }
         }

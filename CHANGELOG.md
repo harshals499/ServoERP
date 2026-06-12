@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.67.0 - 2026-06-12
+
+- Added a local SQLite offline sync queue for client, job, job material, invoice, payment, and inventory-impacting save actions when office SQL Server is unavailable.
+- Added automatic replay of pending offline saves when SQL Server reconnects, with validation conflicts retained for review instead of repeatedly throwing screen errors.
+- Updated affected forms to treat negative local IDs as pending-sync records so users can continue working without modal database-error loops.
+
 ## 1.1.66.0 - 2026-06-12
 
 - Reduced repeated Screen Error popups during SQL Server outages by routing database failures to a throttled Database Connection warning and the existing connection status banner.

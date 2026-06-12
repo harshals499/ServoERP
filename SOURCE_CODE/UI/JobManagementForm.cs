@@ -2348,6 +2348,11 @@ namespace HVAC_Pro_Desktop.UI
                 if (_isNewMode)
                 {
                     int newId = await Task.Run(() => _jobSvc.Create(job));
+                    if (newId < 0)
+                    {
+                        SetListStatus("Job saved locally. It will sync automatically when the office SQL Server is back.");
+                        return;
+                    }
                     await ReloadJobsAsync(newId);
                 }
                 else
@@ -2505,6 +2510,16 @@ namespace HVAC_Pro_Desktop.UI
                 decimal unitRate = _numPartRate == null ? 0m : _numPartRate.Value;
 
                 JobPartUsed addedPart = await Task.Run(() => _jobSvc.AddPartUsed(_currentDetail.Job.JobID, itemId, _numPartQty.Value, typed, unitRate));
+                if (addedPart != null && string.Equals(addedPart.StockStatus, "PendingSync", StringComparison.OrdinalIgnoreCase))
+                {
+                    _cmbPartSearch.Text = string.Empty;
+                    _numPartQty.Value = 1;
+                    if (_numPartRate != null)
+                        _numPartRate.Value = 0;
+                    UpdatePartStockHint();
+                    ShowChecklistBanner("Material saved locally. Stock will update when the office SQL Server syncs.");
+                    return;
+                }
                 _inventory = await Task.Run(() => _inventorySvc.GetAll());
                 BindPartInventory();
                 _cmbPartSearch.Text = string.Empty;

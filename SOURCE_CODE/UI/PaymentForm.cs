@@ -2097,6 +2097,16 @@ namespace HVAC_Pro_Desktop.UI
                 worker.DoWork += (s, args) =>
                 {
                     int id = _paySvc.RecordPayment(pay);
+                    if (id < 0)
+                    {
+                        args.Result = new PaymentRecordSnapshot
+                        {
+                            PaymentId = id,
+                            Payments = _allPayments ?? new List<Payment>(),
+                            Invoices = _invoiceLookup ?? new List<Invoice>()
+                        };
+                        return;
+                    }
                     args.Result = new PaymentRecordSnapshot
                     {
                         PaymentId = id,
@@ -2134,7 +2144,10 @@ namespace HVAC_Pro_Desktop.UI
                             _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
                             ClearForm();
                             ApplyClientFilter();
-                            ShowStatus("Payment recorded: PAY #" + snapshot.PaymentId + ". Next: review the updated invoice balance or record the next receipt.", SaveGreen);
+                            if (snapshot.PaymentId < 0)
+                                ShowStatus("Payment saved locally pending review/sync. Invoice balance will update after office SQL sync.", OrangeCol);
+                            else
+                                ShowStatus("Payment recorded: PAY #" + snapshot.PaymentId + ". Next: review the updated invoice balance or record the next receipt.", SaveGreen);
                         }
                     });
                 };
