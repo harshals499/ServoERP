@@ -68,6 +68,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly JobService _jobSvc = new JobService();
         private readonly TenderService _tenderSvc = new TenderService();
         private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
+        private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
         private readonly PaymentService _paymentSvc = new PaymentService();
         private readonly VendorAdvancePaymentService _vendorAdvanceSvc = new VendorAdvancePaymentService();
         private readonly EmployeeService _employeeSvc = new EmployeeService();
@@ -4826,8 +4827,12 @@ namespace HVAC_Pro_Desktop.UI
             NumericUpDown numQty = MakeDecimalBox("numQty", new Point(364, 16), 46, 2, 999999m, line?.Quantity > 0 ? line.Quantity : 1m);
             ComboBox cmbUom = new ComboBox { Name = "cmbUom", Location = new Point(416, 16), Width = 52, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbUom);
-            cmbUom.Items.AddRange(new object[] { "Nos", "Mtr", "Kg", "Ltr", "Set", "Box", "Sqm" });
-            cmbUom.SelectedItem = string.IsNullOrWhiteSpace(line?.UOM) ? "Nos" : line.UOM;
+            cmbUom.Items.AddRange(_unitSvc.GetDisplayUnits().Cast<object>().ToArray());
+            EnsureComboItem(cmbUom, "Nos");
+            EnsureComboItem(cmbUom, "RMT");
+            string selectedUom = _unitSvc.NormalizeForDisplayOrDefault(line?.UOM);
+            EnsureComboItem(cmbUom, selectedUom);
+            cmbUom.SelectedItem = selectedUom;
             NumericUpDown numRate = MakeDecimalBox("numRate", new Point(474, 16), 66, 2, 9999999m, line?.Rate ?? 0m);
             NumericUpDown numDiscount = MakeDecimalBox("numDiscount", new Point(546, 16), 44, 2, 100m, 0m);
             NumericUpDown numGst = MakeDecimalBox("numGst", new Point(664, 16), 44, 2, 100m, line?.GSTRate > 0 ? line.GSTRate : (line?.IGSTRate > 0 ? line.IGSTRate : 18m));
@@ -4956,9 +4961,9 @@ namespace HVAC_Pro_Desktop.UI
                     rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, option.Rate));
                 if (unit != null && !string.IsNullOrWhiteSpace(option.Unit))
                 {
-                    if (!unit.Items.Contains(option.Unit))
-                        unit.Items.Add(option.Unit);
-                    unit.SelectedItem = option.Unit;
+                    string optionUnit = _unitSvc.NormalizeForDisplayOrDefault(option.Unit);
+                    EnsureComboItem(unit, optionUnit);
+                    unit.SelectedItem = optionUnit;
                 }
 
                 SelectPurchaseVendorById(option.VendorID);
@@ -5242,6 +5247,16 @@ namespace HVAC_Pro_Desktop.UI
         {
             int index = combo.Items.IndexOf(text);
             combo.SelectedIndex = index >= 0 ? index : 0;
+        }
+
+        private static void EnsureComboItem(ComboBox combo, string value)
+        {
+            if (combo == null || string.IsNullOrWhiteSpace(value))
+                return;
+
+            bool exists = combo.Items.Cast<object>().Any(item => string.Equals(item?.ToString(), value, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+                combo.Items.Add(value);
         }
 
         private void SetStatus(string msg, Color color)

@@ -5,6 +5,7 @@ using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -25,6 +26,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private readonly Dictionary<int, B2BClient> _clientsById = new Dictionary<int, B2BClient>();
         private readonly Dictionary<int, ClientSite> _sitesById = new Dictionary<int, ClientSite>();
+        private List<AMCContract> _contractSnapshot = new List<AMCContract>();
+
+        private sealed class ContractPageSnapshot
+        {
+            public List<B2BClient> Clients { get; set; } = new List<B2BClient>();
+            public List<ClientSite> Sites { get; set; } = new List<ClientSite>();
+            public List<AMCContract> Contracts { get; set; } = new List<AMCContract>();
+        }
 
         private Label _statusLabel;
         private TextBox _dashboardSearch;
@@ -94,11 +103,7 @@ namespace HVAC_Pro_Desktop.UI
             BuildDashboardLayout();
             RecordDeletionUi.BindDeleteShortcut(this, () => DeleteCurrentContractAsync(), () => _current != null && _current.ContractID > 0);
             EnableDeferredLoad(
-                () =>
-                {
-                    LoadReferenceData();
-                    RefreshDashboard();
-                },
+                async () => await LoadPageDataAndRefreshAsync(),
                 ex =>
                 {
                     AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Contracts"), "Loading contracts", ex);
@@ -119,7 +124,38 @@ namespace HVAC_Pro_Desktop.UI
             _siteFilterSiteId = PendingSiteNavigationSiteId;
             PendingSiteNavigationSiteId = null;
             BuildDashboardLayout();
+            _ = LoadPageDataAndRefreshAsync();
+        }
+
+        private async Task LoadPageDataAndRefreshAsync()
+        {
+            SetStatus("Loading contracts...", Muted);
+            ContractPageSnapshot snapshot = await Task.Run(() => LoadPageSnapshot());
+            ApplyPageSnapshot(snapshot);
             RefreshDashboard();
+        }
+
+        private ContractPageSnapshot LoadPageSnapshot()
+        {
+            return new ContractPageSnapshot
+            {
+                Clients = _clientSvc.GetAllClients() ?? new List<B2BClient>(),
+                Sites = _siteSvc.GetAll() ?? new List<ClientSite>(),
+                Contracts = _contractSvc.GetAllContracts() ?? new List<AMCContract>()
+            };
+        }
+
+        private void ApplyPageSnapshot(ContractPageSnapshot snapshot)
+        {
+            _clientsById.Clear();
+            _sitesById.Clear();
+            _contractSnapshot = snapshot?.Contracts ?? new List<AMCContract>();
+
+            foreach (B2BClient client in snapshot?.Clients ?? new List<B2BClient>())
+                _clientsById[client.ClientID] = client;
+
+            foreach (ClientSite site in snapshot?.Sites ?? new List<ClientSite>())
+                _sitesById[site.SiteID] = site;
         }
 
         private void BuildDashboardLayout()
@@ -445,7 +481,7 @@ namespace HVAC_Pro_Desktop.UI
             root.Controls.Add(body, 0, 1);
             Controls.Add(root);
 
-            LoadReferenceData();
+            EnsureReferenceDataLoaded();
             LoadClientDropdown();
             if (existing != null)
                 PopulateForm(existing);
@@ -504,7 +540,7 @@ namespace HVAC_Pro_Desktop.UI
             invoice.Click += BtnGenerateInvoice_Click;
             review.Click += BtnRenew_Click;
             sla.Click += BtnSLALog_Click;
-            refresh.Click += (s, e) => { LoadReferenceData(); RefreshSidebarList(); UpdateContractCount(); };
+            refresh.Click += async (s, e) => await LoadPageDataAndRefreshAsync();
             actions.Controls.AddRange(new Control[] { newContract, save, forms, whatsapp, invoice, review, sla, refresh });
             bar.Controls.Add(actions);
 
@@ -769,7 +805,7 @@ namespace HVAC_Pro_Desktop.UI
             AddContractAction(menu, "Create Invoice", (s, e) => BtnGenerateInvoice_Click(s, e));
             AddContractAction(menu, "Renew Contract", (s, e) => BtnRenew_Click(s, e));
             AddContractAction(menu, "SLA Log", (s, e) => BtnSLALog_Click(s, e));
-            AddContractAction(menu, "Refresh", (s, e) => { LoadReferenceData(); RefreshSidebarList(); UpdateContractCount(); });
+            AddContractAction(menu, "Refresh", async (s, e) => await LoadPageDataAndRefreshAsync());
             menu.Items.Add(new ToolStripSeparator());
             AddContractAction(menu, "Delete Contract", async (s, e) => await DeleteCurrentContractAsync());
             menu.Show(anchor, new Point(0, anchor.Height));
@@ -931,6 +967,14 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex) { AppLogger.LogError("ContractManagementForm.LoadSites", ex); }
         }
 
+        private void EnsureReferenceDataLoaded()
+        {
+            if (_clientsById.Count > 0 || _sitesById.Count > 0)
+                return;
+
+            LoadReferenceData();
+        }
+
         private void LoadClientDropdown()
         {
             if (_cmbClient == null) return;
@@ -1074,7 +1118,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<AMCContract> GetContracts()
         {
-            try { return _contractSvc.GetAllContracts() ?? new List<AMCContract>(); }
+            try
+            {
+                if (_contractSnapshot != null)
+                    return _contractSnapshot.ToList();
+
+                return _contractSvc.GetAllContracts() ?? new List<AMCContract>();
+            }
             catch (Exception ex)
             {
                 AppLogger.LogError("ContractManagementForm.GetContracts", ex);
@@ -1082,7 +1132,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void BtnSave_Click(object sender, EventArgs e)
+        private async void BtnSave_Click(object sender, EventArgs e)
         {
             try
             {
@@ -1102,8 +1152,7 @@ namespace HVAC_Pro_Desktop.UI
                     MessageBox.Show("Contract updated successfully.", "Contract Management", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 BuildDashboardLayout();
-                LoadReferenceData();
-                RefreshDashboard();
+                await LoadPageDataAndRefreshAsync();
                 SetStatus("Contract saved successfully. Next: send renewal updates, create an invoice, or log SLA activity.", Green);
             }
             catch (Exception ex)
@@ -1143,9 +1192,8 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus("Deleting contract...", Red);
                 await System.Threading.Tasks.Task.Run(() => _contractSvc.DeleteContract(contract.ContractID));
                 _current = null;
-                LoadReferenceData();
                 BuildDashboardLayout();
-                RefreshDashboard();
+                await LoadPageDataAndRefreshAsync();
                 SetStatus("Contract deleted.", Red);
             }
             catch (Exception ex)

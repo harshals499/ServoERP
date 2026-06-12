@@ -20,6 +20,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly VendorService _vendorSvc = new VendorService();
         private readonly DocumentTemplateService _docTemplateSvc = new DocumentTemplateService();
+        private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
 
         private FlowLayoutPanel _quoteFlow;
         private FlowLayoutPanel _renewalFlow;
@@ -825,7 +826,7 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Columns["ItemDescription"].DefaultCellStyle.NullValue = "Click to select item...";
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 70, MinimumWidth = 66 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 42, MinimumWidth = 40 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = new[] { "Nos", "Mtr", "RMT", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr", "Lot" } });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = GetGlobalUnitDisplayList() });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 80, MinimumWidth = 72, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost (" + "\u20B9" + ")", Width = 66, MinimumWidth = 62 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price (" + "\u20B9" + ")", Width = 74, MinimumWidth = 68 });
@@ -1489,7 +1490,7 @@ namespace HVAC_Pro_Desktop.UI
             StyleQuotationGrid(_grid);
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item", Width = 220, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 60 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 60, DataSource = new[] { "Nos", "Mtr", "RMT", "Kg", "Job", "Set", "Sqft", "Hrs", "Ltr" } });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 60, DataSource = GetGlobalUnitDisplayList() });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost/Unit", Width = 75 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price", Width = 80 });
@@ -2301,7 +2302,7 @@ namespace HVAC_Pro_Desktop.UI
                 row.Cells["ItemDescription"].Value = selectedItem?.ItemName ?? line.ItemDescription;
                 SetCellValue(row, "Category", string.IsNullOrWhiteSpace(line.Category) ? InferDisplayCategory(line) : line.Category);
                 row.Cells["Qty"].Value = line.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
-                row.Cells["Unit"].Value = string.IsNullOrWhiteSpace(selectedItem?.Unit) ? (string.IsNullOrWhiteSpace(line.Unit) ? "Nos" : line.Unit) : selectedItem.Unit;
+                row.Cells["Unit"].Value = _unitSvc.NormalizeForDisplayOrDefault(string.IsNullOrWhiteSpace(selectedItem?.Unit) ? line.Unit : selectedItem.Unit);
                 row.Cells["Supplier"].Value = line.BestSupplierName ?? string.Empty;
                 row.Cells["CostPerUnit"].Value = line.CostPerUnit.ToString("0.00", CultureInfo.InvariantCulture);
                 row.Cells["SellPrice"].Value = line.SellPricePerUnit.ToString("0.00", CultureInfo.InvariantCulture);
@@ -2402,7 +2403,7 @@ namespace HVAC_Pro_Desktop.UI
             if (selectedItem != null)
             {
                 line.InventoryItemId = selectedItem.ItemID;
-                line.Unit = string.IsNullOrWhiteSpace(selectedItem.Unit) ? "Nos" : selectedItem.Unit;
+                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(selectedItem.Unit);
                 line.Category = selectedItem.Category;
                 if (line.AnalysisStatus == "Manual")
                     line.AnalysisStatus = "Pending";
@@ -2421,7 +2422,7 @@ namespace HVAC_Pro_Desktop.UI
                 line.HsnSacCode = GetCellText(row, "HsnSac");
             line.Quantity = ParseDecimal(row.Cells["Qty"].Value, line.Quantity <= 0 ? 1m : line.Quantity);
             if (!line.InventoryItemId.HasValue)
-                line.Unit = Convert.ToString(row.Cells["Unit"].Value) ?? "Nos";
+                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(Convert.ToString(row.Cells["Unit"].Value));
             line.CostPerUnit = ParseDecimal(row.Cells["CostPerUnit"].Value, line.CostPerUnit);
             decimal newSell = ParseDecimal(row.Cells["SellPrice"].Value, line.SellPricePerUnit);
             if (Math.Abs(newSell - line.SellPricePerUnit) > 0.009m)
@@ -2648,7 +2649,7 @@ namespace HVAC_Pro_Desktop.UI
             if (option.Rate > 0)
                 line.CostPerUnit = option.Rate;
             if (!string.IsNullOrWhiteSpace(option.Unit))
-                line.Unit = option.Unit;
+                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(option.Unit);
         }
 
         private void BindCategoryFilter()
@@ -3136,6 +3137,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static TenderBidLineItem CloneLine(TenderBidLineItem source, int sortOrder)
         {
+            var unitService = new UnitMeasurementService();
             return new TenderBidLineItem
             {
                 LineItemId = source.LineItemId,
@@ -3145,7 +3147,7 @@ namespace HVAC_Pro_Desktop.UI
                 InventoryItemId = source.InventoryItemId,
                 ItemDescription = source.ItemDescription,
                 Quantity = source.Quantity,
-                Unit = source.Unit,
+                Unit = unitService.NormalizeForDisplayOrDefault(source.Unit),
                 HsnSacCode = source.HsnSacCode,
                 GSTRatePct = source.GSTRatePct,
                 BestSupplierId = source.BestSupplierId,
@@ -3196,6 +3198,16 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < combo.Items.Count; i++)
                 if (string.Equals(combo.Items[i].ToString(), text, StringComparison.OrdinalIgnoreCase))
                     combo.SelectedIndex = i;
+        }
+
+        private string[] GetGlobalUnitDisplayList()
+        {
+            return _unitSvc.GetDisplayUnits()
+                .Concat(new[] { "Nos", "RMT" })
+                .Where(unit => !string.IsNullOrWhiteSpace(unit))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(unit => string.Equals(unit, "Nos", StringComparison.OrdinalIgnoreCase) ? string.Empty : unit)
+                .ToArray();
         }
 
         private string GenerateNextQuoteNumber()

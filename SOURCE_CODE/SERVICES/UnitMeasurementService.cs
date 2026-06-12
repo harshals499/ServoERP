@@ -17,7 +17,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static readonly HashSet<string> FallbackCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "KIT", "TIN", "SET", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT"
+            "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "SQM", "KIT", "TIN", "SET", "BOX", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT"
         };
 
         private static readonly Dictionary<string, string> BuiltInAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -37,6 +37,18 @@ namespace HVAC_Pro_Desktop.Services
             ["LITRES"] = "LTR",
             ["LITER"] = "LTR",
             ["LITERS"] = "LTR",
+            ["SQUAREFEET"] = "SQFT",
+            ["SQUAREFOOT"] = "SQFT",
+            ["SQFEET"] = "SQFT",
+            ["SFT"] = "SQFT",
+            ["SQM"] = "SQM",
+            ["SQMT"] = "SQM",
+            ["SQMTR"] = "SQM",
+            ["SQMTRS"] = "SQM",
+            ["SQUAREMETER"] = "SQM",
+            ["SQUAREMETERS"] = "SQM",
+            ["SQUAREMETRE"] = "SQM",
+            ["SQUAREMETRES"] = "SQM",
             ["RUNNINGMETER"] = "RMT",
             ["RUNNINGMTR"] = "RMT",
             ["RUNNINGMTRS"] = "RMT",
@@ -52,7 +64,9 @@ namespace HVAC_Pro_Desktop.Services
             ["DAY"] = "DAY",
             ["DAYS"] = "DAY",
             ["SET"] = "SET",
-            ["SETS"] = "SET"
+            ["SETS"] = "SET",
+            ["BOX"] = "BOX",
+            ["BOXES"] = "BOX"
         };
 
         private static readonly Dictionary<string, string> FallbackDisplayByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -63,15 +77,17 @@ namespace HVAC_Pro_Desktop.Services
             ["LTR"] = "Ltr",
             ["MTR"] = "Mtr",
             ["SQFT"] = "Sqft",
+            ["SQM"] = "Sqm",
             ["KIT"] = "Kit",
             ["TIN"] = "Tin",
             ["SET"] = "Set",
+            ["BOX"] = "Box",
             ["JOB"] = "Job",
             ["VISIT"] = "Visit",
             ["LOT"] = "Lot",
             ["HOUR"] = "Hour",
             ["DAY"] = "Day",
-            ["RMT"] = "Running Meter"
+            ["RMT"] = "RMT"
         };
 
         public IReadOnlyList<UnitMeasurement> GetUnits()
@@ -83,6 +99,9 @@ namespace HVAC_Pro_Desktop.Services
         public string NormalizeForDisplay(string value)
         {
             string canonical = ResolveCanonical(value);
+            if (string.Equals(canonical, "RMT", StringComparison.OrdinalIgnoreCase))
+                return "RMT";
+
             EnsureLoaded();
             UnitMeasurement unit = _snapshot?.FirstOrDefault(x => string.Equals(x.UnitCode, canonical, StringComparison.OrdinalIgnoreCase));
             if (unit != null && !string.IsNullOrWhiteSpace(unit.DisplayName))
@@ -123,8 +142,10 @@ namespace HVAC_Pro_Desktop.Services
             EnsureLoaded();
             return GetUnits()
                 .Where(x => x.IsActive)
-                .OrderBy(x => x.DisplayName)
-                .Select(x => x.DisplayName)
+                .Select(x => string.Equals(x.UnitCode, "RMT", StringComparison.OrdinalIgnoreCase) ? "RMT" : x.DisplayName)
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(x => string.Equals(x, "Nos", StringComparison.OrdinalIgnoreCase) ? string.Empty : x)
                 .ToArray();
         }
 

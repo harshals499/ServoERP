@@ -2360,7 +2360,9 @@ namespace HVAC_Pro_Desktop.UI
         private void SeedLineGridCombos()
         {
             EnsureComboItems("Category", new[] { "Material", "Service", "Labour", "AMC", "Spare", "Custom" });
-            EnsureComboItems("Unit", new[] { "Nos", "Mtr", "Kg", "Ltr", "Job", "Visit", "Hour", "Day", "Set", "Lot" });
+            EnsureComboItems("Unit", new UnitMeasurementService().GetDisplayUnits());
+            EnsureComboValue("Unit", "Nos");
+            EnsureComboValue("Unit", "RMT");
             EnsureComboItems("TaxType", new[] { "Taxable", "Nil Rated", "Exempt", "Out of Scope" });
         }
 

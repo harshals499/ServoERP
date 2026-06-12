@@ -2403,8 +2403,8 @@ THEN 1 ELSE 0 END";
             if (!TableExists(conn, "UnitMeasurements") || !TableExists(conn, "UnitMeasurementAliases"))
                 return;
 
-            string[] defaultUnits = { "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "KIT", "TIN", "SET", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT" };
-            string[] defaultDisplays = { "Nos", "Pcs", "Kg", "Ltr", "Mtr", "Sqft", "Kit", "Tin", "Set", "Job", "Visit", "Lot", "Hour", "Day", "Running Meter" };
+            string[] defaultUnits = { "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "SQM", "KIT", "TIN", "SET", "BOX", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT" };
+            string[] defaultDisplays = { "Nos", "Pcs", "Kg", "Ltr", "Mtr", "Sqft", "Sqm", "Kit", "Tin", "Set", "Box", "Job", "Visit", "Lot", "Hour", "Day", "RMT" };
             for (int i = 0; i < defaultUnits.Length; i++)
             {
                 EnsureUnitMeasurement(conn, defaultUnits[i], defaultDisplays[i]);
@@ -2416,6 +2416,10 @@ THEN 1 ELSE 0 END";
             UpsertUnitAlias(conn, "RUNNINGMETER", "RMT");
             UpsertUnitAlias(conn, "METER", "MTR");
             UpsertUnitAlias(conn, "METERS", "MTR");
+            UpsertUnitAlias(conn, "SQMTR", "SQM");
+            UpsertUnitAlias(conn, "SQMTRS", "SQM");
+            UpsertUnitAlias(conn, "SQUARE METER", "SQM");
+            UpsertUnitAlias(conn, "SQUARE METERS", "SQM");
             UpsertUnitAlias(conn, "UNITS", "PCS");
         }
 

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
+using Dapper;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -16,88 +18,49 @@ namespace HVAC_Pro_Desktop.DAL
 
         public List<AMCContract> GetAll()
         {
-            List<AMCContract> contracts = new List<AMCContract>();
-
-            using (SqlConnection conn = _dbManager.GetConnection())
+            using (SqlConnection conn = DapperDatabase.CreateConnection())
             {
                 conn.Open();
-                string query = "SELECT * FROM AMCContracts ORDER BY EndDate ASC";
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                using (SqlDataReader reader = cmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                        contracts.Add(MapContract(reader));
-                }
+                EnsureReadSchema(conn);
+                return conn.Query<AMCContract>(ContractSelectSql + " ORDER BY EndDate ASC").ToList();
             }
-
-            return contracts;
         }
 
         public AMCContract GetById(int contractId)
         {
-            using (SqlConnection conn = _dbManager.GetConnection())
+            using (SqlConnection conn = DapperDatabase.CreateConnection())
             {
                 conn.Open();
-                string query = "SELECT * FROM AMCContracts WHERE ContractID = @contractId";
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@contractId", contractId);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        if (reader.Read())
-                            return MapContract(reader);
-                    }
-                }
+                EnsureReadSchema(conn);
+                return conn.QueryFirstOrDefault<AMCContract>(
+                    ContractSelectSql + " WHERE ContractID = @contractId",
+                    new { contractId });
             }
-
-            return null;
         }
 
         public List<AMCContract> GetByClientId(int clientId)
         {
-            List<AMCContract> contracts = new List<AMCContract>();
-
-            using (SqlConnection conn = _dbManager.GetConnection())
+            using (SqlConnection conn = DapperDatabase.CreateConnection())
             {
                 conn.Open();
-                string query = "SELECT * FROM AMCContracts WHERE ClientID = @clientId ORDER BY EndDate ASC";
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@clientId", clientId);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                            contracts.Add(MapContract(reader));
-                    }
-                }
+                EnsureReadSchema(conn);
+                return conn.Query<AMCContract>(
+                    ContractSelectSql + " WHERE ClientID = @clientId ORDER BY EndDate ASC",
+                    new { clientId }).ToList();
             }
-
-            return contracts;
         }
 
         public List<AMCContract> GetExpiringContracts(int daysUntilExpiry)
         {
-            List<AMCContract> contracts = new List<AMCContract>();
-
-            using (SqlConnection conn = _dbManager.GetConnection())
+            using (SqlConnection conn = DapperDatabase.CreateConnection())
             {
                 conn.Open();
-                string query = @"SELECT * FROM AMCContracts
+                EnsureReadSchema(conn);
+                string query = ContractSelectSql + @"
                     WHERE EndDate BETWEEN GETDATE() AND DATEADD(day, @days, GETDATE())
                     ORDER BY EndDate ASC";
-
-                using (SqlCommand cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@days", daysUntilExpiry);
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                            contracts.Add(MapContract(reader));
-                    }
-                }
+                return conn.Query<AMCContract>(query, new { days = daysUntilExpiry }).ToList();
             }
-
-            return contracts;
         }
 
         public decimal GetMonthlyRecurringRevenue()
@@ -240,30 +203,48 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
-        private AMCContract MapContract(SqlDataReader reader)
+        private const string ContractSelectSql = @"
+SELECT
+    ContractID,
+    ClientID,
+    ISNULL(SiteID, 0) AS SiteID,
+    ISNULL(StartDate, GETDATE()) AS StartDate,
+    ISNULL(EndDate, DATEADD(year, 1, GETDATE())) AS EndDate,
+    ISNULL(MonthlyValue, 0) AS MonthlyValue,
+    ISNULL(AnnualValue, 0) AS AnnualValue,
+    ISNULL(ContractStatus, 'Active') AS ContractStatus,
+    ISNULL(SLAResponseTimeHours, 0) AS SLAResponseTimeHours,
+    ISNULL(SLAUptimePercent, 0) AS SLAUptimePercent,
+    ISNULL(SLARepairTimeHours, 0) AS SLARepairTimeHours,
+    ISNULL(MaintenanceFrequency, 'Monthly') AS MaintenanceFrequency,
+    ISNULL(ContractType, 'AMC') AS ContractType,
+    ISNULL(Notes, '') AS Notes,
+    CreatedByUserId,
+    CreatedByName,
+    ModifiedByUserId,
+    ModifiedByName,
+    ModifiedDate
+FROM AMCContracts";
+
+        private static void EnsureReadSchema(SqlConnection conn)
         {
-            return new AMCContract
-            {
-                ContractID = (int)reader["ContractID"],
-                ClientID = (int)reader["ClientID"],
-                SiteID = reader["SiteID"] != DBNull.Value ? (int)reader["SiteID"] : 0,
-                StartDate = (DateTime)reader["StartDate"],
-                EndDate = (DateTime)reader["EndDate"],
-                MonthlyValue = reader["MonthlyValue"] != DBNull.Value ? (decimal)reader["MonthlyValue"] : 0m,
-                AnnualValue = reader["AnnualValue"] != DBNull.Value ? (decimal)reader["AnnualValue"] : 0m,
-                ContractStatus = reader["ContractStatus"] != DBNull.Value ? reader["ContractStatus"].ToString() : "",
-                SLAResponseTimeHours = reader["SLAResponseTimeHours"] != DBNull.Value ? (int)reader["SLAResponseTimeHours"] : 0,
-                SLAUptimePercent = reader["SLAUptimePercent"] != DBNull.Value ? (decimal)reader["SLAUptimePercent"] : 0m,
-                SLARepairTimeHours = reader["SLARepairTimeHours"] != DBNull.Value ? (int)reader["SLARepairTimeHours"] : 0,
-                MaintenanceFrequency = reader["MaintenanceFrequency"] != DBNull.Value ? reader["MaintenanceFrequency"].ToString() : "Monthly",
-                ContractType = reader["ContractType"] != DBNull.Value ? reader["ContractType"].ToString() : "AMC",
-                Notes        = reader["Notes"]        != DBNull.Value ? reader["Notes"].ToString()        : "",
-                CreatedByUserId = reader["CreatedByUserId"] != DBNull.Value ? (int?)reader["CreatedByUserId"] : null,
-                CreatedByName = reader["CreatedByName"] != DBNull.Value ? reader["CreatedByName"].ToString() : null,
-                ModifiedByUserId = reader["ModifiedByUserId"] != DBNull.Value ? (int?)reader["ModifiedByUserId"] : null,
-                ModifiedByName = reader["ModifiedByName"] != DBNull.Value ? reader["ModifiedByName"].ToString() : null,
-                ModifiedDate = reader["ModifiedDate"] != DBNull.Value ? (DateTime?)reader["ModifiedDate"] : null
-            };
+            conn.Execute(@"IF OBJECT_ID('dbo.AMCContracts', 'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('dbo.AMCContracts', 'CreatedByUserId') IS NULL ALTER TABLE dbo.AMCContracts ADD CreatedByUserId INT NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'CreatedByName') IS NULL ALTER TABLE dbo.AMCContracts ADD CreatedByName NVARCHAR(100) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'ModifiedByUserId') IS NULL ALTER TABLE dbo.AMCContracts ADD ModifiedByUserId INT NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'ModifiedByName') IS NULL ALTER TABLE dbo.AMCContracts ADD ModifiedByName NVARCHAR(100) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'ModifiedDate') IS NULL ALTER TABLE dbo.AMCContracts ADD ModifiedDate DATETIME NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'MonthlyValue') IS NULL ALTER TABLE dbo.AMCContracts ADD MonthlyValue DECIMAL(12,2) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'AnnualValue') IS NULL ALTER TABLE dbo.AMCContracts ADD AnnualValue DECIMAL(12,2) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'ContractStatus') IS NULL ALTER TABLE dbo.AMCContracts ADD ContractStatus NVARCHAR(50) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'SLAResponseTimeHours') IS NULL ALTER TABLE dbo.AMCContracts ADD SLAResponseTimeHours INT NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'SLAUptimePercent') IS NULL ALTER TABLE dbo.AMCContracts ADD SLAUptimePercent DECIMAL(5,2) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'SLARepairTimeHours') IS NULL ALTER TABLE dbo.AMCContracts ADD SLARepairTimeHours INT NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'MaintenanceFrequency') IS NULL ALTER TABLE dbo.AMCContracts ADD MaintenanceFrequency NVARCHAR(50) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'ContractType') IS NULL ALTER TABLE dbo.AMCContracts ADD ContractType NVARCHAR(50) NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'Notes') IS NULL ALTER TABLE dbo.AMCContracts ADD Notes NVARCHAR(MAX) NULL;
+END");
         }
     }
 }

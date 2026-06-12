@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.34.0 - 2026-06-12
+
+- Made `RMT` available through the shared unit catalog and all major material/line-item unit selectors, including Inventory, Purchases, Invoices, and Quotations.
+- Added shared unit aliases for running meter, square meter, and box-style units so imports and saved rows normalize consistently.
+- Fixed the Contracts workspace so contracts, clients, and sites load as one background snapshot instead of repeatedly querying SQL during dashboard rendering.
+- Hardened contract reads for older client databases by repairing missing additive contract columns before loading the dashboard.
+
+## 1.1.30.0 - 2026-06-12
+
+- Fixed the Suppliers and Vendors workspace so the dashboard and grid reload correctly when reopened from navigation instead of reusing stale cached page state.
+- Fixed supplier dashboard loading to use a lightweight full master-data read, preventing SQL timeout fallbacks that could show `0` suppliers even when supplier records existed.
+- Cleared vendor-related cache entries after Vendor and Purchase imports so newly imported suppliers appear without waiting for cache expiry.
+
 ## 1.1.29.0 - 2026-06-11
 
 - Improved first-open speed for dashboard, master data, reports, employee, purchase, payment, tender, AMC, WhatsApp, and other heavy pages by deferring non-critical polish and startup data refreshes until after the page is visible.

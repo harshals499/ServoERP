@@ -20,6 +20,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _svc     = new InventoryService();
         private readonly VendorService    _vndSvc  = new VendorService();
         private readonly PurchaseService  _poSvc   = new PurchaseService();
+        private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
         private readonly ToolTip _toolTip = new ToolTip();
 
         private FlowLayoutPanel _itemFlow;
@@ -675,8 +676,10 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboCategory.Items.Count > 0) _cboCategory.SelectedIndex = 0;
 
             _cboUnit = AddComboField("Unit", ref y, ComboBoxStyle.DropDownList);
-            _cboUnit.Items.AddRange(new object[] { "Nos", "Kg", "Ltr", "Mtr", "Set", "Kit", "Tin", "SQFT" });
-            _cboUnit.SelectedIndex = 0;
+            _cboUnit.Items.AddRange(_unitSvc.GetDisplayUnits().Cast<object>().ToArray());
+            EnsureComboItem(_cboUnit, "Nos");
+            EnsureComboItem(_cboUnit, "RMT");
+            SelectComboByText(_cboUnit, "Nos");
 
             _detail.Controls.Add(MakeSectionLabel("PURCHASE PRICING", ref y));
 
@@ -1772,17 +1775,19 @@ namespace HVAC_Pro_Desktop.UI
             return string.IsNullOrWhiteSpace(normalized) ? "NOS" : normalized;
         }
 
-        private static string DisplayUnit(string unit)
+        private string DisplayUnit(string unit)
         {
-            switch (NormalizeUnit(unit))
-            {
-                case "NOS": return "Nos";
-                case "KG": return "Kg";
-                case "LTR": return "Ltr";
-                case "MTR": return "Mtr";
-                case "SQFT": return "Sqft";
-                default: return NormalizeUnit(unit);
-            }
+            return _unitSvc.NormalizeForDisplayOrDefault(unit);
+        }
+
+        private static void EnsureComboItem(ComboBox combo, string value)
+        {
+            if (combo == null || string.IsNullOrWhiteSpace(value))
+                return;
+
+            bool exists = combo.Items.Cast<object>().Any(item => string.Equals(item?.ToString(), value, StringComparison.OrdinalIgnoreCase));
+            if (!exists)
+                combo.Items.Add(value);
         }
 
         private ComboBox AddComboField(string label, ref int y, ComboBoxStyle style)
