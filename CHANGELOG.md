@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.66.0 - 2026-06-12
+
+- Reduced repeated Screen Error popups during SQL Server outages by routing database failures to a throttled Database Connection warning and the existing connection status banner.
+
 ## 1.1.65.0 - 2026-06-12
 
 - Added a bottom horizontal scrollbar to the New Invoice editor so wide invoice fields and totals remain reachable on smaller client screens.

@@ -12,6 +12,7 @@ namespace HVAC_Pro_Desktop.Services
     public static class CrashProtectionService
     {
         private const int DOUBLE_CLICK_BLOCK_MS = 750;
+        private static readonly TimeSpan DatabaseDialogThrottle = TimeSpan.FromSeconds(30);
         private static readonly object Sync = new object();
         private static readonly HashSet<Control> AttachedControls = new HashSet<Control>();
         private static readonly Dictionary<string, int> RecurringFailures = new Dictionary<string, int>();
@@ -19,6 +20,7 @@ namespace HVAC_Pro_Desktop.Services
         private static bool _messageFilterInstalled;
         private static string _lastCrashLogPath;
         private static string _lastUiAction = "(startup)";
+        private static DateTime _lastDatabaseDialogUtc = DateTime.MinValue;
 
         public static string LastCrashLogPath
         {
@@ -103,6 +105,22 @@ namespace HVAC_Pro_Desktop.Services
         public static void ShowFriendlyError(IWin32Window owner, string formName, string action, Exception ex)
         {
             LogException(formName, action, ex, true);
+
+            if (IsDatabaseConnectivityException(ex))
+            {
+                DatabaseConnectionStateService.RecordOperationFailure(action, ex);
+                if (SuppressRepeatedDatabaseDialog())
+                    return;
+
+                MessageBox.Show(
+                    owner,
+                    BuildDatabaseConnectionMessage(),
+                    BrandingService.WindowTitle("Database Connection"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
             MessageBox.Show(
                 owner,
                 BuildFriendlyMessage(ex, action),
@@ -355,8 +373,8 @@ namespace HVAC_Pro_Desktop.Services
             if (ex is ValidationException)
                 return string.IsNullOrWhiteSpace(ex.Message) ? "Please fill in all required fields." : ex.Message;
 
-            if (ex is SqlException)
-                return "Could not reach the database target " + GetConfiguredDatabaseTarget() + ". Check the office SQL Server connection and try again.";
+            if (IsDatabaseConnectivityException(ex))
+                return BuildDatabaseConnectionMessage();
 
             if (ex is DatabaseException)
                 return "Could not complete this database action. Check your connection and retry.";
@@ -378,6 +396,49 @@ namespace HVAC_Pro_Desktop.Services
 
             string actionText = string.IsNullOrWhiteSpace(action) ? "this screen" : action.Trim();
             return "Something went wrong with " + actionText + ". Your data has not been lost. Please try again.";
+        }
+
+        private static bool IsDatabaseConnectivityException(Exception ex)
+        {
+            while (ex != null)
+            {
+                if (ex is SqlException ||
+                    ex is DatabaseException ||
+                    ex is DatabaseBusinessWriteUnavailableException)
+                    return true;
+
+                string message = ex.Message ?? string.Empty;
+                if (message.IndexOf("SQL Server", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    message.IndexOf("database target", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    message.IndexOf("office SQL", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    message.IndexOf("Business entries are locked", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                ex = ex.InnerException;
+            }
+
+            return false;
+        }
+
+        private static bool SuppressRepeatedDatabaseDialog()
+        {
+            lock (Sync)
+            {
+                DateTime now = DateTime.UtcNow;
+                if (now - _lastDatabaseDialogUtc < DatabaseDialogThrottle)
+                    return true;
+
+                _lastDatabaseDialogUtc = now;
+                return false;
+            }
+        }
+
+        private static string BuildDatabaseConnectionMessage()
+        {
+            return "ServoERP cannot reach the office SQL Server right now." + Environment.NewLine + Environment.NewLine +
+                   "No business data was saved for this action. Check that the server PC is on, SQL Server is running, and the saved database connection is correct." + Environment.NewLine + Environment.NewLine +
+                   "Target: " + GetConfiguredDatabaseTarget() + Environment.NewLine +
+                   "Next step: Settings > Help & Support > Database Check, or reopen ServoERP after fixing the server/network.";
         }
 
         /// <summary>Returns the configured SQL target for support-friendly database errors.</summary>
