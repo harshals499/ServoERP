@@ -11,6 +11,7 @@ using System.IO;
 using System.Net;
 using System.Security;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
 using HVAC_Pro_Desktop.DAL;
@@ -401,6 +402,12 @@ namespace HVAC_Pro_Desktop.UI
             layout.Controls.Add(head, 0, 0);
             _recentActivityPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = Color.Transparent };
             layout.Controls.Add(_recentActivityPanel, 0, 1);
+            _recentActivityPanel.Resize += (s, e) =>
+            {
+                int width = Math.Max(260, _recentActivityPanel.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 8);
+                foreach (Control child in _recentActivityPanel.Controls)
+                    child.Width = width;
+            };
             return card;
         }
 
@@ -427,12 +434,12 @@ namespace HVAC_Pro_Desktop.UI
             var scroll = NewScrollCanvas();
             var card = NewCard(16);
             card.Dock = DockStyle.Top;
-            card.Height = 620;
+            card.Height = 650;
             scroll.Controls.Add(card);
 
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 6, BackColor = Color.Transparent };
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 50));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -441,7 +448,7 @@ namespace HVAC_Pro_Desktop.UI
 
             layout.Controls.Add(BuildTitleBlock("Export Vouchers", "Export sales invoices, purchase orders, and payments as Tally XML vouchers."), 0, 0);
             layout.Controls.Add(BuildExportFilters(), 0, 1);
-            _exportStatsPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent };
+            _exportStatsPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoScroll = true, BackColor = Color.Transparent };
             layout.Controls.Add(_exportStatsPanel, 0, 2);
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent };
             actions.Controls.Add(NewPrimaryButton("Export Selected", (s, e) => ExportVouchers(), 136));
@@ -518,7 +525,7 @@ namespace HVAC_Pro_Desktop.UI
 
             layout.Controls.Add(BuildTitleBlock("Inventory Sync Settings", "Sync ServoERP stock items and Tally stock masters without changing the sidebar or source inventory forms."), 0, 0);
             layout.Controls.Add(BuildInventorySettings(), 0, 1);
-            _inventoryStatsPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent };
+            _inventoryStatsPanel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoScroll = true, BackColor = Color.Transparent };
             layout.Controls.Add(_inventoryStatsPanel, 0, 2);
             var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, BackColor = Color.Transparent };
             actions.Controls.Add(NewPrimaryButton("Sync Selected", (s, e) => SyncInventoryItems(false), 126));
@@ -540,7 +547,7 @@ namespace HVAC_Pro_Desktop.UI
             var card = NewCard(16);
             card.Dock = DockStyle.Fill;
             var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 5, BackColor = Color.Transparent };
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
@@ -693,7 +700,7 @@ VALUES (@type, @message, @user);", conn))
             }
         }
 
-        /// <summary>Starts a BackgroundWorker connection test.</summary>
+        /// <summary>Starts a task-based connection test.</summary>
         private void RunConnectionTest()
         {
             SaveTransientSettingsToDictionary();
@@ -757,7 +764,7 @@ VALUES (@type, @message, @user);", conn))
                 : "Last checked: never";
         }
 
-        /// <summary>Runs local auto-mapping through a BackgroundWorker.</summary>
+        /// <summary>Runs local auto-mapping through the task-based worker helper.</summary>
         private void RunAutoMapNames()
         {
             RunWork(
@@ -1066,7 +1073,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             UpdateInventoryStats(table);
         }
 
-        /// <summary>Loads the import XML preview in a BackgroundWorker.</summary>
+        /// <summary>Loads the import XML preview through the task-based worker helper.</summary>
         private void PreviewImportFile()
         {
             string path = _importPathText.Text.Trim();
@@ -1190,7 +1197,10 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
         /// <summary>Deletes logs older than ninety days after confirmation.</summary>
         private void ClearOldLogs(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Clear Tally activity logs older than 90 days?", "Clear Old Logs", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Clear Tally activity logs older than 90 days?",
+                "This deletes old Tally integration activity rows from the local audit view."))
                 return;
 
             int rows = ExecuteCount("DELETE FROM TallyActivityLog WHERE LogTime < DATEADD(day, -90, GETDATE());");
@@ -1263,8 +1273,8 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             }
         }
 
-        /// <summary>Runs blocking work through BackgroundWorker with consistent error logging.</summary>
-        private void RunWork(string busyText, Label statusLabel, Func<object> work, Action<object> completed)
+        /// <summary>Runs blocking work through task-based async flow with consistent error logging.</summary>
+        private async void RunWork(string busyText, Label statusLabel, Func<object> work, Action<object> completed)
         {
             if (_workRunning)
             {
@@ -1275,56 +1285,41 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             _workRunning = true;
             SetStatus(statusLabel, busyText);
             Cursor = Cursors.WaitCursor;
-            var worker = CreateWorker();
-            worker.DoWork += delegate(object sender, DoWorkEventArgs e)
+            try
             {
-                try
-                {
-                    e.Result = work();
-                }
-                catch (Exception ex)
-                {
-                    LogActivity("Error", ex.Message);
-                    throw;
-                }
-            };
-            worker.RunWorkerCompleted += delegate(object sender, RunWorkerCompletedEventArgs e)
-            {
-                if (e.Error != null)
-                {
-                    RunOnUI(delegate
-                    {
-                        Cursor = Cursors.Default;
-                        _workRunning = false;
-                        SetStatus(statusLabel, e.Error.Message);
-                    });
-                    ShowError( "Tally operation failed. Please try again.", e.Error);
+                object result = await Task.Run(work);
+                if (IsDisposed)
                     return;
-                }
-                if (e.Cancelled) return;
 
-                RunOnUI(delegate
-                {
-                    Cursor = Cursors.Default;
-                    _workRunning = false;
-                    completed(e.Result);
-                });
-            };
-            worker.RunWorkerAsync();
+                Cursor = Cursors.Default;
+                _workRunning = false;
+                completed(result);
+            }
+            catch (Exception ex)
+            {
+                LogActivity("Error", ex.Message);
+                if (IsDisposed)
+                    return;
+
+                Cursor = Cursors.Default;
+                _workRunning = false;
+                SetStatus(statusLabel, ex.Message);
+                ShowError("Tally operation failed. Please try again.", ex);
+            }
         }
 
         // UI factory and data helpers follow.
         private static TabPage NewTab(string text) { return new TabPage(text) { BackColor = PageBack, Padding = new Padding(0) }; }
         private static Panel NewScrollCanvas() { return new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PageBack, Padding = new Padding(0, 0, 0, 8) }; }
         private static RoundedPanel NewCard(int padding) { return new RoundedPanel { Name = "TallySectionPanel", Tag = "section", Dock = DockStyle.Fill, BackColor = Color.White, BorderColor = CardBorder, Radius = 8, Padding = new Padding(padding), Margin = new Padding(0, 0, 0, 12) }; }
-        private static Label NewSectionTitle(string text) { return new Label { Text = text, Dock = DockStyle.Fill, ForeColor = TextDark, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft }; }
+        private static Label NewSectionTitle(string text) { return new Label { Text = text, Dock = DockStyle.Fill, ForeColor = TextDark, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true }; }
         private static Label NewMutedLabel(string text, float size) { return NewMutedLabel(text, size, ContentAlignment.MiddleLeft); }
-        private static Label NewMutedLabel(string text, float size, ContentAlignment align) { return new Label { Text = text, Dock = DockStyle.Fill, ForeColor = TextMuted, Font = new Font("Segoe UI", size), TextAlign = align }; }
+        private static Label NewMutedLabel(string text, float size, ContentAlignment align) { return new Label { Text = text, Dock = DockStyle.Fill, ForeColor = TextMuted, Font = new Font("Segoe UI", size), TextAlign = align, AutoEllipsis = true }; }
         private static LinkLabel LinkLabel(string text) { return new LinkLabel { Text = text, AutoSize = true, LinkColor = AccentBlue, ActiveLinkColor = AccentBlue, VisitedLinkColor = AccentBlue, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Margin = new Padding(8, 6, 4, 4) }; }
         private static TextBox NewInput(string value) { var input = new TextBox { Text = value ?? string.Empty, Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = TextDark, Font = new Font("Segoe UI", 9f), Margin = new Padding(0), AutoSize = false, Height = 28 }; UIHelper.ApplyInputStyle(input); input.AutoSize = false; input.Height = 28; return input; }
         private static ComboBox NewCombo(IEnumerable<string> items) { var combo = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5f) }; foreach (string item in items) combo.Items.Add(item); if (combo.Items.Count > 0) combo.SelectedIndex = 0; UIHelper.ApplyInputStyle(combo); return combo; }
-        private static Button NewPrimaryButton(string text, EventHandler click, int width) { var button = new Button { Text = text, Width = width, Height = 32, Margin = new Padding(4), BackColor = AccentBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) }; button.FlatAppearance.BorderSize = 0; button.Click += click; UIHelper.ApplyActionButton(button, UiActionVariant.Primary); return button; }
-        private static Button NewOutlineButton(string text, EventHandler click, int width) { var button = new Button { Text = text, Width = width, Height = 32, Margin = new Padding(4), BackColor = Color.White, ForeColor = TextDark, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) }; button.FlatAppearance.BorderColor = CardBorder; button.FlatAppearance.BorderSize = 1; button.Click += click; UIHelper.ApplyActionButton(button, UiActionVariant.Secondary); return button; }
+        private static Button NewPrimaryButton(string text, EventHandler click, int width) { var button = new Button { Text = text, Width = width, Height = 34, Margin = new Padding(4), BackColor = AccentBlue, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), AutoEllipsis = true }; button.FlatAppearance.BorderSize = 0; button.Click += click; UIHelper.ApplyActionButton(button, UiActionVariant.Primary); return button; }
+        private static Button NewOutlineButton(string text, EventHandler click, int width) { var button = new Button { Text = text, Width = width, Height = 34, Margin = new Padding(4), BackColor = Color.White, ForeColor = TextDark, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), AutoEllipsis = true }; button.FlatAppearance.BorderColor = CardBorder; button.FlatAppearance.BorderSize = 1; button.Click += click; UIHelper.ApplyActionButton(button, UiActionVariant.Secondary); return button; }
         private static DataGridView NewGrid() { var grid = new DataGridView { Dock = DockStyle.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false, BackgroundColor = Color.White, BorderStyle = BorderStyle.None, RowHeadersVisible = false, SelectionMode = DataGridViewSelectionMode.FullRowSelect, MultiSelect = true, EditMode = DataGridViewEditMode.EditOnEnter, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill }; GridTheme.Apply(grid); return grid; }
 
         private Control BuildTitleBlock(string title, string subtitle)
@@ -1342,7 +1337,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             var panel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.Transparent };
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 58));
-            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.MiddleLeft }, 0, 0);
+            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true }, 0, 0);
             panel.Controls.Add(toggle, 1, 0);
             return panel;
         }
@@ -1353,7 +1348,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 18));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark }, 0, 0);
+            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark, AutoEllipsis = true }, 0, 0);
             panel.Controls.Add(input, 0, 1);
             panel.Controls.Add(NewMutedLabel(helper, 8f), 0, 2);
             return panel;
@@ -1365,7 +1360,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 18));
             panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
             panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark }, 0, 0);
+            panel.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark, AutoEllipsis = true }, 0, 0);
             var row = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, BackColor = Color.Transparent };
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
@@ -1378,7 +1373,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
 
         private Control BuildExportFilters()
         {
-            var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent };
+            var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoScroll = true, BackColor = Color.Transparent };
             _exportFromDate = NewDate(DateTime.Today.AddDays(1 - DateTime.Today.Day));
             _exportToDate = NewDate(DateTime.Today);
             _voucherTypeCombo = NewCombo(new[] { "All", "Sales", "Purchases", "Payments", "Receipts" });
@@ -1417,7 +1412,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
 
         private Control BuildLogFilters()
         {
-            var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.Transparent };
+            var filters = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoScroll = true, BackColor = Color.Transparent };
             _logTypeCombo = NewCombo(new[] { "All", "Success", "Info", "Warning", "Error", "Completed" });
             _logFromDate = NewDate(DateTime.Today.AddDays(-7));
             _logToDate = NewDate(DateTime.Today);
@@ -1436,7 +1431,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
         }
 
         private static DateTimePicker NewDate(DateTime value) { return new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = value, Width = 118, Font = new Font("Segoe UI", 9f), Margin = new Padding(4) }; }
-        private static Label FilterLabel(string text) { return new Label { Text = text, AutoSize = true, Margin = new Padding(8, 9, 2, 0), ForeColor = TextDark, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) }; }
+        private static Label FilterLabel(string text) { return new Label { Text = text, AutoSize = true, Margin = new Padding(8, 9, 2, 0), ForeColor = TextDark, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), AutoEllipsis = true }; }
         private void AddHealthRow(TableLayoutPanel layout, int row, string name) { var item = new HealthCheckRow(name); _healthRows[name] = item; layout.Controls.Add(item, 0, row); layout.SetColumnSpan(item, 2); }
 
         private Control NewQuickAction(string title, string subtitle, int tab)
@@ -1461,7 +1456,7 @@ ORDER BY ItemName;", cmd => cmd.Parameters.AddWithValue("@godown", _godownFilter
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
             row.Controls.Add(new PillLabel { Text = ActivityIcon(type), PillKind = type, Width = 24, Height = 24 }, 0, 0);
-            row.Controls.Add(new Label { Text = Limit(message, 64) + Environment.NewLine + RelativeTime(time), Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = TextDark }, 1, 0);
+            row.Controls.Add(new Label { Text = Limit(message, 64) + Environment.NewLine + RelativeTime(time), Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = TextDark, AutoEllipsis = true }, 1, 0);
             row.Controls.Add(new PillLabel { Text = type, PillKind = type, Width = 82, Height = 22 }, 2, 0);
             return row;
         }
@@ -1930,10 +1925,10 @@ SELECT
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 45));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
                 Controls.Add(layout);
-                layout.Controls.Add(new Label { Text = Icon(icon), Dock = DockStyle.Fill, Font = new Font("Segoe UI Symbol", 16f), ForeColor = AccentBlue, TextAlign = ContentAlignment.MiddleCenter }, 0, 0);
+                layout.Controls.Add(new Label { Text = Icon(icon), Dock = DockStyle.Fill, Font = new Font("Segoe UI Symbol", 16f), ForeColor = AccentBlue, TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true }, 0, 0);
                 layout.SetRowSpan(layout.GetControlFromPosition(0, 0), 2);
-                layout.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = AccentBlue, TextAlign = ContentAlignment.BottomLeft }, 1, 0);
-                _value = new Label { Text = value, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.TopLeft };
+                layout.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = AccentBlue, TextAlign = ContentAlignment.BottomLeft, AutoEllipsis = true }, 1, 0);
+                _value = new Label { Text = value, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.TopLeft, AutoEllipsis = true };
                 layout.Controls.Add(_value, 1, 1);
             }
 
@@ -1961,9 +1956,9 @@ SELECT
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 24));
                 Controls.Add(layout);
-                layout.Controls.Add(new Label { Text = title, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark }, 0, 0);
-                layout.Controls.Add(new Label { Text = "→", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = TextMuted, TextAlign = ContentAlignment.MiddleCenter }, 1, 0);
-                layout.Controls.Add(new Label { Text = subtitle, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), ForeColor = TextMuted }, 0, 1);
+                layout.Controls.Add(new Label { Text = title, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, AutoEllipsis = true }, 0, 0);
+                layout.Controls.Add(new Label { Text = "→", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = TextMuted, TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true }, 1, 0);
+                layout.Controls.Add(new Label { Text = subtitle, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), ForeColor = TextMuted, AutoEllipsis = true }, 0, 1);
                 layout.SetColumnSpan(layout.GetControlFromPosition(0, 1), 2);
             }
         }
@@ -1984,9 +1979,9 @@ SELECT
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128));
                 Controls.Add(layout);
                 _icon = new PillLabel { Text = "-", PillKind = "Info", Width = 22, Height = 22 };
-                _status = new Label { Text = "Not checked", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = TextMuted, TextAlign = ContentAlignment.MiddleRight };
+                _status = new Label { Text = "Not checked", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f), ForeColor = TextMuted, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true };
                 layout.Controls.Add(_icon, 0, 0);
-                layout.Controls.Add(new Label { Text = name, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.MiddleLeft }, 1, 0);
+                layout.Controls.Add(new Label { Text = name, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextDark, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true }, 1, 0);
                 layout.Controls.Add(_status, 2, 0);
             }
 

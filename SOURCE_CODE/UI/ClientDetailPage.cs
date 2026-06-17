@@ -7,6 +7,7 @@ using System.Web.Script.Serialization;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -38,6 +39,8 @@ namespace HVAC_Pro_Desktop.UI
         private Label _savedLabel;
         private DataGridView _teamGrid;
         private FlowLayoutPanel _sitesFlow;
+        private bool _isRendering;
+        private bool _hasUnsavedChanges;
 
         private TextBox _txtCompany;
         private TextBox _txtIndustry;
@@ -100,10 +103,10 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel nav = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 244, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = Color.White, Padding = new Padding(0) };
             Button dashboard = Button("<- Dashboard", Color.White, TextMain, 116);
             dashboard.FlatAppearance.BorderColor = Border;
-            dashboard.Click += (s, e) => OnBackToDashboard?.Invoke();
+            dashboard.Click += (s, e) => { if (ConfirmDiscardChanges()) OnBackToDashboard?.Invoke(); };
             Button back = Button("<- Clients", Color.White, TextMain, 92);
             back.FlatAppearance.BorderColor = Border;
-            back.Click += (s, e) => OnBackToClients?.Invoke(ClientId);
+            back.Click += (s, e) => { if (ConfirmDiscardChanges()) OnBackToClients?.Invoke(ClientId); };
             nav.Controls.Add(dashboard);
             nav.Controls.Add(back);
             _titleLabel = new Label { Text = "Client", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextMain };
@@ -127,7 +130,7 @@ namespace HVAC_Pro_Desktop.UI
             Button cancel = Button("Cancel", Color.White, TextMain, 82);
             cancel.Dock = DockStyle.Right;
             cancel.FlatAppearance.BorderColor = Border;
-            cancel.Click += (s, e) => OnBackToClients?.Invoke(ClientId);
+            cancel.Click += (s, e) => { if (ConfirmDiscardChanges()) OnBackToClients?.Invoke(ClientId); };
             footer.Controls.Add(_savedLabel);
             footer.Controls.Add(footerSave);
             footer.Controls.Add(new Panel { Dock = DockStyle.Right, Width = 8 });
@@ -158,6 +161,7 @@ namespace HVAC_Pro_Desktop.UI
             _rightStack.SuspendLayout();
             _leftStack.Controls.Clear();
             _rightStack.Controls.Clear();
+            _isRendering = true;
 
             _leftStack.Controls.Add(BuildIdentitySection());
             _leftStack.Controls.Add(BuildStatsSection());
@@ -173,6 +177,8 @@ namespace HVAC_Pro_Desktop.UI
 
             _leftStack.ResumeLayout();
             _rightStack.ResumeLayout();
+            _isRendering = false;
+            SetUnsavedChanges(false);
             ResizeClientDetailCards(_leftStack);
             ResizeClientDetailCards(_rightStack);
             SalesUiPolishService.ApplyAfterRebuild(this, "Client Detail");
@@ -211,18 +217,32 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = Section(760, 86);
             card.Controls.Add(new Label { Text = "Client status", Location = new Point(14, 8), Size = new Size(220, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextMain });
+            FlowLayoutPanel stageFlow = new FlowLayoutPanel
+            {
+                Name = "ClientStatusToolbar",
+                Location = new Point(14, 40),
+                Size = new Size(card.Width - 28, 36),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoScroll = true,
+                BackColor = Color.White,
+                Padding = new Padding(0),
+                Margin = new Padding(0)
+            };
             string[] stages = ClientStatusOptions();
             string current = GetClientStatus(_client);
             for (int i = 0; i < stages.Length; i++)
             {
                 string stage = stages[i];
-                Button step = Button((stage == current ? "● " : "○ ") + stage, Color.White, stage == current ? TealText : TextMuted, stage == "Blacklisted" ? 124 : 104);
-                step.Location = new Point(14 + (i * 138), 40);
+                Button step = Button((stage == current ? "* " : "- ") + stage, Color.White, stage == current ? TealText : TextMuted, stage == "Blacklisted" ? 120 : 104);
                 step.Tag = stage;
+                step.Margin = new Padding(0, 0, 8, 0);
                 step.FlatAppearance.BorderColor = stage == current ? Teal : Border;
                 step.Click += (s, e) => MoveStage((string)((Button)s).Tag);
-                card.Controls.Add(step);
+                stageFlow.Controls.Add(step);
             }
+            card.Controls.Add(stageFlow);
             return card;
         }
 
@@ -230,7 +250,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             AccordionPanel card = AccordionSection("Company details", 760, 236, true);
             TableLayoutPanel grid = Grid(2, 3, 220);
-            _txtCompany = Field(grid, "Company name", _client.CompanyName, 0, 0);
+            _txtCompany = Field(grid, "Company name", _client.CompanyName, 0, 0, true);
             _txtIndustry = Field(grid, "Industry", _client.IndustryType, 0, 1);
             _txtGst = Field(grid, "GSTIN", _client.GSTNumber, 1, 0);
             _txtPan = Field(grid, "PAN", _client.PANNumber, 1, 1);
@@ -271,7 +291,11 @@ namespace HVAC_Pro_Desktop.UI
             add.Location = new Point(card.Width - 132, 8);
             add.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             add.FlatAppearance.BorderColor = Border;
-            add.Click += (s, e) => _teamGrid.Rows.Add(0, ClientId, "", "", "", "", false, true);
+            add.Click += (s, e) =>
+            {
+                _teamGrid.Rows.Add(0, ClientId, "", "", "", "", false, true);
+                SetUnsavedChanges(true);
+            };
             card.ContentPanel.Controls.Add(add);
             _teamGrid = new DataGridView
             {
@@ -295,6 +319,8 @@ namespace HVAC_Pro_Desktop.UI
             _teamGrid.Columns["Id"].Visible = false;
             _teamGrid.Columns["ClientId"].Visible = false;
             GridTheme.Apply(_teamGrid);
+            _teamGrid.CellValueChanged += (s, e) => SetUnsavedChanges(true);
+            _teamGrid.UserDeletedRow += (s, e) => SetUnsavedChanges(true);
             foreach (ClientTeamMember member in members)
                 _teamGrid.Rows.Add(member.Id, member.ClientId, member.EmployeeName, member.Position, member.EmailId, member.ContactNo, member.IsPrimary, member.IsActive);
             Button saveTeam = Button("Save team", Teal, Color.White, 96);
@@ -413,7 +439,7 @@ namespace HVAC_Pro_Desktop.UI
                 _client.Email = _txtEmail.Text.Trim();
                 _clientService.UpdateClient(_client);
                 _clientService.LogActivity(new ClientActivity { ClientId = ClientId, ActivityType = "Note", Title = "Profile updated", Detail = "Client profile changes saved." });
-                _savedLabel.Text = "Saved";
+                SetUnsavedChanges(false);
             }
             catch (Exception ex)
             {
@@ -496,7 +522,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
                         IsActive = Convert.ToBoolean(row.Cells["IsActive"].Value ?? true)
                     });
                 }
-                _savedLabel.Text = "Saved";
+                SetUnsavedChanges(false);
             }
             catch (Exception ex)
             {
@@ -507,8 +533,13 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
 
         private void MoveStage(string stage)
         {
-            if (MessageBox.Show("Change client status to " + stage + "?", "Client status", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            string current = GetClientStatus(_client);
+            if (string.Equals(current, stage, StringComparison.OrdinalIgnoreCase))
                 return;
+
+            if (!ServoConfirmDialog.Show(this, "Change client status to " + stage + "?", "This updates the client lifecycle status shown across Client Detail and related dashboards."))
+                return;
+
             ApplyLifecycleLocal(_client, stage);
             _clientService.UpdateLifecycleStatus(ClientId, stage);
             RenderClient();
@@ -563,7 +594,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             {
                 chip.Click += (s, e) =>
                 {
-                    if (MessageBox.Show("Remove site " + site.SiteName + "?", "Sites", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+                    if (!ServoConfirmDialog.Show(this, "Remove site " + Safe(site.SiteName, "Site") + "?", "This removes the site from the client record. Continue only after confirming this is the correct site."))
                         return;
                     _siteService.Delete(site.SiteID);
                     RenderClient();
@@ -718,15 +749,15 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
             return grid;
         }
 
-        private TextBox Field(TableLayoutPanel grid, string label, string value, int row, int col)
+        private TextBox Field(TableLayoutPanel grid, string label, string value, int row, int col, bool required = false)
         {
             Panel wrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 0, 12, 10) };
             Label fieldLabel = new Label
             {
                 Location = new Point(0, 0),
                 Size = new Size(120, 22),
-                Text = label,
-                ForeColor = Color.FromArgb(65, 74, 90),
+                Text = required ? label + " *" : label,
+                ForeColor = required ? TealText : Color.FromArgb(65, 74, 90),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true
@@ -747,6 +778,7 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
                 fieldLabel.Width = width;
                 input.Width = width;
             };
+            input.TextChanged += (s, e) => SetUnsavedChanges(true);
             wrap.Controls.Add(input);
             wrap.Controls.Add(fieldLabel);
             grid.Controls.Add(wrap, col, row);
@@ -763,9 +795,34 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
         private static Button Button(string text, Color back, Color fore, int width)
         {
             Button b = new Button { Text = text, Width = width, Height = 30, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), Cursor = Cursors.Hand };
+            b.AutoEllipsis = true;
             b.FlatAppearance.BorderSize = 1;
             b.FlatAppearance.BorderColor = back == Color.White ? Border : back;
             return b;
+        }
+
+        private void SetUnsavedChanges(bool hasChanges)
+        {
+            if (_isRendering)
+                return;
+
+            _hasUnsavedChanges = hasChanges;
+            if (_savedLabel != null)
+            {
+                _savedLabel.Text = hasChanges ? "Unsaved" : "Saved";
+                _savedLabel.ForeColor = hasChanges ? AmberText : TealText;
+            }
+        }
+
+        private bool ConfirmDiscardChanges()
+        {
+            if (!_hasUnsavedChanges)
+                return true;
+
+            return ServoConfirmDialog.Show(
+                this,
+                "Discard unsaved client changes?",
+                "Profile or team edits on this client detail page have not been saved. Continue only if these changes should be left unchanged.");
         }
 
         private static Panel Avatar(string text, int size)
@@ -902,13 +959,16 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
         {
             using (Form dialog = ServoModalForm.Create(title, 360, 150))
             {
-                dialog.Controls.Add(new Label { Text = label, Location = new Point(14, 14), Width = 310 });
-                TextBox box = new TextBox { Location = new Point(14, 38), Width = 310 };
+                dialog.MinimumSize = new Size(360, 150);
+                dialog.Controls.Add(new Label { Text = label, Location = new Point(14, 14), Width = 310, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+                TextBox box = new TextBox { Location = new Point(14, 38), Width = 310, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
                 Button ok = Button("OK", Teal, Color.White, 78);
                 ok.Location = new Point(166, 74);
+                ok.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 ok.DialogResult = DialogResult.OK;
                 Button cancel = Button("Cancel", Color.White, TextMain, 78);
                 cancel.Location = new Point(250, 74);
+                cancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 cancel.DialogResult = DialogResult.Cancel;
                 dialog.Controls.Add(box);
                 dialog.Controls.Add(ok);
@@ -923,20 +983,23 @@ li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px
         {
             using (Form dialog = ServoModalForm.Create("Add site", 420, 280))
             {
-                dialog.Controls.Add(new Label { Text = "Site name", Location = new Point(16, 16), Width = 360, ForeColor = TextMain });
-                TextBox txtName = new TextBox { Location = new Point(16, 40), Width = 360, Text = string.Empty };
+                dialog.MinimumSize = new Size(420, 280);
+                dialog.Controls.Add(new Label { Text = "Site name *", Location = new Point(16, 16), Width = 360, ForeColor = TealText, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+                TextBox txtName = new TextBox { Location = new Point(16, 40), Width = 360, Text = string.Empty, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
-                dialog.Controls.Add(new Label { Text = "Site address", Location = new Point(16, 76), Width = 360, ForeColor = TextMain });
-                TextBox txtAddress = new TextBox { Location = new Point(16, 100), Width = 360, Height = 56, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = string.Empty };
+                dialog.Controls.Add(new Label { Text = "Site address", Location = new Point(16, 76), Width = 360, ForeColor = TextMain, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+                TextBox txtAddress = new TextBox { Location = new Point(16, 100), Width = 360, Height = 56, Multiline = true, ScrollBars = ScrollBars.Vertical, Text = string.Empty, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
-                dialog.Controls.Add(new Label { Text = "City", Location = new Point(16, 166), Width = 360, ForeColor = TextMain });
-                TextBox txtCity = new TextBox { Location = new Point(16, 190), Width = 360, Text = Safe(_client == null ? null : _client.City, string.Empty) };
+                dialog.Controls.Add(new Label { Text = "City", Location = new Point(16, 166), Width = 360, ForeColor = TextMain, AutoEllipsis = true, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right });
+                TextBox txtCity = new TextBox { Location = new Point(16, 190), Width = 360, Text = Safe(_client == null ? null : _client.City, string.Empty), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
                 Button ok = Button("Save site", Teal, Color.White, 92);
                 ok.Location = new Point(192, 224);
+                ok.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 ok.DialogResult = DialogResult.OK;
                 Button cancel = Button("Cancel", Color.White, TextMain, 78);
                 cancel.Location = new Point(298, 224);
+                cancel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
                 cancel.DialogResult = DialogResult.Cancel;
 
                 dialog.Controls.Add(txtName);

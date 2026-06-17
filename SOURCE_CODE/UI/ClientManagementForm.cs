@@ -536,11 +536,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildClientsDashboardHeader(int width)
         {
-            Panel header = new Panel { Size = new Size(width, 58), BackColor = DS.BgPage };
+            Panel header = new Panel { Size = new Size(width, 58), BackColor = DS.BgPage, Name = "ClientsDashboardHeader", Tag = "custom-header-actions no-global-actions" };
             header.Controls.Add(new Label { Text = "Clients Management", Location = new Point(0, 0), Size = new Size(330, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = DS.Slate900 });
             header.Controls.Add(new Label { Text = "Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready.", Location = new Point(1, 30), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate500 });
 
-            _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardSearchText(), Size = new Size(340, 30) };
+            _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardSearchText(), Size = new Size(340, 32) };
             ConfigureDashboardPlaceholder(_dashboardSearch, "Search clients by name, email, phone, or company...");
             _dashboardSearch.Enter += (s, e) => _dashboardSearchFocus = "global";
             _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch, "global", "Search clients by name, email, phone, or company...");
@@ -555,19 +555,21 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Items.Add("Add Contact", null, (mi, ev) => ShowActionModal("Add Contact", "Open a client record first, then add contact details.", "Contact name", ""));
                 menu.Show(add, new Point(0, add.Height));
             };
-            Label bell = new Label { Text = "!", Size = new Size(30, 30), BackColor = DS.Red50, ForeColor = DS.Red600, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Cursor = Cursors.Hand };
-            bell.Click += (s, e) => ShowToast(BuildClientAlertsText());
-            Panel user = BuildSessionUserPanel();
-            header.Controls.AddRange(new Control[] { _dashboardSearch, filters, add, bell, user });
+            Panel toolbar = new Panel { Name = "ClientsDashboardHeaderActionRail", Height = 38, BackColor = DS.BgPage };
+            Control[] toolbarItems = { _dashboardSearch, filters, add };
+            foreach (Control control in toolbarItems)
+                control.Margin = Padding.Empty;
+            toolbar.Controls.AddRange(toolbarItems);
+            header.Controls.Add(toolbar);
             Action layoutHeaderControls = () =>
             {
-                user.Location = new Point(header.Width - user.Width, 2);
-                bell.Location = new Point(user.Left - 38, 2);
-                add.Location = new Point(bell.Left - add.Width - 10, 1);
-                filters.Location = new Point(add.Left - filters.Width - 12, 1);
-                int searchWidth = Math.Min(340, Math.Max(220, filters.Left - 374));
-                _dashboardSearch.Size = new Size(searchWidth, 30);
-                _dashboardSearch.Location = new Point(Math.Max(360, filters.Left - searchWidth - 12), 1);
+                int availableWidth = Math.Max(300, header.ClientSize.Width - 360);
+                int fixedWidth = SharedUiPrimitives.MeasureVisibleControlSpan(new Control[] { filters, add });
+                int searchWidth = Math.Min(340, Math.Max(220, availableWidth - fixedWidth - SharedUiPrimitives.HeaderActionGap));
+                _dashboardSearch.Size = new Size(searchWidth, 32);
+                int toolbarWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
+                toolbar.SetBounds(Math.Max(360, header.ClientSize.Width - toolbarWidth), 0, toolbarWidth, 38);
+                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, 0, 1);
             };
             header.Resize += (s, e) => layoutHeaderControls();
             layoutHeaderControls();
@@ -1408,11 +1410,14 @@ namespace HVAC_Pro_Desktop.UI
             AppUserDto user = SessionManager.CurrentUser;
             string name = !string.IsNullOrWhiteSpace(user?.DisplayName) ? user.DisplayName : (!string.IsNullOrWhiteSpace(user?.Username) ? user.Username : Environment.UserName);
             string role = !string.IsNullOrWhiteSpace(user?.RoleName) ? user.RoleName : "User";
-            Panel panel = new Panel { Size = new Size(150, 38), BackColor = DS.BgPage };
+            int nameWidth = TextRenderer.MeasureText(name, new Font("Segoe UI", 8f, FontStyle.Bold)).Width;
+            int roleWidth = TextRenderer.MeasureText(role, new Font("Segoe UI", 7.2f)).Width;
+            int panelWidth = Math.Max(150, Math.Min(220, Math.Max(nameWidth, roleWidth) + 58));
+            Panel panel = new Panel { Size = new Size(panelWidth, 38), BackColor = DS.BgPage };
             string initials = Initials(name);
             panel.Controls.Add(new Label { Text = initials, Location = new Point(0, 4), Size = new Size(30, 30), BackColor = DS.Primary50, ForeColor = DS.Primary600, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold) });
-            panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(92, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(84, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = DS.Slate500, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(panelWidth - 44, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(panelWidth - 44, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = DS.Slate500, AutoEllipsis = true });
             return panel;
         }
 
@@ -1948,13 +1953,8 @@ namespace HVAC_Pro_Desktop.UI
                     target.GeocodeAddress = BuildClientGeocodeAddress(target.BillingAddress, target.City, CleanClientInput(state));
                     ApplyClientEditorStatus(target, Convert.ToString(status.SelectedItem));
                     if (string.IsNullOrWhiteSpace(target.IndustryType)) target.IndustryType = "Commercial HVAC";
-                    var validation = new B2BClientValidator().Validate(target);
-                    if (!validation.IsValid)
-                    {
-                        MessageBox.Show(form, ValidationMessageFormatter.ToMessage(validation), BrandingService.WindowTitle("Clients"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                        company.Focus();
+                    if (!TryValidate(target, new B2BClientValidator(), BrandingService.WindowTitle("Clients"), () => company.Focus()))
                         return;
-                    }
                     B2BClient saveTarget = target;
                     save.Enabled = false;
                     cancel.Enabled = false;
@@ -2046,7 +2046,10 @@ namespace HVAC_Pro_Desktop.UI
                     ResetDeferredLoad();
                     _ = LoadClientsAsync();
                 }
-                catch { }
+                catch (Exception reloadEx)
+                {
+                    AppLogger.LogError("ClientManagementForm.RefreshAfterClientEditorSave.Reload", reloadEx);
+                }
             }
         }
 

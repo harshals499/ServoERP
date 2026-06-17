@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Data.SqlClient;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Services;
@@ -76,7 +77,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Saves visit completion using a BackgroundWorker.</summary>
-        private void SaveVisit()
+        private async void SaveVisit()
         {
             if (string.IsNullOrWhiteSpace(_technician.Text) || string.IsNullOrWhiteSpace(_workDone.Text))
             {
@@ -85,17 +86,9 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _save.Enabled = false;
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) => UpdateVisit();
-            worker.RunWorkerCompleted += (s, e) =>
+            try
             {
-                if (e.Error != null)
-                {
-                    RunOnUI(() => _save.Enabled = true);
-                    ShowError( "Visit could not be marked complete. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                await Task.Run(() => UpdateVisit());
 
                 RunOnUI(() =>
                 {
@@ -103,8 +96,12 @@ namespace HVAC_Pro_Desktop.UI
                     DialogResult = DialogResult.OK;
                     Close();
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                RunOnUI(() => _save.Enabled = true);
+                ShowError("Visit could not be marked complete. Please try again.", ex);
+            }
         }
 
         /// <summary>Updates the visit row with completion data.</summary>

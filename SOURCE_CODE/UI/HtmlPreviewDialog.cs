@@ -145,7 +145,10 @@ namespace HVAC_Pro_Desktop.UI
                 if (File.Exists(_tempHtmlPath))
                     File.Delete(_tempHtmlPath);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("HtmlPreviewDialog.TryDeleteTempFile", ex);
+            }
         }
     }
 }

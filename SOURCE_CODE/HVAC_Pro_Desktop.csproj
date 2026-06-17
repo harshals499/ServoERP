@@ -161,8 +161,10 @@
     <Compile Include="Validators\AMCContractValidator.cs" />
     <Compile Include="Validators\B2BClientValidator.cs" />
     <Compile Include="Validators\EmployeeValidator.cs" />
+    <Compile Include="Validators\FluentValidationGuard.cs" />
     <Compile Include="Validators\JobValidator.cs" />
     <Compile Include="Validators\PaymentValidator.cs" />
+    <Compile Include="Validators\StockItemValidator.cs" />
     <Compile Include="Validators\TenderBidValidator.cs" />
     <Compile Include="Validators\VendorValidator.cs" />
     <Compile Include="Validators\ValidationMessageFormatter.cs" />
@@ -319,6 +321,7 @@
     <Compile Include="SERVICES\SimulationClock.cs" />
     <Compile Include="SERVICES\AgentSimulationService.cs" />
     <Compile Include="SERVICES\ImportUiHelper.cs" />
+    <Compile Include="SERVICES\Logging\ServoLog.cs" />
     <Compile Include="SERVICES\WorkflowLaunchContext.cs" />
     <Compile Include="SERVICES\TenderService.cs" />
     <Compile Include="SERVICES\TenderService.MultiLine.cs" />

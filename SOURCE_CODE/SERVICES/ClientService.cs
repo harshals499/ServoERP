@@ -7,6 +7,7 @@ using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Audit;
 using HVAC_Pro_Desktop.Services.Validation;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -20,6 +21,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly ReferenceIntegrityService _referenceIntegrity = new ReferenceIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly B2BClientValidator _clientValidator = new B2BClientValidator();
 
         // ── READ ─────────────────────────────────────────────
         public List<B2BClient> GetAllClients()
@@ -273,62 +275,64 @@ namespace HVAC_Pro_Desktop.Services
         }
 
         // ── VALIDATION ───────────────────────────────────────
-        private void Validate(B2BClient c)
+        private static void NormalizeClient(B2BClient client)
         {
-            if (c == null)
-                throw new Exception("Client details are missing.");
+            if (client == null)
+                return;
 
-            if (string.IsNullOrWhiteSpace(c.CompanyName))
-                throw new Exception("Company name is required.");
+            client.CompanyName = GlobalValidationEngine.CleanText(client.CompanyName, 200);
+            client.PrimaryContact = GlobalValidationEngine.CleanText(client.PrimaryContact, 120);
+            client.SecondaryContact = GlobalValidationEngine.CleanText(client.SecondaryContact, 120);
+            client.Phone = GlobalValidationEngine.CleanText(client.Phone, 30);
+            client.Email = GlobalValidationEngine.CleanText(client.Email, 200);
+            client.GSTNumber = string.IsNullOrWhiteSpace(client.GSTNumber) ? null : client.GSTNumber.Trim().ToUpperInvariant();
+            client.PANNumber = string.IsNullOrWhiteSpace(client.PANNumber) ? null : client.PANNumber.Trim().ToUpperInvariant();
+            client.BillingAddress = GlobalValidationEngine.CleanText(client.BillingAddress, 500);
+            client.City = GlobalValidationEngine.CleanText(client.City, 120);
+            client.IndustryType = GlobalValidationEngine.CleanText(client.IndustryType, 120);
+            client.RelationshipStage = GlobalValidationEngine.CleanText(client.RelationshipStage, 60);
+            client.Tags = GlobalValidationEngine.CleanText(client.Tags, 250);
+            client.Notes = GlobalValidationEngine.CleanText(client.Notes, 1000);
+            client.AssignedTo = GlobalValidationEngine.CleanText(client.AssignedTo, 120);
+            client.LeadSource = GlobalValidationEngine.CleanText(client.LeadSource, 120);
+        }
 
-            if (!string.IsNullOrEmpty(c.GSTNumber) && !IsValidGSTIN(c.GSTNumber))
-                throw new Exception("GST Number must be a valid 15-character GSTIN (e.g. 27ABCDE1234F1Z0).");
+        private static void ValidateContacts(B2BClient client)
+        {
+            if (client?.Contacts == null)
+                return;
 
-            if (!string.IsNullOrEmpty(c.PANNumber) && !IsValidPAN(c.PANNumber))
-                throw new Exception("PAN Number must be a valid 10-character PAN (e.g. AAAAA0000A).");
-
-            if (c.PaymentTermsDays < 0)
-                throw new Exception("Payment terms days cannot be negative.");
-
-            if (c.CreditLimit < 0)
-                throw new Exception("Credit limit cannot be negative.");
-
-            if (c.Contacts != null)
+            foreach (ClientContact contact in client.Contacts)
             {
-                foreach (ClientContact contact in c.Contacts)
-                {
-                    if (string.IsNullOrWhiteSpace(contact.ContactName) &&
-                        string.IsNullOrWhiteSpace(contact.Role) &&
-                        string.IsNullOrWhiteSpace(contact.Phone) &&
-                        string.IsNullOrWhiteSpace(contact.Email))
-                    {
-                        continue;
-                    }
+                if (contact == null)
+                    continue;
 
-                    if (string.IsNullOrWhiteSpace(contact.ContactName))
-                        throw new Exception("Each client employee row needs a name.");
+                contact.ContactName = GlobalValidationEngine.CleanText(contact.ContactName, 150);
+                contact.Role = GlobalValidationEngine.CleanText(contact.Role, 100);
+                contact.Phone = GlobalValidationEngine.CleanText(contact.Phone, 30);
+                contact.Email = GlobalValidationEngine.CleanText(contact.Email, 200);
+
+                if (string.IsNullOrWhiteSpace(contact.ContactName) &&
+                    string.IsNullOrWhiteSpace(contact.Role) &&
+                    string.IsNullOrWhiteSpace(contact.Phone) &&
+                    string.IsNullOrWhiteSpace(contact.Email))
+                {
+                    continue;
                 }
+
+                if (string.IsNullOrWhiteSpace(contact.ContactName))
+                    throw new ValidationException("Each client employee row needs a name.");
             }
         }
 
         private void ValidateClientForSave(B2BClient client)
         {
-            Validate(client);
+            NormalizeClient(client);
+            FluentValidationGuard.EnsureValid(_clientValidator, client, "Client validation failed.");
+            ValidateContacts(client);
             ValidationResult result = _businessRules.ValidateClient(client);
             result.Merge(_duplicateDetection.CheckClient(client, GetAllClientsIncludingInactive()));
             _validation.EnsureValid(result, "Client validation failed");
-        }
-
-        // GSTIN: 2-digit state code + 10-char PAN + 1 entity num + Z + 1 check
-        private bool IsValidGSTIN(string gstin)
-        {
-            return GlobalValidationEngine.IsValidGSTIN(gstin);
-        }
-
-        // PAN: 5 alpha + 4 digits + 1 alpha
-        private bool IsValidPAN(string pan)
-        {
-            return GlobalValidationEngine.IsValidPAN(pan);
         }
 
         private static List<string> SplitTags(string tags)

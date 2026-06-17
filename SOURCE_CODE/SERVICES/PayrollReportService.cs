@@ -195,6 +195,7 @@ namespace HVAC_Pro_Desktop.Services
 
                 string html = @"<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
                     + DocumentBranding.BuildOfficialHeaderCss()
+                    + DocumentBranding.BuildOfficialCompanyDetailsCss()
                     + @"body{font-family:'Segoe UI',sans-serif;padding:20px;color:#1f2937;}
 .title{text-align:center;font-size:22px;font-weight:800;margin:10px 0;color:#1e3a8a;}
 .section{border:1px solid #cbd5e1;border-radius:10px;padding:12px;margin-bottom:14px;}
@@ -202,6 +203,7 @@ table{width:100%;border-collapse:collapse;}th,td{border:1px solid #e2e8f0;paddin
 th{background:#eff6ff;color:#1e3a8a;}
 </style></head><body>"
                     + DocumentBranding.BuildOfficialHeaderHtml()
+                    + DocumentBranding.BuildFromBlockHtml(DocumentBranding.DefaultCompanyName, null, null, null, null, null, null, null, false)
                     + "<div class='title'>FORM 16 - " + Html(financialYear) + "</div>"
                     + "<div class='section'><strong>Part A</strong><br/>Employer TAN: " + Html(company.TAN) + "<br/>Employee PAN: " + Html(employee.PAN) + "<br/>Employee Name: " + Html(employee.Name) + "</div>"
                     + "<div class='section'><strong>Part B - Salary and Tax Summary</strong><table><tr><th>Month</th><th>Gross Salary</th><th>TDS Deducted</th><th>Net Salary</th></tr>"

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using HVAC_Pro_Desktop.Services.Logging;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -14,9 +15,10 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 string safeMessage = Truncate(SensitiveDataRedactor.Redact(message));
+                ServoLog.Information("{Message}", safeMessage);
                 lock (Sync)
                 {
-                    Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath) ?? @"C:\HVAC_PRO_MSE\LOGS");
+                    Directory.CreateDirectory(Path.GetDirectoryName(LogFilePath) ?? ServoLog.LogDirectory);
                     File.AppendAllText(
                         LogFilePath,
                         DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | INFO | " + safeMessage + Environment.NewLine);
@@ -30,6 +32,7 @@ namespace HVAC_Pro_Desktop.Services
         public static void LogError(string context, Exception ex)
         {
             AppRuntime.LogException(context, ex);
+            ServoLog.Error(ex, "Legacy app log error. Context: {Context}", context ?? "General");
             LogInfo(context + " | " + (ex == null ? "Unknown error" : ex.Message));
         }
 

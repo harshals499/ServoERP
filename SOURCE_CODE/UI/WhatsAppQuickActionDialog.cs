@@ -168,8 +168,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!_opened)
             {
-                DialogResult result = MessageBox.Show(this, "WhatsApp has not been opened from this dialog yet. Mark as sent anyway?", Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Mark this WhatsApp activity as sent?",
+                    "WhatsApp has not been opened from this dialog yet. Continue only if the message was sent outside ServoERP."))
                     return;
             }
 

@@ -101,6 +101,8 @@ namespace HVAC_Pro_Desktop.UI
         private bool _summaryRecalcPending;
         private bool _editabilityPending;
         private int _lastProcessedClientId = -1;
+        private FlowLayoutPanel _invoiceHeaderActionRail;
+        private Button _btnHeaderPreview;
 
         // â”€â”€ Colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private static readonly Color HeaderBg = DS.White;
@@ -214,7 +216,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (!IsDisposed && IsHandleCreated)
                     {
                         try { dispatcher.Invoke((Action)(() => _initialLoadQueued = false)); }
-                        catch { }
+                        catch (Exception ex) { AppLogger.LogError("InvoiceForm.InitialLoadQueuedReset", ex); }
                     }
                 }
             });
@@ -525,6 +527,10 @@ namespace HVAC_Pro_Desktop.UI
             Button btnForms = MakeBtn("Forms", Color.White, 86); btnForms.ForeColor = DS.Primary600; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             Button btnImport = MakeBtn("Import", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnHeaderPreview = MakeBtn("Preview", Color.White, 104);
+            _btnHeaderPreview.ForeColor = InfoBlue;
+            _btnHeaderPreview.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnHeaderPreview.Visible = false;
 
             FlowLayoutPanel actionRail = new FlowLayoutPanel
             {
@@ -536,7 +542,8 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = Padding.Empty,
                 Padding = Padding.Empty
             };
-            foreach (Button button in new[] { _btnNewInvoice, btnSettings, btnForms, btnImport })
+            _invoiceHeaderActionRail = actionRail;
+            foreach (Button button in new[] { _btnNewInvoice, btnSettings, btnForms, btnImport, _btnHeaderPreview })
                 button.Margin = new Padding(10, 1, 0, 1);
 
             Action layoutHeaderActions = () =>
@@ -548,10 +555,11 @@ namespace HVAC_Pro_Desktop.UI
             };
             header.Resize += (s, e) => layoutHeaderActions();
             _btnNewInvoice.Click += BtnNew_Click;
+            _btnHeaderPreview.Click += BtnPreview_Click;
             btnSettings.Click += (s, e) => MessageBox.Show("Invoice settings are available from Settings and Templates.", "Invoice Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Invoice Management", "Finance / Payments", null, "invoice payment receipt credit note GST approval customer sign-off");
             btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Invoices, FindForm());
-            actionRail.Controls.AddRange(new Control[] { _btnNewInvoice, btnSettings, btnForms, btnImport });
+            actionRail.Controls.AddRange(new Control[] { _btnNewInvoice, _btnHeaderPreview, btnSettings, btnForms, btnImport });
             header.Controls.Add(actionRail);
             layoutHeaderActions();
 
@@ -618,6 +626,10 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (_invoiceWorkspacePanel != null)
                 _invoiceWorkspacePanel.Visible = false;
+            if (_btnHeaderPreview != null)
+                _btnHeaderPreview.Visible = false;
+            if (_invoiceHeaderActionRail != null)
+                _invoiceHeaderActionRail.PerformLayout();
         }
 
         private void ShowInvoiceEditor()
@@ -629,6 +641,10 @@ namespace HVAC_Pro_Desktop.UI
                 _invoiceWorkspacePanel.Visible = true;
                 _invoiceWorkspacePanel.BringToFront();
             }
+            if (_btnHeaderPreview != null)
+                _btnHeaderPreview.Visible = true;
+            if (_invoiceHeaderActionRail != null)
+                _invoiceHeaderActionRail.PerformLayout();
         }
 
         private Panel BuildInvoiceActionBar()
@@ -659,7 +675,7 @@ namespace HVAC_Pro_Desktop.UI
             Button btnBackToDashboard = MakeBtn("<- Back to Dashboard", Color.White, 142);
             btnBackToDashboard.ForeColor = DS.Slate700;
             btnBackToDashboard.FlatAppearance.BorderColor = DS.Border;
-            _btnSaveInvoice = MakeBtn("Save Draft", Color.FromArgb(52, 152, 219), 110);
+            _btnSaveInvoice = MakeBtn("Save", Color.FromArgb(52, 152, 219), 110);
             Button btnFinalise = MakeBtn("Finalise", SaveGreen, 100);
             Button btnPayment = MakeBtn("Record Payment", Color.FromArgb(142, 68, 173), 130);
             Button btnPreview = MakeBtn("Preview", InfoBlue, 100);
@@ -717,7 +733,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _invoiceDashFromPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateFrom, Width = 126, Tag = "dash-filter" };
             _invoiceDashToPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateTo, Width = 126, Tag = "dash-filter" };
-            _invoiceDashGroupingCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 86, Tag = "dash-filter" };
+            _invoiceDashGroupingCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 86, Tag = "dash-filter" };
             _invoiceDashGroupingCombo.Items.AddRange(new object[] { "Day", "Week", "Month" });
             _invoiceDashGroupingCombo.SelectedItem = _invoiceDashboardSnapshot.Grouping.ToString();
             _invoiceDashFromPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
@@ -1351,7 +1367,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CreateInvoiceCard("QUICK ACTIONS", 190);
             Label quickHint = new Label
             {
-                Text = "Save the draft, then open invoice operations when needed.",
+                Text = "Save the invoice, then open invoice operations when needed.",
                 Location = new Point(20, 48),
                 Size = new Size(card.Width - 40, 34),
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
@@ -1359,7 +1375,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate600
             };
 
-            _btnSaveInvoice = MakeSoftAction("Save Draft", InfoBlue);
+            _btnSaveInvoice = MakeSoftAction("Save", InfoBlue);
             _btnSaveInvoice.Location = new Point(20, 88);
             _btnSaveInvoice.Size = new Size(Math.Max(20, card.Width - 40), 38);
             _btnSaveInvoice.Dock = DockStyle.None;
@@ -1608,7 +1624,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblBalance = MakeStickyValue(panel, "Balance Due", 1270, 12, true, OrangeCol);
 
             Label lblGstMode = new Label { Text = "GST Mode", AutoSize = true, Location = new Point(22, 56), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = DS.Slate500 };
-            _cmbGstMode = new ComboBox { Location = new Point(22, 72), Width = 140, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbGstMode = new ComboBox { Location = new Point(22, 72), Width = 140, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cmbGstMode.Items.AddRange(new object[] { "IGST", "CGST+SGST" });
             _cmbGstMode.SelectedIndex = 1;
             _cmbGstMode.SelectedIndexChanged += (s, e) => RequestRecalculateSummary();
@@ -1713,7 +1729,7 @@ namespace HVAC_Pro_Desktop.UI
             AddModernField(grid, "Notes", _txtNotes, 2, 5, false, 2, 2);
             AddModernField(grid, "Send Invoice To", _txtSendInvoiceTo, 0, 6, false, 2);
 
-            _txtNudges = new TextBox { Text = "Required: client and line items. Site, contract, PO, warranty, and service notes can be added later.", ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255), Tag = "CUSTOM_INPUT_SHELL" };
+            _txtNudges = new TextBox { Text = "Required: client and line items. Site, contract, PO, warranty, and service notes can be added later.", ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(30, 64, 175), BackColor = Color.FromArgb(238, 242, 255), Tag = "CUSTOM_INPUT_SHELL" };
             Panel smartBar = new Panel { Height = 28, BackColor = Color.FromArgb(238, 242, 255), Margin = new Padding(0, 0, 0, 12), Padding = new Padding(12, 6, 12, 4), Tag = "invoice-no-preview-wrap" };
             DS.Rounded(smartBar, 8);
             smartBar.Controls.Add(_txtNudges);
@@ -1773,23 +1789,23 @@ namespace HVAC_Pro_Desktop.UI
 
         private void CreateInvoiceControls()
         {
-            _txtInvNo = new TextBox { ReadOnly = true, Text = "(auto-generated)" };
-            _cmbStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbStatus.Items.AddRange(new object[] { "Draft", "Pending", "Approved", "Partial", "Paid", "Overdue" });
+            _txtInvNo = new TextBox { ReadOnly = false, Text = "(auto-generated)" };
+            _cmbStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Paid", "Overdue" });
             _cmbStatus.SelectedIndexChanged += (s, e) => RequestApplyInvoiceEditability();
             _dtpInvDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
             _dtpDueDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(30) };
-            _cmbClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbClient.SelectionChangeCommitted += CmbClient_SelectionChangeCommitted;
             _cmbClient.DropDown += (s, e) => _lastProcessedClientId = GetSelectedComboId(_cmbClient);
             _cmbClient.DropDownClosed += (s, e) => ProcessClientSelectionIfChanged();
-            _cmbSite = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbContract = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbSite = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbContract = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbTemplate.SelectionChangeCommitted += CmbTemplate_SelectionChangeCommitted;
-            _cmbCoverageType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbCoverageType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbCoverageType.Items.AddRange(new object[] { "Billable Service", "Comprehensive AMC", "Non-Comprehensive AMC", "Warranty" });
-            _cmbWarrantyStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbWarrantyStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbWarrantyStatus.Items.AddRange(new object[] { "Out of Warranty", "Under Warranty", "Under Contract" });
             _dtpWarrantyExpiry = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddYears(1), ShowCheckBox = true };
             _txtSubject = new TextBox();
@@ -1855,7 +1871,7 @@ namespace HVAC_Pro_Desktop.UI
             if (input is ComboBox combo)
             {
                 combo.FlatStyle = FlatStyle.Flat;
-                combo.DropDownStyle = ComboBoxStyle.DropDownList;
+                combo.DropDownStyle = ComboBoxStyle.DropDown;
                 RegisterInvoiceComboBox(combo);
             }
             if (input is NumericUpDown numeric)
@@ -1909,7 +1925,7 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_txtInvNo != null)
             {
-                _txtInvNo.ReadOnly = true;
+                _txtInvNo.ReadOnly = false;
                 _txtInvNo.BackColor = SystemColors.Window;
             }
         }
@@ -2388,7 +2404,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_cmbGstMode == null)
             {
-                _cmbGstMode = new ComboBox { Font = new Font("Segoe UI", 8.5f), DropDownStyle = ComboBoxStyle.DropDownList };
+                _cmbGstMode = new ComboBox { Font = new Font("Segoe UI", 8.5f), DropDownStyle = ComboBoxStyle.DropDown };
                 _cmbGstMode.Items.AddRange(new object[] { "IGST", "CGST+SGST" });
                 _cmbGstMode.SelectedIndex = 1;
                 _cmbGstMode.SelectedIndexChanged += (s, e) => RequestRecalculateSummary();
@@ -2458,7 +2474,7 @@ namespace HVAC_Pro_Desktop.UI
                 foreach (AMCContract c in _contractSvc.GetContractsByClient(clientId))
                     _cmbContract.Items.Add(new ComboItem { Id = c.ContractID, Text = "Contract #" + c.ContractID + "  [" + c.ContractStatus + "]" });
             }
-            catch { }
+            catch (Exception ex) { AppLogger.LogError("InvoiceForm.LoadContractDropdowns", ex); }
             _cmbContract.SelectedIndex = 0;
         }
 
@@ -2503,7 +2519,7 @@ namespace HVAC_Pro_Desktop.UI
                     foreach (ClientSite s in _siteSvc.GetByClientId(clientId))
                         _cmbSite.Items.Add(new ComboItem { Id = s.SiteID, Text = SiteService.GetDisplayName(s) });
                 }
-                catch { }
+                catch (Exception ex) { AppLogger.LogError("InvoiceForm.LoadSiteDropdowns", ex); }
             }
             _cmbSite.SelectedIndex = 0;
         }
@@ -2513,7 +2529,7 @@ namespace HVAC_Pro_Desktop.UI
             LoadInvoiceList(false);
         }
 
-        private void LoadInvoiceList(bool forceRefresh)
+        private async void LoadInvoiceList(bool forceRefresh)
         {
             if (forceRefresh)
                 _invoiceListRefreshing = false;
@@ -2524,44 +2540,32 @@ namespace HVAC_Pro_Desktop.UI
             ShowInvoiceDashboard();
             SetBusy("Refreshing invoices...");
 
-            var worker = CreateWorker();
-            worker.DoWork += (s, args) =>
+            try
             {
-                var invoices = _invSvc.GetAllInvoices()
+                List<Invoice> invoices = await Task.Run(() => _invSvc.GetAllInvoices()
                     .OrderByDescending(i => i.InvoiceDate)
                     .ThenByDescending(i => i.InvoiceID)
                     .Take(120)
-                    .ToList();
+                    .ToList());
                 Invoice firstDetail = null;
                 if (_current == null && invoices.Count > 0)
-                    firstDetail = _invSvc.GetInvoiceById(invoices[0].InvoiceID) ?? invoices[0];
-                args.Result = new InvoiceListSnapshot { Invoices = invoices, FirstDetail = firstDetail };
-            };
-            worker.RunWorkerCompleted += (s, args) =>
-            {
-                if (args.Error != null)
-                {
-                    RunOnUI(() =>
-                    {
-                        _invoiceListRefreshing = false;
-                        SetBusy(null);
-                        ShowStatus("Invoices could not load. Refresh and try again.", Color.Red);
-                    });
-                    ShowError( "Failed to load invoices. Please try again.", args.Error);
-                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Loading invoices", args.Error);
-                    return;
-                }
-                if (args.Cancelled) return;
+                    firstDetail = await Task.Run(() => _invSvc.GetInvoiceById(invoices[0].InvoiceID) ?? invoices[0]);
 
-                RunOnUI(() =>
-                {
-                    _invoiceListRefreshing = false;
-                    SetBusy(null);
-                    InvoiceListSnapshot snapshot = args.Result as InvoiceListSnapshot ?? new InvoiceListSnapshot();
-                    BindInvoiceList(snapshot.Invoices, snapshot.FirstDetail);
-                });
-            };
-            worker.RunWorkerAsync();
+                if (IsDisposed)
+                    return;
+
+                _invoiceListRefreshing = false;
+                SetBusy(null);
+                BindInvoiceList(invoices, firstDetail);
+            }
+            catch (Exception ex)
+            {
+                _invoiceListRefreshing = false;
+                SetBusy(null);
+                ShowStatus("Invoices could not load. Refresh and try again.", Color.Red);
+                ShowError("Failed to load invoices. Please try again.", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Loading invoices", ex);
+            }
         }
 
         private void BindInvoiceList(IEnumerable<Invoice> invoices)
@@ -2698,7 +2702,7 @@ namespace HVAC_Pro_Desktop.UI
             inv.InvoiceDate   = _dtpInvDate.Value.Date;
             inv.DueDate       = _dtpDueDate.Value.Date;
             inv.Notes         = _txtNotes.Text.Trim();
-            inv.PaymentStatus = _cmbStatus.SelectedItem?.ToString() ?? "Draft";
+            inv.PaymentStatus = _cmbStatus.SelectedItem?.ToString() ?? "Pending";
             inv.Subject       = _txtSubject.Text.Trim();
             inv.PONumber      = _txtPONumber.Text.Trim();
             inv.PODate        = _dtpPODate.Value.Date;
@@ -2891,7 +2895,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpWarrantyExpiry.Checked = false;
             _dtpNextServiceDue.Checked = false;
             _numRoundOff.Value = 0;
-            if (_cmbStatus.Items.Count > 0) _cmbStatus.SelectedIndex = 0;   // Draft
+            if (_cmbStatus.Items.Count > 0) _cmbStatus.SelectedIndex = 0;   // Pending
             if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
             if (_cmbSite.Items.Count > 0) _cmbSite.SelectedIndex = 0;
             if (_cmbContract.Items.Count > 0) _cmbContract.SelectedIndex = 0;
@@ -2947,26 +2951,32 @@ namespace HVAC_Pro_Desktop.UI
 
         private IEnumerable<string> BuildChecklistSuggestions()
         {
-            var rows = new List<string>();
-            foreach (string jobType in new[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" })
+            return AppDataCache.GetOrCreate("invoices:checklist-suggestions", TimeSpan.FromMinutes(10), () =>
             {
-                try
+                var rows = new List<string>();
+                foreach (string jobType in new[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" })
                 {
-                    rows.AddRange(new JobService().GetChecklistTemplates(jobType).Select(t => t.ItemText));
+                    try
+                    {
+                        rows.AddRange(new JobService().GetChecklistTemplates(jobType).Select(t => t.ItemText));
+                    }
+                    catch (Exception ex) { AppLogger.LogError("InvoiceForm.GetChecklistSuggestions", ex); }
                 }
-                catch { }
-            }
-            rows.AddRange(new[]
-            {
-                "Site Survey Completed",
-                "Material Delivered",
-                "Installation Completed",
-                "Testing & Commissioning Done",
-                "Filter cleaning completed",
-                "Gas pressure checked",
-                "Client sign-off pending"
+                rows.AddRange(new[]
+                {
+                    "Site Survey Completed",
+                    "Material Delivered",
+                    "Installation Completed",
+                    "Testing & Commissioning Done",
+                    "Filter cleaning completed",
+                    "Gas pressure checked",
+                    "Client sign-off pending"
+                });
+                return rows
+                    .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
             });
-            return rows;
         }
 
         private IEnumerable<string> BuildAssetSuggestions()
@@ -3077,7 +3087,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool IsInvoiceLocked()
         {
-            string status = _cmbStatus?.SelectedItem?.ToString() ?? _current?.PaymentStatus ?? "Draft";
+            string status = _cmbStatus?.SelectedItem?.ToString() ?? _current?.PaymentStatus ?? "Pending";
             return string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
         }
@@ -3151,6 +3161,7 @@ namespace HVAC_Pro_Desktop.UI
                 item?.StockItemID?.ToString() ?? "",
                 item?.IsStockItem == true ? "1" : "0");
             RecalculateSummary();
+            ClearInvoiceLineGridSelection();
         }
 
         private InvoiceLineItem CatalogToLineItem(InvoiceCatalogItem item)
@@ -3194,6 +3205,15 @@ namespace HVAC_Pro_Desktop.UI
                 if (_grid.EditingControl is ComboBox combo)
                     combo.DroppedDown = true;
             }));
+        }
+
+        private void ClearInvoiceLineGridSelection()
+        {
+            if (_grid == null || _grid.IsDisposed || _grid.IsCurrentCellInEditMode)
+                return;
+
+            _grid.ClearSelection();
+            _grid.CurrentCell = null;
         }
 
         private void AutoSelectGstModeFromPlaceOfSupply()
@@ -3430,7 +3450,7 @@ namespace HVAC_Pro_Desktop.UI
             ClearForm();
             ShowInvoiceEditor();
             OpenClientDropdown();
-            ShowStatus("New invoice â€” fill the form and click Save Draft.", Color.Gray);
+            ShowStatus("New invoice - fill the form and click Save.", Color.Gray);
         }
 
         private void OpenClientDropdown()
@@ -3580,7 +3600,7 @@ namespace HVAC_Pro_Desktop.UI
             DateTimePicker dtpDate = new DateTimePicker { Format = DateTimePickerFormat.Short, Location = new Point(lx, fy + 70), Width = fw, Value = DateTime.Today, Font = new Font("Segoe UI", 9) };
 
             Label lblMethod = new Label { Text = "Payment Method:", AutoSize = true, Location = new Point(lx, fy + 104), Font = new Font("Segoe UI", 9, FontStyle.Bold) };
-            ComboBox cmbMethod = new ComboBox { Location = new Point(lx, fy + 122), Width = fw, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            ComboBox cmbMethod = new ComboBox { Location = new Point(lx, fy + 122), Width = fw, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             cmbMethod.Items.AddRange(new object[] { "Cash", "Cheque", "NEFT", "UPI", "Bank Transfer", "NEFT/RTGS", "DD" });
             cmbMethod.SelectedIndex = 0;
 
@@ -3701,8 +3721,6 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                if (!ValidateInvoiceForm(true))
-                    return;
                 SetBusy("Generating invoice PDF preview...");
                 Invoice invoice;
                 try
@@ -3724,6 +3742,22 @@ namespace HVAC_Pro_Desktop.UI
                     if (invoice.LineItems.Count == 0)
                         invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = "Nos", Quantity = 1, Rate = 0, GSTPercent = 18, IsBillable = true });
                 }
+                if (invoice.LineItems == null)
+                    invoice.LineItems = new List<InvoiceLineItem>();
+                if (invoice.LineItems.Count == 0)
+                    invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = "Nos", Quantity = 1, Rate = 0, GSTPercent = Math.Max(0m, invoice.GSTPercent), IsBillable = true });
+                invoice.InvoiceNumber = string.IsNullOrWhiteSpace(invoice.InvoiceNumber) || invoice.InvoiceNumber == "(auto-generated)"
+                    ? (_current?.InvoiceNumber ?? "DRAFT-PREVIEW")
+                    : invoice.InvoiceNumber;
+                invoice.InvoiceTitle = string.IsNullOrWhiteSpace(invoice.InvoiceTitle) ? "TAX INVOICE" : invoice.InvoiceTitle;
+                invoice.InvoiceDate = invoice.InvoiceDate == default(DateTime) ? DateTime.Today : invoice.InvoiceDate;
+                invoice.DueDate = invoice.DueDate == default(DateTime) ? DateTime.Today.AddDays(30) : invoice.DueDate;
+                invoice.ClientName = string.IsNullOrWhiteSpace(invoice.ClientName) ? "Draft Client" : invoice.ClientName;
+                invoice.Subject = string.IsNullOrWhiteSpace(invoice.Subject) ? "Draft invoice preview" : invoice.Subject;
+                invoice.GSTMode = string.IsNullOrWhiteSpace(invoice.GSTMode)
+                    ? (_txtPlaceOfSupply != null && _txtPlaceOfSupply.Text.IndexOf("Maharashtra", StringComparison.OrdinalIgnoreCase) >= 0 ? "CGST+SGST" : "IGST")
+                    : invoice.GSTMode;
+                invoice.GSTPercent = invoice.GSTPercent <= 0 ? 18m : invoice.GSTPercent;
                 string html = _invSvc.BuildInvoiceHtml(invoice);
                 LogInvoiceActivity("PDF generated");
                 ToastNotification.Show(this, "Invoice preview generated.", InfoBlue);
@@ -3793,7 +3827,7 @@ namespace HVAC_Pro_Desktop.UI
                             _txtSubject.Text = "Supply / service invoice at " + client.CompanyName + (_cmbSite.SelectedItem is ComboItem site && site.Id > 0 ? " - " + site.Text : "");
                     }
                 }
-                catch { }
+                catch (Exception ex) { AppLogger.LogError("InvoiceForm.ClientSelectionChanged", ex); }
             }
             if (ci != null && ci.Id > 0)
                 LogInvoiceActivity("client selected");
@@ -4066,7 +4100,7 @@ namespace HVAC_Pro_Desktop.UI
                 : _txtInvNo.Text.Trim();
             invoice.ClientName = (_cmbClient.SelectedItem as ComboItem)?.Text ?? "";
             invoice.SiteName = (_cmbSite.SelectedItem as ComboItem)?.Text ?? "";
-            invoice.PaymentStatus = _cmbStatus.SelectedItem?.ToString() ?? "Draft";
+            invoice.PaymentStatus = _cmbStatus.SelectedItem?.ToString() ?? "Pending";
             invoice.PaidAmount = _current?.PaidAmount ?? 0;
             invoice.BalanceDue = Math.Max(invoice.TotalAmount - invoice.PaidAmount, 0);
             if (string.IsNullOrWhiteSpace(invoice.Subject) && !string.IsNullOrWhiteSpace(invoice.ClientName))

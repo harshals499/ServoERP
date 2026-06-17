@@ -92,6 +92,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             else if (ctrl is ComboBox cb)
             {
+                cb.DropDownStyle = ComboBoxStyle.DropDown;
                 cb.FlatStyle = IsInsideInputOutlineHost(cb) ? FlatStyle.Flat : FlatStyle.Standard;
                 cb.BackColor = cb.Enabled ? DS.BgInput : DS.InputDisabledBack;
                 cb.ForeColor = cb.Enabled ? DS.InputText : DS.InputMutedText;

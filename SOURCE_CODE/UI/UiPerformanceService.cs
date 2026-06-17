@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -41,7 +42,14 @@ namespace HVAC_Pro_Desktop.UI
             }
             finally
             {
-                try { control.ResumeLayout(true); } catch { }
+                try
+                {
+                    control.ResumeLayout(true);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("UiPerformanceService.WithLayoutsSuspended.ResumeLayout", ex);
+                }
                 SendMessage(control.Handle, WM_SETREDRAW, new IntPtr(1), IntPtr.Zero);
                 control.Invalidate(true);
             }

@@ -91,14 +91,14 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _auditGridCard;
         private Label _lblBackupStatus;
         private Label _lblLicenseStatus;
-        private AgentSimulationPanel _agentSimulationPanel;
-        private DevTeamDashboardForm _devTeamDashboard;
         private bool _reflowingSettingsCards;
         private bool _initialLoadQueued;
         private bool _settingsCardsBuilt;
+        private bool _secondarySettingsCardsBuilt;
         private bool _hsnLoadQueued;
         private bool _securityLoadQueued;
         private bool _settingsPolishQueued;
+        private bool _secondarySettingsCardsQueued;
 
         private static readonly Color HeaderBg = DS.White;
         private static readonly Color SectionBg = DS.Slate50;
@@ -172,7 +172,7 @@ namespace HVAC_Pro_Desktop.UI
                 _generalFlow.SuspendLayout();
                 try
                 {
-                    BuildForm(_generalFlow);
+                    BuildForm(_generalFlow, includeDeferredCards: false);
                     CenterCanvas(_generalCanvas.Parent as Panel, _generalCanvas);
                 }
                 finally
@@ -183,7 +183,68 @@ namespace HVAC_Pro_Desktop.UI
             });
             _settingsCardsBuilt = true;
             QueueDeferredSettingsPolish();
+            QueueDeferredSecondarySettingsCards();
             AppRuntime.LogTiming("Settings.BuildCards.Complete", watch.ElapsedMilliseconds);
+        }
+
+        private void QueueDeferredSecondarySettingsCards()
+        {
+            if (_secondarySettingsCardsBuilt || _secondarySettingsCardsQueued || IsDisposed || _generalFlow == null)
+                return;
+
+            _secondarySettingsCardsQueued = true;
+            Action build = () =>
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+                try
+                {
+                    if (IsDisposed || _generalFlow == null || _generalFlow.IsDisposed || _secondarySettingsCardsBuilt)
+                        return;
+
+                    UiPerformanceService.WithSuspendedDrawing(_generalFlow, () =>
+                    {
+                        _generalFlow.SuspendLayout();
+                        try
+                        {
+                            BuildDeferredSettingsCards(_generalFlow);
+                            CenterCanvas(_generalCanvas.Parent as Panel, _generalCanvas);
+                        }
+                        finally
+                        {
+                            _generalFlow.ResumeLayout(false);
+                        }
+                    });
+                    _secondarySettingsCardsBuilt = true;
+                    QueueDeferredSettingsPolish();
+                    AppRuntime.LogTiming("Settings.BuildDeferredCards.Complete", watch.ElapsedMilliseconds);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("SettingsForm.QueueDeferredSecondarySettingsCards", ex);
+                }
+                finally
+                {
+                    _secondarySettingsCardsQueued = false;
+                }
+            };
+
+            Action queueWithDelay = () =>
+            {
+                var timer = new System.Windows.Forms.Timer { Interval = 900 };
+                timer.Tick += (s, e) =>
+                {
+                    timer.Stop();
+                    timer.Dispose();
+                    if (!IsDisposed && IsHandleCreated)
+                        BeginInvoke(build);
+                };
+                timer.Start();
+            };
+
+            if (IsHandleCreated)
+                queueWithDelay();
+            else
+                HandleCreated += (s, e) => queueWithDelay();
         }
 
         /// <summary>Applies expensive shared Settings polish after first paint instead of blocking page open.</summary>
@@ -341,7 +402,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(header);
         }
 
-        private void BuildForm(Panel parent)
+        private void BuildForm(Panel parent, bool includeDeferredCards)
         {
             parent.Controls.Clear();
 
@@ -351,9 +412,12 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Settings.BuildForm.Guides.Start", 0);
             BuildGeneralSettingsGuide(parent);
             BuildHelpSupportCard(parent);
-            BuildAgentSimulationCard(parent);
-            BuildDevTeamDashboardCard(parent);
             BuildUpdateNotificationsCard(parent);
+            if (includeDeferredCards)
+            {
+                BuildAgentSimulationCard(parent);
+                BuildDevTeamDashboardCard(parent);
+            }
             AppRuntime.LogTiming("Settings.BuildForm.Guides.Complete", 0);
 
             AppRuntime.LogTiming("Settings.BuildForm.Company.Start", 0);
@@ -379,14 +443,14 @@ namespace HVAC_Pro_Desktop.UI
             btnLocateOffice.Click += async (s, e) => await LocateOfficeAsync();
             companyBody.Controls.Add(btnLocateOffice);
 
-            _txtOfficeLatitude = new TextBox { ReadOnly = true };
+            _txtOfficeLatitude = new TextBox { ReadOnly = false };
             PlaceLabeledControl(companyBody, "Office Latitude", _txtOfficeLatitude, 0, 192, 170);
-            _txtOfficeLongitude = new TextBox { ReadOnly = true };
+            _txtOfficeLongitude = new TextBox { ReadOnly = false };
             PlaceLabeledControl(companyBody, "Office Longitude", _txtOfficeLongitude, 190, 192, 170);
-            _cmbState = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbState = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbState.Items.AddRange(IndiaStateCatalog.Names.Cast<object>().ToArray());
             PlaceLabeledControl(companyBody, "State / UT", _cmbState, 380, 192, 202);
-            _cmbGstRegistrationType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbGstRegistrationType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbGstRegistrationType.Items.AddRange(new object[] { "Regular", "Composition", "Unregistered" });
             PlaceLabeledControl(companyBody, "GST Registration Type", _cmbGstRegistrationType, 0, 256, 220);
             companyBody.Resize += (s, e) => LayoutCompanyInformationCard(companyBody, btnLocateOffice);
@@ -395,7 +459,7 @@ namespace HVAC_Pro_Desktop.UI
 
             AppRuntime.LogTiming("Settings.BuildForm.Display.Start", 0);
             Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 340);
-            _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbDisplayFitMode.Items.AddRange(new object[]
             {
                 "Auto detect laptop screens",
@@ -403,7 +467,7 @@ namespace HVAC_Pro_Desktop.UI
                 "Standard desktop"
             });
             PlaceLabeledControl(displayBody, "Display fit mode", _cmbDisplayFitMode, 0, 0, 330);
-            _cmbUiScale = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbUiScale = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             foreach (int option in LayoutScaler.GetUiScaleOptions())
                 _cmbUiScale.Items.Add(option.ToString() + "%");
             PlaceLabeledControl(displayBody, "Global UI scale", _cmbUiScale, 0, 74, 160);
@@ -449,15 +513,18 @@ namespace HVAC_Pro_Desktop.UI
             currentScreen.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             displayBody.Controls.Add(currentScreen);
 
-            BuildLocalAiCard(parent);
             AppRuntime.LogTiming("Settings.BuildForm.Display.Complete", 0);
 
-            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
-            BuildLegalAgreementsCard(parent);
-            BuildOpenSourceLicensesCard(parent);
-            BuildModuleCatalogCard(parent);
-            BuildCompliancePackCard(parent);
-            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Complete", 0);
+            if (includeDeferredCards)
+            {
+                BuildLocalAiCard(parent);
+                AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
+                BuildLegalAgreementsCard(parent);
+                BuildOpenSourceLicensesCard(parent);
+                BuildModuleCatalogCard(parent);
+                BuildCompliancePackCard(parent);
+                AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Complete", 0);
+            }
 
             AppRuntime.LogTiming("Settings.BuildForm.Defaults.Start", 0);
             Panel defaultsBody = AddModernSettingsCard(parent, "India Defaults", "Set default financial and taxation preferences.", 360);
@@ -475,9 +542,9 @@ namespace HVAC_Pro_Desktop.UI
             _numEInvoiceThreshold = MakeDecimalBox(Point.Empty, 0, 0m, 9999999999m, 50000000m, 2, 1000m);
             _numEInvoiceThreshold.ValueChanged += (s, e) => RefreshIndiaDefaultsPreview();
             PlaceLabeledControl(defaultsBody, "E-Invoice Threshold", _numEInvoiceThreshold, 340, 72, 150);
-            _txtCurrency = new TextBox { ReadOnly = true, Text = "INR (\u20B9)" };
+            _txtCurrency = new TextBox { ReadOnly = false, Text = "INR (\u20B9)" };
             PlaceLabeledControl(defaultsBody, "Currency", _txtCurrency, 0, 144, 150);
-            _txtFinancialYear = new TextBox { ReadOnly = true };
+            _txtFinancialYear = new TextBox { ReadOnly = false };
             PlaceLabeledControl(defaultsBody, "Financial Year", _txtFinancialYear, 170, 144, 320);
             _chkEInvoiceEligible = new CheckBox
             {
@@ -563,6 +630,22 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel diagnosticsBody = AddModernSettingsCard(parent, "Diagnostics & Error Log", "Review local ServoERP exception logs for support and troubleshooting.", 250);
             BuildDiagnosticsErrorLogSection(diagnosticsBody);
+        }
+
+        private void BuildDeferredSettingsCards(Panel parent)
+        {
+            if (_secondarySettingsCardsBuilt || parent == null || parent.IsDisposed)
+                return;
+
+            BuildAgentSimulationCard(parent);
+            BuildDevTeamDashboardCard(parent);
+            BuildLocalAiCard(parent);
+            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
+            BuildLegalAgreementsCard(parent);
+            BuildOpenSourceLicensesCard(parent);
+            BuildModuleCatalogCard(parent);
+            BuildCompliancePackCard(parent);
+            AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Complete", 0);
         }
 
         /// <summary>Builds Settings actions for viewing and maintaining ServoERP error logs.</summary>
@@ -651,13 +734,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                DialogResult confirm = MessageBox.Show(
-                    "Delete ServoERP error log files older than 90 days?",
-                    BrandingService.WindowTitle("Clear Old Logs"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question,
-                    MessageBoxDefaultButton.Button2);
-                if (confirm != DialogResult.Yes)
+                bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Clear old ServoERP logs",
+                    "ServoERP will delete local .log files older than 90 days from the diagnostics log folder. Current logs and business data are not touched.");
+                if (!confirm)
                     return;
 
                 int deleted = 0;
@@ -839,26 +920,17 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            if (_devTeamDashboard == null || _devTeamDashboard.IsDisposed)
-                _devTeamDashboard = new DevTeamDashboardForm();
-            if (!_devTeamDashboard.Visible)
-                _devTeamDashboard.Show(FindForm());
-            _devTeamDashboard.BringToFront();
-            _devTeamDashboard.Focus();
+            using (var dashboard = new DevTeamDashboardForm())
+                dashboard.ShowDialog(FindForm());
         }
 
         private void OpenAgentSimulationPanel(bool start)
         {
-            if (_agentSimulationPanel == null || _agentSimulationPanel.IsDisposed)
-                _agentSimulationPanel = new AgentSimulationPanel();
-
-            if (!_agentSimulationPanel.Visible)
-                _agentSimulationPanel.Show(FindForm());
-            _agentSimulationPanel.BringToFront();
-            _agentSimulationPanel.Focus();
-
             if (start)
                 AgentSimulationService.Instance.StartOrResume();
+
+            using (var panel = new AgentSimulationPanel())
+                panel.ShowDialog(FindForm());
         }
 
         private void OpenLatestAgentReport()
@@ -1010,10 +1082,10 @@ namespace HVAC_Pro_Desktop.UI
             };
             aiBody.Controls.Add(_chkAiEnabled);
 
-            _cmbAiProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbAiProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbAiProvider.Items.AddRange(new object[] { "Built-in" });
             PlaceLabeledControl(aiBody, "Provider", _cmbAiProvider, 0, 52, 190);
-            _cmbAiProvider.Enabled = false;
+            _cmbAiProvider.Enabled = true;
 
             _txtAiEndpoint = new TextBox { Visible = false };
             _txtAiModel = new TextBox { Visible = false };
@@ -1411,48 +1483,38 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Loads security summaries after Settings is visible so user SQL does not block first paint.</summary>
-        private void BeginRefreshSecurityTabs()
+        private async void BeginRefreshSecurityTabs()
         {
             if (!IsAdminUser() || _gridUsers == null || _securityLoadQueued)
                 return;
 
             _securityLoadQueued = true;
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
                 AppRuntime.LogTiming("Settings.SecurityUsers.Start", 0);
-                e.Result = _authSvc.GetUsers();
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    AppRuntime.LogException("SettingsForm.BeginRefreshSecurityTabs", e.Error);
-                    RunOnUI(() =>
-                    {
-                        worker.Dispose();
-                        _securityLoadQueued = false;
-                        if (IsDisposed || _gridUsers == null || _gridUsers.IsDisposed)
-                            return;
-                        _lblStatus.Text = "User login summary could not be loaded: " + e.Error.Message;
-                        _lblStatus.ForeColor = Color.Red;
-                    });
-                    ShowError( "Failed to load user login summary. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
-
+                List<ManagedUserDto> users = await Task.Run(() => _authSvc.GetUsers());
                 RunOnUI(() =>
                 {
-                    worker.Dispose();
                     _securityLoadQueued = false;
                     if (IsDisposed || _gridUsers == null || _gridUsers.IsDisposed)
                         return;
-                    BindUsers(e.Result as List<ManagedUserDto> ?? new List<ManagedUserDto>());
+                    BindUsers(users ?? new List<ManagedUserDto>());
                     AppRuntime.LogTiming("Settings.SecurityUsers.Complete", 0);
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("SettingsForm.BeginRefreshSecurityTabs", ex);
+                RunOnUI(() =>
+                {
+                    _securityLoadQueued = false;
+                    if (IsDisposed || _gridUsers == null || _gridUsers.IsDisposed)
+                        return;
+                    _lblStatus.Text = "User login summary could not be loaded: " + ex.Message;
+                    _lblStatus.ForeColor = Color.Red;
+                });
+                ShowError("Failed to load user login summary. Please try again.", ex);
+            }
         }
 
         private void RefreshUsers()
@@ -1877,7 +1939,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Checks SQL Server health on a worker thread so opening Settings never freezes the shell.</summary>
-        private void BeginCheckDbConnection()
+        private async void BeginCheckDbConnection()
         {
             if (_lblDbStatus == null || _lblDbStatus.IsDisposed)
                 return;
@@ -1885,39 +1947,14 @@ namespace HVAC_Pro_Desktop.UI
             _lblDbStatus.Text = "Database: checking office SQL Server...";
             _lblDbStatus.ForeColor = DS.Slate600;
 
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
                 AppRuntime.LogTiming("Settings.CheckDbConnection.Start", 0);
-                e.Result = DatabaseConnectionFactory.TestDatabaseConnectionAsync()
-                    .GetAwaiter()
-                    .GetResult();
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    AppRuntime.LogException("SettingsForm.BeginCheckDbConnection", e.Error);
-                    RunOnUI(() =>
-                    {
-                        worker.Dispose();
-                        if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
-                            return;
-                        _lblDbStatus.Text = "Database: NOT connected - " + e.Error.Message;
-                        _lblDbStatus.ForeColor = Color.Red;
-                    });
-                    ShowError( "Failed to check office SQL Server connection. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
-
+                DatabaseConnectionTestResult result = await DatabaseConnectionFactory.TestDatabaseConnectionAsync();
                 RunOnUI(() =>
                 {
-                    worker.Dispose();
                     if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
                         return;
-
-                    DatabaseConnectionTestResult result = e.Result as DatabaseConnectionTestResult;
                     if (result == null)
                     {
                         _lblDbStatus.Text = "Database: status unavailable.";
@@ -1929,8 +1966,19 @@ namespace HVAC_Pro_Desktop.UI
                     _lblDbStatus.Text = "Database: " + result.Message;
                     _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("SettingsForm.BeginCheckDbConnection", ex);
+                RunOnUI(() =>
+                {
+                    if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
+                        return;
+                    _lblDbStatus.Text = "Database: NOT connected - " + ex.Message;
+                    _lblDbStatus.ForeColor = Color.Red;
+                });
+                ShowError("Failed to check office SQL Server connection. Please try again.", ex);
+            }
         }
 
         /// <summary>Runs an immediate SQL Server health check for explicit Settings actions.</summary>
@@ -2064,48 +2112,38 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Loads HSN/SAC rows after Settings is visible so master-data SQL does not block first paint.</summary>
-        private void BeginLoadHsnSacGrid()
+        private async void BeginLoadHsnSacGrid()
         {
             if (_gridHsnSac == null || _gridHsnSac.IsDisposed || _hsnLoadQueued)
                 return;
 
             _hsnLoadQueued = true;
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
                 AppRuntime.LogTiming("Settings.HsnSac.Start", 0);
-                e.Result = _hsnSacSvc.GetAll();
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    AppRuntime.LogException("SettingsForm.BeginLoadHsnSacGrid", e.Error);
-                    RunOnUI(() =>
-                    {
-                        worker.Dispose();
-                        _hsnLoadQueued = false;
-                        if (IsDisposed || _gridHsnSac == null || _gridHsnSac.IsDisposed)
-                            return;
-                        _lblStatus.Text = "HSN/SAC master could not be loaded: " + e.Error.Message;
-                        _lblStatus.ForeColor = Color.Red;
-                    });
-                    ShowError( "Failed to load HSN/SAC master. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
-
+                IEnumerable<HsnSacMasterEntry> entries = await Task.Run(() => _hsnSacSvc.GetAll());
                 RunOnUI(() =>
                 {
-                    worker.Dispose();
                     _hsnLoadQueued = false;
                     if (IsDisposed || _gridHsnSac == null || _gridHsnSac.IsDisposed)
                         return;
-                    LoadHsnSacGrid(e.Result as IEnumerable<HsnSacMasterEntry>);
+                    LoadHsnSacGrid(entries);
                     AppRuntime.LogTiming("Settings.HsnSac.Complete", 0);
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("SettingsForm.BeginLoadHsnSacGrid", ex);
+                RunOnUI(() =>
+                {
+                    _hsnLoadQueued = false;
+                    if (IsDisposed || _gridHsnSac == null || _gridHsnSac.IsDisposed)
+                        return;
+                    _lblStatus.Text = "HSN/SAC master could not be loaded: " + ex.Message;
+                    _lblStatus.ForeColor = Color.Red;
+                });
+                ShowError("Failed to load HSN/SAC master. Please try again.", ex);
+            }
         }
 
         private List<HsnSacMasterEntry> CollectHsnSacRows()

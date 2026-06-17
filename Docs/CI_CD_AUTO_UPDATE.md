@@ -63,6 +63,18 @@ vpk pack --packId ServoERP.Desktop --packTitle ServoERP --packVersion <version> 
 
 Velopack creates a setup executable plus update package files. Existing installs use the GitHub Release feed. New users download the latest setup executable from GitHub Releases.
 
+Local/manual release scripts also copy that Velopack setup into:
+
+```text
+installer_output\ServoERP_Setup_<full-version>.exe
+```
+
+The legacy Inno installer is no longer the default public setup artifact. When built intentionally for fallback scenarios, it is emitted separately as:
+
+```text
+installer_output\ServoERP_Legacy_Setup_<full-version>.exe
+```
+
 ## Client Data Safety
 
 The release package intentionally excludes mutable client files and folders:

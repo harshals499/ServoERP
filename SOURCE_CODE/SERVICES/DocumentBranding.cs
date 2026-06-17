@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Text;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.Services
@@ -69,6 +71,18 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 ";
         }
 
+        public static string BuildOfficialCompanyDetailsCss()
+        {
+            return @"
+.mse-from-block{font-size:14px;line-height:1.25;color:#000;}
+.mse-from-title{font-size:18px;font-weight:700;text-decoration:underline;margin:0 0 8px 0;}
+.mse-from-company{font-size:18px;font-weight:700;margin:0 0 8px 0;}
+.mse-detail-line{display:flex;align-items:flex-start;gap:8px;}
+.mse-detail-label{display:inline-block;min-width:165px;font-weight:700;}
+.mse-detail-value{display:inline-block;font-weight:700;}
+";
+        }
+
         public static string BuildOfficialHeaderHtml()
         {
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
@@ -82,6 +96,53 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
                 + "</div></div>";
         }
 
+        public static Tuple<string, string>[] GetOfficialDetailRows(
+            string shopLicense,
+            string pfNumber,
+            string esicNumber,
+            string profTax,
+            string panNumber,
+            string gstNumber,
+            string msmeNumber,
+            bool includeMsme)
+        {
+            var rows = new List<Tuple<string, string>>
+            {
+                Tuple.Create("Shop Lic.No", FirstNonEmpty(shopLicense, DefaultShopLicense)),
+                Tuple.Create("P.F.No.", FirstNonEmpty(pfNumber, DefaultPfNumber)),
+                Tuple.Create("ESIC Code No.", FirstNonEmpty(esicNumber, DefaultEsicNumber)),
+                Tuple.Create("Prof. Tax No.", FirstNonEmpty(profTax, DefaultProfTaxNumber)),
+                Tuple.Create("PAN CARD NO.", FirstNonEmpty(panNumber, DefaultPanNumber)),
+                Tuple.Create("GST NUMBER", FirstNonEmpty(gstNumber, DefaultGstNumber))
+            };
+
+            string resolvedMsme = FirstNonEmpty(msmeNumber, DefaultMsmeNumber);
+            if (includeMsme && !string.IsNullOrWhiteSpace(resolvedMsme))
+                rows.Add(Tuple.Create("MSME NO.", resolvedMsme));
+
+            return rows.ToArray();
+        }
+
+        public static string BuildFromBlockHtml(
+            string companyName,
+            string shopLicense,
+            string pfNumber,
+            string esicNumber,
+            string profTax,
+            string panNumber,
+            string gstNumber,
+            string msmeNumber,
+            bool includeMsme)
+        {
+            var html = new StringBuilder();
+            html.Append("<div class='mse-from-block'>");
+            html.Append("<div class='mse-from-title'>From:</div>");
+            html.Append("<div class='mse-from-company'>").Append(Html(FirstNonEmpty(companyName, DefaultCompanyName))).Append("</div>");
+            html.Append(BuildDetailLinesHtml(GetOfficialDetailRows(shopLicense, pfNumber, esicNumber, profTax, panNumber, gstNumber, msmeNumber, includeMsme)));
+            html.Append("</div>");
+            return html.ToString();
+        }
+
         public static string BuildComplianceBlockHtml(
             string shopLicense,
             string pfNumber,
@@ -92,13 +153,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             string msmeNumber,
             bool includeCertification)
         {
-            string html = "Shop Lic.No. &nbsp;&nbsp; : &nbsp;" + Html(FirstNonEmpty(shopLicense, DefaultShopLicense)) + "<br/>"
-                + "P.F.No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(FirstNonEmpty(pfNumber, DefaultPfNumber)) + "<br/>"
-                + "ESIC Code No. : &nbsp;" + Html(FirstNonEmpty(esicNumber, DefaultEsicNumber)) + "<br/>"
-                + "Prof. Tax No. &nbsp;&nbsp; : &nbsp;" + Html(FirstNonEmpty(profTax, DefaultProfTaxNumber)) + "<br/>"
-                + "PAN CARD NO.: &nbsp;" + Html(FirstNonEmpty(panNumber, DefaultPanNumber)) + "<br/>"
-                + "GST No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(FirstNonEmpty(gstNumber, DefaultGstNumber)) + "<br/>"
-                + "MSME NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(FirstNonEmpty(msmeNumber, DefaultMsmeNumber));
+            string html = BuildDetailLinesHtml(GetOfficialDetailRows(shopLicense, pfNumber, esicNumber, profTax, panNumber, gstNumber, msmeNumber, false), "<br/>");
 
             if (includeCertification)
                 html += "<br/>I/We,hereby certify that my/our registration certificate under the Maharashtra Value Added Tax Act,2002 is in force on the date on which sale of goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any, payable on the sale has been paid or shall be paid.";
@@ -126,6 +181,27 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
         private static string Html(string text)
         {
             return WebUtility.HtmlEncode(text ?? string.Empty);
+        }
+
+        private static string BuildDetailLinesHtml(IEnumerable<Tuple<string, string>> rows, string separator = "")
+        {
+            var builder = new StringBuilder();
+            bool first = true;
+            foreach (Tuple<string, string> row in rows)
+            {
+                if (!first && !string.IsNullOrEmpty(separator))
+                    builder.Append(separator);
+
+                builder.Append("<div class='mse-detail-line'><span class='mse-detail-label'>")
+                    .Append(Html(row.Item1))
+                    .Append("</span><span class='mse-detail-value'>: ")
+                    .Append(Html(row.Item2))
+                    .Append("</span></div>");
+
+                first = false;
+            }
+
+            return builder.ToString();
         }
 
         private static string FirstNonEmpty(params string[] values)

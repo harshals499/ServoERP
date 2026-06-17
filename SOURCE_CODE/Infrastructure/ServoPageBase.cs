@@ -1,5 +1,9 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using FluentValidation;
+using HVAC_Pro_Desktop.Services;
+using ServoERP.Validators;
 
 namespace ServoERP.Infrastructure
 {
@@ -54,6 +58,27 @@ namespace ServoERP.Infrastructure
         protected void ShowError(string message, Exception ex = null)
         {
             ServoErrorDialog.Show(this, message, ex);
+        }
+
+        /// <summary>Runs an async page action with consistent validation and exception handling.</summary>
+        protected Task<bool> RunSafeAsync(string action, Func<Task> work, Control buttonToDisable = null, string loadingText = "Processing...")
+        {
+            return buttonToDisable == null
+                ? CrashProtectionService.SafeExecuteAsync(this, action, work)
+                : CrashProtectionService.SafeExecuteAsync(this, action, buttonToDisable, loadingText, work);
+        }
+
+        /// <summary>Shows FluentValidation messages consistently before page actions continue.</summary>
+        protected bool TryValidate<T>(T model, IValidator<T> validator, string title = null, Action onInvalid = null)
+        {
+            string message;
+            if (FluentValidationGuard.TryValidate(validator, model, out message))
+                return true;
+
+            IWin32Window owner = (IWin32Window)FindForm() ?? this;
+            MessageBox.Show(owner, message, title ?? (FindForm()?.Text ?? "Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            onInvalid?.Invoke();
+            return false;
         }
 
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>

@@ -590,43 +590,108 @@ namespace HVAC_Pro_Desktop.DAL
                 PaymentStatus = r["PaymentStatus"].ToString(),
                 PaymentDate   = r["PaymentDate"] != DBNull.Value ? (DateTime?)ToDate(r["PaymentDate"]) : null
             };
-            try { inv.ClientID    = r["ClientID"] != DBNull.Value ? ToInt(r["ClientID"]) : 0; }    catch { }
-            try { inv.SiteID      = r["SiteID"] != DBNull.Value ? ToInt(r["SiteID"]) : 0; }        catch { }
-            try { inv.QuotationBidID = r["QuotationBidID"] != DBNull.Value ? (int?)ToInt(r["QuotationBidID"]) : null; } catch { }
-            try { inv.GSTPercent  = r["GSTPercent"] != DBNull.Value ? ToDecimal(r["GSTPercent"]) : 18; } catch { }
-            try { inv.BalanceDue  = r["BalanceDue"] != DBNull.Value ? ToDecimal(r["BalanceDue"]) : inv.TotalAmount - inv.PaidAmount; } catch { }
-            try { inv.Notes       = r["Notes"].ToString(); }       catch { }
-            try { inv.InvoiceTitle = r["InvoiceTitle"].ToString(); } catch { }
-            try { inv.Subject = r["Subject"] == DBNull.Value ? "" : r["Subject"].ToString(); } catch { }
-            try { inv.PONumber = r["PONumber"] == DBNull.Value ? "" : r["PONumber"].ToString(); } catch { }
-            try { inv.PODate = r["PODate"] != DBNull.Value ? (DateTime?)ToDate(r["PODate"]) : null; } catch { }
-            try { inv.SendInvoiceTo = r["SendInvoiceTo"] == DBNull.Value ? "" : r["SendInvoiceTo"].ToString(); } catch { }
-            try { inv.CertificationNote = r["CertificationNote"] == DBNull.Value ? "" : r["CertificationNote"].ToString(); } catch { }
-            try { inv.TemplateCode = r["TemplateCode"] == DBNull.Value ? "" : r["TemplateCode"].ToString(); } catch { }
-            try { inv.WorkflowType = r["WorkflowType"] == DBNull.Value ? "" : r["WorkflowType"].ToString(); } catch { }
-            try { inv.GSTMode = r["GSTMode"] == DBNull.Value ? "IGST" : r["GSTMode"].ToString(); } catch { }
-            try { inv.PaymentTerms = r["PaymentTerms"] == DBNull.Value ? "" : r["PaymentTerms"].ToString(); } catch { }
-            try { inv.PlaceOfSupply = r["PlaceOfSupply"] == DBNull.Value ? "" : r["PlaceOfSupply"].ToString(); } catch { }
-            try { inv.RoundOff = r["RoundOff"] != DBNull.Value ? ToDecimal(r["RoundOff"]) : 0m; } catch { }
-            try { inv.CGSTAmount = r["CGSTAmount"] != DBNull.Value ? ToDecimal(r["CGSTAmount"]) : 0m; } catch { }
-            try { inv.SGSTAmount = r["SGSTAmount"] != DBNull.Value ? ToDecimal(r["SGSTAmount"]) : 0m; } catch { }
-            try { inv.IGSTAmount = r["IGSTAmount"] != DBNull.Value ? ToDecimal(r["IGSTAmount"]) : 0m; } catch { }
-            try { inv.ContractCoverageType = r["ContractCoverageType"] == DBNull.Value ? "" : r["ContractCoverageType"].ToString(); } catch { }
-            try { inv.ServiceChecklist = r["ServiceChecklist"] == DBNull.Value ? "" : r["ServiceChecklist"].ToString(); } catch { }
-            try { inv.AssetDetails = r["AssetDetails"] == DBNull.Value ? "" : r["AssetDetails"].ToString(); } catch { }
-            try { inv.WarrantyStatus = r["WarrantyStatus"] == DBNull.Value ? "" : r["WarrantyStatus"].ToString(); } catch { }
-            try { inv.WarrantyExpiry = r["WarrantyExpiry"] != DBNull.Value ? (DateTime?)ToDate(r["WarrantyExpiry"]) : null; } catch { }
-            try { inv.PreventiveVisitDate = r["PreventiveVisitDate"] != DBNull.Value ? (DateTime?)ToDate(r["PreventiveVisitDate"]) : null; } catch { }
-            try { inv.NextServiceDueDate = r["NextServiceDueDate"] != DBNull.Value ? (DateTime?)ToDate(r["NextServiceDueDate"]) : null; } catch { }
-            try { inv.InventoryReservationStatus = r["InventoryReservationStatus"] == DBNull.Value ? "" : r["InventoryReservationStatus"].ToString(); } catch { }
-            try { inv.CreatedByUserId = r["CreatedByUserId"] != DBNull.Value ? (int?)ToInt(r["CreatedByUserId"]) : null; } catch { }
-            try { inv.CreatedByName = r["CreatedByName"] == DBNull.Value ? null : r["CreatedByName"].ToString(); } catch { }
-            try { inv.ModifiedByUserId = r["ModifiedByUserId"] != DBNull.Value ? (int?)ToInt(r["ModifiedByUserId"]) : null; } catch { }
-            try { inv.ModifiedByName = r["ModifiedByName"] == DBNull.Value ? null : r["ModifiedByName"].ToString(); } catch { }
-            try { inv.ModifiedDate = r["ModifiedDate"] != DBNull.Value ? (DateTime?)ToDate(r["ModifiedDate"]) : null; } catch { }
-            try { inv.ClientName  = r["ClientName"].ToString(); }  catch { }
-            try { inv.SiteName    = r["SiteName"].ToString(); }    catch { }
+            inv.ClientID = GetInt32(r, "ClientID", 0);
+            inv.SiteID = GetInt32(r, "SiteID", 0);
+            inv.QuotationBidID = GetNullableInt32(r, "QuotationBidID");
+            inv.GSTPercent = GetDecimal(r, "GSTPercent", 18m);
+            inv.BalanceDue = GetDecimal(r, "BalanceDue", inv.TotalAmount - inv.PaidAmount);
+            inv.Notes = GetString(r, "Notes");
+            inv.InvoiceTitle = GetString(r, "InvoiceTitle");
+            inv.Subject = GetString(r, "Subject");
+            inv.PONumber = GetString(r, "PONumber");
+            inv.PODate = GetNullableDate(r, "PODate");
+            inv.SendInvoiceTo = GetString(r, "SendInvoiceTo");
+            inv.CertificationNote = GetString(r, "CertificationNote");
+            inv.TemplateCode = GetString(r, "TemplateCode");
+            inv.WorkflowType = GetString(r, "WorkflowType");
+            inv.GSTMode = GetString(r, "GSTMode", "IGST");
+            inv.PaymentTerms = GetString(r, "PaymentTerms");
+            inv.PlaceOfSupply = GetString(r, "PlaceOfSupply");
+            inv.RoundOff = GetDecimal(r, "RoundOff", 0m);
+            inv.CGSTAmount = GetDecimal(r, "CGSTAmount", 0m);
+            inv.SGSTAmount = GetDecimal(r, "SGSTAmount", 0m);
+            inv.IGSTAmount = GetDecimal(r, "IGSTAmount", 0m);
+            inv.ContractCoverageType = GetString(r, "ContractCoverageType");
+            inv.ServiceChecklist = GetString(r, "ServiceChecklist");
+            inv.AssetDetails = GetString(r, "AssetDetails");
+            inv.WarrantyStatus = GetString(r, "WarrantyStatus");
+            inv.WarrantyExpiry = GetNullableDate(r, "WarrantyExpiry");
+            inv.PreventiveVisitDate = GetNullableDate(r, "PreventiveVisitDate");
+            inv.NextServiceDueDate = GetNullableDate(r, "NextServiceDueDate");
+            inv.InventoryReservationStatus = GetString(r, "InventoryReservationStatus");
+            inv.CreatedByUserId = GetNullableInt32(r, "CreatedByUserId");
+            inv.CreatedByName = GetNullableString(r, "CreatedByName");
+            inv.ModifiedByUserId = GetNullableInt32(r, "ModifiedByUserId");
+            inv.ModifiedByName = GetNullableString(r, "ModifiedByName");
+            inv.ModifiedDate = GetNullableDate(r, "ModifiedDate");
+            inv.ClientName = GetString(r, "ClientName");
+            inv.SiteName = GetString(r, "SiteName");
             return inv;
+        }
+
+        private static bool HasColumn(IDataRecord record, string columnName)
+        {
+            for (int index = 0; index < record.FieldCount; index++)
+            {
+                if (string.Equals(record.GetName(index), columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string GetString(IDataRecord record, string columnName, string defaultValue = "")
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToString(value) ?? defaultValue;
+        }
+
+        private static string GetNullableString(IDataRecord record, string columnName)
+        {
+            if (!HasColumn(record, columnName))
+                return null;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? null : Convert.ToString(value);
+        }
+
+        private static int GetInt32(IDataRecord record, string columnName, int defaultValue)
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToInt32(value);
+        }
+
+        private static int? GetNullableInt32(IDataRecord record, string columnName)
+        {
+            if (!HasColumn(record, columnName))
+                return null;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? (int?)null : Convert.ToInt32(value);
+        }
+
+        private static decimal GetDecimal(IDataRecord record, string columnName, decimal defaultValue)
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToDecimal(value);
+        }
+
+        private static DateTime? GetNullableDate(IDataRecord record, string columnName)
+        {
+            if (!HasColumn(record, columnName))
+                return null;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? (DateTime?)null : ToDate(value);
         }
 
         private static int ToInt(object value)

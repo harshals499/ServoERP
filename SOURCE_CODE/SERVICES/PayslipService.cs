@@ -78,6 +78,7 @@ namespace HVAC_Pro_Desktop.Services
 <html><head><meta charset='utf-8'/>
 <style>"
             + DocumentBranding.BuildOfficialHeaderCss()
+            + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + @"body{font-family:'Segoe UI',sans-serif;color:#1f2937;padding:20px;font-size:12px;}
 .title{text-align:center;font-size:22px;font-weight:800;letter-spacing:1px;color:#1e3a8a;margin:8px 0 16px 0;}
 .meta{text-align:center;font-size:11px;color:#475569;margin-bottom:16px;}
@@ -99,6 +100,7 @@ namespace HVAC_Pro_Desktop.Services
 .footer{text-align:center;font-size:10px;color:#64748b;margin-top:18px;}
 </style></head><body>"
             + DocumentBranding.BuildOfficialHeaderHtml()
+            + DocumentBranding.BuildFromBlockHtml(DocumentBranding.DefaultCompanyName, null, null, null, null, null, null, null, false)
             + "<div class='title'>SALARY SLIP</div>"
             + "<div class='meta'>Month: " + Html(monthLabel) + " | Pay Date: " + Html(IndiaFormatHelper.FormatDate(payDate)) + "</div>"
             + "<div class='section'><table class='details'>"

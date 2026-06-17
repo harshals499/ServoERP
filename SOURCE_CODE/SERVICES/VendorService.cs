@@ -11,6 +11,8 @@ using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Audit;
 using HVAC_Pro_Desktop.Services.Validation;
 using HVAC_Pro_Desktop.UI;
+using HVAC_Pro_Desktop.Services.Logging;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -20,6 +22,12 @@ namespace HVAC_Pro_Desktop.Services
         private static readonly object DuplicateSync = new object();
         private static DateTime _duplicateCacheStamp = DateTime.MinValue;
         private static List<DuplicateGroupDto> _duplicateCache = new List<DuplicateGroupDto>();
+        private sealed class VendorPurchaseSummary
+        {
+            public decimal OutstandingBalance { get; set; }
+            public int OpenPurchaseOrderCount { get; set; }
+            public bool HasOverduePurchaseOrder { get; set; }
+        }
 
         private readonly VendorRepository _repo = new VendorRepository();
         private readonly PurchaseRepository _purchaseRepo = new PurchaseRepository();
@@ -29,6 +37,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly DuplicateDetectionService _duplicateDetection = new DuplicateDetectionService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly VendorValidator _vendorValidator = new VendorValidator();
 
         public List<Vendor> GetAll() => AppDataCache.GetOrCreate("vendors:all", CacheTtl, () => _repo.GetAll(false).Where(v => v.IsActive && !v.IsArchived).ToList());
         public List<Vendor> GetSuppliers() => AppDataCache.GetOrCreate("vendors:suppliers", CacheTtl, () => _repo.GetSuppliers(false).Where(v => v.IsActive && !v.IsArchived).ToList());
@@ -121,45 +130,43 @@ namespace HVAC_Pro_Desktop.Services
         {
             try
             {
-                List<Vendor> vendors = _repo.GetAll(true);
-                List<PurchaseOrder> orders = SafeLoadPurchaseOrders("VendorService.GetAllVendorsWithSummary.Purchases");
-                HashSet<int> duplicateIds = SafeLoadDuplicateVendorIds();
+                return AppDataCache.GetOrCreate("vendors:summary:all", CacheTtl, () =>
+                {
+                    List<Vendor> vendors = _repo.GetAll(true);
+                    List<PurchaseOrder> orders = SafeLoadPurchaseOrders("VendorService.GetAllVendorsWithSummary.Purchases");
+                    HashSet<int> duplicateIds = SafeLoadDuplicateVendorIds();
+                    Dictionary<int, VendorPurchaseSummary> summariesByVendorId = BuildVendorPurchaseSummaries(orders);
 
-                return vendors
-                    .Select(v =>
-                    {
-                        List<PurchaseOrder> vendorOrders = orders.Where(po => po.VendorID == v.VendorID).ToList();
-                        decimal outstanding = vendorOrders
-                            .Where(IsOpenVendorPurchaseOrder)
-                            .Sum(GetOutstandingPurchaseBalance);
-
-                        int openCount = vendorOrders.Count(IsOpenVendorPurchaseOrder);
-                        bool hasOverdue = vendorOrders.Any(po => po.IsOverdue);
-
-                        return new VendorSummaryDto
+                    return vendors
+                        .Select(v =>
                         {
-                            VendorId = v.VendorID,
-                            VendorName = v.VendorName,
-                            Category = v.Category,
-                            VendorType = v.VendorType,
-                            City = v.City,
-                            State = ResolveStateName(v.StateCode),
-                            Phone = v.Phone,
-                            IsSupplier = v.IsSupplier,
-                            IsServiceVendor = v.IsServiceVendor,
-                            IsActive = v.IsActive,
-                            IsArchived = v.IsArchived,
-                            OutstandingBalance = outstanding,
-                            OpenPOCount = openCount,
-                            HasOverdue = hasOverdue,
-                            IsDuplicate = duplicateIds.Contains(v.VendorID),
-                            TotalPurchased = v.TotalPurchased,
-                            MSMERegistered = v.MSMERegistered
-                        };
-                    })
-                    .OrderByDescending(v => v.HasOverdue)
-                    .ThenBy(v => v.VendorName)
-                    .ToList();
+                            VendorPurchaseSummary summary = GetVendorPurchaseSummary(summariesByVendorId, v.VendorID);
+
+                            return new VendorSummaryDto
+                            {
+                                VendorId = v.VendorID,
+                                VendorName = v.VendorName,
+                                Category = v.Category,
+                                VendorType = v.VendorType,
+                                City = v.City,
+                                State = ResolveStateName(v.StateCode),
+                                Phone = v.Phone,
+                                IsSupplier = v.IsSupplier,
+                                IsServiceVendor = v.IsServiceVendor,
+                                IsActive = v.IsActive,
+                                IsArchived = v.IsArchived,
+                                OutstandingBalance = summary.OutstandingBalance,
+                                OpenPOCount = summary.OpenPurchaseOrderCount,
+                                HasOverdue = summary.HasOverduePurchaseOrder,
+                                IsDuplicate = duplicateIds.Contains(v.VendorID),
+                                TotalPurchased = v.TotalPurchased,
+                                MSMERegistered = v.MSMERegistered
+                            };
+                        })
+                        .OrderByDescending(v => v.HasOverdue)
+                        .ThenBy(v => v.VendorName)
+                        .ToList();
+                });
             }
             catch (Exception ex)
             {
@@ -177,6 +184,7 @@ namespace HVAC_Pro_Desktop.Services
 
                 List<Vendor> vendors = _repo.GetAll(true).Where(v => !v.IsArchived).ToList();
                 List<PurchaseOrder> orders = SafeLoadPurchaseOrders("VendorService.DetectDuplicates.Purchases");
+                Dictionary<int, VendorPurchaseSummary> summariesByVendorId = BuildVendorPurchaseSummaries(orders);
 
                 _duplicateCache = vendors
                     .GroupBy(v => NormalizeVendorName(v.VendorName))
@@ -190,17 +198,14 @@ namespace HVAC_Pro_Desktop.Services
 
                         foreach (Vendor vendor in g.OrderBy(v => v.VendorName))
                         {
-                            List<PurchaseOrder> vendorOrders = orders.Where(po => po.VendorID == vendor.VendorID).ToList();
-                            decimal outstanding = vendorOrders
-                                .Where(IsOpenVendorPurchaseOrder)
-                                .Sum(GetOutstandingPurchaseBalance);
+                            VendorPurchaseSummary summary = GetVendorPurchaseSummary(summariesByVendorId, vendor.VendorID);
 
                             group.Vendors.Add(new DuplicateVendorItemDto
                             {
                                 VendorId = vendor.VendorID,
                                 VendorName = vendor.VendorName,
-                                OpenPOCount = vendorOrders.Count(IsOpenVendorPurchaseOrder),
-                                OutstandingBalance = outstanding
+                                OpenPOCount = summary.OpenPurchaseOrderCount,
+                                OutstandingBalance = summary.OutstandingBalance
                             });
                         }
 
@@ -214,6 +219,41 @@ namespace HVAC_Pro_Desktop.Services
                 _duplicateCacheStamp = DateTime.Now;
                 return _duplicateCache.Select(CloneDuplicateGroup).ToList();
             }
+        }
+
+        private static Dictionary<int, VendorPurchaseSummary> BuildVendorPurchaseSummaries(List<PurchaseOrder> orders)
+        {
+            return (orders ?? new List<PurchaseOrder>())
+                .GroupBy(po => po.VendorID)
+                .ToDictionary(
+                    group => group.Key,
+                    group =>
+                    {
+                        var summary = new VendorPurchaseSummary();
+                        foreach (PurchaseOrder order in group)
+                        {
+                            if (!IsOpenVendorPurchaseOrder(order))
+                                continue;
+
+                            summary.OutstandingBalance += GetOutstandingPurchaseBalance(order);
+                            summary.OpenPurchaseOrderCount++;
+                            if (order.IsOverdue)
+                                summary.HasOverduePurchaseOrder = true;
+                        }
+
+                        return summary;
+                    });
+        }
+
+        private static VendorPurchaseSummary GetVendorPurchaseSummary(Dictionary<int, VendorPurchaseSummary> summariesByVendorId, int vendorId)
+        {
+            if (summariesByVendorId == null)
+                return new VendorPurchaseSummary();
+
+            VendorPurchaseSummary summary;
+            return summariesByVendorId.TryGetValue(vendorId, out summary)
+                ? summary
+                : new VendorPurchaseSummary();
         }
 
         public VendorDetailDto GetVendorDetail(int vendorId)
@@ -292,7 +332,7 @@ namespace HVAC_Pro_Desktop.Services
                 return false;
 
             string normalized = gstin.Trim().ToUpperInvariant();
-            bool valid = Regex.IsMatch(normalized, @"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$");
+            bool valid = GlobalValidationEngine.IsValidGSTIN(normalized);
             if (valid)
                 stateCode = normalized.Substring(0, 2);
             return valid;
@@ -308,10 +348,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public bool ValidatePAN(string pan)
         {
-            if (string.IsNullOrWhiteSpace(pan))
-                return false;
-
-            return Regex.IsMatch(pan.Trim().ToUpperInvariant(), @"^[A-Z]{5}[0-9]{4}[A-Z]{1}$");
+            return !string.IsNullOrWhiteSpace(pan) && GlobalValidationEngine.IsValidPAN(pan);
         }
 
         public void OnGSTINChanged(Vendor vendor)
@@ -525,6 +562,17 @@ namespace HVAC_Pro_Desktop.Services
             vendor.GSTNumber = string.IsNullOrWhiteSpace(vendor.GSTNumber) ? null : vendor.GSTNumber.Trim().ToUpperInvariant();
             vendor.PANNumber = string.IsNullOrWhiteSpace(vendor.PANNumber) ? null : vendor.PANNumber.Trim().ToUpperInvariant();
             vendor.BankIFSC = string.IsNullOrWhiteSpace(vendor.BankIFSC) ? null : vendor.BankIFSC.Trim().ToUpperInvariant();
+            vendor.Phone = string.IsNullOrWhiteSpace(vendor.Phone) ? null : GlobalValidationEngine.CleanText(vendor.Phone, 30);
+            vendor.WhatsAppNumber = string.IsNullOrWhiteSpace(vendor.WhatsAppNumber) ? null : GlobalValidationEngine.CleanText(vendor.WhatsAppNumber, 30);
+            vendor.Email = string.IsNullOrWhiteSpace(vendor.Email) ? null : GlobalValidationEngine.CleanText(vendor.Email, 200);
+            vendor.Address = string.IsNullOrWhiteSpace(vendor.Address) ? null : GlobalValidationEngine.CleanText(vendor.Address, 500);
+            vendor.City = string.IsNullOrWhiteSpace(vendor.City) ? null : GlobalValidationEngine.CleanText(vendor.City, 120);
+            vendor.Category = string.IsNullOrWhiteSpace(vendor.Category) ? null : GlobalValidationEngine.CleanText(vendor.Category, 120);
+            vendor.BankAccountNumber = string.IsNullOrWhiteSpace(vendor.BankAccountNumber) ? null : GlobalValidationEngine.CleanText(vendor.BankAccountNumber, 60);
+            vendor.BankAccountName = string.IsNullOrWhiteSpace(vendor.BankAccountName) ? null : GlobalValidationEngine.CleanText(vendor.BankAccountName, 120);
+            vendor.BankName = string.IsNullOrWhiteSpace(vendor.BankName) ? null : GlobalValidationEngine.CleanText(vendor.BankName, 120);
+            vendor.PreferredPaymentMode = string.IsNullOrWhiteSpace(vendor.PreferredPaymentMode) ? null : GlobalValidationEngine.CleanText(vendor.PreferredPaymentMode, 40);
+            vendor.Notes = string.IsNullOrWhiteSpace(vendor.Notes) ? null : GlobalValidationEngine.CleanText(vendor.Notes, 1000);
             vendor.GSTRegistrationType = string.IsNullOrWhiteSpace(vendor.GSTRegistrationType) ? "Regular" : vendor.GSTRegistrationType.Trim();
             vendor.VendorType = string.IsNullOrWhiteSpace(vendor.VendorType) ? "Supplier" : vendor.VendorType.Trim();
             ApplyRoleDefaults(vendor);
@@ -565,6 +613,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private void ValidateVendorForSave(Vendor vendor)
         {
+            FluentValidationGuard.EnsureValid(_vendorValidator, vendor, "Vendor validation failed.");
             ValidationResult result = _businessRules.ValidateVendor(vendor);
             result.Merge(_duplicateDetection.CheckVendor(vendor, _repo.GetAll(true).Where(v => !v.IsArchived)));
             _validation.EnsureValid(result, "Vendor validation failed");
@@ -710,11 +759,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             try
             {
-                string dir = @"C:\HVAC_PRO_MSE\LOGS";
-                Directory.CreateDirectory(dir);
-                string path = Path.Combine(dir, "vendor-actions.log");
-                string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + action + " | " + vendorId + " | " + detail + Environment.NewLine;
-                File.AppendAllText(path, line);
+                ServoLog.WriteDiagnosticLine("vendor-actions.log", action + " | " + vendorId + " | " + detail);
             }
             catch
             {

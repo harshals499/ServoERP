@@ -14,9 +14,13 @@ namespace HVAC_Pro_Desktop.UI
             string message = "Permanently delete " + label + "?";
             if (!string.IsNullOrWhiteSpace(impact))
                 message += Environment.NewLine + Environment.NewLine + impact;
-            message += Environment.NewLine + Environment.NewLine + "This cannot be undone.";
 
-            return MessageBox.Show(owner, message, BrandingService.WindowTitle("Delete " + recordType), MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
+            return ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                owner,
+                message,
+                "This cannot be undone.")
+                ? DialogResult.Yes
+                : DialogResult.No;
         }
 
         public static ToolStripMenuItem AddDeleteMenuItem(ContextMenuStrip menu, EventHandler clickHandler)

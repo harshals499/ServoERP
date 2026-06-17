@@ -147,7 +147,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(420, 30),
                 Font = new Font("Segoe UI", 18f, FontStyle.Bold),
                 ForeColor = TextDark,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
             Label subtitle = new Label
             {
@@ -156,7 +157,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(520, 22),
                 Font = DS.Body,
                 ForeColor = TextMid,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
 
             FlowLayoutPanel actions = new FlowLayoutPanel
@@ -193,13 +195,25 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Green,
                 TextAlign = ContentAlignment.MiddleRight,
-                Padding = new Padding(0, 22, 12, 0)
+                Padding = new Padding(0, 22, 12, 0),
+                AutoEllipsis = true
             };
 
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
             header.Controls.Add(_lblStatus);
             header.Controls.Add(actions);
+            header.Resize += (s, e) =>
+            {
+                int reservedRight = actions.Width + _lblStatus.Width + 18;
+                int available = Math.Max(220, header.ClientSize.Width - reservedRight);
+                title.Width = available;
+                subtitle.Width = available;
+            };
+            int initialReservedRight = actions.Width + _lblStatus.Width + 18;
+            int initialAvailable = Math.Max(220, header.ClientSize.Width - initialReservedRight);
+            title.Width = initialAvailable;
+            subtitle.Width = initialAvailable;
             return header;
         }
 
@@ -351,14 +365,57 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadData()
         {
             TimeSpan ttl = TimeSpan.FromMinutes(2);
-            try { _contracts = AppDataCache.GetOrCreate("contracts:all", ttl, () => _contractSvc.GetAllContracts() ?? new List<AMCContract>()).ToList(); } catch { _contracts = new List<AMCContract>(); }
-            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch { _invoices = new List<Invoice>(); }
-            try { _purchases = AppDataCache.GetOrCreate("purchases:all", ttl, () => _purchaseSvc.GetAll() ?? new List<PurchaseOrder>()).ToList(); } catch { _purchases = new List<PurchaseOrder>(); }
-            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch { _jobs = new List<Job>(); }
-            try { _technicians = AppDataCache.GetOrCreate("employees:technicians-active", ttl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList(); } catch { _technicians = new List<Employee>(); }
-            try { _stock = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch { _stock = new List<StockItem>(); }
-            try { _vendorAdvances = AppDataCache.GetOrCreate("vendors:advances", ttl, () => _vendorAdvanceSvc.GetAll() ?? new List<VendorAdvancePayment>()).ToList(); } catch { _vendorAdvances = new List<VendorAdvancePayment>(); }
-            try { _clientNames = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToDictionary(c => c.ClientID, c => c.CompanyName); } catch { _clientNames = new Dictionary<int, string>(); }
+            Task<List<AMCContract>> contractsTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("contracts:all", ttl, () => _contractSvc.GetAllContracts() ?? new List<AMCContract>()).ToList(); }
+                catch { return new List<AMCContract>(); }
+            });
+            Task<List<Invoice>> invoicesTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); }
+                catch { return new List<Invoice>(); }
+            });
+            Task<List<PurchaseOrder>> purchasesTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("purchases:all", ttl, () => _purchaseSvc.GetAll() ?? new List<PurchaseOrder>()).ToList(); }
+                catch { return new List<PurchaseOrder>(); }
+            });
+            Task<List<Job>> jobsTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); }
+                catch { return new List<Job>(); }
+            });
+            Task<List<Employee>> techniciansTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("employees:technicians-active", ttl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList(); }
+                catch { return new List<Employee>(); }
+            });
+            Task<List<StockItem>> stockTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); }
+                catch { return new List<StockItem>(); }
+            });
+            Task<List<VendorAdvancePayment>> advancesTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("vendors:advances", ttl, () => _vendorAdvanceSvc.GetAll() ?? new List<VendorAdvancePayment>()).ToList(); }
+                catch { return new List<VendorAdvancePayment>(); }
+            });
+            Task<Dictionary<int, string>> clientNamesTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToDictionary(c => c.ClientID, c => c.CompanyName); }
+                catch { return new Dictionary<int, string>(); }
+            });
+
+            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, techniciansTask, stockTask, advancesTask, clientNamesTask);
+
+            _contracts = contractsTask.Result;
+            _invoices = invoicesTask.Result;
+            _purchases = purchasesTask.Result;
+            _jobs = jobsTask.Result;
+            _technicians = techniciansTask.Result;
+            _stock = stockTask.Result;
+            _vendorAdvances = advancesTask.Result;
+            _clientNames = clientNamesTask.Result;
         }
 
         private void BindKpis()
@@ -700,9 +757,9 @@ namespace HVAC_Pro_Desktop.UI
             Label badge = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 30, DS.Lighten(accent, 0.82f), accent, 10);
             badge.Dock = DockStyle.Top;
             icon.Controls.Add(badge);
-            Label titleLabel = new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 18, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = TextMid };
-            Label valueLabel = new Label { Text = "-", Dock = DockStyle.Top, Height = 31, Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = accent };
-            subLabel = new Label { Text = "Loading...", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.2f), ForeColor = TextMid };
+            Label titleLabel = new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 18, Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = TextMid, AutoEllipsis = true };
+            Label valueLabel = new Label { Text = "-", Dock = DockStyle.Top, Height = 31, Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
+            subLabel = new Label { Text = "Loading...", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.2f), ForeColor = TextMid, AutoEllipsis = true };
             card.Controls.Add(subLabel);
             card.Controls.Add(valueLabel);
             card.Controls.Add(titleLabel);
@@ -885,7 +942,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Paint += (s, e) => DrawBorder(e.Graphics, card);
             Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 24, DS.Indigo50, Blue, 8);
             titleIcon.Location = new Point(12, 9);
-            Label titleLabel = new Label { Text = title, Location = new Point(44, 10), AutoSize = true, Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg };
+            Label titleLabel = new Label { Text = title, Location = new Point(44, 10), Size = new Size(Math.Max(80, card.ClientSize.Width - 58), 24), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, AutoEllipsis = true, Font = new Font("Segoe UI", 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg };
             card.Controls.Add(titleLabel);
             card.Controls.Add(titleIcon);
             titleLabel.BringToFront();
@@ -929,8 +986,8 @@ namespace HVAC_Pro_Desktop.UI
             item.Paint += (s, e) => DrawBorder(e.Graphics, item);
             Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 26, DS.Lighten(accent, 0.82f), accent, 8);
             icon.Dock = DockStyle.Left;
-            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, Cursor = Cursors.Hand };
-            Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid, Cursor = Cursors.Hand };
+            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, Cursor = Cursors.Hand, AutoEllipsis = true };
+            Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid, Cursor = Cursors.Hand, AutoEllipsis = true };
             EventHandler openReport = (s, e) =>
             {
                 SelectReport(reportIndex);

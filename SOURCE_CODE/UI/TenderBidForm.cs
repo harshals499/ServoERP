@@ -331,7 +331,10 @@ namespace HVAC_Pro_Desktop.UI
                     split.SplitterDistance = target;
                     splitPositioned = true;
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("TenderBidForm.SplitLayout", ex);
+                }
             };
 
             // â”€â”€ Panel1: scrollable quote list â”€â”€
@@ -1736,12 +1739,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             string quoteNo = string.IsNullOrWhiteSpace(_current.QuotationNumber) ? "this quotation" : _current.QuotationNumber;
-            DialogResult confirm = MessageBox.Show(
-                "Permanently delete " + quoteNo + " including quotation line items and links from generated invoices or POs?\r\n\r\nThis cannot be undone.",
-                "Delete Quotation",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-            if (confirm != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Permanently delete " + quoteNo + "?",
+                    "This deletes quotation line items and links from generated invoices or POs. This cannot be undone."))
                 return;
 
             try
@@ -2354,20 +2355,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Task<T> RunQuotationWorker<T>(Func<T> work)
         {
-            var completion = new TaskCompletionSource<T>();
-            var worker = CreateWorker();
-            worker.DoWork += (s, args) => args.Result = work();
-            worker.RunWorkerCompleted += (s, args) =>
-            {
-                if (args.Error != null)
-                    completion.SetException(args.Error);
-                else if (args.Cancelled)
-                    completion.SetCanceled();
-                else
-                    completion.SetResult((T)args.Result);
-            };
-            worker.RunWorkerAsync();
-            return completion.Task;
+            return Task.Run(work);
         }
 
         private List<TenderBid> LoadRecentQuotesForDashboard()
@@ -2738,7 +2726,10 @@ namespace HVAC_Pro_Desktop.UI
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Clear all lines", null, (s, e) =>
             {
-                if (MessageBox.Show("Clear all quotation line items?", "Bulk Actions", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Clear all quotation line items?",
+                    "This removes every quotation line in the editor and starts with one blank GST line."))
                     return;
                 _lineItems.Clear();
                 _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
@@ -3218,7 +3209,10 @@ namespace HVAC_Pro_Desktop.UI
             {
                 count = _svc.GetAll().Count(q => !string.IsNullOrWhiteSpace(q.QuotationNumber) && q.QuotationNumber.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("TenderBidForm.GenerateNextQuoteNumber", ex);
+            }
             return prefix + (count + 1).ToString("0000", CultureInfo.InvariantCulture);
         }
 

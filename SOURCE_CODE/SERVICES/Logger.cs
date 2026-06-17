@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using HVAC_Pro_Desktop.Services.Logging;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -21,6 +22,7 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(LogPath));
+                ServoLog.Error(ex, "Legacy error log. Source: {Source}", Safe(source));
                 string entry =
                     "[" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "] " +
                     "[" + Safe(source) + "] " +
@@ -37,7 +39,14 @@ namespace HVAC_Pro_Desktop.Services
                 // Logging must never become a second crash.
             }
 
-            try { AppLogger.LogInfo(Safe(source) + " | " + ex.GetType().Name + ": " + SensitiveDataRedactor.Redact(ex.Message)); } catch { }
+            try
+            {
+                AppLogger.LogInfo(Safe(source) + " | " + ex.GetType().Name + ": " + SensitiveDataRedactor.Redact(ex.Message));
+            }
+            catch (Exception logInfoEx)
+            {
+                System.Diagnostics.Debug.WriteLine("Logger.Log secondary logging failed: " + logInfoEx.Message);
+            }
         }
 
         private static string Safe(string value)

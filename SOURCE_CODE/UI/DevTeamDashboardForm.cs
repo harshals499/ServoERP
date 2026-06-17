@@ -508,7 +508,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Small modal dialog for entering a new task description.</summary>
-        private sealed class NewTaskDialog : Form
+        private sealed class NewTaskDialog : ServoFormBase
         {
             private readonly TextBox _text;
 
@@ -550,6 +550,12 @@ namespace HVAC_Pro_Desktop.UI
                     if (string.IsNullOrWhiteSpace(_text.Text))
                     {
                         MessageBox.Show(this, "Please enter a task description.", "New Dev Team Task",
+                            MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    if (_text.Text.Trim().Length < 10)
+                    {
+                        MessageBox.Show(this, "Enter at least 10 characters so the Dev Team has enough context.", "New Dev Team Task",
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }

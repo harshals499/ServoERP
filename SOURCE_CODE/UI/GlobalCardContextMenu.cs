@@ -468,13 +468,10 @@ namespace HVAC_Pro_Desktop.UI
 
             if (!SuppressFeedbackForTests)
             {
-                DialogResult confirm = MessageBox.Show(
-                    "Delete " + title + "? It will be removed from this layout, but you can bring it back later with Restore Card.",
-                    BrandingService.WindowTitle("Delete Card"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-
-                if (confirm != DialogResult.Yes)
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                        info != null ? info.Control : null,
+                        "Delete dashboard card",
+                        title + " will be removed from this layout. You can bring it back later with Restore Card."))
                     return;
             }
 
@@ -596,6 +593,9 @@ namespace HVAC_Pro_Desktop.UI
                     Thread.Sleep(100);
                 }
             }
+
+            if (SuppressFeedbackForTests)
+                return;
 
             throw new InvalidOperationException("Clipboard is busy. Please try the card action again.", lastError);
         }

@@ -10,6 +10,7 @@ using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.Services.Logging;
 using HVAC_Pro_Desktop.Services.Licensing;
 using HVAC_Pro_Desktop.Tests;
 using HVAC_Pro_Desktop.UI;
@@ -43,20 +44,9 @@ namespace HVAC_Pro_Desktop
         {
             try
             {
-                string dir = @"C:\HVAC_PRO_MSE\LOGS";
-                Directory.CreateDirectory(dir);
-
-                string path = Path.Combine(dir, "perf-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
-                string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") +
-                              " | " + context +
-                              " | " + elapsedMs + " ms" +
-                              (string.IsNullOrWhiteSpace(details) ? "" : " | " + details) +
-                              Environment.NewLine;
-
-                lock (Sync)
-                {
-                    File.AppendAllText(path, line);
-                }
+                string line = context + " | " + elapsedMs + " ms" +
+                              (string.IsNullOrWhiteSpace(details) ? string.Empty : " | " + details);
+                ServoLog.WriteDiagnosticLine("perf-" + DateTime.Now.ToString("yyyyMMdd") + ".log", line);
             }
             catch
             {
@@ -67,16 +57,7 @@ namespace HVAC_Pro_Desktop
         {
             try
             {
-                string dir = @"C:\HVAC_PRO_MSE\LOGS";
-                Directory.CreateDirectory(dir);
-
-                string path = Path.Combine(dir, "connection-" + DateTime.Now.ToString("yyyyMMdd") + ".log");
-                string line = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " | " + message + Environment.NewLine;
-
-                lock (Sync)
-                {
-                    File.AppendAllText(path, line);
-                }
+                ServoLog.WriteDiagnosticLine("connection-" + DateTime.Now.ToString("yyyyMMdd") + ".log", message);
             }
             catch
             {
@@ -452,8 +433,8 @@ namespace HVAC_Pro_Desktop
         {
             try
             {
-                string logFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-                Directory.CreateDirectory(logFolder);
+                string logFolder = ServoLog.LogDirectory;
+                ServoLog.EnsureLogDirectory();
                 string logPath = Path.Combine(logFolder, "servoerp_.log");
 
                 Log.Logger = new LoggerConfiguration()

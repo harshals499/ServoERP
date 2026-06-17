@@ -176,7 +176,8 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(0, 6),
                 Size = new Size(460, 30),
                 Font = new Font("Segoe UI", 18f, FontStyle.Bold),
-                ForeColor = TextPrimary
+                ForeColor = TextPrimary,
+                AutoEllipsis = true
             };
             Label subtitle = new Label
             {
@@ -184,7 +185,8 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(0, 40),
                 Size = new Size(640, 22),
                 Font = new Font("Segoe UI", 9f),
-                ForeColor = TextSecondary
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
             };
             _lblStatus = new Label
             {
@@ -235,25 +237,22 @@ namespace HVAC_Pro_Desktop.UI
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Dispatch Center", "Dispatch", null, "dispatch assignment technician attendance leave request work order service schedule job card");
             Button newJob = MakePrimaryButton("+ New Job", 116);
             newJob.Click += (s, e) => OnNavigate?.Invoke(15);
+            Control[] toolbarItems = { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob };
+            header.Controls.AddRange(toolbarItems);
 
             Action layoutHeader = () =>
             {
                 bool compact = header.Width < 1120;
                 locationHost.Width = compact ? 150 : 190;
-                int x = compact ? Math.Max(500, header.Width - 560) : Math.Max(520, header.Width - 800);
+                int actionRailWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
+                int x = compact ? Math.Max(500, header.Width - Math.Max(560, actionRailWidth)) : Math.Max(520, header.Width - Math.Max(800, actionRailWidth));
                 title.Width = Math.Max(260, Math.Min(460, x - 18));
                 subtitle.Width = title.Width;
                 _lblStatus.Width = title.Width;
-                locationHost.Location = new Point(x, 18);
-                _chkAutoRefresh.Location = new Point(locationHost.Right + (compact ? 8 : 18), 25);
-                _autoRefreshPulse.Location = new Point(_chkAutoRefresh.Right + 6, 24);
-                _btnRefresh.Location = new Point((_autoRefreshPulse.Visible ? _autoRefreshPulse.Right : _chkAutoRefresh.Right) + 18, 20);
-                forms.Location = new Point(_btnRefresh.Right + 10, 20);
-                newJob.Location = new Point(forms.Right + 10, 20);
+                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, x, compact ? 21 : 20);
                 UIHelper.ApplyButtonContainerLayout(header);
             };
             header.Resize += (s, e) => layoutHeader();
-            header.Controls.AddRange(new Control[] { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob });
             layoutHeader();
             return header;
         }
@@ -285,11 +284,18 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter
             };
-            Label label = new Label { Text = title, Location = new Point(64, 13), Size = new Size(154, 34), Font = new Font("Segoe UI", 8.4f, FontStyle.Bold), ForeColor = TextSecondary };
-            Label value = new Label { Text = "0", Location = new Point(64, 42), Size = new Size(120, 24), Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = accent };
-            Label small = new Label { Text = sub, Location = new Point(64, 66), Size = new Size(130, 18), Font = new Font("Segoe UI", 8f), ForeColor = TextSecondary };
+            Label label = new Label { Text = title, Location = new Point(64, 13), Size = new Size(154, 34), Font = new Font("Segoe UI", 8.4f, FontStyle.Bold), ForeColor = TextSecondary, AutoEllipsis = true };
+            Label value = new Label { Text = "0", Location = new Point(64, 42), Size = new Size(120, 24), Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
+            Label small = new Label { Text = sub, Location = new Point(64, 66), Size = new Size(130, 18), Font = new Font("Segoe UI", 8f), ForeColor = TextSecondary, AutoEllipsis = true };
             _toolTip.SetToolTip(card, title + " " + sub);
             card.Controls.AddRange(new Control[] { iconLabel, label, value, small });
+            card.Resize += (s, e) =>
+            {
+                int textWidth = Math.Max(64, card.ClientSize.Width - 78);
+                label.Width = textWidth;
+                value.Width = textWidth;
+                small.Width = textWidth;
+            };
             row.Controls.Add(card, column, 0);
             return value;
         }
@@ -559,17 +565,17 @@ namespace HVAC_Pro_Desktop.UI
             Panel header = new Panel { Dock = DockStyle.None, Height = 72, BackColor = White };
             Label title = SectionTitle("Job Details");
             title.Location = new Point(0, 0);
-            _detailJobNumber = new Label { Location = new Point(0, 36), Size = new Size(150, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextPrimary };
-            _detailBadge = new Label { Location = new Point(154, 35), Size = new Size(96, 22), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            _detailJobNumber = new Label { Location = new Point(0, 36), Size = new Size(150, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            _detailBadge = new Label { Location = new Point(154, 35), Size = new Size(96, 22), Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true };
             header.Controls.AddRange(new Control[] { title, _detailJobNumber, _detailBadge });
             card.Controls.Add(header);
 
-            _detailTitle = new Label { Dock = DockStyle.None, Height = 28, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary };
-            _detailSla = new Label { Dock = DockStyle.None, Height = 48, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = Danger, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 8, 0) };
-            _detailClient = new Label { Dock = DockStyle.None, Height = 22, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary };
-            _detailSite = new Label { Dock = DockStyle.None, Height = 22, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary };
-            _detailAddress = new Label { Dock = DockStyle.None, Height = 32, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary };
-            _detailScheduleBanner = new Label { Dock = DockStyle.None, Height = 28, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 8, 0) };
+            _detailTitle = new Label { Dock = DockStyle.None, Height = 28, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            _detailSla = new Label { Dock = DockStyle.None, Height = 48, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = Danger, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 8, 0), AutoEllipsis = true };
+            _detailClient = new Label { Dock = DockStyle.None, Height = 22, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, AutoEllipsis = true };
+            _detailSite = new Label { Dock = DockStyle.None, Height = 22, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, AutoEllipsis = true };
+            _detailAddress = new Label { Dock = DockStyle.None, Height = 32, Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, AutoEllipsis = true };
+            _detailScheduleBanner = new Label { Dock = DockStyle.None, Height = 28, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 8, 0), AutoEllipsis = true };
             card.Controls.AddRange(new Control[] { _detailScheduleBanner, _detailAddress, _detailSite, _detailClient, _detailSla, _detailTitle });
 
             _detailTabs = new TabControl { Dock = DockStyle.None, Font = new Font("Segoe UI", 8.5f), Padding = new Point(10, 4) };
@@ -584,6 +590,8 @@ namespace HVAC_Pro_Desktop.UI
                 int w = Math.Max(240, card.ClientSize.Width - 28);
                 int h = Math.Max(260, card.ClientSize.Height - 28);
                 header.SetBounds(14, 12, w, 64);
+                _detailJobNumber.Width = Math.Max(96, Math.Min(150, header.ClientSize.Width - _detailBadge.Width - 12));
+                _detailBadge.Left = Math.Max(_detailJobNumber.Right + 8, header.ClientSize.Width - _detailBadge.Width);
                 _detailTitle.SetBounds(14, 80, w, 28);
                 _detailSla.SetBounds(14, 112, w, 48);
                 _detailClient.SetBounds(14, 166, w, 22);
@@ -781,7 +789,10 @@ namespace HVAC_Pro_Desktop.UI
                         _lblStatus.Text = _usingFallbackJobs ? "Dispatch Center ready with sample jobs." : "Dispatch Center ready.";
                     }));
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("GeoIntelligenceForm.LoadDispatchData", ex);
+                }
             });
         }
 
@@ -961,6 +972,10 @@ namespace HVAC_Pro_Desktop.UI
                 if (title != null)
                     title.Width = Math.Max(120, control.Width - 166);
 
+                Label client = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueClient");
+                if (client != null)
+                    client.Width = Math.Max(120, control.Width - 24);
+
                 Label site = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueSite");
                 if (site != null)
                     site.Width = Math.Max(120, control.Width - 180);
@@ -1019,15 +1034,26 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush b = new SolidBrush(Lighten(Primary, 0.84f))) e.Graphics.FillEllipse(b, 20, 18, 42, 42);
                 using (Brush b = new SolidBrush(Primary)) e.Graphics.DrawString("?", new Font("Segoe UI", 16f, FontStyle.Bold), b, 34, 24);
             };
-            empty.Controls.Add(new Label { Text = title, Location = new Point(76, 24), Size = new Size(empty.Width - 96, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary });
-            empty.Controls.Add(new Label { Text = subtitle, Location = new Point(76, 50), Size = new Size(empty.Width - 96, 42), Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary });
+            var titleLabel = new Label { Text = title, Location = new Point(76, 24), Size = new Size(empty.Width - 96, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            var subtitleLabel = new Label { Text = subtitle, Location = new Point(76, 50), Size = new Size(empty.Width - 96, 42), Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary, AutoEllipsis = true };
+            empty.Controls.Add(titleLabel);
+            empty.Controls.Add(subtitleLabel);
+            Button clear = null;
             if (showClearFilters)
             {
-                Button clear = MakeToolbarButton("Clear Filters", 118);
+                clear = MakeToolbarButton("Clear Filters", 118);
                 clear.Location = new Point(76, 104);
                 clear.Click += (s, e) => ClearDispatchFilters();
                 empty.Controls.Add(clear);
             }
+            empty.Resize += (s, e) =>
+            {
+                int textWidth = Math.Max(160, empty.ClientSize.Width - 96);
+                titleLabel.Width = textWidth;
+                subtitleLabel.Width = textWidth;
+                if (clear != null)
+                    clear.Location = new Point(76, empty.ClientSize.Height - clear.Height - 22);
+            };
             return empty;
         }
 
@@ -1037,13 +1063,13 @@ namespace HVAC_Pro_Desktop.UI
             bool selected = _selectedJob != null && _selectedJob.JobId == job.JobId;
             Panel card = new Panel { Width = Math.Max(300, _jobList.ClientSize.Width - 26), Height = 112, BackColor = selected ? Lighten(Primary, 0.93f) : White, Margin = new Padding(0, 0, 0, 8), Cursor = Cursors.Hand, Tag = job };
             card.Paint += (s, e) => DrawRoundedBorder(e.Graphics, card.ClientRectangle, selected ? Primary : Border);
-            Label number = new Label { Text = First(job.JobNumber, "JOB"), Location = new Point(12, 12), Size = new Size(132, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue };
+            Label number = new Label { Text = First(job.JobNumber, "JOB"), Location = new Point(12, 12), Size = new Size(132, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue, AutoEllipsis = true };
             Label badge = CreateBadge(QueueLabel(job), StatusColor(job), new Point(card.Width - 110, 10), 92);
             badge.Tag = "QueueBadge";
             Label title = new Label { Text = First(job.JobTitle, "Service job"), Location = new Point(12, 34), Size = new Size(card.Width - 166, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true, Tag = "QueueTitle" };
-            Label client = new Label { Text = First(job.ClientName, "No client"), Location = new Point(12, 56), Size = new Size(card.Width - 24, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary };
+            Label client = new Label { Text = First(job.ClientName, "No client"), Location = new Point(12, 56), Size = new Size(card.Width - 24, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary, AutoEllipsis = true, Tag = "QueueClient" };
             Label site = new Label { Text = First(job.SiteName, "No site"), Location = new Point(12, 76), Size = new Size(card.Width - 180, 16), Font = new Font("Segoe UI", 7.8f), ForeColor = TextSecondary, AutoEllipsis = true, Tag = "QueueSite" };
-            Label priority = new Label { Text = First(job.Priority, "Medium"), Location = new Point(card.Width - 110, 54), Size = new Size(96, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = accent, TextAlign = ContentAlignment.MiddleRight, Tag = "QueuePriority" };
+            Label priority = new Label { Text = First(job.Priority, "Medium"), Location = new Point(card.Width - 110, 54), Size = new Size(96, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = accent, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Tag = "QueuePriority" };
             Label sla = new Label { Text = SlaText(job), Location = new Point(card.Width - 148, 76), Size = new Size(134, 18), Font = new Font("Segoe UI", 7.8f, FontStyle.Bold), ForeColor = SlaColor(job), TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Tag = "QueueSla" };
             Label tech = new Label { Text = First(job.TechnicianName, "Unassigned"), Location = new Point(card.Width - 148, 94), Size = new Size(134, 16), Font = new Font("Segoe UI", 7.6f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Tag = "QueueTech" };
             card.Controls.AddRange(new Control[] { number, badge, title, client, site, priority, sla, tech });
@@ -1372,7 +1398,7 @@ namespace HVAC_Pro_Desktop.UI
             b.Dock = DockStyle.Fill;
             b.Height = 42;
             b.Margin = new Padding(column == columns - 1 ? 0 : 8, 0, 0, row >= parent.RowCount - 1 ? 0 : 8);
-            b.AutoEllipsis = false;
+            b.AutoEllipsis = true;
             b.Click += (s, e) => action();
             _jobActionButtons.Add(b);
             parent.Controls.Add(b, column, row);
@@ -1426,7 +1452,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label SectionTitle(string text)
         {
-            return new Label { Text = text, Height = 28, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft };
+            return new Label { Text = text, Height = 28, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
         }
 
         private Button MakePrimaryButton(string text, int width)
@@ -1440,7 +1466,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeToolbarButton(string text, int width)
         {
-            Button b = new Button { Text = text, Width = width, Height = 36, BackColor = White, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0) };
+            Button b = new Button { Text = text, Width = width, Height = 36, BackColor = White, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0), AutoEllipsis = true };
             b.FlatAppearance.BorderColor = Border;
             b.FlatAppearance.BorderSize = 1;
             UIHelper.ApplyActionButton(b);
@@ -1474,7 +1500,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label CreateBadge(string text, Color color, Point location, int width)
         {
-            return new Label { Text = text.ToUpperInvariant(), Location = location, Size = new Size(width, 20), BackColor = Lighten(color, 0.86f), ForeColor = color, Font = new Font("Segoe UI", 7f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
+            return new Label { Text = text.ToUpperInvariant(), Location = location, Size = new Size(width, 20), BackColor = Lighten(color, 0.86f), ForeColor = color, Font = new Font("Segoe UI", 7f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true };
         }
 
         private void AddInfoPair(TableLayoutPanel form, int row, string left, string right)
@@ -1485,7 +1511,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label SmallLabel(string text)
         {
-            return new Label { Text = text, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.BottomLeft };
+            return new Label { Text = text, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.BottomLeft, AutoEllipsis = true };
         }
 
         private static void DrawRoundedBorder(Graphics g, Rectangle rect, Color color)
@@ -1845,14 +1871,19 @@ namespace HVAC_Pro_Desktop.UI
                 input.Location = new Point(12, 12);
                 input.Size = new Size(396, 82);
                 input.Font = new Font("Segoe UI", 9f);
+                input.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom;
                 ok.Text = "Save";
                 ok.DialogResult = DialogResult.OK;
-                ok.Location = new Point(252, 108);
-                ok.Size = new Size(74, 28);
+                ok.Location = new Point(222, 108);
+                ok.Size = new Size(88, 32);
+                ok.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+                ok.AutoEllipsis = true;
                 cancel.Text = "Cancel";
                 cancel.DialogResult = DialogResult.Cancel;
-                cancel.Location = new Point(334, 108);
-                cancel.Size = new Size(74, 28);
+                cancel.Location = new Point(320, 108);
+                cancel.Size = new Size(88, 32);
+                cancel.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+                cancel.AutoEllipsis = true;
                 dialog.Controls.AddRange(new Control[] { input, ok, cancel });
                 dialog.AcceptButton = ok;
                 dialog.CancelButton = cancel;

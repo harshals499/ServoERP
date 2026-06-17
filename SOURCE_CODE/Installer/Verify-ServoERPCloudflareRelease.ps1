@@ -4,7 +4,11 @@ param(
 
     [string]$BaseUrl = 'https://servoerp.in',
 
-    [string]$DownloadHost = 'https://downloads.servoerp.in'
+    [string]$DownloadHost = 'https://downloads.servoerp.in',
+
+    [int]$MaxAttempts = 1,
+
+    [int]$DelaySeconds = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -52,12 +56,43 @@ function Assert-JsonFieldEquals {
 }
 
 $installerName = "ServoERP_Setup_$Version.exe"
-$zipName = "ServoERP_Update_$Version.zip"
+$latestUrl = "$BaseUrl/latest.json"
+$latestContent = (Invoke-WebRequest -Uri $latestUrl -UseBasicParsing).Content
+$latestContent = [regex]::Replace($latestContent, '^\uFEFF', '')
+$latestContent = [regex]::Replace($latestContent, '^[\u00EF\u00BB\u00BF]+', '')
+$latestJson = $latestContent | ConvertFrom-Json
+$packageUrl = [string]$latestJson.packageUrl
+$installerUrl = [string]$latestJson.installerUrl
+if ([string]::IsNullOrWhiteSpace($installerUrl)) {
+    $installerUrl = "$DownloadHost/$installerName"
+}
 
-Assert-TextEquals -Url "$BaseUrl/version.txt" -Expected $Version
-Assert-JsonFieldEquals -Url "$BaseUrl/latest.json" -Field 'latestVersion' -Expected $Version
-Assert-HttpOk -Url "$DownloadHost/updates/$zipName" | Out-Null
-Assert-HttpOk -Url "$DownloadHost/$installerName" | Out-Null
-Assert-HttpOk -Url "$BaseUrl/download/" | Out-Null
+$attempts = [Math]::Max(1, $MaxAttempts)
+$delay = [Math]::Max(0, $DelaySeconds)
+$lastError = $null
+
+for ($attempt = 1; $attempt -le $attempts; $attempt++) {
+    try {
+        Assert-TextEquals -Url "$BaseUrl/version.txt" -Expected $Version
+        Assert-JsonFieldEquals -Url $latestUrl -Field 'latestVersion' -Expected $Version
+        if (-not [string]::IsNullOrWhiteSpace($packageUrl)) {
+            Assert-HttpOk -Url $packageUrl | Out-Null
+        }
+        Assert-HttpOk -Url $installerUrl | Out-Null
+        Assert-HttpOk -Url "$BaseUrl/download/" | Out-Null
+        $lastError = $null
+        break
+    }
+    catch {
+        $lastError = $_
+        if ($attempt -lt $attempts) {
+            Start-Sleep -Seconds $delay
+        }
+    }
+}
+
+if ($lastError) {
+    throw $lastError.Exception
+}
 
 Write-Host "Cloudflare release verification passed for ServoERP $Version."

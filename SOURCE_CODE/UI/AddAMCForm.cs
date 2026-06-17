@@ -181,14 +181,14 @@ namespace HVAC_Pro_Desktop.UI
             _cmbBillingCycle.SelectedIndex = 3;
             _cmbStatus.SelectedIndex = 1;
 
-            AddRow(grid, 0, "AMC Number", _txtAMCNumber);
-            AddRow(grid, 1, "Client", _cmbClient);
+            AddRow(grid, 0, "AMC Number *", _txtAMCNumber);
+            AddRow(grid, 1, "Client *", _cmbClient);
             AddRow(grid, 2, "Site", _cmbSite);
-            AddRow(grid, 3, "AMC Type", _cmbAMCType);
+            AddRow(grid, 3, "AMC Type *", _cmbAMCType);
             AddRow(grid, 4, "Coverage Type", _cmbCoverageType);
             AddRow(grid, 5, "Equipment Covered", _txtEquipment);
             AddRow(grid, 6, "Start Date", _dtpStart);
-            AddRow(grid, 7, "End Date", _dtpEnd);
+            AddRow(grid, 7, "End Date *", _dtpEnd);
             AddRow(grid, 8, "Contract Value (INR)", _numValue);
             AddRow(grid, 9, "Billing Cycle", _cmbBillingCycle);
             AddRow(grid, 10, "Visits Per Year", _numVisits);
@@ -228,7 +228,8 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = Ink
+                ForeColor = labelText.IndexOf('*') >= 0 ? Blue : Ink,
+                AutoEllipsis = true
             };
             editor.Dock = DockStyle.Fill;
             editor.Margin = new Padding(0, 4, 0, 4);
@@ -263,8 +264,8 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Adds one row to the summary panel.</summary>
         private Label AddSummaryRow(Control parent, int top, string title)
         {
-            parent.Controls.Add(new Label { Text = title, Location = new Point(18, top), Size = new Size(230, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted });
-            var value = new Label { Text = "-", Location = new Point(18, top + 18), Size = new Size(280, 26), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink };
+            parent.Controls.Add(new Label { Text = title, Location = new Point(18, top), Size = new Size(230, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true });
+            var value = new Label { Text = "-", Location = new Point(18, top + 18), Size = new Size(280, 26), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
             parent.Controls.Add(value);
             return value;
         }

@@ -100,7 +100,7 @@ namespace HVAC_Pro_Desktop.Services
                 PreventiveVisitDate = IsPreventiveFlow(template) ? DateTime.Today : (DateTime?)null,
                 NextServiceDueDate = CalculateNextServiceDueDate(DateTime.Today, contract, template.WorkflowType),
                 InventoryReservationStatus = "Pending",
-                PaymentStatus = "Draft"
+                PaymentStatus = "Pending"
             };
 
             draft.LineItems = BuildTemplateLines(template.TemplateCode, draft, contract);
@@ -135,7 +135,7 @@ namespace HVAC_Pro_Desktop.Services
                     inv.InvoiceNumber = _invoiceRepo.GenerateInvoiceNumber();
                 inv.BalanceDue    = inv.TotalAmount - inv.PaidAmount;
                 if (string.IsNullOrEmpty(inv.PaymentStatus))
-                    inv.PaymentStatus = "Draft";
+                    inv.PaymentStatus = "Pending";
                 int id = _invoiceRepo.Create(inv);
                 if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
                 {
@@ -150,7 +150,7 @@ namespace HVAC_Pro_Desktop.Services
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
                 if (string.IsNullOrEmpty(inv.PaymentStatus))
-                    inv.PaymentStatus = "Draft";
+                    inv.PaymentStatus = "Pending";
                 bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
                 OfflineQueueResult queued = OfflineSyncService.Queue("Invoices", "CreateDraft", inv, null, review, ex.Message);
                 AppDataCache.RemovePrefix("invoices:");
@@ -592,6 +592,7 @@ namespace HVAC_Pro_Desktop.Services
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
             + DocumentBranding.BuildOfficialHeaderCss()
+            + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + DocumentBranding.BuildOfficialPrintCss()
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
@@ -612,13 +613,8 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td colspan='6' class='total-label'>Grand Total Amount</td><td class='total-value'>" + inv.TotalAmount.ToString("N2") + "</td></tr>"
             + "<tr><td colspan='7' class='words'>Rupees - " + Html(words) + "</td></tr></tbody></table>"
             + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
-            + "Shop Lic.No. &nbsp;&nbsp; : &nbsp;" + Html(shopLicense) + "<br/>"
-            + "P.F.No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(pfNumber) + "<br/>"
-            + "ESIC Code No. : &nbsp;" + Html(esicNumber) + "<br/>"
-            + "Prof. Tax No. &nbsp;&nbsp; : &nbsp;" + Html(profTax) + "<br/>"
-            + "PAN CARD NO.: &nbsp;" + Html(companyPan) + "<br/>"
-            + "GST No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(companyGst) + "<br/>"
-            + "MSME NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(msmeNumber) + "</td>"
+            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGst, msmeNumber, false)
+            + "</td>"
             + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(DocumentBranding.DefaultCompanyName) + "</td></tr>"
             + "<tr><td class='certification'>" + Html(inv.CertificationNote) + "</td>"
             + "<td class='footer-right'><span class='send-title'>Send Invoice To : </span><br/>" + Html(inv.SendInvoiceTo).Replace("\n", "<br/>") + "</td></tr>"

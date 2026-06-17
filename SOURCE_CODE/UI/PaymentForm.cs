@@ -160,7 +160,7 @@ namespace HVAC_Pro_Desktop.UI
             _paymentsOverviewLoadTimer.Start();
         }
 
-        private void StartPaymentsOverviewLoad()
+        private async void StartPaymentsOverviewLoad()
         {
             if (_paymentsOverviewLoading)
                 return;
@@ -169,43 +169,31 @@ namespace HVAC_Pro_Desktop.UI
             if (_lblStatus != null)
                 ShowStatus("Loading payment overview...", Color.Gray);
 
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
                 TimeSpan ttl = TimeSpan.FromMinutes(2);
-                e.Result = new PaymentOverviewSnapshot
+                PaymentOverviewSnapshot snapshot = await Task.Run(() => new PaymentOverviewSnapshot
                 {
                     Payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paySvc.GetAllPayments() ?? new List<Payment>()).ToList(),
                     Invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invSvc.GetAllInvoices() ?? new List<Invoice>()).ToList()
-                };
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    RunOnUI(() =>
-                    {
-                        _paymentsOverviewLoading = false;
-                        ShowStatus("Payments could not load. Refresh and try again.", PayRed);
-                    });
-                    ShowError( "Failed to load payment overview. Please try again.", e.Error);
-                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Loading payment overview", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
-
-                RunOnUI(() =>
-                {
-                    _paymentsOverviewLoading = false;
-                    PaymentOverviewSnapshot snapshot = e.Result as PaymentOverviewSnapshot ?? new PaymentOverviewSnapshot();
-                    _allPayments = snapshot.Payments ?? new List<Payment>();
-                    _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
-                    BuildOverviewData();
-                    if (_showOverview && !IsDisposed)
-                        RefreshPaymentsOverview();
                 });
-            };
-            worker.RunWorkerAsync();
+                if (IsDisposed)
+                    return;
+
+                _paymentsOverviewLoading = false;
+                _allPayments = snapshot.Payments ?? new List<Payment>();
+                _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                BuildOverviewData();
+                if (_showOverview)
+                    RefreshPaymentsOverview();
+            }
+            catch (Exception ex)
+            {
+                _paymentsOverviewLoading = false;
+                ShowStatus("Payments could not load. Refresh and try again.", PayRed);
+                ShowError("Failed to load payment overview. Please try again.", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Loading payment overview", ex);
+            }
         }
 
         protected override void OnVisibleChanged(EventArgs e)
@@ -1619,7 +1607,7 @@ namespace HVAC_Pro_Desktop.UI
             _cmbClient.SelectedIndex = 0;
         }
 
-        private void LoadInvoiceDropdown(int clientId)
+        private async void LoadInvoiceDropdown(int clientId)
         {
             var sw = Stopwatch.StartNew();
             _cmbInvoice.Items.Clear();
@@ -1643,34 +1631,29 @@ namespace HVAC_Pro_Desktop.UI
 
                 _invoiceDropdownLoading = true;
                 ShowStatus("Loading client invoices...", Color.Gray);
-                var worker = CreateWorker();
-                worker.DoWork += (s, args) => args.Result = _invSvc.GetInvoicesForClient(clientId) ?? new List<Invoice>();
-                worker.RunWorkerCompleted += (s, args) =>
+                try
                 {
-                    if (args.Error != null)
-                    {
-                        AppRuntime.LogException("PaymentForm.LoadInvoiceDropdown", args.Error);
-                        RunOnUI(() =>
-                        {
-                            _invoiceDropdownLoading = false;
-                            ShowStatus("Client invoices could not load. Refresh and try again.", PayRed);
-                        });
-                        ShowError( "Failed to load client invoices. Please try again.", args.Error);
+                    List<Invoice> loadedInvoices = await Task.Run(() => _invSvc.GetInvoicesForClient(clientId) ?? new List<Invoice>());
+                    if (IsDisposed)
                         return;
-                    }
-                    if (args.Cancelled) return;
 
-                    RunOnUI(() =>
-                    {
-                        _invoiceDropdownLoading = false;
-                        PopulateInvoiceDropdown(args.Result as List<Invoice>);
-                        AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1) + ";source=db");
-                    });
-                };
-                worker.RunWorkerAsync();
+                    _invoiceDropdownLoading = false;
+                    PopulateInvoiceDropdown(loadedInvoices);
+                    AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1) + ";source=db");
+                }
+                catch (Exception ex)
+                {
+                    _invoiceDropdownLoading = false;
+                    AppRuntime.LogException("PaymentForm.LoadInvoiceDropdown", ex);
+                    ShowStatus("Client invoices could not load. Refresh and try again.", PayRed);
+                    ShowError("Failed to load client invoices. Please try again.", ex);
+                }
                 return;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PaymentForm.LoadInvoiceDropdown.Sync", ex);
+            }
             _cmbInvoice.SelectedIndex = 0;
             AppRuntime.LogTiming("Payments.LoadInvoiceDropdown", sw.ElapsedMilliseconds, "clientId=" + clientId + ";invoices=" + Math.Max(0, _cmbInvoice.Items.Count - 1));
         }
@@ -1689,31 +1672,30 @@ namespace HVAC_Pro_Desktop.UI
             _cmbInvoice.SelectedIndex = _cmbInvoice.Items.Count > 1 ? 1 : 0;
         }
 
-        private void LoadPaymentHistory()
+        private async void LoadPaymentHistory()
         {
             var sw = Stopwatch.StartNew();
             ShowStatus("Refreshing payments...", Color.Gray);
-            var worker = CreateWorker();
-            worker.DoWork += (s, args) =>
+            try
             {
-                args.Result = new PaymentRecordSnapshot
+                PaymentRecordSnapshot snapshot = await Task.Run(() => new PaymentRecordSnapshot
                 {
                     Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
                     Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
-                };
-            };
-            worker.RunWorkerCompleted += (s, args) =>
+                });
+                if (IsDisposed)
+                    return;
+
+                _allPayments = snapshot.Payments ?? new List<Payment>();
+                _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+            }
+            catch (Exception ex)
             {
-                if (args.Error == null && !args.Cancelled)
-                {
-                    PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot ?? new PaymentRecordSnapshot();
-                    _allPayments = snapshot.Payments ?? new List<Payment>();
-                    _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
-                }
-                ApplyClientFilter();
-                AppRuntime.LogTiming("Payments.LoadPaymentHistory", sw.ElapsedMilliseconds, "payments=" + _allPayments.Count);
-            };
-            worker.RunWorkerAsync();
+                AppRuntime.LogException("PaymentForm.LoadPaymentHistory", ex);
+            }
+
+            ApplyClientFilter();
+            AppRuntime.LogTiming("Payments.LoadPaymentHistory", sw.ElapsedMilliseconds, "payments=" + _allPayments.Count);
         }
 
         private void ApplyClientFilter()
@@ -1858,7 +1840,7 @@ namespace HVAC_Pro_Desktop.UI
             return card;
         }
 
-        private void DeletePayment(Payment payment)
+        private async void DeletePayment(Payment payment)
         {
             if (payment == null || payment.PaymentID <= 0)
                 return;
@@ -1873,35 +1855,33 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             ShowStatus("Deleting payment...", Color.Gray);
-            var worker = CreateWorker();
-            worker.DoWork += (s, args) =>
+            try
             {
-                _paySvc.DeletePayment(payment.PaymentID);
-                args.Result = new PaymentRecordSnapshot
+                PaymentRecordSnapshot snapshot = await Task.Run(() =>
                 {
-                    Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
-                    Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
-                };
-            };
-            worker.RunWorkerCompleted += (s, args) =>
-            {
-                if (args.Error != null)
-                {
-                    ShowError("Payment could not be deleted. Refresh and try again.", args.Error);
-                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Deleting payment", args.Error);
-                    ShowStatus("Delete failed. Refresh and try again.", PayRed);
+                    _paySvc.DeletePayment(payment.PaymentID);
+                    return new PaymentRecordSnapshot
+                    {
+                        Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
+                        Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
+                    };
+                });
+                if (IsDisposed)
                     return;
-                }
 
-                PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot ?? new PaymentRecordSnapshot();
                 _allPayments = snapshot.Payments ?? new List<Payment>();
                 _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
                 ApplyClientFilter();
                 ComboItem selectedClient = ResolveComboItem(_cmbClient);
                 LoadInvoiceDropdown(selectedClient?.Id ?? 0);
                 ShowStatus("Payment deleted and invoice balance recalculated.", SaveGreen);
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                ShowError("Payment could not be deleted. Refresh and try again.", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Deleting payment", ex);
+                ShowStatus("Delete failed. Refresh and try again.", PayRed);
+            }
         }
 
         private void ResizeHistoryCards()
@@ -2001,7 +1981,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             Label label = parent.Controls.OfType<Label>().FirstOrDefault(l => string.Equals(l.Text, text, StringComparison.Ordinal));
             if (label != null)
+            {
+                label.AutoSize = false;
+                label.AutoEllipsis = true;
                 label.SetBounds(x, y, width, label.Height);
+            }
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2040,7 +2024,10 @@ namespace HVAC_Pro_Desktop.UI
                 if (_numAmount.Value <= 0 || _numAmount.Value > _numAmount.Maximum)
                     _numAmount.Value = balance > 0 ? Math.Min(balance, _numAmount.Maximum) : 0;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PaymentForm.UpdateInvoiceSummary", ex);
+            }
         }
 
         private void ResetInvoiceSummary()
@@ -2055,7 +2042,7 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         //  RECORD PAYMENT
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        private void BtnRecord_Click(object sender, EventArgs e)
+        private async void BtnRecord_Click(object sender, EventArgs e)
         {
             if (_recordPaymentInProgress)
                 return;
@@ -2093,71 +2080,51 @@ namespace HVAC_Pro_Desktop.UI
                 if (_btnSavePayment != null)
                     _btnSavePayment.Enabled = false;
                 ShowStatus("Recording payment...", Color.Gray);
-                var worker = CreateWorker();
-                worker.DoWork += (s, args) =>
+                PaymentRecordSnapshot snapshot = await Task.Run(() =>
                 {
                     int id = _paySvc.RecordPayment(pay);
                     if (id < 0)
                     {
-                        args.Result = new PaymentRecordSnapshot
+                        return new PaymentRecordSnapshot
                         {
                             PaymentId = id,
                             Payments = _allPayments ?? new List<Payment>(),
                             Invoices = _invoiceLookup ?? new List<Invoice>()
                         };
-                        return;
                     }
-                    args.Result = new PaymentRecordSnapshot
+
+                    return new PaymentRecordSnapshot
                     {
                         PaymentId = id,
                         Payments = _paySvc.GetAllPayments() ?? new List<Payment>(),
                         Invoices = _invSvc.GetAllInvoices() ?? new List<Invoice>()
                     };
-                };
-                worker.RunWorkerCompleted += (s, args) =>
+                });
+                if (IsDisposed)
+                    return;
+
+                _recordPaymentInProgress = false;
+                if (_btnSavePayment != null)
+                    _btnSavePayment.Enabled = true;
+
+                if (snapshot != null)
                 {
-                    if (args.Error != null)
-                    {
-                        RunOnUI(() =>
-                        {
-                            _recordPaymentInProgress = false;
-                            if (_btnSavePayment != null)
-                                _btnSavePayment.Enabled = true;
-                            ShowStatus("Payment could not be recorded. Check the details and try again.", PayRed);
-                        });
-                        ShowError( "Payment could not be recorded. Check the details and try again.", args.Error);
-                        AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Recording payment", args.Error);
-                        return;
-                    }
-                    if (args.Cancelled) return;
-
-                    RunOnUI(() =>
-                    {
-                        _recordPaymentInProgress = false;
-                        if (_btnSavePayment != null)
-                            _btnSavePayment.Enabled = true;
-
-                        PaymentRecordSnapshot snapshot = args.Result as PaymentRecordSnapshot;
-                        if (snapshot != null)
-                        {
-                            _allPayments = snapshot.Payments ?? new List<Payment>();
-                            _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
-                            ClearForm();
-                            ApplyClientFilter();
-                            if (snapshot.PaymentId < 0)
-                                ShowStatus("Payment saved locally pending review/sync. Invoice balance will update after office SQL sync.", OrangeCol);
-                            else
-                                ShowStatus("Payment recorded: PAY #" + snapshot.PaymentId + ". Next: review the updated invoice balance or record the next receipt.", SaveGreen);
-                        }
-                    });
-                };
-                worker.RunWorkerAsync();
+                    _allPayments = snapshot.Payments ?? new List<Payment>();
+                    _invoiceLookup = snapshot.Invoices ?? new List<Invoice>();
+                    ClearForm();
+                    ApplyClientFilter();
+                    if (snapshot.PaymentId < 0)
+                        ShowStatus("Payment saved locally pending review/sync. Invoice balance will update after office SQL sync.", OrangeCol);
+                    else
+                        ShowStatus("Payment recorded: PAY #" + snapshot.PaymentId + ". Next: review the updated invoice balance or record the next receipt.", SaveGreen);
+                }
             }
             catch (Exception ex)
             {
                 _recordPaymentInProgress = false;
                 if (_btnSavePayment != null)
                     _btnSavePayment.Enabled = true;
+                ShowError("Payment could not be recorded. Check the details and try again.", ex);
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Payments"), "Recording payment", ex);
                 ShowStatus("Payment could not be recorded. Check the details and try again.", PayRed);
             }
@@ -2308,13 +2275,16 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddFieldLabel(Control parent, string text, int x, int y)
         {
+            bool required = (text ?? string.Empty).Contains("*");
             parent.Controls.Add(new Label
             {
                 Text = text,
-                AutoSize = true,
+                AutoSize = false,
+                AutoEllipsis = true,
                 Location = new Point(x, y),
+                Size = new Size(230, 18),
                 Font = DS.SmallBold,
-                ForeColor = DS.Slate700
+                ForeColor = required ? DS.Primary700 : DS.Slate700
             });
         }
 

@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -223,31 +224,17 @@ namespace HVAC_Pro_Desktop.UI
                 row.DefaultCellStyle.ForeColor = DS.Amber600;
         }
 
-        private void PrepareServer()
+        private async void PrepareServer()
         {
             SetBusy(true, "Preparing SQL Server, database, firewall rules, backup folders, and diagnostics fallback...");
 
-            BackgroundWorker worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
-                AppStartupService.RunInteractiveServerSetup();
-                EnsureSqlFirewallRules();
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
+                await Task.Run(() =>
                 {
-                    AppRuntime.LogException("ServerFirstRunSetupForm.PrepareServer", e.Error);
-                    RunOnUI(() =>
-                    {
-                        SetBusy(false, "Server setup failed. Click Copy Support Report and send it to ServoERP support.");
-                        DatabaseConnectionStateService.CheckNow("ServerFirstRunSetupForm.PrepareServer", true);
-                        RefreshReadiness();
-                    });
-                    ShowError( BuildFriendlyError("Server setup failed", e.Error.Message), e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                    AppStartupService.RunInteractiveServerSetup();
+                    EnsureSqlFirewallRules();
+                });
 
                 RunOnUI(() =>
                 {
@@ -255,8 +242,18 @@ namespace HVAC_Pro_Desktop.UI
                     DatabaseConnectionStateService.CheckNow("ServerFirstRunSetupForm.PrepareServer", true);
                     RefreshReadiness();
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("ServerFirstRunSetupForm.PrepareServer", ex);
+                RunOnUI(() =>
+                {
+                    SetBusy(false, "Server setup failed. Click Copy Support Report and send it to ServoERP support.");
+                    DatabaseConnectionStateService.CheckNow("ServerFirstRunSetupForm.PrepareServer", true);
+                    RefreshReadiness();
+                });
+                ShowError(BuildFriendlyError("Server setup failed", ex.Message), ex);
+            }
         }
 
         private void ActivateLicense()

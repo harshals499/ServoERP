@@ -5,6 +5,7 @@ using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Validation;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -14,6 +15,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly EmployeeRepository _repo = new EmployeeRepository();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly EmployeeValidator _employeeValidator = new EmployeeValidator();
 
         public List<Employee> GetAll() => AppDataCache.GetOrCreate("employees:all", CacheTtl, _repo.GetAll);
         public Employee GetById(int id) => _repo.GetById(id);
@@ -236,6 +238,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private void ValidateEmployeeForSave(Employee employee)
         {
+            FluentValidationGuard.EnsureValid(_employeeValidator, employee, "Employee validation failed.");
             ValidationResult result = _businessRules.ValidateEmployee(employee);
             if (employee != null)
             {

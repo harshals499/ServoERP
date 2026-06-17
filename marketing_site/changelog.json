@@ -1,15 +1,143 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.14.1",
-  "updatedAt": "2026-06-11",
+  "latestVersion": "1.1.92.0",
+  "updatedAt": "2026-06-17",
   "download": {
     "available": false,
     "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
-    "packageUrl": "https://downloads.servoerp.in/updates/ServoERP_Update_1.1.14.1.zip",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.14.1.exe",
-    "installer": "ServoERP_Setup_1.1.14.1.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.92/ServoERP.Desktop-1.1.92-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.92.0.exe",
+    "installer": "ServoERP_Setup_1.1.92.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.92.0",
+      "date": "2026-06-17",
+      "title": "Invoice editor polish",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a visible Preview action inside the invoice creation header.",
+            "Fixed the default invoice-items row so the line under Description renders white instead of blue-selected.",
+            "Visually rechecked both invoice fixes in the built desktop app before shipping."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.91.0",
+      "date": "2026-06-17",
+      "title": "Operations header consistency update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed Operations module header spacing and top-right action layout across Clients, Suppliers, Vendors, Jobs, Dispatch Center, Inventory, and AMC."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.89.0",
+      "date": "2026-06-16",
+      "title": "Performance and navigation improvements",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Reduced page-load contention by staging app warmup work instead of front-loading heavy cache population during startup and first navigation.",
+            "Optimized supplier summary aggregation and supplier page selection rendering to cut repeated vendor purchase-order work and improve Suppliers navigation responsiveness.",
+            "Deferred lower-priority Settings cards, cached invoice checklist suggestions, and parallelized report loading to improve first-open performance across slow modules."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.88.0",
+      "date": "2026-06-16",
+      "title": "ServoERP update 1.1.88.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added shared header `Refresh` and `Preview` actions across dashboards, pages, and supported forms so key actions stay in each screen header instead of the sidebar.",
+            "Wired the global preview action to use existing module preview flows where available, with a visual fallback preview for screens that do not yet have a dedicated document preview."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.87.0",
+      "date": "2026-06-16",
+      "title": "PDF branding and page refresh update",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Standardized generated PDF branding so Madhusuman Enterprises registration details flow through shared document exports.",
+            "Moved the shared page refresh action out of the sidebar and into page headers across modules.",
+            "Added a visible local Refresh button to the Materials / Procurement page header."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.84.0",
+      "date": "2026-06-16",
+      "title": "ServoERP update 1.1.84.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Renamed the Invoice editor primary action from `Save Draft` to `Save` so the workflow matches normal invoice entry.",
+            "Updated invoice save defaults so new saves land as invoices with `Pending` status instead of being treated as drafts by default."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.83.0",
+      "date": "2026-06-15",
+      "title": "Jobs dashboard return-path fix",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed Jobs navigation so returning from New Job to the Jobs Dashboard renders immediately instead of showing a blank dashboard or stalling on a blocking reload.",
+            "Added focused smoke coverage plus an explicit one-line smoke report entry for the Jobs New Job to Back to Dashboard return path."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.81.0",
+      "date": "2026-06-15",
+      "title": "ServoERP update 1.1.81.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Maintenance update."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.80.0",
+      "date": "2026-06-12",
+      "title": "Vibe debt cleanup release",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Replaces remaining UI BackgroundWorker flows with task-based loading and save paths across core ERP screens.",
+            "Hardens update readiness by logging silent failures, fixing modal progress behavior, and repairing defensive repository field mapping.",
+            "Adds guarded performance indexes for payments, quotations, client sites, and technician scheduling queries."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.14.1",
       "date": "2026-06-11",

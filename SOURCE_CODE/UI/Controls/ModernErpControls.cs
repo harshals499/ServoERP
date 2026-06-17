@@ -229,7 +229,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
     {
         public ModernERPComboBox()
         {
-            DropDownStyle = ComboBoxStyle.DropDownList;
+            DropDownStyle = ComboBoxStyle.DropDown;
             FlatStyle = FlatStyle.Flat;
             Font = ModernERPTheme.Body;
             Height = 32;

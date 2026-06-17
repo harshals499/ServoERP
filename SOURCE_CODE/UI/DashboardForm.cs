@@ -81,16 +81,16 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadData()
         {
             TimeSpan ttl = TimeSpan.FromMinutes(2);
-            try { _clients = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(); } catch { }
-            try { _vendors = AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList(); } catch { }
-            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch { }
-            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch { }
-            try { _payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paymentSvc.GetAllPayments() ?? new List<Payment>()).ToList(); } catch { }
-            try { _purchaseOrders = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList(); } catch { }
-            try { _quotations = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); } catch { }
-            try { _inventory = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch { }
-            try { _employees = AppDataCache.GetOrCreate("employees:all", ttl, () => _employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch { }
-            try { _serviceTickets = AppDataCache.GetOrCreate("servicedesk:all", ttl, () => _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch { }
+            try { _clients = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Clients", ex); }
+            try { _vendors = AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Vendors", ex); }
+            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Jobs", ex); }
+            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Invoices", ex); }
+            try { _payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paymentSvc.GetAllPayments() ?? new List<Payment>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Payments", ex); }
+            try { _purchaseOrders = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Purchases", ex); }
+            try { _quotations = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Quotations", ex); }
+            try { _inventory = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Inventory", ex); }
+            try { _employees = AppDataCache.GetOrCreate("employees:all", ttl, () => _employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Employees", ex); }
+            try { _serviceTickets = AppDataCache.GetOrCreate("servicedesk:all", ttl, () => _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.ServiceDesk", ex); }
         }
 
         private void BuildShell()
@@ -401,7 +401,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Runs a manual backup from the dashboard shortcut without blocking the UI.</summary>
-        private void RunDashboardBackupNow(Button sourceButton)
+        private async void RunDashboardBackupNow(Button sourceButton)
         {
             if (_backupNowRunning)
                 return;
@@ -413,31 +413,12 @@ namespace HVAC_Pro_Desktop.UI
                 sourceButton.Text = "Backing up...";
             }
 
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) => e.Result = new BackupService().RunBackup(BackupTrigger.Manual);
-            worker.RunWorkerCompleted += (s, e) =>
+            try
             {
-                if (e.Error != null)
-                {
-                    RunOnUI(() =>
-                    {
-                        worker.Dispose();
-                        _backupNowRunning = false;
-                        if (sourceButton != null && !sourceButton.IsDisposed)
-                        {
-                            sourceButton.Enabled = true;
-                            sourceButton.Text = "Backup Now";
-                        }
-                        ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
-                    });
-                    ShowError( "Manual backup failed. Please check backup settings.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                BackupResult result = await Task.Run(() => new BackupService().RunBackup(BackupTrigger.Manual));
 
                 RunOnUI(() =>
                 {
-                    worker.Dispose();
                     _backupNowRunning = false;
                     if (sourceButton != null && !sourceButton.IsDisposed)
                     {
@@ -445,14 +426,26 @@ namespace HVAC_Pro_Desktop.UI
                         sourceButton.Text = "Backup Now";
                     }
 
-                    BackupResult result = e.Result as BackupResult;
                     if (result != null && result.Success)
                         ToastNotification.ShowToast("Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
                     else
                         ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                RunOnUI(() =>
+                {
+                    _backupNowRunning = false;
+                    if (sourceButton != null && !sourceButton.IsDisposed)
+                    {
+                        sourceButton.Enabled = true;
+                        sourceButton.Text = "Backup Now";
+                    }
+                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
+                });
+                ShowError("Manual backup failed. Please check backup settings.", ex);
+            }
         }
 
         /// <summary>Returns display text for backup destinations.</summary>

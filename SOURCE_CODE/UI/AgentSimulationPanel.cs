@@ -230,13 +230,11 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowCompletion(AgentSimulationCompletedEventArgs e)
         {
             Bind(e.State);
-            DialogResult keep = MessageBox.Show(
-                "Agent simulation completed.\r\n\r\nReport:\r\n" + e.ReportPath + "\r\n\r\nKeep the [AGENT] simulation records for inspection?",
-                "Agent Simulation Complete",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information,
-                MessageBoxDefaultButton.Button1);
-            if (keep == DialogResult.No)
+            bool cleanup = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Delete agent simulation records",
+                "Agent simulation completed. Delete only the [AGENT] records created for this run? Keep them if you need to inspect the report at " + e.ReportPath + ".");
+            if (cleanup)
                 _service.DeleteCreatedAgentData();
         }
 
@@ -256,13 +254,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ConfirmCleanup()
         {
-            DialogResult confirm = MessageBox.Show(
-                "Delete only the [AGENT] records tracked in AgentState.json?\r\n\r\nReal client records are not touched.",
-                "Delete Agent Data",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning,
-                MessageBoxDefaultButton.Button2);
-            if (confirm == DialogResult.Yes)
+            bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Delete agent simulation records",
+                "Delete only the [AGENT] records tracked in AgentState.json. Real client records are not touched.");
+            if (confirm)
                 _service.DeleteCreatedAgentData();
         }
 

@@ -1,7 +1,10 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using FluentValidation;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI;
+using ServoERP.Validators;
 
 namespace ServoERP.Infrastructure
 {
@@ -87,6 +90,26 @@ namespace ServoERP.Infrastructure
             ServoErrorDialog.Show(this, message, ex);
         }
 
+        /// <summary>Runs an async UI action with consistent validation and exception handling.</summary>
+        protected Task<bool> RunSafeAsync(string action, Func<Task> work, Control buttonToDisable = null, string loadingText = "Processing...")
+        {
+            return buttonToDisable == null
+                ? CrashProtectionService.SafeExecuteAsync(this, action, work)
+                : CrashProtectionService.SafeExecuteAsync(this, action, buttonToDisable, loadingText, work);
+        }
+
+        /// <summary>Shows FluentValidation messages consistently before save operations continue.</summary>
+        protected bool TryValidate<T>(T model, IValidator<T> validator, string title = null, Action onInvalid = null)
+        {
+            string message;
+            if (FluentValidationGuard.TryValidate(validator, model, out message))
+                return true;
+
+            MessageBox.Show(this, message, title ?? Text ?? "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            onInvalid?.Invoke();
+            return false;
+        }
+
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>
         protected void OptimiseGrid(DataGridView grid)
         {
@@ -107,6 +130,7 @@ namespace ServoERP.Infrastructure
             CrashProtectionService.AttachToTree(root);
             GlobalCardContextMenu.ApplyToTree(root);
             GlobalDashboardLayoutService.ApplyToTree(root);
+            PageHeaderPolishService.Apply(root);
             LayoutAuditService.AuditAndFix(root);
         }
     }

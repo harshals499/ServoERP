@@ -630,12 +630,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             string quoteNo = string.IsNullOrWhiteSpace(quote.QuotationNumber) ? "this quotation" : quote.QuotationNumber;
-            DialogResult confirm = MessageBox.Show(
-                "Permanently delete " + quoteNo + " including quotation line items and links from generated invoices or POs?\r\n\r\nThis cannot be undone.",
-                "Delete Quotation",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-            if (confirm != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Permanently delete " + quoteNo + "?",
+                "This deletes quotation line items and links from generated invoices or POs. This cannot be undone."))
                 return;
 
             try

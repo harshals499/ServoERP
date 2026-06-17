@@ -8,6 +8,7 @@ using System.Text;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -113,7 +114,8 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe UI", 14f, FontStyle.Bold),
                 ForeColor = TextPrimary,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(18, 0, 0, 0)
+                Padding = new Padding(18, 0, 0, 0),
+                AutoEllipsis = true
             };
 
             FlowLayoutPanel actions = new FlowLayoutPanel
@@ -160,11 +162,15 @@ namespace HVAC_Pro_Desktop.UI
 
             _leftStack = MakeStack();
             _rightStack = MakeStack();
+            _leftStack.Resize += (s, e) => ResizeJobDetailCards(_leftStack);
+            _rightStack.Resize += (s, e) => ResizeJobDetailCards(_rightStack);
             body.Controls.Add(_leftStack, 0, 0);
             body.Controls.Add(_rightStack, 1, 0);
 
             BuildLeftColumn();
             BuildRightColumn();
+            ResizeJobDetailCards(_leftStack);
+            ResizeJobDetailCards(_rightStack);
             ApplyVisibleInputFallbacks(body);
 
             Controls.Add(body);
@@ -182,12 +188,12 @@ namespace HVAC_Pro_Desktop.UI
             form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
 
             _txtTitle = new TextBox { Dock = DockStyle.Fill };
-            _cmbType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
             _cmbType.Items.AddRange(new object[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" });
             _dtpScheduled = new DateTimePicker { Dock = DockStyle.Left, Width = 150, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
-            _cmbClient = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbSite = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbContract = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbClient = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbSite = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbContract = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
             _cmbClient.SelectedIndexChanged += (s, e) =>
             {
                 if (_binding)
@@ -196,10 +202,10 @@ namespace HVAC_Pro_Desktop.UI
                 BindSitesAndContracts(clientId, 0, 0);
             };
 
-            AddFormRow(form, 0, "Title", _txtTitle);
+            AddFormRow(form, 0, "Title", _txtTitle, true);
             AddFormRow(form, 1, "Type", _cmbType);
             AddFormRow(form, 2, "Scheduled Date", _dtpScheduled);
-            AddFormRow(form, 3, "Client", _cmbClient);
+            AddFormRow(form, 3, "Client", _cmbClient, true);
             AddFormRow(form, 4, "Site", _cmbSite);
             AddFormRow(form, 5, "Linked Contract", _cmbContract);
             detailsBody.Controls.Add(form);
@@ -231,12 +237,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel techBody;
             Control tech = MakeCard("Technician", out techBody, 82);
-            _cmbTechnician = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbTechnician = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDown };
             techBody.Controls.Add(WrapEditor(_cmbTechnician));
 
             Panel priorityBody;
             Control priority = MakeCard("Priority", out priorityBody, 62);
-            _cmbPriority = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDownList };
+            _cmbPriority = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDown };
             _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High" });
             priorityBody.Controls.Add(WrapEditor(_cmbPriority));
 
@@ -292,6 +298,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BindClients(int selectedClientId)
         {
             _cmbClient.Items.Clear();
+            _cmbClient.Items.Add(new ComboItem(0, "Select client"));
             List<B2BClient> clients = _clientService.GetAllClients();
             foreach (B2BClient client in clients.OrderBy(c => c.CompanyName))
                 _cmbClient.Items.Add(new ComboItem(client.ClientID, client.CompanyName));
@@ -341,7 +348,8 @@ namespace HVAC_Pro_Desktop.UI
                     BackColor = active ? Color.FromArgb(232, 248, 241) : White,
                     ForeColor = active ? Teal : TextSecondary,
                     Font = new Font("Segoe UI", 8.5f, active ? FontStyle.Bold : FontStyle.Regular),
-                    Margin = new Padding(0, 0, 6, 0)
+                    Margin = new Padding(0, 0, 6, 0),
+                    AutoEllipsis = true
                 };
                 step.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(active ? Teal : Border), 0, 0, step.Width - 1, step.Height - 1);
                 _pipeline.Controls.Add(step);
@@ -394,11 +402,27 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 Job job = _detail.Job;
-                job.JobTitle = (_txtTitle.Text ?? string.Empty).Trim();
+                string title = (_txtTitle.Text ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    MessageBox.Show(this, "Job title is required.", BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    _txtTitle.Focus();
+                    return;
+                }
+
+                int clientId = GetSelectedId(_cmbClient);
+                if (clientId <= 0)
+                {
+                    MessageBox.Show(this, "Select a client before saving the job.", BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    _cmbClient.Focus();
+                    return;
+                }
+
+                job.JobTitle = title;
                 job.Title = job.JobTitle;
                 job.JobType = _cmbType.SelectedItem == null ? "General" : _cmbType.SelectedItem.ToString();
                 job.ScheduledDate = _dtpScheduled.Value.Date;
-                job.ClientID = GetSelectedId(_cmbClient);
+                job.ClientID = clientId;
                 job.SiteID = GetSelectedId(_cmbSite);
                 int contractId = GetSelectedId(_cmbContract);
                 job.LinkedContractId = contractId > 0 ? (int?)contractId : null;
@@ -424,12 +448,8 @@ namespace HVAC_Pro_Desktop.UI
             if (_detail == null || _detail.Job == null)
                 return;
 
-            DialogResult confirm = MessageBox.Show(
-                "Close job " + (_detail.Job.JobNumber ?? string.Empty) + "?",
-                "Close Job",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning);
-            if (confirm != DialogResult.Yes)
+            string jobNumber = string.IsNullOrWhiteSpace(_detail.Job.JobNumber) ? "this job" : _detail.Job.JobNumber;
+            if (!ServoConfirmDialog.Show(this, "Close job " + jobNumber + "?", "The job will move to Closed status and the detail page will refresh. Continue only when the field work is complete."))
                 return;
 
             try
@@ -565,6 +585,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(6, 0, 0, 0)
             };
             button.FlatAppearance.BorderSize = 1;
+            button.AutoEllipsis = true;
             return button;
         }
 
@@ -586,17 +607,17 @@ namespace HVAC_Pro_Desktop.UI
             return grid;
         }
 
-        private static void AddFormRow(TableLayoutPanel table, int row, string label, Control editor)
+        private static void AddFormRow(TableLayoutPanel table, int row, string label, Control editor, bool required = false)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
-            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary }, 0, row);
+            table.Controls.Add(new Label { Text = required ? label + " *" : label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = required ? Red : TextSecondary, AutoEllipsis = true }, 0, row);
             table.Controls.Add(WrapEditor(editor), 1, row);
         }
 
         private TextBox AddCostRow(TableLayoutPanel table, int row, string label, bool editable)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
-            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary }, 0, row);
+            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }, 0, row);
             TextBox box = new TextBox { Dock = DockStyle.Fill, ReadOnly = !editable, TextAlign = HorizontalAlignment.Right };
             table.Controls.Add(WrapEditor(box), 1, row);
             return box;
@@ -626,10 +647,23 @@ namespace HVAC_Pro_Desktop.UI
         private Label AddValueRow(TableLayoutPanel table, int row, string label)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
-            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary }, 0, row);
-            Label value = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }, 0, row);
+            Label value = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold), AutoEllipsis = true };
             table.Controls.Add(value, 1, row);
             return value;
+        }
+
+        private static void ResizeJobDetailCards(FlowLayoutPanel stack)
+        {
+            if (stack == null || stack.IsDisposed)
+                return;
+
+            int width = Math.Max(240, stack.ClientSize.Width - stack.Padding.Left - stack.Padding.Right - 18);
+            foreach (Control control in stack.Controls)
+            {
+                if (control.Dock == DockStyle.None)
+                    control.Width = width;
+            }
         }
 
         private static void SelectValue(ComboBox combo, int value)

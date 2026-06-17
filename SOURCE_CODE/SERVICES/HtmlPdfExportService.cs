@@ -61,7 +61,14 @@ namespace HVAC_Pro_Desktop.Services
 
                     if (!exited)
                     {
-                        try { process.Kill(); } catch { }
+                        try
+                        {
+                            process.Kill();
+                        }
+                        catch (Exception killEx)
+                        {
+                            AppLogger.LogError("HtmlPdfExportService.ExportHtmlToPdf.KillTimedOutProcess", killEx);
+                        }
                         throw new TimeoutException("PDF generation timed out.");
                     }
 
@@ -77,8 +84,9 @@ namespace HVAC_Pro_Desktop.Services
                     if (Directory.Exists(tempRoot))
                         Directory.Delete(tempRoot, true);
                 }
-                catch
+                catch (Exception deleteEx)
                 {
+                    AppLogger.LogError("HtmlPdfExportService.ExportHtmlToPdf.DeleteTempRoot", deleteEx);
                 }
             }
         }

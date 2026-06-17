@@ -671,24 +671,20 @@ namespace HVAC_Pro_Desktop.Services
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
             + DocumentBranding.BuildOfficialHeaderCss()
+            + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + BuildMseQuotationCss()
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
             + "<div class='quote-frame'><div class='quote-title'>::Quotation ::</div>"
             + "<table class='quote-grid quote-head'><tr>"
-            + "<td class='to-cell' rowspan='4'><div class='cell-title'>To,</div><div class='client-lines'>"
+            + "<td class='to-cell' rowspan='3'><div class='cell-title'>To,</div><div class='client-lines'>"
             + customerBlockHtml
             + "</div></td>"
             + "<td class='meta-row'><span>Quotation No</span><span>: " + HtmlTender(bid.QuotationNumber) + "</span></td></tr>"
             + "<tr><td class='meta-row'><span>Quotation Date</span><span>: " + HtmlTender(submittedDate) + "</span></td></tr>"
-            + "<tr><td class='from-label'>From:</td></tr>"
-            + "<tr><td class='from-cell'><strong>" + HtmlTender(companyName) + "</strong><br/>"
-            + "Shop Lic.No&nbsp;&nbsp; : " + HtmlTender(shopLicense) + "<br/>"
-            + "P.F.No.&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : " + HtmlTender(pfNumber) + "<br/>"
-            + "ESIC Code No. : " + HtmlTender(esicNumber) + "<br/>"
-            + "Prof. Tax No.&nbsp;&nbsp; : " + HtmlTender(profTax) + "<br/>"
-            + "PAN CARD NO. : " + HtmlTender(companyPan) + "<br/>"
-            + "GST NUMBER&nbsp;&nbsp;&nbsp;: " + HtmlTender(companyGstin) + "</td></tr>"
+            + "<tr><td class='from-cell'>"
+            + DocumentBranding.BuildFromBlockHtml(companyName, shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false)
+            + "</td></tr>"
             + "</table>"
             + "<div class='subject-line'><strong>Sub:</strong> " + HtmlTender(subject) + "</div>"
             + "<table class='quote-grid items'><thead><tr><th style='width:48px'>Sr No.</th><th>Description</th><th style='width:84px'>HSN / SAC<br/>Code</th><th style='width:54px'>Unit</th><th style='width:46px'>Qty</th><th style='width:96px'>Rate<br/>(Rs.)</th><th style='width:112px'>Amount<br/>(Rs.)</th></tr></thead><tbody>"

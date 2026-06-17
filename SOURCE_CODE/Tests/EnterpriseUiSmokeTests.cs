@@ -157,6 +157,7 @@ namespace HVAC_Pro_Desktop.Tests
             try
             {
                 lines.Add("PASS " + ModuleDashboardNavigationSmokeTests.RunAll());
+                lines.Add("PASS jobs smoke: New Job -> Back to Dashboard returns to a populated Jobs dashboard without a blank state.");
                 CleanupUiResources();
                 foreach (string result in RunAll())
                     lines.Add("PASS " + result);

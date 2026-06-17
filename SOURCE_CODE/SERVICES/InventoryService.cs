@@ -5,6 +5,7 @@ using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Audit;
 using HVAC_Pro_Desktop.Services.Validation;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -15,6 +16,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly StockItemValidator _stockItemValidator = new StockItemValidator();
 
         public List<StockItem> GetAll()                    => AppDataCache.GetOrCreate("inventory:all", CacheTtl, _repo.GetAll);
         public StockItem       GetById(int id)             => _repo.GetById(id);
@@ -197,6 +199,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private void ValidateInventoryItem(StockItem item)
         {
+            FluentValidationGuard.EnsureValid(_stockItemValidator, item, "Inventory validation failed.");
             ValidationResult result = _businessRules.ValidateInventoryItem(item);
             _validation.EnsureValid(result, "Inventory validation failed");
         }

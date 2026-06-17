@@ -1,10 +1,101 @@
 # Changelog
 
+## 1.1.92.0 - 2026-06-17
+
+- Added a visible `Preview` action inside the invoice creation header so invoice drafting keeps preview access in the editor itself.
+- Fixed the default invoice-items row state so the row under `Description` renders white instead of staying blue-selected when opening a new invoice.
+- Rechecked both invoice fixes visually in the built desktop app before shipping this release.
+
+## 1.1.91.0 - 2026-06-17
+
+- Fixed Operations module header regressions so Clients, Suppliers, Vendors, Jobs, Dispatch Center, Inventory, and AMC now use consistent action spacing and stable top-right header controls.
+- Verified the shipped desktop build visually across the Operations pages so the client update includes the corrected header layout instead of the stale overlapping controls.
+
+## 1.1.90.0 - 2026-06-16
+
+- Fixed AMC navigation so reopening the AMC module restores the dashboard instead of leaving the page blank after detail navigation.
+- Fixed Invoice preview so the Preview action now opens a safe draft preview even when the form is still partially filled.
+
+## 1.1.89.0 - 2026-06-16
+
+- Reduced page-load contention by staging app warmup work instead of front-loading heavy cache population during startup and first navigation.
+- Optimized supplier summary aggregation and supplier page selection rendering to cut repeated vendor purchase-order work and improve Suppliers navigation responsiveness.
+- Deferred lower-priority Settings cards, cached invoice checklist suggestions, and parallelized report loading to improve first-open performance across slow modules.
+
+## 1.1.88.0 - 2026-06-16
+
+- Added shared header `Refresh` and `Preview` actions across dashboards, pages, and supported forms so key actions stay in each screen header instead of the sidebar.
+- Wired the global preview action to use existing module preview flows where available, with a visual fallback preview for screens that do not yet have a dedicated document preview.
+
+## 1.1.87.0 - 2026-06-16
+
+- Moved the shared page refresh action out of the sidebar and into page headers so module refresh stays near each page title and actions.
+- Added a visible local `Refresh` button to the Materials / Procurement page so the unit/materials screen can reload directly from its own header actions.
+
+## 1.1.86.0 - 2026-06-16
+
+- Added a shared shell-level `Refresh Page` button plus `F5` support so users can reload the active module from anywhere in the app.
+- Wired the global refresh action through the page cache so each module reopens with a fresh instance instead of relying on inconsistent local refresh logic.
+
+## 1.1.85.0 - 2026-06-16
+
+- Standardized generated PDF branding so Madhusuman Enterprises company-registration details now flow through shared PDF rendering for quotations, invoices, purchase orders, payroll PDFs, job reports, and QuestPDF-generated documents.
+- Replaced remaining placeholder company text in PDF outputs with the official Madhusuman Enterprises identity and compliance details.
+
+## 1.1.84.0 - 2026-06-15
+
+- Renamed the Invoice editor primary action from `Save Draft` to `Save` so the workflow matches normal invoice entry.
+- Updated invoice save defaults so new saves land as invoices with `Pending` status instead of being treated as drafts by default.
+
+## 1.1.83.0 - 2026-06-15
+
+- Fixed Jobs navigation so returning from New Job to the Jobs Dashboard renders immediately instead of showing a blank dashboard or stalling on a blocking reload.
+- Added focused smoke coverage plus an explicit one-line smoke report entry for the Jobs `New Job -> Back to Dashboard` return path.
+
+## 1.1.82.0 - 2026-06-15
+
+- Improved Client Detail lifecycle actions so clicking the current status does nothing and status changes use the shared ServoERP confirmation dialog.
+- Added required-field cues and validation to Job Detail for job title and client selection.
+- Added a clear Job Detail client dropdown placeholder to avoid silent default selection.
+
+## 1.1.81.0 - 2026-06-12
+
+- Standardized shared logging through a central ServoERP log spine so UI, diagnostics, and legacy error paths all land in `C:\HVAC_PRO_MSE\LOGS`.
+- Added shared FluentValidation guards plus inventory item validation so client, vendor, employee, and inventory saves follow one validation path.
+- Introduced shared async safe-execution helpers on ServoERP base pages/forms and applied them to client and inventory flows for more consistent error handling.
+
+## 1.1.80.0 - 2026-06-12
+
+- Replaced remaining UI `BackgroundWorker` flows with task-based loading and save paths across Settings, Master Data, Inventory, Quotations, WhatsApp Hub, AMC, Dashboard, Backup, and setup screens.
+- Fixed modal update/navigation debt by converting the Payroll payslip progress flow to `ShowDialog()` behavior and aligning several supporting forms with ServoERP base form/page infrastructure.
+- Hardened release-readiness by logging previously silent failures, replacing swallow-heavy client/invoice data mapping with defensive field readers, and adding guarded performance indexes for payments, quotations, client sites, and technician scheduling queries.
+
+## 1.1.71.0 - 2026-06-12
+
+- Lengthened the Jobs dashboard All Jobs card and priority queue area so more job rows are visible at once with less cramped scrolling.
+
+## 1.1.70.0 - 2026-06-12
+
+- Fixed the Jobs dashboard All Jobs priority-queue card so populated job rows no longer clip their text, pills, or open action button during normal dashboard rendering.
+
+## 1.1.69.0 - 2026-06-12
+
+- Redesigned the Jobs dashboard All Jobs card with a clearer operations summary band, cleaner priority-queue job rows, stronger status and priority pills, and a more readable one-click open flow.
+
+## 1.1.68.0 - 2026-06-12
+
+- Fixed Jobs material entry so users can add materials while creating a new job, complete the form, and save once at the end instead of being forced to save the job before adding materials.
+
 ## 1.1.67.0 - 2026-06-12
 
 - Added a local SQLite offline sync queue for client, job, job material, invoice, payment, and inventory-impacting save actions when office SQL Server is unavailable.
 - Added automatic replay of pending offline saves when SQL Server reconnects, with validation conflicts retained for review instead of repeatedly throwing screen errors.
 - Updated affected forms to treat negative local IDs as pending-sync records so users can continue working without modal database-error loops.
+## 1.1.67.0 - 2026-06-12
+
+- Fixed Client Detail status actions so lifecycle buttons remain reachable on narrower layouts.
+- Moved client site removal and job closing to the ServoERP destructive confirmation dialog.
+- Improved the shared confirmation dialog layout so longer action/detail messages do not clip.
 
 ## 1.1.66.0 - 2026-06-12
 

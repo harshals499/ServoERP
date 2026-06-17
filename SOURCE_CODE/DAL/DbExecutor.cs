@@ -170,7 +170,14 @@ namespace HVAC_Pro_Desktop.DAL
                         }
                         catch
                         {
-                            try { tx.Rollback(); } catch { }
+                            try
+                            {
+                                tx.Rollback();
+                            }
+                            catch (Exception rollbackEx)
+                            {
+                                AppLogger.LogError("DbExecutor.ExecuteInTransaction.Rollback", rollbackEx);
+                            }
                             throw;
                         }
                     }
@@ -240,7 +247,14 @@ namespace HVAC_Pro_Desktop.DAL
             catch (SqlException ex) when (DatabaseConnectionFactory.IsTransientSqlError(ex))
             {
                 AppLogger.LogInfo("Transient SQL open failure; retrying once | " + context + " | " + ex.Message);
-                try { conn.Close(); } catch { }
+                try
+                {
+                    conn.Close();
+                }
+                catch (Exception closeEx)
+                {
+                    AppLogger.LogError("DbExecutor.OpenWithRetry.CloseBeforeRetry", closeEx);
+                }
                 Thread.Sleep(300);
                 DatabaseConnectionFactory.Open(conn, context + ".Retry");
             }

@@ -4,10 +4,11 @@ using System.Linq;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI.Helpers;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class BaseForm : Form
+    public class BaseForm : ServoFormBase
     {
         protected const int DESIGN_WIDTH = 1920;
         protected const int DESIGN_HEIGHT = 1080;
@@ -51,6 +52,7 @@ namespace HVAC_Pro_Desktop.UI
             CrashProtectionService.AttachToTree(this);
             GlobalCardContextMenu.ApplyToTree(this);
             GlobalDashboardLayoutService.ApplyToTree(this);
+            PageHeaderPolishService.Apply(this);
             LayoutAuditService.AuditAndFix(this);
         }
 
@@ -69,6 +71,7 @@ namespace HVAC_Pro_Desktop.UI
                 CrashProtectionService.AttachToTree(e.Control);
                 GlobalCardContextMenu.ApplyToTree(e.Control);
                 GlobalDashboardLayoutService.ApplyToTree(e.Control);
+                PageHeaderPolishService.Apply(e.Control);
                 LayoutAuditService.AuditAndFix(e.Control);
             }
         }

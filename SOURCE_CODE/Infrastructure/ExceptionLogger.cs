@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using HVAC_Pro_Desktop.Services.Logging;
 using Serilog;
 
 namespace ServoERP.Infrastructure
@@ -7,7 +8,7 @@ namespace ServoERP.Infrastructure
     /// <summary>Routes legacy exception logging calls into the Serilog rolling file logger.</summary>
     public static class ExceptionLogger
     {
-        private static readonly string LogFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+        private static readonly string LogFolder = ResolveLogFolder();
 
         /// <summary>Returns the folder used for monthly exception logs.</summary>
         public static string LogFolderPath
@@ -23,7 +24,7 @@ namespace ServoERP.Infrastructure
 
             try
             {
-                Directory.CreateDirectory(LogFolder);
+                ServoLog.EnsureLogDirectory();
                 Serilog.Log.Error(ex, "ServoERP exception. Context: {Context}", context ?? "General");
             }
             catch
@@ -36,7 +37,7 @@ namespace ServoERP.Infrastructure
         {
             try
             {
-                Directory.CreateDirectory(LogFolder);
+                ServoLog.EnsureLogDirectory();
                 Serilog.Log.Information("ServoERP log entry. Context: {Context}. Message: {Message}", context ?? "INFO", message);
             }
             catch
@@ -47,10 +48,23 @@ namespace ServoERP.Infrastructure
         /// <summary>Returns the path to the current month's log file, or null if none exists.</summary>
         public static string CurrentLogPath()
         {
-            string path = Path.Combine(LogFolder, "servoerp_" + DateTime.Now.ToString("yyyy-MM") + ".log");
-            if (!File.Exists(path))
-                path = Path.Combine(LogFolder, "servoerp_" + DateTime.Now.ToString("yyyyMM") + ".log");
+            string path = ServoLog.RollingLogPath;
             return File.Exists(path) ? path : null;
+        }
+
+        private static string ResolveLogFolder()
+        {
+            const string WorkspaceLogFolder = @"C:\HVAC_PRO_MSE\LOGS";
+            try
+            {
+                ServoLog.EnsureLogDirectory();
+                return WorkspaceLogFolder;
+            }
+            catch
+            {
+            }
+
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "LOGS");
         }
     }
 }

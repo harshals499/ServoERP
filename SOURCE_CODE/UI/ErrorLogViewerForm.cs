@@ -104,7 +104,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ClearLogs()
         {
-            if (MessageBox.Show(this, T("Clear local crash logs?"), Text, MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                T("Clear local crash logs?"),
+                "This deletes local ServoERP crash log files from the LOGS folder."))
                 return;
 
             string dir = @"C:\HVAC_PRO_MSE\LOGS";

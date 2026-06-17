@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -93,12 +94,20 @@ namespace HVAC_Pro_Desktop.UI
                 root.SuspendLayout();
                 fixedCount += TightenControl(root);
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.LogError("LayoutAuditService.TightenLayout", ex);
             }
             finally
             {
-                try { root.ResumeLayout(true); } catch { }
+                try
+                {
+                    root.ResumeLayout(true);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("LayoutAuditService.ResumeLayout", ex);
+                }
             }
 
             return fixedCount;

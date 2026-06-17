@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Data.SqlClient;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Services;
@@ -50,7 +51,7 @@ namespace HVAC_Pro_Desktop.UI
             _location = new TextBox();
             _notes = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical };
 
-            AddRow(grid, 0, "Equipment Name", _name);
+            AddRow(grid, 0, "Equipment Name *", _name);
             AddRow(grid, 1, "Model Number", _model);
             AddRow(grid, 2, "Serial Number", _serial);
             AddRow(grid, 3, "Install Date", _installDate);
@@ -73,14 +74,14 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Adds one row to the form grid.</summary>
         private void AddRow(TableLayoutPanel grid, int row, string label, Control editor)
         {
-            grid.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }, 0, row);
+            grid.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = label.IndexOf('*') >= 0 ? DS.Primary600 : DS.Slate900, AutoEllipsis = true }, 0, row);
             editor.Dock = DockStyle.Fill;
             editor.Margin = new Padding(0, 4, 0, 4);
             grid.Controls.Add(editor, 1, row);
         }
 
-        /// <summary>Saves equipment using a BackgroundWorker.</summary>
-        private void SaveEquipment()
+        /// <summary>Saves equipment asynchronously without blocking the modal.</summary>
+        private async void SaveEquipment()
         {
             if (string.IsNullOrWhiteSpace(_name.Text))
             {
@@ -89,17 +90,9 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _save.Enabled = false;
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) => InsertEquipment();
-            worker.RunWorkerCompleted += (s, e) =>
+            try
             {
-                if (e.Error != null)
-                {
-                    RunOnUI(() => _save.Enabled = true);
-                    ShowError( "Equipment could not be saved. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                await Task.Run(() => InsertEquipment());
 
                 RunOnUI(() =>
                 {
@@ -107,8 +100,12 @@ namespace HVAC_Pro_Desktop.UI
                     DialogResult = DialogResult.OK;
                     Close();
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                RunOnUI(() => _save.Enabled = true);
+                ShowError("Equipment could not be saved. Please try again.", ex);
+            }
         }
 
         /// <summary>Inserts the equipment row with parameterised SQL.</summary>

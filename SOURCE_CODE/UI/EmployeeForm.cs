@@ -448,7 +448,7 @@ namespace HVAC_Pro_Desktop.UI
             if (target > 0 && target != split.SplitterDistance)
             {
                 try { split.SplitterDistance = target; }
-                catch { }
+                catch (Exception ex) { AppLogger.LogError("EmployeeForm.ApplyEmployeeSplitDistance", ex); }
             }
         }
 
@@ -2055,7 +2055,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            if (MessageBox.Show("Mark " + _currentEmployee.Name + " as inactive?", "Employees", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Mark employee inactive",
+                    _currentEmployee.Name + " will be hidden from active employee lists. Existing jobs, attendance, payroll, and audit history remain available."))
                 return;
 
             try

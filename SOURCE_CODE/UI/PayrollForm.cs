@@ -97,7 +97,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(360, 30),
                 ForeColor = DS.Slate900,
                 Font = new Font("Segoe UI", 18, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
             Label subtitle = new Label
             {
@@ -106,7 +107,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(440, 22),
                 ForeColor = DS.Slate600,
                 Font = DS.Body,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true
             };
 
             Panel headerActions = new Panel
@@ -159,7 +161,16 @@ namespace HVAC_Pro_Desktop.UI
             };
             headerActions.Resize += (s, e) => layoutHeaderButtons();
             layoutHeaderButtons();
+            header.Resize += (s, e) =>
+            {
+                int available = Math.Max(220, header.ClientSize.Width - headerActions.Width - title.Left - 18);
+                title.Width = available;
+                subtitle.Width = available;
+            };
             header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
+            int initialHeaderTextWidth = Math.Max(220, header.ClientSize.Width - headerActions.Width - title.Left - 18);
+            title.Width = initialHeaderTextWidth;
+            subtitle.Width = initialHeaderTextWidth;
 
             Panel workspace = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(18, 0, 18, 18) };
             Panel shell = MakePayrollCard();
@@ -197,7 +208,8 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Body,
                 ForeColor = DS.Primary700,
                 BackColor = DS.Primary50,
-                Padding = new Padding(14, 8, 12, 0)
+                Padding = new Padding(14, 8, 12, 0),
+                AutoEllipsis = true
             };
             DS.Rounded(_lblStatus, 6);
             periodStrip.Resize += (s, e) =>
@@ -600,20 +612,33 @@ namespace HVAC_Pro_Desktop.UI
             RefreshAll();
         }
 
-        private async void GenerateAllPayslips()
+        private void GenerateAllPayslips()
         {
             PayrollRun run = _payrollService.GetPayrollRun(CurrentMonth, CurrentYear);
             if (run == null)
                 return;
-            using (Form progress = BuildBusyDialog("Generating payslips", "Payslips are being generated in the background. You can keep the app open while the batch finishes."))
+            using (Form progress = BuildBusyDialog("Generating payslips", "Payslips are being generated. Please wait while the batch finishes."))
             {
                 ToggleBusyState(true);
                 SetStatus("Generating payslips for " + CurrentMonth.ToString("00") + "/" + CurrentYear + "...", Color.FromArgb(41, 128, 185));
-                progress.Show(this);
-                progress.Update();
-                ServiceResult<List<string>> result = await Task.Run(() => _payslipService.GenerateBatchPayslips(run.PayrollRunId));
-                progress.Close();
+                ServiceResult<List<string>> result = null;
+                progress.Shown += async (s, e) =>
+                {
+                    try
+                    {
+                        result = await Task.Run(() => _payslipService.GenerateBatchPayslips(run.PayrollRunId));
+                    }
+                    finally
+                    {
+                        progress.Close();
+                    }
+                };
+
+                progress.ShowDialog(this);
                 ToggleBusyState(false);
+                if (result == null)
+                    return;
+
                 SetStatus(result.Message, result.Success ? Color.FromArgb(39, 174, 96) : Color.Firebrick);
                 RefreshProcessTab();
                 if (!result.Success)
@@ -956,6 +981,7 @@ namespace HVAC_Pro_Desktop.UI
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false
             };
+            button.AutoEllipsis = true;
             button.FlatAppearance.BorderSize = light ? 1 : 0;
             button.FlatAppearance.BorderColor = light ? DS.BorderStrong : backColor;
             button.FlatAppearance.MouseOverBackColor = light ? DS.BgCardHov : DS.Lighten(backColor, 0.08f);
@@ -1176,7 +1202,8 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(16, 16, 16, 0),
                 Font = new Font("Segoe UI", 9),
                 ForeColor = Color.FromArgb(51, 65, 85),
-                Text = message
+                Text = message,
+                AutoEllipsis = true
             };
             var progress = new ProgressBar
             {
@@ -1197,10 +1224,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (var form = ServoModalForm.Create(title, 360, 150))
             {
-                var label = new Label { Text = prompt, Left = 12, Top = 14, Width = 320 };
-                var text = new TextBox { Left = 12, Top = 40, Width = 320 };
-                var ok = new Button { Text = "OK", Left = 176, Top = 72, Width = 72, DialogResult = DialogResult.OK };
-                var cancel = new Button { Text = "Cancel", Left = 260, Top = 72, Width = 72, DialogResult = DialogResult.Cancel };
+                var label = new Label { Text = prompt, Left = 12, Top = 14, Width = 320, Height = 22, AutoEllipsis = true };
+                var text = new TextBox { Left = 12, Top = 42, Width = 320, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+                var ok = new Button { Text = "OK", Left = 176, Top = 78, Width = 72, DialogResult = DialogResult.OK, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
+                var cancel = new Button { Text = "Cancel", Left = 260, Top = 78, Width = 72, DialogResult = DialogResult.Cancel, Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
                 form.Controls.AddRange(new Control[] { label, text, ok, cancel });
                 form.AcceptButton = ok;
                 form.CancelButton = cancel;

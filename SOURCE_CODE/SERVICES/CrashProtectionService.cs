@@ -4,6 +4,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 
@@ -195,6 +196,70 @@ namespace HVAC_Pro_Desktop.Services
             {
                 ShowFriendlyError(owner == null ? null : owner.FindForm(), GetFormName(owner), action, ex);
                 return false;
+            }
+        }
+
+        public static async Task<bool> SafeExecuteAsync(Control owner, string action, Func<Task> work)
+        {
+            if (work == null)
+                return false;
+
+            try
+            {
+                MarkUiAction(owner, action);
+                await work();
+                return true;
+            }
+            catch (ValidationException ex)
+            {
+                ShowValidationWarning(owner, ex.Message);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ShowFriendlyError(owner == null ? null : owner.FindForm(), GetFormName(owner), action, ex);
+                return false;
+            }
+        }
+
+        public static async Task<bool> SafeExecuteAsync(Control owner, string action, Control buttonToDisable, string loadingText, Func<Task> work)
+        {
+            if (work == null)
+                return false;
+
+            string originalText = buttonToDisable == null ? string.Empty : buttonToDisable.Text;
+            bool originalEnabled = buttonToDisable == null || buttonToDisable.Enabled;
+            try
+            {
+                MarkUiAction(owner, action);
+                if (buttonToDisable != null)
+                {
+                    buttonToDisable.Enabled = false;
+                    if (!string.IsNullOrWhiteSpace(loadingText))
+                        buttonToDisable.Text = loadingText;
+                    buttonToDisable.Refresh();
+                }
+
+                await work();
+                return true;
+            }
+            catch (ValidationException ex)
+            {
+                ShowValidationWarning(owner, ex.Message);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                ShowFriendlyError(owner == null ? null : owner.FindForm(), GetFormName(owner), action, ex);
+                return false;
+            }
+            finally
+            {
+                if (buttonToDisable != null && !buttonToDisable.IsDisposed)
+                {
+                    buttonToDisable.Text = originalText;
+                    buttonToDisable.Enabled = originalEnabled;
+                }
             }
         }
 

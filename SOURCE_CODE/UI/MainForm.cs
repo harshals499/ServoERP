@@ -46,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _hideUpdateBannerForSession;
         private bool _silentUpdateApplyAttempted;
         private bool _offlineSyncRunning;
+        private bool _pageRefreshInProgress;
         private UpdateCheckResult _latestUpdateResult;
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
         private readonly LinkedList<int> _pageUsage = new LinkedList<int>();
@@ -520,6 +521,22 @@ namespace HVAC_Pro_Desktop.UI
             _btnAiCopilot.Left = 12;
             _btnAiCopilot.Top = Math.Max(20, userTop - (_btnAiCopilot.Height * 2) - 20);
             _btnAiCopilot.BringToFront();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == Keys.F5)
+            {
+                _ = RefreshCurrentPageAsync();
+                return true;
+            }
+
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        public void RequestCurrentPageRefresh()
+        {
+            _ = RefreshCurrentPageAsync();
         }
 
         /// <summary>Starts the minute timer that checks for the configured end-of-day backup.</summary>
@@ -1040,6 +1057,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
             });
         }
+
         private void RefreshDatabaseStatusBanner(DatabaseConnectionStateSnapshot snapshot)
         {
             if (_pnlDatabaseStatusBanner == null || _lblDatabaseStatusMessage == null || snapshot == null)
@@ -1578,6 +1596,13 @@ namespace HVAC_Pro_Desktop.UI
         public void ReloadPageByKey(string pageKey)
         {
             int index = MapPageKey(pageKey);
+            ReloadPage(index);
+        }
+
+        private void ReloadPage(int index)
+        {
+            if (index < 0)
+                return;
 
             if (_pageCache.TryGetValue(index, out UserControl cachedPage))
             {
@@ -1596,6 +1621,33 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_currentIndex == index)
                 NavigateTo(index);
+        }
+
+        private async Task RefreshCurrentPageAsync()
+        {
+            if (_pageRefreshInProgress || _currentIndex < 0 || !SessionManager.IsLoggedIn)
+                return;
+
+            try
+            {
+                _pageRefreshInProgress = true;
+                string pageLabel = GetNavLabel(_currentIndex);
+                if (string.IsNullOrWhiteSpace(pageLabel))
+                    pageLabel = "page";
+
+                ToastNotification.ShowToast("Refreshing " + pageLabel + "...", DS.Primary600);
+                await Task.Yield();
+                ReloadPage(_currentIndex);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.RefreshCurrentPageAsync", ex);
+                MessageBox.Show(this, "The page could not be refreshed right now. Please try again.", BrandingService.WindowTitle("Refresh Page"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _pageRefreshInProgress = false;
+            }
         }
 
         public void ClearCachedPagesExceptCurrent()
@@ -1630,7 +1682,13 @@ namespace HVAC_Pro_Desktop.UI
                 CloseSupportCenterDrawer();
 
             if (_currentIndex == index && _pageCache.ContainsKey(index))
+            {
+                if (_pageCache.TryGetValue(index, out UserControl currentPage) && currentPage is VendorForm currentVendorPage)
+                    currentVendorPage.ShowDashboardFromNavigation();
+                if (_pageCache.TryGetValue(index, out currentPage) && currentPage is AMCPage currentAmcPage)
+                    currentAmcPage.ShowDashboardFromNavigation();
                 return;
+            }
 
             UpdateNavState(index);
 
@@ -1720,6 +1778,10 @@ namespace HVAC_Pro_Desktop.UI
                 page.BringToFront();
                 if (page is SettingsForm settingsPage)
                     settingsPage.EnsureInitialLoad();
+                if ((index == 9 || index == VendorsPageIndex) && page is VendorForm vendorPage)
+                    vendorPage.ShowDashboardFromNavigation();
+                if (index == AMCPageIndex && page is AMCPage amcPage)
+                    amcPage.ShowDashboardFromNavigation();
                 LayoutResetLayoutLauncher();
                 if (page is PurchaseForm purchasePage)
                     purchasePage.ApplyNavigationRequest();

@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
@@ -39,7 +40,7 @@ namespace HVAC_Pro_Desktop.UI
         private WebView2 _whatsAppWeb;
         private Button _markSentButton;
         private WhatsAppQuickActionContext _pendingContext;
-        private BackgroundWorker _loadWorker;
+        private bool _hubDataLoading;
 
         private List<WhatsAppContact> _contacts = new List<WhatsAppContact>();
         private List<WhatsAppTemplate> _templates = new List<WhatsAppTemplate>();
@@ -262,43 +263,32 @@ namespace HVAC_Pro_Desktop.UI
             _conversationList.BringToFront();
         }
 
-        private void LoadHubData()
+        private async void LoadHubData()
         {
-            if (_loadWorker != null && _loadWorker.IsBusy)
+            if (_hubDataLoading)
                 return;
 
+            _hubDataLoading = true;
             Cursor = Cursors.WaitCursor;
             SetLoadingText("Loading contacts...");
 
-            _loadWorker = CreateWorker();
-            _loadWorker.DoWork += (s, e) =>
+            try
             {
-                List<WhatsAppContact> contacts = _service.LoadContacts()
-                    .OrderByDescending(c => !string.IsNullOrWhiteSpace(c.Phone))
-                    .ThenByDescending(c => c.LastMessageAt)
-                    .ToList();
-                List<WhatsAppTemplate> templates = _service.LoadTemplates();
-                e.Result = new WhatsAppHubLoadResult { Contacts = contacts, Templates = templates };
-            };
-            _loadWorker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
+                WhatsAppHubLoadResult result = await Task.Run(() =>
                 {
-                    AppLogger.LogError("WhatsAppHubForm.LoadHubData", e.Error);
-                    RunOnUI(() =>
-                    {
-                        Cursor = Cursors.Default;
-                        SetLoadingText("Could not load contacts. Click refresh to try again.");
-                    });
-                    ShowError( "Failed to load WhatsApp contacts. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                    List<WhatsAppContact> contacts = _service.LoadContacts()
+                        .OrderByDescending(c => !string.IsNullOrWhiteSpace(c.Phone))
+                        .ThenByDescending(c => c.LastMessageAt)
+                        .ToList();
+                    List<WhatsAppTemplate> templates = _service.LoadTemplates();
+                    return new WhatsAppHubLoadResult { Contacts = contacts, Templates = templates };
+                });
 
                 RunOnUI(() =>
                 {
+                    _hubDataLoading = false;
                     Cursor = Cursors.Default;
-                    var result = e.Result as WhatsAppHubLoadResult ?? new WhatsAppHubLoadResult();
+                    result = result ?? new WhatsAppHubLoadResult();
                     _contacts = result.Contacts ?? new List<WhatsAppContact>();
                     _templates = result.Templates ?? new List<WhatsAppTemplate>();
                     _selectedContact = _selectedContact == null
@@ -312,8 +302,18 @@ namespace HVAC_Pro_Desktop.UI
                     RenderChat();
                     RenderDetails();
                 });
-            };
-            _loadWorker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("WhatsAppHubForm.LoadHubData", ex);
+                RunOnUI(() =>
+                {
+                    _hubDataLoading = false;
+                    Cursor = Cursors.Default;
+                    SetLoadingText("Could not load contacts. Click refresh to try again.");
+                });
+                ShowError("Failed to load WhatsApp contacts. Please try again.", ex);
+            }
         }
 
         private void RenderLoadingState()
@@ -927,7 +927,10 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 _webStatus.Text = text;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("WhatsAppHubForm.SetWebStatus", ex);
+            }
         }
 
         private void NavigateWhatsAppWeb(string url)
@@ -956,7 +959,10 @@ namespace HVAC_Pro_Desktop.UI
                     if (!IsDisposed && IsHandleCreated && _whatsAppWeb != null && _whatsAppWeb.CoreWebView2 != null)
                         BeginInvoke((Action)(() => _whatsAppWeb.CoreWebView2.Navigate(url)));
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("WhatsAppHubForm.NavigateWhatsAppWeb.DeferredNavigate", ex);
+                }
             });
         }
 

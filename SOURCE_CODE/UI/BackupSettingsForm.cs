@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -44,8 +45,16 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Saves backup preferences to UserSettings.</summary>
         private void SaveSettings()
         {
-            DbSettings.Set("BackupNetworkPath", _txtNetworkPath.Text.Trim());
-            DbSettings.Set("BackupLocalPath", string.IsNullOrWhiteSpace(_txtLocalPath.Text) ? BackupService.DefaultLocalBackupPath : _txtLocalPath.Text.Trim());
+            string localPath = string.IsNullOrWhiteSpace(_txtLocalPath.Text)
+                ? BackupService.DefaultLocalBackupPath
+                : _txtLocalPath.Text.Trim();
+            string networkPath = _txtNetworkPath.Text.Trim();
+
+            if (string.IsNullOrWhiteSpace(localPath))
+                throw new InvalidOperationException(T("Select a local backup folder before saving settings."));
+
+            DbSettings.Set("BackupNetworkPath", networkPath);
+            DbSettings.Set("BackupLocalPath", localPath);
             DbSettings.Set("BackupScheduledTime", _timeSchedule.Value.ToString("HH:mm"));
             DbSettings.Set("BackupRetentionDays", ((int)_numRetention.Value).ToString());
             DbSettings.Set("BackupRunOnClose", _chkRunOnClose.Checked ? "true" : "false");
@@ -82,40 +91,31 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Starts a manual backup from the UI.</summary>
-        private void RunManualBackup(object sender, EventArgs e)
+        private async void RunManualBackup(object sender, EventArgs e)
         {
-            SaveSettings();
+            try
+            {
+                SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                SetStatus(ex.Message, DS.Red600);
+                ShowError(T("Backup settings are incomplete. Please correct them and try again."), ex);
+                return;
+            }
+
             ToggleBackupUi(false);
             _progress.Style = ProgressBarStyle.Marquee;
             SetStatus(T("Creating manual backup..."), DS.Slate700);
 
-            var worker = CreateWorker();
-            worker.DoWork += (s, args) => args.Result = _backupService.RunBackup(BackupTrigger.Manual);
-            worker.RunWorkerCompleted += (s, args) =>
+            try
             {
-                if (args.Error != null)
-                {
-                    RunOnUI(() =>
-                    {
-                        worker.Dispose();
-                        _progress.Style = ProgressBarStyle.Blocks;
-                        ToggleBackupUi(true);
-                        SetStatus(string.Format(T("Backup failed: {0}"), args.Error.Message), DS.Red600);
-                        ToastNotification.ShowToast(T("Backup failed - please check settings"), DS.Red600);
-                        RefreshBackupLog();
-                    });
-                    ShowError(T("Manual backup failed. Please check backup settings."), args.Error);
-                    return;
-                }
-                if (args.Cancelled) return;
+                _lastManualResult = await Task.Run(() => _backupService.RunBackup(BackupTrigger.Manual));
 
                 RunOnUI(() =>
                 {
-                    worker.Dispose();
                     _progress.Style = ProgressBarStyle.Blocks;
                     ToggleBackupUi(true);
-
-                    _lastManualResult = args.Result as BackupResult;
                     if (_lastManualResult != null && _lastManualResult.Success)
                     {
                         SetStatus(string.Format(T("Backup completed - saved to {0}"), FriendlyDestination(_lastManualResult.DestinationUsed)), DS.Green600);
@@ -131,8 +131,19 @@ namespace HVAC_Pro_Desktop.UI
                     RefreshLastBackupLabel();
                     RefreshBackupLog();
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                RunOnUI(() =>
+                {
+                    _progress.Style = ProgressBarStyle.Blocks;
+                    ToggleBackupUi(true);
+                    SetStatus(string.Format(T("Backup failed: {0}"), ex.Message), DS.Red600);
+                    ToastNotification.ShowToast(T("Backup failed - please check settings"), DS.Red600);
+                    RefreshBackupLog();
+                });
+                ShowError(T("Manual backup failed. Please check backup settings."), ex);
+            }
         }
 
         /// <summary>Opens the last successful backup destination in Windows Explorer.</summary>
@@ -242,8 +253,16 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Handles Save button clicks.</summary>
         private void SaveClicked(object sender, EventArgs e)
         {
-            SaveSettings();
-            RefreshLastBackupLabel();
+            try
+            {
+                SaveSettings();
+                RefreshLastBackupLabel();
+            }
+            catch (Exception ex)
+            {
+                SetStatus(ex.Message, DS.Red600);
+                ShowError(T("Backup settings could not be saved. Please review the highlighted inputs."), ex);
+            }
         }
 
         /// <summary>Closes the backup settings form.</summary>

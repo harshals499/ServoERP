@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
 using Dapper;
@@ -308,16 +309,15 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 string normalized = NormalizeActivityFilter(filterType);
-                string where = normalized == "All" ? string.Empty : " AND ActivityType = @type";
                 using (var cmd = new SqlCommand(@"
                     SELECT Id, ClientId, ActivityType, Title, Detail, CreatedAt, CreatedBy
                     FROM ClientActivity
-                    WHERE ClientId = @clientId" + where + @"
+                    WHERE ClientId = @clientId
+                      AND (@type IS NULL OR ActivityType = @type)
                     ORDER BY CreatedAt DESC, Id DESC;", conn))
                 {
                     cmd.Parameters.AddWithValue("@clientId", clientId);
-                    if (normalized != "All")
-                        cmd.Parameters.AddWithValue("@type", normalized);
+                    cmd.Parameters.AddWithValue("@type", normalized == "All" ? (object)DBNull.Value : normalized);
                     using (var r = cmd.ExecuteReader())
                     {
                         while (r.Read())
@@ -501,28 +501,93 @@ namespace HVAC_Pro_Desktop.DAL
                 CustomerSince   = r["CustomerSince"] != DBNull.Value ? (DateTime)r["CustomerSince"] : default(DateTime)
             };
 
-            // New columns (may not exist yet on first run)
-            try { c.Email           = r["Email"].ToString(); }           catch { }
-            try { c.GSTNumber       = r["GSTNumber"].ToString(); }       catch { }
-            try { c.PANNumber       = r["PANNumber"].ToString(); }       catch { }
-            try { c.PaymentTermsDays= r["PaymentTermsDays"] != DBNull.Value ? (int)r["PaymentTermsDays"] : 30; } catch { }
-            try { c.CreditLimit     = r["CreditLimit"] != DBNull.Value ? (decimal)r["CreditLimit"] : 0; }        catch { }
-            try { c.BillingAddress  = r["BillingAddress"].ToString(); }  catch { }
-            try { c.City            = r["City"].ToString(); }            catch { }
-            try { c.GeoLatitude     = r["GeoLatitude"] == DBNull.Value ? (double?)null : Convert.ToDouble(r["GeoLatitude"]); } catch { }
-            try { c.GeoLongitude    = r["GeoLongitude"] == DBNull.Value ? (double?)null : Convert.ToDouble(r["GeoLongitude"]); } catch { }
-            try { c.GeocodeAddress  = r["GeocodeAddress"].ToString(); } catch { }
-            try { c.GeocodeStatus   = r["GeocodeStatus"].ToString(); } catch { }
-            try { c.GeocodeUpdatedOn = r["GeocodeUpdatedOn"] == DBNull.Value ? (DateTime?)null : (DateTime)r["GeocodeUpdatedOn"]; } catch { }
-            try { c.IsActive        = r["IsActive"] != DBNull.Value && (bool)r["IsActive"]; } catch { c.IsActive = true; }
-            try { c.RelationshipStage = r["RelationshipStage"].ToString(); } catch { }
-            try { c.Tags = r["Tags"].ToString(); } catch { }
-            try { c.HealthScore = r["HealthScore"] != DBNull.Value ? Convert.ToInt32(r["HealthScore"]) : 0; } catch { }
-            try { c.Notes = r["Notes"].ToString(); } catch { }
-            try { c.AssignedTo = r["AssignedTo"].ToString(); } catch { }
-            try { c.LeadSource = r["LeadSource"].ToString(); } catch { }
+            // New columns may not exist on first run, so read them defensively.
+            c.Email = GetString(r, "Email");
+            c.GSTNumber = GetString(r, "GSTNumber");
+            c.PANNumber = GetString(r, "PANNumber");
+            c.PaymentTermsDays = GetInt32(r, "PaymentTermsDays", 30);
+            c.CreditLimit = GetDecimal(r, "CreditLimit", 0m);
+            c.BillingAddress = GetString(r, "BillingAddress");
+            c.City = GetString(r, "City");
+            c.GeoLatitude = GetNullableDouble(r, "GeoLatitude");
+            c.GeoLongitude = GetNullableDouble(r, "GeoLongitude");
+            c.GeocodeAddress = GetString(r, "GeocodeAddress");
+            c.GeocodeStatus = GetString(r, "GeocodeStatus");
+            c.GeocodeUpdatedOn = GetNullableDateTime(r, "GeocodeUpdatedOn");
+            c.IsActive = GetBoolean(r, "IsActive", true);
+            c.RelationshipStage = GetString(r, "RelationshipStage");
+            c.Tags = GetString(r, "Tags");
+            c.HealthScore = GetInt32(r, "HealthScore", 0);
+            c.Notes = GetString(r, "Notes");
+            c.AssignedTo = GetString(r, "AssignedTo");
+            c.LeadSource = GetString(r, "LeadSource");
 
             return c;
+        }
+
+        private static bool HasColumn(IDataRecord record, string columnName)
+        {
+            for (int index = 0; index < record.FieldCount; index++)
+            {
+                if (string.Equals(record.GetName(index), columnName, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string GetString(IDataRecord record, string columnName, string defaultValue = "")
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToString(value) ?? defaultValue;
+        }
+
+        private static int GetInt32(IDataRecord record, string columnName, int defaultValue)
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToInt32(value);
+        }
+
+        private static decimal GetDecimal(IDataRecord record, string columnName, decimal defaultValue)
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToDecimal(value);
+        }
+
+        private static bool GetBoolean(IDataRecord record, string columnName, bool defaultValue)
+        {
+            if (!HasColumn(record, columnName))
+                return defaultValue;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? defaultValue : Convert.ToBoolean(value);
+        }
+
+        private static double? GetNullableDouble(IDataRecord record, string columnName)
+        {
+            if (!HasColumn(record, columnName))
+                return null;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? (double?)null : Convert.ToDouble(value);
+        }
+
+        private static DateTime? GetNullableDateTime(IDataRecord record, string columnName)
+        {
+            if (!HasColumn(record, columnName))
+                return null;
+
+            object value = record[columnName];
+            return value == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(value);
         }
 
         private static ClientTeamMember MapTeamMember(SqlDataReader r)

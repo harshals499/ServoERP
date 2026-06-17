@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Services;
@@ -93,9 +94,27 @@ namespace HVAC_Pro_Desktop.UI
             header.Resize += (s, e) =>
             {
                 edit.Location = new Point(Math.Max(0, header.ClientSize.Width - 104), 36);
-                _client.Width = Math.Max(160, _status.Left - _client.Left - 10);
+                LayoutHeaderBadges(header, edit);
             };
+            LayoutHeaderBadges(header, edit);
             return header;
+        }
+
+        /// <summary>Keeps variable AMC header text from clipping into the right-side action.</summary>
+        private void LayoutHeaderBadges(Control header, Control edit)
+        {
+            if (header == null || edit == null || _number == null || _client == null || _status == null || _coverage == null)
+                return;
+
+            int rightLimit = Math.Max(360, edit.Left - 12);
+            bool compact = header.ClientSize.Width < 760;
+            _number.Width = compact ? Math.Max(180, rightLimit - _number.Left) : 220;
+            _client.Left = compact ? 0 : _number.Right + 10;
+            _client.Top = compact ? 60 : 44;
+            _client.Width = compact ? Math.Max(180, rightLimit - _client.Left) : Math.Max(160, Math.Min(260, rightLimit - _client.Left - 276));
+            _status.Left = compact ? Math.Max(0, rightLimit - 244) : _client.Right + 10;
+            _coverage.Left = _status.Right + 10;
+            _coverage.Width = compact ? Math.Max(112, rightLimit - _coverage.Left) : 150;
         }
 
         /// <summary>Builds the tabbed detail body.</summary>
@@ -193,26 +212,18 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         /// <summary>Starts loading all AMC detail data.</summary>
-        private void LoadDetail()
+        private async void LoadDetail()
         {
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) => e.Result = LoadPayload();
-            worker.RunWorkerCompleted += (s, e) =>
+            try
             {
-                if (e.Error != null)
-                {
-                    ShowError( "Failed to load AMC detail. Please try again.", e.Error);
-                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("AMC"), "Loading AMC detail", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
-
-                RunOnUI(() =>
-                {
-                    BindPayload(e.Result as DetailPayload);
-                });
-            };
-            worker.RunWorkerAsync();
+                DetailPayload payload = await Task.Run(() => LoadPayload());
+                RunOnUI(() => BindPayload(payload));
+            }
+            catch (Exception ex)
+            {
+                ShowError("Failed to load AMC detail. Please try again.", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("AMC"), "Loading AMC detail", ex);
+            }
         }
 
         /// <summary>Loads header, equipment, visit, and history data sequentially.</summary>
@@ -408,8 +419,8 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
             var card = new Panel { Size = new Size(220, 84), BackColor = alert ? Color.FromArgb(254, 226, 226) : Color.White, Margin = new Padding(0, 0, 14, 0) };
             card.Paint += (s, e) => { using (var pen = new Pen(DS.Border)) e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1); };
             DS.Rounded(card, 8);
-            card.Controls.Add(new Label { Text = title, Location = new Point(14, 12), Size = new Size(190, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted });
-            card.Controls.Add(new Label { Text = value, Location = new Point(14, 38), Size = new Size(192, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = alert ? Red : Ink });
+            card.Controls.Add(new Label { Text = title, Location = new Point(14, 12), Size = new Size(190, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = value, Location = new Point(14, 38), Size = new Size(192, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = alert ? Red : Ink, AutoEllipsis = true });
             _health.Controls.Add(card);
         }
 
@@ -517,7 +528,7 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
         /// <summary>Creates badge label.</summary>
         private Label MakeBadge(string text, Color color, Point location, int width)
         {
-            var label = new Label { Text = text, Location = location, Size = new Size(width, 24), BackColor = color, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
+            var label = new Label { Text = text, Location = location, Size = new Size(width, 24), BackColor = color, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold), AutoEllipsis = true };
             DS.Rounded(label, 12);
             return label;
         }

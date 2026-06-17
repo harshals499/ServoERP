@@ -3,7 +3,9 @@ using System.ComponentModel;
 using System.Data.SqlClient;
 using System.Globalization;
 using System.Threading;
+using System.Threading.Tasks;
 using HVAC_Pro_Desktop.DAL;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -60,8 +62,8 @@ namespace HVAC_Pro_Desktop.Services
         private const int OfflineRetryIntervalMs = 5000;
         private const int DegradedOpenThresholdMs = 2000;
         private static readonly object Sync = new object();
-        private static BackgroundWorker _worker;
-        private static bool _stopRequested;
+        private static Task _monitorTask;
+        private static CancellationTokenSource _monitorCancellation;
 
         private static DatabaseConnectionStateSnapshot _snapshot = new DatabaseConnectionStateSnapshot
         {
@@ -77,14 +79,13 @@ namespace HVAC_Pro_Desktop.Services
         {
             lock (Sync)
             {
-                if (_worker != null && _worker.IsBusy)
+                if (_monitorTask != null && !_monitorTask.IsCompleted)
                     return;
 
-                _stopRequested = false;
-                _worker = new BackgroundWorker { WorkerSupportsCancellation = true };
-                _worker.DoWork += MonitorLoop;
+                _monitorCancellation?.Dispose();
+                _monitorCancellation = new CancellationTokenSource();
                 Publish(UpdateSnapshot(DatabaseConnectionStateKind.Reconnecting, "Checking office SQL Server connection...", string.Empty, null, null, false, 0));
-                _worker.RunWorkerAsync();
+                _monitorTask = Task.Run(() => MonitorLoopAsync(_monitorCancellation.Token), _monitorCancellation.Token);
             }
         }
 
@@ -93,9 +94,8 @@ namespace HVAC_Pro_Desktop.Services
         {
             lock (Sync)
             {
-                _stopRequested = true;
-                if (_worker != null && _worker.IsBusy)
-                    _worker.CancelAsync();
+                if (_monitorCancellation != null)
+                    _monitorCancellation.Cancel();
             }
         }
 
@@ -247,9 +247,9 @@ namespace HVAC_Pro_Desktop.Services
                    "Last Error: " + SafeValue(current.LastError);
         }
 
-        private static void MonitorLoop(object sender, DoWorkEventArgs e)
+        private static async Task MonitorLoopAsync(CancellationToken cancellationToken)
         {
-            while (!_stopRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 try
                 {
@@ -262,9 +262,9 @@ namespace HVAC_Pro_Desktop.Services
 
                 int waitMs = GetCurrentState().BusinessWritesAllowed ? OnlineCheckIntervalMs : OfflineRetryIntervalMs;
                 int slept = 0;
-                while (!_stopRequested && slept < waitMs)
+                while (!cancellationToken.IsCancellationRequested && slept < waitMs)
                 {
-                    Thread.Sleep(500);
+                    await Task.Delay(500, cancellationToken).ConfigureAwait(false);
                     slept += 500;
                 }
             }
@@ -392,8 +392,9 @@ namespace HVAC_Pro_Desktop.Services
                 server = builder.DataSource ?? string.Empty;
                 database = builder.InitialCatalog ?? string.Empty;
             }
-            catch
+            catch (Exception ex)
             {
+                ExceptionLogger.Log(ex, "DatabaseConnectionStateService.ParseConnection");
             }
         }
 

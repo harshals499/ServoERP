@@ -114,6 +114,7 @@ namespace HVAC_Pro_Desktop.UI
                 AutoEllipsis = true
             };
             Button upload = MakeButton("Import Excel", Color.White, 138);
+            upload.AutoEllipsis = true;
             upload.Click += (s, e) => ShowBulkImportMenu(upload);
             upload.ForeColor = DS.Slate800;
             upload.FlatAppearance.BorderSize = 1;
@@ -123,6 +124,7 @@ namespace HVAC_Pro_Desktop.UI
             ModernIconSystem.AddButtonIcon(upload, ModernIconKind.Import);
 
             Button validate = MakeButton("Refresh Setup Checks", DS.Primary600, 174, async (s, e) => await LoadAllAsync());
+            validate.AutoEllipsis = true;
             validate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             validate.Location = new Point(header.Width - 188, 24);
             ModernIconSystem.AddButtonIcon(validate, ModernIconKind.Security);
@@ -600,48 +602,35 @@ namespace HVAC_Pro_Desktop.UI
             _masterDataLoadTimer.Start();
         }
 
-        private void StartMasterDataLoad()
+        private async void StartMasterDataLoad()
         {
             if (_masterDataLoading)
                 return;
 
             _masterDataLoading = true;
             ShowStatus("Loading master data...", false);
-            var worker = CreateWorker();
-            worker.DoWork += (s, e) =>
+            try
             {
-                TimeSpan ttl = TimeSpan.FromMinutes(2);
-                e.Result = new MasterDataSnapshot
+                MasterDataSnapshot snapshot = await Task.Run(() =>
                 {
-                    Clients = AppDataCache.GetOrCreate("clients:all-including-inactive", ttl, () => _clientSvc.GetAllClientsIncludingInactive() ?? new List<B2BClient>()).ToList(),
-                    Sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList(),
-                    SetupStatus = AppDataCache.GetOrCreate("masterdata:setup-status", ttl, () => _svc.GetSetupStatus() ?? new List<MasterDataStatus>()).ToList(),
-                    Assets = AppDataCache.GetOrCreate("masterdata:assets", ttl, () => _svc.GetAssets() ?? new List<ClientAsset>()).ToList(),
-                    Documents = AppDataCache.GetOrCreate("masterdata:documents", ttl, () => _svc.GetDocuments() ?? new List<ClientDocument>()).ToList(),
-                    Rates = AppDataCache.GetOrCreate("masterdata:rates", ttl, () => _svc.GetRateCards() ?? new List<ServiceRateCard>()).ToList(),
-                    Connections = AppDataCache.GetOrCreate("masterdata:connections", ttl, () => _svc.GetPrivateServerConnections() ?? new List<PrivateServerConnection>()).ToList(),
-                    ImportBatches = AppDataCache.GetOrCreate("masterdata:import-batches", ttl, () => _svc.GetImportBatches() ?? new List<DataImportBatch>()).ToList()
-                };
-            };
-            worker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    RunOnUI(() =>
+                    TimeSpan ttl = TimeSpan.FromMinutes(2);
+                    return new MasterDataSnapshot
                     {
-                        _masterDataLoading = false;
-                        ShowStatus("Master data could not be loaded. Refresh setup checks and try again.", true);
-                    });
-                    ShowError( "Failed to load master data. Please try again.", e.Error);
-                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Loading master data", e.Error);
-                    return;
-                }
-                if (e.Cancelled) return;
+                        Clients = AppDataCache.GetOrCreate("clients:all-including-inactive", ttl, () => _clientSvc.GetAllClientsIncludingInactive() ?? new List<B2BClient>()).ToList(),
+                        Sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList(),
+                        SetupStatus = AppDataCache.GetOrCreate("masterdata:setup-status", ttl, () => _svc.GetSetupStatus() ?? new List<MasterDataStatus>()).ToList(),
+                        Assets = AppDataCache.GetOrCreate("masterdata:assets", ttl, () => _svc.GetAssets() ?? new List<ClientAsset>()).ToList(),
+                        Documents = AppDataCache.GetOrCreate("masterdata:documents", ttl, () => _svc.GetDocuments() ?? new List<ClientDocument>()).ToList(),
+                        Rates = AppDataCache.GetOrCreate("masterdata:rates", ttl, () => _svc.GetRateCards() ?? new List<ServiceRateCard>()).ToList(),
+                        Connections = AppDataCache.GetOrCreate("masterdata:connections", ttl, () => _svc.GetPrivateServerConnections() ?? new List<PrivateServerConnection>()).ToList(),
+                        ImportBatches = AppDataCache.GetOrCreate("masterdata:import-batches", ttl, () => _svc.GetImportBatches() ?? new List<DataImportBatch>()).ToList()
+                    };
+                });
 
                 RunOnUI(() =>
                 {
                     _masterDataLoading = false;
-                    MasterDataSnapshot snapshot = e.Result as MasterDataSnapshot ?? new MasterDataSnapshot();
+                    snapshot = snapshot ?? new MasterDataSnapshot();
                     _lastSnapshot = snapshot;
                     _clients = snapshot.Clients ?? new List<B2BClient>();
                     _sites = snapshot.Sites ?? new List<ClientSite>();
@@ -658,8 +647,17 @@ namespace HVAC_Pro_Desktop.UI
                     RenderHub(snapshot);
                     ShowStatus("Master data refreshed.", false);
                 });
-            };
-            worker.RunWorkerAsync();
+            }
+            catch (Exception ex)
+            {
+                RunOnUI(() =>
+                {
+                    _masterDataLoading = false;
+                    ShowStatus("Master data could not be loaded. Refresh setup checks and try again.", true);
+                });
+                ShowError("Failed to load master data. Please try again.", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Loading master data", ex);
+            }
         }
 
         protected override void OnVisibleChanged(EventArgs e)
@@ -912,7 +910,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void SetComboValue(ComboBox combo, object value)
         {
-            try { combo.SelectedValue = value ?? 0; } catch { }
+            try
+            {
+                combo.SelectedValue = value ?? 0;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("MasterDataForm.SetComboValue", ex);
+            }
         }
 
         private static T CurrentRow<T>(DataGridView grid) where T : class
@@ -982,13 +987,14 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawRectangle(pen, 0, 0, form.Width - 1, form.Height - 1);
             };
+            form.Resize += (s, e) => ResizeFormFlow(form);
             return form;
         }
 
         private static TextBox AddText(FlowLayoutPanel form, string label, bool multiline = false)
         {
             form.Controls.Add(FieldLabel(label));
-            TextBox box = new TextBox { Width = 300, Height = multiline ? 86 : 32, Multiline = multiline, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10) };
+            TextBox box = new TextBox { Width = 300, Height = multiline ? 86 : 32, Multiline = multiline, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(box);
             return box;
         }
@@ -996,7 +1002,7 @@ namespace HVAC_Pro_Desktop.UI
         private static ComboBox AddCombo(FlowLayoutPanel form, string label)
         {
             form.Controls.Add(FieldLabel(label));
-            ComboBox combo = new ComboBox { Width = 300, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10) };
+            ComboBox combo = new ComboBox { Width = 300, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(combo);
             return combo;
         }
@@ -1004,7 +1010,7 @@ namespace HVAC_Pro_Desktop.UI
         private static NumericUpDown AddNumber(FlowLayoutPanel form, string label, decimal maximum, int decimals)
         {
             form.Controls.Add(FieldLabel(label));
-            NumericUpDown num = new NumericUpDown { Width = 170, Height = 32, Maximum = maximum, DecimalPlaces = decimals, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10) };
+            NumericUpDown num = new NumericUpDown { Width = 170, Height = 32, Maximum = maximum, DecimalPlaces = decimals, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(num);
             return num;
         }
@@ -1012,9 +1018,9 @@ namespace HVAC_Pro_Desktop.UI
         private static DateTimePicker AddDate(FlowLayoutPanel form, string label, out CheckBox enabled)
         {
             form.Controls.Add(FieldLabel(label));
-            FlowLayoutPanel row = new FlowLayoutPanel { Width = 300, Height = 36, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 0, 0, 10) };
+            FlowLayoutPanel row = new FlowLayoutPanel { Width = 300, Height = 36, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 0, 0, 10), Tag = "DateFieldRow" };
             enabled = new CheckBox { Width = 28, Height = 28, Margin = new Padding(0, 3, 8, 0) };
-            DateTimePicker date = new DateTimePicker { Width = 200, Height = 32, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9.5f) };
+            DateTimePicker date = new DateTimePicker { Width = 200, Height = 32, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9.5f), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             row.Controls.Add(enabled);
             row.Controls.Add(date);
             form.Controls.Add(row);
@@ -1023,18 +1029,55 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label FieldLabel(string text)
         {
-            return new Label { Text = text, Width = 300, Height = 20, ForeColor = DS.Slate700, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), Margin = new Padding(0, 8, 0, 3) };
+            bool required = (text ?? string.Empty).Contains("*");
+            return new Label { Text = text, Width = 300, Height = 20, ForeColor = required ? DS.Primary700 : DS.Slate700, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), Margin = new Padding(0, 8, 0, 3), AutoEllipsis = true };
         }
 
         private static FlowLayoutPanel ActionRow(params Button[] buttons)
         {
-            FlowLayoutPanel row = new FlowLayoutPanel { Width = 310, Height = 84, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Margin = new Padding(0, 12, 0, 8) };
+            FlowLayoutPanel row = new FlowLayoutPanel { Width = 310, Height = 84, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Margin = new Padding(0, 12, 0, 8), Tag = "ActionRow" };
             foreach (Button button in buttons)
             {
                 button.Margin = new Padding(0, 0, 8, 0);
+                button.AutoEllipsis = true;
                 row.Controls.Add(button);
             }
             return row;
+        }
+
+        private static void ResizeFormFlow(FlowLayoutPanel form)
+        {
+            if (form == null || form.IsDisposed)
+                return;
+
+            int width = Math.Max(220, Math.Min(330, form.ClientSize.Width - form.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 8));
+            foreach (Control control in form.Controls)
+            {
+                if (control is Label || control is TextBox || control is ComboBox)
+                {
+                    control.Width = width;
+                    continue;
+                }
+
+                NumericUpDown number = control as NumericUpDown;
+                if (number != null)
+                {
+                    number.Width = Math.Min(width, 190);
+                    continue;
+                }
+
+                FlowLayoutPanel row = control as FlowLayoutPanel;
+                if (row == null)
+                    continue;
+
+                row.Width = Math.Max(width, 220);
+                if (Convert.ToString(row.Tag) == "DateFieldRow")
+                {
+                    DateTimePicker date = row.Controls.OfType<DateTimePicker>().FirstOrDefault();
+                    if (date != null)
+                        date.Width = Math.Max(150, row.Width - 44);
+                }
+            }
         }
 
         private Panel CreateHubCard(int height)
@@ -1062,8 +1105,15 @@ namespace HVAC_Pro_Desktop.UI
         private static Control SectionTitle(string title, string subtitle)
         {
             Panel panel = new Panel { Width = 760, Height = 60, Margin = new Padding(0, 0, 0, 10), BackColor = Color.Transparent, Tag = "SectionTitle" };
-            panel.Controls.Add(new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 26), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(0, 30), Size = new Size(720, 24), Font = new Font("Segoe UI", 8.75f), ForeColor = DS.Slate600 });
+            var titleLabel = new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 26), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            var subtitleLabel = new Label { Text = subtitle, Location = new Point(0, 30), Size = new Size(720, 24), Font = new Font("Segoe UI", 8.75f), ForeColor = DS.Slate600, AutoEllipsis = true };
+            panel.Controls.Add(titleLabel);
+            panel.Controls.Add(subtitleLabel);
+            panel.Resize += (s, e) =>
+            {
+                titleLabel.Width = Math.Max(180, panel.ClientSize.Width - 8);
+                subtitleLabel.Width = Math.Max(180, panel.ClientSize.Width - 8);
+            };
             return panel;
         }
 
@@ -1078,15 +1128,17 @@ namespace HVAC_Pro_Desktop.UI
             Color accent = UploadAccent(key);
             card.Controls.Add(ModernIconSystem.Badge(iconKind, 38, DS.Lighten(accent, 0.84f), accent, 10));
             card.Controls[0].Location = new Point(14, 14);
-            card.Controls.Add(new Label { Text = ShortUploadTitle(title), Location = new Point(60, 14), Size = new Size(92, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            card.Controls.Add(new Label { Text = count.ToString("N0") + " recs", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22) });
-            card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600 });
+            card.Controls.Add(new Label { Text = ShortUploadTitle(title), Location = new Point(60, 14), Size = new Size(92, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = count.ToString("N0") + " recs", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22), AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600, AutoEllipsis = true });
 
             Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, 102), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
+            primary.AutoEllipsis = true;
             primary.FlatAppearance.BorderSize = 0;
             DS.Rounded(primary, DS.RadiusSm);
             primary.Click += (s, e) => RunCardAction(module, key);
             Button map = new Button { Text = "Auto Sync", Location = new Point(128, 102), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
+            map.AutoEllipsis = true;
             map.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(map, DS.RadiusSm);
             map.Click += (s, e) => RunMappingAction(module, key);
@@ -1119,8 +1171,8 @@ namespace HVAC_Pro_Desktop.UI
             Label mark = ModernIconSystem.Badge(iconKind, 34, DS.Lighten(color, 0.84f), color, 9);
             mark.Location = new Point(14, 12);
             tile.Controls.Add(mark);
-            tile.Controls.Add(new Label { Text = title, Location = new Point(62, 9), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            tile.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 31), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500 });
+            tile.Controls.Add(new Label { Text = title, Location = new Point(62, 9), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            tile.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 31), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500, AutoEllipsis = true });
             Label chevron = ModernIconSystem.Icon(ModernIconKind.ChevronDown, 14, DS.Slate500);
             chevron.Text = ">";
             chevron.Location = new Point(tile.Width - 28, 17);
@@ -1139,8 +1191,8 @@ namespace HVAC_Pro_Desktop.UI
             Control icon = ModernIconSystem.Badge(iconKind, 42, backColor, foreColor, 12);
             icon.Location = new Point(8, 28);
             panel.Controls.Add(icon);
-            panel.Controls.Add(new Label { Text = title, Location = new Point(62, 24), Size = new Size(140, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 48), Size = new Size(142, 22), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 });
+            panel.Controls.Add(new Label { Text = title, Location = new Point(62, 24), Size = new Size(140, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 48), Size = new Size(142, 22), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600, AutoEllipsis = true });
             return panel;
         }
 
@@ -1174,8 +1226,8 @@ namespace HVAC_Pro_Desktop.UI
             Control icon = ModernIconSystem.Badge(iconKind, 48, number == 2 ? DS.Amber50 : number == 3 ? Color.FromArgb(245, 243, 255) : number == 5 ? DS.Green50 : DS.Primary50, number == 2 ? DS.Amber600 : number == 3 ? Color.FromArgb(124, 58, 237) : number == 5 ? SaveGreen : DS.Primary700, 14);
             icon.Location = new Point(44, 20);
             panel.Controls.Add(icon);
-            panel.Controls.Add(new Label { Text = title, Location = new Point(104, 20), Size = new Size(128, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            panel.Controls.Add(new Label { Text = caption, Location = new Point(104, 46), Size = new Size(142, 42), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 });
+            panel.Controls.Add(new Label { Text = title, Location = new Point(104, 20), Size = new Size(128, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = caption, Location = new Point(104, 46), Size = new Size(142, 42), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600, AutoEllipsis = true });
             return panel;
         }
 
@@ -1251,17 +1303,34 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel row = new Panel { Width = 460, Height = 42, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
             row.Controls.Add(new Label { Text = "!", Location = new Point(0, 6), Size = new Size(28, 28), BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(234, 88, 12), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 9f, FontStyle.Bold) });
-            row.Controls.Add(new Label { Text = title, Location = new Point(40, 2), Size = new Size(190, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            row.Controls.Add(new Label { Text = action, Location = new Point(40, 21), Size = new Size(340, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 });
+            var titleLabel = new Label { Text = title, Location = new Point(40, 2), Size = new Size(190, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            var actionLabel = new Label { Text = action, Location = new Point(40, 21), Size = new Size(340, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            row.Controls.Add(titleLabel);
+            row.Controls.Add(actionLabel);
+            row.Resize += (s, e) =>
+            {
+                titleLabel.Width = Math.Max(120, row.ClientSize.Width - 48);
+                actionLabel.Width = Math.Max(120, row.ClientSize.Width - 48);
+            };
             return row;
         }
 
         private Control BuildRecentImportRow(string source, string status, int success, int failed)
         {
             Panel row = new Panel { Width = 460, Height = 48, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
-            row.Controls.Add(new Label { Text = source, Location = new Point(0, 2), Size = new Size(245, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            row.Controls.Add(new Label { Text = status, Location = new Point(260, 2), Size = new Size(100, 20), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = failed > 0 ? DS.Red600 : SaveGreen });
-            row.Controls.Add(new Label { Text = success + " synced | " + failed + " issues", Location = new Point(0, 24), Size = new Size(240, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 });
+            var sourceLabel = new Label { Text = source, Location = new Point(0, 2), Size = new Size(245, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            var statusLabel = new Label { Text = status, Location = new Point(260, 2), Size = new Size(100, 20), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = failed > 0 ? DS.Red600 : SaveGreen, AutoEllipsis = true };
+            var countLabel = new Label { Text = success + " synced | " + failed + " issues", Location = new Point(0, 24), Size = new Size(240, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            row.Controls.Add(sourceLabel);
+            row.Controls.Add(statusLabel);
+            row.Controls.Add(countLabel);
+            row.Resize += (s, e) =>
+            {
+                int statusWidth = Math.Min(110, Math.Max(80, row.ClientSize.Width / 4));
+                statusLabel.SetBounds(Math.Max(0, row.ClientSize.Width - statusWidth - 8), 2, statusWidth, 20);
+                sourceLabel.Width = Math.Max(120, statusLabel.Left - 12);
+                countLabel.Width = Math.Max(120, row.ClientSize.Width - 8);
+            };
             return row;
         }
 

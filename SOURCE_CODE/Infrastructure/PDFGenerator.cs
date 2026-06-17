@@ -141,9 +141,29 @@ namespace ServoERP.Infrastructure
         {
             container.Column(col =>
             {
-                col.Item().Text("ServoERP").FontSize(18).Bold();
+                col.Item().Text(DocumentBranding.DefaultCompanyName).FontSize(18).Bold();
                 col.Item().Text(Safe(title)).FontSize(13).FontColor(Colors.Grey.Darken2);
+                col.Item().PaddingTop(6).Element(ComposeOfficialDetails);
                 col.Item().PaddingTop(4).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+            });
+        }
+
+        private static void ComposeOfficialDetails(IContainer container)
+        {
+            Tuple<string, string>[] rows = DocumentBranding.GetOfficialDetailRows(null, null, null, null, null, null, null, false);
+            container.Table(table =>
+            {
+                table.ColumnsDefinition(columns =>
+                {
+                    columns.ConstantColumn(110);
+                    columns.RelativeColumn();
+                });
+
+                foreach (Tuple<string, string> row in rows)
+                {
+                    table.Cell().PaddingVertical(1).Text(row.Item1).FontSize(9).SemiBold();
+                    table.Cell().PaddingVertical(1).Text(": " + Safe(row.Item2)).FontSize(9);
+                }
             });
         }
 

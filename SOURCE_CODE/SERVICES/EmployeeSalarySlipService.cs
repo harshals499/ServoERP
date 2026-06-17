@@ -117,6 +117,10 @@ namespace HVAC_Pro_Desktop.Services
 <meta charset='utf-8' />
 <title>Salary Slip</title>
 <style>
+body .mse-from-block{margin-bottom:14px;}
+"
+            + DocumentBranding.BuildOfficialCompanyDetailsCss()
+            + @"
 body{font-family:'Segoe UI',Arial,sans-serif;margin:24px;color:#1A1A1A;}
 .wrap{border:1px solid #E8E8E8;padding:24px;}
 .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid #E8E8E8;padding-bottom:16px;margin-bottom:16px;}
@@ -131,9 +135,10 @@ th{background:#F7F7F7;}
 </head>
 <body>
 <div class='wrap'>
+" + DocumentBranding.BuildFromBlockHtml(DocumentBranding.DefaultCompanyName, null, null, null, null, null, null, null, false) + @"
 <div class='head'>
 <div>
-<div class='title'>New Client</div>
+<div class='title'>" + Html(DocumentBranding.DefaultCompanyName) + @"</div>
 <div class='muted'>Salary Slip</div>
 </div>
 <div class='muted'>Month: " + Html(monthLabel) + @"</div>

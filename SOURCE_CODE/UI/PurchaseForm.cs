@@ -1525,7 +1525,10 @@ namespace HVAC_Pro_Desktop.UI
         private void CancelDashboardPurchaseOrder(PurchaseOrder po)
         {
             if (po == null) return;
-            if (MessageBox.Show("Cancel " + CleanPoNumber(po.PONumber, po.POID) + "?", "Cancel PO", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Cancel " + CleanPoNumber(po.PONumber, po.POID) + "?",
+                "This changes the purchase order status to Cancelled and removes it from active purchasing work."))
                 return;
             try
             {
@@ -1546,7 +1549,10 @@ namespace HVAC_Pro_Desktop.UI
         private void DeleteDashboardPurchaseOrder(PurchaseOrder po)
         {
             if (po == null || po.POID <= 0) return;
-            if (MessageBox.Show("Delete " + CleanPoNumber(po.PONumber, po.POID) + "? This cannot be undone.", "Delete PO", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Delete " + CleanPoNumber(po.PONumber, po.POID) + "?",
+                "This permanently deletes the purchase order from the dashboard. This cannot be undone."))
                 return;
             try
             {
@@ -2107,7 +2113,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboVendor = new ComboBox { Width = 150, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(_cboVendor);
             _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
-            _txtVendorGstin = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
+            _txtVendorGstin = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
             _txtPONumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             _txtVendorInvoiceNumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             _dtpDate = new DateTimePicker { Width = 150, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
@@ -2145,8 +2151,8 @@ namespace HVAC_Pro_Desktop.UI
             TextBox txtPriority = new TextBox { Text = "Normal", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             TextBox txtDepartment = new TextBox { Text = "Purchase", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
             TextBox txtProjectSite = new TextBox { Text = "Select project", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtCreatedBy = new TextBox { Text = "Administrator", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
-            TextBox txtCreatedOn = new TextBox { Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm"), Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
+            TextBox txtCreatedBy = new TextBox { Text = "Administrator", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
+            TextBox txtCreatedOn = new TextBox { Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm"), Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
 
             headerGrid.Controls.Add(BuildFieldCell("PO Number *", _txtPONumber, 104, 150), 0, 0);
             headerGrid.Controls.Add(BuildFieldCell("PO Date *", _dtpDate, 104, 150), 1, 0);
@@ -2205,7 +2211,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _deliveryAddressPanel = new Panel { Location = new Point(0, 470), Size = new Size(840, 48), Visible = false };
             Label deliveryAddressLabel = new Label { Text = "Delivery Address", Width = 120, Location = new Point(0, 12), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _txtDeliveryAddress = new TextBox { Location = new Point(128, 8), Width = 676, Height = 34, Multiline = true, ReadOnly = true, BackColor = Color.White, ForeColor = DS.Slate700, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9), Tag = "CUSTOM_INPUT_SHELL" };
+            _txtDeliveryAddress = new TextBox { Location = new Point(128, 8), Width = 676, Height = 34, Multiline = true, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9), Tag = "CUSTOM_INPUT_SHELL" };
             _toolTip.SetToolTip(_txtDeliveryAddress, "Delivery address auto-filled from linked site");
             _deliveryAddressPanel.Controls.AddRange(new Control[] { deliveryAddressLabel, _txtDeliveryAddress });
             fields.Controls.Add(_deliveryAddressPanel);
@@ -2359,7 +2365,10 @@ namespace HVAC_Pro_Desktop.UI
             btnImportItems.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImportItems, ExcelImportModule.Purchases, FindForm());
             btnClearLines.Click += (s, e) =>
             {
-                if (MessageBox.Show("Clear all purchase line items?", "Clear Items", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Clear all purchase line items?",
+                    "This removes every unsaved line from the current purchase order editor."))
                     return;
                 _lineItemFlow.Controls.Clear();
                 RecalcTotal();
@@ -2702,7 +2711,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void CreatePurchaseEditorControls()
         {
-            _cboVendor = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboVendor = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
             _txtVendorGstin = CreateReadonlyTextBox("Enter GSTIN");
             _txtPONumber = CreateInputTextBox("Enter PO number");
@@ -2710,7 +2719,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
             _dtpDate.ValueChanged += (s, e) => RefreshPayByDate();
             _dtpPayByDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(9) };
-            _cboStatus = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboStatus = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Received", "Fully Received", "Paid", "Closed", "Cancelled" });
             _cboStatus.SelectedIndex = 0;
             _chkAddToClientInvoice = new CheckBox { Visible = false };
@@ -2725,9 +2734,9 @@ namespace HVAC_Pro_Desktop.UI
             _txtDeliveryAddress.Multiline = true;
             _txtDeliveryAddress.Height = 42;
             _deliveryAddressPanel = new Panel { Visible = false };
-            _cboTechnician = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboTechnician = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboTechnician.SelectedIndexChanged += (s, e) => ApplyTechnicianSelection();
-            _cboLinkedType = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboLinkedType = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboLinkedType.Items.AddRange(new object[] { "General", "Contract", "WorkOrder" });
             _cboLinkedType.SelectedIndexChanged += (s, e) =>
             {
@@ -2735,13 +2744,13 @@ namespace HVAC_Pro_Desktop.UI
                 UpdateBillingControls();
                 RefreshDeliveryAddressPreview();
             };
-            _cboLinkedRecord = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboLinkedRecord = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboLinkedRecord.SelectedIndexChanged += (s, e) =>
             {
                 UpdateBillingControls();
                 RefreshDeliveryAddressPreview();
             };
-            _cboProjectSite = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDownList };
+            _cboProjectSite = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboProjectSite.SelectedIndexChanged += (s, e) => RefreshDeliveryAddressPreview();
             _cboLinkedType.SelectedIndex = 0;
         }
@@ -2785,7 +2794,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private TextBox CreateReadonlyTextBox(string text)
         {
-            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, ReadOnly = true, Tag = "CUSTOM_INPUT_SHELL" };
+            return new TextBox { Text = text, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, ReadOnly = false, Tag = "CUSTOM_INPUT_SHELL" };
         }
 
         private static void ForcePurchaseOrderInputBackColors(Control root)
@@ -3626,7 +3635,10 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus("No attachment is selected.", WarnOrange);
                 return;
             }
-            if (MessageBox.Show("Remove this attachment from the purchase order?", "Delete Attachment", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Remove this attachment from the purchase order?",
+                "The attachment reference will be cleared from the editor. Save the PO to persist the change."))
                 return;
 
             UpdateReceiptPreview(null);
@@ -4027,7 +4039,7 @@ namespace HVAC_Pro_Desktop.UI
 
             using (Form prompt = ServoModalForm.Create("Supplier Advance", 420, 250))
             {
-                ComboBox cboVendor = new ComboBox { Location = new Point(16, 38), Width = 370, DropDownStyle = ComboBoxStyle.DropDownList };
+            ComboBox cboVendor = new ComboBox { Location = new Point(16, 38), Width = 370, DropDownStyle = ComboBoxStyle.DropDown };
                 cboVendor.DataSource = new List<Vendor>(_vendors);
                 cboVendor.DisplayMember = "VendorName";
                 cboVendor.ValueMember = "VendorID";
@@ -4323,7 +4335,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            if (MessageBox.Show("Cancel this purchase order?", "Cancel PO", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Cancel this purchase order?",
+                "This changes the purchase order status to Cancelled and removes it from active purchasing work."))
                 return;
 
             try
@@ -4379,7 +4394,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             string poNo = string.IsNullOrWhiteSpace(_current.PONumber) ? "this purchase order" : _current.PONumber;
-            if (MessageBox.Show("Permanently delete " + poNo + " including line items, pending charges, and vendor advance links?\r\n\r\nThis cannot be undone.", "Delete PO", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Permanently delete " + poNo + "?",
+                "This deletes line items, pending charges, and vendor advance links. This cannot be undone."))
                 return;
 
             try
@@ -4421,7 +4439,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     cboQuote.Location = new Point(18, 38);
                     cboQuote.Width = 570;
-                    cboQuote.DropDownStyle = ComboBoxStyle.DropDownList;
+                    cboQuote.DropDownStyle = ComboBoxStyle.DropDown;
                     foreach (TenderBid quote in quotes)
                         cboQuote.Items.Add(new ComboItem<TenderBid>(quote, quote.QuotationNumber + " - " + quote.TenderName));
 
@@ -4789,9 +4807,9 @@ namespace HVAC_Pro_Desktop.UI
             if (combo == null)
                 return;
 
-            combo.AutoCompleteMode = AutoCompleteMode.None;
-            combo.AutoCompleteSource = AutoCompleteSource.None;
-            combo.DropDownStyle = ComboBoxStyle.DropDownList;
+            combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+            combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+            combo.DropDownStyle = ComboBoxStyle.DropDown;
         }
 
         private void AddLineItemCard(PurchaseLineItem line = null)
@@ -4817,7 +4835,7 @@ namespace HVAC_Pro_Desktop.UI
                 cmbDesc.Items.Add(item.ItemName);
             cmbDesc.Tag = null;
 
-            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 16), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = true, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Tag = "CUSTOM_INPUT_SHELL" };
+            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 16), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Tag = "CUSTOM_INPUT_SHELL" };
             ComboBox cmbHsn = new ComboBox { Name = "cmbHsn", Location = new Point(306, 16), Width = 52, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbHsn);
             foreach (HsnSacMasterEntry entry in _hsnEntries.Where(h => h.IsActive))

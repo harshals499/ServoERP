@@ -11,6 +11,7 @@ namespace HVAC_Pro_Desktop.UI
         public const int CardGap = DS.Space3;
         public const int CardPadding = DS.Space3;
         public const int FormMargin = DS.Space2;
+        public const int HeaderActionGap = 12;
         private static readonly HashSet<Button> DisabledStateButtons = new HashSet<Button>();
         private static readonly Dictionary<Button, Tuple<Color, Color, Color, Cursor>> ButtonEnabledState =
             new Dictionary<Button, Tuple<Color, Color, Color, Cursor>>();
@@ -124,6 +125,32 @@ namespace HVAC_Pro_Desktop.UI
             Color fg;
             ResolveStatusColors(status, out bg, out fg);
             return DS.StatusChipLabel(status, bg, fg, width);
+        }
+
+        /// <summary>Measures the total horizontal span of visible controls using shared header spacing.</summary>
+        public static int MeasureVisibleControlSpan(IEnumerable<Control> controls, int gap = HeaderActionGap)
+        {
+            List<Control> visibleControls = (controls ?? Enumerable.Empty<Control>())
+                .Where(control => control != null && !control.IsDisposed && control.Visible)
+                .ToList();
+
+            if (visibleControls.Count == 0)
+                return 0;
+
+            return visibleControls.Sum(control => control.Width) + Math.Max(0, visibleControls.Count - 1) * gap;
+        }
+
+        /// <summary>Lays out visible controls from left to right using shared header spacing.</summary>
+        public static void LayoutVisibleControlsLeftToRight(IEnumerable<Control> controls, int x, int y, int gap = HeaderActionGap)
+        {
+            foreach (Control control in (controls ?? Enumerable.Empty<Control>()).Where(control => control != null && !control.IsDisposed))
+            {
+                if (!control.Visible)
+                    continue;
+
+                control.Location = new Point(x, y);
+                x += control.Width + gap;
+            }
         }
 
         private static void ApplyCardPrimitive(Panel panel)

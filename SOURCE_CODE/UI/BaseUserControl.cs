@@ -59,6 +59,7 @@ namespace HVAC_Pro_Desktop.UI
             CrashProtectionService.AttachToTree(this);
             GlobalCardContextMenu.ApplyToTree(this);
             GlobalDashboardLayoutService.ApplyToTree(this);
+            PageHeaderPolishService.Apply(this);
             LayoutAuditService.AuditAndFix(this);
         }
 
@@ -80,6 +81,7 @@ namespace HVAC_Pro_Desktop.UI
                 CrashProtectionService.AttachToTree(e.Control);
                 GlobalCardContextMenu.ApplyToTree(e.Control);
                 GlobalDashboardLayoutService.ApplyToTree(e.Control);
+                PageHeaderPolishService.Apply(e.Control);
                 LayoutAuditService.AuditAndFix(e.Control);
             }
         }

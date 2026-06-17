@@ -173,8 +173,21 @@ namespace HVAC_Pro_Desktop.Services
                 }
             }
 
+            InvalidateModuleCaches(module);
             AppLogger.LogInfo("Excel import completed for " + module + " | success=" + result.SuccessCount + " | skipped=" + result.SkippedCount);
             return result;
+        }
+
+        /// <summary>Keeps module pages in sync after imports that bypass service-layer cache invalidation.</summary>
+        private static void InvalidateModuleCaches(ExcelImportModule module)
+        {
+            switch (module)
+            {
+                case ExcelImportModule.Vendors:
+                case ExcelImportModule.Purchases:
+                    AppDataCache.RemovePrefix("vendors:");
+                    break;
+            }
         }
 
         /// <summary>Applies guarded import-time schema repairs required by older client databases.</summary>

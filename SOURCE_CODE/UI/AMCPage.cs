@@ -64,6 +64,13 @@ namespace HVAC_Pro_Desktop.UI
             timer.Start();
         }
 
+        /// <summary>Returns the cached AMC module to its dashboard state when users reopen it from navigation.</summary>
+        public void ShowDashboardFromNavigation()
+        {
+            BuildLayout();
+            _ = LoadAMCDataAsync();
+        }
+
         /// <summary>Builds the dashboard shell, KPI strip, and scrollable cards area.</summary>
         private void BuildLayout()
         {
@@ -110,22 +117,23 @@ namespace HVAC_Pro_Desktop.UI
             _btnAddAMC = MakeButton("+ Add AMC", Blue, 132);
             _btnAddAMC.Name = "btnAddAMC";
             _btnAddAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnAddAMC.Location = new Point(Math.Max(0, header.Width - 260), 6);
             _btnAddAMC.Click += (s, e) => BeginOpenAddAMCForm();
-            header.Controls.Add(_btnAddAMC);
 
             _btnImportAMC = MakeButton("Import Excel", Blue, 120);
             _btnImportAMC.Name = "btnImportAMC";
             _btnImportAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            _btnImportAMC.Location = new Point(Math.Max(0, header.Width - 132), 6);
             _btnImportAMC.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.AMC, FindForm());
-            header.Controls.Add(_btnImportAMC);
+            Control[] toolbarItems = { _btnImportAMC, _btnAddAMC };
+            header.Controls.AddRange(toolbarItems);
 
-            header.Resize += (s, e) =>
+            Action layoutHeader = () =>
             {
-                _btnAddAMC.Location = new Point(header.ClientSize.Width - 260, 6);
-                _btnImportAMC.Location = new Point(header.ClientSize.Width - 132, 6);
+                int toolbarWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
+                int x = Math.Max(360, header.ClientSize.Width - toolbarWidth);
+                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, x, 4);
             };
+            header.Resize += (s, e) => layoutHeader();
+            layoutHeader();
             return header;
         }
 
@@ -508,18 +516,19 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
                 Location = new Point(16, 14),
                 Size = new Size(190, 24),
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-                ForeColor = Ink
+                ForeColor = Ink,
+                AutoEllipsis = true
             });
             card.Controls.Add(MakeBadge(row.AMCType, GetTypeColor(row.AMCType), new Point(214, 15), 118));
-            card.Controls.Add(new Label { Text = row.ClientName, Location = new Point(16, 43), Size = new Size(312, 22), Font = new Font("Segoe UI", 9.5f), ForeColor = Muted });
-            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.SiteName) ? "Site: -" : "Site: " + row.SiteName, Location = new Point(16, 65), Size = new Size(312, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = Muted });
+            card.Controls.Add(new Label { Text = row.ClientName, Location = new Point(16, 43), Size = new Size(312, 22), Font = new Font("Segoe UI", 9.5f), ForeColor = Muted, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.SiteName) ? "Site: -" : "Site: " + row.SiteName, Location = new Point(16, 65), Size = new Size(312, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, AutoEllipsis = true });
             card.Controls.Add(MakeBadge(row.DisplayStatus, GetStatusColor(row.DisplayStatus), new Point(16, 92), 112));
-            card.Controls.Add(new Label { Text = FormatDate(row.StartDate) + " -> " + FormatDate(row.EndDate), Location = new Point(138, 94), Size = new Size(190, 20), Font = new Font("Segoe UI", 9f), ForeColor = Ink });
-            card.Controls.Add(new Label { Text = row.ContractValue.ToString("C0", _india), Location = new Point(16, 126), Size = new Size(150, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink });
-            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.BillingCycle) ? "Annual" : row.BillingCycle, Location = new Point(172, 126), Size = new Size(90, 22), Font = new Font("Segoe UI", 9f), ForeColor = Muted });
-            card.Controls.Add(new Label { Text = row.EquipmentCount.ToString(CultureInfo.InvariantCulture) + " units covered", Location = new Point(16, 150), Size = new Size(130, 20), Font = new Font("Segoe UI", 9f), ForeColor = Muted });
-            card.Controls.Add(new Label { Text = BuildVisitProgress(row), Location = new Point(152, 150), Size = new Size(176, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = GetVisitProgressColor(row) });
-            card.Controls.Add(new Label { Text = BuildNextServiceText(row), Location = new Point(16, 170), Size = new Size(170, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = IsNextServiceOverdue(row) ? Red : Muted });
+            card.Controls.Add(new Label { Text = FormatDate(row.StartDate) + " -> " + FormatDate(row.EndDate), Location = new Point(138, 94), Size = new Size(190, 20), Font = new Font("Segoe UI", 9f), ForeColor = Ink, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = row.ContractValue.ToString("C0", _india), Location = new Point(16, 126), Size = new Size(150, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.BillingCycle) ? "Annual" : row.BillingCycle, Location = new Point(172, 126), Size = new Size(90, 22), Font = new Font("Segoe UI", 9f), ForeColor = Muted, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = row.EquipmentCount.ToString(CultureInfo.InvariantCulture) + " units covered", Location = new Point(16, 150), Size = new Size(130, 20), Font = new Font("Segoe UI", 9f), ForeColor = Muted, AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = BuildVisitProgress(row), Location = new Point(152, 150), Size = new Size(176, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = GetVisitProgressColor(row), AutoEllipsis = true });
+            card.Controls.Add(new Label { Text = BuildNextServiceText(row), Location = new Point(16, 170), Size = new Size(170, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = IsNextServiceOverdue(row) ? Red : Muted, AutoEllipsis = true });
             card.Controls.Add(MakeBadge(string.IsNullOrWhiteSpace(row.CoverageType) ? "Comprehensive" : row.CoverageType, GetCoverageColor(row.CoverageType), new Point(202, 170), 126));
 
             Button view = MakeButton("View / Edit", Color.White, 104);
@@ -656,7 +665,8 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
                 Font = new Font("Segoe UI", 8f, FontStyle.Bold),
                 ForeColor = Color.White,
                 BackColor = color,
-                TextAlign = ContentAlignment.MiddleCenter
+                TextAlign = ContentAlignment.MiddleCenter,
+                AutoEllipsis = true
             };
             DS.Rounded(label, 12);
             return label;

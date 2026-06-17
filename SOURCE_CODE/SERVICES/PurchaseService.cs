@@ -441,9 +441,13 @@ namespace HVAC_Pro_Desktop.Services
             string msmeNumber = _settingsService.Get("CompanyMSMENumber", "");
             string subject = "Purchase order for supply of materials / services.";
             string orderDate = (po.PODate == default ? DateTime.Today : po.PODate).ToString("dd/MM/yyyy");
+            string companyName = string.IsNullOrWhiteSpace(settings.CompanyName) || string.Equals(settings.CompanyName.Trim(), "New Client", StringComparison.OrdinalIgnoreCase)
+                ? DocumentBranding.DefaultCompanyName
+                : settings.CompanyName.Trim();
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
             + DocumentBranding.BuildOfficialHeaderCss()
+            + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + DocumentBranding.BuildOfficialPrintCss()
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
@@ -466,16 +470,11 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td colspan='6' class='total-label'>Grand Total Amount</td><td class='total-value'>" + netPayable.ToString("N2") + "</td></tr>"
             + "<tr><td colspan='7' class='words'>" + Html(amountWords) + ".</td></tr></tbody></table>"
             + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
-            + "Shop Lic.No. &nbsp;&nbsp; : &nbsp;" + Html(shopLicense) + "<br/>"
-            + "P.F.No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(pfNumber) + "<br/>"
-            + "ESIC Code No. : &nbsp;" + Html(esicNumber) + "<br/>"
-            + "Prof. Tax No. &nbsp;&nbsp; : &nbsp;" + Html(profTax) + "<br/>"
-            + "PAN CARD NO.: &nbsp;" + Html(settings.PAN) + "<br/>"
-            + "GST No. &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(settings.GSTIN) + "<br/>"
-            + "MSME NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; : &nbsp;" + Html(msmeNumber) + "</td>"
-            + "<td class='signature'>For New Client<br/><br/><br/><span class='small'>Authorised Signatory</span></td></tr>"
+            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, settings.PAN, settings.GSTIN, msmeNumber, false)
+            + "</td>"
+            + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
             + "<tr><td class='certification'>Please supply goods / services as per the above purchase order and agreed terms.</td>"
-            + "<td class='footer-right'><span class='send-title'>Bill / Dispatch To : </span><br/>" + Html(settings.CompanyName) + "<br/>" + Html(settings.Address).Replace("\n", "<br/>") + "</td></tr>"
+            + "<td class='footer-right'><span class='send-title'>Bill / Dispatch To : </span><br/>" + Html(companyName) + "<br/>" + Html(settings.Address).Replace("\n", "<br/>") + "</td></tr>"
             + "</table></div></div></body></html>";
         }
 

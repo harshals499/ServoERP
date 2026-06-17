@@ -1,7 +1,9 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI;
 
@@ -75,7 +77,31 @@ namespace HVAC_Pro_Desktop.Tests
                 AssertPrivateMethod(quotations, "ShowQuotationDashboard", "Quotation dashboard return handler should exist.");
             }
 
-            return "module dashboard navigation opens dashboards first and routes New actions to existing forms";
+            using (var jobs = new JobManagementForm())
+            {
+                jobs.Size = new System.Drawing.Size(1366, 768);
+                jobs.CreateControl();
+                jobs.PerformLayout();
+                SeedJobsDashboard(jobs);
+                InvokePrivateAsync(jobs, "BeginNewJobAsync");
+                Application.DoEvents();
+
+                bool inDashboard = GetValueField<bool>(jobs, "_showDashboard").GetValueOrDefault();
+                if (inDashboard)
+                    throw new InvalidOperationException("Jobs page should leave the dashboard when New Job is opened.");
+
+                InvokePrivateAsync(jobs, "ReturnToDashboardAsync");
+                Application.DoEvents();
+
+                Panel dashboardHost = GetField<Panel>(jobs, "_dashboardHost");
+                if (dashboardHost == null || dashboardHost.IsDisposed || dashboardHost.Controls.Count == 0)
+                    throw new InvalidOperationException("Jobs dashboard should render immediately when returning from New Job.");
+
+                if (!GetValueField<bool>(jobs, "_showDashboard").GetValueOrDefault())
+                    throw new InvalidOperationException("Jobs page should be back on the dashboard after return navigation.");
+            }
+
+            return "module dashboard navigation opens dashboards first, routes New actions to existing forms, and returns Jobs from New Job without a blank dashboard";
         }
 
         private static T FindControl<T>(Control root, string name) where T : Control
@@ -148,6 +174,20 @@ namespace HVAC_Pro_Desktop.Tests
             throw new InvalidOperationException("Unsupported method signature: " + methodName);
         }
 
+        private static void InvokePrivateAsync(object owner, string methodName)
+        {
+            MethodInfo method = owner.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null)
+                throw new InvalidOperationException("Missing method: " + methodName);
+
+            object result = method.Invoke(owner, null);
+            Task task = result as Task;
+            if (task == null)
+                throw new InvalidOperationException("Expected async Task method: " + methodName);
+
+            task.GetAwaiter().GetResult();
+        }
+
         private static void AssertPrivateMethod(object owner, string methodName, string message)
         {
             MethodInfo method = owner.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -166,6 +206,39 @@ namespace HVAC_Pro_Desktop.Tests
         {
             FieldInfo field = owner.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             return field == null ? null : field.GetValue(owner) as T;
+        }
+
+        private static T? GetValueField<T>(object owner, string fieldName) where T : struct
+        {
+            FieldInfo field = owner.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null || field.GetValue(owner) == null)
+                return null;
+
+            return (T)field.GetValue(owner);
+        }
+
+        private static void SeedJobsDashboard(JobManagementForm jobs)
+        {
+            FieldInfo field = jobs.GetType().GetField("_allJobs", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+                throw new InvalidOperationException("Job dashboard backing list is missing.");
+
+            field.SetValue(jobs, new System.Collections.Generic.List<JobSummaryDto>
+            {
+                new JobSummaryDto
+                {
+                    JobId = 1,
+                    JobNumber = "JOB-SMOKE-001",
+                    JobTitle = "Smoke Test Return Path",
+                    JobType = "Repair",
+                    PipelineStatus = "Created",
+                    Priority = "High",
+                    ClientName = "Smoke Client",
+                    SiteName = "Pune HQ",
+                    TechnicianName = "Unassigned",
+                    ScheduledDate = DateTime.Today
+                }
+            });
         }
 
         private static void AssertQuotationEditorLayout(TenderBidForm form)

@@ -804,12 +804,11 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus(provider + " connect failed: " + ex.Message, Red);
                 if (IsMailSetupMissing(ex))
                 {
-                    DialogResult result = MessageBox.Show(
-                        "This ServoERP installation needs one-time " + provider + " app keys before browser login can start.\r\n\r\nThis is admin setup only. Staff will just use browser login after it is saved.\r\n\r\nOpen Admin Keys now?",
-                        "Mail login setup required",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Information);
-                    if (result == DialogResult.Yes)
+                    bool openSetup = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                        this,
+                        "Open mail admin key setup",
+                        "This ServoERP installation needs one-time " + provider + " app keys before browser login can start. Staff will use browser login after the admin keys are saved.");
+                    if (openSetup)
                         ShowMailSetupDialog();
                 }
                 else

@@ -12,6 +12,7 @@ using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI.Controls;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -21,6 +22,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly VendorService    _vndSvc  = new VendorService();
         private readonly PurchaseService  _poSvc   = new PurchaseService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly StockItemValidator _stockItemValidator = new StockItemValidator();
         private readonly ToolTip _toolTip = new ToolTip();
 
         private FlowLayoutPanel _itemFlow;
@@ -42,7 +44,7 @@ namespace HVAC_Pro_Desktop.UI
         private int _inventoryPageSize = 25;
         private bool _inventoryForceWarn;
         private GlobalPaginationControl _inventoryPager;
-        private BackgroundWorker _initialInventoryLoadWorker;
+        private bool _initialInventoryLoadInProgress;
 
         private StockItem _current;
         private AutoCompleteStringCollection _itemSuggestions = new AutoCompleteStringCollection();
@@ -71,57 +73,28 @@ namespace HVAC_Pro_Desktop.UI
             QueueInitialInventoryLoad();
         }
 
-        private void QueueInitialInventoryLoad()
+        private async void QueueInitialInventoryLoad()
         {
-            if (_initialInventoryLoadWorker != null)
+            if (_initialInventoryLoadInProgress)
                 return;
 
+            _initialInventoryLoadInProgress = true;
             SetStatus("Loading inventory...", Color.Gray);
-            _initialInventoryLoadWorker = CreateWorker();
-            _initialInventoryLoadWorker.DoWork += (s, e) =>
+            try
             {
-                Stopwatch fetch = Stopwatch.StartNew();
-                e.Result = new InventoryLoadSnapshot
+                bool succeeded = await RunSafeAsync("Loading inventory", async () =>
                 {
-                    Items = _svc.GetAll() ?? new List<StockItem>(),
-                    Vendors = SafeLoadSuppliersForDropdown()
-                };
-                AppRuntime.LogTiming("Inventory.FetchInitialData", fetch.ElapsedMilliseconds);
-            };
-            _initialInventoryLoadWorker.RunWorkerCompleted += (s, e) =>
-            {
-                if (e.Error != null)
-                {
-                    AppRuntime.LogException("InventoryForm.InitialLoad", e.Error);
-                    RunOnUI(() =>
+                    Stopwatch fetch = Stopwatch.StartNew();
+                    InventoryLoadSnapshot snapshot = await Task.Run(() => new InventoryLoadSnapshot
                     {
-                        BackgroundWorker worker = _initialInventoryLoadWorker;
-                        _initialInventoryLoadWorker = null;
-                        worker?.Dispose();
-                        if (IsDisposed)
-                            return;
-                        SetStatus("Inventory load error. Click refresh to try again.", DelRed);
-                        MarkDeferredLoadCompleted();
+                        Items = _svc.GetAll() ?? new List<StockItem>(),
+                        Vendors = SafeLoadSuppliersForDropdown()
                     });
-                    ShowError( "Failed to load inventory. Please try again.", e.Error);
-                    return;
-                }
-                if (e.Cancelled)
-                {
-                    MarkDeferredLoadCompleted();
-                    return;
-                }
-
-                RunOnUI(() =>
-                {
-                    BackgroundWorker worker = _initialInventoryLoadWorker;
-                    _initialInventoryLoadWorker = null;
-                    worker?.Dispose();
+                    AppRuntime.LogTiming("Inventory.FetchInitialData", fetch.ElapsedMilliseconds);
                     if (IsDisposed)
                         return;
 
                     Stopwatch bind = Stopwatch.StartNew();
-                    InventoryLoadSnapshot snapshot = e.Result as InventoryLoadSnapshot ?? new InventoryLoadSnapshot();
                     List<StockItem> items = snapshot.Items ?? new List<StockItem>();
                     List<Vendor> vendors = snapshot.Vendors ?? new List<Vendor>();
                     PopulateVendorDropdown(vendors);
@@ -131,18 +104,20 @@ namespace HVAC_Pro_Desktop.UI
                     AppRuntime.LogTiming("Inventory.InitialLoad", bind.ElapsedMilliseconds, "items=" + items.Count + ";vendors=" + vendors.Count);
                     MarkDeferredLoadCompleted();
                 });
-            };
-            _initialInventoryLoadWorker.RunWorkerAsync();
+                if (!succeeded && !IsDisposed)
+                {
+                    SetStatus("Inventory load error. Click refresh to try again.", DelRed);
+                    MarkDeferredLoadCompleted();
+                }
+            }
+            finally
+            {
+                _initialInventoryLoadInProgress = false;
+            }
         }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && _initialInventoryLoadWorker != null)
-            {
-                _initialInventoryLoadWorker.Dispose();
-                _initialInventoryLoadWorker = null;
-            }
-
             base.Dispose(disposing);
         }
 
@@ -156,6 +131,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel header = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = DS.BgPage, Padding = new Padding(32, 22, 24, 10) };
             Label title = new Label { Text = "Materials / Procurement", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
             Label sub = new Label { Text = "Manage material catalog, supplier links, purchase rates, and reorder planning.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(620, 22) };
+            Button btnHeaderRefresh = MakeBtn("Refresh", Color.White, 96); btnHeaderRefresh.ForeColor = InfoBlue; btnHeaderRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnExport = MakeBtn("Export CSV", Color.White, 104); btnExport.ForeColor = DS.Slate700; btnExport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnImport = MakeBtn("Import CSV", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnForms = MakeBtn("Service Forms", Color.White, 108); btnForms.ForeColor = InfoBlue; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
@@ -164,28 +140,24 @@ namespace HVAC_Pro_Desktop.UI
             Panel headerActions = new Panel
             {
                 Dock = DockStyle.Right,
-                Width = 540,
+                Width = 648,
                 BackColor = DS.BgPage,
                 Padding = Padding.Empty,
                 Margin = new Padding(0)
             };
+            btnHeaderRefresh.Margin = Padding.Empty;
             btnExport.Margin = Padding.Empty;
             btnImport.Margin = Padding.Empty;
             btnForms.Margin = Padding.Empty;
             btnNew.Margin = Padding.Empty;
-            headerActions.Controls.AddRange(new Control[] { btnExport, btnImport, btnForms, btnNew });
+            headerActions.Controls.AddRange(new Control[] { btnHeaderRefresh, btnExport, btnImport, btnForms, btnNew });
             Action layoutHeaderActions = () =>
             {
-                Button[] buttons = { btnExport, btnImport, btnForms, btnNew };
-                int gap = 12;
-                int total = buttons.Sum(button => button.Width) + (gap * (buttons.Length - 1));
+                Button[] buttons = { btnHeaderRefresh, btnExport, btnImport, btnForms, btnNew };
+                int total = SharedUiPrimitives.MeasureVisibleControlSpan(buttons);
                 int x = Math.Max(0, headerActions.ClientSize.Width - total);
                 int y = Math.Max(0, (headerActions.ClientSize.Height - btnNew.Height) / 2);
-                foreach (Button button in buttons)
-                {
-                    button.Location = new Point(x, y);
-                    x += button.Width + gap;
-                }
+                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(buttons, x, y);
             };
             headerActions.Resize += (s, e) => layoutHeaderActions();
             header.Resize += (s, e) =>
@@ -196,6 +168,8 @@ namespace HVAC_Pro_Desktop.UI
                 layoutHeaderActions();
             };
             layoutHeaderActions();
+            ModernIconSystem.AddButtonIcon(btnHeaderRefresh, ModernIconKind.Refresh);
+            btnHeaderRefresh.Click += (s, e) => LoadList();
             btnNew.Click += (s, e) => NewRecord();
             btnImport.Click += async (s, e) => await ImportInventoryCsvAsync();
             btnExport.Click += (s, e) => ExportInventoryCsv();
@@ -628,15 +602,11 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 int duplicateRows = groups.Sum(group => Math.Max(0, group.Count - 1));
-                DialogResult confirm = MessageBox.Show(
+                bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
                     this,
-                    "ServoERP found " + groups.Count + " duplicate material group(s), with " + duplicateRows + " duplicate row(s)." + Environment.NewLine + Environment.NewLine +
-                    "The cleanup will keep the best master item, move linked stock/job/invoice/PO references to it, add duplicate stock quantities, and archive the duplicate rows from active inventory." + Environment.NewLine + Environment.NewLine +
-                    "Continue?",
-                    BrandingService.WindowTitle("Merge Duplicate Items"),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Warning);
-                if (confirm != DialogResult.Yes)
+                    "Merge duplicate material items",
+                    "ServoERP found " + groups.Count + " duplicate material group(s), with " + duplicateRows + " duplicate row(s). The cleanup keeps the best master item, moves linked stock/job/invoice/PO references, adds duplicate stock quantities, and archives duplicate active rows.");
+                if (!confirm)
                     return;
 
                 InventoryDuplicateCleanupResult result = _svc.MergeDuplicateItems();
@@ -798,7 +768,10 @@ namespace HVAC_Pro_Desktop.UI
                         _itemSuggestions.Add(item.ItemName);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("InventoryForm.LoadItemSuggestions", ex);
+            }
             AppRuntime.LogTiming("Inventory.LoadItemSuggestions", sw.ElapsedMilliseconds, "suggestions=" + _itemSuggestions.Count);
         }
 
@@ -1102,7 +1075,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void Save()
+        private async void Save()
         {
             if (string.IsNullOrWhiteSpace(_cboName.Text))
             { SetStatus("Item Name is required.", Color.Red); return; }
@@ -1121,45 +1094,42 @@ namespace HVAC_Pro_Desktop.UI
                     VendorID         = (vendor != null && vendor.VendorID > 0) ? vendor.VendorID : (int?)null,
                 };
 
+                if (!TryValidate(item, _stockItemValidator, BrandingService.WindowTitle("Inventory"), () => _cboName.Focus()))
+                {
+                    SetStatus("Check required inventory fields and try again.", Color.Red);
+                    return;
+                }
+
                 int currentItemId = _current?.ItemID ?? 0;
                 SetStatus("Saving material item...", Color.Gray);
-                var worker = CreateWorker();
-                worker.DoWork += (s, args) =>
+                bool succeeded = await RunSafeAsync("Saving inventory item", async () =>
                 {
-                    if (currentItemId <= 0)
-                        _svc.Create(item);
-                    else
+                    List<StockItem> items = await Task.Run(() =>
                     {
-                        item.ItemID = currentItemId;
-                        _svc.Update(item);
-                    }
+                        if (currentItemId <= 0)
+                            _svc.Create(item);
+                        else
+                        {
+                            item.ItemID = currentItemId;
+                            _svc.Update(item);
+                        }
 
-                    args.Result = _svc.GetAll() ?? new List<StockItem>();
-                };
-                worker.RunWorkerCompleted += (s, args) =>
-                {
-                    if (args.Error != null)
-                    {
-                        ShowError( "Inventory item could not be saved. Check the form and try again.", args.Error);
-                        AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Inventory"), "Saving inventory item", args.Error);
-                        RunOnUI(() => SetStatus("Inventory item could not be saved. Check the form and try again.", Color.Red));
-                        return;
-                    }
-                    if (args.Cancelled) return;
+                        return _svc.GetAll() ?? new List<StockItem>();
+                    });
 
                     RunOnUI(() =>
                     {
-                        List<StockItem> items = args.Result as List<StockItem> ?? new List<StockItem>();
                         BindInventoryList(items, false);
                         LoadItemSuggestions(items);
                         SetStatus("Material item saved. Next: update quantity, supplier, or create a purchase request when required.", SaveGreen);
                     });
-                };
-                worker.RunWorkerAsync();
+                });
+                if (!succeeded)
+                    SetStatus("Inventory item could not be saved. Check the form and try again.", Color.Red);
             }
             catch (Exception ex)
             {
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Inventory"), "Saving inventory item", ex);
+                AppRuntime.LogException("InventoryForm.Save", ex);
                 SetStatus("Inventory item could not be saved. Check the form and try again.", Color.Red);
             }
         }

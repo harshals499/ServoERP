@@ -107,6 +107,8 @@ Ask Harshal before:
 - MainForm and LoginForm remain direct `Form` exceptions.
 - Use shared UI helpers and design-system primitives where practical.
 - Input icons must sit outside editable text fields, not inside typing areas.
+- Any requested visual UI change is not complete until it has been visually tested in the built app, compared against the requested outcome, and iterated until the issue is actually resolved.
+- For UI work, do not stop at code changes or compile success alone. Diagnose visually, capture evidence where practical, and keep refining until the rendered result meets the requested criteria.
 
 ## Dialogs
 

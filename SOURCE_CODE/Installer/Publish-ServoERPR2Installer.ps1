@@ -131,7 +131,12 @@ function Upload-ViaWorkerMultipart {
         [Parameter(Mandatory = $true)][string]$TargetAccountId
     )
 
-    $deployment = & (Join-Path $PSScriptRoot 'Deploy-ServoERPR2UploadWorker.ps1') -BucketName $TargetBucket -AccountId $TargetAccountId
+    $workerSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 12)
+    $workerName = "servoerp-r2-multipart-upload-$workerSuffix"
+    $deployment = & (Join-Path $PSScriptRoot 'Deploy-ServoERPR2UploadWorker.ps1') `
+        -WorkerName $workerName `
+        -BucketName $TargetBucket `
+        -AccountId $TargetAccountId
     $workerName = $deployment.WorkerName
     $workerUrl = $deployment.WorkerUrl.TrimEnd('/')
     $uploadToken = $deployment.UploadToken
@@ -141,7 +146,33 @@ function Upload-ViaWorkerMultipart {
     $parts = @()
     $stream = $null
 
+    function Wait-ForWorkerReady {
+        param(
+            [Parameter(Mandatory = $true)][string]$Url,
+            [Parameter(Mandatory = $true)][string]$HealthKey,
+            [Parameter(Mandatory = $true)][hashtable]$RequestHeaders
+        )
+
+        $encodedHealthKey = @(($HealthKey -split '/') | ForEach-Object { [Uri]::EscapeDataString($_) }) -join '/'
+        $healthUrl = ("{0}/{1}?action=health" -f $Url.TrimEnd('/'), $encodedHealthKey)
+
+        for ($attempt = 1; $attempt -le 12; $attempt++) {
+            try {
+                Invoke-RestMethod -Method Get -Uri $healthUrl -Headers $RequestHeaders | Out-Null
+                return
+            }
+            catch {
+                if ($attempt -eq 12) {
+                    throw
+                }
+
+                Start-Sleep -Seconds 2
+            }
+        }
+    }
+
     try {
+        Wait-ForWorkerReady -Url $workerUrl -HealthKey '__healthcheck__' -RequestHeaders $headers
         Write-Host ("Uploading installer via multipart Worker {0}..." -f $workerUrl)
         $create = Invoke-RestMethod -Method Post -Uri ("{0}/{1}?action=mpu-create" -f $workerUrl, $encodedKey) -Headers $headers
         $uploadId = $create.uploadId
