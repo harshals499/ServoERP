@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.1.97.0 - 2026-06-18
+
+- Rewired every audited unit-of-measure picker in Inventory, Purchase, Invoice, Tender/Quotation, and supplier-comparison flows to load from the shared `UnitMeasurements` master instead of local hardcoded fallback lists.
+- Expanded the seeded unit master with grouped HVAC-friendly coverage across length, area, volume, mass, pressure, temperature, energy, electrical, airflow, refrigerant, concentration, packaging, run-length, time, service billing, and consumable-dispensing units, including short codes and measurement-system metadata.
+- Standardized unit normalization so legacy values such as `Nos`, `Mtr`, running-meter aliases, and symbol-based inputs like `%` resolve back to canonical master-table units while dropdowns display `full name (short_code)` consistently.
+- Release build completed successfully and the desktop executable startup path was smoke-tested from the built Release output.
+
+## 1.1.96.0 - 2026-06-18
+
+- Added quotation-to-purchase conversion with approved-quotation safeguards, automatic supplier carry-forward, and generated purchase-order lines based on quoted material items.
+- Upgraded supplier recommendation and price comparison flows to rank vendors using purchase history, lead-time and fulfilment signals, stock coverage hints, and weighted supplier scoring instead of rate alone.
+- Enhanced purchase entry guidance with automatic best-supplier application, visible supplier rate-drift warnings, and a richer supplier comparison dialog for material buying decisions.
+- Added supplier performance scorecards and exportable PDF reporting so vendor pages can show purchase value, delivery reliability, fulfilment quality, and 12-month item price history.
+- Refined inventory and dashboard workflow polish with stronger inventory filtering/search controls, category filters, and cleaned-up dashboard top-bar/search presentation.
+
+## 1.1.95.0 - 2026-06-17
+
+- Restored shared supplier recommendation logic so material pricing can rank vendors using lowest mapped rate plus preferred material vendor mapping, exact material match, saved supplier-price freshness, and vendor purchase history.
+- Auto-applied the recommended supplier path in purchase-order material selection, quotation analysis, job material costing hints, and invoice material rate defaults so vendor-guided costing behaves consistently across procurement and execution workflows.
+
+## 1.1.94.0 - 2026-06-17
+
+- Moved the dashboard `Alerts & Notifications` card above `Quick create` so operational alerts appear earlier in the landing-page flow.
+
+## 1.1.93.0 - 2026-06-17
+
+- Standardized the visible inside text for search inputs across the app so search boxes now show only `Search`.
+- Updated dashboard, list, tender item, payments, purchasing, vendor, WhatsApp, client, contract, AMC, and global search entry points to preserve existing filtering behavior with the simplified text.
+
 ## 1.1.92.0 - 2026-06-17
 
 - Added a visible `Preview` action inside the invoice creation header so invoice drafting keeps preview access in the editor itself.

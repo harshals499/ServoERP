@@ -36,7 +36,13 @@ namespace HVAC_Pro_Desktop.UI
         private Label         _lblTotalItems, _lblInStockItems, _lblLowStockItems, _lblOutStockItems, _lblTotalStockValue;
         private TextBox       _txtSearch;
         private ComboBox      _cboListMode;
+        private ComboBox      _cboCategoryFilter;
         private Button        _btnReorder;
+        private Button        _btnFilterAll;
+        private Button        _btnFilterToOrder;
+        private Button        _btnFilterSupplierLinked;
+        private Button        _btnFilterNeedsSupplier;
+        private bool _inventorySearchPlaceholderActive = true;
         private List<StockItem> _listSource = new List<StockItem>();
         private List<StockItem> _allItems = new List<StockItem>();
         private int _renderedCount;
@@ -226,64 +232,119 @@ namespace HVAC_Pro_Desktop.UI
             mainCard.Dock = DockStyle.Fill;
             mainCard.Padding = new Padding(16);
 
-            Panel filters = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
+            Panel filters = new Panel { Dock = DockStyle.Top, Height = 126, BackColor = Color.White, Padding = new Padding(0, 4, 0, 0) };
             TableLayoutPanel filterLayout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
-                ColumnCount = 2,
-                RowCount = 2,
+                ColumnCount = 1,
+                RowCount = 3,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
-            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
-            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
-            filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+            filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
             FlowLayoutPanel chips = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                Height = 46,
+                Height = 40,
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = true,
                 BackColor = Color.White,
                 Margin = new Padding(0),
                 Padding = new Padding(0)
             };
-            Button btnAll = MakeFilterChip("All Items", true);
-            Button btnLow = MakeFilterChip("To Order", false);
-            Button btnOut = MakeFilterChip("Supplier Linked", false);
-            Button btnNeedsVendor = MakeFilterChip("Needs Supplier", false);
-            btnAll.Click += (s, e) => { _cboListMode.SelectedItem = "All"; ApplyInventoryFilter(); };
-            btnLow.Click += (s, e) => { _cboListMode.SelectedItem = "To Order"; ApplyInventoryFilter(); };
-            btnOut.Click += (s, e) => { _cboListMode.SelectedItem = "Supplier Linked"; ApplyInventoryFilter(); };
-            btnNeedsVendor.Click += (s, e) => { _cboListMode.SelectedItem = "Needs Supplier"; ApplyInventoryFilter(); };
-            chips.Controls.AddRange(new Control[] { btnAll, btnLow, btnOut, btnNeedsVendor });
+            _btnFilterAll = MakeFilterChip("All Items", true);
+            _btnFilterToOrder = MakeFilterChip("To Order", false);
+            _btnFilterSupplierLinked = MakeFilterChip("Supplier Linked", false);
+            _btnFilterNeedsSupplier = MakeFilterChip("Needs Supplier", false);
+            _btnFilterAll.Click += (s, e) => { _cboListMode.SelectedItem = "All"; };
+            _btnFilterToOrder.Click += (s, e) => { _cboListMode.SelectedItem = "To Order"; };
+            _btnFilterSupplierLinked.Click += (s, e) => { _cboListMode.SelectedItem = "Supplier Linked"; };
+            _btnFilterNeedsSupplier.Click += (s, e) => { _cboListMode.SelectedItem = "Needs Supplier"; };
+            chips.Controls.AddRange(new Control[] { _btnFilterAll, _btnFilterToOrder, _btnFilterSupplierLinked, _btnFilterNeedsSupplier });
 
-            Panel searchPanel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Margin = new Padding(0), Padding = new Padding(0) };
-            _txtSearch = new TextBox { Width = 310, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "" };
-            _txtSearch.TextChanged += (s, e) => ApplyInventoryFilter();
-            _cboListMode = new ComboBox { Visible = false, FlatStyle = FlatStyle.Standard, Tag = "CUSTOM_INPUT_SHELL" };
+            TableLayoutPanel toolbar = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                ColumnCount = 4,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0, 0, 0, 2)
+            };
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170f));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190f));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96f));
+            toolbar.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            _cboListMode = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Standard,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                Margin = new Padding(0, 4, 12, 4),
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
             _cboListMode.Items.AddRange(new object[] { "All", "To Order", "Supplier Linked", "Needs Supplier" });
             _cboListMode.SelectedIndex = 0;
-            Button btnRefresh = MakeBtn("↻", Color.White, 38); btnRefresh.ForeColor = InfoBlue; btnRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
-            searchPanel.Resize += (s, e) =>
+            _cboListMode.SelectedIndexChanged += (s, e) =>
             {
-                btnRefresh.Location = new Point(Math.Max(0, searchPanel.ClientSize.Width - btnRefresh.Width), 10);
-                int searchWidth = Math.Max(170, Math.Min(310, btnRefresh.Left - 10));
-                _txtSearch.Width = searchWidth;
-                _txtSearch.Location = new Point(Math.Max(0, btnRefresh.Left - searchWidth - 10), 11);
+                UpdateInventoryFilterVisualState();
+                ApplyInventoryFilter();
             };
+
+            _cboCategoryFilter = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Standard,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                Margin = new Padding(0, 4, 12, 4),
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
+            _cboCategoryFilter.Items.Add("All Categories");
+            _cboCategoryFilter.SelectedIndex = 0;
+            _cboCategoryFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
+
+            _txtSearch = new TextBox { Dock = DockStyle.Fill, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "Search item, category, or supplier", ForeColor = DS.Slate500, Margin = new Padding(0, 4, 12, 4) };
+            _txtSearch.TextChanged += (s, e) => ApplyInventoryFilter();
+            _txtSearch.GotFocus += (s, e) =>
+            {
+                if (_inventorySearchPlaceholderActive)
+                {
+                    _inventorySearchPlaceholderActive = false;
+                    _txtSearch.Text = string.Empty;
+                    _txtSearch.ForeColor = DS.Slate900;
+                }
+            };
+            _txtSearch.LostFocus += (s, e) =>
+            {
+                if (string.IsNullOrWhiteSpace(_txtSearch.Text))
+                {
+                    _inventorySearchPlaceholderActive = true;
+                    _txtSearch.Text = "Search item, category, or supplier";
+                    _txtSearch.ForeColor = DS.Slate500;
+                }
+            };
+            Button btnRefresh = MakeBtn("Refresh", Color.White, 90); btnRefresh.ForeColor = InfoBlue; btnRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
+            btnRefresh.Dock = DockStyle.Fill;
+            btnRefresh.Margin = new Padding(0, 4, 0, 4);
             btnRefresh.Click += (s, e) => LoadList();
-            searchPanel.Controls.AddRange(new Control[] { _txtSearch, btnRefresh });
+            toolbar.Controls.Add(_cboListMode, 0, 0);
+            toolbar.Controls.Add(_cboCategoryFilter, 1, 0);
+            toolbar.Controls.Add(_txtSearch, 2, 0);
+            toolbar.Controls.Add(btnRefresh, 3, 0);
             _lblStatus = new Label { Dock = DockStyle.Fill, Height = 24, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate500, Text = "Loading inventory...", TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(0, 0, 0, 2) };
             filterLayout.Controls.Add(chips, 0, 0);
-            filterLayout.Controls.Add(searchPanel, 1, 0);
-            filterLayout.Controls.Add(_lblStatus, 0, 1);
-            filterLayout.SetColumnSpan(_lblStatus, 2);
+            filterLayout.Controls.Add(toolbar, 0, 1);
+            filterLayout.Controls.Add(_lblStatus, 0, 2);
             filters.Controls.Add(filterLayout);
-            filters.Controls.Add(_cboListMode);
             AppRuntime.LogTiming("Inventory.BuildLayout.Filters", phaseWatch.ElapsedMilliseconds);
             phaseWatch.Restart();
 
@@ -647,9 +708,8 @@ namespace HVAC_Pro_Desktop.UI
 
             _cboUnit = AddComboField("Unit", ref y, ComboBoxStyle.DropDownList);
             _cboUnit.Items.AddRange(_unitSvc.GetDisplayUnits().Cast<object>().ToArray());
-            EnsureComboItem(_cboUnit, "Nos");
-            EnsureComboItem(_cboUnit, "RMT");
-            SelectComboByText(_cboUnit, "Nos");
+            _cboUnit.DropDownWidth = Math.Max(_cboUnit.Width, 280);
+            SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(UnitMeasurementService.DefaultCode));
 
             _detail.Controls.Add(MakeSectionLabel("PURCHASE PRICING", ref y));
 
@@ -780,6 +840,8 @@ namespace HVAC_Pro_Desktop.UI
             _listSource = items ?? new List<StockItem>();
             if (!forceWarn)
                 _allItems = new List<StockItem>(_listSource);
+            PopulateCategoryFilterOptions();
+            UpdateInventoryFilterVisualState();
             UpdateInventoryMetrics(_allItems.Count > 0 ? _allItems : _listSource);
             RenderItemBatch(reset: true, forceWarn: forceWarn);
             string suffix = forceWarn ? "items to order" : "items";
@@ -791,13 +853,17 @@ namespace HVAC_Pro_Desktop.UI
             if (_allItems == null || _allItems.Count == 0)
                 return;
 
-            string term = (_txtSearch?.Text ?? string.Empty).Trim();
+            string term = GetInventorySearchText();
             string mode = _cboListMode?.SelectedItem?.ToString() ?? "All";
+            string category = _cboCategoryFilter?.SelectedItem?.ToString() ?? "All Categories";
             IEnumerable<StockItem> query = _allItems;
             if (!string.IsNullOrWhiteSpace(term))
                 query = query.Where(i =>
                     (i.ItemName ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    (i.Category ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+                    (i.Category ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (i.VendorName ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (!string.Equals(category, "All Categories", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => string.Equals(i.Category ?? string.Empty, category, StringComparison.OrdinalIgnoreCase));
             if (mode == "To Order")
                 query = query.Where(i => i.IsLowStock);
             else if (mode == "Supplier Linked")
@@ -807,7 +873,65 @@ namespace HVAC_Pro_Desktop.UI
 
             _listSource = query.ToList();
             RenderItemBatch(reset: true, forceWarn: mode == "To Order");
-            SetStatus($"Showing {Math.Min(_renderedCount, _listSource.Count)} of {_listSource.Count} items.", Color.Gray);
+            string statusSuffix = string.Equals(category, "All Categories", StringComparison.OrdinalIgnoreCase) ? "items" : category + " items";
+            SetStatus($"Showing {Math.Min(_renderedCount, _listSource.Count)} of {_listSource.Count} {statusSuffix}.", mode == "To Order" ? WarnOrange : Color.Gray);
+        }
+
+        private string GetInventorySearchText()
+        {
+            if (_txtSearch == null || _inventorySearchPlaceholderActive)
+                return string.Empty;
+
+            return (_txtSearch.Text ?? string.Empty).Trim();
+        }
+
+        private void PopulateCategoryFilterOptions()
+        {
+            if (_cboCategoryFilter == null)
+                return;
+
+            string previous = _cboCategoryFilter.SelectedItem?.ToString() ?? "All Categories";
+            List<string> categories = (_allItems ?? new List<StockItem>())
+                .Select(i => (i.Category ?? string.Empty).Trim())
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c)
+                .ToList();
+
+            _cboCategoryFilter.BeginUpdate();
+            try
+            {
+                _cboCategoryFilter.Items.Clear();
+                _cboCategoryFilter.Items.Add("All Categories");
+                foreach (string category in categories)
+                    _cboCategoryFilter.Items.Add(category);
+                SelectComboByText(_cboCategoryFilter, previous);
+                if (_cboCategoryFilter.SelectedIndex < 0)
+                    _cboCategoryFilter.SelectedIndex = 0;
+            }
+            finally
+            {
+                _cboCategoryFilter.EndUpdate();
+            }
+        }
+
+        private void UpdateInventoryFilterVisualState()
+        {
+            string mode = _cboListMode?.SelectedItem?.ToString() ?? "All";
+            ApplyFilterChipState(_btnFilterAll, mode == "All");
+            ApplyFilterChipState(_btnFilterToOrder, mode == "To Order");
+            ApplyFilterChipState(_btnFilterSupplierLinked, mode == "Supplier Linked");
+            ApplyFilterChipState(_btnFilterNeedsSupplier, mode == "Needs Supplier");
+        }
+
+        private void ApplyFilterChipState(Button button, bool selected)
+        {
+            if (button == null)
+                return;
+
+            button.BackColor = selected ? InfoBlue : Color.White;
+            button.ForeColor = selected ? Color.White : (button.Text == "Needs Supplier" ? DelRed : button.Text == "To Order" ? WarnOrange : SaveGreen);
+            button.FlatAppearance.BorderColor = selected ? InfoBlue : DS.BorderStrong;
         }
 
         private void UpdateInventoryMetrics(List<StockItem> items)
@@ -1014,7 +1138,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _cboName.Text = item.ItemName ?? "";
             SelectComboByText(_cboCategory, item.Category);
-            SelectComboByText(_cboUnit, DisplayUnit(item.Unit));
+            SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(item.Unit));
             _numStock.Value   = item.CurrentStock    > _numStock.Maximum   ? _numStock.Maximum   : item.CurrentStock;
             _numRate.Value    = item.LastPurchaseRate > _numRate.Maximum    ? _numRate.Maximum    : item.LastPurchaseRate;
             _numReorder.Value = item.ReorderLevel    > _numReorder.Maximum ? _numReorder.Maximum : item.ReorderLevel;
@@ -1033,7 +1157,7 @@ namespace HVAC_Pro_Desktop.UI
             _current = null;
             _cboName.Text = "";
             if (_cboCategory.Items.Count > 0) _cboCategory.SelectedIndex = 0;
-            _cboUnit.SelectedItem = "Nos";
+            SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(UnitMeasurementService.DefaultCode));
             _numStock.Value = 0; _numRate.Value = 0; _numReorder.Value = 5;
             _cboVendor.SelectedIndex = 0;
             _lblStockValue.Text = "";
@@ -1087,7 +1211,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     ItemName         = _cboName.Text.Trim(),
                     Category         = _cboCategory.SelectedItem?.ToString() ?? "",
-                    Unit             = NormalizeUnit(_cboUnit.SelectedItem?.ToString() ?? "Nos"),
+                    Unit             = NormalizeUnit(_cboUnit.SelectedItem?.ToString() ?? UnitMeasurementService.DefaultCode),
                     CurrentStock     = _numStock.Value,
                     LastPurchaseRate = _numRate.Value,
                     ReorderLevel     = _numReorder.Value,
@@ -1254,7 +1378,7 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 selectVendorById(option.VendorID);
                 numRate.Value = Math.Max(numRate.Minimum, Math.Min(numRate.Maximum, option.Rate));
-                lblSupplierInsight.Text = "Selected: " + option.VendorName + " at " + IndiaFormatHelper.FormatCurrency(option.Rate) + " / " + (string.IsNullOrWhiteSpace(option.Unit) ? DisplayUnit(_current.Unit) : option.Unit) + ".";
+                lblSupplierInsight.Text = "Selected: " + option.VendorName + " at " + IndiaFormatHelper.FormatCurrency(option.Rate) + " / " + (string.IsNullOrWhiteSpace(option.Unit) ? DisplayUnit(_current.Unit) : DisplayUnit(option.Unit)) + ".";
                 lblSupplierInsight.ForeColor = SaveGreen;
             };
 
@@ -1737,12 +1861,9 @@ namespace HVAC_Pro_Desktop.UI
             _btnReorder.ForeColor = enabled ? DS.Primary600 : Color.Gray;
         }
 
-        private static string NormalizeUnit(string unit)
+        private string NormalizeUnit(string unit)
         {
-            string normalized = (unit ?? string.Empty).Trim().ToUpperInvariant();
-            if (normalized == "NO" || normalized == "NOS.")
-                return "NOS";
-            return string.IsNullOrWhiteSpace(normalized) ? "NOS" : normalized;
+            return _unitSvc.NormalizeForStorage(unit);
         }
 
         private string DisplayUnit(string unit)
@@ -1777,7 +1898,15 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (combo == null) return;
             string text = value ?? "";
-            int index = combo.Items.IndexOf(text);
+            int index = -1;
+            for (int i = 0; i < combo.Items.Count; i++)
+            {
+                if (string.Equals(combo.Items[i]?.ToString(), text, StringComparison.OrdinalIgnoreCase))
+                {
+                    index = i;
+                    break;
+                }
+            }
             if (index >= 0)
                 combo.SelectedIndex = index;
             else if (combo.DropDownStyle != ComboBoxStyle.DropDownList)

@@ -19,10 +19,17 @@ namespace HVAC_Pro_Desktop.DAL
                 using (var conn = _db.GetConnection())
                 {
                     string sql =
-                        @"SELECT UnitMeasurementID AS UnitMeasurementId, UnitCode, DisplayName, IsActive, IsSystem
+                        @"SELECT UnitMeasurementID AS UnitMeasurementId,
+                                 UnitCode,
+                                 COALESCE(NULLIF(ShortCode, ''), UnitCode) AS ShortCode,
+                                 DisplayName,
+                                 COALESCE(Category, '') AS Category,
+                                 COALESCE(MeasurementSystem, '') AS MeasurementSystem,
+                                 IsActive,
+                                 IsSystem
                           FROM UnitMeasurements
                           WHERE (@includeInactive = 1 OR IsActive = 1)
-                          ORDER BY DisplayName;";
+                          ORDER BY Category, DisplayName;";
 
                     items = conn.Query<UnitMeasurement>(sql, new { includeInactive = includeInactive ? 1 : 0 }).ToList();
                 }
@@ -112,13 +119,16 @@ namespace HVAC_Pro_Desktop.DAL
                         try
                         {
                             int unitId = conn.QuerySingle<int>(@"
-                                INSERT INTO UnitMeasurements (UnitCode, DisplayName, IsActive, IsSystem)
-                                VALUES (@code, @name, 1, 0);
+                                INSERT INTO UnitMeasurements (UnitCode, ShortCode, DisplayName, Category, MeasurementSystem, IsActive, IsSystem)
+                                VALUES (@code, @shortCode, @name, @category, @measurementSystem, 1, 0);
                                 SELECT CAST(SCOPE_IDENTITY() AS INT);",
                                 new
                                 {
                                     code = unit.UnitCode.Trim().ToUpperInvariant(),
-                                    name = unit.DisplayName.Trim()
+                                    shortCode = string.IsNullOrWhiteSpace(unit.ShortCode) ? null : unit.ShortCode.Trim(),
+                                    name = unit.DisplayName.Trim(),
+                                    category = string.IsNullOrWhiteSpace(unit.Category) ? null : unit.Category.Trim(),
+                                    measurementSystem = string.IsNullOrWhiteSpace(unit.MeasurementSystem) ? null : unit.MeasurementSystem.Trim()
                                 },
                                 tx);
 

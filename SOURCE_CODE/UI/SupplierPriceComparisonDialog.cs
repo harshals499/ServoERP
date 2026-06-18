@@ -15,20 +15,28 @@ namespace HVAC_Pro_Desktop.UI
         private readonly string _category;
         private readonly decimal _quantity;
         private readonly VendorService _vendorService;
+        private readonly UnitMeasurementService _unitService = new UnitMeasurementService();
+        private readonly int? _currentVendorId;
         private readonly DataGridView _grid;
+        private readonly Label _itemTitle;
         private readonly Label _summary;
+        private readonly Panel _topMask;
+        private readonly Panel _headerPanel;
+        private readonly Panel _emptyStatePanel;
+        private readonly Button _applyLowestButton;
         private readonly Button _useButton;
         private readonly Button _closeButton;
         private List<SupplierOption> _options = new List<SupplierOption>();
 
         public SupplierOption SelectedOption { get; private set; }
 
-        public SupplierPriceComparisonDialog(string itemDescription, string category, decimal quantity, VendorService vendorService = null)
+        public SupplierPriceComparisonDialog(string itemDescription, string category, decimal quantity, VendorService vendorService = null, int? currentVendorId = null)
         {
             _itemDescription = itemDescription ?? string.Empty;
             _category = category ?? string.Empty;
             _quantity = quantity <= 0 ? 1m : quantity;
             _vendorService = vendorService ?? new VendorService();
+            _currentVendorId = currentVendorId;
 
             Text = BrandingService.WindowTitle("Supplier Price Comparison");
             StartPosition = FormStartPosition.CenterParent;
@@ -40,29 +48,55 @@ namespace HVAC_Pro_Desktop.UI
             Font = DS.Body;
             ClientSize = new Size(760, 470);
 
+            _topMask = new Panel
+            {
+                Visible = false
+            };
+
+            _headerPanel = new Panel
+            {
+                Location = new Point(22, 36),
+                Size = new Size(716, 84),
+                BackColor = Color.White
+            };
+
             Label title = new Label
             {
-                Text = string.IsNullOrWhiteSpace(_itemDescription) ? "Compare Supplier Prices" : _itemDescription,
-                Location = new Point(22, 18),
+                Text = "Supplier Price Comparison",
+                Location = new Point(0, 0),
                 Size = new Size(700, 26),
                 Font = DS.H2,
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
             };
 
+            _itemTitle = new Label
+            {
+                Text = string.IsNullOrWhiteSpace(_itemDescription) ? "Select a material to compare supplier offers." : _itemDescription,
+                Location = new Point(0, 30),
+                Size = new Size(700, 24),
+                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                ForeColor = DS.Slate800,
+                AutoEllipsis = true
+            };
+
             _summary = new Label
             {
-                Location = new Point(22, 48),
-                Size = new Size(700, 20),
+                Location = new Point(0, 56),
+                Size = new Size(700, 18),
                 Font = DS.Body,
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true
             };
 
+            _headerPanel.Controls.Add(title);
+            _headerPanel.Controls.Add(_itemTitle);
+            _headerPanel.Controls.Add(_summary);
+
             _grid = new DataGridView
             {
-                Location = new Point(22, 84),
-                Size = new Size(716, 312),
+                Location = new Point(22, 128),
+                Size = new Size(716, 268),
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
@@ -73,30 +107,73 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rank", HeaderText = "#", FillWeight = 5 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Supplier", HeaderText = "Supplier", FillWeight = 26 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = "Rate", FillWeight = 14 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = "Unit", FillWeight = 9 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Estimated", HeaderText = "Est. Cost", FillWeight = 14 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Source", HeaderText = "Source", FillWeight = 15 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Contact", HeaderText = "Contact", FillWeight = 17 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Supplier", HeaderText = "Supplier Name", FillWeight = 30 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = "Unit Price", FillWeight = 14 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = "UOM", FillWeight = 9 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LastPurchaseDate", HeaderText = "Last Purchase Date", FillWeight = 16 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "QtyAvailable", HeaderText = "Qty Available", FillWeight = 12 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LeadDays", HeaderText = "Lead Days", FillWeight = 10 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "WeightedScore", HeaderText = "Score", FillWeight = 10 });
+            _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Select", HeaderText = "", Text = "Select", UseColumnTextForButtonValue = true, FillWeight = 9 });
+            _grid.CellContentClick += Grid_CellContentClick;
             _grid.CellDoubleClick += (s, e) => UseSelectedOption();
             _grid.SelectionChanged += (s, e) => UpdateUseButton();
             DS.StyleGrid(_grid);
 
-            _useButton = DS.PrimaryBtn("Use Supplier", 126, 36);
-            _useButton.Location = new Point(594, 416);
+            _emptyStatePanel = new Panel
+            {
+                Location = new Point(22, 140),
+                Size = new Size(716, 240),
+                BackColor = Color.FromArgb(248, 250, 252),
+                BorderStyle = BorderStyle.FixedSingle,
+                Visible = false
+            };
+
+            Label emptyTitle = new Label
+            {
+                Text = "No supplier prices saved yet",
+                Location = new Point(0, 82),
+                Size = new Size(714, 28),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                ForeColor = DS.Slate800
+            };
+
+            Label emptyHint = new Label
+            {
+                Text = "Add vendor price data or complete a purchase entry for this material, then compare again.",
+                Location = new Point(48, 116),
+                Size = new Size(620, 40),
+                TextAlign = ContentAlignment.TopCenter,
+                Font = DS.Body,
+                ForeColor = DS.Slate600
+            };
+
+            _emptyStatePanel.Controls.Add(emptyTitle);
+            _emptyStatePanel.Controls.Add(emptyHint);
+
+            _applyLowestButton = DS.GhostBtn("Apply Lowest Price", 146, 36);
+            _applyLowestButton.Location = new Point(338, 416);
+            _applyLowestButton.Click += (s, e) => ApplyLowestPrice();
+
+            _useButton = DS.PrimaryBtn("Apply Selected", 126, 36);
+            _useButton.Location = new Point(612, 416);
             _useButton.Click += (s, e) => UseSelectedOption();
 
             _closeButton = DS.GhostBtn("Close", 96, 36);
-            _closeButton.Location = new Point(486, 416);
+            _closeButton.Location = new Point(506, 416);
             _closeButton.DialogResult = DialogResult.Cancel;
 
-            Controls.Add(title);
-            Controls.Add(_summary);
+            Controls.Add(_topMask);
+            Controls.Add(_headerPanel);
             Controls.Add(_grid);
+            Controls.Add(_emptyStatePanel);
+            Controls.Add(_applyLowestButton);
             Controls.Add(_closeButton);
             Controls.Add(_useButton);
+
+            _topMask.BringToFront();
+            _headerPanel.BringToFront();
 
             AcceptButton = _useButton;
             CancelButton = _closeButton;
@@ -107,9 +184,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                _options = _vendorService.GetSupplierOptions(_itemDescription, _category)
+                _options = _vendorService.GetSupplierOptions(_itemDescription, _category, _quantity)
                     .Where(o => o != null && o.VendorID > 0)
-                    .OrderBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
+                    .OrderBy(o => o.WeightedScore)
+                    .ThenBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
                     .ThenBy(o => o.VendorName)
                     .ToList();
             }
@@ -124,35 +202,59 @@ namespace HVAC_Pro_Desktop.UI
             {
                 SupplierOption option = _options[i];
                 int row = _grid.Rows.Add(
-                    (i + 1).ToString("N0"),
                     option.VendorName,
                     IndiaFormatHelper.FormatCurrency(option.Rate),
-                    string.IsNullOrWhiteSpace(option.Unit) ? "Nos" : option.Unit,
-                    IndiaFormatHelper.FormatCurrency(option.EstimatedCost(_quantity)),
-                    string.IsNullOrWhiteSpace(option.Source) ? "Supplier Price" : option.Source,
-                    BuildContact(option));
-                _grid.Rows[row].Tag = option;
+                    _unitService.NormalizeForPickerDisplayOrDefault(option.Unit),
+                    option.LastPurchaseDate.HasValue ? IndiaFormatHelper.FormatDate(option.LastPurchaseDate.Value) : "-",
+                    option.QtyAvailable.ToString("0.###"),
+                    option.LeadDays.HasValue ? option.LeadDays.Value.ToString() : "-",
+                    option.WeightedScore.ToString("0.##"));
+                DataGridViewRow gridRow = _grid.Rows[row];
+                gridRow.Tag = option;
+                bool isBest = ReferenceEquals(option, _options.OrderBy(o => o.WeightedScore).ThenBy(o => o.Rate).FirstOrDefault());
+                if (isBest)
+                {
+                    gridRow.DefaultCellStyle.BackColor = Color.FromArgb(236, 253, 245);
+                    gridRow.DefaultCellStyle.SelectionBackColor = Color.FromArgb(22, 163, 74);
+                    gridRow.DefaultCellStyle.SelectionForeColor = Color.White;
+                }
+                if (_currentVendorId.HasValue && option.VendorID == _currentVendorId.Value)
+                    gridRow.DefaultCellStyle.Font = new Font(_grid.Font, FontStyle.Bold);
             }
 
-            if (_grid.Rows.Count > 0)
+            DataGridViewRow preferredRow = _grid.Rows
+                .Cast<DataGridViewRow>()
+                .FirstOrDefault(r => (r.Tag as SupplierOption)?.VendorID == _currentVendorId);
+            if (preferredRow != null)
+            {
+                preferredRow.Selected = true;
+                _grid.CurrentCell = preferredRow.Cells["Supplier"];
+            }
+            else if (_grid.Rows.Count > 0)
+            {
                 _grid.Rows[0].Selected = true;
+                _grid.CurrentCell = _grid.Rows[0].Cells["Supplier"];
+            }
 
             SupplierOption best = _options.FirstOrDefault();
             if (best == null)
-                _summary.Text = "No saved supplier price found yet. Add supplier price data or purchase history for this material.";
+                _summary.Text = string.IsNullOrWhiteSpace(_category)
+                    ? "No supplier history is available for this material yet."
+                    : "No supplier history is available for this " + _category.Trim() + " material yet.";
             else
-                _summary.Text = "Best: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " / " + (string.IsNullOrWhiteSpace(best.Unit) ? "Nos" : best.Unit) + " for " + _quantity.ToString("0.##") + " qty.";
+                _summary.Text = _options.Count.ToString("N0") + " supplier option" + (_options.Count == 1 ? string.Empty : "s") + " found. Best: "
+                    + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " / "
+                    + _unitService.NormalizeForPickerDisplayOrDefault(best.Unit) + " for "
+                    + _quantity.ToString("0.##") + " qty"
+                    + " | score " + best.WeightedScore.ToString("0.##")
+                    + (best.OnTimeDeliveryRatePct.HasValue ? " | on-time " + best.OnTimeDeliveryRatePct.Value.ToString("0.#") + "%" : string.Empty)
+                    + (best.StockCoveragePct.HasValue ? " | stock " + best.StockCoveragePct.Value.ToString("0.#") + "%" : string.Empty);
+
+            _grid.Visible = _options.Count > 0;
+            _emptyStatePanel.Visible = _options.Count == 0;
 
             UpdateUseButton();
-        }
-
-        private string BuildContact(SupplierOption option)
-        {
-            if (!string.IsNullOrWhiteSpace(option.Phone))
-                return option.Phone;
-            if (!string.IsNullOrWhiteSpace(option.Email))
-                return option.Email;
-            return "-";
+            _applyLowestButton.Enabled = _options.Count > 0;
         }
 
         private void UpdateUseButton()
@@ -178,6 +280,32 @@ namespace HVAC_Pro_Desktop.UI
             SelectedOption = option;
             DialogResult = DialogResult.OK;
             Close();
+        }
+
+        private void ApplyLowestPrice()
+        {
+            SupplierOption option = _options
+                .Where(o => o != null)
+                .OrderBy(o => o.WeightedScore)
+                .ThenBy(o => o.Rate <= 0m ? decimal.MaxValue : o.Rate)
+                .ThenBy(o => o.VendorName)
+                .FirstOrDefault();
+            if (option == null)
+                return;
+
+            SelectedOption = option;
+            DialogResult = DialogResult.OK;
+            Close();
+        }
+
+        private void Grid_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0 || _grid.Columns[e.ColumnIndex].Name != "Select")
+                return;
+
+            _grid.CurrentCell = _grid.Rows[e.RowIndex].Cells["Supplier"];
+            _grid.Rows[e.RowIndex].Selected = true;
+            UseSelectedOption();
         }
     }
 }

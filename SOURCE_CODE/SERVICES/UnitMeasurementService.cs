@@ -15,28 +15,48 @@ namespace HVAC_Pro_Desktop.Services
         private Dictionary<string, string> _aliasToCanonical;
         public static readonly string DefaultCode = "NOS";
 
-        private static readonly HashSet<string> FallbackCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly string[] CategoryOrder =
         {
-            "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "SQM", "KIT", "TIN", "SET", "BOX", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT"
+            "Length",
+            "Area",
+            "Volume",
+            "Weight and Mass",
+            "Pressure",
+            "Temperature",
+            "Energy and Power",
+            "Electrical",
+            "Airflow and Velocity",
+            "Refrigerant and Gas",
+            "Concentration and Purity",
+            "Count and Packaging",
+            "Length of run",
+            "Time",
+            "Service billing",
+            "Consumable dispensing"
         };
 
         private static readonly Dictionary<string, string> BuiltInAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["NO"] = "NOS",
             ["NOS."] = "NOS",
+            ["NOS"] = "NOS",
             ["NUMBER"] = "NOS",
             ["NUMBERS"] = "NOS",
             ["PIECE"] = "PCS",
-            ["PIECES"] = "PCS",
+            ["PC"] = "PCS",
+            ["PCS"] = "PCS",
             ["METER"] = "MTR",
             ["METERS"] = "MTR",
             ["METRE"] = "MTR",
+            ["METRES"] = "MTR",
+            ["M"] = "MTR",
             ["LTR"] = "LTR",
             ["LTRS"] = "LTR",
             ["LITRE"] = "LTR",
             ["LITRES"] = "LTR",
             ["LITER"] = "LTR",
             ["LITERS"] = "LTR",
+            ["L"] = "LTR",
             ["SQUAREFEET"] = "SQFT",
             ["SQUAREFOOT"] = "SQFT",
             ["SQFEET"] = "SQFT",
@@ -49,6 +69,9 @@ namespace HVAC_Pro_Desktop.Services
             ["SQUAREMETERS"] = "SQM",
             ["SQUAREMETRE"] = "SQM",
             ["SQUAREMETRES"] = "SQM",
+            ["KILOGRAM"] = "KG",
+            ["KILOGRAMS"] = "KG",
+            ["KGS"] = "KG",
             ["RUNNINGMETER"] = "RMT",
             ["RUNNINGMTR"] = "RMT",
             ["RUNNINGMTRS"] = "RMT",
@@ -56,39 +79,60 @@ namespace HVAC_Pro_Desktop.Services
             ["RMT"] = "RMT",
             ["R_M_T"] = "RMT",
             ["R_MTR"] = "RMT",
-            ["RMTX"] = "RMT",
+            ["RUNNINGMETRE"] = "RMT",
+            ["RUNNINGMETRES"] = "RMT",
             ["HOUR"] = "HOUR",
             ["HOURS"] = "HOUR",
             ["HRS"] = "HOUR",
             ["HR"] = "HOUR",
             ["DAY"] = "DAY",
             ["DAYS"] = "DAY",
+            ["VISITS"] = "VISIT",
             ["SET"] = "SET",
             ["SETS"] = "SET",
             ["BOX"] = "BOX",
-            ["BOXES"] = "BOX"
+            ["BOXES"] = "BOX",
+            ["PAIR"] = "PAIR",
+            ["PAIRS"] = "PAIR",
+            ["ROLL"] = "ROLL",
+            ["ROLLS"] = "ROLL",
+            ["CAN"] = "CAN",
+            ["CANS"] = "CAN",
+            ["FOOT"] = "FT",
+            ["FEET"] = "FT",
+            ["DRUM"] = "DRUM",
+            ["DRUMS"] = "DRUM",
+            ["DRUMP"] = "DRUM",
+            ["DRUMPS"] = "DRUM",
+            ["LOTT"] = "LOT",
+            ["PUMP"] = "PUMP",
+            ["PUMPS"] = "PUMP",
+            ["PERCENT"] = "PERCENT",
+            ["PERCENTAGE"] = "PERCENT"
         };
 
-        private static readonly Dictionary<string, string> FallbackDisplayByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        private static readonly string[] UnitOrder =
         {
-            ["NOS"] = "Nos",
-            ["PCS"] = "Pcs",
-            ["KG"] = "Kg",
-            ["LTR"] = "Ltr",
-            ["MTR"] = "Mtr",
-            ["SQFT"] = "Sqft",
-            ["SQM"] = "Sqm",
-            ["KIT"] = "Kit",
-            ["TIN"] = "Tin",
-            ["SET"] = "Set",
-            ["BOX"] = "Box",
-            ["JOB"] = "Job",
-            ["VISIT"] = "Visit",
-            ["LOT"] = "Lot",
-            ["HOUR"] = "Hour",
-            ["DAY"] = "Day",
-            ["RMT"] = "RMT"
+            "MM", "CM", "DM", "MTR", "KM", "IN", "FT", "YD", "MI", "NMI",
+            "SQMM", "SQCM", "SQM", "SQKM", "SQIN", "SQFT", "SQYD", "ACRE", "HECTARE",
+            "ML", "CL", "DL", "LTR", "CC", "CUM", "CUIN", "CUFT", "CUYD", "GAL_US", "GAL_IMP", "QUART", "PINT", "FLOZ", "BBL",
+            "MG", "GM", "DAG", "HG", "KG", "TONNE", "OZ", "LB", "STONE", "SHORT_TON", "LONG_TON",
+            "PA", "KPA", "MPA", "BAR", "MBAR", "PSI", "ATM", "TORR", "MMHG", "INHG", "INWC",
+            "CELSIUS", "FAHRENHEIT", "KELVIN",
+            "J", "KJ", "MW", "BTU", "BTU_HR", "TR", "KWH", "HP",
+            "V", "MV", "A", "MA", "OHM", "W", "KW", "HZ", "KVA", "PF",
+            "CFM", "CMH", "LPS", "MPS", "FTMIN", "RPM",
+            "CYL", "CAN", "TON",
+            "PPM", "PERCENT",
+            "PCS", "NOS", "UNIT", "PAIR", "SET", "KIT", "BOX", "PACK", "CARTON", "BAG", "ROLL", "SHEET", "COIL", "BUNDLE", "SPOOL", "REEL", "DOZEN", "GROSS", "LOT", "PALLET", "CONTAINER", "PUMP",
+            "RMT", "RFT", "RYD",
+            "SEC", "MIN", "HOUR", "DAY", "WEEK", "MONTH", "QUARTER", "YEAR",
+            "VISIT", "CALL", "MANHOUR", "MANDAY", "SHIFT",
+            "SACHET", "TUBE", "BOTTLE", "DRUM", "JERRYCAN", "TANKER"
         };
+
+        private static readonly Dictionary<string, string> FallbackDisplayByCode = BuildFallbackDisplayMap();
+        private static readonly HashSet<string> FallbackCodes = new HashSet<string>(FallbackDisplayByCode.Keys, StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyList<UnitMeasurement> GetUnits()
         {
@@ -99,13 +143,10 @@ namespace HVAC_Pro_Desktop.Services
         public string NormalizeForDisplay(string value)
         {
             string canonical = ResolveCanonical(value);
-            if (string.Equals(canonical, "RMT", StringComparison.OrdinalIgnoreCase))
-                return "RMT";
-
             EnsureLoaded();
             UnitMeasurement unit = _snapshot?.FirstOrDefault(x => string.Equals(x.UnitCode, canonical, StringComparison.OrdinalIgnoreCase));
-            if (unit != null && !string.IsNullOrWhiteSpace(unit.DisplayName))
-                return unit.DisplayName;
+            if (unit != null)
+                return BuildCompactLabel(unit);
 
             if (_aliasToCanonical != null && _aliasToCanonical.ContainsKey(Key(value)))
                 return GetDisplayFromCanonical(_aliasToCanonical[Key(value)]);
@@ -116,6 +157,22 @@ namespace HVAC_Pro_Desktop.Services
         public string NormalizeForDisplayOrDefault(string value)
         {
             return string.IsNullOrWhiteSpace(value) ? GetDisplayFromCanonical(DefaultCode) : NormalizeForDisplay(value);
+        }
+
+        public string NormalizeForPickerDisplay(string value)
+        {
+            string canonical = ResolveCanonical(value);
+            EnsureLoaded();
+            UnitMeasurement unit = _snapshot?.FirstOrDefault(x => string.Equals(x.UnitCode, canonical, StringComparison.OrdinalIgnoreCase));
+            if (unit != null)
+                return BuildPickerLabel(unit);
+
+            return string.IsNullOrWhiteSpace(value) ? GetPickerDisplayFromCanonical(DefaultCode) : value.Trim();
+        }
+
+        public string NormalizeForPickerDisplayOrDefault(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? GetPickerDisplayFromCanonical(DefaultCode) : NormalizeForPickerDisplay(value);
         }
 
         public string NormalizeForStorage(string value)
@@ -142,10 +199,9 @@ namespace HVAC_Pro_Desktop.Services
             EnsureLoaded();
             return GetUnits()
                 .Where(x => x.IsActive)
-                .Select(x => string.Equals(x.UnitCode, "RMT", StringComparison.OrdinalIgnoreCase) ? "RMT" : x.DisplayName)
+                .Select(BuildPickerLabel)
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(x => string.Equals(x, "Nos", StringComparison.OrdinalIgnoreCase) ? string.Empty : x)
                 .ToArray();
         }
 
@@ -223,7 +279,17 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(value))
                 return DefaultCode;
 
-            string cleaned = Regex.Replace(value.Trim().ToUpperInvariant(), "[^A-Z0-9]", "");
+            string trimmed = value.Trim();
+            if (trimmed == "%")
+                return "PERCENT";
+
+            string upper = trimmed.ToUpperInvariant();
+            if (upper == "°C" || upper == "DEGC")
+                return "CELSIUS";
+            if (upper == "°F" || upper == "DEGF")
+                return "FAHRENHEIT";
+
+            string cleaned = Regex.Replace(upper, "[^A-Z0-9]", "");
             if (string.IsNullOrWhiteSpace(cleaned))
                 return DefaultCode;
 
@@ -235,12 +301,109 @@ namespace HVAC_Pro_Desktop.Services
         private static string GetDisplayFromCanonical(string canonical)
         {
             if (string.IsNullOrWhiteSpace(canonical))
+                return GetCompactFallback(DefaultCode);
+
+            if (FallbackDisplayByCode.TryGetValue(canonical.ToUpperInvariant(), out string display))
+                return display;
+
+            return canonical;
+        }
+
+        private static string GetPickerDisplayFromCanonical(string canonical)
+        {
+            if (string.IsNullOrWhiteSpace(canonical))
                 return FallbackDisplayByCode[DefaultCode];
 
             if (FallbackDisplayByCode.TryGetValue(canonical.ToUpperInvariant(), out string display))
                 return display;
 
             return canonical;
+        }
+
+        private static string GetCompactFallback(string canonical)
+        {
+            if (string.IsNullOrWhiteSpace(canonical))
+                return "Nos";
+
+            if (FallbackDisplayByCode.TryGetValue(canonical.ToUpperInvariant(), out string display))
+            {
+                int open = display.LastIndexOf('(');
+                int close = display.LastIndexOf(')');
+                if (open >= 0 && close > open)
+                    return display.Substring(open + 1, close - open - 1);
+                return display;
+            }
+
+            return canonical;
+        }
+
+        private static string BuildCompactLabel(UnitMeasurement unit)
+        {
+            if (unit == null)
+                return GetCompactFallback(DefaultCode);
+
+            string shortCode = (unit.ShortCode ?? unit.UnitCode ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(shortCode))
+                return shortCode;
+
+            string name = (unit.DisplayName ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(name) ? GetCompactFallback(DefaultCode) : name;
+        }
+
+        private static string BuildPickerLabel(UnitMeasurement unit)
+        {
+            if (unit == null)
+                return GetPickerDisplayFromCanonical(DefaultCode);
+
+            string name = (unit.DisplayName ?? string.Empty).Trim();
+            string shortCode = (unit.ShortCode ?? unit.UnitCode ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return string.IsNullOrWhiteSpace(shortCode) ? GetPickerDisplayFromCanonical(DefaultCode) : shortCode;
+            if (string.IsNullOrWhiteSpace(shortCode))
+                return name;
+            return name + " (" + shortCode + ")";
+        }
+
+        private static Dictionary<string, string> BuildFallbackDisplayMap()
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["NOS"] = "number (Nos)",
+                ["PCS"] = "piece (Pcs)",
+                ["KG"] = "kilogram (kg)",
+                ["LTR"] = "litre (L)",
+                ["MTR"] = "meter (m)",
+                ["SQFT"] = "square foot (sq ft)",
+                ["SQM"] = "square meter (sq m)",
+                ["KIT"] = "kit (kit)",
+                ["SET"] = "set (set)",
+                ["BOX"] = "box (box)",
+                ["PAIR"] = "pair (pair)",
+                ["ROLL"] = "roll (roll)",
+                ["CAN"] = "can (can)",
+                ["LOT"] = "lot (lot)",
+                ["DRUM"] = "drum (drum)",
+                ["FT"] = "foot (ft)",
+                ["PUMP"] = "pump (pump)",
+                ["HOUR"] = "hour (hr)",
+                ["DAY"] = "day (day)",
+                ["VISIT"] = "visit (visit)",
+                ["RMT"] = "running meter (RMT)"
+            };
+
+            return map;
+        }
+
+        private static int CategoryRank(string category)
+        {
+            int index = Array.FindIndex(CategoryOrder, item => string.Equals(item, category ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+            return index < 0 ? int.MaxValue : index;
+        }
+
+        private static int UnitRank(string unitCode)
+        {
+            int index = Array.FindIndex(UnitOrder, item => string.Equals(item, unitCode ?? string.Empty, StringComparison.OrdinalIgnoreCase));
+            return index < 0 ? int.MaxValue : index;
         }
 
         private void EnsureLoaded()
@@ -259,11 +422,20 @@ namespace HVAC_Pro_Desktop.Services
                     units = FallbackCodes.Select(code => new UnitMeasurement
                     {
                         UnitCode = code,
+                        ShortCode = code,
                         DisplayName = GetDisplayFromCanonical(code),
+                        Category = string.Empty,
+                        MeasurementSystem = string.Empty,
                         IsActive = true,
                         IsSystem = true
                     }).ToList();
                 }
+
+                units = units
+                    .OrderBy(x => CategoryRank(x.Category))
+                    .ThenBy(x => UnitRank(x.UnitCode))
+                    .ThenBy(x => x.DisplayName)
+                    .ToList();
 
                 var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var aliasPair in BuiltInAliases)
@@ -273,7 +445,16 @@ namespace HVAC_Pro_Desktop.Services
                     aliases[NormalizeToken(aliasPair.Item1)] = aliasPair.Item2.ToUpperInvariant();
 
                 foreach (var unit in units)
+                {
                     aliases[NormalizeToken(unit.UnitCode)] = (unit.UnitCode ?? DefaultCode).ToUpperInvariant();
+                    if (!string.IsNullOrWhiteSpace(unit.ShortCode))
+                        aliases[NormalizeToken(unit.ShortCode)] = (unit.UnitCode ?? DefaultCode).ToUpperInvariant();
+                    if (!string.IsNullOrWhiteSpace(unit.DisplayName))
+                        aliases[NormalizeToken(unit.DisplayName)] = (unit.UnitCode ?? DefaultCode).ToUpperInvariant();
+                    string displayLabel = BuildPickerLabel(unit);
+                    if (!string.IsNullOrWhiteSpace(displayLabel))
+                        aliases[NormalizeToken(displayLabel)] = (unit.UnitCode ?? DefaultCode).ToUpperInvariant();
+                }
 
                 _snapshot = units;
                 _aliasToCanonical = aliases;

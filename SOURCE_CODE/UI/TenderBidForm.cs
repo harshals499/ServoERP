@@ -829,9 +829,10 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Columns["ItemDescription"].DefaultCellStyle.NullValue = "Click to select item...";
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 70, MinimumWidth = 66 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 42, MinimumWidth = 40 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 45, MinimumWidth = 42, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = GetGlobalUnitDisplayList() });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 150, MinimumWidth = 132, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat, DataSource = GetGlobalUnitDisplayList() });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 80, MinimumWidth = 72, DisplayStyle = DataGridViewComboBoxDisplayStyle.Nothing, FlatStyle = FlatStyle.Flat });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost (" + "\u20B9" + ")", Width = 66, MinimumWidth = 62 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "RateDrift", HeaderText = "Rate Drift", Width = 140, MinimumWidth = 128, ReadOnly = true });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price (" + "\u20B9" + ")", Width = 74, MinimumWidth = 68 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MarginPct", HeaderText = "Margin %", Width = 62, MinimumWidth = 58 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Gst", HeaderText = "GST %", Width = 48, MinimumWidth = 46 });
@@ -1006,7 +1007,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             _txtItemSearch = new TextBox
             {
-                Text = "Search items...",
+                Text = "Search",
                 BorderStyle = BorderStyle.None,
                 Location = new Point(42, 12),
                 Width = panel.Width - 54,
@@ -1018,7 +1019,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             _txtItemSearch.GotFocus += (s, e) =>
             {
-                if (_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search items...")
+                if (_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search")
                 {
                     _txtItemSearch.Clear();
                     _txtItemSearch.ForeColor = QuoteText;
@@ -1028,13 +1029,13 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_txtItemSearch.Text))
                 {
-                    _txtItemSearch.Text = "Search items...";
+                    _txtItemSearch.Text = "Search";
                     _txtItemSearch.ForeColor = QuoteMuted;
                 }
             };
             _txtItemSearch.TextChanged += (s, e) =>
             {
-                if (!(_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search items..."))
+                if (!(_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search"))
                     BindInventoryItems();
             };
             panel.Controls.Add(icon);
@@ -1202,7 +1203,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = MakeCard(340, 266);
             card.Margin = new Padding(0, 0, 0, 14);
             card.Controls.Add(new Label { Text = "Quick Actions", Location = new Point(16, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            _btnSaveQuote = MakeBtn("Save Draft", SaveGreen, 300);
+            _btnSaveQuote = MakeBtn("Save", SaveGreen, 300);
             Button approval = MakeBtn("Send for Approval", InfoBlue, 300);
             Button actions = MakeOutlineBtn("Open Quote Actions", 300);
             Label hint = new Label
@@ -1493,9 +1494,10 @@ namespace HVAC_Pro_Desktop.UI
             StyleQuotationGrid(_grid);
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "ItemDescription", HeaderText = "Item", Width = 220, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Qty", HeaderText = "Qty", Width = 60 });
-            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 60, DataSource = GetGlobalUnitDisplayList() });
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Unit", HeaderText = "Unit", Width = 150, DataSource = GetGlobalUnitDisplayList() });
             _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Supplier", HeaderText = "Supplier", Width = 150, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox, FlatStyle = FlatStyle.Standard });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CostPerUnit", HeaderText = "Cost/Unit", Width = 75 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "RateDrift", HeaderText = "Rate Drift", Width = 140, ReadOnly = true });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SellPrice", HeaderText = "Sell Price", Width = 80 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MarginPct", HeaderText = "Margin%", Width = 65 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Stock", HeaderText = "Stock", Width = 60 });
@@ -1638,12 +1640,27 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 int bidId = await EnsureSavedAsync();
+                TenderBid latest = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                List<TenderBidLineItem> rows = (latest?.LineItems ?? new List<TenderBidLineItem>())
+                    .Where(li => li != null && !li.IsInternalLabour && li.Quantity > 0m && !string.IsNullOrWhiteSpace(li.ItemDescription))
+                    .ToList();
+                string preview = rows.Count == 0
+                    ? "No quotation material lines are ready for PO conversion."
+                    : string.Join(Environment.NewLine, rows.Take(8).Select(li => "• " + li.ItemDescription + " | Qty " + li.Quantity.ToString("0.###") + " " + _unitSvc.NormalizeForDisplayOrDefault(li.Unit) + " | Supplier " + (li.BestSupplierName ?? "Auto-select")));
+                if (MessageBox.Show(
+                        "Convert this quotation into a supplier purchase order?\n\n"
+                        + preview
+                        + (rows.Count > 8 ? Environment.NewLine + "• +" + (rows.Count - 8) + " more line(s)" : string.Empty),
+                        "Convert to PO",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
                 List<string> poNumbers = await Task.Run(() => _svc.CreatePOsFromQuotation(bidId));
                 _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
                 PopulateCurrent(_current);
                 await RefreshListsAsync();
-                MessageBox.Show(poNumbers.Count == 0 ? "No supplier PO was required." : "Supplier PO sent/created:\n\n" + string.Join("\n", poNumbers), "Supplier Purchase Order", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                SetStatus(poNumbers.Count == 0 ? "No supplier-side PO required." : "Supplier-side purchase order created.", SaveGreen);
+                MessageBox.Show(poNumbers.Count == 0 ? "No supplier PO was required." : "Supplier PO created:\n\n" + string.Join("\n", poNumbers), "Convert to PO", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SetStatus(poNumbers.Count == 0 ? "No supplier-side PO required." : "Quotation converted to purchase order.", SaveGreen);
             }
             catch (Exception ex)
             {
@@ -1937,7 +1954,7 @@ namespace HVAC_Pro_Desktop.UI
             _lineItems.Clear();
             _lineItems.AddRange(bid.LineItems ?? new List<TenderBidLineItem>());
             if (_lineItems.Count == 0)
-                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m });
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m });
             RefreshGrid();
             RefreshSummary();
             RefreshSuggestions(bid.Suggestions ?? _svc.GenerateSuggestions(bid));
@@ -1966,7 +1983,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_txtNotes != null)
                 _txtNotes.Text = string.Empty;
             _lineItems.Clear();
-            _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m });
+            _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m });
             RefreshGrid();
             RefreshSummary();
             RefreshSuggestions();
@@ -1991,10 +2008,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             return new List<TenderBidLineItem>
             {
-                MakeFallbackLine("Daikin VRV IV Outdoor Unit RXYQ14AY1", "HVAC", 1m, "Nos", "Daikin India", 85000m, 115000m, 2m, 0m),
-                MakeFallbackLine("Daikin VRV IV Indoor Unit FXFQ32AV16", "HVAC", 3m, "Nos", "Daikin India", 18500m, 24500m, 2m, 1m),
-                MakeFallbackLine("Copper Pipe 3/8\"", "Material", 20m, "Mtr", "Jindal", 450m, 650m, 15m, 5m),
-                MakeFallbackLine("Installation Labour", "Service", 1m, "Lot", "-", 5000m, 8000m, 0m, 0m)
+                MakeFallbackLine("Daikin VRV IV Outdoor Unit RXYQ14AY1", "HVAC", 1m, UnitMeasurementService.DefaultCode, "Daikin India", 85000m, 115000m, 2m, 0m),
+                MakeFallbackLine("Daikin VRV IV Indoor Unit FXFQ32AV16", "HVAC", 3m, UnitMeasurementService.DefaultCode, "Daikin India", 18500m, 24500m, 2m, 1m),
+                MakeFallbackLine("Copper Pipe 3/8\"", "Material", 20m, "MTR", "Jindal", 450m, 650m, 15m, 5m),
+                MakeFallbackLine("Installation Labour", "Service", 1m, "LOT", "-", 5000m, 8000m, 0m, 0m)
             };
         }
 
@@ -2148,6 +2165,7 @@ namespace HVAC_Pro_Desktop.UI
                     _grid.BeginEdit(true);
                 }
             });
+            menu.Items.Add("Compare Suppliers", null, (s, e) => ShowSupplierComparisonForQuotationLine(rowIndex));
             menu.Items.Add("Delete", null, (s, e) => DeleteLineItem(rowIndex));
             Rectangle cellBounds = _grid.GetCellDisplayRectangle(columnIndex, rowIndex, true);
             menu.Show(_grid, new Point(cellBounds.Left, cellBounds.Bottom));
@@ -2159,7 +2177,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             _lineItems.RemoveAt(rowIndex);
             if (_lineItems.Count == 0)
-                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m, AnalysisStatus = "Pending" });
             RefreshGrid();
             RefreshSummary();
             RefreshSuggestions();
@@ -2171,11 +2189,11 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             TenderBidLineItem line = _lineItems[rowIndex];
-            string unit = (line.Unit ?? string.Empty).Trim();
-            if ((string.Equals(unit, "Nos", StringComparison.OrdinalIgnoreCase) || string.Equals(unit, "Unit", StringComparison.OrdinalIgnoreCase))
+            string unit = _unitSvc.ResolveCanonical(line.Unit);
+            if ((string.Equals(unit, "NOS", StringComparison.OrdinalIgnoreCase) || string.Equals(unit, "UNIT", StringComparison.OrdinalIgnoreCase))
                 && line.Quantity != decimal.Truncate(line.Quantity))
             {
-                MessageBox.Show("Quantity should be a whole number for Nos/Unit items.", "Quantity validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Quantity should be a whole number for number/unit items.", "Quantity validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -2225,6 +2243,7 @@ namespace HVAC_Pro_Desktop.UI
             line.GSTAmount = Math.Round(line.TaxableLineTotal * (line.GSTRatePct / 100m), 2);
             if (line.SellPricePerUnit > 0m && line.CostPerUnit > 0m)
                 line.MarginPct = Math.Round(((line.SellPricePerUnit - line.CostPerUnit) / line.SellPricePerUnit) * 100m, 2);
+            RefreshQuotationRateDrift(line);
             RefreshRow(rowIndex);
             RefreshSummary();
         }
@@ -2232,7 +2251,7 @@ namespace HVAC_Pro_Desktop.UI
         private void AddLineItem()
         {
             SyncGridToModel();
-            _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+            _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m, AnalysisStatus = "Pending" });
             RefreshGrid();
             BeginEditItemCell(_lineItems.Count - 1, true);
         }
@@ -2297,15 +2316,17 @@ namespace HVAC_Pro_Desktop.UI
                 TenderBidLineItem line = _lineItems[rowIndex];
                 DataGridViewRow row = _grid.Rows[rowIndex];
                 EnsureInventoryComboCell(rowIndex);
+                EnsureUnitComboCell(rowIndex);
                 EnsureSupplierComboCell(rowIndex);
                 StockItem selectedItem = ResolveInventoryItem(line.InventoryItemId, line.ItemDescription);
                 SetCellValue(row, "Sr", (rowIndex + 1).ToString(CultureInfo.InvariantCulture));
                 row.Cells["ItemDescription"].Value = selectedItem?.ItemName ?? line.ItemDescription;
                 SetCellValue(row, "Category", string.IsNullOrWhiteSpace(line.Category) ? InferDisplayCategory(line) : line.Category);
                 row.Cells["Qty"].Value = line.Quantity.ToString("0.###", CultureInfo.InvariantCulture);
-                row.Cells["Unit"].Value = _unitSvc.NormalizeForDisplayOrDefault(string.IsNullOrWhiteSpace(selectedItem?.Unit) ? line.Unit : selectedItem.Unit);
+                row.Cells["Unit"].Value = _unitSvc.NormalizeForPickerDisplayOrDefault(string.IsNullOrWhiteSpace(selectedItem?.Unit) ? line.Unit : selectedItem.Unit);
                 row.Cells["Supplier"].Value = line.BestSupplierName ?? string.Empty;
                 row.Cells["CostPerUnit"].Value = line.CostPerUnit.ToString("0.00", CultureInfo.InvariantCulture);
+                row.Cells["RateDrift"].Value = line.RateDriftText ?? string.Empty;
                 row.Cells["SellPrice"].Value = line.SellPricePerUnit.ToString("0.00", CultureInfo.InvariantCulture);
                 row.Cells["MarginPct"].Value = line.AnalysisStatus == "Failed" ? "Failed" : line.MarginPct.ToString("0.##", CultureInfo.InvariantCulture);
                 row.Cells["Gst"].Value = line.GSTRatePct.ToString("0.##", CultureInfo.InvariantCulture);
@@ -2315,6 +2336,7 @@ namespace HVAC_Pro_Desktop.UI
                 SetCellValue(row, "LineTotal", line.TaxableLineTotal.ToString("0.00", CultureInfo.InvariantCulture));
                 SetCellValue(row, "Actions", "\u22EE");
                 row.Cells["CostPerUnit"].Style.ForeColor = QuoteText;
+                row.Cells["RateDrift"].Style.ForeColor = ResolveRateDriftColor(line.RateDriftText);
                 ApplyCategoryStyle(row.Cells["Category"], Convert.ToString(row.Cells["Category"].Value));
                 row.Cells["ItemDescription"].Style.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 row.Cells["LineTotal"].Style.ForeColor = QuoteText;
@@ -2391,7 +2413,7 @@ namespace HVAC_Pro_Desktop.UI
             if (selectedItem != null)
             {
                 line.InventoryItemId = selectedItem.ItemID;
-                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(selectedItem.Unit);
+                line.Unit = _unitSvc.NormalizeForStorage(selectedItem.Unit);
                 line.Category = selectedItem.Category;
                 if (line.AnalysisStatus == "Manual")
                     line.AnalysisStatus = "Pending";
@@ -2410,7 +2432,7 @@ namespace HVAC_Pro_Desktop.UI
                 line.HsnSacCode = GetCellText(row, "HsnSac");
             line.Quantity = ParseDecimal(row.Cells["Qty"].Value, line.Quantity <= 0 ? 1m : line.Quantity);
             if (!line.InventoryItemId.HasValue)
-                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(Convert.ToString(row.Cells["Unit"].Value));
+                line.Unit = _unitSvc.NormalizeForStorage(Convert.ToString(row.Cells["Unit"].Value));
             line.CostPerUnit = ParseDecimal(row.Cells["CostPerUnit"].Value, line.CostPerUnit);
             decimal newSell = ParseDecimal(row.Cells["SellPrice"].Value, line.SellPricePerUnit);
             if (Math.Abs(newSell - line.SellPricePerUnit) > 0.009m)
@@ -2545,6 +2567,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             comboColumn.Items.Clear();
+            comboColumn.Items.Add(string.Empty);
             foreach (string item in source.Select(i => i.ItemName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n))
                 comboColumn.Items.Add(item);
         }
@@ -2555,7 +2578,7 @@ namespace HVAC_Pro_Desktop.UI
                 return string.Empty;
 
             string text = (_txtItemSearch.Text ?? string.Empty).Trim();
-            if (string.Equals(text, "Search items...", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(text, "Search", StringComparison.OrdinalIgnoreCase))
                 return string.Empty;
             if (_txtItemSearch.ForeColor == QuoteMuted)
                 return string.Empty;
@@ -2598,6 +2621,23 @@ namespace HVAC_Pro_Desktop.UI
                 cell.Items.Add(current);
         }
 
+        private void EnsureUnitComboCell(int rowIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= _grid.Rows.Count)
+                return;
+            if (!(_grid.Rows[rowIndex].Cells["Unit"] is DataGridViewComboBoxCell cell))
+                return;
+
+            string current = _unitSvc.NormalizeForPickerDisplayOrDefault(_lineItems[rowIndex].Unit);
+            cell.DataSource = null;
+            cell.Items.Clear();
+            foreach (string unit in GetGlobalUnitDisplayList())
+                cell.Items.Add(unit);
+
+            if (!string.IsNullOrWhiteSpace(current) && !cell.Items.Contains(current))
+                cell.Items.Add(current);
+        }
+
         private void ApplySelectedSupplier(int rowIndex, bool refresh)
         {
             if (rowIndex < 0 || rowIndex >= _lineItems.Count || rowIndex >= _grid.Rows.Count)
@@ -2619,6 +2659,7 @@ namespace HVAC_Pro_Desktop.UI
             line.BestSupplierName = supplierName;
             if (refresh)
                 ApplySupplierRate(line);
+            RefreshQuotationRateDrift(line);
             if (refresh)
                 RecalculateRow(rowIndex);
         }
@@ -2637,7 +2678,77 @@ namespace HVAC_Pro_Desktop.UI
             if (option.Rate > 0)
                 line.CostPerUnit = option.Rate;
             if (!string.IsNullOrWhiteSpace(option.Unit))
-                line.Unit = _unitSvc.NormalizeForDisplayOrDefault(option.Unit);
+                line.Unit = _unitSvc.NormalizeForStorage(option.Unit);
+            RefreshQuotationRateDrift(line);
+        }
+
+        private void ShowSupplierComparisonForQuotationLine(int rowIndex)
+        {
+            if (rowIndex < 0 || rowIndex >= _lineItems.Count)
+                return;
+
+            TenderBidLineItem line = _lineItems[rowIndex];
+            if (line == null || string.IsNullOrWhiteSpace(line.ItemDescription))
+            {
+                SetStatus("Select an item before comparing suppliers.", WarnOrange);
+                return;
+            }
+
+            using (var dialog = new SupplierPriceComparisonDialog(line.ItemDescription, line.Category, line.Quantity <= 0m ? 1m : line.Quantity, _vendorSvc, line.BestSupplierId))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedOption == null)
+                    return;
+
+                ApplySupplierOptionToQuotationLine(rowIndex, dialog.SelectedOption);
+                RecalculateRow(rowIndex);
+                RefreshSuggestions();
+                SetStatus("Quotation line supplier updated from purchase history.", InfoBlue);
+            }
+        }
+
+        private void ApplySupplierOptionToQuotationLine(int rowIndex, SupplierOption option)
+        {
+            if (rowIndex < 0 || rowIndex >= _lineItems.Count || option == null)
+                return;
+
+            TenderBidLineItem line = _lineItems[rowIndex];
+            line.BestSupplierId = option.VendorID;
+            line.BestSupplierName = option.VendorName;
+            if (option.Rate > 0m)
+                line.CostPerUnit = option.Rate;
+            if (!string.IsNullOrWhiteSpace(option.Unit))
+                line.Unit = _unitSvc.NormalizeForStorage(option.Unit);
+            RefreshQuotationRateDrift(line);
+            RefreshRow(rowIndex);
+        }
+
+        private void RefreshQuotationRateDrift(TenderBidLineItem line)
+        {
+            if (line == null)
+                return;
+
+            SupplierRateDriftInfo drift = null;
+            try
+            {
+                drift = _vendorSvc.GetSupplierRateDrift(line.ItemDescription, line.BestSupplierId, line.CostPerUnit);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("TenderBidForm.RefreshQuotationRateDrift", ex);
+            }
+
+            line.RateDriftText = drift?.DisplayText ?? string.Empty;
+        }
+
+        private static Color ResolveRateDriftColor(string driftText)
+        {
+            if (string.IsNullOrWhiteSpace(driftText))
+                return DS.Slate500;
+            if (driftText.IndexOf("down", StringComparison.OrdinalIgnoreCase) >= 0)
+                return Color.FromArgb(21, 128, 61);
+            if (driftText.IndexOf("up", StringComparison.OrdinalIgnoreCase) >= 0)
+                return Color.FromArgb(180, 83, 9);
+            return DS.Slate500;
         }
 
         private void BindCategoryFilter()
@@ -2665,7 +2776,7 @@ namespace HVAC_Pro_Desktop.UI
                 ItemDescription = "Installation Labour",
                 Category = "Service",
                 Quantity = 1m,
-                Unit = "Lot",
+                Unit = "LOT",
                 CostPerUnit = 5000m,
                 SellPricePerUnit = 8000m,
                 GSTRatePct = 18m,
@@ -2732,7 +2843,7 @@ namespace HVAC_Pro_Desktop.UI
                     "This removes every quotation line in the editor and starts with one blank GST line."))
                     return;
                 _lineItems.Clear();
-                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m, AnalysisStatus = "Pending" });
                 RefreshGrid();
                 RefreshSummary();
                 RefreshSuggestions();
@@ -2766,7 +2877,7 @@ namespace HVAC_Pro_Desktop.UI
             int before = _lineItems.Count;
             _lineItems.RemoveAll(li => li == null || string.IsNullOrWhiteSpace(li.ItemDescription));
             if (_lineItems.Count == 0)
-                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = "Nos", GSTRatePct = 18m, AnalysisStatus = "Pending" });
+                _lineItems.Add(new TenderBidLineItem { Quantity = 1m, Unit = UnitMeasurementService.DefaultCode, GSTRatePct = 18m, AnalysisStatus = "Pending" });
             RefreshGrid();
             RefreshSummary();
             RefreshSuggestions();
@@ -2803,16 +2914,17 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             string columnName = _grid.Columns[_grid.CurrentCell.ColumnIndex].Name;
-            if (columnName != "ItemDescription" && columnName != "Supplier")
+            if (columnName != "ItemDescription" && columnName != "Supplier" && columnName != "Unit")
                 return;
 
             if (e.Control is ComboBox combo)
             {
                 UIHelper.ApplyInputStyle(combo);
                 ApplyQuotationComboSizing(combo);
-                combo.DropDownStyle = ComboBoxStyle.DropDown;
-                combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-                combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+                combo.DropDownWidth = Math.Max(320, combo.Width);
+                combo.DropDownStyle = columnName == "Unit" ? ComboBoxStyle.DropDownList : ComboBoxStyle.DropDown;
+                combo.AutoCompleteMode = columnName == "Unit" ? AutoCompleteMode.None : AutoCompleteMode.SuggestAppend;
+                combo.AutoCompleteSource = columnName == "Unit" ? AutoCompleteSource.None : AutoCompleteSource.ListItems;
                 if (columnName == "ItemDescription")
                 {
                     combo.SelectionChangeCommitted -= InventoryCombo_SelectionChangeCommitted;
@@ -2875,6 +2987,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             cell.Items.Clear();
+            cell.Items.Add(string.Empty);
             foreach (string item in source.Select(i => i.ItemName).Where(n => !string.IsNullOrWhiteSpace(n)).Distinct().OrderBy(n => n))
                 cell.Items.Add(item);
 
@@ -2956,7 +3069,7 @@ namespace HVAC_Pro_Desktop.UI
                     bid.ClientName = string.IsNullOrWhiteSpace(bid.ClientName) ? "Draft Client" : bid.ClientName;
                     bid.LineItems = _lineItems.Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).Select((li, index) => CloneLine(li, index)).ToList();
                     if (bid.LineItems.Count == 0)
-                        bid.LineItems.Add(new TenderBidLineItem { ItemDescription = "Draft service / material line", HsnSacCode = "9987", Unit = "Nos", Quantity = 1, SellPricePerUnit = 0, GSTRatePct = 18 });
+                        bid.LineItems.Add(new TenderBidLineItem { ItemDescription = "Draft service / material line", HsnSacCode = "9987", Unit = UnitMeasurementService.DefaultCode, Quantity = 1, SellPricePerUnit = 0, GSTRatePct = 18 });
                     bid.IsMultiLine = true;
                 }
                 string html = _svc.BuildQuotationDocumentHtml(bid);
@@ -3138,7 +3251,7 @@ namespace HVAC_Pro_Desktop.UI
                 InventoryItemId = source.InventoryItemId,
                 ItemDescription = source.ItemDescription,
                 Quantity = source.Quantity,
-                Unit = unitService.NormalizeForDisplayOrDefault(source.Unit),
+                Unit = unitService.NormalizeForStorage(source.Unit),
                 HsnSacCode = source.HsnSacCode,
                 GSTRatePct = source.GSTRatePct,
                 BestSupplierId = source.BestSupplierId,
@@ -3193,12 +3306,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private string[] GetGlobalUnitDisplayList()
         {
-            return _unitSvc.GetDisplayUnits()
-                .Concat(new[] { "Nos", "RMT" })
-                .Where(unit => !string.IsNullOrWhiteSpace(unit))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(unit => string.Equals(unit, "Nos", StringComparison.OrdinalIgnoreCase) ? string.Empty : unit)
-                .ToArray();
+            return _unitSvc.GetDisplayUnits();
         }
 
         private string GenerateNextQuoteNumber()

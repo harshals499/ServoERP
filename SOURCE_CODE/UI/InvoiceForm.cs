@@ -30,10 +30,12 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ContractService _contractSvc = new ContractService();
         private readonly SiteService     _siteSvc     = new SiteService();
         private readonly InventoryService _inventorySvc = new InventoryService();
+        private readonly VendorService _vendorSvc = new VendorService();
         private readonly PaymentService _paymentSvc = new PaymentService();
         private readonly MasterDataService _masterDataSvc = new MasterDataService();
         private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
         private readonly InvoiceAnalyticsService _invoiceAnalyticsSvc = new InvoiceAnalyticsService();
+        private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
         private readonly ToolTip _toolTip = new ToolTip();
 
         // â”€â”€ List panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -367,22 +369,38 @@ namespace HVAC_Pro_Desktop.UI
         private void RebuildInvoiceCatalog()
         {
             var items = new List<InvoiceCatalogItem>();
+            var bestSupplierByItem = new Dictionary<string, SupplierOption>(StringComparer.OrdinalIgnoreCase);
             foreach (StockItem stock in _inventoryItems ?? new List<StockItem>())
             {
                 if (string.IsNullOrWhiteSpace(stock.ItemName))
                     continue;
                 string category = NormalizeItemCategory(stock.Category, "Material");
+                SupplierOption bestSupplier = null;
+                if (!bestSupplierByItem.TryGetValue(stock.ItemName, out bestSupplier))
+                {
+                    try
+                    {
+                        bestSupplier = _vendorSvc.GetBestSupplierForItem(stock.ItemName, 1m, category);
+                    }
+                    catch (Exception ex)
+                    {
+                        AppRuntime.LogException("InvoiceForm.RebuildInvoiceCatalog.SupplierLookup", ex);
+                    }
+
+                    bestSupplierByItem[stock.ItemName] = bestSupplier;
+                }
+
                 items.Add(new InvoiceCatalogItem
                 {
                     Source = "Materials",
                     Description = stock.ItemName,
                     Category = category,
                     HsnSacCode = ResolveHsnSac(stock.ItemName, category, true),
-                    Unit = string.IsNullOrWhiteSpace(stock.Unit) ? "Nos" : stock.Unit,
-                    Rate = stock.LastPurchaseRate,
+                    Unit = _unitSvc.NormalizeForStorage(string.IsNullOrWhiteSpace(stock.Unit) ? UnitMeasurementService.DefaultCode : stock.Unit),
+                    Rate = bestSupplier?.Rate > 0m ? bestSupplier.Rate : stock.LastPurchaseRate,
                     GstPercent = ResolveGstPercent(stock.ItemName, category, true),
                     TaxType = "Taxable",
-                    Notes = BuildStockNote(stock),
+                    Notes = BuildStockNote(stock, bestSupplier),
                     StockItemId = stock.ItemID,
                     IsStockItem = true
                 });
@@ -397,7 +415,7 @@ namespace HVAC_Pro_Desktop.UI
                     Description = rate.ServiceName,
                     Category = category,
                     HsnSacCode = ResolveHsnSac(rate.ServiceName, category, false),
-                    Unit = string.IsNullOrWhiteSpace(rate.Unit) ? "Job" : rate.Unit,
+                    Unit = _unitSvc.NormalizeForStorage(string.IsNullOrWhiteSpace(rate.Unit) ? "LOT" : rate.Unit),
                     Rate = rate.Rate,
                     GstPercent = rate.GstPercent <= 0 ? ResolveGstPercent(rate.ServiceName, category, false) : rate.GstPercent,
                     TaxType = rate.GstPercent <= 0 ? "Nil Rated" : "Taxable",
@@ -418,17 +436,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddFallbackCatalogItems(List<InvoiceCatalogItem> items)
         {
-            AddFallbackCatalogItem(items, "Materials", "Split AC Indoor Unit", "Material", "8415", "Nos", 0m, 18m);
-            AddFallbackCatalogItem(items, "Materials", "Split AC Outdoor Unit", "Material", "8415", "Nos", 0m, 18m);
-            AddFallbackCatalogItem(items, "Materials", "Copper Pipe", "Material", "7411", "Mtr", 0m, 18m);
-            AddFallbackCatalogItem(items, "Materials", "Drain Pipe", "Material", "3917", "Mtr", 0m, 18m);
-            AddFallbackCatalogItem(items, "Materials", "Insulation", "Material", "4009", "Mtr", 0m, 18m);
-            AddFallbackCatalogItem(items, "Spare", "Capacitor replacement", "Spare", "8532", "Nos", 0m, 18m);
-            AddFallbackCatalogItem(items, "Spare", "Contactor relay", "Spare", "8536", "Nos", 0m, 18m);
-            AddFallbackCatalogItem(items, "Services", "Service charge", "Service", "998719", "Visit", 0m, 18m);
-            AddFallbackCatalogItem(items, "Services", "Gas refill / charging", "Service", "998719", "Job", 0m, 18m);
-            AddFallbackCatalogItem(items, "Labour", "Installation labour", "Labour", "998519", "Job", 0m, 18m);
-            AddFallbackCatalogItem(items, "AMC / Contract", "AMC preventive visit", "AMC", "998719", "Visit", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Split AC Indoor Unit", "Material", "8415", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Split AC Outdoor Unit", "Material", "8415", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Copper Pipe", "Material", "7411", "MTR", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Drain Pipe", "Material", "3917", "MTR", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Insulation", "Material", "4009", "MTR", 0m, 18m);
+            AddFallbackCatalogItem(items, "Spare", "Capacitor replacement", "Spare", "8532", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Spare", "Contactor relay", "Spare", "8536", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Service charge", "Service", "998719", "VISIT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Gas refill / charging", "Service", "998719", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Labour", "Installation labour", "Labour", "998519", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "AMC / Contract", "AMC preventive visit", "AMC", "998719", "VISIT", 0m, 18m);
         }
 
         private static void AddFallbackCatalogItem(List<InvoiceCatalogItem> items, string source, string description, string category, string hsnSac, string unit, decimal rate, decimal gst)
@@ -441,7 +459,7 @@ namespace HVAC_Pro_Desktop.UI
                 Description = description,
                 Category = category,
                 HsnSacCode = hsnSac,
-                Unit = unit,
+                Unit = new UnitMeasurementService().NormalizeForStorage(unit),
                 Rate = rate,
                 GstPercent = gst,
                 TaxType = gst <= 0 ? "Nil Rated" : "Taxable",
@@ -496,11 +514,15 @@ namespace HVAC_Pro_Desktop.UI
             return fallback == "Service" ? "Service" : "Material";
         }
 
-        private static string BuildStockNote(StockItem stock)
+        private static string BuildStockNote(StockItem stock, SupplierOption bestSupplier)
         {
             if (stock == null)
                 return string.Empty;
-            return "Available: " + stock.AvailableStock.ToString("0.###") + " " + (stock.Unit ?? "Nos");
+
+            string note = "Available: " + stock.AvailableStock.ToString("0.###") + " " + new UnitMeasurementService().NormalizeForDisplayOrDefault(stock.Unit);
+            if (bestSupplier != null && bestSupplier.Rate > 0m && !string.IsNullOrWhiteSpace(bestSupplier.VendorName))
+                note += " | Best supplier: " + bestSupplier.VendorName + " @ " + IndiaFormatHelper.FormatCurrency(bestSupplier.Rate);
+            return note;
         }
 
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2363,6 +2385,9 @@ namespace HVAC_Pro_Desktop.UI
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CoverageNote", HeaderText = "Notes" });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "StockItemID", HeaderText = "StockItemID", Visible = false });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IsStockItem", HeaderText = "IsStockItem", Visible = false });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierVendorID", HeaderText = "SupplierVendorID", Visible = false });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierVendorName", HeaderText = "SupplierVendorName", Visible = false });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "RateDrift", HeaderText = "Rate Drift", ReadOnly = true });
             _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true });
             _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Duplicate", HeaderText = "", Text = "Copy", UseColumnTextForButtonValue = true });
             SeedLineGridCombos();
@@ -2371,7 +2396,7 @@ namespace HVAC_Pro_Desktop.UI
                 new GridColumnPolicy("Description", 220, GridColumnPriority.Required),
                 new GridColumnPolicy("HSNCode", 90, GridColumnPriority.Secondary),
                 new GridColumnPolicy("Category", 96, GridColumnPriority.Required),
-                new GridColumnPolicy("Unit", 64, GridColumnPriority.Secondary),
+                new GridColumnPolicy("Unit", 150, GridColumnPriority.Secondary),
                 new GridColumnPolicy("Quantity", 70, GridColumnPriority.Required),
                 new GridColumnPolicy("Rate", 100, GridColumnPriority.Required),
                 new GridColumnPolicy("DiscountPercent", 82, GridColumnPriority.Required),
@@ -2379,6 +2404,7 @@ namespace HVAC_Pro_Desktop.UI
                 new GridColumnPolicy("TaxType", 92, GridColumnPriority.Secondary),
                 new GridColumnPolicy("Amount", 120, GridColumnPriority.Required),
                 new GridColumnPolicy("CoverageNote", 180, GridColumnPriority.Optional),
+                new GridColumnPolicy("RateDrift", 136, GridColumnPriority.Secondary),
                 new GridColumnPolicy("Delete", 72, GridColumnPriority.Required),
                 new GridColumnPolicy("Duplicate", 72, GridColumnPriority.Required)
             });
@@ -2394,9 +2420,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SeedLineGridCombos()
         {
             EnsureComboItems("Category", new[] { "Material", "Service", "Labour", "AMC", "Spare", "Custom" });
-            EnsureComboItems("Unit", new UnitMeasurementService().GetDisplayUnits());
-            EnsureComboValue("Unit", "Nos");
-            EnsureComboValue("Unit", "RMT");
+            EnsureComboItems("Unit", _unitSvc.GetDisplayUnits());
             EnsureComboItems("TaxType", new[] { "Taxable", "Nil Rated", "Exempt", "Out of Scope" });
         }
 
@@ -2498,6 +2522,8 @@ namespace HVAC_Pro_Desktop.UI
                     combo.AutoCompleteMode = AutoCompleteMode.None;
                     combo.AutoCompleteSource = AutoCompleteSource.None;
                 }
+                if (columnName == "Unit")
+                    combo.DropDownWidth = Math.Max(320, combo.Width);
                 RegisterInvoiceComboBox(combo);
             }
         }
@@ -2787,7 +2813,7 @@ namespace HVAC_Pro_Desktop.UI
                 string desc = row.Cells["Description"].Value?.ToString().Trim() ?? "";
                 string hsn  = row.Cells["HSNCode"].Value?.ToString().Trim() ?? "";
                 string category = row.Cells["Category"].Value?.ToString().Trim() ?? "Service";
-                string unit = row.Cells["Unit"].Value?.ToString().Trim() ?? "Nos";
+                string unit = _unitSvc.NormalizeForStorage(row.Cells["Unit"].Value?.ToString().Trim() ?? UnitMeasurementService.DefaultCode);
                 decimal qty  = TryParseDecimal(row.Cells["Quantity"].Value);
                 decimal rate = TryParseDecimal(row.Cells["Rate"].Value);
                 decimal discount = TryParseDecimal(row.Cells["DiscountPercent"].Value);
@@ -3141,7 +3167,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             string description = item?.Description ?? "";
             string category = string.IsNullOrWhiteSpace(item?.Category) ? "Service" : item.Category;
-            string unit = string.IsNullOrWhiteSpace(item?.Unit) ? "Nos" : item.Unit;
+            string unit = _unitSvc.NormalizeForPickerDisplayOrDefault(string.IsNullOrWhiteSpace(item?.Unit) ? UnitMeasurementService.DefaultCode : item.Unit);
             EnsureComboValue("Description", description);
             EnsureComboValue("Category", category);
             EnsureComboValue("Unit", unit);
@@ -3176,7 +3202,7 @@ namespace HVAC_Pro_Desktop.UI
                 Description = item.Description,
                 HSNCode = item.HsnSacCode,
                 Category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category,
-                Unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit,
+                Unit = _unitSvc.NormalizeForStorage(string.IsNullOrWhiteSpace(item.Unit) ? UnitMeasurementService.DefaultCode : item.Unit),
                 Quantity = 1m,
                 Rate = item.Rate,
                 DiscountPercent = 0m,
@@ -3276,12 +3302,12 @@ namespace HVAC_Pro_Desktop.UI
             {
                 EnsureComboValue("Description", item.Description);
                 EnsureComboValue("Category", item.Category);
-                EnsureComboValue("Unit", item.Unit);
+                EnsureComboValue("Unit", _unitSvc.NormalizeForPickerDisplayOrDefault(item.Unit));
                 EnsureComboValue("TaxType", item.TaxType);
                 row.Cells["Description"].Value = item.Description;
                 row.Cells["HSNCode"].Value = item.HsnSacCode;
                 row.Cells["Category"].Value = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category;
-                row.Cells["Unit"].Value = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit;
+                row.Cells["Unit"].Value = _unitSvc.NormalizeForPickerDisplayOrDefault(string.IsNullOrWhiteSpace(item.Unit) ? UnitMeasurementService.DefaultCode : item.Unit);
                 if (TryParseDecimal(row.Cells["Rate"].Value) <= 0)
                     row.Cells["Rate"].Value = item.Rate.ToString("0.00");
                 row.Cells["GSTPercent"].Value = (item.GstPercent <= 0 ? (_numGST?.Value ?? 18m) : item.GstPercent).ToString("0.##");
@@ -3308,6 +3334,7 @@ namespace HVAC_Pro_Desktop.UI
             bool isBillable = !string.Equals(taxType, "Out of Scope", StringComparison.OrdinalIgnoreCase);
             decimal gross = Math.Round((qty > 0 ? qty : 1m) * rate, 2);
             row.Cells["Amount"].Value = (isBillable ? Math.Round(gross - (gross * discount / 100m), 2) : 0m).ToString("N2");
+            RefreshInvoiceLineRateDrift(row);
             RecalculateSummary();
         }
 
@@ -3331,6 +3358,22 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private int? ResolveInvoiceSupplierContextVendorId(DataGridViewRow row)
+        {
+            if (row == null)
+                return null;
+
+            int stockItemId = TryParseInt(row.Cells["StockItemID"].Value);
+            int explicitVendorId = TryParseInt(row.Cells["SupplierVendorID"].Value);
+            if (explicitVendorId > 0)
+                return explicitVendorId;
+            if (stockItemId > 0)
+                return _inventoryItems.FirstOrDefault(i => i.ItemID == stockItemId)?.VendorID;
+
+            string itemDescription = Convert.ToString(row.Cells["Description"].Value)?.Trim();
+            return _inventoryItems.FirstOrDefault(i => string.Equals(i.ItemName, itemDescription, StringComparison.OrdinalIgnoreCase))?.VendorID;
+        }
+
         private InvoiceLineItem RowToLineItem(DataGridViewRow row)
         {
             if (row == null)
@@ -3348,7 +3391,7 @@ namespace HVAC_Pro_Desktop.UI
                 Description = description,
                 HSNCode = row.Cells["HSNCode"].Value?.ToString() ?? string.Empty,
                 Category = category,
-                Unit = row.Cells["Unit"].Value?.ToString() ?? "Nos",
+                Unit = _unitSvc.NormalizeForStorage(row.Cells["Unit"].Value?.ToString() ?? UnitMeasurementService.DefaultCode),
                 Quantity = qty <= 0 ? 1m : qty,
                 Rate = rate,
                 DiscountPercent = discount,
@@ -3370,7 +3413,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (DataGridViewCell cell in row.Cells)
                 if (cell.OwningColumn.Name != "Delete")
                     cell.Value = null;
-            row.Cells["Unit"].Value = "Nos";
+            row.Cells["Unit"].Value = _unitSvc.NormalizeForPickerDisplayOrDefault(UnitMeasurementService.DefaultCode);
             row.Cells["Category"].Value = "Service";
             row.Cells["Quantity"].Value = "1";
             row.Cells["Rate"].Value = "0.00";
@@ -3378,6 +3421,33 @@ namespace HVAC_Pro_Desktop.UI
             row.Cells["GSTPercent"].Value = (_numGST?.Value ?? 18m).ToString("0.##");
             row.Cells["TaxType"].Value = "Taxable";
             row.Cells["Amount"].Value = "0.00";
+            row.Cells["SupplierVendorID"].Value = null;
+            row.Cells["SupplierVendorName"].Value = null;
+            row.Cells["RateDrift"].Value = null;
+        }
+
+        private void RefreshInvoiceLineRateDrift(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow || _grid == null || !_grid.Columns.Contains("RateDrift"))
+                return;
+
+            int? vendorId = ResolveInvoiceSupplierContextVendorId(row);
+            decimal currentRate = TryParseDecimal(row.Cells["Rate"].Value);
+            string itemDescription = Convert.ToString(row.Cells["Description"].Value)?.Trim();
+            SupplierRateDriftInfo drift = null;
+            try
+            {
+                drift = _vendorSvc.GetSupplierRateDrift(itemDescription, vendorId, currentRate);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InvoiceForm.RefreshInvoiceLineRateDrift", ex);
+            }
+
+            row.Cells["RateDrift"].Value = drift?.DisplayText ?? string.Empty;
+            row.Cells["RateDrift"].Style.ForeColor = drift == null
+                ? DS.Slate500
+                : drift.IsIncrease ? Color.FromArgb(180, 83, 9) : (drift.IsDecrease ? Color.FromArgb(21, 128, 61) : DS.Slate500);
         }
 
         private void Grid_DataError(object sender, DataGridViewDataErrorEventArgs e)
@@ -3740,12 +3810,12 @@ namespace HVAC_Pro_Desktop.UI
                     invoice.GSTPercent = invoice.GSTPercent <= 0 ? 18m : invoice.GSTPercent;
                     if (invoice.LineItems == null) invoice.LineItems = new List<InvoiceLineItem>();
                     if (invoice.LineItems.Count == 0)
-                        invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = "Nos", Quantity = 1, Rate = 0, GSTPercent = 18, IsBillable = true });
+                        invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = UnitMeasurementService.DefaultCode, Quantity = 1, Rate = 0, GSTPercent = 18, IsBillable = true });
                 }
                 if (invoice.LineItems == null)
                     invoice.LineItems = new List<InvoiceLineItem>();
                 if (invoice.LineItems.Count == 0)
-                    invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = "Nos", Quantity = 1, Rate = 0, GSTPercent = Math.Max(0m, invoice.GSTPercent), IsBillable = true });
+                    invoice.LineItems.Add(new InvoiceLineItem { Description = "Draft service / material line", HSNCode = "9987", Unit = UnitMeasurementService.DefaultCode, Quantity = 1, Rate = 0, GSTPercent = Math.Max(0m, invoice.GSTPercent), IsBillable = true });
                 invoice.InvoiceNumber = string.IsNullOrWhiteSpace(invoice.InvoiceNumber) || invoice.InvoiceNumber == "(auto-generated)"
                     ? (_current?.InvoiceNumber ?? "DRAFT-PREVIEW")
                     : invoice.InvoiceNumber;

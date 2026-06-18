@@ -886,7 +886,10 @@ namespace HVAC_Pro_Desktop.DAL
                 CREATE TABLE UnitMeasurements (
                     UnitMeasurementID INT IDENTITY(1,1) PRIMARY KEY,
                     UnitCode         NVARCHAR(20) NOT NULL UNIQUE,
+                    ShortCode        NVARCHAR(40) NULL,
                     DisplayName      NVARCHAR(80) NOT NULL,
+                    Category         NVARCHAR(80) NULL,
+                    MeasurementSystem NVARCHAR(30) NULL,
                     IsActive         BIT NOT NULL DEFAULT 1,
                     IsSystem         BIT NOT NULL DEFAULT 0,
                     Notes            NVARCHAR(255) NULL,
@@ -899,6 +902,9 @@ namespace HVAC_Pro_Desktop.DAL
                     UnitAlias NVARCHAR(50) NOT NULL UNIQUE,
                     UnitMeasurementId INT NOT NULL FOREIGN KEY REFERENCES UnitMeasurements(UnitMeasurementID)
                 );");
+                AddColumn(conn, "UnitMeasurements", "ShortCode", "NVARCHAR(40) NULL");
+                AddColumn(conn, "UnitMeasurements", "Category", "NVARCHAR(80) NULL");
+                AddColumn(conn, "UnitMeasurements", "MeasurementSystem", "NVARCHAR(30) NULL");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='UserCardLayouts')
                 CREATE TABLE UserCardLayouts (
@@ -1504,6 +1510,8 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "JobPartsUsed", "TotalCost", "DECIMAL(18,2) NOT NULL DEFAULT 0");
                 AddColumn(conn, "JobPartsUsed", "IsFromInventory", "BIT NOT NULL DEFAULT 1");
                 AddColumn(conn, "JobPartsUsed", "StockStatus", "NVARCHAR(20) NULL");
+                AddColumn(conn, "JobPartsUsed", "VendorID", "INT NULL");
+                AddColumn(conn, "JobPartsUsed", "LinkedPoId", "INT NULL");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='JobActivityLog')
                 CREATE TABLE JobActivityLog (
@@ -1841,6 +1849,38 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "PurchaseLineItems", "LinkedWorkOrderName", "NVARCHAR(200) NULL");
                 AddColumn(conn, "PurchaseLineItems", "PriceVariance", "DECIMAL(5,2) NOT NULL DEFAULT 0");
                 AddColumn(conn, "PurchaseLineItems", "UOM", "NVARCHAR(30) NOT NULL DEFAULT 'Nos'");
+                AddColumn(conn, "PurchaseLineItems", "VendorID", "INT NULL");
+                AddColumn(conn, "PurchaseLineItems", "ItemName", "NVARCHAR(255) NULL");
+                AddColumn(conn, "PurchaseLineItems", "UnitPrice", "DECIMAL(18,2) NULL");
+                AddColumn(conn, "PurchaseLineItems", "ExpectedDeliveryDate", "DATETIME NULL");
+                AddColumn(conn, "PurchaseLineItems", "DeliveredOnTime", "BIT NULL");
+                Exec(conn, @"
+                    UPDATE pli
+                    SET pli.VendorID = p.VendorID
+                    FROM PurchaseLineItems pli
+                    INNER JOIN PurchaseOrders p ON p.POID = pli.POID
+                    WHERE pli.VendorID IS NULL
+                      AND p.VendorID IS NOT NULL;");
+                Exec(conn, @"
+                    UPDATE PurchaseLineItems
+                    SET ItemName = NULLIF(LTRIM(RTRIM(Description)), '')
+                    WHERE ItemName IS NULL
+                      AND NULLIF(LTRIM(RTRIM(Description)), '') IS NOT NULL;");
+                Exec(conn, @"
+                    UPDATE PurchaseLineItems
+                    SET UnitPrice = CASE
+                        WHEN ISNULL(UnitPrice, 0) <= 0 AND ISNULL(Rate, 0) > 0 THEN Rate
+                        WHEN ISNULL(UnitPrice, 0) <= 0 AND ISNULL(Quantity, 0) > 0 AND ISNULL(Amount, 0) > 0 THEN Amount / NULLIF(Quantity, 0)
+                        ELSE UnitPrice
+                    END
+                    WHERE ISNULL(UnitPrice, 0) <= 0;");
+                Exec(conn, @"
+                    UPDATE pli
+                    SET pli.ExpectedDeliveryDate = p.PayByDate
+                    FROM PurchaseLineItems pli
+                    INNER JOIN PurchaseOrders p ON p.POID = pli.POID
+                    WHERE pli.ExpectedDeliveryDate IS NULL
+                      AND p.PayByDate IS NOT NULL;");
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='VendorAdvancePayments')
                 CREATE TABLE VendorAdvancePayments (
                     AdvancePaymentId INT IDENTITY(1,1) PRIMARY KEY,
@@ -1980,6 +2020,12 @@ namespace HVAC_Pro_Desktop.DAL
                     CreatedDate       DATETIME NOT NULL DEFAULT GETDATE(),
                     ModifiedDate      DATETIME NOT NULL DEFAULT GETDATE()
                 );");
+                AddColumn(conn, "QuotationLineItems", "VendorID", "INT NULL");
+                Exec(conn, @"
+                    UPDATE QuotationLineItems
+                    SET VendorID = BestSupplierId
+                    WHERE VendorID IS NULL
+                      AND BestSupplierId IS NOT NULL;");
 
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='QuoteTemplates')
                 CREATE TABLE QuoteTemplates (
@@ -2302,16 +2348,16 @@ namespace HVAC_Pro_Desktop.DAL
         {
             string sql = @"
 SELECT CASE WHEN
-    (SELECT COUNT_BIG(1) FROM B2BClients) > 0
-    AND (SELECT COUNT_BIG(1) FROM ClientSites) > 0
-    AND (SELECT COUNT_BIG(1) FROM AMCContracts) > 0
-    AND (SELECT COUNT_BIG(1) FROM Vendors) >= 25
-    AND (SELECT COUNT_BIG(1) FROM PurchaseOrders) >= 25
-    AND (SELECT COUNT_BIG(1) FROM StockItems) >= 50
-    AND (SELECT COUNT_BIG(1) FROM Employees) >= 20
-    AND (SELECT COUNT_BIG(1) FROM Jobs) > 0
-    AND (SELECT COUNT_BIG(1) FROM InvoiceTemplates) > 0
-    AND (SELECT COUNT_BIG(1) FROM SupplierItemPrices) > 0
+    (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'B2BClients') AND index_id IN (0,1)) > 0
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'ClientSites') AND index_id IN (0,1)) > 0
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'AMCContracts') AND index_id IN (0,1)) > 0
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'Vendors') AND index_id IN (0,1)) >= 25
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'PurchaseOrders') AND index_id IN (0,1)) >= 25
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'StockItems') AND index_id IN (0,1)) >= 50
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'Employees') AND index_id IN (0,1)) >= 20
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'Jobs') AND index_id IN (0,1)) > 0
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'InvoiceTemplates') AND index_id IN (0,1)) > 0
+    AND (SELECT SUM(row_count) FROM sys.dm_db_partition_stats WHERE object_id = OBJECT_ID(N'SupplierItemPrices') AND index_id IN (0,1)) > 0
 THEN 1 ELSE 0 END";
             return ExecuteReadyScalar(conn, sql);
         }
@@ -2354,16 +2400,16 @@ SELECT CASE WHEN
     AND COL_LENGTH('JobChecklistItems', 'CompletedBy') IS NOT NULL
     AND COL_LENGTH('JobPartsUsed', 'TotalCost') IS NOT NULL
     AND COL_LENGTH('JobActivityLog', 'ActivityType') IS NOT NULL
-    AND (SELECT COUNT_BIG(1) FROM B2BClients) > 0
-    AND (SELECT COUNT_BIG(1) FROM ClientSites) > 0
-    AND (SELECT COUNT_BIG(1) FROM AMCContracts) > 0
-    AND (SELECT COUNT_BIG(1) FROM Vendors) >= 25
-    AND (SELECT COUNT_BIG(1) FROM PurchaseOrders) >= 25
-    AND (SELECT COUNT_BIG(1) FROM StockItems) >= 50
-    AND (SELECT COUNT_BIG(1) FROM Employees) >= 20
-    AND (SELECT COUNT_BIG(1) FROM Jobs) > 0
-    AND (SELECT COUNT_BIG(1) FROM InvoiceTemplates) > 0
-    AND (SELECT COUNT_BIG(1) FROM SupplierItemPrices) > 0
+    AND EXISTS (SELECT 1 FROM B2BClients)
+    AND EXISTS (SELECT 1 FROM ClientSites)
+    AND EXISTS (SELECT 1 FROM AMCContracts)
+    AND EXISTS (SELECT 1 FROM Vendors)
+    AND EXISTS (SELECT 1 FROM PurchaseOrders)
+    AND EXISTS (SELECT 1 FROM StockItems)
+    AND EXISTS (SELECT 1 FROM Employees)
+    AND EXISTS (SELECT 1 FROM Jobs)
+    AND EXISTS (SELECT 1 FROM InvoiceTemplates)
+    AND EXISTS (SELECT 1 FROM SupplierItemPrices)
 THEN 1 ELSE 0 END";
             return ExecuteReadyScalar(conn, sql);
         }
@@ -2403,24 +2449,191 @@ THEN 1 ELSE 0 END";
             if (!TableExists(conn, "UnitMeasurements") || !TableExists(conn, "UnitMeasurementAliases"))
                 return;
 
-            string[] defaultUnits = { "NOS", "PCS", "KG", "LTR", "MTR", "SQFT", "SQM", "KIT", "TIN", "SET", "BOX", "JOB", "VISIT", "LOT", "HOUR", "DAY", "RMT" };
-            string[] defaultDisplays = { "Nos", "Pcs", "Kg", "Ltr", "Mtr", "Sqft", "Sqm", "Kit", "Tin", "Set", "Box", "Job", "Visit", "Lot", "Hour", "Day", "RMT" };
-            for (int i = 0; i < defaultUnits.Length; i++)
+            var units = new[]
             {
-                EnsureUnitMeasurement(conn, defaultUnits[i], defaultDisplays[i]);
-            }
+                new { Code = "MM", ShortCode = "mm", Name = "millimeter", Category = "Length", System = "Metric" },
+                new { Code = "CM", ShortCode = "cm", Name = "centimeter", Category = "Length", System = "Metric" },
+                new { Code = "DM", ShortCode = "dm", Name = "decimeter", Category = "Length", System = "Metric" },
+                new { Code = "MTR", ShortCode = "m", Name = "meter", Category = "Length", System = "Metric" },
+                new { Code = "KM", ShortCode = "km", Name = "kilometer", Category = "Length", System = "Metric" },
+                new { Code = "IN", ShortCode = "in", Name = "inch", Category = "Length", System = "Imperial" },
+                new { Code = "FT", ShortCode = "ft", Name = "foot", Category = "Length", System = "Imperial" },
+                new { Code = "YD", ShortCode = "yd", Name = "yard", Category = "Length", System = "Imperial" },
+                new { Code = "MI", ShortCode = "mi", Name = "mile", Category = "Length", System = "Imperial" },
+                new { Code = "NMI", ShortCode = "nmi", Name = "nautical mile", Category = "Length", System = "Trade" },
+
+                new { Code = "SQMM", ShortCode = "sq mm", Name = "square millimeter", Category = "Area", System = "Metric" },
+                new { Code = "SQCM", ShortCode = "sq cm", Name = "square centimeter", Category = "Area", System = "Metric" },
+                new { Code = "SQM", ShortCode = "sq m", Name = "square meter", Category = "Area", System = "Metric" },
+                new { Code = "SQKM", ShortCode = "sq km", Name = "square kilometer", Category = "Area", System = "Metric" },
+                new { Code = "SQIN", ShortCode = "sq in", Name = "square inch", Category = "Area", System = "Imperial" },
+                new { Code = "SQFT", ShortCode = "sq ft", Name = "square foot", Category = "Area", System = "Imperial" },
+                new { Code = "SQYD", ShortCode = "sq yd", Name = "square yard", Category = "Area", System = "Imperial" },
+                new { Code = "ACRE", ShortCode = "acre", Name = "acre", Category = "Area", System = "Imperial" },
+                new { Code = "HECTARE", ShortCode = "ha", Name = "hectare", Category = "Area", System = "Metric" },
+
+                new { Code = "ML", ShortCode = "mL", Name = "millilitre", Category = "Volume", System = "Metric" },
+                new { Code = "CL", ShortCode = "cL", Name = "centilitre", Category = "Volume", System = "Metric" },
+                new { Code = "DL", ShortCode = "dL", Name = "decilitre", Category = "Volume", System = "Metric" },
+                new { Code = "LTR", ShortCode = "L", Name = "litre", Category = "Volume", System = "Metric" },
+                new { Code = "CC", ShortCode = "cc", Name = "cubic centimeter", Category = "Volume", System = "Metric" },
+                new { Code = "CUM", ShortCode = "cu m", Name = "cubic meter", Category = "Volume", System = "Metric" },
+                new { Code = "CUIN", ShortCode = "cu in", Name = "cubic inch", Category = "Volume", System = "Imperial" },
+                new { Code = "CUFT", ShortCode = "cu ft", Name = "cubic foot", Category = "Volume", System = "Imperial" },
+                new { Code = "CUYD", ShortCode = "cu yd", Name = "cubic yard", Category = "Volume", System = "Imperial" },
+                new { Code = "GAL_US", ShortCode = "gal US", Name = "gallon (US)", Category = "Volume", System = "US Customary" },
+                new { Code = "GAL_IMP", ShortCode = "gal Imp", Name = "gallon (UK/Imperial)", Category = "Volume", System = "Imperial" },
+                new { Code = "QUART", ShortCode = "qt", Name = "quart", Category = "Volume", System = "US Customary" },
+                new { Code = "PINT", ShortCode = "pt", Name = "pint", Category = "Volume", System = "Imperial" },
+                new { Code = "FLOZ", ShortCode = "fl oz", Name = "fluid ounce", Category = "Volume", System = "US Customary" },
+                new { Code = "BBL", ShortCode = "bbl", Name = "barrel", Category = "Volume", System = "Trade" },
+
+                new { Code = "MG", ShortCode = "mg", Name = "milligram", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "GM", ShortCode = "g", Name = "gram", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "DAG", ShortCode = "dag", Name = "decagram", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "HG", ShortCode = "hg", Name = "hectogram", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "KG", ShortCode = "kg", Name = "kilogram", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "TONNE", ShortCode = "t", Name = "tonne (metric)", Category = "Weight and Mass", System = "Metric" },
+                new { Code = "OZ", ShortCode = "oz", Name = "ounce", Category = "Weight and Mass", System = "Imperial" },
+                new { Code = "LB", ShortCode = "lb", Name = "pound", Category = "Weight and Mass", System = "Imperial" },
+                new { Code = "STONE", ShortCode = "st", Name = "stone", Category = "Weight and Mass", System = "Imperial" },
+                new { Code = "SHORT_TON", ShortCode = "short ton", Name = "short ton (US)", Category = "Weight and Mass", System = "US Customary" },
+                new { Code = "LONG_TON", ShortCode = "long ton", Name = "long ton (UK)", Category = "Weight and Mass", System = "Imperial" },
+
+                new { Code = "PA", ShortCode = "Pa", Name = "pascal", Category = "Pressure", System = "Metric" },
+                new { Code = "KPA", ShortCode = "kPa", Name = "kilopascal", Category = "Pressure", System = "Metric" },
+                new { Code = "MPA", ShortCode = "MPa", Name = "megapascal", Category = "Pressure", System = "Metric" },
+                new { Code = "BAR", ShortCode = "bar", Name = "bar", Category = "Pressure", System = "Metric" },
+                new { Code = "MBAR", ShortCode = "mbar", Name = "millibar", Category = "Pressure", System = "Metric" },
+                new { Code = "PSI", ShortCode = "PSI", Name = "PSI", Category = "Pressure", System = "Trade" },
+                new { Code = "ATM", ShortCode = "atm", Name = "atm", Category = "Pressure", System = "Trade" },
+                new { Code = "TORR", ShortCode = "torr", Name = "torr", Category = "Pressure", System = "Trade" },
+                new { Code = "MMHG", ShortCode = "mmHg", Name = "mmHg", Category = "Pressure", System = "Trade" },
+                new { Code = "INHG", ShortCode = "inHg", Name = "inHg", Category = "Pressure", System = "Trade" },
+                new { Code = "INWC", ShortCode = "inWC", Name = "inches water column", Category = "Pressure", System = "Trade" },
+
+                new { Code = "CELSIUS", ShortCode = "C", Name = "Celsius", Category = "Temperature", System = "Metric" },
+                new { Code = "FAHRENHEIT", ShortCode = "F", Name = "Fahrenheit", Category = "Temperature", System = "Imperial" },
+                new { Code = "KELVIN", ShortCode = "K", Name = "Kelvin", Category = "Temperature", System = "Metric" },
+
+                new { Code = "J", ShortCode = "J", Name = "joule", Category = "Energy and Power", System = "Metric" },
+                new { Code = "KJ", ShortCode = "kJ", Name = "kilojoule", Category = "Energy and Power", System = "Metric" },
+                new { Code = "MW", ShortCode = "MW", Name = "megawatt", Category = "Energy and Power", System = "Metric" },
+                new { Code = "BTU", ShortCode = "BTU", Name = "BTU", Category = "Energy and Power", System = "Trade" },
+                new { Code = "BTU_HR", ShortCode = "BTU/h", Name = "BTU/hour", Category = "Energy and Power", System = "Trade" },
+                new { Code = "TR", ShortCode = "TR", Name = "ton of refrigeration", Category = "Energy and Power", System = "Trade" },
+                new { Code = "KWH", ShortCode = "kWh", Name = "kilowatt-hour", Category = "Energy and Power", System = "Metric" },
+                new { Code = "HP", ShortCode = "HP", Name = "horsepower", Category = "Energy and Power", System = "Trade" },
+
+                new { Code = "V", ShortCode = "V", Name = "volt", Category = "Electrical", System = "Metric" },
+                new { Code = "MV", ShortCode = "mV", Name = "millivolt", Category = "Electrical", System = "Metric" },
+                new { Code = "A", ShortCode = "A", Name = "ampere", Category = "Electrical", System = "Metric" },
+                new { Code = "MA", ShortCode = "mA", Name = "milliampere", Category = "Electrical", System = "Metric" },
+                new { Code = "OHM", ShortCode = "ohm", Name = "ohm", Category = "Electrical", System = "Metric" },
+                new { Code = "W", ShortCode = "W", Name = "watt", Category = "Electrical", System = "Metric" },
+                new { Code = "KW", ShortCode = "kW", Name = "kilowatt", Category = "Electrical", System = "Metric" },
+                new { Code = "HZ", ShortCode = "Hz", Name = "hertz", Category = "Electrical", System = "Metric" },
+                new { Code = "KVA", ShortCode = "kVA", Name = "kilovolt-ampere", Category = "Electrical", System = "Trade" },
+                new { Code = "PF", ShortCode = "PF", Name = "power factor", Category = "Electrical", System = "Trade" },
+
+                new { Code = "CFM", ShortCode = "CFM", Name = "cubic feet per minute", Category = "Airflow and Velocity", System = "Trade" },
+                new { Code = "CMH", ShortCode = "CMH", Name = "cubic meters per hour", Category = "Airflow and Velocity", System = "Metric" },
+                new { Code = "LPS", ShortCode = "LPS", Name = "litres per second", Category = "Airflow and Velocity", System = "Metric" },
+                new { Code = "MPS", ShortCode = "m/s", Name = "meters per second", Category = "Airflow and Velocity", System = "Metric" },
+                new { Code = "FTMIN", ShortCode = "ft/min", Name = "feet per minute", Category = "Airflow and Velocity", System = "Imperial" },
+                new { Code = "RPM", ShortCode = "RPM", Name = "RPM", Category = "Airflow and Velocity", System = "Trade" },
+
+                new { Code = "CYL", ShortCode = "cylinder", Name = "cylinder", Category = "Refrigerant and Gas", System = "Trade" },
+                new { Code = "CAN", ShortCode = "can", Name = "can", Category = "Refrigerant and Gas", System = "Trade" },
+                new { Code = "TON", ShortCode = "ton", Name = "ton", Category = "Refrigerant and Gas", System = "Trade" },
+
+                new { Code = "PPM", ShortCode = "PPM", Name = "PPM", Category = "Concentration and Purity", System = "Trade" },
+                new { Code = "PERCENT", ShortCode = "%", Name = "percentage", Category = "Concentration and Purity", System = "Trade" },
+
+                new { Code = "PCS", ShortCode = "Pcs", Name = "piece", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "NOS", ShortCode = "Nos", Name = "number", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "UNIT", ShortCode = "unit", Name = "unit", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "PAIR", ShortCode = "pair", Name = "pair", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "SET", ShortCode = "set", Name = "set", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "KIT", ShortCode = "kit", Name = "kit", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "BOX", ShortCode = "box", Name = "box", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "PACK", ShortCode = "pack", Name = "pack", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "CARTON", ShortCode = "carton", Name = "carton", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "BAG", ShortCode = "bag", Name = "bag", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "ROLL", ShortCode = "roll", Name = "roll", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "SHEET", ShortCode = "sheet", Name = "sheet", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "COIL", ShortCode = "coil", Name = "coil", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "BUNDLE", ShortCode = "bundle", Name = "bundle", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "SPOOL", ShortCode = "spool", Name = "spool", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "REEL", ShortCode = "reel", Name = "reel", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "DOZEN", ShortCode = "dozen", Name = "dozen", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "GROSS", ShortCode = "gross", Name = "gross", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "LOT", ShortCode = "lot", Name = "lot", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "PALLET", ShortCode = "pallet", Name = "pallet", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "CONTAINER", ShortCode = "container", Name = "container", Category = "Count and Packaging", System = "Trade" },
+                new { Code = "PUMP", ShortCode = "pump", Name = "pump", Category = "Count and Packaging", System = "Trade" },
+
+                new { Code = "RMT", ShortCode = "RMT", Name = "running meter", Category = "Length of run", System = "Trade" },
+                new { Code = "RFT", ShortCode = "RFT", Name = "running foot", Category = "Length of run", System = "Trade" },
+                new { Code = "RYD", ShortCode = "RYD", Name = "running yard", Category = "Length of run", System = "Trade" },
+
+                new { Code = "SEC", ShortCode = "sec", Name = "second", Category = "Time", System = "Trade" },
+                new { Code = "MIN", ShortCode = "min", Name = "minute", Category = "Time", System = "Trade" },
+                new { Code = "HOUR", ShortCode = "hr", Name = "hour", Category = "Time", System = "Trade" },
+                new { Code = "DAY", ShortCode = "day", Name = "day", Category = "Time", System = "Trade" },
+                new { Code = "WEEK", ShortCode = "week", Name = "week", Category = "Time", System = "Trade" },
+                new { Code = "MONTH", ShortCode = "month", Name = "month", Category = "Time", System = "Trade" },
+                new { Code = "QUARTER", ShortCode = "quarter", Name = "quarter", Category = "Time", System = "Trade" },
+                new { Code = "YEAR", ShortCode = "year", Name = "year", Category = "Time", System = "Trade" },
+
+                new { Code = "VISIT", ShortCode = "visit", Name = "visit", Category = "Service billing", System = "Trade" },
+                new { Code = "CALL", ShortCode = "call", Name = "call", Category = "Service billing", System = "Trade" },
+                new { Code = "MANHOUR", ShortCode = "man-hour", Name = "man-hour", Category = "Service billing", System = "Trade" },
+                new { Code = "MANDAY", ShortCode = "man-day", Name = "man-day", Category = "Service billing", System = "Trade" },
+                new { Code = "SHIFT", ShortCode = "shift", Name = "shift", Category = "Service billing", System = "Trade" },
+
+                new { Code = "SACHET", ShortCode = "sachet", Name = "sachet", Category = "Consumable dispensing", System = "Trade" },
+                new { Code = "TUBE", ShortCode = "tube", Name = "tube", Category = "Consumable dispensing", System = "Trade" },
+                new { Code = "BOTTLE", ShortCode = "bottle", Name = "bottle", Category = "Consumable dispensing", System = "Trade" },
+                new { Code = "DRUM", ShortCode = "drum", Name = "drum", Category = "Consumable dispensing", System = "Trade" },
+                new { Code = "JERRYCAN", ShortCode = "jerrycan", Name = "jerrycan", Category = "Consumable dispensing", System = "Trade" },
+                new { Code = "TANKER", ShortCode = "tanker", Name = "tanker", Category = "Consumable dispensing", System = "Trade" }
+            };
+
+            foreach (var unit in units)
+                EnsureUnitMeasurement(conn, unit.Code, unit.ShortCode, unit.Name, unit.Category, unit.System);
 
             UpsertUnitAlias(conn, "R.M.T", "RMT");
-            UpsertUnitAlias(conn, "RMT ", "RMT");
             UpsertUnitAlias(conn, "RUNNING METER", "RMT");
             UpsertUnitAlias(conn, "RUNNINGMETER", "RMT");
+            UpsertUnitAlias(conn, "RUNNING FOOT", "RFT");
+            UpsertUnitAlias(conn, "RUNNING YARD", "RYD");
             UpsertUnitAlias(conn, "METER", "MTR");
             UpsertUnitAlias(conn, "METERS", "MTR");
-            UpsertUnitAlias(conn, "SQMTR", "SQM");
-            UpsertUnitAlias(conn, "SQMTRS", "SQM");
+            UpsertUnitAlias(conn, "METRE", "MTR");
+            UpsertUnitAlias(conn, "METRES", "MTR");
+            UpsertUnitAlias(conn, "LITRE", "LTR");
+            UpsertUnitAlias(conn, "LITRES", "LTR");
+            UpsertUnitAlias(conn, "LITER", "LTR");
+            UpsertUnitAlias(conn, "LITERS", "LTR");
             UpsertUnitAlias(conn, "SQUARE METER", "SQM");
             UpsertUnitAlias(conn, "SQUARE METERS", "SQM");
-            UpsertUnitAlias(conn, "UNITS", "PCS");
+            UpsertUnitAlias(conn, "SQUARE FOOT", "SQFT");
+            UpsertUnitAlias(conn, "SQUARE FEET", "SQFT");
+            UpsertUnitAlias(conn, "FOOT", "FT");
+            UpsertUnitAlias(conn, "FEET", "FT");
+            UpsertUnitAlias(conn, "UNITS", "UNIT");
+            UpsertUnitAlias(conn, "NUMBER", "NOS");
+            UpsertUnitAlias(conn, "PIECE", "PCS");
+            UpsertUnitAlias(conn, "PAIRS", "PAIR");
+            UpsertUnitAlias(conn, "ROLLS", "ROLL");
+            UpsertUnitAlias(conn, "BOXES", "BOX");
+            UpsertUnitAlias(conn, "CANS", "CAN");
+            UpsertUnitAlias(conn, "DRUMS", "DRUM");
+            UpsertUnitAlias(conn, "DRUMPS", "DRUM");
+            UpsertUnitAlias(conn, "PUMPS", "PUMP");
+            UpsertUnitAlias(conn, "LOTT", "LOT");
+            UpsertUnitAlias(conn, "PERCENTAGE", "PERCENT");
         }
 
         private bool TableExists(SqlConnection conn, string tableName)
@@ -2434,18 +2647,34 @@ THEN 1 ELSE 0 END";
             }
         }
 
-        private void EnsureUnitMeasurement(SqlConnection conn, string code, string displayName)
+        private void EnsureUnitMeasurement(SqlConnection conn, string code, string shortCode, string displayName, string category, string measurementSystem)
         {
             if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(displayName))
                 return;
 
             using (SqlCommand cmd = new SqlCommand(
                 @"IF NOT EXISTS (SELECT 1 FROM UnitMeasurements WHERE UnitCode = @code)
-                  INSERT INTO UnitMeasurements (UnitCode, DisplayName, IsActive, IsSystem) VALUES (@code, @name, 1, 1)",
+                  BEGIN
+                      INSERT INTO UnitMeasurements (UnitCode, ShortCode, DisplayName, Category, MeasurementSystem, IsActive, IsSystem)
+                      VALUES (@code, @shortCode, @name, @category, @measurementSystem, 1, 1)
+                  END
+                  ELSE
+                  BEGIN
+                      UPDATE UnitMeasurements
+                      SET ShortCode = CASE WHEN ISNULL(NULLIF(ShortCode, ''), '') = '' THEN @shortCode ELSE ShortCode END,
+                          DisplayName = @name,
+                          Category = @category,
+                          MeasurementSystem = @measurementSystem,
+                          IsActive = 1
+                      WHERE UnitCode = @code
+                  END",
                 conn))
             {
                 cmd.Parameters.AddWithValue("@code", code);
+                cmd.Parameters.AddWithValue("@shortCode", shortCode ?? code);
                 cmd.Parameters.AddWithValue("@name", displayName);
+                cmd.Parameters.AddWithValue("@category", category ?? string.Empty);
+                cmd.Parameters.AddWithValue("@measurementSystem", measurementSystem ?? "Trade");
                 cmd.ExecuteNonQuery();
             }
         }

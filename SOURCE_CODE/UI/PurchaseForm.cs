@@ -151,6 +151,18 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblSummaryWords;
         private Label _lblPaymentMeta;
         private Label _lblVarianceWarning;
+        private Panel _supplierCompareCard;
+        private Label _lblSupplierCompareEyebrow;
+        private Label _lblSupplierCompareItem;
+        private Label _lblSupplierCompareSummary;
+        private Label _lblSupplierCompareDetail;
+        private LinkLabel _lnkSupplierCompareApply;
+        private LinkLabel _lnkSupplierCompareOpen;
+        private ComboBox _activeCompareDescription;
+        private TextBox _activeCompareCategory;
+        private NumericUpDown _activeCompareQuantity;
+        private ComboBox _activeCompareUnit;
+        private NumericUpDown _activeCompareRate;
         private readonly List<Control> _poDetailsControls = new List<Control>();
         private readonly List<Control> _shippingControls = new List<Control>();
         private readonly List<Control> _billingControls = new List<Control>();
@@ -163,13 +175,14 @@ namespace HVAC_Pro_Desktop.UI
         private PurchaseOrder _current;
         private string _receiptImagePath;
         private bool _showDashboard = true;
+        private bool _isBinding;
         private PurchaseListTab _activeTab = PurchaseListTab.AllPurchaseOrders;
         private PurchaseViewMode _viewMode = PurchaseViewMode.Orders;
         private int _listPageIndex;
         private int _orderListPageSize = 10;
         private const int MaxRenderedOrderCards = 120;
         private const int OrderCardHeightWithMargin = 114;
-        private const string SearchPlaceholder = "Search PO, vendor...";
+        private const string SearchPlaceholder = "Search";
         private decimal _otherCharges;
 
         private static readonly Color HeaderBg = DS.White;
@@ -207,6 +220,9 @@ namespace HVAC_Pro_Desktop.UI
         private Label _poTableSearchLabel;
         private int _poPage = 1;
         private int _poPageSize = 10;
+        private int _payByDateRefreshVersion;
+        private int _deliveryPreviewRefreshVersion;
+        private int _technicianRefreshVersion;
 
         protected override bool EnableAutomaticLayoutScaling => false;
         protected override bool EnableMainScrollCanvas => false;
@@ -523,11 +539,11 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(title);
             header.Controls.Add(subtitle);
 
-            _poDashSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Size = new Size(300, 32), Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle, Text = "Search PO number, supplier, item...", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
+            _poDashSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Size = new Size(300, 32), Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle, Text = "Search", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
             _poDashSearch.BackColor = Color.White;
-            AddDashboardPlaceholder(_poDashSearch, "Search PO number, supplier, item...");
+            AddDashboardPlaceholder(_poDashSearch, "Search");
             _poDashSearch.TextChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
-            _poDashSearchLabel = MakeSearchVisual("Search PO number, supplier, item...");
+            _poDashSearchLabel = MakeSearchVisual("Search");
             _poDashSearchLabel.Visible = false;
             _poDashSearchLabel.Click += (s, e) => { _poDashSearch.Focus(); _poDashSearchLabel.Visible = false; };
             Button refreshPo = MakePoOutlineButton("Refresh", 86);
@@ -753,10 +769,10 @@ namespace HVAC_Pro_Desktop.UI
             _poPeriodFilter.SelectedIndexChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
             _poPeriodFilterLabel = MakeFilterPill("This Year");
             _poPeriodFilterLabel.Click += (s, e) => { CycleCombo(_poPeriodFilter, _poPeriodFilterLabel); _poPage = 1; RefreshPoTableOnly(); };
-            _poTableSearch = new TextBox { Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, Size = new Size(170, 28), Text = "Search PO, Supplier...", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
-            AddDashboardPlaceholder(_poTableSearch, "Search PO, Supplier...");
+            _poTableSearch = new TextBox { Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, Size = new Size(170, 28), Text = "Search", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
+            AddDashboardPlaceholder(_poTableSearch, "Search");
             _poTableSearch.TextChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
-            _poTableSearchLabel = MakeSearchVisual("Search PO, Supplier...");
+            _poTableSearchLabel = MakeSearchVisual("Search");
             _poTableSearchLabel.Size = new Size(170, 28);
             _poTableSearchLabel.Visible = false;
             _poTableSearchLabel.Click += (s, e) => { _poTableSearch.Focus(); _poTableSearchLabel.Visible = false; };
@@ -951,8 +967,8 @@ namespace HVAC_Pro_Desktop.UI
         private List<PurchaseOrder> GetFilteredPos()
         {
             IEnumerable<PurchaseOrder> query = _orderSource ?? new List<PurchaseOrder>();
-            string topSearch = GetTextFilter(_poDashSearch, "Search PO number, supplier, item...");
-            string tableSearch = GetTextFilter(_poTableSearch, "Search PO, Supplier...");
+            string topSearch = GetTextFilter(_poDashSearch, "Search");
+            string tableSearch = GetTextFilter(_poTableSearch, "Search");
             string search = string.IsNullOrWhiteSpace(tableSearch) ? topSearch : tableSearch;
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(o => (o.PONumber ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 || (o.VendorName ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 || (o.LineItems ?? new List<PurchaseLineItem>()).Any(i => (i.Description ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0));
@@ -1406,8 +1422,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ResetPurchaseOrdersDashboardFilters()
         {
-            if (_poDashSearch != null) _poDashSearch.Text = "Search PO number, supplier, item...";
-            if (_poTableSearch != null) _poTableSearch.Text = "Search PO, Supplier...";
+            if (_poDashSearch != null) _poDashSearch.Text = "Search";
+            if (_poTableSearch != null) _poTableSearch.Text = "Search";
             if (_poStatusFilter != null) _poStatusFilter.SelectedIndex = 0;
             if (_poPeriodFilter != null) _poPeriodFilter.SelectedItem = "This Year";
             if (_poStatusFilterLabel != null) _poStatusFilterLabel.Text = "All Status";
@@ -2565,7 +2581,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel itemsCard = CreateCardPanel();
             itemsCard.Width = 960;
-            itemsCard.Height = 386;
+            itemsCard.Height = 456;
             itemsCard.Margin = new Padding(0, 0, 0, 12);
             itemsCard.Padding = new Padding(14);
             itemsCard.Controls.Add(MakeStepHeader("4", "Items", new Point(18, 16)));
@@ -2607,11 +2623,37 @@ namespace HVAC_Pro_Desktop.UI
             };
             itemsCard.Controls.Add(itemActions);
             itemActions.BringToFront();
+
+            _supplierCompareCard = new Panel
+            {
+                Location = new Point(14, 94),
+                Size = new Size(940, 76),
+                BackColor = Color.FromArgb(248, 250, 252),
+                Cursor = Cursors.Hand
+            };
+            _supplierCompareCard.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(191, 219, 254)))
+                    e.Graphics.DrawRectangle(pen, 0, 0, _supplierCompareCard.Width - 1, _supplierCompareCard.Height - 1);
+            };
+            _lblSupplierCompareEyebrow = new Label { Text = "SUPPLIER COMPARISON", Location = new Point(16, 10), Size = new Size(180, 14), Font = new Font("Segoe UI", 6.8f, FontStyle.Bold), ForeColor = DS.Slate500 };
+            _lblSupplierCompareItem = new Label { Text = "Select a material to compare offers", Location = new Point(16, 24), Size = new Size(360, 20), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            _lblSupplierCompareSummary = new Label { Text = "Best supplier, live offer count, and price breakdown will appear here.", Location = new Point(16, 44), Size = new Size(620, 16), Font = new Font("Segoe UI", 8.2f), ForeColor = DS.Slate600, AutoEllipsis = true };
+            _lblSupplierCompareDetail = new Label { Text = "Supplier comparison details will appear here.", Location = new Point(16, 58), Size = new Size(620, 14), Font = new Font("Segoe UI", 7.9f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            _lnkSupplierCompareApply = new LinkLabel { Text = "Apply Lowest", Location = new Point(728, 21), Size = new Size(90, 22), Font = new Font("Segoe UI", 8.6f, FontStyle.Bold), LinkColor = SaveGreen, ActiveLinkColor = SaveGreen, VisitedLinkColor = SaveGreen, TextAlign = ContentAlignment.MiddleRight };
+            _lnkSupplierCompareOpen = new LinkLabel { Text = "Open Comparison", Location = new Point(812, 21), Size = new Size(110, 22), Font = new Font("Segoe UI", 8.6f, FontStyle.Bold), LinkColor = InfoBlue, ActiveLinkColor = InfoBlue, VisitedLinkColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
+            _lnkSupplierCompareApply.LinkClicked += (s, e) => ApplyBestSupplierFromComparisonCard();
+            _lnkSupplierCompareOpen.LinkClicked += (s, e) => OpenSupplierComparisonCard();
+            foreach (Control ctl in new Control[] { _supplierCompareCard, _lblSupplierCompareEyebrow, _lblSupplierCompareItem, _lblSupplierCompareSummary, _lblSupplierCompareDetail })
+                ctl.Click += (s, e) => OpenSupplierComparisonCard();
+            _supplierCompareCard.Controls.AddRange(new Control[] { _lblSupplierCompareEyebrow, _lblSupplierCompareItem, _lblSupplierCompareSummary, _lblSupplierCompareDetail, _lnkSupplierCompareApply, _lnkSupplierCompareOpen });
+            itemsCard.Controls.Add(_supplierCompareCard);
+
             _lblVarianceWarning = new Label { Visible = false };
             _lineItemHeader = BuildLineItemHeader();
-            _lineItemHeader.Location = new Point(14, 96);
+            _lineItemHeader.Location = new Point(14, 170);
             _lineItemHeader.Width = 940;
-            Panel lineHost = new Panel { Location = new Point(14, 128), Size = new Size(940, 174), BackColor = Color.White, AutoScroll = true };
+            Panel lineHost = new Panel { Location = new Point(14, 202), Size = new Size(940, 174), BackColor = Color.White, AutoScroll = true };
             lineHost.HorizontalScroll.Enabled = false;
             lineHost.HorizontalScroll.Visible = false;
             lineHost.Paint += (s, e) =>
@@ -2624,7 +2666,7 @@ namespace HVAC_Pro_Desktop.UI
             lineHost.Controls.Add(_lblLineItemEmptyState);
             lineHost.Controls.Add(_lineItemFlow);
             _lblLineItemEmptyState.BringToFront();
-            Panel totalBar = new Panel { Location = new Point(14, 310), Size = new Size(940, 42), BackColor = Color.FromArgb(248, 250, 252) };
+            Panel totalBar = new Panel { Location = new Point(14, 384), Size = new Size(940, 42), BackColor = Color.FromArgb(248, 250, 252) };
             _lblLineItemCount = new Label { Text = "Showing 1 item", Location = new Point(12, 10), Size = new Size(160, 22), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
             _lblTotal = new Label { Text = "Sub Total:  ₹0.00        Discount:  ₹0.00        GST:  ₹0.00        Other Charges:  ₹0.00        Total:  ₹0.00", Location = new Point(180, 10), Size = new Size(640, 22), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
             totalBar.Controls.Add(_lblLineItemCount);
@@ -2942,6 +2984,8 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboVendor == null)
                 return;
 
+            bool wasBinding = _isBinding;
+            _isBinding = true;
             _cboVendor.BeginUpdate();
             _cboVendor.Items.Clear();
             foreach (Vendor vendor in _vendors)
@@ -2950,6 +2994,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboVendor.Items.Count > 0)
                 _cboVendor.SelectedIndex = 0;
             _cboVendor.EndUpdate();
+            _isBinding = wasBinding;
         }
 
         private void PopulateTechnicianCombo()
@@ -2957,11 +3002,14 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboTechnician == null)
                 return;
 
+            bool wasBinding = _isBinding;
+            _isBinding = true;
             _cboTechnician.Items.Clear();
             _cboTechnician.Items.Add(new ComboItem<int?>(null, "Unassigned"));
             foreach (Employee employee in _technicians ?? new List<Employee>())
                 _cboTechnician.Items.Add(new ComboItem<int?>(employee.EmployeeID, employee.Name));
             _cboTechnician.SelectedIndex = 0;
+            _isBinding = wasBinding;
         }
 
         private void PopulateLinkedRecordCombo()
@@ -3410,72 +3458,85 @@ namespace HVAC_Pro_Desktop.UI
             if (po == null)
                 return;
 
-            bool vendorSelected = false;
-            for (int i = 0; i < _cboVendor.Items.Count; i++)
+            _isBinding = true;
+            try
             {
-                if (((Vendor)_cboVendor.Items[i]).VendorID == po.VendorID)
+                bool vendorSelected = false;
+                for (int i = 0; i < _cboVendor.Items.Count; i++)
                 {
-                    _cboVendor.SelectedIndex = i;
-                    vendorSelected = true;
-                    break;
+                    if (((Vendor)_cboVendor.Items[i]).VendorID == po.VendorID)
+                    {
+                        _cboVendor.SelectedIndex = i;
+                        vendorSelected = true;
+                        break;
+                    }
                 }
-            }
-            if (!vendorSelected && po.POID < 0)
-            {
-                Vendor fallbackVendor = new Vendor
+
+                if (!vendorSelected && po.POID < 0)
                 {
-                    VendorID = 0,
-                    VendorName = string.IsNullOrWhiteSpace(po.VendorName) ? "New Supplier" : po.VendorName,
-                    GSTNumber = string.IsNullOrWhiteSpace(po.VendorGSTIN) ? string.Empty : po.VendorGSTIN,
-                    DefaultCreditDays = 30,
-                    Phone = string.Empty,
-                    Email = string.Empty,
-                    Address = string.Empty
-                };
-                _cboVendor.Items.Add(fallbackVendor);
-                _cboVendor.SelectedItem = fallbackVendor;
-            }
+                    Vendor fallbackVendor = new Vendor
+                    {
+                        VendorID = 0,
+                        VendorName = string.IsNullOrWhiteSpace(po.VendorName) ? "New Supplier" : po.VendorName,
+                        GSTNumber = string.IsNullOrWhiteSpace(po.VendorGSTIN) ? string.Empty : po.VendorGSTIN,
+                        DefaultCreditDays = 30,
+                        Phone = string.Empty,
+                        Email = string.Empty,
+                        Address = string.Empty
+                    };
+                    _cboVendor.Items.Add(fallbackVendor);
+                    _cboVendor.SelectedItem = fallbackVendor;
+                }
 
-            _txtPONumber.Text = po.PONumber ?? string.Empty;
-            if (_lblBreadcrumb != null)
-                _lblBreadcrumb.Text = "Purchase > Purchase Orders > " + (po.PONumber ?? "New PO");
-            if (_lblHeaderStatus != null)
+                _txtPONumber.Text = po.PONumber ?? string.Empty;
+                if (_lblBreadcrumb != null)
+                    _lblBreadcrumb.Text = "Purchase > Purchase Orders > " + (po.PONumber ?? "New PO");
+                if (_lblHeaderStatus != null)
+                {
+                    _lblHeaderStatus.Text = string.IsNullOrWhiteSpace(po.Status) ? "Draft" : po.Status;
+                    _lblHeaderStatus.ForeColor = GetStatusColor(po.Status);
+                    LayoutHeaderStatusBadge();
+                }
+                _dtpDate.Value = po.PODate == default ? DateTime.Today : po.PODate;
+                _dtpPayByDate.Value = po.PayByDate == default ? _dtpDate.Value.Date : po.PayByDate;
+                _txtVendorInvoiceNumber.Text = po.VendorInvoiceNumber ?? string.Empty;
+                _txtNotes.Text = po.Notes ?? string.Empty;
+                _rbSiteDelivery.Checked = string.Equals(po.DeliveryMode, "SiteDelivery", StringComparison.OrdinalIgnoreCase);
+                _rbTechPickup.Checked = !_rbSiteDelivery.Checked;
+                _txtDeliveryAddress.Text = po.DeliveryAddress ?? string.Empty;
+                _deliveryAddressPanel.Visible = _rbSiteDelivery.Checked;
+                SelectTechnician(po.AssignedTechnicianId);
+                _chkAddToClientInvoice.Checked = po.AddToClientInvoice;
+                UpdateReceiptPreview(po.ReceiptImagePath);
+                UpdateCreatedByDisplay(po);
+
+                int statusIndex = _cboStatus.Items.IndexOf(po.Status);
+                _cboStatus.SelectedIndex = statusIndex >= 0 ? statusIndex : 0;
+
+                SelectComboByText(_cboLinkedType, string.IsNullOrWhiteSpace(po.LinkedToType) ? "General" : po.LinkedToType);
+                PopulateLinkedRecordCombo();
+                SelectLinkedRecord(po.LinkedToId);
+                SelectProjectSite(po.SiteID > 0 ? po.SiteID : ResolveLinkedSiteId());
+
+                _lineItemFlow.Controls.Clear();
+                _otherCharges = 0m;
+                foreach (PurchaseLineItem li in po.LineItems ?? new List<PurchaseLineItem>())
+                    AddLineItemCard(li);
+
+                RecalcTotal();
+                UpdatePaymentMeta(po);
+                UpdateBillingControls();
+                _lblVarianceWarning.Visible = po.PriceVarianceFlag;
+                ApplyToolbarState();
+            }
+            finally
             {
-                _lblHeaderStatus.Text = string.IsNullOrWhiteSpace(po.Status) ? "Draft" : po.Status;
-                _lblHeaderStatus.ForeColor = GetStatusColor(po.Status);
-                LayoutHeaderStatusBadge();
+                _isBinding = false;
             }
-            _dtpDate.Value = po.PODate == default ? DateTime.Today : po.PODate;
-            _dtpPayByDate.Value = _svc.AutoSuggestPayByDate(_dtpDate.Value.Date, po.VendorID, po.PayByDate);
-            _txtVendorInvoiceNumber.Text = po.VendorInvoiceNumber ?? string.Empty;
-            _txtNotes.Text = po.Notes ?? string.Empty;
-            _rbSiteDelivery.Checked = string.Equals(po.DeliveryMode, "SiteDelivery", StringComparison.OrdinalIgnoreCase);
-            _rbTechPickup.Checked = !_rbSiteDelivery.Checked;
-            _txtDeliveryAddress.Text = po.DeliveryAddress ?? string.Empty;
-            _deliveryAddressPanel.Visible = _rbSiteDelivery.Checked;
-            SelectTechnician(po.AssignedTechnicianId);
-            _chkAddToClientInvoice.Checked = po.AddToClientInvoice;
-            UpdateReceiptPreview(po.ReceiptImagePath);
-            UpdateCreatedByDisplay(po);
 
-            int statusIndex = _cboStatus.Items.IndexOf(po.Status);
-            _cboStatus.SelectedIndex = statusIndex >= 0 ? statusIndex : 0;
-
-            SelectComboByText(_cboLinkedType, string.IsNullOrWhiteSpace(po.LinkedToType) ? "General" : po.LinkedToType);
-            PopulateLinkedRecordCombo();
-            SelectLinkedRecord(po.LinkedToId);
-            SelectProjectSite(po.SiteID > 0 ? po.SiteID : ResolveLinkedSiteId());
-
-            _lineItemFlow.Controls.Clear();
-            _otherCharges = 0m;
-            foreach (PurchaseLineItem li in po.LineItems ?? new List<PurchaseLineItem>())
-                AddLineItemCard(li);
-
-            RecalcTotal();
-            UpdatePaymentMeta(po);
-            UpdateBillingControls();
-            _lblVarianceWarning.Visible = po.PriceVarianceFlag;
-            ApplyToolbarState();
+            RefreshPayByDate(po.PayByDate);
+            RefreshDeliveryAddressPreview();
+            ApplyTechnicianSelection();
         }
 
         private void SelectLinkedRecord(int? linkedId)
@@ -3518,24 +3579,33 @@ namespace HVAC_Pro_Desktop.UI
             return GetSelectedProjectSiteId();
         }
 
-        private void RefreshDeliveryAddressPreview()
+        private async void RefreshDeliveryAddressPreview()
         {
-            if (_txtDeliveryAddress == null || _deliveryAddressPanel == null)
+            if (_isBinding || _txtDeliveryAddress == null || _deliveryAddressPanel == null)
                 return;
 
             string mode = _rbSiteDelivery != null && _rbSiteDelivery.Checked ? "SiteDelivery" : "TechPickup";
             int siteId = ResolveLinkedSiteId();
-            PurchaseOrder updated = _svc.OnDeliveryModeChanged(_current?.POID ?? 0, mode, siteId);
+            int requestVersion = ++_deliveryPreviewRefreshVersion;
+            PurchaseOrder updated = await Task.Run(() => _svc.OnDeliveryModeChanged(_current?.POID ?? 0, mode, siteId));
+            if (IsDisposed || requestVersion != _deliveryPreviewRefreshVersion)
+                return;
             _txtDeliveryAddress.Text = updated?.DeliveryAddress ?? string.Empty;
             _deliveryAddressPanel.Visible = string.Equals(mode, "SiteDelivery", StringComparison.OrdinalIgnoreCase);
         }
 
-        private void ApplyTechnicianSelection()
+        private async void ApplyTechnicianSelection()
         {
-            if (!(_cboTechnician.SelectedItem is ComboItem<int?> item))
+            if (_isBinding)
+                return;
+            ComboItem<int?> item = _cboTechnician.SelectedItem as ComboItem<int?>;
+            if (item == null)
                 return;
 
-            PurchaseOrder updated = _svc.OnTechnicianAssigned(_current?.POID ?? 0, item.Value ?? 0);
+            int requestVersion = ++_technicianRefreshVersion;
+            PurchaseOrder updated = await Task.Run(() => _svc.OnTechnicianAssigned(_current?.POID ?? 0, item.Value ?? 0));
+            if (IsDisposed || requestVersion != _technicianRefreshVersion)
+                return;
             if (_current != null)
             {
                 _current.AssignedTechnicianId = updated.AssignedTechnicianId;
@@ -3749,47 +3819,57 @@ namespace HVAC_Pro_Desktop.UI
 
         private void NewRecord()
         {
-            _current = null;
-            if (_cboVendor.Items.Count > 0)
-                _cboVendor.SelectedIndex = 0;
-            _txtPONumber.Text = string.Empty;
-            if (_lblBreadcrumb != null)
-                _lblBreadcrumb.Text = "Purchase > Purchase Orders > New PO";
-            if (_lblHeaderStatus != null)
+            _isBinding = true;
+            try
             {
-                _lblHeaderStatus.Text = "Draft";
-                _lblHeaderStatus.ForeColor = SaveGreen;
-                LayoutHeaderStatusBadge();
+                _current = null;
+                if (_cboVendor.Items.Count > 0)
+                    _cboVendor.SelectedIndex = 0;
+                _txtPONumber.Text = string.Empty;
+                if (_lblBreadcrumb != null)
+                    _lblBreadcrumb.Text = "Purchase > Purchase Orders > New PO";
+                if (_lblHeaderStatus != null)
+                {
+                    _lblHeaderStatus.Text = "Draft";
+                    _lblHeaderStatus.ForeColor = SaveGreen;
+                    LayoutHeaderStatusBadge();
+                }
+                _dtpDate.Value = DateTime.Today;
+                _txtVendorInvoiceNumber.Text = string.Empty;
+                _cboStatus.SelectedIndex = 0;
+                _cboLinkedType.SelectedItem = "General";
+                PopulateLinkedRecordCombo();
+                SelectProjectSite(0);
+                _rbTechPickup.Checked = true;
+                _rbSiteDelivery.Checked = false;
+                _txtDeliveryAddress.Text = string.Empty;
+                _deliveryAddressPanel.Visible = _rbSiteDelivery.Checked;
+                _chkAddToClientInvoice.Checked = false;
+                SelectTechnician(null);
+                _txtNotes.Text = string.Empty;
+                UpdateReceiptPreview(null);
+                _lineItemFlow.Controls.Clear();
+                _otherCharges = 0m;
+                AddLineItemCard();
+                _selectedCard = null;
+                PurchaseOrder createdByDraft = new PurchaseOrder
+                {
+                    CreatedByName = SessionManager.CurrentUser?.DisplayName,
+                    CreatedByDate = DateTime.Now
+                };
+                UpdateCreatedByDisplay(createdByDraft);
+                UpdatePaymentMeta(new PurchaseOrder { PODate = DateTime.Today, PayByDate = _dtpPayByDate.Value, TotalAmount = 0m, PaidAmount = 0m });
+                _lblVarianceWarning.Visible = false;
+                UpdateBillingControls();
+                ApplyToolbarState();
             }
-            _dtpDate.Value = DateTime.Today;
-            RefreshPayByDate();
-            _txtVendorInvoiceNumber.Text = string.Empty;
-            _cboStatus.SelectedIndex = 0;
-            _cboLinkedType.SelectedItem = "General";
-            PopulateLinkedRecordCombo();
-            SelectProjectSite(0);
-            _rbTechPickup.Checked = true;
-            _rbSiteDelivery.Checked = false;
-            _txtDeliveryAddress.Text = string.Empty;
-            _deliveryAddressPanel.Visible = _rbSiteDelivery.Checked;
-            _chkAddToClientInvoice.Checked = false;
-            SelectTechnician(null);
-            _txtNotes.Text = string.Empty;
-            UpdateReceiptPreview(null);
-            _lineItemFlow.Controls.Clear();
-            _otherCharges = 0m;
-            AddLineItemCard();
-            _selectedCard = null;
-            PurchaseOrder createdByDraft = new PurchaseOrder
+            finally
             {
-                CreatedByName = SessionManager.CurrentUser?.DisplayName,
-                CreatedByDate = DateTime.Now
-            };
-            UpdateCreatedByDisplay(createdByDraft);
-            UpdatePaymentMeta(new PurchaseOrder { PODate = DateTime.Today, PayByDate = _dtpPayByDate.Value, TotalAmount = 0m, PaidAmount = 0m });
-            _lblVarianceWarning.Visible = false;
-            UpdateBillingControls();
-            ApplyToolbarState();
+                _isBinding = false;
+            }
+
+            RefreshPayByDate();
+            RefreshDeliveryAddressPreview();
             SetStatus("New purchase order ready.", Color.Gray);
         }
 
@@ -3890,7 +3970,7 @@ namespace HVAC_Pro_Desktop.UI
                     Description = desc,
                     HsnSacCode = (row.Controls["cmbHsn"] as ComboBox)?.Text?.Trim(),
                     Quantity = qty,
-                    UOM = (row.Controls["cmbUom"] as ComboBox)?.Text ?? "Nos",
+                    UOM = _unitSvc.NormalizeForStorage((row.Controls["cmbUom"] as ComboBox)?.Text ?? UnitMeasurementService.DefaultCode),
                     Rate = rate,
                     GSTRate = gstRate,
                     CGSTRate = 0m,
@@ -4109,16 +4189,36 @@ namespace HVAC_Pro_Desktop.UI
             Vendor vendor = _cboVendor.SelectedItem as Vendor;
             if (_txtVendorGstin != null)
                 _txtVendorGstin.Text = vendor?.GSTNumber ?? string.Empty;
+            if (_isBinding)
+                return;
             RefreshPayByDate();
+            RefreshPurchaseLineRateDriftIndicators();
         }
 
-        private void RefreshPayByDate()
+        private async void RefreshPayByDate()
         {
-            if (_cboVendor == null || _dtpDate == null || _dtpPayByDate == null)
+            if (_isBinding || _cboVendor == null || _dtpDate == null || _dtpPayByDate == null)
                 return;
 
             Vendor vendor = _cboVendor.SelectedItem as Vendor;
-            DateTime payByDate = _svc.AutoSuggestPayByDate(_dtpDate.Value.Date, vendor?.VendorID ?? 0);
+            int requestVersion = ++_payByDateRefreshVersion;
+            DateTime payByDate = await Task.Run(() => _svc.AutoSuggestPayByDate(_dtpDate.Value.Date, vendor?.VendorID ?? 0));
+            if (IsDisposed || requestVersion != _payByDateRefreshVersion)
+                return;
+            if (_dtpPayByDate.Value.Date != payByDate)
+                _dtpPayByDate.Value = payByDate;
+        }
+
+        private async void RefreshPayByDate(DateTime? currentPayByDate)
+        {
+            if (_isBinding || _cboVendor == null || _dtpDate == null || _dtpPayByDate == null)
+                return;
+
+            Vendor vendor = _cboVendor.SelectedItem as Vendor;
+            int requestVersion = ++_payByDateRefreshVersion;
+            DateTime payByDate = await Task.Run(() => _svc.AutoSuggestPayByDate(_dtpDate.Value.Date, vendor?.VendorID ?? 0, currentPayByDate ?? _dtpDate.Value.Date));
+            if (IsDisposed || requestVersion != _payByDateRefreshVersion)
+                return;
             if (_dtpPayByDate.Value.Date != payByDate)
                 _dtpPayByDate.Value = payByDate;
         }
@@ -4235,7 +4335,7 @@ namespace HVAC_Pro_Desktop.UI
                         VendorInvoiceNumber = _txtVendorInvoiceNumber?.Text?.Trim(),
                         LineItems = new List<PurchaseLineItem>()
                     };
-                    po.LineItems.Add(new PurchaseLineItem { Description = "Draft service / material line", HsnSacCode = "9987", UOM = "Nos", Quantity = 1, Rate = 0, IGSTRate = 18 });
+                    po.LineItems.Add(new PurchaseLineItem { Description = "Draft service / material line", HsnSacCode = "9987", UOM = UnitMeasurementService.DefaultCode, Quantity = 1, Rate = 0, IGSTRate = 18 });
                 }
                 string html = _svc.BuildPurchaseOrderHtml(po);
                 new HtmlPreviewDialog("Purchase Order Preview - " + (po.PONumber ?? "(draft)"), html).ShowDialog(this);
@@ -4457,7 +4557,7 @@ namespace HVAC_Pro_Desktop.UI
                         foreach (TenderBidLineItem line in detailed.LineItems.Where(li => !string.IsNullOrWhiteSpace(li.ItemDescription)))
                         {
                             decimal rate = line.CostPerUnit > 0 ? line.CostPerUnit : line.SellPricePerUnit;
-                            string text = line.ItemDescription + " | " + line.Quantity.ToString("0.##") + " " + (line.Unit ?? "Nos") + " | " + IndiaFormatHelper.FormatCurrency(rate);
+                            string text = line.ItemDescription + " | " + line.Quantity.ToString("0.##") + " " + _unitSvc.NormalizeForDisplayOrDefault(line.Unit) + " | " + IndiaFormatHelper.FormatCurrency(rate);
                             lineList.Items.Add(new ComboItem<TenderBidLineItem>(line, text), true);
                         }
                     };
@@ -4499,7 +4599,7 @@ namespace HVAC_Pro_Desktop.UI
                             Description = rfqLine.ItemDescription,
                             HsnSacCode = rfqLine.HsnSacCode,
                             Quantity = rfqLine.Shortfall > 0 ? rfqLine.Shortfall : rfqLine.Quantity,
-                            UOM = string.IsNullOrWhiteSpace(rfqLine.Unit) ? "Nos" : rfqLine.Unit,
+                            UOM = _unitSvc.NormalizeForStorage(string.IsNullOrWhiteSpace(rfqLine.Unit) ? UnitMeasurementService.DefaultCode : rfqLine.Unit),
                             Rate = rate,
                             GSTRate = rfqLine.GSTRatePct,
                             IGSTRate = rfqLine.GSTRatePct,
@@ -4818,7 +4918,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = new Panel
             {
                 Width = 940,
-                Height = 62,
+                Height = 82,
                 BackColor = Color.White,
                 Margin = new Padding(0)
             };
@@ -4828,52 +4928,52 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawLine(pen, 0, card.Height - 1, card.Width, card.Height - 1);
             };
 
-            Label lblRowNo = new Label { Name = "lblRowNo", Text = rowNumber.ToString(), Location = new Point(12, 20), Width = 24, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleRight };
-            ComboBox cmbDesc = new ComboBox { Name = "cmbDesc", Location = new Point(42, 16), Width = 188, Font = new Font("Segoe UI", 9) };
+            Label lblRowNo = new Label { Name = "lblRowNo", Text = rowNumber.ToString(), Location = new Point(12, 16), Width = 24, Height = 18, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate700, TextAlign = ContentAlignment.MiddleRight };
+            ComboBox cmbDesc = new ComboBox { Name = "cmbDesc", Location = new Point(42, 12), Width = 188, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbDesc);
             foreach (StockItem item in _inventoryItems)
                 cmbDesc.Items.Add(item.ItemName);
             cmbDesc.Tag = null;
 
-            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 16), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Tag = "CUSTOM_INPUT_SHELL" };
-            ComboBox cmbHsn = new ComboBox { Name = "cmbHsn", Location = new Point(306, 16), Width = 52, Font = new Font("Segoe UI", 9) };
+            TextBox txtCategory = new TextBox { Name = "txtCategory", Location = new Point(238, 12), Width = 62, Font = new Font("Segoe UI", 9), ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Tag = "CUSTOM_INPUT_SHELL" };
+            ComboBox cmbHsn = new ComboBox { Name = "cmbHsn", Location = new Point(306, 12), Width = 52, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbHsn);
             foreach (HsnSacMasterEntry entry in _hsnEntries.Where(h => h.IsActive))
                 cmbHsn.Items.Add(entry.Code);
             cmbHsn.SelectedIndex = string.IsNullOrWhiteSpace(line?.HsnSacCode) ? -1 : cmbHsn.Items.IndexOf(line.HsnSacCode);
 
-            NumericUpDown numQty = MakeDecimalBox("numQty", new Point(364, 16), 46, 2, 999999m, line?.Quantity > 0 ? line.Quantity : 1m);
-            ComboBox cmbUom = new ComboBox { Name = "cmbUom", Location = new Point(416, 16), Width = 52, Font = new Font("Segoe UI", 9) };
+            NumericUpDown numQty = MakeDecimalBox("numQty", new Point(364, 12), 46, 2, 999999m, line?.Quantity > 0 ? line.Quantity : 1m);
+            ComboBox cmbUom = new ComboBox { Name = "cmbUom", Location = new Point(416, 12), Width = 52, Font = new Font("Segoe UI", 9) };
             ConfigureDropDownListCombo(cmbUom);
+            cmbUom.DropDownWidth = 280;
             cmbUom.Items.AddRange(_unitSvc.GetDisplayUnits().Cast<object>().ToArray());
-            EnsureComboItem(cmbUom, "Nos");
-            EnsureComboItem(cmbUom, "RMT");
-            string selectedUom = _unitSvc.NormalizeForDisplayOrDefault(line?.UOM);
+            string selectedUom = _unitSvc.NormalizeForPickerDisplayOrDefault(line?.UOM);
             EnsureComboItem(cmbUom, selectedUom);
             cmbUom.SelectedItem = selectedUom;
-            NumericUpDown numRate = MakeDecimalBox("numRate", new Point(474, 16), 66, 2, 9999999m, line?.Rate ?? 0m);
-            NumericUpDown numDiscount = MakeDecimalBox("numDiscount", new Point(546, 16), 44, 2, 100m, 0m);
-            NumericUpDown numGst = MakeDecimalBox("numGst", new Point(664, 16), 44, 2, 100m, line?.GSTRate > 0 ? line.GSTRate : (line?.IGSTRate > 0 ? line.IGSTRate : 18m));
-            Label lblTaxable = new Label { Name = "lblTaxable", Text = "Rs 0.00", Location = new Point(596, 20), Width = 62, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), TextAlign = ContentAlignment.MiddleRight };
-            Label lblGstAmount = new Label { Name = "lblGstAmount", Text = "Rs 0.00", Location = new Point(714, 20), Width = 60, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), TextAlign = ContentAlignment.MiddleRight };
+            NumericUpDown numRate = MakeDecimalBox("numRate", new Point(474, 12), 66, 2, 9999999m, line?.Rate ?? 0m);
+            NumericUpDown numDiscount = MakeDecimalBox("numDiscount", new Point(546, 12), 44, 2, 100m, 0m);
+            NumericUpDown numGst = MakeDecimalBox("numGst", new Point(664, 12), 44, 2, 100m, line?.GSTRate > 0 ? line.GSTRate : (line?.IGSTRate > 0 ? line.IGSTRate : 18m));
+            Label lblTaxable = new Label { Name = "lblTaxable", Text = "Rs 0.00", Location = new Point(596, 16), Width = 62, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), TextAlign = ContentAlignment.MiddleRight };
+            Label lblGstAmount = new Label { Name = "lblGstAmount", Text = "Rs 0.00", Location = new Point(710, 16), Width = 56, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), TextAlign = ContentAlignment.MiddleRight };
             NumericUpDown numCgst = MakeDecimalBox("numCgst", new Point(0, 0), 1, 2, 100m, 0m);
             NumericUpDown numSgst = MakeDecimalBox("numSgst", new Point(0, 0), 1, 2, 100m, 0m);
             NumericUpDown numIgst = MakeDecimalBox("numIgst", new Point(0, 0), 1, 2, 100m, numGst.Value);
             numCgst.Visible = false;
             numSgst.Visible = false;
             numIgst.Visible = false;
-            Label lblAmt = new Label { Name = "lblAmt", Text = "Rs 0.00", Location = new Point(780, 20), Width = 70, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
+            Label lblAmt = new Label { Name = "lblAmt", Text = "Rs 0.00", Location = new Point(780, 16), Width = 64, Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight };
             ComboBox cmbJobLink = new ComboBox { Name = "cmbJobLink", Location = new Point(0, 0), Width = 1, Font = new Font("Segoe UI", 9), Visible = false };
             ConfigureDropDownListCombo(cmbJobLink);
             cmbJobLink.Items.AddRange(new object[] { "General", "Project", "This Job" });
             cmbJobLink.SelectedItem = string.Equals(line?.JobLink, "Job", StringComparison.OrdinalIgnoreCase) ? "This Job" : (string.Equals(line?.JobLink, "Project", StringComparison.OrdinalIgnoreCase) ? "Project" : "General");
-            Button btnEdit = new Button { Text = "Cmp", Location = new Point(852, 15), Width = 42, Height = 30, BackColor = Color.White, ForeColor = InfoBlue, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold) };
-            Button btnRemove = new Button { Text = "X", Location = new Point(898, 15), Width = 34, Height = 30, BackColor = Color.White, ForeColor = DelRed, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8f, FontStyle.Bold) };
-            btnEdit.FlatAppearance.BorderColor = DS.Border;
-            _toolTip.SetToolTip(btnEdit, "Compare supplier prices for this material");
-            btnEdit.Click += (s, e) => ShowSupplierComparisonForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate);
+            Button btnRemove = new Button { Text = "X", Location = new Point(892, 10), Width = 34, Height = 24, BackColor = Color.White, ForeColor = DelRed, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 7.2f, FontStyle.Bold) };
+            Label lblSupplierOffers = new Label { Name = "lblSupplierOffers", Location = new Point(42, 48), Width = 528, Height = 20, Font = new Font("Segoe UI", 7.4f), ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
+            Label lblRateDrift = new Label { Name = "lblRateDrift", Location = new Point(582, 48), Width = 262, Height = 20, Font = new Font("Segoe UI", 7.4f, FontStyle.Bold), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true, Visible = false };
             btnRemove.FlatAppearance.BorderSize = 0;
             btnRemove.Click += (s, e) => { _lineItemFlow.Controls.Remove(card); RenumberLineItems(); RecalcTotal(); };
+            card.Click += (s, e) => SetActiveSupplierComparisonRow(cmbDesc, txtCategory, numQty, cmbUom, numRate);
+            foreach (Control ctl in new Control[] { lblRowNo, cmbDesc, txtCategory, cmbHsn, numQty, cmbUom, numRate, numDiscount, lblTaxable, numGst, lblGstAmount, lblAmt, lblSupplierOffers, lblRateDrift })
+                ctl.Click += (s, e) => SetActiveSupplierComparisonRow(cmbDesc, txtCategory, numQty, cmbUom, numRate);
 
             Action applySelectedInventory = () =>
             {
@@ -4896,10 +4996,16 @@ namespace HVAC_Pro_Desktop.UI
                     }
                 }
 
+                TryApplyBestSupplierForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate, true);
                 RecalcTotal();
-                ApplySupplierPriceHint(cmbDesc, txtCategory, numQty, btnEdit);
+                if (ReferenceEquals(_activeCompareDescription, cmbDesc))
+                    RefreshSupplierComparisonCard();
+                UpdateSupplierOfferPreview(cmbDesc, txtCategory, numQty, _supplierCompareCard, lblSupplierOffers);
+                ApplyRateVarianceVisual(card);
             };
             cmbDesc.SelectionChangeCommitted += (s, e) => applySelectedInventory();
+            cmbDesc.Validated += (s, e) => applySelectedInventory();
+            cmbDesc.Leave += (s, e) => applySelectedInventory();
             cmbJobLink.SelectedIndexChanged += (s, e) =>
             {
                 if (cmbJobLink.Text == "This Job" && !IsWorkOrderLinked())
@@ -4921,12 +5027,19 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (NumericUpDown num in new[] { numQty, numRate, numGst, numCgst, numSgst, numIgst })
                 num.ValueChanged += (s, e) => RecalcTotal();
+            numQty.ValueChanged += (s, e) =>
+            {
+                if (ReferenceEquals(_activeCompareDescription, cmbDesc))
+                    RefreshSupplierComparisonCard();
+                UpdateSupplierOfferPreview(cmbDesc, txtCategory, numQty, _supplierCompareCard, lblSupplierOffers);
+            };
             numDiscount.ValueChanged += (s, e) => RecalcTotal();
             cmbUom.SelectedIndexChanged += (s, e) => RecalcTotal();
 
             numRate.ValueChanged += (s, e) => ApplyRateVarianceVisual(card);
+            numRate.Leave += (s, e) => ApplyRateVarianceVisual(card);
 
-            foreach (Control ctl in new Control[] { lblRowNo, cmbDesc, txtCategory, cmbHsn, numQty, cmbUom, numRate, numDiscount, lblTaxable, numGst, lblGstAmount, numCgst, numSgst, numIgst, lblAmt, cmbJobLink, btnEdit, btnRemove })
+            foreach (Control ctl in new Control[] { lblRowNo, cmbDesc, txtCategory, cmbHsn, numQty, cmbUom, numRate, numDiscount, lblTaxable, numGst, lblGstAmount, numCgst, numSgst, numIgst, lblAmt, cmbJobLink, btnRemove, lblSupplierOffers, lblRateDrift })
                 card.Controls.Add(ctl);
 
             StockItem selectedStock = null;
@@ -4952,10 +5065,12 @@ namespace HVAC_Pro_Desktop.UI
             if (!string.IsNullOrWhiteSpace(cmbHsn.Text))
                 txtCategory.Text = ResolveCategory(cmbHsn.Text);
             _lineItemFlow.Controls.Add(card);
+            SetActiveSupplierComparisonRow(cmbDesc, txtCategory, numQty, cmbUom, numRate);
             ResizeLineItemRows();
             ApplyLineItemTableTheme();
             ApplyRateVarianceVisual(card, line?.PriceVariance > 10m);
-            ApplySupplierPriceHint(cmbDesc, txtCategory, numQty, btnEdit);
+            RefreshSupplierComparisonCard();
+            UpdateSupplierOfferPreview(cmbDesc, txtCategory, numQty, _supplierCompareCard, lblSupplierOffers);
             RecalcTotal();
         }
 
@@ -4969,57 +5084,249 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            using (var dialog = new SupplierPriceComparisonDialog(itemDescription, category?.Text, quantity?.Value ?? 1m, _vndSvc))
+            int? currentVendorId = (_cboVendor?.SelectedItem as Vendor)?.VendorID;
+            using (var dialog = new SupplierPriceComparisonDialog(itemDescription, category?.Text, quantity?.Value ?? 1m, _vndSvc, currentVendorId))
             {
                 if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedOption == null)
                     return;
 
                 SupplierOption option = dialog.SelectedOption;
-                if (rate != null)
-                    rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, option.Rate));
-                if (unit != null && !string.IsNullOrWhiteSpace(option.Unit))
-                {
-                    string optionUnit = _unitSvc.NormalizeForDisplayOrDefault(option.Unit);
-                    EnsureComboItem(unit, optionUnit);
-                    unit.SelectedItem = optionUnit;
-                }
-
-                SelectPurchaseVendorById(option.VendorID);
+                ApplySupplierOptionToPurchaseLine(option, unit, rate, true);
                 RecalcTotal();
                 SetStatus("Supplier comparison applied: " + option.VendorName + " at " + IndiaFormatHelper.FormatCurrency(option.Rate) + ".", SaveGreen);
             }
         }
 
-        private void ApplySupplierPriceHint(ComboBox description, TextBox category, NumericUpDown quantity, Button compareButton)
+        private void SetActiveSupplierComparisonRow(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate)
         {
-            if (compareButton == null)
+            _activeCompareDescription = description;
+            _activeCompareCategory = category;
+            _activeCompareQuantity = quantity;
+            _activeCompareUnit = unit;
+            _activeCompareRate = rate;
+            RefreshSupplierComparisonCard();
+        }
+
+        private void OpenSupplierComparisonCard()
+        {
+            if (_activeCompareDescription == null)
                 return;
 
-            string itemDescription = description?.Text?.Trim();
+            ShowSupplierComparisonForLineItem(_activeCompareDescription, _activeCompareCategory, _activeCompareQuantity, _activeCompareUnit, _activeCompareRate);
+            RefreshSupplierComparisonCard();
+        }
+
+        private void RefreshSupplierComparisonCard()
+        {
+            if (_supplierCompareCard == null || _lblSupplierCompareEyebrow == null || _lblSupplierCompareItem == null || _lblSupplierCompareSummary == null || _lblSupplierCompareDetail == null)
+                return;
+
+            string itemDescription = _activeCompareDescription?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(itemDescription))
             {
-                _toolTip.SetToolTip(compareButton, "Compare supplier prices for this material");
+                _supplierCompareCard.BackColor = Color.FromArgb(248, 250, 252);
+                _lblSupplierCompareEyebrow.Text = "SUPPLIER COMPARISON";
+                _lblSupplierCompareEyebrow.ForeColor = DS.Slate500;
+                _lblSupplierCompareItem.Text = "Select a material to compare offers";
+                _lblSupplierCompareSummary.Text = "Best supplier, live offer count, and price breakdown will appear here.";
+                _lblSupplierCompareDetail.Text = "Choose a line item to see live supplier history from purchase orders.";
+                _lblSupplierCompareDetail.ForeColor = DS.Slate500;
+                _lnkSupplierCompareApply.Enabled = false;
+                _lnkSupplierCompareOpen.Enabled = false;
+                _supplierCompareCard.Invalidate();
+                _toolTip.SetToolTip(_supplierCompareCard, "Compare supplier prices for this material");
                 return;
             }
 
             try
             {
-                SupplierOption best = _vndSvc.GetBestSupplierForItem(itemDescription, quantity?.Value ?? 1m, category?.Text);
+                List<SupplierOption> options = _vndSvc.GetSupplierOptions(itemDescription, _activeCompareCategory?.Text)
+                    .Where(o => o != null && o.VendorID > 0)
+                    .OrderBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
+                    .ThenBy(o => o.VendorName)
+                    .ToList();
+                SupplierOption best = options.FirstOrDefault();
                 if (best == null)
                 {
-                    compareButton.ForeColor = DS.Slate500;
-                    _toolTip.SetToolTip(compareButton, "No saved supplier price found. Click to review purchase-history options.");
+                    _supplierCompareCard.BackColor = Color.FromArgb(248, 250, 252);
+                    _lblSupplierCompareEyebrow.Text = "SUPPLIER COMPARISON";
+                    _lblSupplierCompareEyebrow.ForeColor = DS.Slate500;
+                    _lblSupplierCompareItem.Text = itemDescription;
+                    _lblSupplierCompareSummary.Text = "No saved supplier offer found yet for this material.";
+                    _lblSupplierCompareDetail.Text = "No vendor history found in purchase orders for this material yet.";
+                    _lblSupplierCompareDetail.ForeColor = DS.Slate500;
+                    _lnkSupplierCompareApply.Enabled = false;
+                    _lnkSupplierCompareOpen.Enabled = true;
+                    _supplierCompareCard.Invalidate();
+                    _toolTip.SetToolTip(_supplierCompareCard, "No saved supplier price found. Click to review purchase-history options.");
                     return;
                 }
 
-                compareButton.ForeColor = SaveGreen;
-                _toolTip.SetToolTip(compareButton, "Best supplier: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + ". Click to compare all suppliers.");
+                decimal quantity = _activeCompareQuantity?.Value ?? 1m;
+                string topThree = string.Join("  |  ", options.Take(3).Select(o => o.VendorName + " " + IndiaFormatHelper.FormatCurrency(o.Rate)));
+                if (options.Count > 3)
+                    topThree += "  |  +" + (options.Count - 3).ToString() + " more";
+
+                _supplierCompareCard.BackColor = options.Count > 1 ? Color.FromArgb(239, 246, 255) : Color.FromArgb(236, 253, 245);
+                _lblSupplierCompareEyebrow.Text = options.Count > 1 ? "BEST OF " + options.Count.ToString() + " SUPPLIERS" : "BEST SUPPLIER";
+                _lblSupplierCompareEyebrow.ForeColor = options.Count > 1 ? InfoBlue : SaveGreen;
+                _lblSupplierCompareItem.Text = itemDescription;
+                _lblSupplierCompareSummary.Text = best.VendorName + " is best at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " for " + quantity.ToString("0.##") + " qty.";
+                _lblSupplierCompareDetail.Text = topThree;
+                _lblSupplierCompareDetail.ForeColor = options.Count > 1 ? InfoBlue : SaveGreen;
+                _lnkSupplierCompareApply.Enabled = true;
+                _lnkSupplierCompareOpen.Enabled = true;
+                _supplierCompareCard.Invalidate();
+                _toolTip.SetToolTip(_supplierCompareCard, "Best supplier: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + ". Click to compare all suppliers.");
             }
             catch (Exception ex)
             {
-                AppRuntime.LogException("PurchaseForm.ApplySupplierPriceHint", ex);
-                compareButton.ForeColor = InfoBlue;
-                _toolTip.SetToolTip(compareButton, "Compare supplier prices for this material");
+                AppRuntime.LogException("PurchaseForm.RefreshSupplierComparisonCard", ex);
+                _supplierCompareCard.BackColor = Color.FromArgb(248, 250, 252);
+                _lblSupplierCompareEyebrow.Text = "SUPPLIER COMPARISON";
+                _lblSupplierCompareEyebrow.ForeColor = DS.Slate500;
+                _lblSupplierCompareItem.Text = itemDescription;
+                _lblSupplierCompareSummary.Text = "Supplier offers could not be analyzed right now.";
+                _lblSupplierCompareDetail.Text = "Open comparison to retry supplier analysis.";
+                _lblSupplierCompareDetail.ForeColor = InfoBlue;
+                _lnkSupplierCompareApply.Enabled = false;
+                _lnkSupplierCompareOpen.Enabled = true;
+                _supplierCompareCard.Invalidate();
+                _toolTip.SetToolTip(_supplierCompareCard, "Compare supplier prices for this material");
+            }
+        }
+
+        private void ApplyBestSupplierFromComparisonCard()
+        {
+            if (_activeCompareDescription == null)
+                return;
+
+            string itemDescription = _activeCompareDescription.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemDescription))
+                return;
+
+            try
+            {
+                SupplierOption best = _vndSvc.GetBestSupplierForItem(itemDescription, _activeCompareQuantity?.Value ?? 1m, _activeCompareCategory?.Text);
+                if (best == null)
+                    return;
+
+                ApplySupplierOptionToPurchaseLine(best, _activeCompareUnit, _activeCompareRate, true);
+                RecalcTotal();
+                RefreshSupplierComparisonCard();
+                SetStatus("Lowest supplier price applied: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + ".", SaveGreen);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PurchaseForm.ApplyBestSupplierFromComparisonCard", ex);
+            }
+        }
+
+        private void ApplySupplierOptionToPurchaseLine(SupplierOption option, ComboBox unit, NumericUpDown rate, bool selectVendor)
+        {
+            if (option == null)
+                return;
+
+            if (rate != null)
+                rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, option.Rate));
+            if (unit != null && !string.IsNullOrWhiteSpace(option.Unit))
+            {
+                string optionUnit = _unitSvc.NormalizeForPickerDisplayOrDefault(option.Unit);
+                EnsureComboItem(unit, optionUnit);
+                unit.SelectedItem = optionUnit;
+            }
+
+            if (selectVendor && option.VendorID > 0)
+                SelectPurchaseVendorById(option.VendorID);
+        }
+
+        private void UpdateSupplierOfferPreview(ComboBox description, TextBox category, NumericUpDown quantity, Control compareTarget, Label previewLabel)
+        {
+            if (previewLabel == null)
+                return;
+
+            string itemDescription = description?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemDescription))
+            {
+                previewLabel.Text = string.Empty;
+                previewLabel.ForeColor = DS.Slate500;
+                return;
+            }
+
+            try
+            {
+                List<SupplierOption> options = _vndSvc.GetSupplierOptions(itemDescription, category?.Text)
+                    .Where(o => o != null && o.VendorID > 0)
+                    .ToList();
+
+                if (options.Count == 0)
+                {
+                    previewLabel.Text = "No supplier offers saved yet for this material.";
+                    previewLabel.ForeColor = DS.Slate500;
+                    return;
+                }
+
+                List<string> parts = options
+                    .Take(4)
+                    .Select(o => o.VendorName + " " + IndiaFormatHelper.FormatCurrency(o.Rate))
+                    .ToList();
+
+                string summary = (options.Count == 1 ? "Offer: " : "Offers: ") + string.Join("  |  ", parts);
+                if (options.Count > 4)
+                    summary += "  |  +" + (options.Count - 4).ToString() + " more";
+
+                previewLabel.Text = summary;
+                previewLabel.ForeColor = options.Count > 1 ? InfoBlue : DS.Slate600;
+
+                if (compareTarget != null)
+                {
+                    string tooltipText = string.Join(
+                        Environment.NewLine,
+                        options.Select((o, index) =>
+                            (index + 1).ToString() + ". " + o.VendorName + " - " + IndiaFormatHelper.FormatCurrency(o.Rate)
+                            + (string.IsNullOrWhiteSpace(o.Unit) ? string.Empty : " / " + _unitSvc.NormalizeForDisplayOrDefault(o.Unit))));
+                    _toolTip.SetToolTip(compareTarget, tooltipText);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PurchaseForm.UpdateSupplierOfferPreview", ex);
+                previewLabel.Text = "Supplier offers could not be analyzed right now.";
+                previewLabel.ForeColor = DelRed;
+            }
+        }
+
+        private void TryApplyBestSupplierForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate, bool autoSelectVendor)
+        {
+            string itemDescription = description?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemDescription))
+                return;
+
+            try
+            {
+                SupplierOption best = _vndSvc.GetBestSupplierForItem(itemDescription, quantity?.Value ?? 1m, category?.Text);
+                if (best == null)
+                    return;
+
+                Vendor currentVendor = _cboVendor?.SelectedItem as Vendor;
+                bool vendorMissing = currentVendor == null || currentVendor.VendorID <= 0;
+                bool switchedVendor = autoSelectVendor && (vendorMissing || currentVendor.VendorID != best.VendorID);
+                if (switchedVendor)
+                    SelectPurchaseVendorById(best.VendorID);
+
+                if (rate != null && (rate.Value <= 0m || switchedVendor))
+                    rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, best.Rate));
+
+                if (unit != null && !string.IsNullOrWhiteSpace(best.Unit) && (string.IsNullOrWhiteSpace(unit.Text) || switchedVendor))
+                {
+                    string optionUnit = _unitSvc.NormalizeForPickerDisplayOrDefault(best.Unit);
+                    EnsureComboItem(unit, optionUnit);
+                    unit.SelectedItem = optionUnit;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PurchaseForm.TryApplyBestSupplierForLineItem", ex);
             }
         }
 
@@ -5202,27 +5509,56 @@ namespace HVAC_Pro_Desktop.UI
 
             ComboBox descCombo = row.Controls["cmbDesc"] as ComboBox;
             NumericUpDown rateCtl = row.Controls["numRate"] as NumericUpDown;
+            Label driftLabel = row.Controls["lblRateDrift"] as Label;
             if (descCombo == null || rateCtl == null)
                 return;
 
-            PurchaseLineItem line = new PurchaseLineItem
-            {
-                Description = descCombo.Text,
-                Rate = rateCtl.Value
-            };
-            bool detectedVariance = _svc.CheckLineItemPriceVariance(line);
-            bool isVariance = forceHighlight || detectedVariance;
-            if (isVariance)
-            {
-                rateCtl.BackColor = Color.FromArgb(255, 235, 235);
-                _toolTip.SetToolTip(rateCtl, "Price is " + line.PriceVariance.ToString("0.##") + "% above last recorded rate. Last rate: " + IndiaFormatHelper.FormatCurrency(line.HistoricalRate));
-            }
-            else
+            string description = (descCombo.Text ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(description))
             {
                 rateCtl.BackColor = Color.White;
                 _toolTip.SetToolTip(rateCtl, string.Empty);
+                if (driftLabel != null)
+                {
+                    driftLabel.Text = string.Empty;
+                    driftLabel.Visible = false;
+                }
+                RecalcTotal();
+                return;
+            }
+
+            SupplierRateDriftInfo drift = null;
+            try
+            {
+                int? vendorId = (_cboVendor?.SelectedItem as Vendor)?.VendorID;
+                drift = _vndSvc.GetSupplierRateDrift(description, vendorId, rateCtl.Value);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("PurchaseForm.ApplyRateVarianceVisual", ex);
+            }
+
+            bool isVariance = forceHighlight || (drift != null && drift.IsWarningThresholdExceeded);
+            rateCtl.BackColor = isVariance ? Color.FromArgb(255, 241, 235) : Color.White;
+            _toolTip.SetToolTip(rateCtl, drift == null ? string.Empty : drift.DisplayText + " | last " + IndiaFormatHelper.FormatCurrency(drift.LastRate));
+            if (driftLabel != null)
+            {
+                driftLabel.Text = drift?.DisplayText ?? string.Empty;
+                driftLabel.Visible = drift != null && !string.IsNullOrWhiteSpace(drift.DisplayText);
+                driftLabel.ForeColor = drift == null
+                    ? DS.Slate500
+                    : drift.IsIncrease ? Color.FromArgb(180, 83, 9) : (drift.IsDecrease ? Color.FromArgb(21, 128, 61) : DS.Slate500);
             }
             RecalcTotal();
+        }
+
+        private void RefreshPurchaseLineRateDriftIndicators()
+        {
+            if (_lineItemFlow == null)
+                return;
+
+            foreach (Control row in _lineItemFlow.Controls)
+                ApplyRateVarianceVisual(row);
         }
 
         private Color GetDueColor(PurchaseOrder po)
