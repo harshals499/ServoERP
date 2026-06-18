@@ -369,13 +369,15 @@ namespace HVAC_Pro_Desktop.DAL
                 EnsureJobPartsSchema(conn);
                 using (SqlCommand cmd = new SqlCommand(@"
                     INSERT INTO JobPartsUsed
-                        (JobId, InventoryItemId, ItemDescription, QuantityUsed, Unit, UnitCost, TotalCost, IsFromInventory, StockStatus)
+                        (JobId, InventoryItemId, VendorID, LinkedPoId, ItemDescription, QuantityUsed, Unit, UnitCost, TotalCost, IsFromInventory, StockStatus)
                     VALUES
-                        (@jobId, @inventoryItemId, @itemDescription, @quantityUsed, @unit, @unitCost, @totalCost, @isFromInventory, @stockStatus);
+                        (@jobId, @inventoryItemId, @vendorId, @linkedPoId, @itemDescription, @quantityUsed, @unit, @unitCost, @totalCost, @isFromInventory, @stockStatus);
                     SELECT SCOPE_IDENTITY();", conn))
                 {
                     cmd.Parameters.AddWithValue("@jobId", part.JobId);
                     cmd.Parameters.AddWithValue("@inventoryItemId", part.InventoryItemId.HasValue ? (object)part.InventoryItemId.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@vendorId", part.VendorID.HasValue ? (object)part.VendorID.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@linkedPoId", part.LinkedPoId.HasValue ? (object)part.LinkedPoId.Value : DBNull.Value);
                     cmd.Parameters.AddWithValue("@itemDescription", part.ItemDescription ?? string.Empty);
                     cmd.Parameters.AddWithValue("@quantityUsed", part.QuantityUsed);
                     cmd.Parameters.AddWithValue("@unit", string.IsNullOrWhiteSpace(part.Unit) ? "Nos" : part.Unit.Trim());
@@ -384,6 +386,44 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@isFromInventory", part.IsFromInventory);
                     cmd.Parameters.AddWithValue("@stockStatus", string.IsNullOrWhiteSpace(part.StockStatus) ? (object)DBNull.Value : part.StockStatus.Trim());
                     return Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
+        }
+
+        public void UpdatePurchaseDeliveryFeedbackForJob(int jobId, DateTime completionDate)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                EnsureJobPartsSchema(conn);
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE pli
+                    SET DeliveredOnTime = CASE
+                        WHEN COALESCE(pli.ExpectedDeliveryDate, p.PayByDate) IS NULL THEN NULL
+                        WHEN @completionDate <= COALESCE(pli.ExpectedDeliveryDate, p.PayByDate) THEN 1
+                        ELSE 0
+                    END
+                    FROM PurchaseLineItems pli
+                    INNER JOIN PurchaseOrders p ON p.POID = pli.POID
+                    WHERE pli.LinkedWorkOrderId = @jobId
+                       OR EXISTS (
+                            SELECT 1
+                            FROM JobPartsUsed jpu
+                            WHERE jpu.JobId = @jobId
+                              AND jpu.LinkedPoId = pli.POID
+                              AND (
+                                    (jpu.InventoryItemId IS NOT NULL AND jpu.InventoryItemId = pli.InventoryItemId)
+                                    OR (
+                                        jpu.InventoryItemId IS NULL
+                                        AND NULLIF(LTRIM(RTRIM(jpu.ItemDescription)), '') IS NOT NULL
+                                        AND NULLIF(LTRIM(RTRIM(COALESCE(pli.ItemName, pli.Description))), '') = NULLIF(LTRIM(RTRIM(jpu.ItemDescription)), '')
+                                    )
+                                  )
+                       );", conn))
+                {
+                    cmd.Parameters.AddWithValue("@jobId", jobId);
+                    cmd.Parameters.AddWithValue("@completionDate", completionDate);
+                    cmd.ExecuteNonQuery();
                 }
             }
         }
@@ -812,6 +852,8 @@ namespace HVAC_Pro_Desktop.DAL
                 PartUsedId = GetInt(r, "PartUsedId"),
                 JobId = GetInt(r, "JobId"),
                 InventoryItemId = GetNullableInt(r, "InventoryItemId"),
+                VendorID = GetNullableInt(r, "VendorID"),
+                LinkedPoId = GetNullableInt(r, "LinkedPoId"),
                 ItemDescription = GetString(r, "ItemDescription"),
                 QuantityUsed = GetDecimal(r, "QuantityUsed"),
                 Unit = GetString(r, "Unit"),
@@ -838,7 +880,9 @@ BEGIN
         UnitCost DECIMAL(18,2) NOT NULL DEFAULT 0,
         TotalCost DECIMAL(18,2) NOT NULL DEFAULT 0,
         IsFromInventory BIT NOT NULL DEFAULT 1,
-        StockStatus NVARCHAR(20) NULL
+        StockStatus NVARCHAR(20) NULL,
+        VendorID INT NULL,
+        LinkedPoId INT NULL
     );
 END
 IF COL_LENGTH('dbo.JobPartsUsed', 'InventoryItemId') IS NULL ALTER TABLE dbo.JobPartsUsed ADD InventoryItemId INT NULL;
@@ -848,7 +892,9 @@ IF COL_LENGTH('dbo.JobPartsUsed', 'Unit') IS NULL ALTER TABLE dbo.JobPartsUsed A
 IF COL_LENGTH('dbo.JobPartsUsed', 'UnitCost') IS NULL ALTER TABLE dbo.JobPartsUsed ADD UnitCost DECIMAL(18,2) NOT NULL DEFAULT 0;
 IF COL_LENGTH('dbo.JobPartsUsed', 'TotalCost') IS NULL ALTER TABLE dbo.JobPartsUsed ADD TotalCost DECIMAL(18,2) NOT NULL DEFAULT 0;
 IF COL_LENGTH('dbo.JobPartsUsed', 'IsFromInventory') IS NULL ALTER TABLE dbo.JobPartsUsed ADD IsFromInventory BIT NOT NULL DEFAULT 1;
-IF COL_LENGTH('dbo.JobPartsUsed', 'StockStatus') IS NULL ALTER TABLE dbo.JobPartsUsed ADD StockStatus NVARCHAR(20) NULL;", conn))
+IF COL_LENGTH('dbo.JobPartsUsed', 'StockStatus') IS NULL ALTER TABLE dbo.JobPartsUsed ADD StockStatus NVARCHAR(20) NULL;
+IF COL_LENGTH('dbo.JobPartsUsed', 'VendorID') IS NULL ALTER TABLE dbo.JobPartsUsed ADD VendorID INT NULL;
+IF COL_LENGTH('dbo.JobPartsUsed', 'LinkedPoId') IS NULL ALTER TABLE dbo.JobPartsUsed ADD LinkedPoId INT NULL;", conn))
             {
                 cmd.ExecuteNonQuery();
             }

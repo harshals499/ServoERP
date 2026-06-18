@@ -55,6 +55,8 @@ namespace HVAC_Pro_Desktop.Models
         public int PartUsedId { get; set; }
         public int JobId { get; set; }
         public int? InventoryItemId { get; set; }
+        public int? VendorID { get; set; }
+        public int? LinkedPoId { get; set; }
         public string ItemDescription { get; set; }
         public decimal QuantityUsed { get; set; }
         public string Unit { get; set; }

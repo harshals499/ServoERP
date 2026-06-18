@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly EmployeeService _employeeService = new EmployeeService();
         private readonly ContractService _contractService = new ContractService();
         private readonly InventoryService _inventoryService = new InventoryService();
+        private readonly VendorService _vendorService = new VendorService();
         private readonly InvoiceService _invoiceService = new InvoiceService();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
@@ -255,6 +256,7 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     JobId = jobId,
                     InventoryItemId = item?.ItemID,
+                    VendorID = item?.VendorID,
                     ItemDescription = resolvedDescription,
                     QuantityUsed = qty,
                     Unit = item?.Unit ?? "Nos",
@@ -265,7 +267,10 @@ namespace HVAC_Pro_Desktop.Services
                     AvailableStock = available
                 };
 
-                _repo.AddPartUsed(part);
+                if (!part.VendorID.HasValue && !string.IsNullOrWhiteSpace(resolvedDescription))
+                    part.VendorID = _vendorService.GetBestSupplierForItem(resolvedDescription, qty, item?.Category)?.VendorID;
+
+                part.PartUsedId = _repo.AddPartUsed(part);
                 if (item != null)
                 {
                     if (unitCostOverride.HasValue && Math.Abs(unitCostOverride.Value - item.LastPurchaseRate) >= 0.01m)
@@ -445,6 +450,7 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             _repo.UpdatePipeline(jobId, pipeline, ResolveLegacyStatus(pipeline), job.CompletedDate, job.ClosedDate, invoiceId);
+            _repo.UpdatePurchaseDeliveryFeedbackForJob(jobId, job.ClosedDate ?? job.CompletedDate ?? DateTime.Now);
             if (!string.IsNullOrWhiteSpace(closeNotes))
                 _repo.UpdateNotes(jobId, (string.IsNullOrWhiteSpace(job.Notes) ? string.Empty : job.Notes + Environment.NewLine) + closeNotes.Trim());
 
