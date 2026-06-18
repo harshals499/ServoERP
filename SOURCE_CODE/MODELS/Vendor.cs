@@ -94,5 +94,43 @@ namespace HVAC_Pro_Desktop.Models
         public decimal OutstandingBalance { get; set; }
         public int OpenPOCount { get; set; }
         public List<PurchaseOrder> RecentPOs { get; set; } = new List<PurchaseOrder>();
+        public VendorScorecardDto Scorecard { get; set; } = new VendorScorecardDto();
+    }
+
+    public class VendorScorecardDto
+    {
+        public decimal TotalPurchaseValue { get; set; }
+        public decimal? OnTimeDeliveryRatePct { get; set; }
+        public decimal? FulfilmentCompletenessPct { get; set; }
+        public decimal? ReliabilityScorePct { get; set; }
+        public List<VendorPriceTrendSeries> PriceTrends { get; set; } = new List<VendorPriceTrendSeries>();
+    }
+
+    public class VendorPriceTrendSeries
+    {
+        public string ItemName { get; set; }
+        public string UOM { get; set; }
+        public List<VendorPriceTrendPoint> Points { get; set; } = new List<VendorPriceTrendPoint>();
+    }
+
+    public class VendorPriceTrendPoint
+    {
+        public DateTime PeriodDate { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Quantity { get; set; }
+    }
+
+    public class SupplierRateDriftInfo
+    {
+        public int VendorID { get; set; }
+        public string VendorName { get; set; }
+        public string ItemName { get; set; }
+        public decimal CurrentRate { get; set; }
+        public decimal LastRate { get; set; }
+        public decimal DriftPercent { get; set; }
+        public bool IsIncrease { get; set; }
+        public bool IsDecrease { get; set; }
+        public bool IsWarningThresholdExceeded { get; set; }
+        public string DisplayText { get; set; }
     }
 }

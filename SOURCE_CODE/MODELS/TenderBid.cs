@@ -64,6 +64,22 @@ namespace HVAC_Pro_Desktop.Models
         public string Source { get; set; }
         public string Phone { get; set; }
         public string Email { get; set; }
+        public string MatchedItemName { get; set; }
+        public DateTime? EffectiveDate { get; set; }
+        public DateTime? LastPurchaseDate { get; set; }
+        public decimal QtyAvailable { get; set; }
+        public int? LeadDays { get; set; }
+        public decimal WeightedScore { get; set; }
+        public decimal WeightedPriceScore { get; set; }
+        public decimal? OnTimeDeliveryRatePct { get; set; }
+        public decimal? StockCoveragePct { get; set; }
+        public decimal? FulfilmentRatePct { get; set; }
+        public decimal? RequestedQuantity { get; set; }
+        public decimal RecommendationScore { get; set; }
+        public string RecommendationReason { get; set; }
+        public bool PreferredVendorMatch { get; set; }
+        public int DefaultCreditDays { get; set; }
+        public decimal TotalPurchased { get; set; }
         public decimal EstimatedCost(decimal quantity) => Math.Round(quantity * Rate, 2);
         public override string ToString() => $"{VendorName} @ Rs {Rate:N2}/{Unit}";
     }
@@ -80,6 +96,7 @@ namespace HVAC_Pro_Desktop.Models
         public string Unit { get; set; } = "Nos";
         public string HsnSacCode { get; set; }
         public decimal GSTRatePct { get; set; } = 18m;
+        public int? VendorID { get; set; }
         public int? BestSupplierId { get; set; }
         public string BestSupplierName { get; set; }
         public decimal CostPerUnit { get; set; }
@@ -101,6 +118,7 @@ namespace HVAC_Pro_Desktop.Models
         public DateTime? PriceMemoryDate { get; set; }
         public string PriceMemoryQuotationNumber { get; set; }
         public decimal MinimumRecommendedPrice { get; set; }
+        public string RateDriftText { get; set; }
     }
 
     public class QuoteTemplate

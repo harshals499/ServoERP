@@ -29,6 +29,25 @@ namespace HVAC_Pro_Desktop.Services
             public bool HasOverduePurchaseOrder { get; set; }
         }
 
+        private sealed class SupplierHistoryCandidate
+        {
+            public int VendorID { get; set; }
+            public string VendorName { get; set; }
+            public string Phone { get; set; }
+            public string Email { get; set; }
+            public int DefaultCreditDays { get; set; }
+            public decimal TotalPurchased { get; set; }
+            public string SourceItem { get; set; }
+            public string Unit { get; set; }
+            public decimal Rate { get; set; }
+            public DateTime? PurchaseDate { get; set; }
+            public DateTime? ExpectedDeliveryDate { get; set; }
+            public DateTime? ActualCompletionDate { get; set; }
+            public decimal LastPurchaseQuantity { get; set; }
+            public int? LeadDays { get; set; }
+            public string PurchaseStatus { get; set; }
+        }
+
         private readonly VendorRepository _repo = new VendorRepository();
         private readonly PurchaseRepository _purchaseRepo = new PurchaseRepository();
         private readonly DatabaseManager _db = new DatabaseManager();
@@ -315,7 +334,8 @@ namespace HVAC_Pro_Desktop.Services
                 CreatedDate = vendor.CreatedDate,
                 OutstandingBalance = outstanding,
                 OpenPOCount = openPoCount,
-                RecentPOs = vendorOrders.OrderByDescending(po => po.PODate).Take(5).ToList()
+                RecentPOs = vendorOrders.OrderByDescending(po => po.PODate).Take(5).ToList(),
+                Scorecard = GetVendorScorecard(vendorId)
             };
         }
 
@@ -451,106 +471,441 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(itemDescription))
                 return null;
 
-            List<SupplierOption> options = GetSupplierOptions(itemDescription, category);
-            return options
-                .OrderBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
-                .ThenBy(o => o.VendorName)
-                .FirstOrDefault();
+            return GetSupplierOptions(itemDescription, category, quantity).FirstOrDefault();
         }
 
-        public List<SupplierOption> GetSupplierOptions(string itemDescription, string category = null)
+        public List<SupplierOption> GetSupplierOptions(string itemDescription, string category = null, decimal quantity = 1m)
         {
             var options = new List<SupplierOption>();
             if (string.IsNullOrWhiteSpace(itemDescription))
                 return options;
 
+            StockItem mappedStock = _inventorySvc.GetByName(itemDescription);
+            string defaultUnit = mappedStock?.Unit ?? "Nos";
+            int inventoryItemId = mappedStock?.ItemID ?? 0;
+            decimal requestedQuantity = quantity <= 0m ? 1m : quantity;
+            List<SupplierHistoryCandidate> history = new List<SupplierHistoryCandidate>();
+
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
 
-                using (SqlCommand supplierCmd = new SqlCommand(@"
-                    SELECT sip.VendorID, v.VendorName, sip.Rate, ISNULL(NULLIF(sip.Unit, ''), @defaultUnit) AS Unit, sip.Source, v.Phone, v.Email
-                    FROM SupplierItemPrices sip
-                    INNER JOIN Vendors v ON sip.VendorID = v.VendorID
-                    WHERE (sip.ItemName LIKE @item OR (@category <> '' AND sip.Category = @category))
-                      AND ISNULL(v.IsActive, 1) = 1
+                using (SqlCommand historyCmd = new SqlCommand(@"
+                    SELECT
+                        p.VendorID,
+                        v.VendorName,
+                        v.Phone,
+                        v.Email,
+                        ISNULL(v.DefaultCreditDays, 0) AS DefaultCreditDays,
+                        ISNULL(v.TotalPurchased, 0) AS TotalPurchased,
+                        ISNULL(NULLIF(LTRIM(RTRIM(COALESCE(pli.ItemName, pli.Description))), ''), @itemName) AS SourceItem,
+                        ISNULL(NULLIF(LTRIM(RTRIM(pli.UOM)), ''), @defaultUnit) AS Unit,
+                        COALESCE(NULLIF(pli.UnitPrice, 0),
+                            CASE
+                                WHEN ISNULL(pli.Quantity, 0) > 0 AND ISNULL(pli.Amount, 0) > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0)
+                                WHEN ISNULL(pli.Rate, 0) > 0 THEN pli.Rate
+                                ELSE 0
+                            END) AS DerivedRate,
+                        ISNULL(pli.Quantity, 0) AS PurchaseQty,
+                        COALESCE(p.PODate, p.CreatedDate, p.ModifiedDate) AS PurchaseDate,
+                        COALESCE(pli.ExpectedDeliveryDate, p.PayByDate) AS ExpectedDeliveryDate,
+                        COALESCE(j.ClosedDate, j.CompletedDate) AS ActualCompletionDate,
+                        p.Status,
+                        CASE
+                            WHEN COALESCE(p.ModifiedDate, p.CreatedDate, p.PODate) >= COALESCE(p.PODate, p.CreatedDate, p.ModifiedDate)
+                                THEN DATEDIFF(day, COALESCE(p.PODate, p.CreatedDate, p.ModifiedDate), COALESCE(p.ModifiedDate, p.CreatedDate, p.PODate))
+                            ELSE NULL
+                        END AS LeadDays
+                    FROM PurchaseLineItems pli
+                    INNER JOIN PurchaseOrders p ON pli.POID = p.POID
+                    INNER JOIN Vendors v ON p.VendorID = v.VendorID
+                    LEFT JOIN Jobs j ON pli.LinkedWorkOrderId = j.JobID
+                    WHERE ISNULL(v.IsActive, 1) = 1
                       AND ISNULL(v.IsArchived, 0) = 0
                       AND ISNULL(v.IsSupplier, 1) = 1
-                    ORDER BY sip.Rate ASC, v.VendorName ASC", conn))
+                      AND (
+                            (@inventoryItemId > 0 AND ISNULL(pli.InventoryItemId, 0) = @inventoryItemId)
+                            OR COALESCE(pli.ItemName, pli.Description) LIKE @item
+                            OR (@category <> '' AND COALESCE(pli.ItemName, pli.Description) LIKE '%' + @category + '%')
+                      )", conn))
                 {
-                    supplierCmd.Parameters.AddWithValue("@item", "%" + itemDescription.Trim() + "%");
-                    supplierCmd.Parameters.AddWithValue("@category", category ?? string.Empty);
-                    supplierCmd.Parameters.AddWithValue("@defaultUnit", _inventorySvc.GetByName(itemDescription)?.Unit ?? "Nos");
-                    using (SqlDataReader r = supplierCmd.ExecuteReader())
+                    historyCmd.Parameters.AddWithValue("@item", "%" + itemDescription.Trim() + "%");
+                    historyCmd.Parameters.AddWithValue("@category", category ?? string.Empty);
+                    historyCmd.Parameters.AddWithValue("@itemName", itemDescription.Trim());
+                    historyCmd.Parameters.AddWithValue("@defaultUnit", defaultUnit);
+                    historyCmd.Parameters.AddWithValue("@inventoryItemId", inventoryItemId);
+                    using (SqlDataReader r = historyCmd.ExecuteReader())
                     {
                         while (r.Read())
                         {
-                            options.Add(new SupplierOption
+                            decimal rate = r["DerivedRate"] == DBNull.Value ? 0m : Convert.ToDecimal(r["DerivedRate"]);
+                            if (rate <= 0m)
+                                continue;
+
+                            history.Add(new SupplierHistoryCandidate
                             {
                                 VendorID = Convert.ToInt32(r["VendorID"]),
                                 VendorName = Convert.ToString(r["VendorName"]),
-                                Rate = r["Rate"] == DBNull.Value ? 0m : Convert.ToDecimal(r["Rate"]),
-                                Unit = Convert.ToString(r["Unit"]),
-                                Source = r["Source"] == DBNull.Value ? "Supplier master" : Convert.ToString(r["Source"]),
                                 Phone = r["Phone"] == DBNull.Value ? string.Empty : Convert.ToString(r["Phone"]),
-                                Email = r["Email"] == DBNull.Value ? string.Empty : Convert.ToString(r["Email"])
+                                Email = r["Email"] == DBNull.Value ? string.Empty : Convert.ToString(r["Email"]),
+                                SourceItem = r["SourceItem"] == DBNull.Value ? itemDescription.Trim() : Convert.ToString(r["SourceItem"]),
+                                Unit = Convert.ToString(r["Unit"]),
+                                Rate = rate,
+                                PurchaseDate = r["PurchaseDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r["PurchaseDate"]),
+                                ExpectedDeliveryDate = r["ExpectedDeliveryDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r["ExpectedDeliveryDate"]),
+                                ActualCompletionDate = r["ActualCompletionDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r["ActualCompletionDate"]),
+                                LastPurchaseQuantity = r["PurchaseQty"] == DBNull.Value ? 0m : Convert.ToDecimal(r["PurchaseQty"]),
+                                LeadDays = r["LeadDays"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["LeadDays"]),
+                                DefaultCreditDays = r["DefaultCreditDays"] == DBNull.Value ? 0 : Convert.ToInt32(r["DefaultCreditDays"]),
+                                TotalPurchased = r["TotalPurchased"] == DBNull.Value ? 0m : Convert.ToDecimal(r["TotalPurchased"]),
+                                PurchaseStatus = r["Status"] == DBNull.Value ? string.Empty : Convert.ToString(r["Status"])
                             });
-                        }
-                    }
-                }
-
-                if (options.Count == 0)
-                {
-                    using (SqlCommand historyCmd = new SqlCommand(@"
-                        SELECT TOP 10
-                            p.VendorID,
-                            v.VendorName,
-                            v.Phone,
-                            v.Email,
-                            MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) AS DerivedRate
-                        FROM PurchaseLineItems pli
-                        INNER JOIN PurchaseOrders p ON pli.POID = p.POID
-                        INNER JOIN Vendors v ON p.VendorID = v.VendorID
-                        WHERE (pli.Description LIKE @item OR (@category <> '' AND pli.Description LIKE '%' + @category + '%'))
-                          AND ISNULL(v.IsActive, 1) = 1
-                          AND ISNULL(v.IsArchived, 0) = 0
-                          AND ISNULL(v.IsSupplier, 1) = 1
-                        GROUP BY p.VendorID, v.VendorName, v.Phone, v.Email
-                        HAVING MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) IS NOT NULL
-                        ORDER BY MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) ASC", conn))
-                    {
-                        historyCmd.Parameters.AddWithValue("@item", "%" + itemDescription.Trim() + "%");
-                        historyCmd.Parameters.AddWithValue("@category", category ?? string.Empty);
-                        using (SqlDataReader r = historyCmd.ExecuteReader())
-                        {
-                            while (r.Read())
-                            {
-                                decimal rate = r["DerivedRate"] == DBNull.Value ? 0m : Convert.ToDecimal(r["DerivedRate"]);
-                                if (rate <= 0)
-                                    continue;
-
-                                options.Add(new SupplierOption
-                                {
-                                    VendorID = Convert.ToInt32(r["VendorID"]),
-                                    VendorName = Convert.ToString(r["VendorName"]),
-                                    Rate = rate,
-                                    Unit = _inventorySvc.GetByName(itemDescription)?.Unit ?? "Nos",
-                                    Source = "Purchase history",
-                                    Phone = r["Phone"] == DBNull.Value ? string.Empty : Convert.ToString(r["Phone"]),
-                                    Email = r["Email"] == DBNull.Value ? string.Empty : Convert.ToString(r["Email"])
-                                });
-                            }
                         }
                     }
                 }
             }
 
-            return options
+            List<SupplierOption> ranked = history
                 .GroupBy(o => o.VendorID)
-                .Select(g => g.OrderBy(x => x.Rate <= 0 ? decimal.MaxValue : x.Rate).First())
-                .OrderBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
+                .Select(g =>
+                {
+                    SupplierHistoryCandidate latest = g
+                        .OrderByDescending(x => x.PurchaseDate ?? DateTime.MinValue)
+                        .First();
+
+                    SupplierHistoryCandidate cheapest = g
+                        .OrderBy(x => x.Rate <= 0 ? decimal.MaxValue : x.Rate)
+                        .ThenByDescending(x => IsExactSupplierItemMatch(itemDescription, x.SourceItem))
+                        .ThenByDescending(x => x.PurchaseDate ?? DateTime.MinValue)
+                        .First();
+
+                    List<SupplierHistoryCandidate> onTimeRows = g
+                        .Where(x => x.ExpectedDeliveryDate.HasValue && x.ActualCompletionDate.HasValue)
+                        .ToList();
+                    decimal? onTimeRate = onTimeRows.Count == 0
+                        ? (decimal?)null
+                        : Math.Round(onTimeRows.Count(x => x.ActualCompletionDate.Value.Date <= x.ExpectedDeliveryDate.Value.Date) * 100m / onTimeRows.Count, 2);
+
+                    decimal? fulfilmentRate = g.Any(x => !string.IsNullOrWhiteSpace(x.PurchaseStatus))
+                        ? (decimal?)Math.Round(g.Average(x => GetFulfilmentScore(x.PurchaseStatus)), 2)
+                        : null;
+
+                    decimal qtyAvailable = 0m;
+                    decimal? stockCoveragePct = null;
+                    if (mappedStock != null)
+                    {
+                        qtyAvailable = Math.Min(mappedStock.AvailableStock, Math.Max(0m, latest.LastPurchaseQuantity));
+                        if (requestedQuantity > 0m)
+                            stockCoveragePct = Math.Round(Math.Min(100m, (qtyAvailable / requestedQuantity) * 100m), 2);
+                    }
+
+                    return new SupplierOption
+                    {
+                        VendorID = cheapest.VendorID,
+                        VendorName = cheapest.VendorName,
+                        Rate = cheapest.Rate,
+                        Unit = string.IsNullOrWhiteSpace(latest.Unit) ? cheapest.Unit : latest.Unit,
+                        Source = "Purchase history",
+                        Phone = latest.Phone ?? cheapest.Phone,
+                        Email = latest.Email ?? cheapest.Email,
+                        MatchedItemName = latest.SourceItem ?? cheapest.SourceItem,
+                        EffectiveDate = latest.PurchaseDate ?? cheapest.PurchaseDate,
+                        LastPurchaseDate = g.Max(x => x.PurchaseDate),
+                        QtyAvailable = qtyAvailable,
+                        LeadDays = g.Any(x => x.LeadDays.HasValue)
+                            ? (int?)Convert.ToInt32(Math.Round(g.Where(x => x.LeadDays.HasValue).Average(x => x.LeadDays.Value), MidpointRounding.AwayFromZero))
+                            : null,
+                        OnTimeDeliveryRatePct = onTimeRate,
+                        StockCoveragePct = stockCoveragePct,
+                        FulfilmentRatePct = fulfilmentRate,
+                        RequestedQuantity = requestedQuantity,
+                        DefaultCreditDays = latest.DefaultCreditDays,
+                        TotalPurchased = latest.TotalPurchased
+                    };
+                })
+                .ToList();
+
+            ApplyWeightedSupplierScores(itemDescription, mappedStock, ranked);
+            return ranked
+                .OrderBy(o => o.WeightedScore)
+                .ThenBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
+                .ThenByDescending(o => IsExactSupplierItemMatch(itemDescription, o.MatchedItemName))
                 .ThenBy(o => o.VendorName)
                 .ToList();
+        }
+
+        public SupplierRateDriftInfo GetSupplierRateDrift(string itemDescription, int? vendorId, decimal currentRate)
+        {
+            if (string.IsNullOrWhiteSpace(itemDescription) || !vendorId.HasValue || vendorId.Value <= 0 || currentRate <= 0m)
+                return null;
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    SELECT TOP 1
+                        p.VendorID,
+                        v.VendorName,
+                        COALESCE(NULLIF(pli.UnitPrice, 0),
+                            CASE
+                                WHEN ISNULL(pli.Quantity, 0) > 0 AND ISNULL(pli.Amount, 0) > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0)
+                                WHEN ISNULL(pli.Rate, 0) > 0 THEN pli.Rate
+                                ELSE 0
+                            END) AS LastRate
+                    FROM PurchaseLineItems pli
+                    INNER JOIN PurchaseOrders p ON p.POID = pli.POID
+                    INNER JOIN Vendors v ON v.VendorID = p.VendorID
+                    WHERE p.VendorID = @vendorId
+                      AND (
+                            COALESCE(pli.ItemName, pli.Description) = @exact
+                            OR COALESCE(pli.ItemName, pli.Description) LIKE @item
+                          )
+                    ORDER BY COALESCE(p.PODate, p.CreatedDate, p.ModifiedDate) DESC, pli.LineItemID DESC", conn))
+                {
+                    cmd.Parameters.AddWithValue("@vendorId", vendorId.Value);
+                    cmd.Parameters.AddWithValue("@exact", itemDescription.Trim());
+                    cmd.Parameters.AddWithValue("@item", "%" + itemDescription.Trim() + "%");
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (!reader.Read() || reader["LastRate"] == DBNull.Value)
+                            return null;
+
+                        decimal lastRate = Convert.ToDecimal(reader["LastRate"]);
+                        if (lastRate <= 0m)
+                            return null;
+
+                        decimal driftPct = Math.Round(((currentRate - lastRate) / lastRate) * 100m, 2);
+                        SupplierRateDriftInfo info = new SupplierRateDriftInfo
+                        {
+                            VendorID = vendorId.Value,
+                            VendorName = reader["VendorName"] == DBNull.Value ? string.Empty : Convert.ToString(reader["VendorName"]),
+                            ItemName = itemDescription.Trim(),
+                            CurrentRate = currentRate,
+                            LastRate = lastRate,
+                            DriftPercent = Math.Abs(driftPct),
+                            IsIncrease = driftPct > 0.01m,
+                            IsDecrease = driftPct < -0.01m,
+                            IsWarningThresholdExceeded = driftPct > 5m
+                        };
+
+                        if (info.IsIncrease)
+                            info.DisplayText = "Rate up " + info.DriftPercent.ToString("0.##") + "% vs last purchase";
+                        else if (info.IsDecrease)
+                            info.DisplayText = "Rate down " + info.DriftPercent.ToString("0.##") + "% vs last purchase";
+                        else
+                            info.DisplayText = "Rate matches last purchase";
+
+                        return info;
+                    }
+                }
+            }
+        }
+
+        public VendorScorecardDto GetVendorScorecard(int vendorId)
+        {
+            VendorScorecardDto dto = new VendorScorecardDto();
+            if (vendorId <= 0)
+                return dto;
+
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+
+                using (SqlCommand cmd = new SqlCommand(@"
+                    SELECT
+                        SUM(ISNULL(p.TotalAmount, 0)) AS TotalPurchaseValue,
+                        AVG(CASE
+                            WHEN COALESCE(pli.ExpectedDeliveryDate, p.PayByDate) IS NULL OR COALESCE(j.ClosedDate, j.CompletedDate) IS NULL THEN NULL
+                            WHEN COALESCE(j.ClosedDate, j.CompletedDate) <= COALESCE(pli.ExpectedDeliveryDate, p.PayByDate) THEN 100.0
+                            ELSE 0.0
+                        END) AS OnTimeRatePct,
+                        AVG(CASE
+                            WHEN ISNULL(p.Status, '') IN ('Fully Received', 'Received', 'Paid', 'Closed') THEN 100.0
+                            WHEN ISNULL(p.Status, '') IN ('Partial', 'Partially Received') THEN 60.0
+                            ELSE 0.0
+                        END) AS FulfilmentPct
+                    FROM PurchaseOrders p
+                    LEFT JOIN PurchaseLineItems pli ON pli.POID = p.POID
+                    LEFT JOIN Jobs j ON pli.LinkedWorkOrderId = j.JobID
+                    WHERE p.VendorID = @vendorId;", conn))
+                {
+                    cmd.Parameters.AddWithValue("@vendorId", vendorId);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            dto.TotalPurchaseValue = reader["TotalPurchaseValue"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["TotalPurchaseValue"]);
+                            dto.OnTimeDeliveryRatePct = reader["OnTimeRatePct"] == DBNull.Value ? (decimal?)null : Math.Round(Convert.ToDecimal(reader["OnTimeRatePct"]), 2);
+                            dto.FulfilmentCompletenessPct = reader["FulfilmentPct"] == DBNull.Value ? (decimal?)null : Math.Round(Convert.ToDecimal(reader["FulfilmentPct"]), 2);
+                            dto.ReliabilityScorePct = BuildCompositeReliability(dto.OnTimeDeliveryRatePct, dto.FulfilmentCompletenessPct);
+                        }
+                    }
+                }
+
+                using (SqlCommand trendCmd = new SqlCommand(@"
+                    SELECT
+                        COALESCE(NULLIF(LTRIM(RTRIM(COALESCE(pli.ItemName, pli.Description))), ''), 'Material') AS ItemName,
+                        ISNULL(NULLIF(LTRIM(RTRIM(pli.UOM)), ''), 'Nos') AS UOM,
+                        DATEFROMPARTS(YEAR(COALESCE(p.PODate, p.CreatedDate, GETDATE())), MONTH(COALESCE(p.PODate, p.CreatedDate, GETDATE())), 1) AS PeriodDate,
+                        AVG(COALESCE(NULLIF(pli.UnitPrice, 0),
+                            CASE
+                                WHEN ISNULL(pli.Quantity, 0) > 0 AND ISNULL(pli.Amount, 0) > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0)
+                                WHEN ISNULL(pli.Rate, 0) > 0 THEN pli.Rate
+                                ELSE 0
+                            END)) AS AvgUnitPrice,
+                        SUM(ISNULL(pli.Quantity, 0)) AS TotalQty
+                    FROM PurchaseOrders p
+                    INNER JOIN PurchaseLineItems pli ON pli.POID = p.POID
+                    WHERE p.VendorID = @vendorId
+                      AND COALESCE(p.PODate, p.CreatedDate, GETDATE()) >= DATEADD(month, -11, DATEFROMPARTS(YEAR(GETDATE()), MONTH(GETDATE()), 1))
+                    GROUP BY
+                        COALESCE(NULLIF(LTRIM(RTRIM(COALESCE(pli.ItemName, pli.Description))), ''), 'Material'),
+                        ISNULL(NULLIF(LTRIM(RTRIM(pli.UOM)), ''), 'Nos'),
+                        DATEFROMPARTS(YEAR(COALESCE(p.PODate, p.CreatedDate, GETDATE())), MONTH(COALESCE(p.PODate, p.CreatedDate, GETDATE())), 1)
+                    ORDER BY ItemName, PeriodDate;", conn))
+                {
+                    trendCmd.Parameters.AddWithValue("@vendorId", vendorId);
+                    using (SqlDataReader reader = trendCmd.ExecuteReader())
+                    {
+                        Dictionary<string, VendorPriceTrendSeries> byItem = new Dictionary<string, VendorPriceTrendSeries>(StringComparer.OrdinalIgnoreCase);
+                        while (reader.Read())
+                        {
+                            string itemName = reader["ItemName"] == DBNull.Value ? "Material" : Convert.ToString(reader["ItemName"]);
+                            VendorPriceTrendSeries series;
+                            if (!byItem.TryGetValue(itemName, out series))
+                            {
+                                series = new VendorPriceTrendSeries
+                                {
+                                    ItemName = itemName,
+                                    UOM = reader["UOM"] == DBNull.Value ? "Nos" : Convert.ToString(reader["UOM"])
+                                };
+                                byItem[itemName] = series;
+                            }
+
+                            series.Points.Add(new VendorPriceTrendPoint
+                            {
+                                PeriodDate = reader["PeriodDate"] == DBNull.Value ? DateTime.Today : Convert.ToDateTime(reader["PeriodDate"]),
+                                UnitPrice = reader["AvgUnitPrice"] == DBNull.Value ? 0m : Math.Round(Convert.ToDecimal(reader["AvgUnitPrice"]), 2),
+                                Quantity = reader["TotalQty"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["TotalQty"])
+                            });
+                        }
+
+                        dto.PriceTrends = byItem.Values
+                            .OrderByDescending(s => s.Points.Count)
+                            .ThenBy(s => s.ItemName)
+                            .ToList();
+                    }
+                }
+            }
+
+            return dto;
+        }
+
+        private void ApplyWeightedSupplierScores(string itemDescription, StockItem mappedStock, List<SupplierOption> options)
+        {
+            if (options == null || options.Count == 0)
+                return;
+
+            decimal lowestRate = options.Where(o => o != null && o.Rate > 0m).Select(o => o.Rate).DefaultIfEmpty(0m).Min();
+            decimal highestRate = options.Where(o => o != null && o.Rate > 0m).Select(o => o.Rate).DefaultIfEmpty(lowestRate).Max();
+
+            foreach (SupplierOption option in options.Where(o => o != null))
+            {
+                option.PreferredVendorMatch = mappedStock != null
+                    && mappedStock.VendorID.HasValue
+                    && mappedStock.VendorID.Value > 0
+                    && mappedStock.VendorID.Value == option.VendorID;
+
+                decimal priceScore = BuildPriceScore(option.Rate, lowestRate, highestRate);
+                option.WeightedPriceScore = priceScore;
+
+                List<Tuple<decimal, decimal>> weightedSignals = new List<Tuple<decimal, decimal>>
+                {
+                    Tuple.Create(50m, priceScore)
+                };
+
+                if (option.OnTimeDeliveryRatePct.HasValue)
+                    weightedSignals.Add(Tuple.Create(30m, option.OnTimeDeliveryRatePct.Value));
+                if (option.StockCoveragePct.HasValue)
+                    weightedSignals.Add(Tuple.Create(20m, option.StockCoveragePct.Value));
+
+                decimal totalWeight = weightedSignals.Sum(x => x.Item1);
+                decimal compositeScore = totalWeight <= 0m
+                    ? 0m
+                    : Math.Round(weightedSignals.Sum(x => x.Item2 * x.Item1) / totalWeight, 2);
+                decimal penaltyScore = Math.Round(Math.Max(0m, 100m - compositeScore), 2);
+
+                option.WeightedScore = penaltyScore;
+                option.RecommendationScore = Math.Round(100m - penaltyScore, 2);
+
+                List<string> reasons = new List<string>();
+                reasons.Add("score " + penaltyScore.ToString("0.##"));
+                reasons.Add("price " + priceScore.ToString("0.##"));
+                if (option.OnTimeDeliveryRatePct.HasValue)
+                    reasons.Add("on-time " + option.OnTimeDeliveryRatePct.Value.ToString("0.#") + "%");
+                if (option.StockCoveragePct.HasValue)
+                    reasons.Add("stock " + option.StockCoveragePct.Value.ToString("0.#") + "%");
+                if (option.PreferredVendorMatch)
+                    reasons.Add("mapped vendor");
+                if (IsExactSupplierItemMatch(itemDescription, option.MatchedItemName))
+                    reasons.Add("exact item match");
+                option.RecommendationReason = string.Join(", ", reasons.Take(4));
+            }
+        }
+
+        private static decimal BuildPriceScore(decimal rate, decimal lowestRate, decimal highestRate)
+        {
+            if (rate <= 0m || lowestRate <= 0m)
+                return 0m;
+
+            if (highestRate <= lowestRate)
+                return 100m;
+
+            decimal normalized = (highestRate - rate) / (highestRate - lowestRate);
+            return Math.Round(Math.Max(0m, Math.Min(100m, normalized * 100m)), 2);
+        }
+
+        private static decimal GetFulfilmentScore(string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+                return 0m;
+
+            string normalized = status.Trim();
+            if (string.Equals(normalized, "Fully Received", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Received", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Paid", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Closed", StringComparison.OrdinalIgnoreCase))
+                return 100m;
+            if (string.Equals(normalized, "Partial", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Partially Received", StringComparison.OrdinalIgnoreCase))
+                return 60m;
+            return 0m;
+        }
+
+        private static decimal? BuildCompositeReliability(decimal? onTimeRatePct, decimal? fulfilmentPct)
+        {
+            List<Tuple<decimal, decimal>> signals = new List<Tuple<decimal, decimal>>();
+            if (onTimeRatePct.HasValue)
+                signals.Add(Tuple.Create(60m, onTimeRatePct.Value));
+            if (fulfilmentPct.HasValue)
+                signals.Add(Tuple.Create(40m, fulfilmentPct.Value));
+            if (signals.Count == 0)
+                return null;
+
+            decimal totalWeight = signals.Sum(x => x.Item1);
+            return Math.Round(signals.Sum(x => x.Item2 * x.Item1) / totalWeight, 2);
+        }
+
+        private static bool IsExactSupplierItemMatch(string itemDescription, string matchedItemName)
+        {
+            return string.Equals(NormalizeSupplierMatchText(itemDescription), NormalizeSupplierMatchText(matchedItemName), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeSupplierMatchText(string text)
+        {
+            return string.IsNullOrWhiteSpace(text)
+                ? string.Empty
+                : new string(text.Trim().ToLowerInvariant().Where(ch => char.IsLetterOrDigit(ch)).ToArray());
         }
 
         private void PrepareVendor(Vendor vendor)

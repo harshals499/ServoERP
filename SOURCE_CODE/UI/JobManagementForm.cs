@@ -46,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly EmployeeService _employeeSvc = new EmployeeService();
         private readonly ContractService _contractSvc = new ContractService();
         private readonly InventoryService _inventorySvc = new InventoryService();
+        private readonly VendorService _vendorSvc = new VendorService();
         private readonly SettingsService _settingsSvc = new SettingsService();
 
         private SplitContainer _split;
@@ -103,6 +104,8 @@ namespace HVAC_Pro_Desktop.UI
         private NumericUpDown _numPartQty;
         private NumericUpDown _numPartRate;
         private Label _lblPartStockHint;
+        private Label _lblPartRateDrift;
+        private int? _partSelectedVendorId;
         private Panel _partsAddPanel;
 
         private FlowLayoutPanel _nudgesFlow;
@@ -148,6 +151,14 @@ namespace HVAC_Pro_Desktop.UI
             public List<Employee> Technicians { get; set; } = new List<Employee>();
             public List<StockItem> Inventory { get; set; } = new List<StockItem>();
             public bool TimedOut { get; set; }
+        }
+
+        private sealed class JobDetailBindSnapshot
+        {
+            public JobDetailDto Detail { get; set; }
+            public List<ClientSite> Sites { get; set; } = new List<ClientSite>();
+            public List<AMCContract> Contracts { get; set; } = new List<AMCContract>();
+            public List<NudgeDto> Nudges { get; set; } = new List<NudgeDto>();
         }
 
         public JobManagementForm()
@@ -330,7 +341,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = TextPrimary, Size = new Size(280, 32), Text = _dashboardSearchValue };
             _dashboardSearch.MinimumSize = new Size(260, 32);
-            ConfigureDashboardPlaceholder(_dashboardSearch, "Search jobs, client, location, or ID...");
+            ConfigureDashboardPlaceholder(_dashboardSearch, "Search");
             _dashboardSearch.TextChanged += (s, e) => { CaptureDashboardFilterState(); _dashboardPage = 1; RenderJobsDashboard(); };
             Button filters = DashboardButton("Filter Jobs", White, TextPrimary, 102, true);
             filters.MinimumSize = new Size(84, 30);
@@ -487,7 +498,7 @@ namespace HVAC_Pro_Desktop.UI
             });
 
             _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8f), ForeColor = TextPrimary, Location = new Point(card.Width - 668, 38), Size = new Size(150, 26), Anchor = AnchorStyles.Top | AnchorStyles.Right, Text = _dashboardSearchValue };
-            ConfigureDashboardPlaceholder(_dashboardSearch, "Search jobs...");
+            ConfigureDashboardPlaceholder(_dashboardSearch, "Search");
             _dashboardSearch.TextChanged += (s, e) => { CaptureDashboardFilterState(); _dashboardPage = 1; RenderJobsDashboard(); };
             _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 8f), Location = new Point(card.Width - 508, 38), Size = new Size(118, 26), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _dashboardStatusFilter.Items.AddRange(new object[] { "All Status", "Open", "In Progress", "Completed", "On Hold", "Cancelled" });
@@ -1540,7 +1551,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Surface,
                 ForeColor = TextPrimary
             };
-            ConfigurePlaceholder(_txtSearch, "Search jobs, clients, technicians...");
+            ConfigurePlaceholder(_txtSearch, "Search");
             _txtSearch.TextChanged += (s, e) => { UpdateSearchClear(); ApplyFilters(); };
             _btnSearchClear = new Button
             {
@@ -1864,29 +1875,37 @@ namespace HVAC_Pro_Desktop.UI
             _cmbPartSearch.SelectedIndexChanged += (s, e) => UpdatePartStockHint();
             _numPartQty = new NumericUpDown { Location = new Point(392, 28), Width = 96, DecimalPlaces = 3, Minimum = 0.001m, Maximum = 9999, Value = 1 };
             _numPartRate = new NumericUpDown { Location = new Point(502, 28), Width = 112, DecimalPlaces = 2, Minimum = 0, Maximum = 9999999, Value = 0, ThousandsSeparator = true };
+            _numPartRate.Leave += (s, e) => RefreshPartRateDrift();
             Button btnAddPart = MakeInlineButton("Add", Teal, 86);
             btnAddPart.Location = new Point(628, 27);
             btnAddPart.Click += async (s, e) => await AddPartAsync();
+            Button btnComparePartSuppliers = MakeInlineButton("Suppliers", Blue, 96);
+            btnComparePartSuppliers.Location = new Point(724, 27);
+            btnComparePartSuppliers.Click += (s, e) => ShowPartSupplierComparison();
             _lblPartStockHint = new Label { Location = new Point(0, 66), Size = new Size(520, 20), ForeColor = TextHint, Font = new Font("Segoe UI", 8.8f) };
+            _lblPartRateDrift = new Label { Location = new Point(530, 66), Size = new Size(300, 20), ForeColor = TextHint, Font = new Font("Segoe UI", 8.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleRight, Visible = false };
             _partsAddPanel.Resize += (s, e) =>
             {
                 int addWidth = 92;
+                int compareWidth = 100;
                 int qtyWidth = 104;
                 int rateWidth = 116;
                 int gap = 12;
                 int available = Math.Max(320, _partsAddPanel.ClientSize.Width);
-                int comboWidth = Math.Max(220, available - addWidth - qtyWidth - rateWidth - (gap * 3));
+                int comboWidth = Math.Max(220, available - addWidth - compareWidth - qtyWidth - rateWidth - (gap * 4));
                 materialHeading.SetBounds(0, 6, comboWidth, 18);
                 qtyHeading.SetBounds(comboWidth + gap, 6, qtyWidth, 18);
                 rateHeading.SetBounds(comboWidth + qtyWidth + (gap * 2), 6, rateWidth, 18);
-                actionHeading.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 6, addWidth, 18);
+                actionHeading.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 6, addWidth + compareWidth + gap, 18);
                 _cmbPartSearch.SetBounds(0, 28, comboWidth, 34);
                 _numPartQty.SetBounds(comboWidth + gap, 28, qtyWidth, 34);
                 _numPartRate.SetBounds(comboWidth + qtyWidth + (gap * 2), 28, rateWidth, 34);
                 btnAddPart.SetBounds(comboWidth + qtyWidth + rateWidth + (gap * 3), 27, addWidth, 36);
+                btnComparePartSuppliers.SetBounds(btnAddPart.Right + gap, 27, compareWidth, 36);
                 _lblPartStockHint.SetBounds(0, 70, Math.Max(260, available - 8), 20);
+                _lblPartRateDrift.SetBounds(Math.Max(270, available - 320), 70, 312, 20);
             };
-            _partsAddPanel.Controls.AddRange(new Control[] { materialHeading, qtyHeading, rateHeading, actionHeading, _cmbPartSearch, _numPartQty, _numPartRate, btnAddPart, _lblPartStockHint });
+            _partsAddPanel.Controls.AddRange(new Control[] { materialHeading, qtyHeading, rateHeading, actionHeading, _cmbPartSearch, _numPartQty, _numPartRate, btnAddPart, btnComparePartSuppliers, _lblPartStockHint, _lblPartRateDrift });
 
             _partsFlow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = White, Padding = new Padding(0, 6, 0, 8) };
             _lblPartsTotal = new Label { Dock = DockStyle.Bottom, Height = 34, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight };
@@ -2271,13 +2290,26 @@ namespace HVAC_Pro_Desktop.UI
         {
             ShowJobEditor();
             SetListStatus("Loading job...");
-            JobDetailDto detail = await Task.Run(() => _jobSvc.GetJobDetail(jobId));
-            if (detail == null)
+            JobDetailBindSnapshot snapshot = await Task.Run(() =>
+            {
+                JobDetailDto detail = _jobSvc.GetJobDetail(jobId);
+                if (detail == null || detail.Job == null)
+                    return null;
+
+                return new JobDetailBindSnapshot
+                {
+                    Detail = detail,
+                    Sites = detail.Job.ClientID > 0 ? (_siteSvc.GetByClientId(detail.Job.ClientID) ?? new List<ClientSite>()) : new List<ClientSite>(),
+                    Contracts = detail.Job.ClientID > 0 ? (_contractSvc.GetContractsByClient(detail.Job.ClientID) ?? new List<AMCContract>()) : new List<AMCContract>(),
+                    Nudges = _jobSvc.GenerateNudges(detail.Job.JobID) ?? new List<NudgeDto>()
+                };
+            });
+            if (snapshot == null || snapshot.Detail == null)
                 return;
 
-            _currentDetail = detail;
+            _currentDetail = snapshot.Detail;
             _isNewMode = false;
-            BindDetail(detail);
+            BindDetail(snapshot);
             SetListStatus(_allJobs.Count + " jobs loaded");
         }
 
@@ -2364,8 +2396,12 @@ namespace HVAC_Pro_Desktop.UI
             _detailScroll.Controls.Add(empty);
         }
 
-        private void BindDetail(JobDetailDto detail)
+        private void BindDetail(JobDetailBindSnapshot snapshot)
         {
+            JobDetailDto detail = snapshot == null ? null : snapshot.Detail;
+            if (detail == null || detail.Job == null)
+                return;
+
             _isBinding = true;
             try
             {
@@ -2374,8 +2410,8 @@ namespace HVAC_Pro_Desktop.UI
                 _txtJobTitle.Text = job.JobTitle ?? job.Title ?? string.Empty;
                 SelectLookup(_cmbClient, job.ClientID);
 
-                _sitesForClient = _siteSvc.GetByClientId(job.ClientID);
-                _contractsForClient = _contractSvc.GetContractsByClient(job.ClientID);
+                _sitesForClient = snapshot.Sites ?? new List<ClientSite>();
+                _contractsForClient = snapshot.Contracts ?? new List<AMCContract>();
                 RebindSitesAndContracts(job.SiteID, job.LinkedContractId ?? 0);
 
                 SelectLookup(_cmbTechnician, job.AssignedEmployeeID ?? 0);
@@ -2392,7 +2428,7 @@ namespace HVAC_Pro_Desktop.UI
 
             RenderChecklist(detail.ChecklistItems);
             RenderParts(detail.PartsUsed);
-            RenderNudges(_jobSvc.GenerateNudges(detail.Job.JobID));
+            RenderNudges(snapshot.Nudges ?? new List<NudgeDto>());
             RefreshHeader(detail);
             UpdatePipelineBar(detail.Job.PipelineStatus);
             _ = RefreshTechnicianWorkloadAsync();
@@ -2851,6 +2887,8 @@ namespace HVAC_Pro_Desktop.UI
                 PartUsedId = part.PartUsedId,
                 JobId = part.JobId,
                 InventoryItemId = part.InventoryItemId,
+                VendorID = part.VendorID,
+                LinkedPoId = part.LinkedPoId,
                 ItemDescription = part.ItemDescription,
                 QuantityUsed = part.QuantityUsed,
                 Unit = part.Unit,
@@ -3014,7 +3052,10 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Panel row = new Panel { Width = partsWidth, Height = 56, Margin = new Padding(0, 0, 0, 10), BackColor = White };
                 Label lblName = new Label { Text = part.ItemDescription, Location = new Point(0, 4), Size = new Size(Math.Max(220, partsWidth - 260), 20), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
-                Label lblMeta = new Label { Text = part.QuantityUsed.ToString("0.###") + " " + (part.Unit ?? "Nos"), Location = new Point(0, 28), Size = new Size(180, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = TextSecondary };
+                string vendorMeta = part.VendorID.HasValue && part.VendorID.Value > 0 ? "Vendor #" + part.VendorID.Value : string.Empty;
+                string poMeta = part.LinkedPoId.HasValue && part.LinkedPoId.Value > 0 ? "PO #" + part.LinkedPoId.Value : string.Empty;
+                string meta = string.Join(" | ", new[] { part.QuantityUsed.ToString("0.###") + " " + (part.Unit ?? "Nos"), vendorMeta, poMeta }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                Label lblMeta = new Label { Text = meta, Location = new Point(0, 28), Size = new Size(260, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = TextSecondary, AutoEllipsis = true };
                 Label lblCost = new Label { Text = IndiaFormatHelper.FormatCurrency(part.TotalCost), Location = new Point(Math.Max(210, partsWidth - 198), 4), Size = new Size(100, 20), TextAlign = ContentAlignment.TopRight, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = TextPrimary };
                 Label pill = MakePill(GetStockLabel(part.StockStatus), GetStockBack(part.StockStatus), GetStockFore(part.StockStatus), 84);
                 pill.Location = new Point(Math.Max(316, partsWidth - 90), 16);
@@ -3669,7 +3710,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private string GetSearchText()
         {
-            const string placeholder = "Search jobs, clients, technicians...";
+            const string placeholder = "Search";
             string text = _txtSearch.Text.Trim();
             return string.Equals(text, placeholder, StringComparison.OrdinalIgnoreCase) || IsPlaceholder(_txtSearch, placeholder)
                 ? string.Empty
@@ -3682,18 +3723,53 @@ namespace HVAC_Pro_Desktop.UI
             if (stock == null)
             {
                 _lblPartStockHint.Text = "Search material item name";
+                _partSelectedVendorId = null;
+                RefreshPartRateDrift();
                 return;
             }
 
             if (_numPartRate != null && !_numPartRate.Focused)
             {
-                decimal rate = Math.Max(_numPartRate.Minimum, Math.Min(_numPartRate.Maximum, stock.LastPurchaseRate));
+                SupplierOption best = null;
+                try
+                {
+                    best = _vendorSvc.GetBestSupplierForItem(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, stock.Category);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("JobManagementForm.UpdatePartStockHint", ex);
+                }
+
+                decimal recommendedRate = best?.Rate > 0m ? best.Rate : stock.LastPurchaseRate;
+                _partSelectedVendorId = best?.VendorID ?? stock.VendorID;
+                decimal rate = Math.Max(_numPartRate.Minimum, Math.Min(_numPartRate.Maximum, recommendedRate));
                 _numPartRate.Value = rate;
             }
 
             _lblPartStockHint.Text = "Available qty: " + stock.AvailableStock.ToString("0.###") + " " + (stock.Unit ?? "Nos")
-                + " - Rate " + IndiaFormatHelper.FormatCurrency(stock.LastPurchaseRate)
+                + " - Best supplier rate " + IndiaFormatHelper.FormatCurrency(_numPartRate == null ? stock.LastPurchaseRate : _numPartRate.Value)
+                + GetBestSupplierHintSuffix(stock)
                 + " (edit Rate to update globally)";
+            RefreshPartRateDrift();
+        }
+
+        private string GetBestSupplierHintSuffix(StockItem stock)
+        {
+            if (stock == null)
+                return string.Empty;
+
+            try
+            {
+                SupplierOption best = _vendorSvc.GetBestSupplierForItem(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, stock.Category);
+                return best == null || string.IsNullOrWhiteSpace(best.VendorName)
+                    ? string.Empty
+                    : " from " + best.VendorName;
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("JobManagementForm.GetBestSupplierHintSuffix", ex);
+                return string.Empty;
+            }
         }
 
         private StockItem ResolveSelectedPartStock()
@@ -3707,8 +3783,6 @@ namespace HVAC_Pro_Desktop.UI
                 StockItem byId = _inventory.FirstOrDefault(i => i.ItemID == selected.Value.Value);
                 if (byId != null)
                     return byId;
-
-                return _inventorySvc.GetById(selected.Value.Value);
             }
 
             string text = (_cmbPartSearch.Text ?? string.Empty).Trim();
@@ -3723,7 +3797,57 @@ namespace HVAC_Pro_Desktop.UI
             if (exactDisplay != null)
                 return exactDisplay;
 
-            return _inventory.FirstOrDefault(i => i.ItemName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
+                return _inventory.FirstOrDefault(i => i.ItemName.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        private void ShowPartSupplierComparison()
+        {
+            StockItem stock = ResolveSelectedPartStock();
+            if (stock == null)
+            {
+                MessageBox.Show("Select a material item before comparing suppliers.", "Jobs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            decimal quantity = _numPartQty == null ? 1m : _numPartQty.Value;
+            using (var dialog = new SupplierPriceComparisonDialog(stock.ItemName, stock.Category, quantity, _vendorSvc, stock.VendorID))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedOption == null)
+                    return;
+
+                if (_numPartRate != null)
+                {
+                    decimal rate = Math.Max(_numPartRate.Minimum, Math.Min(_numPartRate.Maximum, dialog.SelectedOption.Rate));
+                    _numPartRate.Value = rate;
+                }
+
+                _partSelectedVendorId = dialog.SelectedOption.VendorID;
+
+                UpdatePartStockHint();
+            }
+        }
+
+        private void RefreshPartRateDrift()
+        {
+            if (_lblPartRateDrift == null || _numPartRate == null)
+                return;
+
+            StockItem stock = ResolveSelectedPartStock();
+            SupplierRateDriftInfo drift = null;
+            try
+            {
+                drift = _vendorSvc.GetSupplierRateDrift(stock?.ItemName, _partSelectedVendorId ?? stock?.VendorID, _numPartRate.Value);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("JobManagementForm.RefreshPartRateDrift", ex);
+            }
+
+            _lblPartRateDrift.Text = drift?.DisplayText ?? string.Empty;
+            _lblPartRateDrift.Visible = drift != null && !string.IsNullOrWhiteSpace(drift.DisplayText);
+            _lblPartRateDrift.ForeColor = drift == null
+                ? TextHint
+                : drift.IsIncrease ? Color.FromArgb(180, 83, 9) : (drift.IsDecrease ? Color.FromArgb(21, 128, 61) : TextHint);
         }
 
         private static string BuildPartLookupText(StockItem item)
