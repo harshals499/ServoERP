@@ -26,15 +26,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+        uses: NuGet/setup-nuget@v3
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Stamp CI Version
         id: version
@@ -147,7 +147,7 @@ jobs:
           --exclude "(?i)(^|[\\/])(HVACPro\.config|.*\.servoerp-license|.*\.sqlite|.*\.mdf|.*\.ldf|logs?|database|updates?)([\\/]|$)"
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ServoERP-${{ steps.version.outputs.version }}-win-x64
           path: |
