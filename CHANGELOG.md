@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.107.0 - 2026-06-18
+
+- Superseded the numerically older `1.1.98` updater package with a new Velopack release above the already-published `1.1.106` feed version so client desktops can detect the update correctly.
+- Preserved the units-of-measure master rollout and packaging fix in a release number the auto-updater will actually accept.
+
 ## 1.1.98.0 - 2026-06-18
 
 - Fixed release packaging/version alignment so GitHub Releases and Velopack update packages now advertise the same shipped app version to client installs.
