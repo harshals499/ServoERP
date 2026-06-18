@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.98.0 - 2026-06-18
+
+- Fixed release packaging/version alignment so GitHub Releases and Velopack update packages now advertise the same shipped app version to client installs.
+- Republished the units-of-measure master rollout through a valid updater package so existing client desktops can actually detect and receive the release.
+
 ## 1.1.97.0 - 2026-06-18
 
 - Rewired every audited unit-of-measure picker in Inventory, Purchase, Invoice, Tender/Quotation, and supplier-comparison flows to load from the shared `UnitMeasurements` master instead of local hardcoded fallback lists.
