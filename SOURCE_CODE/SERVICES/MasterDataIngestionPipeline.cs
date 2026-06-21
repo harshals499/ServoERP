@@ -29,6 +29,20 @@ namespace HVAC_Pro_Desktop.Services
         public Dictionary<string, string> ColumnMappings { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
+    public sealed class AutomatedImportPreview
+    {
+        public ExcelImportModule DetectedModule { get; set; }
+        public string DetectedSheetName { get; set; }
+        public int DetectionConfidence { get; set; }
+        public int SourceRowCount { get; set; }
+        public int CanonicalRowCount { get; set; }
+        public bool RequiresPreflight { get; set; }
+        public List<string> SourceHeaders { get; } = new List<string>();
+        public List<string> UserMessages { get; } = new List<string>();
+        public List<Dictionary<string, string>> SampleRows { get; } = new List<Dictionary<string, string>>();
+        public Dictionary<string, string> ColumnMappings { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
     public sealed class ExcelImportExecutionOptions
     {
         public bool SkipPreflight { get; set; } = true;
@@ -76,6 +90,63 @@ namespace HVAC_Pro_Desktop.Services
             return ImportFile(filePath, preferredModule, null);
         }
 
+        public AutomatedImportPreview PreviewFile(string filePath, ExcelImportModule? preferredModule = null)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+                throw new FileNotFoundException("Import file was not found.", filePath);
+
+            ExcelWorkbookImportData workbook = _reader.Read(filePath);
+            DataTypeDetectionResult detection = _detector.Detect(workbook, preferredModule);
+            if (detection == null || detection.Sheet == null)
+                throw new InvalidOperationException("ServoERP could not understand this Excel file. Please use a workbook with clear column headings such as Client Name, Vendor Name, Invoice Number, Job Type, or Item Name.");
+
+            ColumnMappingResult mapping = _mapper.Map(detection.Module, detection.Sheet.Headers);
+            List<Dictionary<string, string>> canonicalRows = BuildCanonicalRows(detection.Module, detection.Sheet, mapping);
+            if (canonicalRows.Count == 0)
+                throw new InvalidOperationException("The selected workbook does not contain any usable data rows after cleaning.");
+
+            var preview = new AutomatedImportPreview
+            {
+                DetectedModule = detection.Module,
+                DetectedSheetName = detection.Sheet.Name,
+                DetectionConfidence = detection.Confidence,
+                SourceRowCount = detection.Sheet.Rows.Count,
+                CanonicalRowCount = canonicalRows.Count,
+                RequiresPreflight = RequiresPreflight(detection.Module)
+            };
+
+            preview.SourceHeaders.AddRange(detection.Sheet.Headers);
+
+            foreach (KeyValuePair<string, string> entry in mapping.MappedColumns)
+                preview.ColumnMappings[entry.Key] = entry.Value;
+
+            foreach (Dictionary<string, string> row in canonicalRows.Take(8))
+            {
+                var copy = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, string> entry in row)
+                    copy[entry.Key] = entry.Value;
+                preview.SampleRows.Add(copy);
+            }
+
+            if (detection.Confidence < 65)
+                preview.UserMessages.Add("Detection confidence is low. Review the preview carefully before importing.");
+
+            string[] requiredHeaders = ExcelImportService.GetRequiredHeaders(detection.Module);
+            List<string> missingRequired = requiredHeaders
+                .Where(header => !mapping.MappedColumns.ContainsKey(header))
+                .ToList();
+            if (missingRequired.Count > 0)
+                preview.UserMessages.Add("Some required ServoERP fields could not be mapped automatically: " + string.Join(", ", missingRequired) + ".");
+
+            if (canonicalRows.Count < detection.Sheet.Rows.Count)
+                preview.UserMessages.Add((detection.Sheet.Rows.Count - canonicalRows.Count).ToString(CultureInfo.InvariantCulture) + " empty or summary row(s) will be ignored safely.");
+
+            if (preview.RequiresPreflight)
+                preview.UserMessages.Add("Reference validation will run before records are committed.");
+
+            return preview;
+        }
+
         /// <summary>Imports a workbook and applies optional quotation workflow direction selected by the user.</summary>
         public AutomatedImportResult ImportFile(string filePath, ExcelImportModule? preferredModule, string quotationImportDirection)
         {
@@ -100,7 +171,7 @@ namespace HVAC_Pro_Desktop.Services
                 var diagnostics = new ExcelImportDiagnostics();
                 ExcelImportResult import = _importService.Import(detection.Module, stagedFile, new ExcelImportExecutionOptions
                 {
-                    SkipPreflight = true,
+                    SkipPreflight = !RequiresPreflight(detection.Module),
                     AutoResolveReferences = true,
                     UseTransaction = true,
                     Diagnostics = diagnostics,
@@ -143,6 +214,23 @@ namespace HVAC_Pro_Desktop.Services
             finally
             {
                 TryDelete(stagedFile);
+            }
+        }
+
+        private static bool RequiresPreflight(ExcelImportModule module)
+        {
+            switch (module)
+            {
+                case ExcelImportModule.Sites:
+                case ExcelImportModule.Quotations:
+                case ExcelImportModule.Invoices:
+                case ExcelImportModule.Payments:
+                case ExcelImportModule.Purchases:
+                case ExcelImportModule.Jobs:
+                case ExcelImportModule.AMC:
+                    return true;
+                default:
+                    return false;
             }
         }
 
@@ -684,6 +772,8 @@ namespace HVAC_Pro_Desktop.Services
 
     internal sealed class DataCleaningService
     {
+        private static readonly UnitMeasurementService UnitMeasurements = new UnitMeasurementService();
+
         public Dictionary<string, string> CreateCanonicalRow(ExcelImportModule module, Dictionary<string, string> sourceRow, ColumnMappingResult mapping)
         {
             var canonical = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -839,16 +929,9 @@ namespace HVAC_Pro_Desktop.Services
 
         private static string NormalizeUnit(string value)
         {
-            string normalized = value.Trim().ToLowerInvariant();
-            if (normalized == "pcs" || normalized == "piece" || normalized == "pieces")
-                return "PCS";
-            if (normalized == "nos" || normalized == "no" || normalized == "number" || normalized == "numbers")
-                return "Nos";
-            if (normalized == "meter" || normalized == "meters" || normalized == "mtr")
-                return "Mtr";
-            if (normalized == "kg" || normalized == "kgs" || normalized == "kilogram")
-                return "KG";
-            return ToTitleCase(value);
+            return UnitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(value)
+                ? UnitMeasurementService.DefaultCode
+                : value);
         }
 
         private static string NormalizeStatus(ExcelImportModule module, string value)

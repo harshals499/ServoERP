@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using HVAC_Pro_Desktop.Models;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.DAL
 {
     public class InventoryRepository
     {
         private readonly DatabaseManager _db = new DatabaseManager();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
         private const string BaseQuery = @"
             SELECT s.*, v.VendorName FROM StockItems s
@@ -75,7 +77,7 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@n",    item.ItemName);
                     cmd.Parameters.AddWithValue("@cat",  (object)item.Category        ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@qty",  item.CurrentStock);
-                    cmd.Parameters.AddWithValue("@unit", item.Unit ?? "Nos");
+                    cmd.Parameters.AddWithValue("@unit", _unitMeasurements.NormalizeForStorage(item.Unit ?? UnitMeasurementService.DefaultCode));
                     cmd.Parameters.AddWithValue("@rate", item.LastPurchaseRate);
                     cmd.Parameters.AddWithValue("@rl",   item.ReorderLevel);
                     cmd.Parameters.AddWithValue("@vid",  (object)item.VendorID         ?? DBNull.Value);
@@ -99,7 +101,7 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@n",    item.ItemName);
                     cmd.Parameters.AddWithValue("@cat",  (object)item.Category        ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@qty",  item.CurrentStock);
-                    cmd.Parameters.AddWithValue("@unit", item.Unit ?? "Nos");
+                    cmd.Parameters.AddWithValue("@unit", _unitMeasurements.NormalizeForStorage(item.Unit ?? UnitMeasurementService.DefaultCode));
                     cmd.Parameters.AddWithValue("@rate", item.LastPurchaseRate);
                     cmd.Parameters.AddWithValue("@rl",   item.ReorderLevel);
                     cmd.Parameters.AddWithValue("@vid",  (object)item.VendorID         ?? DBNull.Value);

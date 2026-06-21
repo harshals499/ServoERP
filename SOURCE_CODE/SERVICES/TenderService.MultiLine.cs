@@ -412,16 +412,14 @@ namespace HVAC_Pro_Desktop.Services
 
             AnalyseTenderDraft(bid);
             bid.CommercialFlow = string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow;
-            bid.CustomerDocumentStatus = "Invoice Created";
+            bid.SupplierDocumentStatus = "PO Draft";
             bid.FlowNotes = BuildCommercialFlowSummary(bid);
             SaveTenderBid(bid);
 
             var poNumbers = new List<string>();
-            foreach (IGrouping<int?, TenderBidLineItem> group in bid.LineItems.Where(li => li != null && li.BestSupplierId.HasValue && li.Shortfall > 0m).GroupBy(li => li.BestSupplierId))
-            {
-                PurchaseOrder po = _purchaseService.CreatePO(group.Key.Value, group.ToList(), bid);
+            PurchaseOrder po = _purchaseService.CreatePurchaseOrderFromQuotation(bid);
+            if (po != null && !string.IsNullOrWhiteSpace(po.PONumber))
                 poNumbers.Add(po.PONumber);
-            }
 
             return poNumbers;
         }
@@ -892,6 +890,7 @@ body{background:#fff;}
                             Quantity = Convert.ToDecimal(r["Quantity"]),
                             Unit = Convert.ToString(r["Unit"]),
                             HsnSacCode = r["HsnSacCode"] == DBNull.Value ? string.Empty : Convert.ToString(r["HsnSacCode"]),
+                            VendorID = r["VendorID"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["VendorID"]),
                             GSTRatePct = Convert.ToDecimal(r["GSTRatePct"]),
                             BestSupplierId = r["BestSupplierId"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["BestSupplierId"]),
                             BestSupplierName = r["BestSupplierName"] == DBNull.Value ? string.Empty : Convert.ToString(r["BestSupplierName"]),
@@ -925,11 +924,11 @@ body{background:#fff;}
             {
                 conn.Execute(@"
                     INSERT INTO QuotationLineItems
-                    (TenderBidId,SortOrder,Category,InventoryItemId,ItemDescription,Quantity,Unit,HsnSacCode,GSTRatePct,
+                    (TenderBidId,SortOrder,Category,InventoryItemId,ItemDescription,Quantity,Unit,HsnSacCode,VendorID,GSTRatePct,
                      BestSupplierId,BestSupplierName,CostPerUnit,SellPricePerUnit,TaxableLineTotal,GSTAmount,MarginPct,
                      StockAvailable,Shortfall,IsInternalLabour,AnalysisStatus,AnalysisNotes,IsSellPriceManual,CreatedDate,ModifiedDate)
                     VALUES
-                    (@TenderBidId,@SortOrder,@Category,@InventoryItemId,@ItemDescription,@Quantity,@Unit,@HsnSacCode,@GSTRatePct,
+                    (@TenderBidId,@SortOrder,@Category,@InventoryItemId,@ItemDescription,@Quantity,@Unit,@HsnSacCode,@VendorID,@GSTRatePct,
                      @BestSupplierId,@BestSupplierName,@CostPerUnit,@SellPricePerUnit,@TaxableLineTotal,@GSTAmount,@MarginPct,
                      @StockAvailable,@Shortfall,@IsInternalLabour,@AnalysisStatus,@AnalysisNotes,@IsSellPriceManual,@CreatedDate,@ModifiedDate)",
                     new
@@ -942,6 +941,7 @@ body{background:#fff;}
                     line.Quantity,
                     Unit = line.Unit ?? "Nos",
                     HsnSacCode = line.HsnSacCode ?? string.Empty,
+                    VendorID = line.VendorID ?? line.BestSupplierId,
                     line.GSTRatePct,
                     line.BestSupplierId,
                     BestSupplierName = line.BestSupplierName ?? string.Empty,

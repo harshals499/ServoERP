@@ -41,11 +41,11 @@ namespace HVAC_Pro_Desktop.Services
                 try
                 {
                     string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config");
-                    if (File.Exists(appPath))
-                        return;
-
                     string machinePath = @"C:\HVAC_PRO_MSE\HVACPro.config";
                     if (File.Exists(machinePath))
+                        return;
+
+                    if (File.Exists(appPath))
                         return;
 
                     string samplePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.sample.config");
@@ -182,12 +182,12 @@ namespace HVAC_Pro_Desktop.Services
         private static string ResolveConfigPath()
         {
             string appPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config");
-            if (File.Exists(appPath))
-                return appPath;
-
             string machinePath = @"C:\HVAC_PRO_MSE\HVACPro.config";
             if (File.Exists(machinePath))
                 return machinePath;
+
+            if (File.Exists(appPath))
+                return appPath;
 
             return appPath;
         }

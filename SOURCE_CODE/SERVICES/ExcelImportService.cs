@@ -40,6 +40,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly DatabaseManager _db = new DatabaseManager();
         private readonly ImportReviewService _importReview = new ImportReviewService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
         public void CreateTemplate(ExcelImportModule module, string filePath)
         {
@@ -613,18 +614,13 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
         private string NormalizeUnit(string unit, ExcelImportExecutionOptions options)
         {
             string value = (unit ?? string.Empty).Trim();
-            string lower = value.ToLowerInvariant();
-            string normalized = value;
-            if (lower == "pcs" || lower == "piece" || lower == "pieces")
-                normalized = "PCS";
-            else if (lower == "nos" || lower == "number" || lower == "numbers" || lower == "no")
-                normalized = "Nos";
-            else if (lower == "meter" || lower == "meters" || lower == "mtr")
-                normalized = "Mtr";
+            string normalized = _unitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(value)
+                ? UnitMeasurementService.DefaultCode
+                : value);
 
             if (!string.Equals(value, normalized, StringComparison.OrdinalIgnoreCase))
                 options.Diagnostics?.NormalizedUnits.Add(value + " -> " + normalized);
-            return string.IsNullOrWhiteSpace(normalized) ? "Nos" : normalized;
+            return string.IsNullOrWhiteSpace(normalized) ? UnitMeasurementService.DefaultCode : normalized;
         }
 
         private bool ImportQuotationRow(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result, ExcelImportExecutionOptions options)

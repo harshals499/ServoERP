@@ -13,6 +13,7 @@ using HVAC_Pro_Desktop.Services.Validation;
 using HVAC_Pro_Desktop.UI;
 using HVAC_Pro_Desktop.Services.Logging;
 using ServoERP.Validators;
+using System.Globalization;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -50,6 +51,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private readonly VendorRepository _repo = new VendorRepository();
         private readonly PurchaseRepository _purchaseRepo = new PurchaseRepository();
+        private readonly SupplierItemPriceService _supplierItemPriceService = new SupplierItemPriceService();
         private readonly DatabaseManager _db = new DatabaseManager();
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
@@ -485,6 +487,7 @@ namespace HVAC_Pro_Desktop.Services
             int inventoryItemId = mappedStock?.ItemID ?? 0;
             decimal requestedQuantity = quantity <= 0m ? 1m : quantity;
             List<SupplierHistoryCandidate> history = new List<SupplierHistoryCandidate>();
+            List<SupplierItemPrice> explicitPrices = _supplierItemPriceService.GetMatchingForItem(itemDescription, category, inventoryItemId > 0 ? (int?)inventoryItemId : null);
 
             using (SqlConnection conn = _db.GetConnection())
             {
@@ -625,6 +628,8 @@ namespace HVAC_Pro_Desktop.Services
                 })
                 .ToList();
 
+            MergeExplicitSupplierPrices(itemDescription, category, requestedQuantity, mappedStock, explicitPrices, ranked);
+
             ApplyWeightedSupplierScores(itemDescription, mappedStock, ranked);
             return ranked
                 .OrderBy(o => o.WeightedScore)
@@ -632,6 +637,78 @@ namespace HVAC_Pro_Desktop.Services
                 .ThenByDescending(o => IsExactSupplierItemMatch(itemDescription, o.MatchedItemName))
                 .ThenBy(o => o.VendorName)
                 .ToList();
+        }
+
+        private void MergeExplicitSupplierPrices(string itemDescription, string category, decimal requestedQuantity, StockItem mappedStock, IEnumerable<SupplierItemPrice> explicitPrices, List<SupplierOption> ranked)
+        {
+            List<SupplierItemPrice> rows = (explicitPrices ?? Enumerable.Empty<SupplierItemPrice>())
+                .Where(p => p != null && p.VendorID > 0 && p.Rate > 0m)
+                .OrderBy(p => p.IsPreferred ? 0 : 1)
+                .ThenBy(p => p.Rate)
+                .ThenByDescending(p => p.EffectiveDate)
+                .ToList();
+            if (rows.Count == 0)
+                return;
+
+            Dictionary<int, SupplierOption> byVendorId = ranked
+                .Where(o => o != null && o.VendorID > 0)
+                .GroupBy(o => o.VendorID)
+                .ToDictionary(g => g.Key, g => g.First());
+
+            foreach (SupplierItemPrice price in rows)
+            {
+                SupplierOption existing;
+                if (byVendorId.TryGetValue(price.VendorID, out existing))
+                {
+                    existing.Rate = price.Rate > 0m ? price.Rate : existing.Rate;
+                    existing.Unit = string.IsNullOrWhiteSpace(price.Unit) ? existing.Unit : price.Unit;
+                    existing.Source = string.IsNullOrWhiteSpace(existing.Source) || string.Equals(existing.Source, "Purchase history", StringComparison.OrdinalIgnoreCase)
+                        ? "Saved item pricing + purchase history"
+                        : existing.Source;
+                    existing.MatchedItemName = string.IsNullOrWhiteSpace(price.ItemName) ? existing.MatchedItemName : price.ItemName;
+                    existing.EffectiveDate = price.EffectiveDate != default(DateTime) ? (DateTime?)price.EffectiveDate : existing.EffectiveDate;
+                    existing.PreferredVendorMatch = existing.PreferredVendorMatch || price.IsPreferred;
+                    if (!string.IsNullOrWhiteSpace(price.VendorName))
+                        existing.VendorName = price.VendorName;
+                    continue;
+                }
+
+                var option = new SupplierOption
+                {
+                    VendorID = price.VendorID,
+                    VendorName = price.VendorName,
+                    Rate = price.Rate,
+                    Unit = string.IsNullOrWhiteSpace(price.Unit) ? (mappedStock?.Unit ?? "Nos") : price.Unit,
+                    Source = price.IsPreferred ? "Saved preferred item pricing" : "Saved item pricing",
+                    MatchedItemName = string.IsNullOrWhiteSpace(price.ItemName) ? itemDescription.Trim() : price.ItemName,
+                    EffectiveDate = price.EffectiveDate == default(DateTime) ? (DateTime?)null : price.EffectiveDate,
+                    LastPurchaseDate = price.EffectiveDate == default(DateTime) ? (DateTime?)null : price.EffectiveDate,
+                    RequestedQuantity = requestedQuantity,
+                    QtyAvailable = 0m,
+                    StockCoveragePct = mappedStock != null && requestedQuantity > 0m
+                        ? (decimal?)Math.Round(Math.Min(100m, Math.Max(0m, mappedStock.AvailableStock / requestedQuantity) * 100m), 2)
+                        : null,
+                    RecommendationReason = price.IsPreferred ? "saved preferred supplier" : "saved item rate"
+                };
+                ranked.Add(option);
+                byVendorId[option.VendorID] = option;
+            }
+
+            if (mappedStock != null)
+            {
+                SupplierItemPrice preferred = rows.FirstOrDefault(p => p.IsPreferred);
+                if (preferred != null)
+                {
+                    SupplierOption preferredOption;
+                    if (byVendorId.TryGetValue(preferred.VendorID, out preferredOption))
+                    {
+                        preferredOption.PreferredVendorMatch = true;
+                        preferredOption.RecommendationReason = string.IsNullOrWhiteSpace(preferredOption.RecommendationReason)
+                            ? "preferred supplier from item details"
+                            : preferredOption.RecommendationReason + ", preferred supplier from item details";
+                    }
+                }
+            }
         }
 
         public SupplierRateDriftInfo GetSupplierRateDrift(string itemDescription, int? vendorId, decimal currentRate)

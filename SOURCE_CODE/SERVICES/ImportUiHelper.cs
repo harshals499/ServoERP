@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.Data;
 using OfficeOpenXml;
 
 namespace HVAC_Pro_Desktop.Services
@@ -131,6 +132,10 @@ namespace HVAC_Pro_Desktop.Services
                     }
                 }
 
+                AutomatedImportPreview preview = Pipeline.PreviewFile(selectedFile, preferredModule);
+                if (!ShowImportPreview(owner, selectedFile, preview))
+                    return;
+
                 AutomatedImportResult result = Pipeline.ImportFile(selectedFile, preferredModule, quotationImportDirection);
                 ShowAutomatedResult(owner, result);
                 if (result != null && result.SuccessCount > 0 && afterSuccess != null)
@@ -140,7 +145,10 @@ namespace HVAC_Pro_Desktop.Services
             {
                 AppLogger.LogError("ImportUiHelper.RunImportInternal", ex);
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Importing Excel", ex);
-                MessageBox.Show(owner, "Import could not complete. Check the workbook and try again.", "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                string message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Import could not complete. Check the workbook and try again."
+                    : ex.Message;
+                MessageBox.Show(owner, message, "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -151,6 +159,8 @@ namespace HVAC_Pro_Desktop.Services
             builder.AppendLine("Detected data type: " + result.DetectedModule);
             builder.AppendLine("Worksheet used: " + result.DetectedSheetName);
             builder.AppendLine("Confidence: " + result.DetectionConfidence + "%");
+            if (result.BatchId > 0)
+                builder.AppendLine("Import batch ID: " + result.BatchId);
             builder.AppendLine("Imported or refreshed: " + result.SuccessCount + " rows");
             builder.AppendLine("Skipped safely: " + result.SkippedCount + " rows");
 
@@ -178,6 +188,203 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             MessageBox.Show(owner, builder.ToString(), "Import Results", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private static bool ShowImportPreview(IWin32Window owner, string filePath, AutomatedImportPreview preview)
+        {
+            using (var dialog = new Form())
+            {
+                dialog.Text = "Review Import";
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.Size = new Size(980, 680);
+                dialog.MinimumSize = new Size(900, 620);
+                dialog.BackColor = Color.White;
+                dialog.Font = new Font("Segoe UI", 9f);
+
+                var title = new Label
+                {
+                    Text = "Review import before writing data",
+                    Dock = DockStyle.Top,
+                    Height = 42,
+                    Padding = new Padding(18, 12, 18, 0),
+                    Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42)
+                };
+
+                var summary = new Label
+                {
+                    Dock = DockStyle.Top,
+                    Height = 88,
+                    Padding = new Padding(18, 0, 18, 8),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    Text = BuildPreviewSummary(filePath, preview)
+                };
+
+                var notice = new TextBox
+                {
+                    Dock = DockStyle.Top,
+                    Height = 84,
+                    Multiline = true,
+                    ReadOnly = true,
+                    BorderStyle = BorderStyle.None,
+                    BackColor = Color.FromArgb(248, 250, 252),
+                    ForeColor = Color.FromArgb(100, 116, 139),
+                    Margin = new Padding(18),
+                    Text = BuildPreviewMessages(preview)
+                };
+
+                var split = new SplitContainer
+                {
+                    Dock = DockStyle.Fill,
+                    Orientation = Orientation.Horizontal,
+                    SplitterDistance = 380,
+                    BackColor = Color.White
+                };
+
+                var sampleGrid = new DataGridView
+                {
+                    Dock = DockStyle.Fill,
+                    ReadOnly = true,
+                    AllowUserToAddRows = false,
+                    AllowUserToDeleteRows = false,
+                    AllowUserToResizeRows = false,
+                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.DisplayedCells,
+                    BackgroundColor = Color.White,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    RowHeadersVisible = false,
+                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                    DataSource = BuildPreviewTable(preview)
+                };
+
+                var mappingBox = new TextBox
+                {
+                    Dock = DockStyle.Fill,
+                    Multiline = true,
+                    ReadOnly = true,
+                    ScrollBars = ScrollBars.Vertical,
+                    BackColor = Color.White,
+                    ForeColor = Color.FromArgb(51, 65, 85),
+                    Text = BuildMappingSummary(preview)
+                };
+
+                split.Panel1.Padding = new Padding(18, 10, 18, 8);
+                split.Panel1.Controls.Add(sampleGrid);
+                split.Panel2.Padding = new Padding(18, 8, 18, 18);
+                split.Panel2.Controls.Add(mappingBox);
+
+                var footer = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 58,
+                    Padding = new Padding(18, 10, 18, 10),
+                    BackColor = Color.FromArgb(248, 250, 252)
+                };
+
+                var cancel = new Button
+                {
+                    Text = "Cancel",
+                    DialogResult = DialogResult.Cancel,
+                    Width = 96,
+                    Height = 34,
+                    Left = footer.Width - 220,
+                    Top = 12,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right
+                };
+
+                var import = new Button
+                {
+                    Text = "Import Now",
+                    DialogResult = DialogResult.OK,
+                    Width = 112,
+                    Height = 34,
+                    Left = footer.Width - 116,
+                    Top = 12,
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                    BackColor = Color.FromArgb(37, 99, 235),
+                    ForeColor = Color.White,
+                    FlatStyle = FlatStyle.Flat
+                };
+                import.FlatAppearance.BorderSize = 0;
+
+                footer.Controls.Add(cancel);
+                footer.Controls.Add(import);
+                dialog.Controls.Add(split);
+                dialog.Controls.Add(notice);
+                dialog.Controls.Add(summary);
+                dialog.Controls.Add(title);
+                dialog.Controls.Add(footer);
+                dialog.AcceptButton = import;
+                dialog.CancelButton = cancel;
+
+                return dialog.ShowDialog(owner) == DialogResult.OK;
+            }
+        }
+
+        private static string BuildPreviewSummary(string filePath, AutomatedImportPreview preview)
+        {
+            var lines = new[]
+            {
+                "File: " + Path.GetFileName(filePath),
+                "Detected module: " + preview.DetectedModule + " | Worksheet: " + preview.DetectedSheetName + " | Confidence: " + preview.DetectionConfidence + "%",
+                "Source rows: " + preview.SourceRowCount + " | Canonical rows ready: " + preview.CanonicalRowCount + " | Preview sample: " + preview.SampleRows.Count,
+                "Mapped columns: " + preview.ColumnMappings.Count + " of " + ExcelImportService.GetHeaders(preview.DetectedModule).Length
+            };
+
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string BuildPreviewMessages(AutomatedImportPreview preview)
+        {
+            if (preview == null || !preview.UserMessages.Any())
+                return "ServoERP cleaned the workbook and prepared a safe import preview.";
+
+            return string.Join(Environment.NewLine, preview.UserMessages.Select(message => "- " + message));
+        }
+
+        private static DataTable BuildPreviewTable(AutomatedImportPreview preview)
+        {
+            var table = new DataTable();
+            string[] headers = ExcelImportService.GetHeaders(preview.DetectedModule);
+            foreach (string header in headers)
+                table.Columns.Add(header);
+
+            foreach (Dictionary<string, string> row in preview.SampleRows)
+            {
+                DataRow dataRow = table.NewRow();
+                foreach (string header in headers)
+                    dataRow[header] = row.ContainsKey(header) ? row[header] ?? string.Empty : string.Empty;
+                table.Rows.Add(dataRow);
+            }
+
+            return table;
+        }
+
+        private static string BuildMappingSummary(AutomatedImportPreview preview)
+        {
+            var builder = new StringBuilder();
+            builder.AppendLine("Column mapping");
+            builder.AppendLine();
+
+            string[] headers = ExcelImportService.GetHeaders(preview.DetectedModule);
+            foreach (string header in headers)
+            {
+                string sourceHeader;
+                builder.AppendLine(
+                    preview.ColumnMappings.TryGetValue(header, out sourceHeader)
+                        ? header + "  <-  " + sourceHeader
+                        : header + "  <-  (not mapped)");
+            }
+
+            if (preview.SourceHeaders.Any())
+            {
+                builder.AppendLine();
+                builder.AppendLine("Source headers");
+                builder.AppendLine();
+                foreach (string sourceHeader in preview.SourceHeaders)
+                    builder.AppendLine("- " + sourceHeader);
+            }
+
+            return builder.ToString();
         }
 
         private static string ShowQuotationImportDirectionDialog(IWin32Window owner)

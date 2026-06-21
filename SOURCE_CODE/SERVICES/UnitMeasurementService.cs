@@ -165,7 +165,7 @@ namespace HVAC_Pro_Desktop.Services
             EnsureLoaded();
             UnitMeasurement unit = _snapshot?.FirstOrDefault(x => string.Equals(x.UnitCode, canonical, StringComparison.OrdinalIgnoreCase));
             if (unit != null)
-                return BuildPickerLabel(unit);
+                return BuildCompactLabel(unit);
 
             return string.IsNullOrWhiteSpace(value) ? GetPickerDisplayFromCanonical(DefaultCode) : value.Trim();
         }
@@ -199,7 +199,7 @@ namespace HVAC_Pro_Desktop.Services
             EnsureLoaded();
             return GetUnits()
                 .Where(x => x.IsActive)
-                .Select(BuildPickerLabel)
+                .Select(BuildCompactLabel)
                 .Where(x => !string.IsNullOrWhiteSpace(x))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
@@ -227,6 +227,11 @@ namespace HVAC_Pro_Desktop.Services
         }
 
         public bool TryAddUnit(string unitCode, string displayName, IEnumerable<string> aliases, out string message)
+        {
+            return TryAddUnit(unitCode, null, displayName, null, null, aliases, out message);
+        }
+
+        public bool TryAddUnit(string unitCode, string shortCode, string displayName, string category, string measurementSystem, IEnumerable<string> aliases, out string message)
         {
             if (string.IsNullOrWhiteSpace(unitCode))
             {
@@ -262,7 +267,10 @@ namespace HVAC_Pro_Desktop.Services
             var unit = new UnitMeasurement
             {
                 UnitCode = normalizedCode,
+                ShortCode = string.IsNullOrWhiteSpace(shortCode) ? normalizedCode : shortCode.Trim(),
                 DisplayName = (displayName ?? canonicalDisplay).Trim(),
+                Category = string.IsNullOrWhiteSpace(category) ? string.Empty : category.Trim(),
+                MeasurementSystem = string.IsNullOrWhiteSpace(measurementSystem) ? string.Empty : measurementSystem.Trim(),
                 IsActive = true,
                 IsSystem = false
             };
@@ -311,13 +319,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static string GetPickerDisplayFromCanonical(string canonical)
         {
-            if (string.IsNullOrWhiteSpace(canonical))
-                return FallbackDisplayByCode[DefaultCode];
-
-            if (FallbackDisplayByCode.TryGetValue(canonical.ToUpperInvariant(), out string display))
-                return display;
-
-            return canonical;
+            return GetCompactFallback(canonical);
         }
 
         private static string GetCompactFallback(string canonical)

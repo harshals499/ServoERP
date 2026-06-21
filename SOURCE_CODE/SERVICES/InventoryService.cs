@@ -13,6 +13,7 @@ namespace HVAC_Pro_Desktop.Services
     {
         private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(45);
         private readonly InventoryRepository _repo = new InventoryRepository();
+        private readonly SupplierItemPriceService _supplierPriceService = new SupplierItemPriceService();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
@@ -195,6 +196,16 @@ namespace HVAC_Pro_Desktop.Services
         {
             StockItem item = GetByName(itemDescription);
             return item?.LastPurchaseRate ?? 0m;
+        }
+
+        public List<SupplierItemPrice> GetSupplierPrices(int itemId)
+        {
+            return _supplierPriceService.GetByItemId(itemId);
+        }
+
+        public void SaveSupplierPrices(int itemId, string itemName, string category, IEnumerable<SupplierItemPrice> prices)
+        {
+            _supplierPriceService.SaveForItem(itemId, itemName, category, prices);
         }
 
         private void ValidateInventoryItem(StockItem item)

@@ -1,10 +1,12 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Net.Http;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Web.Script.Serialization;
 using Velopack;
 using Velopack.Exceptions;
 using Velopack.Sources;
@@ -22,6 +24,20 @@ namespace HVAC_Pro_Desktop.Services
         public bool IsUpdateAvailable { get; set; }
         public bool CanApplyUpdate { get; set; }
         internal UpdateInfo VelopackUpdateInfo { get; set; }
+    }
+
+    internal sealed class GitHubReleaseAssetInfo
+    {
+        public string name { get; set; }
+        public string browser_download_url { get; set; }
+    }
+
+    internal sealed class GitHubLatestReleaseInfo
+    {
+        public string tag_name { get; set; }
+        public string html_url { get; set; }
+        public string body { get; set; }
+        public GitHubReleaseAssetInfo[] assets { get; set; }
     }
 
     public static class UpdateService
@@ -191,10 +207,8 @@ namespace HVAC_Pro_Desktop.Services
             }
             catch (NotInstalledException ex)
             {
-                result.StatusMessage = "ServoERP is running normally. Automatic updates will activate from the installed Desktop shortcut.";
-                SaveLastStatus(result.StatusMessage);
                 AppLogger.LogInfo(LogContext + " skipped: not a Velopack install. " + ex.Message);
-                return result;
+                return await CheckLatestReleaseForManualInstallAsync(result, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -302,6 +316,61 @@ namespace HVAC_Pro_Desktop.Services
         private static UpdateManager CreateManager(string repositoryUrl)
         {
             return new UpdateManager(new GithubSource(repositoryUrl, null, false, null), null, null);
+        }
+
+        private static async Task<UpdateCheckResult> CheckLatestReleaseForManualInstallAsync(UpdateCheckResult result, CancellationToken cancellationToken)
+        {
+            if (result == null)
+                result = new UpdateCheckResult();
+
+            string repositoryUrl = GetGitHubRepositoryUrl();
+            try
+            {
+                string apiUrl = BuildLatestReleaseApiUrl(repositoryUrl);
+                using (var client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(15);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("ServoERP-Desktop-Updater");
+                    string response = await client.GetStringAsync(apiUrl).ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    var serializer = new JavaScriptSerializer();
+                    GitHubLatestReleaseInfo release = serializer.Deserialize<GitHubLatestReleaseInfo>(response);
+                    string latestVersion = NormalizeReleaseVersion(release == null ? null : release.tag_name);
+                    string currentVersion = string.IsNullOrWhiteSpace(result.CurrentVersion) ? GetCurrentAssemblyVersion() : result.CurrentVersion;
+
+                    result.CurrentVersion = currentVersion;
+                    result.LatestVersion = string.IsNullOrWhiteSpace(latestVersion) ? currentVersion : latestVersion;
+                    result.DownloadUrl = SelectPreferredInstallerUrl(release) ?? (release == null ? string.Empty : release.html_url) ?? (repositoryUrl + "/releases/latest");
+                    result.PackageUrl = Path.GetFileName(result.DownloadUrl ?? string.Empty);
+                    result.ChangelogText = string.IsNullOrWhiteSpace(release == null ? null : release.body)
+                        ? "Install the latest ServoERP Desktop package to update this copy."
+                        : release.body.Trim();
+
+                    if (!IsNewerVersion(result.LatestVersion, currentVersion))
+                    {
+                        result.IsUpdateAvailable = false;
+                        result.CanApplyUpdate = false;
+                        result.StatusMessage = "ServoERP is up to date. This copy is not using the Desktop installer update channel.";
+                        SaveLastStatus(result.StatusMessage);
+                        return result;
+                    }
+
+                    result.IsUpdateAvailable = true;
+                    result.CanApplyUpdate = false;
+                    result.StatusMessage = "Update available: v" + result.LatestVersion + ". This copy was not installed through the Desktop installer, so open the latest installer to update.";
+                    SaveLastStatus(result.StatusMessage);
+                    AppLogger.LogInfo(LogContext + " manual-install update available. latest=" + result.LatestVersion + " url=" + result.DownloadUrl);
+                    return result;
+                }
+            }
+            catch (Exception manualEx)
+            {
+                result.StatusMessage = "ServoERP is running normally. Automatic updates will activate from the installed Desktop shortcut.";
+                SaveLastStatus(result.StatusMessage);
+                AppLogger.LogInfo(LogContext + " manual fallback failed: " + manualEx.Message);
+                return result;
+            }
         }
 
         private static void EnsureSafeToApplyUpdate()
@@ -468,6 +537,54 @@ namespace HVAC_Pro_Desktop.Services
             return version.Major.ToString(CultureInfo.InvariantCulture) + "." +
                    version.Minor.ToString(CultureInfo.InvariantCulture) + "." +
                    patch.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string BuildLatestReleaseApiUrl(string repositoryUrl)
+        {
+            string trimmed = (repositoryUrl ?? string.Empty).Trim().TrimEnd('/');
+            Uri uri;
+            if (!Uri.TryCreate(trimmed, UriKind.Absolute, out uri))
+                throw new InvalidOperationException("Invalid GitHub repository URL: " + repositoryUrl);
+
+            string[] segments = uri.AbsolutePath.Trim('/').Split('/');
+            if (segments.Length < 2)
+                throw new InvalidOperationException("GitHub repository URL must include owner and repository name.");
+
+            return "https://api.github.com/repos/" + segments[0] + "/" + segments[1] + "/releases/latest";
+        }
+
+        private static string NormalizeReleaseVersion(string tagName)
+        {
+            string text = (tagName ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            return text.TrimStart('v', 'V');
+        }
+
+        private static string SelectPreferredInstallerUrl(GitHubLatestReleaseInfo release)
+        {
+            GitHubReleaseAssetInfo[] assets = release == null ? null : release.assets;
+            if (assets == null || assets.Length == 0)
+                return null;
+
+            GitHubReleaseAssetInfo preferred = null;
+            foreach (GitHubReleaseAssetInfo asset in assets)
+            {
+                if (asset == null || string.IsNullOrWhiteSpace(asset.browser_download_url))
+                    continue;
+
+                string name = asset.name ?? string.Empty;
+                if (name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) &&
+                    name.StartsWith("ServoERP_Setup_", StringComparison.OrdinalIgnoreCase))
+                    return asset.browser_download_url;
+
+                if (preferred == null &&
+                    string.Equals(name, "ServoERP.Desktop-win-Setup.exe", StringComparison.OrdinalIgnoreCase))
+                    preferred = asset;
+            }
+
+            return preferred == null ? null : preferred.browser_download_url;
         }
     }
 }

@@ -30,6 +30,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly CalculationVerificationService _calculationVerifier = new CalculationVerificationService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
         private const decimal GstRate = 0.18m;
 
         // ── READ ─────────────────────────────────────────────
@@ -346,7 +347,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 Description = "Credit adjustment for " + original.InvoiceNumber,
                 HSNCode = FirstNonEmpty(original.LineItems.FirstOrDefault()?.HSNCode, "9987"),
-                Unit = "Nos",
+                Unit = UnitMeasurementService.DefaultCode,
                 Quantity = 1m,
                 Rate = taxable,
                 GSTPercent = gstPct,
@@ -478,7 +479,7 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private static void NormalizeInvoiceLineItems(Invoice inv)
+        private void NormalizeInvoiceLineItems(Invoice inv)
         {
             if (inv == null)
                 return;
@@ -497,7 +498,7 @@ namespace HVAC_Pro_Desktop.Services
                 item.Category = string.IsNullOrWhiteSpace(item.Category) ? (item.IsStockItem ? "Material" : "Service") : item.Category.Trim();
                 if (string.IsNullOrWhiteSpace(item.Description))
                     item.Description = string.Equals(item.Category, "Material", StringComparison.OrdinalIgnoreCase) ? "Material charges" : "Service charges";
-                item.Unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim();
+                item.Unit = _unitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(item.Unit) ? UnitMeasurementService.DefaultCode : item.Unit);
                 item.TaxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim();
                 item.Quantity = item.Quantity <= 0m ? 1m : item.Quantity;
             }

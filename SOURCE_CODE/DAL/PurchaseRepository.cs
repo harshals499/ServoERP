@@ -173,16 +173,19 @@ namespace HVAC_Pro_Desktop.DAL
                     foreach (var li in po.LineItems)
                     {
                         using (SqlCommand cmd2 = new SqlCommand(@"
-                            INSERT INTO PurchaseLineItems (POID,InventoryItemId,Description,HsnSacCode,Quantity,UOM,Rate,GSTRate,CGSTRate,SGSTRate,IGSTRate,JobLink,LinkedWorkOrderId,LinkedWorkOrderName,PriceVariance,Amount)
-                            VALUES (@pid,@inventoryItemId,@desc,@hsn,@qty,@uom,@rate,@gst,@cgst,@sgst,@igst,@jobLink,@linkedWorkOrderId,@linkedWorkOrderName,@priceVariance,@amt)", conn, tx))
+                            INSERT INTO PurchaseLineItems (POID,InventoryItemId,VendorID,Description,ItemName,HsnSacCode,Quantity,UOM,Rate,UnitPrice,GSTRate,CGSTRate,SGSTRate,IGSTRate,JobLink,LinkedWorkOrderId,LinkedWorkOrderName,ExpectedDeliveryDate,PriceVariance,Amount)
+                            VALUES (@pid,@inventoryItemId,@vendorId,@desc,@itemName,@hsn,@qty,@uom,@rate,@unitPrice,@gst,@cgst,@sgst,@igst,@jobLink,@linkedWorkOrderId,@linkedWorkOrderName,@expectedDeliveryDate,@priceVariance,@amt)", conn, tx))
                         {
                             cmd2.Parameters.AddWithValue("@pid",  poid);
                             cmd2.Parameters.AddWithValue("@inventoryItemId", li.InventoryItemId.HasValue ? (object)li.InventoryItemId.Value : DBNull.Value);
+                            cmd2.Parameters.AddWithValue("@vendorId", li.VendorID.HasValue ? (object)li.VendorID.Value : po.VendorID);
                             cmd2.Parameters.AddWithValue("@desc", li.Description);
+                            cmd2.Parameters.AddWithValue("@itemName", string.IsNullOrWhiteSpace(li.ItemName) ? (object)li.Description ?? DBNull.Value : li.ItemName.Trim());
                             cmd2.Parameters.AddWithValue("@hsn", string.IsNullOrWhiteSpace(li.HsnSacCode) ? (object)DBNull.Value : li.HsnSacCode.Trim());
                             cmd2.Parameters.AddWithValue("@qty",  li.Quantity);
                             cmd2.Parameters.AddWithValue("@uom", string.IsNullOrWhiteSpace(li.UOM) ? "Nos" : li.UOM.Trim());
                             cmd2.Parameters.AddWithValue("@rate", li.Rate);
+                            cmd2.Parameters.AddWithValue("@unitPrice", li.UnitPrice > 0m ? li.UnitPrice : li.Rate);
                             cmd2.Parameters.AddWithValue("@gst", li.GSTRate);
                             cmd2.Parameters.AddWithValue("@cgst", li.CGSTRate);
                             cmd2.Parameters.AddWithValue("@sgst", li.SGSTRate);
@@ -190,6 +193,7 @@ namespace HVAC_Pro_Desktop.DAL
                             cmd2.Parameters.AddWithValue("@jobLink", string.IsNullOrWhiteSpace(li.JobLink) ? "General" : li.JobLink.Trim());
                             cmd2.Parameters.AddWithValue("@linkedWorkOrderId", li.LinkedWorkOrderId.HasValue ? (object)li.LinkedWorkOrderId.Value : DBNull.Value);
                             cmd2.Parameters.AddWithValue("@linkedWorkOrderName", string.IsNullOrWhiteSpace(li.LinkedWorkOrderName) ? (object)DBNull.Value : li.LinkedWorkOrderName.Trim());
+                            cmd2.Parameters.AddWithValue("@expectedDeliveryDate", li.ExpectedDeliveryDate.HasValue ? (object)li.ExpectedDeliveryDate.Value : po.PayByDate);
                             cmd2.Parameters.AddWithValue("@priceVariance", li.PriceVariance);
                             cmd2.Parameters.AddWithValue("@amt",  li.Amount);
                             cmd2.ExecuteNonQuery();
@@ -288,16 +292,19 @@ namespace HVAC_Pro_Desktop.DAL
                     foreach (var li in po.LineItems ?? Enumerable.Empty<PurchaseLineItem>())
                     {
                         using (SqlCommand cmd2 = new SqlCommand(@"
-                            INSERT INTO PurchaseLineItems (POID,InventoryItemId,Description,HsnSacCode,Quantity,UOM,Rate,GSTRate,CGSTRate,SGSTRate,IGSTRate,JobLink,LinkedWorkOrderId,LinkedWorkOrderName,PriceVariance,Amount)
-                            VALUES (@pid,@inventoryItemId,@desc,@hsn,@qty,@uom,@rate,@gst,@cgst,@sgst,@igst,@jobLink,@linkedWorkOrderId,@linkedWorkOrderName,@priceVariance,@amt)", conn, tx))
+                            INSERT INTO PurchaseLineItems (POID,InventoryItemId,VendorID,Description,ItemName,HsnSacCode,Quantity,UOM,Rate,UnitPrice,GSTRate,CGSTRate,SGSTRate,IGSTRate,JobLink,LinkedWorkOrderId,LinkedWorkOrderName,ExpectedDeliveryDate,PriceVariance,Amount)
+                            VALUES (@pid,@inventoryItemId,@vendorId,@desc,@itemName,@hsn,@qty,@uom,@rate,@unitPrice,@gst,@cgst,@sgst,@igst,@jobLink,@linkedWorkOrderId,@linkedWorkOrderName,@expectedDeliveryDate,@priceVariance,@amt)", conn, tx))
                         {
                             cmd2.Parameters.AddWithValue("@pid", po.POID);
                             cmd2.Parameters.AddWithValue("@inventoryItemId", li.InventoryItemId.HasValue ? (object)li.InventoryItemId.Value : DBNull.Value);
+                            cmd2.Parameters.AddWithValue("@vendorId", li.VendorID.HasValue ? (object)li.VendorID.Value : po.VendorID);
                             cmd2.Parameters.AddWithValue("@desc", li.Description ?? string.Empty);
+                            cmd2.Parameters.AddWithValue("@itemName", string.IsNullOrWhiteSpace(li.ItemName) ? (object)(li.Description ?? string.Empty) : li.ItemName.Trim());
                             cmd2.Parameters.AddWithValue("@hsn", string.IsNullOrWhiteSpace(li.HsnSacCode) ? (object)DBNull.Value : li.HsnSacCode.Trim());
                             cmd2.Parameters.AddWithValue("@qty", li.Quantity);
                             cmd2.Parameters.AddWithValue("@uom", string.IsNullOrWhiteSpace(li.UOM) ? "Nos" : li.UOM.Trim());
                             cmd2.Parameters.AddWithValue("@rate", li.Rate);
+                            cmd2.Parameters.AddWithValue("@unitPrice", li.UnitPrice > 0m ? li.UnitPrice : li.Rate);
                             cmd2.Parameters.AddWithValue("@gst", li.GSTRate);
                             cmd2.Parameters.AddWithValue("@cgst", li.CGSTRate);
                             cmd2.Parameters.AddWithValue("@sgst", li.SGSTRate);
@@ -305,6 +312,7 @@ namespace HVAC_Pro_Desktop.DAL
                             cmd2.Parameters.AddWithValue("@jobLink", string.IsNullOrWhiteSpace(li.JobLink) ? "General" : li.JobLink.Trim());
                             cmd2.Parameters.AddWithValue("@linkedWorkOrderId", li.LinkedWorkOrderId.HasValue ? (object)li.LinkedWorkOrderId.Value : DBNull.Value);
                             cmd2.Parameters.AddWithValue("@linkedWorkOrderName", string.IsNullOrWhiteSpace(li.LinkedWorkOrderName) ? (object)DBNull.Value : li.LinkedWorkOrderName.Trim());
+                            cmd2.Parameters.AddWithValue("@expectedDeliveryDate", li.ExpectedDeliveryDate.HasValue ? (object)li.ExpectedDeliveryDate.Value : po.PayByDate);
                             cmd2.Parameters.AddWithValue("@priceVariance", li.PriceVariance);
                             cmd2.Parameters.AddWithValue("@amt", li.Amount);
                             cmd2.ExecuteNonQuery();
@@ -651,11 +659,14 @@ namespace HVAC_Pro_Desktop.DAL
             LineItemID  = (int)r["LineItemID"],
             POID        = (int)r["POID"],
             InventoryItemId = r["InventoryItemId"] == DBNull.Value ? (int?)null : (int)r["InventoryItemId"],
+            VendorID    = r["VendorID"] == DBNull.Value ? (int?)null : (int)r["VendorID"],
             Description = r["Description"] as string,
+            ItemName    = r["ItemName"] == DBNull.Value ? null : r["ItemName"] as string,
             HsnSacCode  = r["HsnSacCode"] == DBNull.Value ? string.Empty : r["HsnSacCode"] as string,
             Quantity    = (decimal)r["Quantity"],
             UOM         = r["UOM"] == DBNull.Value ? "Nos" : r["UOM"] as string,
             Rate        = (decimal)r["Rate"],
+            UnitPrice   = r["UnitPrice"] == DBNull.Value ? 0m : (decimal)r["UnitPrice"],
             GSTRate     = r["GSTRate"] == DBNull.Value ? 0m : (decimal)r["GSTRate"],
             CGSTRate    = r["CGSTRate"] == DBNull.Value ? 0m : (decimal)r["CGSTRate"],
             SGSTRate    = r["SGSTRate"] == DBNull.Value ? 0m : (decimal)r["SGSTRate"],
@@ -663,6 +674,8 @@ namespace HVAC_Pro_Desktop.DAL
             JobLink     = r["JobLink"] == DBNull.Value ? "General" : r["JobLink"] as string,
             LinkedWorkOrderId = r["LinkedWorkOrderId"] == DBNull.Value ? (int?)null : (int)r["LinkedWorkOrderId"],
             LinkedWorkOrderName = r["LinkedWorkOrderName"] == DBNull.Value ? null : r["LinkedWorkOrderName"] as string,
+            ExpectedDeliveryDate = r["ExpectedDeliveryDate"] == DBNull.Value ? (DateTime?)null : (DateTime)r["ExpectedDeliveryDate"],
+            DeliveredOnTime = r["DeliveredOnTime"] == DBNull.Value ? (bool?)null : Convert.ToBoolean(r["DeliveredOnTime"]),
             PriceVariance = r["PriceVariance"] == DBNull.Value ? 0m : (decimal)r["PriceVariance"],
             Amount      = (decimal)r["Amount"],
         };

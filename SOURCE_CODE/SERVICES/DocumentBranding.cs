@@ -28,8 +28,12 @@ namespace HVAC_Pro_Desktop.Services
 .mse-official-header-top{display:block;}
 .mse-official-header-logo{display:flex;align-items:center;justify-content:center;}
 .mse-official-header-logo img{display:block;width:100%;max-width:760px;height:auto;}
-.mse-official-header-logo-fallback{font-family:'Segoe UI',sans-serif;font-size:24px;font-weight:900;line-height:1;color:#dc2626;}
-.mse-official-header-logo-fallback .mark{color:#1e3a8a;margin-right:8px;}
+.mse-official-header-logo-fallback{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 18px;font-family:'Segoe UI',sans-serif;line-height:1.05;color:#1f2937;}
+.mse-official-header-logo-fallback .brand-row{display:flex;align-items:center;justify-content:center;gap:12px;}
+.mse-official-header-logo-fallback .mark{font-size:30px;font-weight:900;color:#1e3a8a;letter-spacing:.02em;}
+.mse-official-header-logo-fallback .company{font-size:30px;font-weight:900;color:#dc2626;letter-spacing:.04em;text-transform:uppercase;}
+.mse-official-header-logo-fallback .tagline{margin-top:6px;font-size:10px;font-weight:700;color:#334155;letter-spacing:.08em;text-transform:uppercase;}
+.mse-official-header-logo-fallback .contact{margin-top:6px;font-size:10px;font-weight:600;color:#475569;}
 @media print{.mse-official-header{break-inside:avoid;page-break-inside:avoid;}}
 ";
         }
@@ -88,7 +92,11 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
             string logoHtml = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Company invoice header' />"
-                : "<div class='mse-official-header-logo-fallback'><span class='mark'>ERP</span>NEW CLIENT</div>";
+                : "<div class='mse-official-header-logo-fallback'>"
+                + "<div class='brand-row'><span class='mark'>MSE</span><span class='company'>" + Html(DefaultCompanyName) + "</span></div>"
+                + "<div class='tagline'>Solution Providers For Process Chilling, Ventilation, Comfort Air Conditioning, Humidity Control, AMC, Utility Operation &amp; Maintenance</div>"
+                + "<div class='contact'>Thane, Maharashtra | 9967604066 | msentp.info@gmail.com | www.hvacservicesindia.in</div>"
+                + "</div>";
 
             return "<div class='mse-official-header'>"
                 + "<div class='mse-official-header-top'>"

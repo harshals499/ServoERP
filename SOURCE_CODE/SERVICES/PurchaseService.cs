@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Data;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -29,6 +30,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly CalculationVerificationService _calculationVerifier = new CalculationVerificationService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
         public List<PurchaseOrder> GetAll() => AppDataCache.GetOrCreate("purchases:all", CacheTtl, _repo.GetAll);
         public List<PurchaseOrder> GetAllFresh() => _repo.GetAll();
@@ -134,6 +136,102 @@ namespace HVAC_Pro_Desktop.Services
                     Description = row.ItemDescription,
                     Quantity = row.Shortfall,
                     Rate = row.CostPerUnit,
+                    Amount = amount
+                });
+                po.TotalAmount += amount;
+            }
+
+            po.POID = Create(po);
+            return GetById(po.POID) ?? po;
+        }
+
+        public PurchaseOrder CreatePurchaseOrderFromQuotation(TenderBid tenderBid)
+        {
+            SessionManager.DemandPermission("Purchases", "Create");
+            if (tenderBid == null)
+                throw new Exception("Quotation details are missing.");
+            if (tenderBid.BidID <= 0)
+                throw new Exception("Save the quotation before converting it to a purchase order.");
+            if (!IsQuotationApprovedForPurchase(tenderBid.Status))
+                throw new Exception("Only approved quotations can be converted to a purchase order.");
+
+            List<TenderBidLineItem> rows = (tenderBid.LineItems ?? new List<TenderBidLineItem>())
+                .Where(li => li != null
+                    && !li.IsInternalLabour
+                    && li.Quantity > 0m
+                    && !string.IsNullOrWhiteSpace(li.ItemDescription))
+                .ToList();
+
+            if (rows.Count == 0)
+                throw new Exception("No quotation material lines are available for PO conversion.");
+
+            foreach (TenderBidLineItem row in rows)
+            {
+                SupplierOption mapped = row.BestSupplierId.HasValue && row.BestSupplierId.Value > 0
+                    ? _vendorService.GetSupplierOptions(row.ItemDescription, row.Category, row.Quantity)
+                        .FirstOrDefault(o => o != null && o.VendorID == row.BestSupplierId.Value)
+                    : _vendorService.GetBestSupplierForItem(row.ItemDescription, row.Quantity, row.Category);
+
+                if (mapped != null)
+                {
+                    row.VendorID = mapped.VendorID;
+                    if (row.CostPerUnit <= 0m && mapped.Rate > 0m)
+                        row.CostPerUnit = mapped.Rate;
+                    if (string.IsNullOrWhiteSpace(row.Unit) && !string.IsNullOrWhiteSpace(mapped.Unit))
+                        row.Unit = mapped.Unit;
+                }
+                else
+                {
+                    row.VendorID = row.BestSupplierId;
+                }
+            }
+
+            int headerVendorId = rows
+                .Where(li => li.VendorID.HasValue && li.VendorID.Value > 0)
+                .GroupBy(li => li.VendorID.Value)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Min(li => li.CostPerUnit <= 0m ? decimal.MaxValue : li.CostPerUnit))
+                .Select(g => g.Key)
+                .FirstOrDefault();
+
+            if (headerVendorId <= 0)
+                headerVendorId = tenderBid.RecommendedVendorID ?? 0;
+            if (headerVendorId <= 0)
+                throw new Exception("No supplier recommendation was found for the quotation items.");
+
+            EnsureSupplierForPurchase(headerVendorId);
+
+            var po = new PurchaseOrder
+            {
+                VendorID = headerVendorId,
+                ClientID = tenderBid.ClientID,
+                SiteID = tenderBid.SiteID,
+                RecommendedByBidID = tenderBid.BidID,
+                PONumber = BuildNextPONumber(),
+                PODate = DateTime.Today,
+                PayByDate = AutoSuggestPayByDate(DateTime.Today, headerVendorId),
+                Status = "Pending",
+                ComparisonNotes = tenderBid.ComparisonSummary,
+                Notes = "Converted from approved quotation " + (tenderBid.QuotationNumber ?? "draft"),
+                TotalAmount = 0m
+            };
+
+            foreach (TenderBidLineItem row in rows)
+            {
+                decimal rate = row.CostPerUnit > 0m ? row.CostPerUnit : _inventoryService.GetLastPurchaseRate(row.ItemDescription);
+                decimal amount = Math.Round(row.Quantity * rate, 2);
+                po.LineItems.Add(new PurchaseLineItem
+                {
+                    InventoryItemId = row.InventoryItemId,
+                    VendorID = row.VendorID,
+                    Description = row.ItemDescription,
+                    ItemName = row.ItemDescription,
+                    HsnSacCode = row.HsnSacCode,
+                    Quantity = row.Quantity,
+                    UOM = _unitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(row.Unit) ? UnitMeasurementService.DefaultCode : row.Unit),
+                    Rate = rate,
+                    UnitPrice = rate,
+                    ExpectedDeliveryDate = tenderBid.RequiredByDate,
                     Amount = amount
                 });
                 po.TotalAmount += amount;
@@ -318,6 +416,22 @@ namespace HVAC_Pro_Desktop.Services
             return false;
         }
 
+        private static bool IsQuotationApprovedForPurchase(string status)
+        {
+            string normalized = (status ?? string.Empty).Trim();
+            return string.Equals(normalized, "Approved", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Approval", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Accepted", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "Won", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string BuildNextPONumber()
+        {
+            string prefix = "PO-" + DateTime.Now.ToString("yyyyMMdd");
+            int dailyCount = GetAll().Count(existing => existing.PONumber != null && existing.PONumber.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+            return prefix + "-" + (dailyCount + 1).ToString("D3");
+        }
+
         public PendingChargeResult CreatePendingCharge(int poId)
         {
             SessionManager.DemandPermission("Invoices", "Create");
@@ -369,6 +483,65 @@ namespace HVAC_Pro_Desktop.Services
                 Message = message,
                 WorkOrderName = workOrderName,
                 CreatedDate = DateTime.Now
+            };
+        }
+
+        public List<PendingChargeRecoveryRow> GetRecoveryWatchRows(bool unresolvedOnly)
+        {
+            DataTable table = _invoiceService.GetPendingChargesReport(!unresolvedOnly ? false : true);
+            List<PurchaseOrder> orders = GetAllFresh();
+            List<PendingChargeRecoveryRow> rows = new List<PendingChargeRecoveryRow>();
+
+            foreach (System.Data.DataRow row in table.Rows)
+            {
+                string poNumber = Convert.ToString(row["Source PO"]);
+                PurchaseOrder po = orders.FirstOrDefault(existing =>
+                    string.Equals((existing.PONumber ?? string.Empty).Trim(), (poNumber ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase));
+                bool isBilled = string.Equals(Convert.ToString(row["Billed"]), "Y", StringComparison.OrdinalIgnoreCase);
+                DateTime createdDate = row["Date Added"] == DBNull.Value ? DateTime.Today : Convert.ToDateTime(row["Date Added"]);
+                decimal amount = row["Amount"] == DBNull.Value ? 0m : Convert.ToDecimal(row["Amount"]);
+                int ageDays = Math.Max(0, (DateTime.Today - createdDate.Date).Days);
+
+                rows.Add(new PendingChargeRecoveryRow
+                {
+                    WorkOrderName = Convert.ToString(row["Work Order"]),
+                    ClientName = Convert.ToString(row["Client"]),
+                    ItemDescription = Convert.ToString(row["Item"]),
+                    Quantity = row["Qty"] == DBNull.Value ? 0m : Convert.ToDecimal(row["Qty"]),
+                    Rate = row["Rate"] == DBNull.Value ? 0m : Convert.ToDecimal(row["Rate"]),
+                    Amount = amount,
+                    SourcePONumber = poNumber,
+                    CreatedDate = createdDate,
+                    IsBilled = isBilled,
+                    RecoveryStatus = isBilled ? "Linked to Invoice" : (ageDays >= 30 ? "Billable" : "Pending Review"),
+                    SourceSummary = po == null
+                        ? "Recovery from source purchase order."
+                        : string.IsNullOrWhiteSpace(po.VendorName)
+                            ? "Recovery from " + CleanRecoveryText(poNumber, "linked PO") + "."
+                            : "Recovery from " + CleanRecoveryText(poNumber, "linked PO") + " via " + po.VendorName + "."
+                });
+            }
+
+            return rows
+                .OrderByDescending(recovery => !recovery.IsBilled)
+                .ThenByDescending(recovery => recovery.Amount)
+                .ThenByDescending(recovery => recovery.AgeDays)
+                .ThenBy(recovery => recovery.WorkOrderName)
+                .ToList();
+        }
+
+        public PendingChargeRecoverySummary GetRecoveryWatchSummary()
+        {
+            List<PendingChargeRecoveryRow> rows = GetRecoveryWatchRows(false);
+            DateTime monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+            return new PendingChargeRecoverySummary
+            {
+                PendingRecoverableAmount = rows.Where(r => !r.IsBilled).Sum(r => r.Amount),
+                AgedRecoverableAmount = rows.Where(r => !r.IsBilled && r.AgeDays >= 30).Sum(r => r.Amount),
+                LinkedThisMonthAmount = rows.Where(r => r.IsBilled && r.CreatedDate.Date >= monthStart).Sum(r => r.Amount),
+                AbsorbedThisMonthAmount = 0m,
+                UnresolvedCount = rows.Count(r => !r.IsBilled)
             };
         }
 
@@ -520,6 +693,12 @@ namespace HVAC_Pro_Desktop.Services
                 + " | Lines " + createdCount
                 + " | " + message + Environment.NewLine;
             File.AppendAllText(path, line);
+        }
+
+        private static string CleanRecoveryText(string value, string fallback)
+        {
+            string text = (value ?? string.Empty).Trim();
+            return string.IsNullOrWhiteSpace(text) ? fallback : text;
         }
 
         private static decimal TryParseDecimal(string value)

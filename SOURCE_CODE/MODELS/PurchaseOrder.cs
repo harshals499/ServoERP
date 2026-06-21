@@ -77,11 +77,14 @@ namespace HVAC_Pro_Desktop.Models
         public int     LineItemID  { get; set; }
         public int     POID        { get; set; }
         public int?    InventoryItemId { get; set; }
+        public int?    VendorID    { get; set; }
         public string  Description { get; set; }
+        public string  ItemName    { get; set; }
         public string  HsnSacCode  { get; set; }
         public decimal Quantity    { get; set; }
         public string  UOM         { get; set; }
         public decimal Rate        { get; set; }
+        public decimal UnitPrice   { get; set; }
         public decimal GSTRate     { get; set; }
         public decimal CGSTRate    { get; set; }
         public decimal SGSTRate    { get; set; }
@@ -89,6 +92,8 @@ namespace HVAC_Pro_Desktop.Models
         public string  JobLink     { get; set; }
         public int?    LinkedWorkOrderId { get; set; }
         public string  LinkedWorkOrderName { get; set; }
+        public DateTime? ExpectedDeliveryDate { get; set; }
+        public bool? DeliveredOnTime { get; set; }
         public decimal PriceVariance { get; set; }
         public decimal HistoricalRate { get; set; }
         public decimal Amount      { get; set; }

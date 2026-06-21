@@ -27,4 +27,29 @@ namespace HVAC_Pro_Desktop.Models
         public string WorkOrderName { get; set; }
         public DateTime? CreatedDate { get; set; }
     }
+
+    public class PendingChargeRecoveryRow
+    {
+        public string WorkOrderName { get; set; }
+        public string ClientName { get; set; }
+        public string ItemDescription { get; set; }
+        public decimal Quantity { get; set; }
+        public decimal Rate { get; set; }
+        public decimal Amount { get; set; }
+        public string SourcePONumber { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public int AgeDays => Math.Max(0, (DateTime.Today - CreatedDate.Date).Days);
+        public bool IsBilled { get; set; }
+        public string RecoveryStatus { get; set; }
+        public string SourceSummary { get; set; }
+    }
+
+    public class PendingChargeRecoverySummary
+    {
+        public decimal PendingRecoverableAmount { get; set; }
+        public decimal AgedRecoverableAmount { get; set; }
+        public decimal LinkedThisMonthAmount { get; set; }
+        public decimal AbsorbedThisMonthAmount { get; set; }
+        public int UnresolvedCount { get; set; }
+    }
 }

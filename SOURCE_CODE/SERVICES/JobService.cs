@@ -23,12 +23,18 @@ namespace HVAC_Pro_Desktop.Services
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
         public List<Job> GetAll() => AppDataCache.GetOrCreate("jobs:all", CacheTtl, _repo.GetAll);
 
         public Job GetById(int id)
         {
             return _repo.GetById(id);
+        }
+
+        public List<Job> GetByClientId(int clientId)
+        {
+            return _repo.GetByClientId(clientId);
         }
 
         public List<Job> GetByStatus(string status) => _repo.GetByStatus(status);
@@ -259,7 +265,7 @@ namespace HVAC_Pro_Desktop.Services
                     VendorID = item?.VendorID,
                     ItemDescription = resolvedDescription,
                     QuantityUsed = qty,
-                    Unit = item?.Unit ?? "Nos",
+                    Unit = _unitMeasurements.NormalizeForStorage(item?.Unit ?? UnitMeasurementService.DefaultCode),
                     UnitCost = unitCost,
                     TotalCost = Math.Round(qty * unitCost, 2),
                     IsFromInventory = item != null,
@@ -304,7 +310,7 @@ namespace HVAC_Pro_Desktop.Services
                     InventoryItemId = inventoryItemId,
                     ItemDescription = string.IsNullOrWhiteSpace(itemDescription) ? "Material pending sync" : itemDescription.Trim(),
                     QuantityUsed = qty,
-                    Unit = "Nos",
+                    Unit = UnitMeasurementService.DefaultCode,
                     UnitCost = unitCostOverride ?? 0m,
                     TotalCost = Math.Round(qty * (unitCostOverride ?? 0m), 2),
                     StockStatus = "PendingSync"

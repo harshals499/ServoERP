@@ -21,6 +21,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly SiteRepository _siteRepo = new SiteRepository();
         private readonly SettingsService _settingsSvc = new SettingsService();
         private readonly InventoryRepository _inventoryRepo = new InventoryRepository();
+        private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
         public List<TenderBid> GetAll()
         {
@@ -251,98 +252,17 @@ namespace HVAC_Pro_Desktop.Services
                         if (r.Read()) stock = MapStock(r);
                 }
 
-                using (SqlCommand supplierCmd = new SqlCommand(@"
-                    SELECT sip.*, v.VendorName, v.Phone, v.Email
-                    FROM SupplierItemPrices sip
-                    INNER JOIN Vendors v ON sip.VendorID = v.VendorID
-                    WHERE (sip.ItemName LIKE @item
-                       OR (@category <> '' AND sip.Category = @category))
-                      AND ISNULL(v.IsSupplier, 1) = 1
-                    ORDER BY sip.Rate ASC, v.VendorName ASC", conn))
-                {
-                    supplierCmd.Parameters.AddWithValue("@item", "%" + bid.ItemName.Trim() + "%");
-                    supplierCmd.Parameters.AddWithValue("@category", bid.RequirementCategory ?? "");
-                    using (SqlDataReader r = supplierCmd.ExecuteReader())
-                    {
-                        while (r.Read())
-                        {
-                            supplierOptions.Add(new SupplierOption
-                            {
-                                VendorID = (int)r["VendorID"],
-                                VendorName = r["VendorName"].ToString(),
-                                Rate = (decimal)r["Rate"],
-                                Unit = r["Unit"] == DBNull.Value ? (bid.Unit ?? "Nos") : r["Unit"].ToString(),
-                                Source = r["Source"] == DBNull.Value ? "Supplier master" : r["Source"].ToString(),
-                                Phone = r["Phone"] == DBNull.Value ? string.Empty : r["Phone"].ToString(),
-                                Email = r["Email"] == DBNull.Value ? string.Empty : r["Email"].ToString()
-                            });
-                        }
-                    }
-                }
-
-                if (supplierOptions.Count == 0)
-                {
-                    using (SqlCommand historyCmd = new SqlCommand(@"
-                        SELECT TOP 8
-                            p.VendorID,
-                            v.VendorName,
-                            v.Phone,
-                            v.Email,
-                            ISNULL(NULLIF(MAX(NULLIF(LTRIM(RTRIM(pli.Description)), '')), ''), @itemName) AS SourceItem,
-                            MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) AS DerivedRate,
-                            MAX(CASE WHEN pli.Quantity > 0 THEN pli.Quantity ELSE 0 END) AS LastQuantity,
-                            MAX(p.PODate) AS LastPODate
-                        FROM PurchaseLineItems pli
-                        INNER JOIN PurchaseOrders p ON pli.POID = p.POID
-                        INNER JOIN Vendors v ON p.VendorID = v.VendorID
-                        WHERE (pli.Description LIKE @item
-                           OR (@category <> '' AND pli.Description LIKE '%' + @category + '%'))
-                          AND ISNULL(v.IsSupplier, 1) = 1
-                        GROUP BY p.VendorID, v.VendorName, v.Phone, v.Email
-                        HAVING MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) IS NOT NULL
-                        ORDER BY MAX(CASE WHEN pli.Quantity > 0 THEN pli.Amount / NULLIF(pli.Quantity, 0) ELSE pli.Rate END) ASC, MAX(p.PODate) DESC", conn))
-                    {
-                        historyCmd.Parameters.AddWithValue("@item", "%" + bid.ItemName.Trim() + "%");
-                        historyCmd.Parameters.AddWithValue("@category", bid.RequirementCategory ?? "");
-                        historyCmd.Parameters.AddWithValue("@itemName", bid.ItemName.Trim());
-                        using (SqlDataReader r = historyCmd.ExecuteReader())
-                        {
-                            while (r.Read())
-                            {
-                                decimal rate = r["DerivedRate"] == DBNull.Value ? 0m : Convert.ToDecimal(r["DerivedRate"]);
-                                if (rate <= 0)
-                                    continue;
-
-                                supplierOptions.Add(new SupplierOption
-                                {
-                                    VendorID = (int)r["VendorID"],
-                                    VendorName = r["VendorName"].ToString(),
-                                    Rate = rate,
-                                    Unit = string.IsNullOrWhiteSpace(stock?.Unit) ? (bid.Unit ?? "Nos") : stock.Unit,
-                                    Source = "Purchase history",
-                                    Phone = r["Phone"] == DBNull.Value ? string.Empty : r["Phone"].ToString(),
-                                    Email = r["Email"] == DBNull.Value ? string.Empty : r["Email"].ToString()
-                                });
-                            }
-                        }
-                    }
-                }
             }
 
-            supplierOptions = supplierOptions
-                .GroupBy(s => s.VendorID)
-                .Select(g => g.OrderBy(x => x.Rate).First())
-                .OrderBy(x => x.Rate)
-                .ThenBy(x => x.VendorName)
-                .ToList();
+            supplierOptions = _vendorService.GetSupplierOptions(bid.ItemName, bid.RequirementCategory);
 
             decimal available = stock?.CurrentStock ?? 0m;
             decimal internalRate = stock?.LastPurchaseRate ?? 0m;
             decimal shortfall = Math.Max(0, bid.RequiredQuantity - available);
             decimal fulfilFromInventory = Math.Min(bid.RequiredQuantity, available);
-            SupplierOption bestSupplier = supplierOptions.Count > 0 ? supplierOptions[0] : null;
+            SupplierOption bestSupplier = _vendorService.GetBestSupplierForItem(bid.ItemName, bid.RequiredQuantity, bid.RequirementCategory);
 
-            bid.Unit = string.IsNullOrWhiteSpace(bid.Unit) ? stock?.Unit ?? "Nos" : bid.Unit.Trim();
+            bid.Unit = _unitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(bid.Unit) ? stock?.Unit ?? UnitMeasurementService.DefaultCode : bid.Unit);
             bid.InventoryAvailable = available;
             bid.ShortfallQuantity = shortfall;
             bid.EstimatedInternalRate = internalRate;
@@ -403,7 +323,8 @@ namespace HVAC_Pro_Desktop.Services
                 Description = bid.ItemName,
                 Quantity = bid.ShortfallQuantity,
                 Rate = bid.EstimatedSupplierRate,
-                Amount = po.TotalAmount
+                Amount = po.TotalAmount,
+                UOM = _unitMeasurements.NormalizeForStorage(bid.Unit ?? UnitMeasurementService.DefaultCode)
             });
 
             po.POID = _purchaseRepo.Create(po);
@@ -447,7 +368,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 Description = string.IsNullOrWhiteSpace(bid.ItemName) ? (bid.TenderName ?? "Quotation Service") : bid.ItemName,
                 HSNCode = GetHsnCodeForCategory(stock?.Category ?? bid.RequirementCategory),
-                Unit = !string.IsNullOrWhiteSpace(stock?.Unit) ? stock.Unit : (bid.Unit ?? "Nos"),
+                Unit = _unitMeasurements.NormalizeForStorage(!string.IsNullOrWhiteSpace(stock?.Unit) ? stock.Unit : (bid.Unit ?? UnitMeasurementService.DefaultCode)),
                 Quantity = bid.RequiredQuantity > 0 ? bid.RequiredQuantity : 1,
                 Rate = bid.RequiredQuantity > 0 ? Math.Round(bid.BidValue / bid.RequiredQuantity, 2) : bid.BidValue,
                 Amount = bid.BidValue
@@ -473,7 +394,7 @@ namespace HVAC_Pro_Desktop.Services
                         Category = bid.RequirementCategory,
                         ItemDescription = string.IsNullOrWhiteSpace(bid.ItemName) ? bid.TenderName : bid.ItemName,
                         Quantity = quantity,
-                        Unit = string.IsNullOrWhiteSpace(bid.Unit) ? "Nos" : bid.Unit,
+                        Unit = _unitMeasurements.NormalizeForStorage(string.IsNullOrWhiteSpace(bid.Unit) ? UnitMeasurementService.DefaultCode : bid.Unit),
                         HsnSacCode = string.Empty,
                         GSTRatePct = 18m,
                         SellPricePerUnit = quantity > 0m ? Math.Round(amount / quantity, 2) : amount

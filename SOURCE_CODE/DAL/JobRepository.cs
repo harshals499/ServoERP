@@ -100,6 +100,25 @@ namespace HVAC_Pro_Desktop.DAL
             return list;
         }
 
+        public List<Job> GetByClientId(int clientId)
+        {
+            var list = new List<Job>();
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(BaseSelect + " WHERE j.ClientID=@clientId ORDER BY j.ScheduledDate DESC, j.JobID DESC", conn))
+                {
+                    cmd.Parameters.AddWithValue("@clientId", clientId);
+                    using (SqlDataReader r = cmd.ExecuteReader())
+                    {
+                        while (r.Read())
+                            list.Add(MapJob(r));
+                    }
+                }
+            }
+            return list;
+        }
+
         public List<JobSummaryDto> GetAllWithSummary()
         {
             var list = new List<JobSummaryDto>();

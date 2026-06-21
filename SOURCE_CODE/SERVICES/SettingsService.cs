@@ -28,7 +28,7 @@ namespace HVAC_Pro_Desktop.Services
             Dictionary<string, string> settings = GetAll();
             var snapshot = new IndiaCompanySettings
             {
-                CompanyName = GetValue(settings, "CompanyName", BrandingService.AppName),
+                CompanyName = NormalizeCompanyName(GetValue(settings, "CompanyName", DocumentBranding.DefaultCompanyName)),
                 GSTIN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyGSTIN", GetValue(settings, "CompanyGST", ""))),
                 PAN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyPAN", "")),
                 TAN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyTAN", "")),
@@ -81,7 +81,7 @@ namespace HVAC_Pro_Desktop.Services
             IndiaTaxValidationHelper.EnsureValidPAN(settings.PAN, "Company PAN");
             IndiaTaxValidationHelper.EnsureValidTAN(settings.TAN, "Company TAN");
 
-            Set("CompanyName", settings.CompanyName.Trim());
+            Set("CompanyName", NormalizeCompanyName(settings.CompanyName));
             Set("CompanyGST", settings.GSTIN);
             Set("CompanyGSTIN", settings.GSTIN);
             Set("CompanyPAN", settings.PAN);
@@ -116,6 +116,17 @@ namespace HVAC_Pro_Desktop.Services
         private static string GetValue(Dictionary<string, string> settings, string key, string defaultValue)
         {
             return settings != null && settings.TryGetValue(key, out string value) ? value ?? string.Empty : defaultValue;
+        }
+
+        private static string NormalizeCompanyName(string value)
+        {
+            string trimmed = (value ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(trimmed)
+                || string.Equals(trimmed, BrandingService.AppName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "New Client", StringComparison.OrdinalIgnoreCase))
+                return DocumentBranding.DefaultCompanyName;
+
+            return trimmed;
         }
 
         private static decimal GetDecimalValue(Dictionary<string, string> settings, string key, decimal defaultValue)

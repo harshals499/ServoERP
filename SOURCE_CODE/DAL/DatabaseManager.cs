@@ -45,6 +45,7 @@ namespace HVAC_Pro_Desktop.DAL
             PayrollFolderHelper.EnsureFolders();
 
             string configuredConnectionString = RequireConfiguredConnectionString();
+            configuredConnectionString = AlignConnectionStringToResolvedServer(configuredConnectionString);
             ApplyConnectionString(configuredConnectionString);
             _connectionString = configuredConnectionString;
         }
@@ -110,7 +111,52 @@ namespace HVAC_Pro_Desktop.DAL
                     BuildSqlDiagnostics());
 
             _resolvedServer = server;
+            PersistResolvedServer(server);
             return server;
+        }
+
+        private static string AlignConnectionStringToResolvedServer(string connectionString)
+        {
+            if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(_resolvedServer))
+                return connectionString;
+
+            try
+            {
+                var builder = new SqlConnectionStringBuilder(connectionString);
+                if (string.Equals(builder.DataSource, _resolvedServer, StringComparison.OrdinalIgnoreCase))
+                    return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
+
+                string originalServer = builder.DataSource;
+                builder.DataSource = _resolvedServer;
+                string aligned = DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
+                AppLogger.LogInfo("DatabaseManager aligned SQL server from " + originalServer + " to reachable instance " + _resolvedServer + ".");
+                return aligned;
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("DatabaseManager.AlignConnectionStringToResolvedServer", ex);
+                return connectionString;
+            }
+        }
+
+        private static void PersistResolvedServer(string server)
+        {
+            if (string.IsNullOrWhiteSpace(server))
+                return;
+
+            try
+            {
+                string configuredServer = ConfigService.Get("Database", "Server", string.Empty);
+                if (string.Equals(configuredServer, server, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                ConfigService.Set("Database", "Server", server);
+                AppLogger.LogInfo("DatabaseManager updated HVACPro.config to use reachable SQL server " + server + ".");
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("DatabaseManager.PersistResolvedServer", ex);
+            }
         }
 
         private static string GetConfiguredServer()
@@ -1921,6 +1967,34 @@ namespace HVAC_Pro_Desktop.DAL
                     Source        NVARCHAR(100) NULL,
                     EffectiveDate DATETIME NOT NULL DEFAULT GETDATE()
                 );");
+                AddColumn(conn, "SupplierItemPrices", "ItemID", "INT NULL");
+                AddColumn(conn, "SupplierItemPrices", "IsPreferred", "BIT NOT NULL DEFAULT 0");
+                AddColumn(conn, "SupplierItemPrices", "IsActive", "BIT NOT NULL DEFAULT 1");
+                AddColumn(conn, "SupplierItemPrices", "Notes", "NVARCHAR(500) NULL");
+                Exec(conn, @"
+                    IF OBJECT_ID('dbo.FK_SupplierItemPrices_StockItems_ItemID', 'F') IS NULL
+                       AND COL_LENGTH('dbo.SupplierItemPrices', 'ItemID') IS NOT NULL
+                    BEGIN
+                        ALTER TABLE dbo.SupplierItemPrices
+                        WITH CHECK ADD CONSTRAINT FK_SupplierItemPrices_StockItems_ItemID
+                        FOREIGN KEY (ItemID) REFERENCES dbo.StockItems(ItemID);
+                    END;");
+                Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_SupplierItemPrices_ItemID' AND object_id = OBJECT_ID('dbo.SupplierItemPrices'))
+                    CREATE INDEX IX_SupplierItemPrices_ItemID ON dbo.SupplierItemPrices(ItemID, IsActive, VendorID);");
+                AddColumn(conn, "SupplierItemPrices", "ItemID", "INT NULL");
+                AddColumn(conn, "SupplierItemPrices", "IsPreferred", "BIT NOT NULL DEFAULT 0");
+                AddColumn(conn, "SupplierItemPrices", "IsActive", "BIT NOT NULL DEFAULT 1");
+                AddColumn(conn, "SupplierItemPrices", "Notes", "NVARCHAR(500) NULL");
+                Exec(conn, @"
+                    IF OBJECT_ID('dbo.FK_SupplierItemPrices_StockItems_ItemID', 'F') IS NULL
+                       AND COL_LENGTH('dbo.SupplierItemPrices', 'ItemID') IS NOT NULL
+                    BEGIN
+                        ALTER TABLE dbo.SupplierItemPrices
+                        WITH CHECK ADD CONSTRAINT FK_SupplierItemPrices_StockItems_ItemID
+                        FOREIGN KEY (ItemID) REFERENCES dbo.StockItems(ItemID);
+                    END;");
+                Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_SupplierItemPrices_ItemID' AND object_id = OBJECT_ID('dbo.SupplierItemPrices'))
+                    CREATE INDEX IX_SupplierItemPrices_ItemID ON dbo.SupplierItemPrices(ItemID, IsActive, VendorID);");
                 Exec(conn, @"UPDATE Vendors SET DefaultCreditDays = 30 WHERE DefaultCreditDays IS NULL OR DefaultCreditDays <= 0;");
                 Exec(conn, @"UPDATE Vendors SET VendorType = 'Supplier' WHERE VendorType IS NULL OR LTRIM(RTRIM(VendorType)) = '';");
                 Exec(conn, @"
