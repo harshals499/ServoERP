@@ -22,8 +22,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DocumentTemplateService _docTemplateSvc = new DocumentTemplateService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
 
-        private FlowLayoutPanel _quoteFlow;
-        private FlowLayoutPanel _renewalFlow;
+        private QuotationListModule _quoteListModule;
+        private RenewalAlertListModule _renewalListModule;
         private TextBox _txtQuoteNo;
         private TextBox _txtTitle;
         private ComboBox _cboClient;
@@ -78,6 +78,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly List<Vendor> _vendors = new List<Vendor>();
         private readonly List<TenderBidLineItem> _lineItems = new List<TenderBidLineItem>();
         private TenderBid _current;
+        private bool _syncingQuoteSelection;
         private Panel _selectedCard;
         private bool _loading;
         private bool _initialized;
@@ -217,13 +218,6 @@ namespace HVAC_Pro_Desktop.UI
         {
             BackColor = QuotePageBg;
 
-            Panel hiddenDataHost = new Panel { Visible = false, Width = 1, Height = 1 };
-            _quoteFlow = new FlowLayoutPanel();
-            _renewalFlow = new FlowLayoutPanel();
-            hiddenDataHost.Controls.Add(_quoteFlow);
-            hiddenDataHost.Controls.Add(_renewalFlow);
-            Controls.Add(hiddenDataHost);
-
             Panel header = BuildErpHeader();
             Panel quotationDashboard = BuildQuotationDashboardPanel();
 
@@ -339,17 +333,10 @@ namespace HVAC_Pro_Desktop.UI
 
             // â”€â”€ Panel1: scrollable quote list â”€â”€
             Panel listWrap = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = QuoteSurface };
-            _quoteFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                BackColor = QuoteSurface,
-                Margin = new Padding(0),
-                Padding = new Padding(0)
-            };
-            listWrap.Controls.Add(_quoteFlow);
+            _quoteListModule = new QuotationListModule();
+            _quoteListModule.Dock = DockStyle.Fill;
+            _quoteListModule.RowSelected += HandleQuoteRowSelected;
+            listWrap.Controls.Add(_quoteListModule);
             split.Panel1.Controls.Add(listWrap);
 
             // â”€â”€ Panel2: renewal alerts (always visible) â”€â”€
@@ -369,16 +356,9 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(24, 0, 0, 0),
                 TextAlign = ContentAlignment.MiddleLeft
             });
-            _renewalFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = true,
-                Padding = new Padding(16, 0, 16, 8),
-                BackColor = QuoteSurface
-            };
-            renewalWrap.Controls.Add(_renewalFlow);
+            _renewalListModule = new RenewalAlertListModule();
+            _renewalListModule.Dock = DockStyle.Fill;
+            renewalWrap.Controls.Add(_renewalListModule);
             split.Panel2.Controls.Add(renewalWrap);
 
             left.Controls.Add(split);
@@ -1647,13 +1627,15 @@ namespace HVAC_Pro_Desktop.UI
                 string preview = rows.Count == 0
                     ? "No quotation material lines are ready for PO conversion."
                     : string.Join(Environment.NewLine, rows.Take(8).Select(li => "• " + li.ItemDescription + " | Qty " + li.Quantity.ToString("0.###") + " " + _unitSvc.NormalizeForDisplayOrDefault(li.Unit) + " | Supplier " + (li.BestSupplierName ?? "Auto-select")));
-                if (MessageBox.Show(
-                        "Convert this quotation into a supplier purchase order?\n\n"
-                        + preview
-                        + (rows.Count > 8 ? Environment.NewLine + "• +" + (rows.Count - 8) + " more line(s)" : string.Empty),
-                        "Convert to PO",
-                        MessageBoxButtons.YesNo,
-                        MessageBoxIcon.Question) != DialogResult.Yes)
+                string detail = preview
+                    + (rows.Count > 8 ? Environment.NewLine + "• +" + (rows.Count - 8) + " more line(s)" : string.Empty)
+                    + Environment.NewLine
+                    + Environment.NewLine
+                    + "This creates supplier-side purchase order records from the current quotation material lines.";
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                        this,
+                        "Convert quotation into supplier PO?",
+                        detail))
                     return;
                 List<string> poNumbers = await Task.Run(() => _svc.CreatePOsFromQuotation(bidId));
                 _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
@@ -1810,27 +1792,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindQuoteList(IEnumerable<TenderBid> quotes)
         {
-            _quoteFlow.SuspendLayout();
-            _quoteFlow.Controls.Clear();
-            foreach (TenderBid quote in quotes ?? Enumerable.Empty<TenderBid>())
-                _quoteFlow.Controls.Add(MakeQuoteCard(quote));
-            _quoteFlow.ResumeLayout(true);
+            if (_quoteListModule == null)
+                return;
+
+            _quoteListModule.SetItems((quotes ?? Enumerable.Empty<TenderBid>()).ToList());
+            SyncQuoteSelection();
         }
 
         private void BindRenewalAlerts()
         {
-            _renewalFlow.SuspendLayout();
-            _renewalFlow.Controls.Clear();
             TimeSpan ttl = TimeSpan.FromMinutes(2);
-            foreach (TenderBid quote in AppDataCache.GetOrCreate("quotations:renewal-alerts", ttl, () => _svc.GetRenewalAlerts() ?? new List<TenderBid>()))
-            {
-                Panel item = new Panel { Width = 248, Height = 34, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
-                item.Controls.Add(new Label { Text = quote.QuotationNumber, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(0, 2), AutoSize = true });
-                item.Controls.Add(new Label { Text = IndiaFormatHelper.FormatDate(quote.DueDate), Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(185, 28, 28), Location = new Point(164, 3), AutoSize = true });
-                item.Controls.Add(new Label { Text = (quote.ClientName ?? "Client") + " / " + (quote.SiteName ?? "Site"), Font = new Font("Segoe UI", 8), ForeColor = DS.Slate500, Location = new Point(0, 18), AutoSize = true });
-                _renewalFlow.Controls.Add(item);
-            }
-            _renewalFlow.ResumeLayout(true);
+            if (_renewalListModule == null)
+                return;
+
+            List<TenderBid> alerts = AppDataCache.GetOrCreate("quotations:renewal-alerts", ttl, () => _svc.GetRenewalAlerts() ?? new List<TenderBid>());
+            _renewalListModule.SetItems(alerts);
         }
 
         private Panel MakeQuoteCard(TenderBid quote)
@@ -1898,12 +1874,42 @@ namespace HVAC_Pro_Desktop.UI
             if (_selectedCard != null)
                 HighlightCard(_selectedCard, false);
             _selectedCard = card;
-            HighlightCard(card, true);
+            if (card != null)
+                HighlightCard(card, true);
             SetStatus("Loading quotation...", InfoBlue);
             _current = await Task.Run(() => _svc.GetByIdDetailed(quote.BidID));
             PopulateCurrent(_current);
+            SyncQuoteSelection();
             ShowQuotationEditor();
             SetStatus("Quotation loaded.", DS.Slate500);
+        }
+
+        private void SyncQuoteSelection()
+        {
+            if (_quoteListModule == null)
+                return;
+
+            int? selectedId = _current == null ? (int?)null : _current.BidID;
+            if (_quoteListModule.GetSelectedRowId() == selectedId)
+                return;
+
+            _syncingQuoteSelection = true;
+            try
+            {
+                _quoteListModule.SetSelectedRowId(selectedId);
+            }
+            finally
+            {
+                _syncingQuoteSelection = false;
+            }
+        }
+
+        private void HandleQuoteRowSelected(TenderBid quote)
+        {
+            if (_syncingQuoteSelection || quote == null)
+                return;
+
+            _ = SelectQuoteAsync(quote, null);
         }
 
         private void HighlightCard(Panel card, bool selected)
@@ -1966,6 +1972,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_selectedCard != null)
                 HighlightCard(_selectedCard, false);
             _selectedCard = null;
+            SyncQuoteSelection();
             _txtQuoteNo.Text = string.Empty;
             _txtTitle.Text = string.Empty;
             if (_cboClient.Items.Count > 0) _cboClient.SelectedIndex = 0;
@@ -4120,6 +4127,98 @@ namespace HVAC_Pro_Desktop.UI
                 });
                 AcceptButton = Controls[1].Controls[1] as Button;
                 CancelButton = Controls[1].Controls[0] as Button;
+            }
+        }
+
+        private sealed class QuotationListModule : VirtualListModuleBase<TenderBid>
+        {
+            public QuotationListModule()
+            {
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = QuoteSurface;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Quotation", HeaderText = "Quotation", Width = 110 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Client", HeaderText = "Client / Site", FillWeight = 38f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Title", HeaderText = "Title", Width = 160 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Due", HeaderText = "Due", Width = 86 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", Width = 88 });
+            }
+
+            protected override int GetRowId(TenderBid item)
+            {
+                return item?.BidID ?? 0;
+            }
+
+            protected override object GetCellValue(TenderBid item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "Quotation":
+                        return string.IsNullOrWhiteSpace(item.QuotationNumber) ? "Draft Quote" : item.QuotationNumber;
+                    case "Client":
+                        return ((item.ClientName ?? string.Empty) + " / " + (item.SiteName ?? string.Empty)).Trim(' ', '/');
+                    case "Title":
+                        return string.IsNullOrWhiteSpace(item.TenderName) ? (item.ItemName ?? "Untitled quotation") : item.TenderName;
+                    case "Due":
+                        return IndiaFormatHelper.FormatDate(item.DueDate);
+                    case "Status":
+                        return string.IsNullOrWhiteSpace(item.Status) ? "Draft" : item.Status;
+                    default:
+                        return string.Empty;
+                }
+            }
+        }
+
+        private sealed class RenewalAlertListModule : VirtualListModuleBase<TenderBid>
+        {
+            public RenewalAlertListModule()
+            {
+                SetPagerVisible(false);
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 32;
+                ListGrid.BackgroundColor = QuoteSurface;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Quotation", HeaderText = "Quotation", Width = 94 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Due", HeaderText = "Due", Width = 82 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Client", HeaderText = "Client / Site", FillWeight = 42f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            }
+
+            protected override int GetRowId(TenderBid item)
+            {
+                return item?.BidID ?? 0;
+            }
+
+            protected override object GetCellValue(TenderBid item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "Quotation":
+                        return item.QuotationNumber ?? string.Empty;
+                    case "Due":
+                        return IndiaFormatHelper.FormatDate(item.DueDate);
+                    case "Client":
+                        return (item.ClientName ?? "Client") + " / " + (item.SiteName ?? "Site");
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No follow-up alerts." : totalCount.ToString("N0") + " follow-up alerts.";
             }
         }
 

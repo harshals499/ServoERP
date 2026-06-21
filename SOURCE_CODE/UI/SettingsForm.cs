@@ -34,6 +34,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly NominatimGeocodingService _geoSvc = new NominatimGeocodingService();
         private readonly AuthService _authSvc = new AuthService();
         private readonly FreshStartService _freshStartSvc = new FreshStartService();
+        private readonly UnitMeasurementService _unitMeasurementSvc = new UnitMeasurementService();
 
         private TextBox _txtCompanyName;
         private TextBox _txtGST;
@@ -56,6 +57,9 @@ namespace HVAC_Pro_Desktop.UI
         private NumericUpDown _numEInvoiceThreshold;
         private CheckBox _chkEInvoiceEligible;
         private DataGridView _gridHsnSac;
+        private readonly BindingSource _hsnBindingSource = new BindingSource();
+        private List<HsnSacGridRow> _hsnMasterRows = new List<HsnSacGridRow>();
+        private DataGridView _gridUnits;
         private Label _lblStatus;
         private Label _lblDbStatus;
         private Label _lblMoneyPreview;
@@ -65,6 +69,7 @@ namespace HVAC_Pro_Desktop.UI
         private DateTimePicker _dtAuditTo;
         private ComboBox _cmbAuditUser;
         private TabControl _tabs;
+        private TextBox _txtHsnSearch;
         private Panel _generalCanvas;
         private TextBox _txtVersionCheckUrl;
         private readonly ToolTip _toolTip = new ToolTip { AutoPopDelay = 12000, InitialDelay = 350, ReshowDelay = 100, ShowAlways = true };
@@ -72,8 +77,15 @@ namespace HVAC_Pro_Desktop.UI
         private CheckBox _chkSilentAutoUpdateEnabled;
         private Label _lblInstalledVersion;
         private Label _lblLastUpdateCheckStatus;
+        private Label _lblUnitSummary;
         private ComboBox _cmbDisplayFitMode;
         private ComboBox _cmbUiScale;
+        private TextBox _txtUnitCode;
+        private TextBox _txtUnitShortCode;
+        private TextBox _txtUnitDisplayName;
+        private ComboBox _cmbUnitCategory;
+        private ComboBox _cmbUnitMeasurementSystem;
+        private TextBox _txtUnitAliases;
         private CheckBox _chkAiEnabled;
         private ComboBox _cmbAiProvider;
         private TextBox _txtAiEndpoint;
@@ -99,6 +111,10 @@ namespace HVAC_Pro_Desktop.UI
         private bool _securityLoadQueued;
         private bool _settingsPolishQueued;
         private bool _secondarySettingsCardsQueued;
+        private bool _usersTabBuilt;
+        private TabPage _usersTab;
+        private bool _auditTabBuilt;
+        private TabPage _auditTab;
 
         private static readonly Color HeaderBg = DS.White;
         private static readonly Color SectionBg = DS.Slate50;
@@ -113,6 +129,22 @@ namespace HVAC_Pro_Desktop.UI
             public bool IsExpanded { get; set; }
         }
 
+        private sealed class HsnSacGridRow
+        {
+            public int MasterID { get; set; }
+            public string CodeType { get; set; }
+            public string Code { get; set; }
+            public string Description { get; set; }
+            public string BusinessCategory { get; set; }
+            public decimal TaxRate { get; set; }
+            public decimal CGSTRate { get; set; }
+            public decimal SGSTRate { get; set; }
+            public decimal IGSTRate { get; set; }
+            public bool IsDefault { get; set; }
+            public bool IsActive { get; set; }
+            public string Notes { get; set; }
+        }
+
         public SettingsForm()
         {
             Dock = DockStyle.Fill;
@@ -123,6 +155,18 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Settings.BuildLayout.Complete", 0);
             UIHelper.ApplyInputStyles(Controls);
             AppRuntime.LogTiming("Settings.InputStyles.Complete", 0);
+        }
+
+        public override void OnShellActivated()
+        {
+            EnsureInitialLoad();
+            if (_tabs != null && _tabs.SelectedTab != null)
+            {
+                if (_usersTabBuilt && _tabs.SelectedTab == _usersTab)
+                    BeginRefreshSecurityTabs();
+                if (_auditTabBuilt && _tabs.SelectedTab == _auditTab)
+                    RefreshAuditLog();
+            }
         }
 
         public void EnsureInitialLoad()
@@ -394,8 +438,12 @@ namespace HVAC_Pro_Desktop.UI
             _tabs.TabPages.Add(generalTab);
             if (IsAdminUser())
             {
-                _tabs.TabPages.Add(BuildUsersTab());
+                _usersTab = CreateLazySettingsTab("Users & Logins", BuildUsersTabContent);
+                _auditTab = CreateLazySettingsTab("Audit Log", BuildAuditTabContent);
+                _tabs.TabPages.Add(_usersTab);
+                _tabs.TabPages.Add(_auditTab);
             }
+            _tabs.SelectedIndexChanged += SettingsTabs_SelectedIndexChanged;
 
             Controls.Add(_tabs);
             Controls.Add(toolbar);
@@ -586,13 +634,34 @@ namespace HVAC_Pro_Desktop.UI
             hsnGridHost.Controls.Add(_gridHsnSac);
             hsnBody.Controls.Add(hsnGridHost);
 
+            _txtHsnSearch = new TextBox { Width = 220, Font = new Font("Segoe UI", 9f) };
+            _txtHsnSearch.TextChanged += (s, e) => ApplyHsnSacFilter();
+            _txtHsnSearch.Location = new Point(0, 272);
+            hsnBody.Controls.Add(_txtHsnSearch);
+
             Button btnAddRow = MakeBtn("Add HSN/SAC Row", InfoBlue, 150);
-            btnAddRow.Location = new Point(0, 272);
-            btnAddRow.Click += (s, e) => _gridHsnSac.Rows.Add(0, "HSN", "", "", "", 18m, 9m, 9m, 18m, false, true, "");
+            btnAddRow.Location = new Point(236, 272);
+            btnAddRow.Click += (s, e) =>
+            {
+                _hsnMasterRows.Add(new HsnSacGridRow
+                {
+                    MasterID = 0,
+                    CodeType = "HSN",
+                    TaxRate = 18m,
+                    CGSTRate = 9m,
+                    SGSTRate = 9m,
+                    IGSTRate = 18m,
+                    IsActive = true
+                });
+                ApplyHsnSacFilter();
+            };
             hsnBody.Controls.Add(btnAddRow);
             hsnBody.Resize += (s, e) =>
             {
                 btnAddRow.Top = Math.Max(210, hsnBody.ClientSize.Height - btnAddRow.Height - 2);
+                btnAddRow.Left = Math.Max(236, hsnBody.ClientSize.Width - btnAddRow.Width);
+                _txtHsnSearch.Top = btnAddRow.Top;
+                _txtHsnSearch.Width = Math.Min(260, Math.Max(160, btnAddRow.Left - 12));
                 hsnGridHost.Width = Math.Max(260, hsnBody.ClientSize.Width);
                 hsnGridHost.Height = Math.Max(150, btnAddRow.Top - 14);
                 _gridHsnSac.Width = hsnGridHost.Width;
@@ -600,6 +669,9 @@ namespace HVAC_Pro_Desktop.UI
                 LayoutHsnSacColumns(_gridHsnSac);
             };
             AppRuntime.LogTiming("Settings.BuildForm.Hsn.Complete", 0);
+
+            Panel unitBody = AddModernSettingsCard(parent, "Unit", "Add new units to the global unit list used across the app.", 430);
+            BuildUnitManagementCard(unitBody);
 
             Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection and saved card layout controls.", 330);
             _lblDbStatus = new Label { Location = new Point(0, 0), Size = new Size(520, 24), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate700 };
@@ -1067,6 +1139,91 @@ namespace HVAC_Pro_Desktop.UI
             updatesBody.Controls.Add(btnCheckNow);
         }
 
+        private void BuildUnitManagementCard(Panel parent)
+        {
+            _txtUnitCode = new TextBox { CharacterCasing = CharacterCasing.Upper };
+            _txtUnitShortCode = new TextBox { CharacterCasing = CharacterCasing.Upper };
+            _txtUnitDisplayName = new TextBox();
+            _cmbUnitCategory = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
+            _cmbUnitMeasurementSystem = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
+            _txtUnitAliases = new TextBox();
+
+            _cmbUnitMeasurementSystem.Items.AddRange(new object[] { "", "Metric", "Imperial", "Mixed", "Count", "Service" });
+            _cmbUnitMeasurementSystem.SelectedIndex = 0;
+
+            PlaceLabeledControl(parent, "Unit Code *", _txtUnitCode, 0, 0, 110);
+            PlaceLabeledControl(parent, "Short Code", _txtUnitShortCode, 126, 0, 110);
+            PlaceLabeledControl(parent, "Display Name *", _txtUnitDisplayName, 252, 0, 268);
+            PlaceLabeledControl(parent, "Category", _cmbUnitCategory, 0, 74, 250);
+            PlaceLabeledControl(parent, "Measurement System", _cmbUnitMeasurementSystem, 266, 74, 254);
+            PlaceLabeledControl(parent, "Aliases", _txtUnitAliases, 0, 148, 520);
+
+            Label aliasHelp = new Label
+            {
+                Text = "Enter aliases separated by commas, for example: meter, metres, mtr",
+                Location = new Point(0, 202),
+                Size = new Size(520, 18),
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = DS.Slate500
+            };
+            parent.Controls.Add(aliasHelp);
+
+            Button btnAddUnit = MakeBtn("Add Unit", SaveGreen, 120);
+            btnAddUnit.Location = new Point(0, 234);
+            btnAddUnit.Click += (s, e) => SaveUnitFromSettings();
+            parent.Controls.Add(btnAddUnit);
+
+            Button btnRefreshUnits = MakeBtn("Refresh Units", InfoBlue, 126);
+            btnRefreshUnits.Location = new Point(136, 234);
+            btnRefreshUnits.Click += (s, e) => RefreshUnitManagementCard();
+            parent.Controls.Add(btnRefreshUnits);
+
+            _lblUnitSummary = new Label
+            {
+                Location = new Point(278, 238),
+                Size = new Size(242, 20),
+                Font = new Font("Segoe UI", 8.8f, FontStyle.Bold),
+                ForeColor = DS.Slate600,
+                TextAlign = ContentAlignment.MiddleRight
+            };
+            parent.Controls.Add(_lblUnitSummary);
+
+            _gridUnits = new DataGridView
+            {
+                Location = new Point(0, 274),
+                Size = new Size(520, 128),
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+            };
+            StyleDataGrid(_gridUnits);
+            parent.Controls.Add(_gridUnits);
+
+            parent.Resize += (s, e) =>
+            {
+                int width = Math.Max(320, parent.ClientSize.Width);
+                int leftWidth = Math.Max(150, (width - 16) / 2);
+                int rightX = leftWidth + 16;
+                int rightWidth = Math.Max(150, width - rightX);
+                SetLabeledControlBounds(parent, "Unit Code *", _txtUnitCode, 0, 0, 110);
+                SetLabeledControlBounds(parent, "Short Code", _txtUnitShortCode, 126, 0, 110);
+                SetLabeledControlBounds(parent, "Display Name *", _txtUnitDisplayName, 252, 0, Math.Max(160, width - 252));
+                SetLabeledControlBounds(parent, "Category", _cmbUnitCategory, 0, 74, leftWidth);
+                SetLabeledControlBounds(parent, "Measurement System", _cmbUnitMeasurementSystem, rightX, 74, rightWidth);
+                SetLabeledControlBounds(parent, "Aliases", _txtUnitAliases, 0, 148, width);
+                aliasHelp.Width = width;
+                _lblUnitSummary.Left = Math.Max(btnRefreshUnits.Right + 12, width - _lblUnitSummary.Width);
+                _gridUnits.Width = width;
+                _gridUnits.Height = Math.Max(96, parent.ClientSize.Height - _gridUnits.Top);
+            };
+        }
+
         private void BuildLocalAiCard(Panel parent)
         {
             Panel aiBody = AddModernSettingsCard(parent, "ServoERP Assistant", "Built-in ERP helper. No server, model setup, or API key is required.", 410);
@@ -1308,6 +1465,7 @@ namespace HVAC_Pro_Desktop.UI
                     _chkVersionCheckEnabled.Checked = ConfigService.IsVersionCheckEnabled();
                 if (_chkSilentAutoUpdateEnabled != null)
                     _chkSilentAutoUpdateEnabled.Checked = ConfigService.IsSilentAutoUpdateEnabled();
+                RefreshUnitManagementCard();
                 RefreshRuntimeSettingsLabels();
                 LoadDisplayFitSetting();
                 LoadUiScaleSetting();
@@ -1316,7 +1474,6 @@ namespace HVAC_Pro_Desktop.UI
 
                 RefreshIndiaDefaultsPreview();
                 BeginLoadHsnSacGrid();
-                BeginRefreshSecurityTabs();
             }
             catch (Exception ex)
             {
@@ -1326,10 +1483,106 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private TabPage BuildUsersTab()
+        private void RefreshUnitManagementCard()
         {
-            TabPage tab = new TabPage("Users & Logins") { BackColor = DS.BgPage };
+            if (_gridUnits == null)
+                return;
 
+            List<UnitMeasurement> units = _unitMeasurementSvc.GetUnits().ToList();
+            _gridUnits.DataSource = units
+                .Where(unit => unit != null)
+                .Select(unit => new
+                {
+                    Code = unit.UnitCode,
+                    Short = string.IsNullOrWhiteSpace(unit.ShortCode) ? unit.UnitCode : unit.ShortCode,
+                    Name = unit.DisplayName,
+                    Category = unit.Category,
+                    System = unit.MeasurementSystem
+                })
+                .ToList();
+
+            if (_lblUnitSummary != null)
+                _lblUnitSummary.Text = units.Count.ToString("N0") + " global units";
+
+            if (_cmbUnitCategory != null)
+            {
+                string selected = _cmbUnitCategory.Text;
+                string[] defaults =
+                {
+                    "Length", "Area", "Volume", "Weight and Mass", "Pressure", "Temperature",
+                    "Energy and Power", "Electrical", "Airflow and Velocity", "Refrigerant and Gas",
+                    "Concentration and Purity", "Count and Packaging", "Length of run", "Time",
+                    "Service billing", "Consumable dispensing"
+                };
+
+                List<string> categories = units
+                    .Select(unit => (unit.Category ?? string.Empty).Trim())
+                    .Where(text => !string.IsNullOrWhiteSpace(text))
+                    .Concat(defaults)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(text => text)
+                    .ToList();
+
+                _cmbUnitCategory.BeginUpdate();
+                try
+                {
+                    _cmbUnitCategory.Items.Clear();
+                    foreach (string category in categories)
+                        _cmbUnitCategory.Items.Add(category);
+                    _cmbUnitCategory.Text = selected;
+                }
+                finally
+                {
+                    _cmbUnitCategory.EndUpdate();
+                }
+            }
+        }
+
+        private void SaveUnitFromSettings()
+        {
+            string[] aliases = (_txtUnitAliases?.Text ?? string.Empty)
+                .Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(text => text.Trim())
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            string message;
+            bool saved = _unitMeasurementSvc.TryAddUnit(
+                (_txtUnitCode?.Text ?? string.Empty).Trim(),
+                (_txtUnitShortCode?.Text ?? string.Empty).Trim(),
+                (_txtUnitDisplayName?.Text ?? string.Empty).Trim(),
+                (_cmbUnitCategory?.Text ?? string.Empty).Trim(),
+                (_cmbUnitMeasurementSystem?.Text ?? string.Empty).Trim(),
+                aliases,
+                out message);
+
+            if (!saved)
+            {
+                MessageBox.Show(message, "Add Unit", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _lblStatus.Text = "Unit save failed: " + message;
+                _lblStatus.ForeColor = Color.Red;
+                return;
+            }
+
+            _lblStatus.Text = "Unit added to the global list: " + ((_txtUnitShortCode?.Text ?? string.Empty).Trim().Length > 0 ? _txtUnitShortCode.Text.Trim() : _txtUnitCode.Text.Trim());
+            _lblStatus.ForeColor = SaveGreen;
+            ClearUnitEntry();
+            RefreshUnitManagementCard();
+        }
+
+        private void ClearUnitEntry()
+        {
+            if (_txtUnitCode != null) _txtUnitCode.Clear();
+            if (_txtUnitShortCode != null) _txtUnitShortCode.Clear();
+            if (_txtUnitDisplayName != null) _txtUnitDisplayName.Clear();
+            if (_cmbUnitCategory != null) _cmbUnitCategory.Text = string.Empty;
+            if (_cmbUnitMeasurementSystem != null) _cmbUnitMeasurementSystem.SelectedIndex = 0;
+            if (_txtUnitAliases != null) _txtUnitAliases.Clear();
+        }
+
+        private Control BuildUsersTabContent()
+        {
             Panel page = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(22, 18, 22, 22) };
             FlowLayoutPanel summary = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, WrapContents = false, BackColor = DS.BgPage };
             _lblUserTotal = AddSummaryCard(summary, "Total Users", "0", InfoBlue);
@@ -1372,14 +1625,25 @@ namespace HVAC_Pro_Desktop.UI
             page.Controls.Add(gridCard);
             page.Controls.Add(toolbar);
             page.Controls.Add(summary);
-            tab.Controls.Add(page);
+            return page;
+        }
+
+        private TabPage BuildUsersTab()
+        {
+            TabPage tab = new TabPage("Users & Logins") { BackColor = DS.BgPage };
+            tab.Controls.Add(BuildUsersTabContent());
             return tab;
         }
 
-        private TabPage BuildAuditTab()
+        private LazyTabPage CreateLazySettingsTab(string title, Func<Control> builder)
         {
-            TabPage tab = new TabPage("Audit Log") { BackColor = DS.BgPage };
+            LazyTabPage tab = new LazyTabPage(title, builder);
+            tab.BackColor = DS.BgPage;
+            return tab;
+        }
 
+        private Control BuildAuditTabContent()
+        {
             Panel page = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(22, 18, 22, 22) };
             FlowLayoutPanel summary = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 92, WrapContents = false, BackColor = DS.BgPage };
             _lblAuditTotal = AddSummaryCard(summary, "Total Events", "0", InfoBlue);
@@ -1425,9 +1689,15 @@ namespace HVAC_Pro_Desktop.UI
             page.Controls.Add(_auditGridCard);
             page.Controls.Add(toolbar);
             page.Controls.Add(summary);
-            tab.Controls.Add(page);
             _dtAuditFrom.Value = DateTime.Today.AddDays(-30);
             _dtAuditTo.Value = DateTime.Today;
+            return page;
+        }
+
+        private TabPage BuildAuditTab()
+        {
+            TabPage tab = new TabPage("Audit Log") { BackColor = DS.BgPage };
+            tab.Controls.Add(BuildAuditTabContent());
             return tab;
         }
 
@@ -1458,10 +1728,55 @@ namespace HVAC_Pro_Desktop.UI
             return SessionManager.CurrentUser != null;
         }
 
+        private void SettingsTabs_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_tabs == null || _tabs.SelectedTab == null)
+                return;
+
+            LazyTabPage lazyTab = _tabs.SelectedTab as LazyTabPage;
+            if (lazyTab != null)
+                lazyTab.EnsureBuilt();
+
+            if (string.Equals(_tabs.SelectedTab.Text, "Users & Logins", StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureUsersTabBuilt();
+                BeginRefreshSecurityTabs();
+            }
+            else if (string.Equals(_tabs.SelectedTab.Text, "Audit Log", StringComparison.OrdinalIgnoreCase))
+            {
+                EnsureAuditTabBuilt();
+                RefreshAuditLog();
+            }
+        }
+
+        private void EnsureUsersTabBuilt()
+        {
+            if (_usersTabBuilt || _tabs == null || _usersTab == null)
+                return;
+
+            LazyTabPage lazyUsersTab = _usersTab as LazyTabPage;
+            if (lazyUsersTab != null)
+                lazyUsersTab.EnsureBuilt();
+            _usersTabBuilt = true;
+        }
+
+        private void EnsureAuditTabBuilt()
+        {
+            if (_auditTabBuilt || _tabs == null || _auditTab == null)
+                return;
+
+            LazyTabPage lazyAuditTab = _auditTab as LazyTabPage;
+            if (lazyAuditTab != null)
+                lazyAuditTab.EnsureBuilt();
+            _auditTabBuilt = true;
+        }
+
         private void OpenUserManagementTab()
         {
             if (_tabs == null)
                 return;
+
+            EnsureUsersTabBuilt();
 
             foreach (TabPage tab in _tabs.TabPages)
             {
@@ -2056,19 +2371,22 @@ namespace HVAC_Pro_Desktop.UI
             };
             StyleDataGrid(grid);
             grid.ScrollBars = ScrollBars.None;
+            grid.AutoGenerateColumns = false;
 
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MasterID", Visible = false });
-            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "CodeType", HeaderText = "Type", DataSource = new[] { "HSN", "SAC" }, FillWeight = 50, Visible = false });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Code", HeaderText = "HSN / SAC", FillWeight = 78, MinimumWidth = 82 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", HeaderText = "Description", FillWeight = 190, MinimumWidth = 130 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "BusinessCategory", HeaderText = "Category", FillWeight = 120, Visible = false });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaxRate", HeaderText = "GST %", FillWeight = 52, MinimumWidth = 58 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CGSTRate", HeaderText = "CGST %", FillWeight = 52, MinimumWidth = 58 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SGSTRate", HeaderText = "SGST %", FillWeight = 52, MinimumWidth = 58 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IGSTRate", HeaderText = "IGST %", FillWeight = 52, MinimumWidth = 58, Visible = false });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsDefault", HeaderText = "Default", FillWeight = 50, Visible = false });
-            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsActive", HeaderText = "Active", FillWeight = 45, MinimumWidth = 54, Visible = false });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Notes", HeaderText = "Notes", FillWeight = 140, Visible = false });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "MasterID", DataPropertyName = "MasterID", Visible = false });
+            grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "CodeType", DataPropertyName = "CodeType", HeaderText = "Type", DataSource = new[] { "HSN", "SAC" }, FillWeight = 50, Visible = false });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Code", DataPropertyName = "Code", HeaderText = "HSN / SAC", FillWeight = 78, MinimumWidth = 82 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Description", DataPropertyName = "Description", HeaderText = "Description", FillWeight = 190, MinimumWidth = 130 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "BusinessCategory", DataPropertyName = "BusinessCategory", HeaderText = "Category", FillWeight = 120, Visible = false });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TaxRate", DataPropertyName = "TaxRate", HeaderText = "GST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CGSTRate", DataPropertyName = "CGSTRate", HeaderText = "CGST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SGSTRate", DataPropertyName = "SGSTRate", HeaderText = "SGST %", FillWeight = 52, MinimumWidth = 58 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "IGSTRate", DataPropertyName = "IGSTRate", HeaderText = "IGST %", FillWeight = 52, MinimumWidth = 58, Visible = false });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsDefault", DataPropertyName = "IsDefault", HeaderText = "Default", FillWeight = 50, Visible = false });
+            grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "IsActive", DataPropertyName = "IsActive", HeaderText = "Active", FillWeight = 45, MinimumWidth = 54, Visible = false });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Notes", DataPropertyName = "Notes", HeaderText = "Notes", FillWeight = 140, Visible = false });
+            _hsnBindingSource.DataSource = typeof(HsnSacGridRow);
+            grid.DataSource = _hsnBindingSource;
             grid.Resize += (s, e) => LayoutHsnSacColumns(grid);
             LayoutHsnSacColumns(grid);
             return grid;
@@ -2092,23 +2410,39 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadHsnSacGrid(IEnumerable<HsnSacMasterEntry> rows)
         {
-            _gridHsnSac.Rows.Clear();
-            foreach (HsnSacMasterEntry entry in rows ?? Enumerable.Empty<HsnSacMasterEntry>())
+            _hsnMasterRows = (rows ?? Enumerable.Empty<HsnSacMasterEntry>())
+                .Select(entry => new HsnSacGridRow
+                {
+                    MasterID = entry.MasterID,
+                    CodeType = entry.CodeType,
+                    Code = entry.Code,
+                    Description = entry.Description,
+                    BusinessCategory = entry.BusinessCategory,
+                    TaxRate = entry.TaxRate,
+                    CGSTRate = entry.CGSTRate,
+                    SGSTRate = entry.SGSTRate,
+                    IGSTRate = entry.IGSTRate,
+                    IsDefault = entry.IsDefault,
+                    IsActive = entry.IsActive,
+                    Notes = entry.Notes
+                })
+                .ToList();
+            ApplyHsnSacFilter();
+        }
+
+        private void ApplyHsnSacFilter()
+        {
+            string search = (_txtHsnSearch == null ? string.Empty : _txtHsnSearch.Text ?? string.Empty).Trim();
+            IEnumerable<HsnSacGridRow> rows = _hsnMasterRows ?? Enumerable.Empty<HsnSacGridRow>();
+            if (!string.IsNullOrWhiteSpace(search))
             {
-                _gridHsnSac.Rows.Add(
-                    entry.MasterID,
-                    entry.CodeType,
-                    entry.Code,
-                    entry.Description,
-                    entry.BusinessCategory,
-                    entry.TaxRate,
-                    entry.CGSTRate,
-                    entry.SGSTRate,
-                    entry.IGSTRate,
-                    entry.IsDefault,
-                    entry.IsActive,
-                    entry.Notes);
+                rows = rows.Where(row =>
+                    (row.Code ?? string.Empty).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (row.Description ?? string.Empty).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    (row.CodeType ?? string.Empty).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
             }
+
+            _hsnBindingSource.DataSource = new BindingList<HsnSacGridRow>(rows.ToList());
         }
 
         /// <summary>Loads HSN/SAC rows after Settings is visible so master-data SQL does not block first paint.</summary>
@@ -2149,32 +2483,27 @@ namespace HVAC_Pro_Desktop.UI
         private List<HsnSacMasterEntry> CollectHsnSacRows()
         {
             var entries = new List<HsnSacMasterEntry>();
-            foreach (DataGridViewRow row in _gridHsnSac.Rows)
+            foreach (HsnSacGridRow row in _hsnMasterRows ?? new List<HsnSacGridRow>())
             {
-                if (row.IsNewRow)
-                    continue;
-
-                string code = ToCell(row.Cells["Code"].Value);
-                string description = ToCell(row.Cells["Description"].Value);
+                string code = row.Code ?? string.Empty;
+                string description = row.Description ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(description))
                     continue;
 
                 entries.Add(new HsnSacMasterEntry
                 {
-                    MasterID = ToInt(row.Cells["MasterID"].Value),
-                    CodeType = ToCell(row.Cells["CodeType"].Value),
+                    MasterID = row.MasterID,
+                    CodeType = row.CodeType,
                     Code = code,
                     Description = description,
-                    BusinessCategory = ToCell(row.Cells["BusinessCategory"].Value),
-                    TaxRate = ToDecimal(row.Cells["TaxRate"].Value, 18m),
-                    CGSTRate = ToDecimal(row.Cells["CGSTRate"].Value, 9m),
-                    SGSTRate = ToDecimal(row.Cells["SGSTRate"].Value, 9m),
-                    IGSTRate = ToDecimal(row.Cells["IGSTRate"].Value, 18m),
-                    IsDefault = ToBool(row.Cells["IsDefault"].Value),
-                    IsActive = row.Cells["IsActive"].Value == null || row.Cells["IsActive"].Value == DBNull.Value
-                        ? true
-                        : ToBool(row.Cells["IsActive"].Value),
-                    Notes = ToCell(row.Cells["Notes"].Value)
+                    BusinessCategory = row.BusinessCategory,
+                    TaxRate = row.TaxRate,
+                    CGSTRate = row.CGSTRate,
+                    SGSTRate = row.SGSTRate,
+                    IGSTRate = row.IGSTRate,
+                    IsDefault = row.IsDefault,
+                    IsActive = row.IsActive,
+                    Notes = row.Notes
                 });
             }
             return entries;
@@ -3462,11 +3791,19 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (!result.CanApplyUpdate)
                     {
-                        MessageBox.Show(
-                            result.StatusMessage,
+                        DialogResult openInstaller = MessageBox.Show(
+                            result.StatusMessage + "\r\n\r\nOpen the latest ServoERP installer now?",
                             "Check for updates",
-                            MessageBoxButtons.OK,
+                            MessageBoxButtons.OKCancel,
                             MessageBoxIcon.Information);
+                        if (openInstaller == DialogResult.OK && !string.IsNullOrWhiteSpace(result.DownloadUrl))
+                        {
+                            Process.Start(new ProcessStartInfo
+                            {
+                                FileName = result.DownloadUrl,
+                                UseShellExecute = true
+                            });
+                        }
                         return;
                     }
 

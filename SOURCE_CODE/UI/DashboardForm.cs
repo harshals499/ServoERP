@@ -54,13 +54,14 @@ namespace HVAC_Pro_Desktop.UI
         private bool _backupNowRunning;
         private bool _buildingShell;
         private Timer _clockTimer;
+        private string _notificationCountText = string.Empty;
+        private bool _notificationCountLoading;
 
         public DashboardForm()
         {
             Dock = DockStyle.Fill;
             BackColor = DS.BgPage;
             AutoScroll = false;
-            LayoutManager.ResetPage("Dashboard");
             EnableDeferredLoad(async () =>
             {
                 BuildShell();
@@ -121,15 +122,15 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(_host);
             AddTopBar();
             AddGreetingBanner();
+            AddAlertsBar();
             AddShortcutActionsRow();
             AddDepartmentRows();
             AddFinancialOverviewRow();
-                AddAlertsBar();
-                NormalizeDashboardFixedLayout();
 
             _clockTimer = new Timer { Interval = 60000 };
             _clockTimer.Tick += (s, e) => { if (_clockLabel != null) _clockLabel.Text = DateTime.Now.ToString("hh:mm tt"); };
             _clockTimer.Start();
+            QueueNotificationCountRefresh();
             }
             finally
             {
@@ -141,11 +142,9 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnLoad(EventArgs e)
         {
             base.OnLoad(e);
-            NormalizeDashboardFixedLayout();
             BeginInvoke((Action)(() =>
             {
                 RebuildIfReady();
-                NormalizeDashboardFixedLayout();
             }));
         }
 
@@ -164,32 +163,6 @@ namespace HVAC_Pro_Desktop.UI
             BuildShell();
         }
 
-        private void NormalizeDashboardFixedLayout()
-        {
-            if (IsDisposed)
-                return;
-
-            LayoutManager.ResetPage("Dashboard");
-            RemoveDashboardResizeState(this);
-            if (_root != null)
-                _root.Padding = new Padding(10, 8, 14, 24);
-        }
-
-        private static void RemoveDashboardResizeState(Control root)
-        {
-            if (root == null || root.IsDisposed)
-                return;
-
-            foreach (Control child in root.Controls.Cast<Control>().ToList())
-            {
-                string metadata = ((child.Name ?? string.Empty) + " " + (child.Tag == null ? string.Empty : child.Tag.ToString())).ToUpperInvariant();
-                if (metadata.Contains("NO_DASHBOARD_RESIZE") || child is DashboardDeptCard)
-                    CardResizeGripService.Detach(child);
-
-                RemoveDashboardResizeState(child);
-            }
-        }
-
         private void AddTopBar()
         {
             Panel bar = CardPanel(ContentWidth(), 78);
@@ -199,9 +172,9 @@ namespace HVAC_Pro_Desktop.UI
             const int userWidth = 150;
             const int avatarSize = 32;
             const int languageWidth = 160;
-            const int actionWidth = 116;
+            const int actionWidth = 122;
             const int notificationSize = 38;
-            const int gap = 10;
+            const int gap = 14;
             bool showTopBarMeta = bar.Width >= 1120;
             int right = bar.Width - 22;
             int customizeX = right - actionWidth;
@@ -269,15 +242,15 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(DS.BorderStrong))
                     e.Graphics.DrawPath(pen, path);
             };
-            TextBox search = new TextBox
+            Label search = new Label
             {
-                Text = "Search apps, clients, jobs, invoices, purchases...",
+                Text = "Search",
                 Location = new Point(46, 11),
-                Size = new Size(Math.Max(80, searchWidth - 142), 22),
-                BorderStyle = BorderStyle.None,
                 Font = new Font(LanguageManager.GetUiFontFamily(), 8.7f),
                 ForeColor = DS.Slate700,
-                BackColor = Color.White
+                BackColor = Color.White,
+                AutoSize = true,
+                TextAlign = ContentAlignment.MiddleLeft
             };
             Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 19, DS.Slate700);
             searchIcon.Location = new Point(16, 9);
@@ -300,6 +273,8 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawPath(pen, path);
             };
             searchHost.Controls.AddRange(new Control[] { searchIcon, search, ctrl });
+            search.BringToFront();
+            ctrl.BringToFront();
 
             int timeX = showSearch ? searchHost.Right + 12 : 292;
             Panel timeBlock = new Panel { Location = new Point(timeX, 16), Size = new Size(100, 44), BackColor = Color.White, Visible = showTopBarMeta && timeX + 100 < rightClusterLeft - 8 };
@@ -314,6 +289,7 @@ namespace HVAC_Pro_Desktop.UI
             DS.Rounded(avatar, 16);
             Label user = new Label { Text = CurrentUserName(), Location = new Point(userX, 28), Size = new Size(userWidth, 20), Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
             Button backupNow = SecondaryButton("Backup Now", backupX, 22, actionWidth, 34);
+            ModernIconSystem.AddButtonIcon(backupNow, ModernIconKind.Backup);
             customize.Visible = showActions && showCustomize;
             backupNow.Visible = showActions && showBackup;
             notifications.Visible = showNotifications;
@@ -371,18 +347,40 @@ namespace HVAC_Pro_Desktop.UI
 
         private string GetNotificationCountText()
         {
-            try
+            return _notificationCountText ?? string.Empty;
+        }
+
+        private void QueueNotificationCountRefresh()
+        {
+            if (_notificationCountLoading || IsDisposed || !IsHandleCreated)
+                return;
+
+            _notificationCountLoading = true;
+            Task.Run(() =>
             {
-                int count = _notificationSvc.GetActiveCount(99);
-                if (count <= 0)
+                try
+                {
+                    int count = _notificationSvc.GetActiveCount(99);
+                    return count <= 0 ? string.Empty : (count > 99 ? "99+" : count.ToString());
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("DashboardForm.QueueNotificationCountRefresh", ex);
                     return string.Empty;
-                return count > 99 ? "99+" : count.ToString();
-            }
-            catch (Exception ex)
+                }
+            }).ContinueWith(task =>
             {
-                AppLogger.LogError("DashboardForm.GetNotificationCountText", ex);
-                return string.Empty;
-            }
+                if (IsDisposed)
+                    return;
+
+                _notificationCountLoading = false;
+                string nextValue = task.Status == TaskStatus.RanToCompletion ? task.Result ?? string.Empty : string.Empty;
+                if (string.Equals(_notificationCountText, nextValue, StringComparison.Ordinal))
+                    return;
+
+                _notificationCountText = nextValue;
+                BuildShell();
+            }, TaskScheduler.FromCurrentSynchronizationContext());
         }
 
         private void OpenNotificationCenter()
@@ -607,7 +605,7 @@ namespace HVAC_Pro_Desktop.UI
             int activeVendors = _vendors.Count(v => v.IsActive && !v.IsArchived);
             int activeClients = _clients.Count(c => c.IsActive);
             decimal outstanding = _invoices.Where(i => !IsPaid(i.PaymentStatus)).Sum(i => Math.Max(0m, i.BalanceDue));
-            int toOrder = _inventory.Count(i => i.IsLowStock);
+            int procurementRequired = _inventory.Count(i => i.AvailableStock <= 0m || i.IsLowStock);
             int pricedItems = _inventory.Count(i => i.LastPurchaseRate > 0);
             int activeEmployees = _employees.Count(e => IsAny(e.Status, "Active"));
             int leaveToday = _employees.Count(e => IsAny(e.Status, "Leave", "On Leave"));
@@ -616,7 +614,7 @@ namespace HVAC_Pro_Desktop.UI
 
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.Vendor, "#fffbeb", "#d97706", T("Suppliers"), Count(activeVendors), T("Active Suppliers"), Money(overduePayables), T("Overdue Supplier Payables"), null, 9, null, overduePayables > 0 ? DS.Red500 : (Color?)null));
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.Client, "#eff6ff", "#2563eb", T("Clients"), Count(activeClients), T("Active Clients"), outstanding > 0 ? Money(outstanding) : "-", T("Outstanding"), null, 1, DS.Green600));
-            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Inventory, "#faf5ff", "#9333ea", T("Materials / Procurement"), Count(toOrder), T("To Order Items"), Count(pricedItems), T("Priced Items"), null, 11, toOrder > 0 ? Color.FromArgb(217, 119, 6) : (Color?)null, pricedItems > 0 ? DS.Green600 : (Color?)null));
+            row2.Controls.Add(Dept(cardWidth, ModernIconKind.Inventory, "#faf5ff", "#9333ea", T("Materials / Procurement"), Count(procurementRequired), T("Procurement Required"), Count(pricedItems), T("Priced Items"), null, 11, procurementRequired > 0 ? Color.FromArgb(217, 119, 6) : (Color?)null, pricedItems > 0 ? DS.Green600 : (Color?)null));
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.User, "#eff6ff", "#2563eb", T("Employees"), Count(activeEmployees), T("Active Employees"), Count(leaveToday), T("On Leave Today"), null, 12, DS.Green600));
             row2.Controls.Add(Dept(cardWidth, ModernIconKind.Service, "#eff6ff", "#2563eb", T("Service Operations"), Count(openTickets), T("Open Service Tickets"), Count(highTickets), T("High Priority"), null, 15, null, highTickets > 0 ? DS.Red500 : (Color?)null));
 
@@ -633,7 +631,7 @@ namespace HVAC_Pro_Desktop.UI
                 () => OnNavigate?.Invoke(nav));
             card.Width = width;
             card.Margin = new Padding(4, 6, 4, 6);
-            card.Tag = "NO_DASHBOARD_RESIZE";
+            card.Tag = "dashboard-card";
             GlobalCardContextMenu.AttachCard(card, title, "Dashboard", "Nav" + nav, () => OnNavigate?.Invoke(nav));
             return card;
         }
@@ -693,7 +691,7 @@ namespace HVAC_Pro_Desktop.UI
             int overdueJobs = OverdueJobs();
             int openPos = _purchaseOrders.Count(p => IsAny(p.Status, "Draft", "Pending Approval", "Approved", "Open"));
             int overdueInv = _invoices.Count(i => !IsPaid(i.PaymentStatus) && i.DueDate.Date < DateTime.Today);
-            int toOrder = _inventory.Count(i => i.IsLowStock);
+            int procurementRequired = _inventory.Count(i => i.AvailableStock <= 0m || i.IsLowStock);
             int highTickets = _serviceTickets.Count(t => IsAny(t.Priority, "High", "Critical") && !IsAny(t.Status, "Resolved", "Closed", "Cancelled"));
 
             Panel bar = CardPanel(ContentWidth(), 74);
@@ -710,7 +708,7 @@ namespace HVAC_Pro_Desktop.UI
             AddAlert(bar, 250, ModernIconKind.Refresh, Color.FromArgb(249, 115, 22), overdueJobs, "Overdue Jobs");
             AddAlert(bar, 450, ModernIconKind.Purchase, Color.FromArgb(59, 130, 246), openPos, "Open Purchase Orders");
             AddAlert(bar, 680, ModernIconKind.Invoice, DS.Red500, overdueInv, "Overdue Invoices");
-            AddAlert(bar, 890, ModernIconKind.Inventory, Color.FromArgb(245, 158, 11), toOrder, "Materials To Order");
+            AddAlert(bar, 890, ModernIconKind.Inventory, Color.FromArgb(245, 158, 11), procurementRequired, "Procurement Required");
             AddAlert(bar, 1090, ModernIconKind.Service, Color.FromArgb(20, 184, 166), highTickets, "High Priority Tickets");
             _root.Controls.Add(bar);
         }
@@ -744,6 +742,10 @@ namespace HVAC_Pro_Desktop.UI
             var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(w, h), BackColor = Color.White, ForeColor = DS.Slate900, FlatStyle = FlatStyle.Flat, Font = new Font(LanguageManager.GetUiFontFamily(), 8.1f, FontStyle.Bold), Cursor = Cursors.Hand };
             button.FlatAppearance.BorderColor = DS.BorderStrong;
             button.FlatAppearance.BorderSize = 1;
+            button.FlatAppearance.MouseOverBackColor = DS.Slate50;
+            button.FlatAppearance.MouseDownBackColor = DS.Slate100;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Padding = new Padding(10, 0, 10, 0);
             return button;
         }
         private int ContentWidth()

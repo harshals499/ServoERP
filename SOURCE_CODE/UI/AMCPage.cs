@@ -202,13 +202,13 @@ namespace HVAC_Pro_Desktop.UI
             _searchBox = new TextBox
             {
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Text = "Search AMC, client, equipment...",
+                Text = "Search",
                 ForeColor = Muted,
                 Size = new Size(240, 30)
             };
             _searchBox.GotFocus += (s, e) =>
             {
-                if (_searchBox.Text == "Search AMC, client, equipment...")
+                if (_searchBox.Text == "Search")
                 {
                     _searchBox.Text = string.Empty;
                     _searchBox.ForeColor = Ink;
@@ -218,7 +218,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_searchBox.Text))
                 {
-                    _searchBox.Text = "Search AMC, client, equipment...";
+                    _searchBox.Text = "Search";
                     _searchBox.ForeColor = Muted;
                 }
             };
@@ -450,7 +450,7 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             if (_cardFlow == null)
                 return;
 
-            string search = _searchBox == null || _searchBox.Text == "Search AMC, client, equipment..." ? string.Empty : _searchBox.Text.Trim();
+            string search = _searchBox == null || _searchBox.Text == "Search" ? string.Empty : _searchBox.Text.Trim();
             string status = _statusFilter == null || _statusFilter.SelectedIndex <= 0 ? string.Empty : Convert.ToString(_statusFilter.SelectedItem, CultureInfo.InvariantCulture);
             string type = _typeFilter == null || _typeFilter.SelectedIndex <= 0 ? string.Empty : Convert.ToString(_typeFilter.SelectedItem, CultureInfo.InvariantCulture);
 

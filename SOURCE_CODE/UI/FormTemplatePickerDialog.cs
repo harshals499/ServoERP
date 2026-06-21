@@ -51,7 +51,8 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Top,
                 Height = 30,
                 Font = new Font("Segoe UI", 16f, FontStyle.Bold),
-                ForeColor = DS.Slate900
+                ForeColor = DS.Slate900,
+                AutoEllipsis = true
             };
             Label subtitle = new Label
             {
@@ -59,14 +60,16 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Top,
                 Height = 24,
                 Font = new Font("Segoe UI", 9f),
-                ForeColor = DS.Slate600
+                ForeColor = DS.Slate600,
+                AutoEllipsis = true
             };
             _lblSummary = new Label
             {
                 Dock = DockStyle.Bottom,
                 Height = 20,
                 Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate500
+                ForeColor = DS.Slate500,
+                AutoEllipsis = true
             };
             header.Controls.Add(_lblSummary);
             header.Controls.Add(subtitle);
@@ -144,20 +147,26 @@ namespace HVAC_Pro_Desktop.UI
             _grid.CellDoubleClick += (s, e) => OpenSelectedTemplate();
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = DS.BgPage, Padding = new Padding(18, 12, 18, 14) };
+            FlowLayoutPanel footerActions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                Width = 412,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                BackColor = DS.BgPage,
+                Padding = new Padding(0),
+                Margin = Padding.Empty
+            };
             Button close = MakeButton("Close", Color.White, DS.Slate700, 94);
-            close.Dock = DockStyle.Right;
             close.Click += (s, e) => Close();
             Button copy = MakeButton("Copy For Workflow", DS.Primary600, Color.White, 156);
-            copy.Dock = DockStyle.Right;
-            copy.Margin = new Padding(0, 0, 10, 0);
             copy.Click += (s, e) => CopySelectedTemplate();
             Button open = MakeButton("Open Template", DS.Teal600, Color.White, 132);
-            open.Dock = DockStyle.Right;
-            open.Margin = new Padding(0, 0, 10, 0);
             open.Click += (s, e) => OpenSelectedTemplate();
-            footer.Controls.Add(close);
-            footer.Controls.Add(copy);
-            footer.Controls.Add(open);
+            footerActions.Controls.Add(close);
+            footerActions.Controls.Add(copy);
+            footerActions.Controls.Add(open);
+            footer.Controls.Add(footerActions);
 
             Controls.Add(_grid);
             Controls.Add(footer);

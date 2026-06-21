@@ -40,7 +40,7 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _txtSearch;
         private ComboBox _cmbType;
         private ComboBox _cmbPriority;
-        private FlowLayoutPanel _jobList;
+        private DispatchJobListModule _jobListModule;
         private FlowLayoutPanel _techList;
         private Panel _timelinePanel;
         private Label _lblStatus;
@@ -88,6 +88,7 @@ namespace HVAC_Pro_Desktop.UI
         private List<JobSummaryDto> _visibleJobs = new List<JobSummaryDto>();
         private JobSummaryDto _selectedJob;
         private Employee _selectedTechnician;
+        private bool _syncingJobSelection;
         private string _activeQueue = "All";
         private bool _binding;
         private bool _usingFallbackJobs;
@@ -432,9 +433,10 @@ namespace HVAC_Pro_Desktop.UI
             bottom.Controls.Add(_btnViewAllJobs);
             card.Controls.Add(bottom);
 
-            _jobList = new FlowLayoutPanel { Dock = DockStyle.None, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = White, Padding = new Padding(0, 4, 4, 4) };
-            _jobList.Resize += (s, e) => ResizeJobCards();
-            card.Controls.Add(_jobList);
+            _jobListModule = new DispatchJobListModule();
+            _jobListModule.BackColor = White;
+            _jobListModule.RowSelected += HandleJobRowSelected;
+            card.Controls.Add(_jobListModule);
             card.Resize += (s, e) =>
             {
                 int w = Math.Max(260, card.ClientSize.Width - 28);
@@ -446,8 +448,7 @@ namespace HVAC_Pro_Desktop.UI
                 tabs.SetBounds(14, 44, w, tabsHeight);
                 filterShell.SetBounds(14, filterTop, w, 92);
                 bottom.SetBounds(14, h - 44, w, 44);
-                _jobList.SetBounds(14, listTop, w, Math.Max(120, h - listTop - 54));
-                ResizeJobCards();
+                _jobListModule.SetBounds(14, listTop, w, Math.Max(120, h - listTop - 54));
             };
             return card;
         }
@@ -849,7 +850,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ApplyJobFilters()
         {
-            if (_binding || _jobList == null)
+            if (_binding || _jobListModule == null)
                 return;
 
             string search = (_txtSearch?.Text ?? "").Trim();
@@ -932,66 +933,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderJobCards()
         {
-            _jobList.SuspendLayout();
-            _jobList.Controls.Clear();
-            _jobCards.Clear();
-            if (_visibleJobs.Count == 0)
-            {
-                bool filtered = HasDispatchFilters();
-                _jobList.Controls.Add(CreateEmptyState(
-                    filtered ? "No jobs match these filters" : "No dispatch jobs",
-                    filtered ? "Clear filters to return to the full dispatch queue." : "Jobs will appear here once they are scheduled.",
-                    filtered));
-                _jobList.ResumeLayout();
+            if (_jobListModule == null)
                 return;
-            }
-            foreach (JobSummaryDto job in _visibleJobs.Take(80))
-            {
-                Panel card = CreateJobCard(job);
-                _jobCards.Add(card);
-                _jobList.Controls.Add(card);
-            }
-            ResizeJobCards();
-            _jobList.ResumeLayout();
+
+            _jobListModule.SetItems(_visibleJobs.Take(80).ToList());
+            SyncJobSelection();
         }
 
         private void ResizeJobCards()
         {
-            if (_jobList == null)
+            if (_jobListModule == null)
                 return;
-
-            int width = Math.Max(300, _jobList.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 12);
-            foreach (Control control in _jobList.Controls)
-            {
-                control.Width = width;
-                Label badge = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueBadge");
-                if (badge != null)
-                    badge.Left = Math.Max(178, control.Width - badge.Width - 14);
-
-                Label title = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueTitle");
-                if (title != null)
-                    title.Width = Math.Max(120, control.Width - 166);
-
-                Label client = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueClient");
-                if (client != null)
-                    client.Width = Math.Max(120, control.Width - 24);
-
-                Label site = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueSite");
-                if (site != null)
-                    site.Width = Math.Max(120, control.Width - 180);
-
-                Label priority = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueuePriority");
-                if (priority != null)
-                    priority.SetBounds(Math.Max(170, control.Width - 110), 54, 96, 18);
-
-                Label sla = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueSla");
-                if (sla != null)
-                    sla.SetBounds(Math.Max(150, control.Width - 148), 76, 134, 18);
-
-                Label tech = control.Controls.OfType<Label>().FirstOrDefault(l => l.Tag as string == "QueueTech");
-                if (tech != null)
-                    tech.SetBounds(Math.Max(150, control.Width - 148), 94, 134, 16);
-            }
         }
 
         private bool HasDispatchFilters()
@@ -1027,7 +979,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control CreateEmptyState(string title, string subtitle, bool showClearFilters)
         {
-            Panel empty = new Panel { Width = Math.Max(280, _jobList.ClientSize.Width - 26), Height = showClearFilters ? 170 : 138, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 8, 0, 8) };
+            int width = _jobListModule == null ? 300 : Math.Max(280, _jobListModule.ClientSize.Width - 26);
+            Panel empty = new Panel { Width = width, Height = showClearFilters ? 170 : 138, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 8, 0, 8) };
             empty.Paint += (s, e) =>
             {
                 DrawRoundedBorder(e.Graphics, empty.ClientRectangle, Border);
@@ -1061,7 +1014,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             Color accent = PriorityColor(job.Priority);
             bool selected = _selectedJob != null && _selectedJob.JobId == job.JobId;
-            Panel card = new Panel { Width = Math.Max(300, _jobList.ClientSize.Width - 26), Height = 112, BackColor = selected ? Lighten(Primary, 0.93f) : White, Margin = new Padding(0, 0, 0, 8), Cursor = Cursors.Hand, Tag = job };
+            int width = _jobListModule == null ? 320 : Math.Max(300, _jobListModule.ClientSize.Width - 26);
+            Panel card = new Panel { Width = width, Height = 112, BackColor = selected ? Lighten(Primary, 0.93f) : White, Margin = new Padding(0, 0, 0, 8), Cursor = Cursors.Hand, Tag = job };
             card.Paint += (s, e) => DrawRoundedBorder(e.Graphics, card.ClientRectangle, selected ? Primary : Border);
             Label number = new Label { Text = First(job.JobNumber, "JOB"), Location = new Point(12, 12), Size = new Size(132, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Blue, AutoEllipsis = true };
             Label badge = CreateBadge(QueueLabel(job), StatusColor(job), new Point(card.Width - 110, 10), 92);
@@ -1081,13 +1035,36 @@ namespace HVAC_Pro_Desktop.UI
         private void SelectJob(JobSummaryDto job)
         {
             _selectedJob = job;
-            foreach (Panel card in _jobCards)
-            {
-                JobSummaryDto cardJob = card.Tag as JobSummaryDto;
-                card.BackColor = cardJob != null && job != null && cardJob.JobId == job.JobId ? Lighten(Primary, 0.93f) : White;
-                card.Invalidate();
-            }
+            SyncJobSelection();
             LoadJobDetails(job);
+        }
+
+        private void SyncJobSelection()
+        {
+            if (_jobListModule == null)
+                return;
+
+            int? selectedId = _selectedJob == null ? (int?)null : _selectedJob.JobId;
+            if (_jobListModule.GetSelectedRowId() == selectedId)
+                return;
+
+            _syncingJobSelection = true;
+            try
+            {
+                _jobListModule.SetSelectedRowId(selectedId);
+            }
+            finally
+            {
+                _syncingJobSelection = false;
+            }
+        }
+
+        private void HandleJobRowSelected(JobSummaryDto job)
+        {
+            if (_syncingJobSelection || job == null)
+                return;
+
+            SelectJob(job);
         }
 
         private void SelectTechnician(Employee tech)
@@ -1794,6 +1771,60 @@ namespace HVAC_Pro_Desktop.UI
             if (combo == null) return;
             for (int i = 0; i < combo.Items.Count; i++)
                 if (string.Equals(Convert.ToString(combo.Items[i]), text, StringComparison.OrdinalIgnoreCase)) { combo.SelectedIndex = i; return; }
+        }
+
+        private sealed class DispatchJobListModule : VirtualListModuleBase<JobSummaryDto>
+        {
+            public DispatchJobListModule()
+            {
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = Color.White;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "JobNumber", HeaderText = "Job", Width = 96 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Title", HeaderText = "Title", FillWeight = 42f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Client", HeaderText = "Client", Width = 118 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Priority", HeaderText = "Priority", Width = 72 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Technician", HeaderText = "Technician", Width = 108 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Sla", HeaderText = "SLA", Width = 88 });
+            }
+
+            protected override int GetRowId(JobSummaryDto item)
+            {
+                return item?.JobId ?? 0;
+            }
+
+            protected override object GetCellValue(JobSummaryDto item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "JobNumber":
+                        return string.IsNullOrWhiteSpace(item.JobNumber) ? "JOB" : item.JobNumber;
+                    case "Title":
+                        return string.IsNullOrWhiteSpace(item.JobTitle) ? "Service job" : item.JobTitle;
+                    case "Client":
+                        return item.ClientName ?? string.Empty;
+                    case "Priority":
+                        return item.Priority ?? string.Empty;
+                    case "Technician":
+                        return string.IsNullOrWhiteSpace(item.TechnicianName) ? "Unassigned" : item.TechnicianName;
+                    case "Sla":
+                        return item.ScheduledDate == default(DateTime) ? "-" : item.ScheduledDate.ToString("dd MMM HH:mm");
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No dispatch jobs." : visibleCount.ToString("N0") + " of " + totalCount.ToString("N0") + " jobs shown.";
+            }
         }
 
         private void OpenDispatchFilters()

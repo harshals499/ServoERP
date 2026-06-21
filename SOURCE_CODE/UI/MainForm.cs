@@ -49,6 +49,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _pageRefreshInProgress;
         private UpdateCheckResult _latestUpdateResult;
         private readonly Dictionary<int, UserControl> _pageCache = new Dictionary<int, UserControl>();
+        private readonly Dictionary<int, ModuleState> _pageStateCache = new Dictionary<int, ModuleState>();
         private readonly LinkedList<int> _pageUsage = new LinkedList<int>();
         private readonly Dictionary<int, Button> _navButtons = new Dictionary<int, Button>();
         private AMCPage _amcPage;
@@ -57,7 +58,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly PersistentLayoutMemoryService _layoutMemory = new PersistentLayoutMemoryService();
         private readonly List<UserControl> _deferredDisposedPages = new List<UserControl>();
         private System.Windows.Forms.Timer _deferredPageDisposeTimer;
-        private const int MaxCachedPages = 20;
+        private const int MaxCachedPages = 6;
+        private const int MaxHeavyCachedPages = 2;
         private const int ClientsPageIndex = 1;
         private const int InvoicesPageIndex = 3;
         private const int QuotationsPageIndex = 6;
@@ -69,6 +71,15 @@ namespace HVAC_Pro_Desktop.UI
         private const int TallyIntegrationPageIndex = 19;
         private const int VendorsPageIndex = 20;
         private const int AMCPageIndex = 21;
+        private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
+        {
+            typeof(PurchaseForm),
+            typeof(InvoiceForm),
+            typeof(VendorForm),
+            typeof(JobManagementForm),
+            typeof(InventoryForm),
+            typeof(SettingsForm)
+        };
 
         private static readonly Color SbBg = DS.Primary700;
         private static readonly Color SbBgDeep = DS.Darken(DS.Primary700, 0.12f);
@@ -1613,6 +1624,8 @@ namespace HVAC_Pro_Desktop.UI
 
                 if (cachedPage != null)
                 {
+                    CapturePageState(index, cachedPage);
+                    NotifyShellCacheEvicted(cachedPage);
                     if (_content.Controls.Contains(cachedPage))
                         _content.Controls.Remove(cachedPage);
                     cachedPage.Dispose();
@@ -1666,6 +1679,10 @@ namespace HVAC_Pro_Desktop.UI
                 if (node != null)
                     _pageUsage.Remove(node);
 
+                CapturePageState(index, cachedPage);
+                NotifyShellCacheEvicted(cachedPage);
+                if (cachedPage != null && _content.Controls.Contains(cachedPage))
+                    _content.Controls.Remove(cachedPage);
                 cachedPage?.Dispose();
             }
         }
@@ -1696,6 +1713,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _content.SuspendLayout();
                 ClearTransientPage();
+                UserControl previousPage = null;
+                if (_currentIndex >= 0)
+                    _pageCache.TryGetValue(_currentIndex, out previousPage);
 
                 UserControl page;
                 if (!_pageCache.TryGetValue(index, out page) || page == null || page.IsDisposed)
@@ -1756,6 +1776,11 @@ namespace HVAC_Pro_Desktop.UI
                         AppRuntime.LogTiming("MainForm.NavigateTo.Settings.ControlsAdd.Complete", 0);
                 }
 
+                RestorePageState(index, page);
+
+                if (previousPage != null && previousPage != page)
+                    NotifyShellDeactivated(previousPage);
+
                 foreach (Control control in _content.Controls)
                 {
                     if (control == _btnResetLayout)
@@ -1791,6 +1816,7 @@ namespace HVAC_Pro_Desktop.UI
                     reportPage.ApplyNavigationRequest();
                 if (traceNavigation)
                     AppRuntime.LogTiming("MainForm.NavigateTo." + GetNavLabel(index) + ".BeforeTouchTrim", traceWatch.ElapsedMilliseconds);
+                NotifyShellActivated(page);
                 TouchPage(index);
                 TrimPageCache(index);
                 if (traceNavigation)
@@ -1911,6 +1937,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _content.SuspendLayout();
                 ClearTransientPage();
+                if (_currentIndex >= 0 && _pageCache.TryGetValue(_currentIndex, out UserControl currentPage))
+                    NotifyShellDeactivated(currentPage);
 
                 foreach (Control control in _content.Controls)
                 {
@@ -1919,13 +1947,13 @@ namespace HVAC_Pro_Desktop.UI
                     control.Visible = false;
                 }
 
-                var page = new JobDetailPage
+                var page = new JobPreviewPage
                 {
                     Dock = DockStyle.Fill,
                     JobId = jobId,
-                    OnBackToJobs = NavigateBackToJobs
+                    OnBackToJobs = NavigateBackToJobs,
+                    OnEditJob = NavigateToJobEditor
                 };
-                page.LoadJob();
                 DS.ApplyTheme(page);
                 LayoutScaler.ApplyGlobalScale(page);
                 LayoutScaler.ScaleControl(page);
@@ -1952,6 +1980,18 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _content.ResumeLayout();
             }
+        }
+
+        public void NavigateToJobEditor(int jobId)
+        {
+            if (_pageCache.TryGetValue(JobsPageIndex, out UserControl cachedPage) && cachedPage is JobManagementForm jobs)
+                jobs.OpenJobEditorFromNavigation(jobId);
+
+            _currentIndex = -1;
+            NavigateTo(JobsPageIndex);
+
+            if (_pageCache.TryGetValue(JobsPageIndex, out cachedPage) && cachedPage is JobManagementForm selectedJobs)
+                selectedJobs.OpenJobEditorFromNavigation(jobId);
         }
 
         public void NavigateToClientDetail(int clientId)
@@ -1995,6 +2035,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _content.SuspendLayout();
                 ClearTransientPage();
+                if (_currentIndex >= 0 && _pageCache.TryGetValue(_currentIndex, out UserControl currentPage))
+                    NotifyShellDeactivated(currentPage);
 
                 foreach (Control control in _content.Controls)
                 {
@@ -2171,10 +2213,88 @@ namespace HVAC_Pro_Desktop.UI
             _pageUsage.AddLast(index);
         }
 
-        private void TrimPageCache(int activeIndex)
+        private static bool IsHeavyShellPage(UserControl page)
         {
-            var pagesToDispose = new List<UserControl>();
-            while (_pageCache.Count > MaxCachedPages && _pageUsage.Count > 0)
+            return page != null && StatefulHeavyPageTypes.Contains(page.GetType());
+        }
+
+        private static void NotifyShellActivated(UserControl page)
+        {
+            var deferredPage = page as DeferredPageControl;
+            if (deferredPage == null || deferredPage.IsDisposed)
+                return;
+
+            try
+            {
+                deferredPage.OnShellActivated();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.NotifyShellActivated", ex);
+            }
+        }
+
+        private static void NotifyShellDeactivated(UserControl page)
+        {
+            var deferredPage = page as DeferredPageControl;
+            if (deferredPage == null || deferredPage.IsDisposed)
+                return;
+
+            try
+            {
+                deferredPage.OnShellDeactivated();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.NotifyShellDeactivated", ex);
+            }
+        }
+
+        private static void NotifyShellCacheEvicted(UserControl page)
+        {
+            var deferredPage = page as DeferredPageControl;
+            if (deferredPage == null || deferredPage.IsDisposed)
+                return;
+
+            try
+            {
+                deferredPage.OnShellCacheEvicted();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.NotifyShellCacheEvicted", ex);
+            }
+        }
+
+        private int GetCachedHeavyPageCount()
+        {
+            return _pageCache.Values.Count(page => IsHeavyShellPage(page));
+        }
+
+        private bool TryEvictPage(int candidate, List<UserControl> pagesToDispose)
+        {
+            UserControl page;
+            if (!_pageCache.TryGetValue(candidate, out page))
+                return false;
+
+            _pageCache.Remove(candidate);
+            CapturePageState(candidate, page);
+            NotifyShellCacheEvicted(page);
+            if (page != null)
+            {
+                if (_content.Controls.Contains(page))
+                    _content.Controls.Remove(page);
+                pagesToDispose.Add(page);
+            }
+            return true;
+        }
+
+        private bool TryTrimPages(int activeIndex, bool heavyPagesOnly, int desiredLimit, List<UserControl> pagesToDispose)
+        {
+            int scanBudget = Math.Max(1, _pageUsage.Count);
+            bool trimmed = false;
+
+            while ((heavyPagesOnly ? GetCachedHeavyPageCount() : _pageCache.Count) > desiredLimit && _pageUsage.Count > 0 && scanBudget-- > 0)
             {
                 int candidate = _pageUsage.First.Value;
                 _pageUsage.RemoveFirst();
@@ -2182,24 +2302,87 @@ namespace HVAC_Pro_Desktop.UI
                 if (candidate == activeIndex || candidate == 0)
                 {
                     _pageUsage.AddLast(candidate);
-                    if (_pageUsage.Count == 1)
-                        break;
                     continue;
                 }
 
-                if (_pageCache.TryGetValue(candidate, out var page))
+                UserControl cachedPage;
+                if (!_pageCache.TryGetValue(candidate, out cachedPage))
+                    continue;
+
+                if (heavyPagesOnly && !IsHeavyShellPage(cachedPage))
                 {
-                    _pageCache.Remove(candidate);
-                    if (page != null)
-                    {
-                        if (_content.Controls.Contains(page))
-                            _content.Controls.Remove(page);
-                        pagesToDispose.Add(page);
-                    }
+                    _pageUsage.AddLast(candidate);
+                    continue;
                 }
+
+                trimmed |= TryEvictPage(candidate, pagesToDispose);
             }
 
+            return trimmed;
+        }
+
+        private void TrimPageCache(int activeIndex)
+        {
+            var pagesToDispose = new List<UserControl>();
+            TryTrimPages(activeIndex, true, MaxHeavyCachedPages, pagesToDispose);
+            TryTrimPages(activeIndex, false, MaxCachedPages, pagesToDispose);
+
             QueuePageDisposal(pagesToDispose);
+        }
+
+        private void CapturePageState(int index, UserControl page)
+        {
+            if (!ShouldPersistModuleState(page))
+                return;
+
+            DeferredPageControl deferredPage = page as DeferredPageControl;
+            if (deferredPage == null || deferredPage.IsDisposed)
+                return;
+
+            try
+            {
+                ModuleState state = deferredPage.CaptureModuleState(BuildPageStateKey(index, page));
+                if (state != null)
+                    _pageStateCache[index] = state;
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.CapturePageState", ex);
+            }
+        }
+
+        private void RestorePageState(int index, UserControl page)
+        {
+            if (!ShouldPersistModuleState(page))
+                return;
+
+            DeferredPageControl deferredPage = page as DeferredPageControl;
+            if (deferredPage == null || deferredPage.IsDisposed)
+                return;
+
+            ModuleState state;
+            if (!_pageStateCache.TryGetValue(index, out state) || state == null)
+                return;
+
+            try
+            {
+                deferredPage.RestoreModuleState(state);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.RestorePageState", ex);
+            }
+        }
+
+        private static string BuildPageStateKey(int index, UserControl page)
+        {
+            string pageName = page == null ? "Page" : page.GetType().Name;
+            return "Page:" + index + ":" + pageName;
+        }
+
+        private static bool ShouldPersistModuleState(UserControl page)
+        {
+            return page is DeferredPageControl && IsHeavyShellPage(page);
         }
 
         private void QueuePageDisposal(List<UserControl> pages)

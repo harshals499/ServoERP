@@ -229,7 +229,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     Name = GlobalActionHostName,
                     Dock = DockStyle.Right,
-                    Width = 236,
+                    Width = 276,
                     BackColor = Color.Transparent,
                     Padding = new Padding(0, 4, 0, 0),
                     Margin = Padding.Empty,
@@ -258,12 +258,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button CreateRefreshButton()
         {
-            Button refresh = DS.GhostBtn("Refresh", 96, 34);
+            Button refresh = DS.GhostBtn("Refresh", 108, 36);
             refresh.Name = GlobalRefreshButtonName;
             refresh.UseMnemonic = false;
-            refresh.Margin = new Padding(4, 0, 4, 0);
+            refresh.Margin = new Padding(8, 0, 8, 0);
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             UIHelper.ApplyActionButton(refresh, UiActionVariant.Secondary);
+            refresh.Padding = new Padding(10, 0, 10, 0);
+            refresh.TextAlign = ContentAlignment.MiddleCenter;
             refresh.Click += (s, e) =>
             {
                 Button source = s as Button;
@@ -283,12 +285,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button CreatePreviewButton()
         {
-            Button preview = DS.GhostBtn("Preview", 96, 34);
+            Button preview = DS.GhostBtn("Preview", 108, 36);
             preview.Name = GlobalPreviewButtonName;
             preview.UseMnemonic = false;
-            preview.Margin = new Padding(4, 0, 4, 0);
+            preview.Margin = new Padding(8, 0, 8, 0);
             ModernIconSystem.AddButtonIcon(preview, ModernIconKind.Document);
             UIHelper.ApplyActionButton(preview, UiActionVariant.Secondary);
+            preview.Padding = new Padding(10, 0, 10, 0);
+            preview.TextAlign = ContentAlignment.MiddleCenter;
             preview.Click += (s, e) =>
             {
                 Button source = s as Button;

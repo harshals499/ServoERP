@@ -131,7 +131,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label emptyTitle = new Label
             {
-                Text = "No supplier prices saved yet",
+                Text = "Supplier and price details are not available yet",
                 Location = new Point(0, 82),
                 Size = new Size(714, 28),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -141,7 +141,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label emptyHint = new Label
             {
-                Text = "Add vendor price data or complete a purchase entry for this material, then compare again.",
+                Text = "No saved supplier rate is available for this material yet. Add supplier price data or complete a purchase entry, then compare again.",
                 Location = new Point(48, 116),
                 Size = new Size(620, 40),
                 TextAlign = ContentAlignment.TopCenter,
@@ -239,8 +239,8 @@ namespace HVAC_Pro_Desktop.UI
             SupplierOption best = _options.FirstOrDefault();
             if (best == null)
                 _summary.Text = string.IsNullOrWhiteSpace(_category)
-                    ? "No supplier history is available for this material yet."
-                    : "No supplier history is available for this " + _category.Trim() + " material yet.";
+                    ? "Supplier and price details are not available for this material yet."
+                    : "Supplier and price details are not available for this " + _category.Trim() + " material yet.";
             else
                 _summary.Text = _options.Count.ToString("N0") + " supplier option" + (_options.Count == 1 ? string.Empty : "s") + " found. Best: "
                     + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " / "

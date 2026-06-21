@@ -142,7 +142,7 @@ namespace HVAC_Pro_Desktop.UI
             newMessage.Click += (s, e) => ReloadWhatsAppHome();
             header.Controls.Add(newMessage);
 
-            Panel searchHost = SearchBox(_globalSearch, "Search name, mobile, invoice, job...");
+            Panel searchHost = SearchBox(_globalSearch, "Search");
             searchHost.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             searchHost.Size = new Size(340, 40);
             searchHost.Location = new Point(header.Width - 626, 12);
@@ -235,7 +235,7 @@ namespace HVAC_Pro_Desktop.UI
             TableLayoutPanel searchRow = new TableLayoutPanel { Dock = DockStyle.Top, Height = 48, ColumnCount = 2, BackColor = Color.Transparent };
             searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
-            Panel search = SearchBox(_conversationSearch, "Search or start new chat...");
+            Panel search = SearchBox(_conversationSearch, "Search");
             _conversationSearch.TextChanged += (s, e) => RenderConversations();
             searchRow.Controls.Add(search, 0, 0);
             Button filter = IconOnlyButton(ModernIconKind.Filter, DS.Slate700, DS.White, 36, "Filter WhatsApp contacts");
@@ -370,7 +370,7 @@ namespace HVAC_Pro_Desktop.UI
                 filtered = filtered.Where(c => c.SourceType == "Team");
 
             string query = _conversationSearch.Text.Trim();
-            if (!string.IsNullOrWhiteSpace(query) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(query) && !string.Equals(query, "Search", StringComparison.OrdinalIgnoreCase) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase))
                 filtered = filtered.Where(c => (c.Name ?? string.Empty).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 || (c.Phone ?? string.Empty).Contains(query));
 
             List<WhatsAppContact> visible = filtered.Take(18).ToList();
@@ -403,7 +403,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             string query = (_conversationSearch.Text ?? string.Empty).Trim();
             return !string.Equals(_activeTab, "All", StringComparison.OrdinalIgnoreCase)
-                || (!string.IsNullOrWhiteSpace(query) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase));
+                || (!string.IsNullOrWhiteSpace(query) && !string.Equals(query, "Search", StringComparison.OrdinalIgnoreCase) && !query.StartsWith("Search ", StringComparison.OrdinalIgnoreCase));
         }
 
         private void ApplyGlobalSearch()
@@ -524,11 +524,8 @@ namespace HVAC_Pro_Desktop.UI
         private void RenderChat()
         {
             _chatHost.SuspendLayout();
-            if (_whatsAppWeb != null)
-            {
-                _whatsAppWeb.Dispose();
-                _whatsAppWeb = null;
-            }
+            if (_whatsAppWeb != null && _whatsAppWeb.Parent != null)
+                _whatsAppWeb.Parent.Controls.Remove(_whatsAppWeb);
             _chatHost.Controls.Clear();
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 88, Padding = new Padding(20, 16, 20, 10), BackColor = DS.White };
@@ -816,7 +813,11 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Add(browserHost);
             browserHost.BringToFront();
 
-            _whatsAppWeb = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.White };
+            if (_whatsAppWeb == null || _whatsAppWeb.IsDisposed)
+                _whatsAppWeb = new WebView2 { Dock = DockStyle.Fill, DefaultBackgroundColor = Color.White };
+            else if (_whatsAppWeb.Parent != null)
+                _whatsAppWeb.Parent.Controls.Remove(_whatsAppWeb);
+
             browserHost.Controls.Add(_whatsAppWeb);
 
             return host;

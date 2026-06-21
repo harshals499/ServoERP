@@ -1531,7 +1531,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Clients: return "Customer master, GST, contacts";
                 case ExcelImportModule.Vendors: return "Supplier master, GST, contacts";
                 case ExcelImportModule.Sites: return "Client sites, city, service contacts";
-                case ExcelImportModule.Inventory: return "Parts, stock, reorder levels";
+                case ExcelImportModule.Inventory: return "Parts, buying rates, planning quantities";
                 case ExcelImportModule.Purchases: return "Vendor bills, items, totals";
                 case ExcelImportModule.Invoices: return "Past invoices, due dates, status";
                 case ExcelImportModule.Payments: return "Collections, UTR, modes, notes";

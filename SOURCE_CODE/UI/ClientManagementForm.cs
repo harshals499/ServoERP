@@ -26,14 +26,14 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TenderService _tenderService = new TenderService();
 
         private readonly List<B2BClient> _clients = new List<B2BClient>();
-        private readonly Dictionary<int, ClientCardControl> _cards = new Dictionary<int, ClientCardControl>();
         private readonly Dictionary<int, ClientCommandMetrics> _metricsCache = new Dictionary<int, ClientCommandMetrics>();
+        private readonly List<KpiCardControl> _kpiCards = new List<KpiCardControl>();
+        private readonly List<Action> _kpiActions = new List<Action>();
 
         private Panel _leftPanel;
         private Panel _rightPanel;
-        private FlowLayoutPanel _clientList;
+        private ClientListModule _clientListModule;
         private TextBox _searchBox;
-        private GlobalPaginationControl _pagination;
         private ClientHeaderControl _header;
         private LifecyclePipelineControl _pipeline;
         private TableLayoutPanel _kpiGrid;
@@ -67,8 +67,7 @@ namespace HVAC_Pro_Desktop.UI
         private int _metricsRequestVersion;
         private bool _searchPlaceholderActive = true;
         private bool _showDashboard = true;
-        private int _clientPage = 1;
-        private int _clientPageSize = 10;
+        private bool _syncingClientSelection;
 
         private const int EM_SETCUEBANNER = 0x1501;
 
@@ -162,7 +161,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel searchWrap = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White, Padding = new Padding(12, 10, 12, 0), Margin = new Padding(0, 0, 0, 10) };
             searchWrap.Paint += (s, e) => DrawRoundedBorder(e.Graphics, searchWrap.ClientRectangle, DS.Border, 7);
-            _searchBox = new TextBox { BorderStyle = BorderStyle.None, Dock = DockStyle.Fill, Text = "Search by name, phone, email...", ForeColor = DS.Slate500, Font = new Font("Segoe UI", 9f), BackColor = Color.White };
+            _searchBox = new TextBox { BorderStyle = BorderStyle.None, Dock = DockStyle.Fill, Text = "Search", ForeColor = DS.Slate500, Font = new Font("Segoe UI", 9f), BackColor = Color.White };
             _searchBox.GotFocus += (s, e) =>
             {
                 if (_searchPlaceholderActive)
@@ -177,7 +176,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (string.IsNullOrWhiteSpace(_searchBox.Text))
                 {
                     _searchPlaceholderActive = true;
-                    _searchBox.Text = "Search by name, phone, email...";
+                    _searchBox.Text = "Search";
                     _searchBox.ForeColor = DS.Slate500;
                 }
             };
@@ -201,25 +200,11 @@ namespace HVAC_Pro_Desktop.UI
             ModernIconSystem.AddButtonIcon(forms, ModernIconKind.Document);
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Clients / Sites", "Clients", null, "site survey equipment inventory asset history customer feedback complaint handover sign-off client site");
 
-            _pagination = new GlobalPaginationControl { Dock = DockStyle.Bottom, Height = 38, BackColor = DS.BgPage };
-            _pagination.PageChanged += (s, e) =>
-            {
-                _clientPage = _pagination.CurrentPage;
-                RenderClientCards();
-            };
-            _pagination.PageSizeChanged += (s, e) =>
-            {
-                _clientPageSize = _pagination.PageSize;
-                _clientPage = 1;
-                RenderClientCards();
-            };
-            _clientList = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = DS.BgPage, Padding = new Padding(0, 12, 6, 8) };
-            _clientList.HorizontalScroll.Enabled = false;
-            _clientList.HorizontalScroll.Visible = false;
-            _clientList.Resize += (s, e) => ResizeClientCards();
+            _clientListModule = new ClientListModule();
+            _clientListModule.Dock = DockStyle.Fill;
+            _clientListModule.RowSelected += HandleClientRowSelected;
 
-            panel.Controls.Add(_clientList);
-            panel.Controls.Add(_pagination);
+            panel.Controls.Add(_clientListModule);
             panel.Controls.Add(forms);
             panel.Controls.Add(new Panel { Dock = DockStyle.Top, Height = 8, BackColor = DS.BgPage });
             panel.Controls.Add(newClient);
@@ -233,7 +218,6 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Schedules the classic client-card search render.</summary>
         private void ScheduleClientSearch()
         {
-            _clientPage = 1;
             _clientSearchTimer.Stop();
             _clientSearchTimer.Start();
         }
@@ -278,6 +262,7 @@ namespace HVAC_Pro_Desktop.UI
             _kpiGrid = new TableLayoutPanel { Location = new Point(0, 234), Height = 104, ColumnCount = 4, RowCount = 1, BackColor = DS.BgPage };
             for (int i = 0; i < 4; i++)
                 _kpiGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
+            EnsureKpiCards();
             _kpiGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             _tabs = new TabControl { Location = new Point(0, 354), Height = 410, Font = new Font("Segoe UI", 9f), Appearance = TabAppearance.Normal };
@@ -403,30 +388,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderClientCards()
         {
-            if (_clientList == null)
+            if (_clientListModule == null)
                 return;
 
-            _clientList.SuspendLayout();
-            _clientList.Controls.Clear();
-            _cards.Clear();
-
             List<B2BClient> filtered = FilteredClients().ToList();
-            int pageSize = Math.Max(1, _clientPageSize);
-            _clientPage = PaginationState.NormalizePage(_clientPage, filtered.Count, pageSize);
-            foreach (B2BClient client in filtered.Skip((_clientPage - 1) * pageSize).Take(pageSize))
-            {
-                ClientCardControl card = new ClientCardControl();
-                card.Width = ClientCardWidth();
-                card.Bind(client.ClientID, Initials(client.CompanyName), Safe(client.CompanyName, "Client"), Safe(client.IndustryType, "HVAC Services"), Safe(client.City, "Mumbai"), GetClientStatus(client), ProgressFor(client));
-                card.Click += (s, e) => SelectClient(((ClientCardControl)s).ClientId);
-                card.StatusClicked += (s, e) => ShowClientStatusMenu(client, ((ClientCardControl)s).StatusAnchor);
-                _cards[client.ClientID] = card;
-                _clientList.Controls.Add(card);
-            }
-            if (filtered.Count == 0)
-                _clientList.Controls.Add(BuildClientEmptyState());
-            _clientList.ResumeLayout();
-            RenderPagination(filtered.Count);
+            _clientListModule.SetItems(filtered);
             HighlightSelectedCard();
         }
 
@@ -541,9 +507,9 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(new Label { Text = "Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready.", Location = new Point(1, 30), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate500 });
 
             _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardSearchText(), Size = new Size(340, 32) };
-            ConfigureDashboardPlaceholder(_dashboardSearch, "Search clients by name, email, phone, or company...");
+            ConfigureDashboardPlaceholder(_dashboardSearch, "Search");
             _dashboardSearch.Enter += (s, e) => _dashboardSearchFocus = "global";
-            _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch, "global", "Search clients by name, email, phone, or company...");
+            _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch, "global", "Search");
             Button filters = DashboardButton("Filter Clients", Color.White, DS.Slate900, 112, true);
             filters.Click += (s, e) => { if (_dashboardStatusFilter != null) _dashboardStatusFilter.DroppedDown = true; };
             Button add = DashboardButton("+ Add Client", DS.Primary600, Color.White, 136, false);
@@ -672,9 +638,9 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel toolbar = new Panel { Location = new Point(16, 40), Size = new Size(card.Width - 32, 38), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = Color.White };
             _dashboardTableSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate900, Text = DashboardTableSearchText(), Size = new Size(220, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            ConfigureDashboardPlaceholder(_dashboardTableSearch, "Search clients...");
+            ConfigureDashboardPlaceholder(_dashboardTableSearch, "Search");
             _dashboardTableSearch.Enter += (s, e) => _dashboardSearchFocus = "table";
-            _dashboardTableSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardTableSearch, "table", "Search clients...");
+            _dashboardTableSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardTableSearch, "table", "Search");
 
             _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 8.5f), Size = new Size(150, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _dashboardStatusFilter.Items.AddRange(new object[] { "All Status", "Active", "Inactive", "Prospect", "On Hold", "Blacklisted" });
@@ -897,7 +863,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private int ClientCardWidth()
         {
-            int width = _clientList == null || _clientList.ClientSize.Width <= 0 ? 278 : _clientList.ClientSize.Width - 28;
+            int width = _clientListModule == null || _clientListModule.ClientSize.Width <= 0 ? 278 : _clientListModule.ClientSize.Width - 28;
             return Math.Max(238, width);
         }
 
@@ -1423,9 +1389,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ResizeClientCards()
         {
-            int width = ClientCardWidth();
-            foreach (Control control in _clientList.Controls)
-                control.Width = width;
+            if (_clientListModule != null && !_clientListModule.IsDisposed)
+                _clientListModule.Width = _clientListModule.Parent?.ClientSize.Width ?? _clientListModule.Width;
         }
 
         private void OpenClientEditor(B2BClient client, string title)
@@ -1688,27 +1653,40 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderPagination(int total)
         {
-            if (_pagination == null)
-                return;
-
-            _pagination.SetState(_clientPage, total, _clientPageSize);
         }
 
         private void SelectClient(int clientId)
         {
-            _selectedClient = _clients.FirstOrDefault(c => c.ClientID == clientId);
-            if (_selectedClient == null)
+            B2BClient selected = _clients.FirstOrDefault(c => c.ClientID == clientId);
+            if (selected == null)
                 return;
 
+            bool changed = _selectedClient == null || _selectedClient.ClientID != selected.ClientID;
+            _selectedClient = selected;
             HighlightSelectedCard();
             RenderSelectedClient();
-            LoadMetricsAsync(_selectedClient.ClientID);
+            if (changed)
+                LoadMetricsAsync(_selectedClient.ClientID);
         }
 
         private void HighlightSelectedCard()
         {
-            foreach (KeyValuePair<int, ClientCardControl> item in _cards)
-                item.Value.IsSelected = _selectedClient != null && item.Key == _selectedClient.ClientID;
+            if (_clientListModule == null)
+                return;
+
+            int? selectedId = _selectedClient == null ? (int?)null : _selectedClient.ClientID;
+            if (_clientListModule.GetSelectedRowId() == selectedId)
+                return;
+
+            _syncingClientSelection = true;
+            try
+            {
+                _clientListModule.SetSelectedRowId(selectedId);
+            }
+            finally
+            {
+                _syncingClientSelection = false;
+            }
         }
 
         private void RenderSelectedClient()
@@ -1748,7 +1726,7 @@ namespace HVAC_Pro_Desktop.UI
             var metrics = ClientCommandMetrics.Empty(client);
             try
             {
-                List<Job> jobs = _jobService.GetAll().Where(j => j.ClientID == clientId).ToList();
+                List<Job> jobs = _jobService.GetByClientId(clientId).ToList();
                 metrics.OpenJobs = jobs.Count(j => !IsClosedJob(j));
                 metrics.JobValue = jobs.Sum(j => Math.Max(j.QuotedRevenue, Math.Max(j.ActualRevenue, j.Revenue)));
             }
@@ -1777,19 +1755,40 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderKpis(ClientCommandMetrics metrics)
         {
-            _kpiGrid.Controls.Clear();
-            AddKpi("Open Jobs", metrics.OpenJobsText, "View Jobs", "J", DS.Slate900, () => OnNavigate?.Invoke(15));
-            AddKpi("Active Contracts", metrics.ActiveContractsText, "View Contracts", "C", DS.Primary700, () => OnNavigate?.Invoke(2));
-            AddKpi("Outstanding Amount", FormatMoney(metrics.OutstandingAmount), "View Invoices", "₹", metrics.OutstandingAmount > 0 ? DS.Red600 : DS.Green600, () => OnNavigate?.Invoke(3));
-            AddKpi("Pipeline Value", FormatMoney(metrics.TotalExpectedValue), "View Financials", "₹", DS.Primary600, () => _tabs.SelectedTab = _tabs.TabPages["Financials"] ?? _tabs.TabPages[0]);
+            EnsureKpiCards();
+            BindKpiCard(0, "Open Jobs", metrics.OpenJobsText, "View Jobs", "J", DS.Slate900, () => OnNavigate?.Invoke(15));
+            BindKpiCard(1, "Active Contracts", metrics.ActiveContractsText, "View Contracts", "C", DS.Primary700, () => OnNavigate?.Invoke(2));
+            BindKpiCard(2, "Outstanding Amount", FormatMoney(metrics.OutstandingAmount), "View Invoices", "₹", metrics.OutstandingAmount > 0 ? DS.Red600 : DS.Green600, () => OnNavigate?.Invoke(3));
+            BindKpiCard(3, "Pipeline Value", FormatMoney(metrics.TotalExpectedValue), "View Financials", "₹", DS.Primary600, () => _tabs.SelectedTab = _tabs.TabPages["Financials"] ?? _tabs.TabPages[0]);
         }
 
-        private void AddKpi(string label, string value, string link, string icon, Color color, Action action)
+        private void EnsureKpiCards()
         {
-            var card = new KpiCardControl { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 12, 0) };
-            card.Bind(label, value, link, icon, color);
-            card.ActionClicked += (s, e) => action?.Invoke();
-            _kpiGrid.Controls.Add(card);
+            if (_kpiGrid == null || _kpiCards.Count > 0)
+                return;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                var card = new KpiCardControl { Dock = DockStyle.Fill, Margin = new Padding(0, 0, i < 3 ? 12 : 0, 0) };
+                card.ActionClicked += (s, e) =>
+                {
+                    if (index < _kpiActions.Count)
+                        _kpiActions[index]?.Invoke();
+                };
+                _kpiCards.Add(card);
+                _kpiActions.Add(null);
+                _kpiGrid.Controls.Add(card, i, 0);
+            }
+        }
+
+        private void BindKpiCard(int index, string label, string value, string link, string icon, Color color, Action action)
+        {
+            if (index < 0 || index >= _kpiCards.Count)
+                return;
+
+            _kpiCards[index].Bind(label, value, link, icon, color);
+            _kpiActions[index] = action;
         }
 
         private void RenderSelectedTab()
@@ -2027,7 +2026,7 @@ namespace HVAC_Pro_Desktop.UI
                 _clients.Add(target);
                 _clients.Sort((a, b) => string.Compare(Safe(a == null ? null : a.CompanyName, string.Empty), Safe(b == null ? null : b.CompanyName, string.Empty), StringComparison.OrdinalIgnoreCase));
 
-                if (_showDashboard || _clientList == null || _clientList.IsDisposed || _tabs == null || _tabs.IsDisposed || _header == null || _header.IsDisposed)
+                if (_showDashboard || _clientListModule == null || _clientListModule.IsDisposed || _tabs == null || _tabs.IsDisposed || _header == null || _header.IsDisposed)
                 {
                     _dashboardClientsLoaded = true;
                     RenderClientsDashboard();
@@ -2081,6 +2080,14 @@ namespace HVAC_Pro_Desktop.UI
             return value.Length <= 500 ? value : value.Substring(0, 500);
         }
 
+        private void HandleClientRowSelected(B2BClient client)
+        {
+            if (_syncingClientSelection || client == null)
+                return;
+
+            SelectClient(client.ClientID);
+        }
+
         /// <summary>Applies the client editor lifecycle dropdown to the model before saving.</summary>
         private static void ApplyClientEditorStatus(B2BClient target, string status)
         {
@@ -2132,6 +2139,58 @@ namespace HVAC_Pro_Desktop.UI
             };
             form.Controls.Add(box);
             return box;
+        }
+
+        private sealed class ClientListModule : VirtualListModuleBase<B2BClient>
+        {
+            public ClientListModule()
+            {
+                BackColor = DS.BgPage;
+                Padding = new Padding(0, 12, 6, 8);
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = Color.White;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Company", HeaderText = "Client", FillWeight = 42f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Type", HeaderText = "Type", Width = 110 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "City", HeaderText = "City", Width = 96 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", Width = 96 });
+            }
+
+            protected override int GetRowId(B2BClient item)
+            {
+                return item?.ClientID ?? 0;
+            }
+
+            protected override object GetCellValue(B2BClient item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "Company":
+                        return string.IsNullOrWhiteSpace(item.CompanyName) ? "Client" : item.CompanyName;
+                    case "Type":
+                        return string.IsNullOrWhiteSpace(item.IndustryType) ? "HVAC Services" : item.IndustryType;
+                    case "City":
+                        return string.IsNullOrWhiteSpace(item.City) ? "Mumbai" : item.City;
+                    case "Status":
+                        return string.IsNullOrWhiteSpace(item.RelationshipStage)
+                            ? (item.IsActive ? "Active" : "Inactive")
+                            : item.RelationshipStage;
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No clients found." : visibleCount.ToString("N0") + " of " + totalCount.ToString("N0") + " clients shown.";
+            }
         }
 
         /// <summary>Creates the client lifecycle status selector used by the client editor.</summary>

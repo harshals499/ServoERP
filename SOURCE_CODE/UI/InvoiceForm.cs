@@ -82,11 +82,15 @@ namespace HVAC_Pro_Desktop.UI
         private Panel   _selectedCard;
         private bool    _initialLoadQueued;
         private bool    _dataInitialized;
+        private bool    _editorDataQueued;
+        private bool    _editorDataInitialized;
         private bool    _invoiceListRefreshing;
         private List<B2BClient> _clients = new List<B2BClient>();
         private List<InvoiceTemplate> _templates = new List<InvoiceTemplate>();
         private Button _btnNewInvoice;
         private Button _btnSaveInvoice;
+        private LazyDetailHost _invoiceDashboardHost;
+        private LazyDetailHost _invoiceEditorHost;
         private Panel _invoiceDashboardPanel;
         private Panel _invoiceWorkspacePanel;
         private Panel _invoiceWorkflowCard;
@@ -174,43 +178,15 @@ namespace HVAC_Pro_Desktop.UI
                         }));
                     }
 
-                    var templates = _invSvc.GetActiveTemplates();
-                    var inventory = _inventorySvc.GetAll();
-                    var rateCards = _masterDataSvc.GetRateCards();
-                    var assets = _masterDataSvc.GetAssets();
-                    var hsnSac = _hsnSvc.GetAll();
-                    var invoices = _invSvc.GetAllInvoices()
-                        .OrderByDescending(i => i.InvoiceDate)
-                        .Take(120)
-                        .ToList();
-
-                    if (IsDisposed || !IsHandleCreated)
-                        return;
-
-                    // Heavy, control-free work stays on this background thread: the
-                    // 1,500-item catalog rebuild (per-item HSN/GST resolution) and the
-                    // checklist-template DB round-trips used to freeze the UI for ~30s
-                    // when they ran inside the Invoke below.
-                    _inventoryItems = inventory ?? new List<StockItem>();
-                    _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
-                    _clientAssets = assets ?? new List<ClientAsset>();
-                    _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
-                    RebuildInvoiceCatalog();
-                    List<string> checklistSuggestions = BuildChecklistSuggestions().ToList();
-
                     if (IsDisposed || !IsHandleCreated)
                         return;
 
                     dispatcher.Invoke((Action)(() =>
                     {
                         _clients = clients ?? _clients ?? new List<B2BClient>();
-                        _templates = templates ?? new List<InvoiceTemplate>();
-                        BindInventoryItems();
-                        BindWorkflowPickers(checklistSuggestions);
                         LoadClientDropdowns();
-                        BindTemplateDropdown();
-                        BindInvoiceList(invoices);
                         _dataInitialized = true;
+                        ShowStatus("Invoice dashboard ready.", DS.Slate600);
                     }));
                 }
                 finally
@@ -249,6 +225,67 @@ namespace HVAC_Pro_Desktop.UI
                 return _invoiceCatalog;
             return _invoiceCatalog.Where(i => string.Equals(i.Source, _activeItemSource, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(i.Category, _activeItemSource, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void EnsureInvoiceEditorDataLoaded()
+        {
+            Control dispatcher = FindForm() ?? Parent;
+            if (_editorDataInitialized || _editorDataQueued || dispatcher == null || !dispatcher.IsHandleCreated)
+                return;
+
+            _editorDataQueued = true;
+            ShowStatus("Loading invoice editor data...", Color.Gray);
+            Task.Run(() =>
+            {
+                try
+                {
+                    var templates = _invSvc.GetActiveTemplates();
+                    var inventory = _inventorySvc.GetAll();
+                    var rateCards = _masterDataSvc.GetRateCards();
+                    var assets = _masterDataSvc.GetAssets();
+                    var hsnSac = _hsnSvc.GetAll();
+
+                    _inventoryItems = inventory ?? new List<StockItem>();
+                    _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
+                    _clientAssets = assets ?? new List<ClientAsset>();
+                    _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
+                    RebuildInvoiceCatalog();
+                    List<string> checklistSuggestions = BuildChecklistSuggestions().ToList();
+
+                    if (IsDisposed || !dispatcher.IsHandleCreated)
+                        return;
+
+                    dispatcher.Invoke((Action)(() =>
+                    {
+                        _templates = templates ?? new List<InvoiceTemplate>();
+                        BindInventoryItems();
+                        BindWorkflowPickers(checklistSuggestions);
+                        BindTemplateDropdown();
+                        _editorDataInitialized = true;
+                        _editorDataQueued = false;
+                        ShowStatus("Invoice editor ready.", DS.Slate600);
+                    }));
+                }
+                catch (Exception ex)
+                {
+                    if (!IsDisposed && dispatcher.IsHandleCreated)
+                    {
+                        try
+                        {
+                            dispatcher.Invoke((Action)(() =>
+                            {
+                                _editorDataQueued = false;
+                                ShowStatus("Invoice editor data could not be loaded.", DS.Red600);
+                            }));
+                        }
+                        catch
+                        {
+                        }
+                    }
+
+                    AppLogger.LogError("InvoiceForm.EnsureInvoiceEditorDataLoaded", ex);
+                }
+            });
         }
 
         private void RegisterInvoiceEditorCombos()
@@ -586,8 +623,30 @@ namespace HVAC_Pro_Desktop.UI
             layoutHeaderActions();
 
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 12, 24, 16), Tag = "NO_CARD_SURFACE" };
+            _invoiceWorkspacePanel = new Panel { Visible = false, BackColor = DS.BgPage };
+            _invoiceEditorHost = new LazyDetailHost { Dock = DockStyle.Fill, BackColor = DS.BgPage, Visible = false };
+            _invoiceEditorHost.SetFactory(CreateInvoiceEditorSurface);
+            _invoiceDashboardHost = new LazyDetailHost { Dock = DockStyle.Fill, BackColor = DS.BgPage };
+            _invoiceDashboardHost.SetFactory(CreateInvoiceDashboardSurface);
+            body.Controls.Add(_invoiceEditorHost);
+            body.Controls.Add(_invoiceDashboardHost);
+
+            _invoiceFlow = new FlowLayoutPanel { Visible = false };
+            Controls.Add(_invoiceFlow);
+            Controls.Add(body);
+            Controls.Add(header);
+            ShowInvoiceDashboard();
+        }
+
+        private Control CreateInvoiceDashboardSurface()
+        {
             _invoiceDashboardPanel = BuildInvoiceModuleDashboard();
-            _invoiceDashboardPanel.Dock = DockStyle.Top;
+            _invoiceDashboardPanel.Dock = DockStyle.Fill;
+            return _invoiceDashboardPanel;
+        }
+
+        private Control CreateInvoiceEditorSurface()
+        {
             _invoiceWorkspacePanel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Visible = false };
             TableLayoutPanel layout = new TableLayoutPanel
             {
@@ -628,24 +687,24 @@ namespace HVAC_Pro_Desktop.UI
             layout.Controls.Add(_documentHost, 0, 0);
             layout.Controls.Add(rightPanel, 1, 0);
             _invoiceWorkspacePanel.Controls.Add(layout);
-            body.Controls.Add(_invoiceWorkspacePanel);
-            body.Controls.Add(_invoiceDashboardPanel);
-
-            _invoiceFlow = new FlowLayoutPanel { Visible = false };
-            Controls.Add(_invoiceFlow);
-            Controls.Add(body);
-            Controls.Add(header);
-            ShowInvoiceDashboard();
+            return _invoiceWorkspacePanel;
         }
 
         private void ShowInvoiceDashboard()
         {
+            if (_invoiceDashboardHost != null)
+            {
+                _invoiceDashboardHost.Visible = true;
+                _invoiceDashboardHost.ShowContent();
+            }
             if (_invoiceDashboardPanel != null)
             {
                 _invoiceDashboardPanel.Dock = DockStyle.Fill;
                 _invoiceDashboardPanel.Visible = true;
                 _invoiceDashboardPanel.BringToFront();
             }
+            if (_invoiceEditorHost != null)
+                _invoiceEditorHost.Visible = false;
             if (_invoiceWorkspacePanel != null)
                 _invoiceWorkspacePanel.Visible = false;
             if (_btnHeaderPreview != null)
@@ -656,6 +715,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowInvoiceEditor()
         {
+            EnsureInvoiceEditorDataLoaded();
+            if (_invoiceEditorHost != null)
+            {
+                _invoiceEditorHost.Visible = true;
+                _invoiceEditorHost.ShowContent();
+            }
+            if (_invoiceDashboardHost != null)
+                _invoiceDashboardHost.Visible = false;
             if (_invoiceDashboardPanel != null)
                 _invoiceDashboardPanel.Visible = false;
             if (_invoiceWorkspacePanel != null)

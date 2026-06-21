@@ -162,6 +162,10 @@ namespace HVAC_Pro_Desktop.UI
                 resizable.CardResized += (s, e) => state.ResizeChanging();
                 resizable.CardResizeComplete += (s, e) => state.Save();
             }
+            else if (card is DashboardDeptCard)
+            {
+                // Dashboard summary cards should remain draggable without showing resize grips.
+            }
             else
             {
                 CardResizeGripService.Attach(card, (c, size) => state.Save(), (c, size) => state.ResizeChanging());
@@ -673,6 +677,7 @@ namespace HVAC_Pro_Desktop.UI
                 _startMouse = mousePosition;
                 _startBounds = Card.Bounds;
                 Card.Capture = true;
+                Card.Cursor = Cursors.SizeAll;
                 Card.BringToFront();
             }
 
@@ -693,8 +698,17 @@ namespace HVAC_Pro_Desktop.UI
                 if (!_dragging || Card.Parent == null)
                     return;
 
-                if (Card.Parent is FlowLayoutPanel || Card.Parent is TableLayoutPanel)
+                if (Card.Parent is FlowLayoutPanel)
+                {
+                    ReorderFlowCard(Control.MousePosition);
                     return;
+                }
+
+                if (Card.Parent is TableLayoutPanel)
+                {
+                    SwapTableCard(Control.MousePosition);
+                    return;
+                }
 
                 PrepareAbsoluteMovement();
                 Point mouse = Control.MousePosition;
@@ -710,6 +724,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 _dragging = false;
                 Card.Capture = false;
+                Card.Cursor = Cursors.Default;
 
                 if (Card.Parent is FlowLayoutPanel)
                     ReorderFlowCard(Control.MousePosition);

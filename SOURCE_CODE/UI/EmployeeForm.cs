@@ -2375,21 +2375,20 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AutoScaleMode = AutoScaleMode.Dpi;
                 Text = "Add Skill";
-                Width = 420;
-                Height = 240;
+                ClientSize = new Size(420, 250);
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 StartPosition = FormStartPosition.CenterParent;
                 MaximizeBox = false;
                 MinimizeBox = false;
 
-                Label lblSkill = new Label { Text = "Skill Name", Left = 18, Top = 18, AutoSize = true };
-                _txtSkill = new TextBox { Left = 18, Top = 38, Width = 360 };
-                Label lblCert = new Label { Text = "Certification Number", Left = 18, Top = 74, AutoSize = true };
-                _txtCertification = new TextBox { Left = 18, Top = 94, Width = 360 };
-                Label lblExpiry = new Label { Text = "Expiry Date", Left = 18, Top = 130, AutoSize = true };
-                _dtpExpiry = new DateTimePicker { Left = 18, Top = 150, Width = 180, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true };
-                Button btnSave = new Button { Text = "Save", Left = 220, Top = 178, Width = 74, DialogResult = DialogResult.OK };
-                Button btnCancel = new Button { Text = "Cancel", Left = 304, Top = 178, Width = 74, DialogResult = DialogResult.Cancel };
+                Label lblSkill = DialogLabel("Skill Name *", 18);
+                _txtSkill = new TextBox { Left = 18, Top = 38, Width = 360, TabIndex = 0 };
+                Label lblCert = DialogLabel("Certification Number", 74);
+                _txtCertification = new TextBox { Left = 18, Top = 94, Width = 360, TabIndex = 1 };
+                Label lblExpiry = DialogLabel("Expiry Date", 130);
+                _dtpExpiry = new DateTimePicker { Left = 18, Top = 150, Width = 180, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true, TabIndex = 2 };
+                Button btnSave = new Button { Text = "Save", Left = 220, Top = 198, Width = 74, DialogResult = DialogResult.OK, TabIndex = 3 };
+                Button btnCancel = new Button { Text = "Cancel", Left = 304, Top = 198, Width = 74, DialogResult = DialogResult.Cancel, TabIndex = 4 };
                 AcceptButton = btnSave;
                 CancelButton = btnCancel;
                 Controls.AddRange(new Control[] { lblSkill, _txtSkill, lblCert, _txtCertification, lblExpiry, _dtpExpiry, btnSave, btnCancel });
@@ -2408,25 +2407,39 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AutoScaleMode = AutoScaleMode.Dpi;
                 Text = "Upload Document";
-                Width = 420;
-                Height = 220;
+                ClientSize = new Size(420, 246);
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 StartPosition = FormStartPosition.CenterParent;
                 MaximizeBox = false;
                 MinimizeBox = false;
 
-                Label lblFile = new Label { Text = "File", Left = 18, Top = 18, AutoSize = true };
-                Label lblFileValue = new Label { Text = fileName, Left = 18, Top = 38, AutoSize = true, Width = 360 };
-                Label lblType = new Label { Text = "Document Type", Left = 18, Top = 72, AutoSize = true };
-                _txtType = new TextBox { Left = 18, Top = 92, Width = 360 };
-                Label lblExpiry = new Label { Text = "Expiry Date", Left = 18, Top = 126, AutoSize = true };
-                _dtpExpiry = new DateTimePicker { Left = 18, Top = 146, Width = 180, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true };
-                Button btnSave = new Button { Text = "Upload", Left = 220, Top = 144, Width = 74, DialogResult = DialogResult.OK };
-                Button btnCancel = new Button { Text = "Cancel", Left = 304, Top = 144, Width = 74, DialogResult = DialogResult.Cancel };
+                Label lblFile = DialogLabel("File", 18);
+                Label lblFileValue = new Label { Text = fileName, Left = 18, Top = 38, Width = 360, Height = 20, AutoSize = false, AutoEllipsis = true };
+                Label lblType = DialogLabel("Document Type *", 74);
+                _txtType = new TextBox { Left = 18, Top = 94, Width = 360, TabIndex = 0 };
+                Label lblExpiry = DialogLabel("Expiry Date", 130);
+                _dtpExpiry = new DateTimePicker { Left = 18, Top = 150, Width = 180, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true, TabIndex = 1 };
+                Button btnSave = new Button { Text = "Upload", Left = 220, Top = 196, Width = 74, DialogResult = DialogResult.OK, TabIndex = 2 };
+                Button btnCancel = new Button { Text = "Cancel", Left = 304, Top = 196, Width = 74, DialogResult = DialogResult.Cancel, TabIndex = 3 };
                 AcceptButton = btnSave;
                 CancelButton = btnCancel;
                 Controls.AddRange(new Control[] { lblFile, lblFileValue, lblType, _txtType, lblExpiry, _dtpExpiry, btnSave, btnCancel });
             }
+        }
+
+        private static Label DialogLabel(string text, int top)
+        {
+            return new Label
+            {
+                Text = text,
+                Left = 18,
+                Top = top,
+                Width = 360,
+                Height = 18,
+                AutoSize = false,
+                AutoEllipsis = true,
+                ForeColor = text.Contains("*") ? DS.Primary600 : Color.FromArgb(80, 80, 80)
+            };
         }
     }
 }

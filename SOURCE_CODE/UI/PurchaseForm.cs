@@ -86,18 +86,17 @@ namespace HVAC_Pro_Desktop.UI
         private List<HsnSacMasterEntry> _hsnEntries = new List<HsnSacMasterEntry>();
         private List<PurchaseOrder> _orderSource = new List<PurchaseOrder>();
         private readonly Dictionary<int, bool> _expandedVendors = new Dictionary<int, bool>();
-        private readonly Dictionary<int, CheckBox> _payableChecks = new Dictionary<int, CheckBox>();
-
-        private FlowLayoutPanel _leftListFlow;
+        private readonly HashSet<int> _checkedPayableOrderIds = new HashSet<int>();
+        private PurchaseSidebarModule _leftListModule;
         private Panel _leftRail;
         private Panel _detail;
         private Panel _selectedCard;
+        private int? _selectedOrderId;
         private Button _btnPendingTab;
         private Button _btnPartialTab;
         private Button _btnAllTab;
         private Button _btnApprovedTab;
         private Button _btnClosedTab;
-        private GlobalPaginationControl _orderListPager;
         private Button _btnPayablesToggle;
         private Button _btnBatchPay;
         private Button _btnVendorAdvance;
@@ -178,12 +177,9 @@ namespace HVAC_Pro_Desktop.UI
         private bool _isBinding;
         private PurchaseListTab _activeTab = PurchaseListTab.AllPurchaseOrders;
         private PurchaseViewMode _viewMode = PurchaseViewMode.Orders;
-        private int _listPageIndex;
-        private int _orderListPageSize = 10;
-        private const int MaxRenderedOrderCards = 120;
-        private const int OrderCardHeightWithMargin = 114;
         private const string SearchPlaceholder = "Search";
         private decimal _otherCharges;
+        private bool _syncingPurchaseListSelection;
 
         private static readonly Color HeaderBg = DS.White;
         private static readonly Color SaveGreen = DS.Teal600;
@@ -213,6 +209,8 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _poOverdueFlow;
         private Panel _poSummaryPanel;
         private FlowLayoutPanel _poTopSuppliersFlow;
+        private Panel _poRecoveryPanel;
+        private FlowLayoutPanel _poRecoveryFlow;
         private Label _poStatusFilterLabel;
         private Label _poPeriodFilterLabel;
         private Label _poTrendFilterLabel;
@@ -223,6 +221,10 @@ namespace HVAC_Pro_Desktop.UI
         private int _payByDateRefreshVersion;
         private int _deliveryPreviewRefreshVersion;
         private int _technicianRefreshVersion;
+        private PendingChargeRecoverySummary _poRecoverySummary = new PendingChargeRecoverySummary();
+        private List<PendingChargeRecoveryRow> _poRecoveryRows = new List<PendingChargeRecoveryRow>();
+        private bool _poRecoveryLoaded;
+        private bool _poRecoveryRefreshing;
 
         protected override bool EnableAutomaticLayoutScaling => false;
         protected override bool EnableMainScrollCanvas => false;
@@ -238,6 +240,7 @@ namespace HVAC_Pro_Desktop.UI
             if (UsePurchaseOrdersDashboard && _showDashboard)
             {
                 RefreshPurchaseDashboard();
+                QueueRecoveryWatchlistRefresh();
                 Load += (s, e) => QueuePurchaseDashboardRefresh();
             }
         }
@@ -451,7 +454,10 @@ namespace HVAC_Pro_Desktop.UI
             BeginInvoke((Action)(() =>
             {
                 if (_showDashboard)
+                {
+                    QueueRecoveryWatchlistRefresh(true);
                     RefreshPurchaseDashboard();
+                }
             }));
         }
 
@@ -861,6 +867,23 @@ namespace HVAC_Pro_Desktop.UI
             Label allSuppliers = new Label { Text = "View All Suppliers →", Location = new Point(18, 228), Size = new Size(230, 22), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = InfoBlue, Cursor = Cursors.Hand };
             allSuppliers.Click += (s, e) => ShowTopSuppliersDialog();
             suppliers.Controls.Add(allSuppliers);
+            _poRecoveryPanel = MakePoCard();
+            _poRecoveryPanel.Dock = DockStyle.None;
+            _poRecoveryPanel.Width = 280;
+            _poRecoveryPanel.Height = 286;
+            _poRecoveryPanel.Controls.Add(new Label { Text = "Recovery Watchlist", Location = new Point(16, 14), Size = new Size(170, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
+            _poRecoveryFlow = new FlowLayoutPanel
+            {
+                Location = new Point(14, 96),
+                Width = 252,
+                Height = 176,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                BackColor = Color.Transparent
+            };
+            _poRecoveryPanel.Controls.Add(_poRecoveryFlow);
+            _poRecoveryPanel.Resize += (s, e) => _poRecoveryFlow.Size = new Size(_poRecoveryPanel.Width - 28, _poRecoveryPanel.Height - 110);
             Panel quick = MakePoCard();
             quick.Dock = DockStyle.None;
             quick.Width = 280;
@@ -874,6 +897,7 @@ namespace HVAC_Pro_Desktop.UI
             AddQuickPoButton(quick, "Download Report", 16, 162, 248, Color.White, PoPurple);
             side.Controls.Add(_poSummaryPanel);
             side.Controls.Add(suppliers);
+            side.Controls.Add(_poRecoveryPanel);
             side.Controls.Add(quick);
             return side;
         }
@@ -886,6 +910,7 @@ namespace HVAC_Pro_Desktop.UI
             RefreshPoTableOnly();
             RefreshPoBottom(orders);
             RefreshPoSidebar(orders);
+            QueueRecoveryWatchlistRefresh();
         }
 
         private void RefreshPoStats(List<PurchaseOrder> orders)
@@ -1080,6 +1105,139 @@ namespace HVAC_Pro_Desktop.UI
                 _poTopSuppliersFlow.Controls.Add(row);
                 rank++;
             }
+
+            RefreshRecoveryWatchlistSidebar();
+        }
+
+        private void RefreshRecoveryWatchlistSidebar()
+        {
+            if (_poRecoveryPanel == null || _poRecoveryFlow == null)
+                return;
+
+            _poRecoveryPanel.Controls.Clear();
+            _poRecoveryPanel.Controls.Add(new Label { Text = "Recovery Watchlist", Location = new Point(16, 14), Size = new Size(170, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
+            _poRecoveryPanel.Controls.Add(_poRecoveryFlow);
+            _poRecoveryFlow.Controls.Clear();
+            PendingChargeRecoverySummary summary = _poRecoverySummary ?? new PendingChargeRecoverySummary();
+            List<PendingChargeRecoveryRow> rows = _poRecoveryRows ?? new List<PendingChargeRecoveryRow>();
+
+            AddPoSummaryLine(_poRecoveryPanel, "Pending amount", FormatCurrency(summary.PendingRecoverableAmount), 42, summary.PendingRecoverableAmount > 0m ? WarnOrange : PoText);
+            AddPoSummaryLine(_poRecoveryPanel, "Aged 30+ days", FormatCurrency(summary.AgedRecoverableAmount), 62, summary.AgedRecoverableAmount > 0m ? DelRed : PoText);
+            AddPoSummaryLine(_poRecoveryPanel, "Linked this month", FormatCurrency(summary.LinkedThisMonthAmount), 82, SaveGreen);
+
+            if (!_poRecoveryLoaded)
+            {
+                _poRecoveryFlow.Controls.Add(new Label
+                {
+                    Text = _poRecoveryRefreshing ? "Loading recovery cases..." : "Recovery data will appear here shortly.",
+                    Width = 236,
+                    Height = 36,
+                    Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                    ForeColor = PoMuted
+                });
+                return;
+            }
+
+            if (rows.Count == 0)
+            {
+                _poRecoveryFlow.Controls.Add(new Label
+                {
+                    Text = "No recovery cases yet. Client-billable material purchases will appear here.",
+                    Width = 236,
+                    Height = 52,
+                    Font = new Font("Segoe UI", 8.2f),
+                    ForeColor = PoMuted
+                });
+                return;
+            }
+
+            foreach (PendingChargeRecoveryRow row in rows.Take(5))
+                _poRecoveryFlow.Controls.Add(MakeRecoveryWatchRow(row));
+        }
+
+        private void QueueRecoveryWatchlistRefresh(bool forceRefresh = false)
+        {
+            if (_poRecoveryRefreshing || IsDisposed)
+                return;
+
+            if (_poRecoveryLoaded && !forceRefresh)
+                return;
+
+            _poRecoveryRefreshing = true;
+            if (forceRefresh)
+                _poRecoveryLoaded = false;
+
+            RefreshRecoveryWatchlistSidebar();
+
+            Task.Run(() =>
+            {
+                PendingChargeRecoverySummary summary = null;
+                List<PendingChargeRecoveryRow> rows = null;
+                Exception error = null;
+                try
+                {
+                    summary = _svc.GetRecoveryWatchSummary();
+                    rows = _svc.GetRecoveryWatchRows(false);
+                }
+                catch (Exception ex)
+                {
+                    error = ex;
+                }
+
+                if (IsDisposed || !IsHandleCreated)
+                    return;
+
+                try
+                {
+                    BeginInvoke((Action)(() =>
+                    {
+                        _poRecoveryRefreshing = false;
+                        if (error != null)
+                        {
+                            AppRuntime.LogException("PurchaseForm.QueueRecoveryWatchlistRefresh", error);
+                            _poRecoveryLoaded = true;
+                            _poRecoverySummary = new PendingChargeRecoverySummary();
+                            _poRecoveryRows = new List<PendingChargeRecoveryRow>();
+                        }
+                        else
+                        {
+                            _poRecoveryLoaded = true;
+                            _poRecoverySummary = summary ?? new PendingChargeRecoverySummary();
+                            _poRecoveryRows = rows ?? new List<PendingChargeRecoveryRow>();
+                        }
+
+                        RefreshRecoveryWatchlistSidebar();
+                    }));
+                }
+                catch
+                {
+                }
+            });
+        }
+
+        private Control MakeRecoveryWatchRow(PendingChargeRecoveryRow row)
+        {
+            Panel panel = new Panel
+            {
+                Width = Math.Max(220, _poRecoveryFlow.Width - 20),
+                Height = 56,
+                Margin = new Padding(0, 0, 0, 8),
+                BackColor = Color.FromArgb(248, 250, 252)
+            };
+            panel.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240)))
+                    e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+            };
+
+            Color amountColor = row.IsBilled ? SaveGreen : (row.AgeDays >= 30 ? DelRed : WarnOrange);
+            panel.Controls.Add(new Label { Text = Safe(row.WorkOrderName, "Work order pending"), Location = new Point(10, 7), Size = new Size(118, 16), Font = new Font("Segoe UI", 7.6f, FontStyle.Bold), ForeColor = PoText, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = Safe(row.ClientName, "Client pending"), Location = new Point(10, 23), Size = new Size(118, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = PoMuted, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = row.RecoveryStatus, Location = new Point(136, 7), Size = new Size(102, 16), Font = new Font("Segoe UI", 7.2f, FontStyle.Bold), ForeColor = amountColor, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = FormatCurrency(row.Amount), Location = new Point(136, 24), Size = new Size(102, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = amountColor, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = "Age " + row.AgeDays + "d  •  " + Safe(row.SourcePONumber, "PO pending"), Location = new Point(10, 39), Size = new Size(228, 14), Font = new Font("Segoe UI", 7f), ForeColor = PoMuted, AutoEllipsis = true });
+            _toolTip.SetToolTip(panel, Safe(row.ItemDescription, "Recovery item") + Environment.NewLine + row.SourceSummary);
+            return panel;
         }
 
         private static readonly string[] PoStatuses = { "Draft", "Pending Approval", "Approved", "Partially Received", "Fully Received", "Cancelled" };
@@ -1879,37 +2037,11 @@ namespace HVAC_Pro_Desktop.UI
             top.Controls.Add(filterGrid);
             top.Controls.Add(tabGrid);
 
-            Panel scroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
-            _leftListFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = false,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                BackColor = Color.White,
-                Padding = new Padding(0)
-            };
-            scroll.Resize += (s, e) =>
-            {
-                _leftListFlow.Width = GetLeftListContentWidth(268);
-            };
-            scroll.Controls.Add(_leftListFlow);
-
-            _orderListPager = new GlobalPaginationControl { Dock = DockStyle.Bottom, Height = 38, BackColor = Color.White };
-            _orderListPager.PageChanged += (s, e) =>
-            {
-                _listPageIndex = Math.Max(0, _orderListPager.CurrentPage - 1);
-                ApplyFiltersAndRender();
-            };
-            _orderListPager.PageSizeChanged += (s, e) =>
-            {
-                _orderListPageSize = _orderListPager.PageSize;
-                _listPageIndex = 0;
-                ApplyFiltersAndRender();
-            };
-
-            wrap.Controls.Add(scroll);
-            wrap.Controls.Add(_orderListPager);
+            _leftListModule = new PurchaseSidebarModule();
+            _leftListModule.Dock = DockStyle.Fill;
+            _leftListModule.EntryActivated += HandlePurchaseSidebarEntryActivated;
+            _leftListModule.PayableCheckedChanged += HandlePayableCheckedChanged;
+            wrap.Controls.Add(_leftListModule);
             wrap.Controls.Add(top);
             return wrap;
         }
@@ -3112,29 +3244,13 @@ namespace HVAC_Pro_Desktop.UI
         private void ApplyFiltersAndRender()
         {
             UpdateTabButtons();
-            UiPerformanceService.WithSuspendedDrawing(_leftListFlow, () =>
-            {
-                _leftListFlow.Controls.Clear();
-                _payableChecks.Clear();
-
-                List<PurchaseOrder> filteredOrders = FilterOrders();
-                if (_viewMode == PurchaseViewMode.VendorPayables)
-                    RenderVendorPayables(filteredOrders);
-                else
-                    RenderOrderCards(filteredOrders);
-            });
+            List<PurchaseOrder> filteredOrders = FilterOrders();
+            RenderPurchaseSidebar(filteredOrders);
             UpdateBatchPayVisibility();
         }
 
         private void ResetListPageAndRender()
         {
-            _listPageIndex = 0;
-            ApplyFiltersAndRender();
-        }
-
-        private void ChangeListPage(int delta)
-        {
-            _listPageIndex = Math.Max(0, _listPageIndex + delta);
             ApplyFiltersAndRender();
         }
 
@@ -3205,46 +3321,69 @@ namespace HVAC_Pro_Desktop.UI
                    string.Equals((_txtSearch.Text ?? string.Empty).Trim(), SearchPlaceholder, StringComparison.Ordinal);
         }
 
-        private void RenderOrderCards(List<PurchaseOrder> orders)
+        private void RenderPurchaseSidebar(List<PurchaseOrder> orders)
         {
-            orders = orders ?? new List<PurchaseOrder>();
-            int pageSize = Math.Max(1, _orderListPageSize);
-            int currentPage = PaginationState.NormalizePage(_listPageIndex + 1, orders.Count, pageSize);
-            _listPageIndex = currentPage - 1;
-            List<PurchaseOrder> visibleOrders = orders
-                .Skip(_listPageIndex * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            foreach (PurchaseOrder po in visibleOrders.Take(MaxRenderedOrderCards))
-                _leftListFlow.Controls.Add(MakeOrderCard(po));
-
-            if (orders.Count == 0)
-                _leftListFlow.Controls.Add(MakeEmptyState("No purchases match this filter."));
-            else if (orders.Count > MaxRenderedOrderCards)
-                _leftListFlow.Controls.Add(MakeEmptyState("Showing first " + MaxRenderedOrderCards + " of " + orders.Count + ". Use search/status filters to narrow the list."));
-
-            SetStatus("Showing " + orders.Count + " purchase orders.", Color.Gray);
-            ResizeLeftListFlowToContent();
-            if (_orderListPager != null)
-                _orderListPager.SetState(_listPageIndex + 1, orders.Count, pageSize);
-        }
-
-        private void ResizeLeftListFlowToContent()
-        {
-            if (_leftListFlow == null)
+            if (_leftListModule == null)
                 return;
 
-            int contentHeight = _leftListFlow.Controls
-                .Cast<Control>()
-                .Sum(control => control.Height + control.Margin.Vertical);
-            int viewportHeight = _leftListFlow.Parent?.ClientSize.Height ?? 0;
-            _leftListFlow.Height = Math.Max(viewportHeight, contentHeight);
+            List<PurchaseSidebarEntry> entries = _viewMode == PurchaseViewMode.VendorPayables
+                ? BuildPayableSidebarEntries(orders)
+                : BuildOrderSidebarEntries(orders);
+
+            _leftListModule.SetEntries(entries);
+            SyncPurchaseSidebarSelection();
+
+            if (_viewMode == PurchaseViewMode.VendorPayables)
+                SetStatus("Showing " + entries.Count(entry => entry.EntryType == PurchaseSidebarEntryType.PayableGroup).ToString() + " vendor payable groups.", Color.Gray);
+            else
+                SetStatus("Showing " + (orders ?? new List<PurchaseOrder>()).Count + " purchase orders.", Color.Gray);
         }
 
-        private void RenderVendorPayables(List<PurchaseOrder> orders)
+        private List<PurchaseSidebarEntry> BuildOrderSidebarEntries(List<PurchaseOrder> orders)
         {
-            List<VendorPayableGroup> payables = orders
+            List<PurchaseOrder> source = orders ?? new List<PurchaseOrder>();
+            if (source.Count == 0)
+            {
+                return new List<PurchaseSidebarEntry>
+                {
+                    PurchaseSidebarEntry.Empty("No purchases found", "Adjust filters or create a PO.")
+                };
+            }
+
+            return source
+                .Select(po => PurchaseSidebarEntry.ForOrder(po))
+                .ToList();
+        }
+
+        private List<PurchaseSidebarEntry> BuildPayableSidebarEntries(List<PurchaseOrder> orders)
+        {
+            List<VendorPayableGroup> payables = BuildVendorPayableGroups(orders);
+            if (payables.Count == 0)
+            {
+                return new List<PurchaseSidebarEntry>
+                {
+                    PurchaseSidebarEntry.Empty("No payables found", "Adjust filters or create a PO.")
+                };
+            }
+
+            var entries = new List<PurchaseSidebarEntry>();
+            foreach (VendorPayableGroup group in payables)
+            {
+                bool expanded = _expandedVendors.ContainsKey(group.VendorID) && _expandedVendors[group.VendorID];
+                entries.Add(PurchaseSidebarEntry.ForGroup(group, expanded));
+                if (!expanded)
+                    continue;
+
+                foreach (PurchaseOrder po in group.Purchases)
+                    entries.Add(PurchaseSidebarEntry.ForPayableOrder(po, _checkedPayableOrderIds.Contains(po.POID)));
+            }
+
+            return entries;
+        }
+
+        private List<VendorPayableGroup> BuildVendorPayableGroups(List<PurchaseOrder> orders)
+        {
+            return (orders ?? new List<PurchaseOrder>())
                 .Where(p => p.BalanceDue > 0.01m)
                 .GroupBy(p => new { p.VendorID, VendorName = string.IsNullOrWhiteSpace(p.VendorName) ? "Unknown Supplier" : p.VendorName })
                 .Select(g => new VendorPayableGroup
@@ -3259,15 +3398,20 @@ namespace HVAC_Pro_Desktop.UI
                 .ThenBy(g => g.Purchases.FirstOrDefault()?.PayByDate ?? DateTime.MaxValue)
                 .ThenBy(g => g.VendorName)
                 .ToList();
+        }
 
-            foreach (VendorPayableGroup group in payables)
-                _leftListFlow.Controls.Add(MakeVendorPayableCard(group));
+        private void RenderOrderCards(List<PurchaseOrder> orders)
+        {
+            RenderPurchaseSidebar(orders);
+        }
 
-            if (payables.Count == 0)
-                _leftListFlow.Controls.Add(MakeEmptyState("No vendor payables match this filter."));
+        private void ResizeLeftListFlowToContent()
+        {
+        }
 
-            ResizeLeftListFlowToContent();
-            SetStatus("Showing " + payables.Count + " vendor payable groups.", Color.Gray);
+        private void RenderVendorPayables(List<PurchaseOrder> orders)
+        {
+            RenderPurchaseSidebar(orders);
         }
 
         private Control MakeEmptyState(string text)
@@ -3350,8 +3494,8 @@ namespace HVAC_Pro_Desktop.UI
         private int GetLeftListContentWidth(int fallback)
         {
             int width = fallback;
-            if (_leftListFlow != null && _leftListFlow.Parent != null)
-                width = _leftListFlow.Parent.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4;
+            if (_leftListModule != null && _leftListModule.Parent != null)
+                width = _leftListModule.Parent.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4;
             else if (_leftRail != null)
                 width = _leftRail.ClientSize.Width - _leftRail.Padding.Horizontal - 18;
             return Math.Max(fallback, width);
@@ -3408,9 +3552,15 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawRectangle(pen, 0, 0, row.Width - 1, row.Height - 1);
             };
 
-            CheckBox chk = new CheckBox { Location = new Point(10, 22), Width = 18, Tag = po.POID };
-            chk.CheckedChanged += (s, e) => UpdateBatchPayVisibility();
-            _payableChecks[po.POID] = chk;
+            CheckBox chk = new CheckBox { Location = new Point(10, 22), Width = 18, Tag = po.POID, Checked = _checkedPayableOrderIds.Contains(po.POID) };
+            chk.CheckedChanged += (s, e) =>
+            {
+                if (chk.Checked)
+                    _checkedPayableOrderIds.Add(po.POID);
+                else
+                    _checkedPayableOrderIds.Remove(po.POID);
+                UpdateBatchPayVisibility();
+            };
             row.Controls.Add(chk);
             row.Controls.Add(new Label { Text = po.PONumber, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(15, 23, 42), Location = new Point(36, 10), Width = 120 });
             row.Controls.Add(new Label { Text = "Age " + po.AgeDays + "d", Font = new Font("Segoe UI", 8), ForeColor = Color.FromArgb(100, 116, 139), Location = new Point(36, 32), Width = 60 });
@@ -3437,6 +3587,28 @@ namespace HVAC_Pro_Desktop.UI
                 _selectedCard.Invalidate();
             _selectedCard = card;
             _selectedCard.Invalidate();
+            _selectedOrderId = poId;
+            SyncPurchaseSidebarSelection();
+            SetStatus("Loading purchase order...", Color.Gray);
+            try
+            {
+                _current = poId <= 0
+                    ? (_orderSource ?? new List<PurchaseOrder>()).FirstOrDefault(p => p.POID == poId)
+                    : await Task.Run(() => _svc.GetById(poId));
+                PopulateDetail(_current);
+                SetStatus("Purchase order loaded.", Color.Gray);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Purchases"), "Loading purchase history", ex);
+                SetStatus("Purchase history could not load. Refresh and try again.", Color.Red);
+            }
+        }
+
+        private async void SelectOrderById(int poId)
+        {
+            _selectedOrderId = poId;
+            SyncPurchaseSidebarSelection();
             SetStatus("Loading purchase order...", Color.Gray);
             try
             {
@@ -3458,6 +3630,8 @@ namespace HVAC_Pro_Desktop.UI
             if (po == null)
                 return;
 
+            _selectedOrderId = po.POID;
+            SyncPurchaseSidebarSelection();
             _isBinding = true;
             try
             {
@@ -3852,6 +4026,8 @@ namespace HVAC_Pro_Desktop.UI
                 _otherCharges = 0m;
                 AddLineItemCard();
                 _selectedCard = null;
+                _selectedOrderId = null;
+                SyncPurchaseSidebarSelection();
                 PurchaseOrder createdByDraft = new PurchaseOrder
                 {
                     CreatedByName = SessionManager.CurrentUser?.DisplayName,
@@ -4058,7 +4234,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BatchPaySelected()
         {
-            List<int> selectedIds = _payableChecks.Where(kvp => kvp.Value.Checked).Select(kvp => kvp.Key).ToList();
+            List<int> selectedIds = _checkedPayableOrderIds.OrderBy(id => id).ToList();
             if (selectedIds.Count == 0)
             {
                 SetStatus("Select at least one payable to batch pay.", Color.Gray);
@@ -4108,7 +4284,56 @@ namespace HVAC_Pro_Desktop.UI
         {
             _btnBatchPay.Visible = _viewMode == PurchaseViewMode.VendorPayables;
             _btnVendorAdvance.Visible = _viewMode == PurchaseViewMode.VendorPayables;
-            _btnBatchPay.Enabled = _payableChecks.Values.Any(chk => chk.Checked);
+            _btnBatchPay.Enabled = _checkedPayableOrderIds.Count > 0;
+        }
+
+        private void HandlePurchaseSidebarEntryActivated(PurchaseSidebarEntry entry)
+        {
+            if (_syncingPurchaseListSelection || entry == null)
+                return;
+
+            if (entry.EntryType == PurchaseSidebarEntryType.PayableGroup)
+            {
+                bool expanded = _expandedVendors.ContainsKey(entry.VendorId) && _expandedVendors[entry.VendorId];
+                _expandedVendors[entry.VendorId] = !expanded;
+                ApplyFiltersAndRender();
+                return;
+            }
+
+            if (entry.EntryType == PurchaseSidebarEntryType.Order || entry.EntryType == PurchaseSidebarEntryType.PayableOrder)
+                SelectOrderById(entry.PurchaseOrderId);
+        }
+
+        private void HandlePayableCheckedChanged(PurchaseSidebarEntry entry, bool isChecked)
+        {
+            if (entry == null || entry.EntryType != PurchaseSidebarEntryType.PayableOrder || entry.PurchaseOrderId <= 0)
+                return;
+
+            if (isChecked)
+                _checkedPayableOrderIds.Add(entry.PurchaseOrderId);
+            else
+                _checkedPayableOrderIds.Remove(entry.PurchaseOrderId);
+
+            UpdateBatchPayVisibility();
+        }
+
+        private void SyncPurchaseSidebarSelection()
+        {
+            if (_leftListModule == null)
+                return;
+
+            if (_leftListModule.GetSelectedRowId() == _selectedOrderId)
+                return;
+
+            _syncingPurchaseListSelection = true;
+            try
+            {
+                _leftListModule.SetSelectedRowId(_selectedOrderId);
+            }
+            finally
+            {
+                _syncingPurchaseListSelection = false;
+            }
         }
 
         private void RecordVendorAdvance()
@@ -4996,7 +5221,7 @@ namespace HVAC_Pro_Desktop.UI
                     }
                 }
 
-                TryApplyBestSupplierForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate, true);
+                TryApplyBestSupplierForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate, true, true);
                 RecalcTotal();
                 if (ReferenceEquals(_activeCompareDescription, cmbDesc))
                     RefreshSupplierComparisonCard();
@@ -5122,62 +5347,32 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             string itemDescription = _activeCompareDescription?.Text?.Trim();
-            if (string.IsNullOrWhiteSpace(itemDescription))
-            {
-                _supplierCompareCard.BackColor = Color.FromArgb(248, 250, 252);
-                _lblSupplierCompareEyebrow.Text = "SUPPLIER COMPARISON";
-                _lblSupplierCompareEyebrow.ForeColor = DS.Slate500;
-                _lblSupplierCompareItem.Text = "Select a material to compare offers";
-                _lblSupplierCompareSummary.Text = "Best supplier, live offer count, and price breakdown will appear here.";
-                _lblSupplierCompareDetail.Text = "Choose a line item to see live supplier history from purchase orders.";
-                _lblSupplierCompareDetail.ForeColor = DS.Slate500;
-                _lnkSupplierCompareApply.Enabled = false;
-                _lnkSupplierCompareOpen.Enabled = false;
-                _supplierCompareCard.Invalidate();
-                _toolTip.SetToolTip(_supplierCompareCard, "Compare supplier prices for this material");
-                return;
-            }
-
             try
             {
-                List<SupplierOption> options = _vndSvc.GetSupplierOptions(itemDescription, _activeCompareCategory?.Text)
-                    .Where(o => o != null && o.VendorID > 0)
-                    .OrderBy(o => o.Rate <= 0 ? decimal.MaxValue : o.Rate)
-                    .ThenBy(o => o.VendorName)
-                    .ToList();
-                SupplierOption best = options.FirstOrDefault();
-                if (best == null)
-                {
-                    _supplierCompareCard.BackColor = Color.FromArgb(248, 250, 252);
-                    _lblSupplierCompareEyebrow.Text = "SUPPLIER COMPARISON";
-                    _lblSupplierCompareEyebrow.ForeColor = DS.Slate500;
-                    _lblSupplierCompareItem.Text = itemDescription;
-                    _lblSupplierCompareSummary.Text = "No saved supplier offer found yet for this material.";
-                    _lblSupplierCompareDetail.Text = "No vendor history found in purchase orders for this material yet.";
-                    _lblSupplierCompareDetail.ForeColor = DS.Slate500;
-                    _lnkSupplierCompareApply.Enabled = false;
-                    _lnkSupplierCompareOpen.Enabled = true;
-                    _supplierCompareCard.Invalidate();
-                    _toolTip.SetToolTip(_supplierCompareCard, "No saved supplier price found. Click to review purchase-history options.");
-                    return;
-                }
+                SupplierSnapshotSummary summary = string.IsNullOrWhiteSpace(itemDescription)
+                    ? SupplierSnapshotFormatter.CreatePrompt(
+                        "Select a material to compare offers",
+                        "Best supplier, live offer count, and price breakdown will appear here.",
+                        "Choose a line item to see live supplier history from purchase orders.")
+                    : SupplierSnapshotFormatter.CreateSummary(
+                        itemDescription,
+                        _activeCompareQuantity?.Value ?? 1m,
+                        _vndSvc.GetSupplierOptions(itemDescription, _activeCompareCategory?.Text),
+                        unit => _unitSvc.NormalizeForDisplayOrDefault(unit));
 
-                decimal quantity = _activeCompareQuantity?.Value ?? 1m;
-                string topThree = string.Join("  |  ", options.Take(3).Select(o => o.VendorName + " " + IndiaFormatHelper.FormatCurrency(o.Rate)));
-                if (options.Count > 3)
-                    topThree += "  |  +" + (options.Count - 3).ToString() + " more";
-
-                _supplierCompareCard.BackColor = options.Count > 1 ? Color.FromArgb(239, 246, 255) : Color.FromArgb(236, 253, 245);
-                _lblSupplierCompareEyebrow.Text = options.Count > 1 ? "BEST OF " + options.Count.ToString() + " SUPPLIERS" : "BEST SUPPLIER";
-                _lblSupplierCompareEyebrow.ForeColor = options.Count > 1 ? InfoBlue : SaveGreen;
-                _lblSupplierCompareItem.Text = itemDescription;
-                _lblSupplierCompareSummary.Text = best.VendorName + " is best at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " for " + quantity.ToString("0.##") + " qty.";
-                _lblSupplierCompareDetail.Text = topThree;
-                _lblSupplierCompareDetail.ForeColor = options.Count > 1 ? InfoBlue : SaveGreen;
-                _lnkSupplierCompareApply.Enabled = true;
-                _lnkSupplierCompareOpen.Enabled = true;
+                _supplierCompareCard.BackColor = summary.HasOptions
+                    ? (summary.HasMultipleOptions ? Color.FromArgb(239, 246, 255) : Color.FromArgb(236, 253, 245))
+                    : Color.FromArgb(248, 250, 252);
+                _lblSupplierCompareEyebrow.Text = summary.EyebrowText;
+                _lblSupplierCompareEyebrow.ForeColor = summary.HasOptions ? (summary.HasMultipleOptions ? InfoBlue : SaveGreen) : DS.Slate500;
+                _lblSupplierCompareItem.Text = summary.ItemText;
+                _lblSupplierCompareSummary.Text = summary.SummaryText;
+                _lblSupplierCompareDetail.Text = summary.DetailText;
+                _lblSupplierCompareDetail.ForeColor = summary.HasOptions ? (summary.HasMultipleOptions ? InfoBlue : SaveGreen) : DS.Slate500;
+                _lnkSupplierCompareApply.Enabled = summary.HasOptions;
+                _lnkSupplierCompareOpen.Enabled = !string.IsNullOrWhiteSpace(itemDescription);
                 _supplierCompareCard.Invalidate();
-                _toolTip.SetToolTip(_supplierCompareCard, "Best supplier: " + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + ". Click to compare all suppliers.");
+                _toolTip.SetToolTip(_supplierCompareCard, summary.TooltipText ?? "Compare supplier prices for this material");
             }
             catch (Exception ex)
             {
@@ -5266,26 +5461,15 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                List<string> parts = options
-                    .Take(4)
-                    .Select(o => o.VendorName + " " + IndiaFormatHelper.FormatCurrency(o.Rate))
-                    .ToList();
-
-                string summary = (options.Count == 1 ? "Offer: " : "Offers: ") + string.Join("  |  ", parts);
-                if (options.Count > 4)
-                    summary += "  |  +" + (options.Count - 4).ToString() + " more";
+                SupplierSnapshotSummary snapshot = SupplierSnapshotFormatter.CreateSummary(itemDescription, quantity?.Value ?? 1m, options, unit => _unitSvc.NormalizeForDisplayOrDefault(unit));
+                string summary = (options.Count == 1 ? "Offer: " : "Offers: ") + snapshot.DetailText;
 
                 previewLabel.Text = summary;
                 previewLabel.ForeColor = options.Count > 1 ? InfoBlue : DS.Slate600;
 
                 if (compareTarget != null)
                 {
-                    string tooltipText = string.Join(
-                        Environment.NewLine,
-                        options.Select((o, index) =>
-                            (index + 1).ToString() + ". " + o.VendorName + " - " + IndiaFormatHelper.FormatCurrency(o.Rate)
-                            + (string.IsNullOrWhiteSpace(o.Unit) ? string.Empty : " / " + _unitSvc.NormalizeForDisplayOrDefault(o.Unit))));
-                    _toolTip.SetToolTip(compareTarget, tooltipText);
+                    _toolTip.SetToolTip(compareTarget, snapshot.TooltipText ?? summary);
                 }
             }
             catch (Exception ex)
@@ -5296,7 +5480,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void TryApplyBestSupplierForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate, bool autoSelectVendor)
+        private void TryApplyBestSupplierForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate, bool autoSelectVendor, bool notifyWhenUnavailable = false)
         {
             string itemDescription = description?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(itemDescription))
@@ -5306,13 +5490,17 @@ namespace HVAC_Pro_Desktop.UI
             {
                 SupplierOption best = _vndSvc.GetBestSupplierForItem(itemDescription, quantity?.Value ?? 1m, category?.Text);
                 if (best == null)
+                {
+                    if (notifyWhenUnavailable)
+                        SetStatus("Supplier and price details are not available for this material yet. Please enter the rate manually or save a supplier purchase first.", WarnOrange);
                     return;
+                }
 
                 Vendor currentVendor = _cboVendor?.SelectedItem as Vendor;
                 bool vendorMissing = currentVendor == null || currentVendor.VendorID <= 0;
                 bool switchedVendor = autoSelectVendor && (vendorMissing || currentVendor.VendorID != best.VendorID);
                 if (switchedVendor)
-                    SelectPurchaseVendorById(best.VendorID);
+                    switchedVendor = SelectPurchaseVendorById(best.VendorID);
 
                 if (rate != null && (rate.Value <= 0m || switchedVendor))
                     rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, best.Rate));
@@ -5330,10 +5518,10 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void SelectPurchaseVendorById(int vendorId)
+        private bool SelectPurchaseVendorById(int vendorId)
         {
             if (_cboVendor == null || vendorId <= 0)
-                return;
+                return false;
 
             for (int i = 0; i < _cboVendor.Items.Count; i++)
             {
@@ -5341,9 +5529,34 @@ namespace HVAC_Pro_Desktop.UI
                 if (vendor != null && vendor.VendorID == vendorId)
                 {
                     _cboVendor.SelectedIndex = i;
-                    return;
+                    return true;
                 }
             }
+
+            Vendor missingVendor = (_vendors ?? new List<Vendor>())
+                .FirstOrDefault(v => v != null && v.VendorID == vendorId);
+
+            if (missingVendor == null)
+            {
+                try
+                {
+                    missingVendor = (_vndSvc.GetSuppliers() ?? new List<Vendor>())
+                        .FirstOrDefault(v => v != null && v.VendorID == vendorId);
+                    if (missingVendor != null && !_vendors.Any(v => v != null && v.VendorID == vendorId))
+                        _vendors.Add(missingVendor);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("PurchaseForm.SelectPurchaseVendorById.LoadMissingVendor", ex);
+                }
+            }
+
+            if (missingVendor == null)
+                return false;
+
+            _cboVendor.Items.Add(missingVendor);
+            _cboVendor.SelectedItem = missingVendor;
+            return true;
         }
 
         private NumericUpDown MakeDecimalBox(string name, Point location, int width, int decimals, decimal maximum, decimal value)
@@ -5839,6 +6052,181 @@ namespace HVAC_Pro_Desktop.UI
             _lblHeaderStatus.Width = Math.Max(68, textWidth + 24);
             int left = _lblBreadcrumb != null ? _lblBreadcrumb.Right + 10 : 224;
             _lblHeaderStatus.Location = new Point(left, 40);
+        }
+
+        private enum PurchaseSidebarEntryType
+        {
+            Empty,
+            Order,
+            PayableGroup,
+            PayableOrder
+        }
+
+        private sealed class PurchaseSidebarEntry
+        {
+            public PurchaseSidebarEntryType EntryType { get; set; }
+            public int RowId { get; set; }
+            public int PurchaseOrderId { get; set; }
+            public int VendorId { get; set; }
+            public string Title { get; set; }
+            public string Meta { get; set; }
+            public string Status { get; set; }
+            public string DateText { get; set; }
+            public string AmountText { get; set; }
+            public bool IsChecked { get; set; }
+            public bool IsExpanded { get; set; }
+
+            public static PurchaseSidebarEntry Empty(string title, string meta)
+            {
+                return new PurchaseSidebarEntry
+                {
+                    EntryType = PurchaseSidebarEntryType.Empty,
+                    RowId = int.MinValue,
+                    Title = title,
+                    Meta = meta
+                };
+            }
+
+            public static PurchaseSidebarEntry ForOrder(PurchaseOrder po)
+            {
+                return new PurchaseSidebarEntry
+                {
+                    EntryType = PurchaseSidebarEntryType.Order,
+                    RowId = po.POID,
+                    PurchaseOrderId = po.POID,
+                    VendorId = po.VendorID,
+                    Title = string.IsNullOrWhiteSpace(po.PONumber) ? "Draft PO" : po.PONumber,
+                    Meta = string.IsNullOrWhiteSpace(po.VendorName) ? "-" : po.VendorName,
+                    Status = string.IsNullOrWhiteSpace(po.Status) ? "Pending" : po.Status,
+                    DateText = po.PODate == default(DateTime) ? string.Empty : po.PODate.ToString("dd MMM yyyy"),
+                    AmountText = IndiaFormatHelper.FormatCurrency(po.TotalAmount > 0 ? po.TotalAmount : po.BalanceDue)
+                };
+            }
+
+            public static PurchaseSidebarEntry ForGroup(VendorPayableGroup group, bool expanded)
+            {
+                return new PurchaseSidebarEntry
+                {
+                    EntryType = PurchaseSidebarEntryType.PayableGroup,
+                    RowId = -1000000 - Math.Abs(group.VendorID),
+                    VendorId = group.VendorID,
+                    Title = (expanded ? "▼ " : "▶ ") + group.VendorName,
+                    Meta = group.OverdueCount > 0 ? group.OverdueCount + " overdue" : "Within terms",
+                    Status = expanded ? "Expanded" : "Collapsed",
+                    AmountText = IndiaFormatHelper.FormatCurrency(group.TotalOutstanding),
+                    IsExpanded = expanded
+                };
+            }
+
+            public static PurchaseSidebarEntry ForPayableOrder(PurchaseOrder po, bool isChecked)
+            {
+                return new PurchaseSidebarEntry
+                {
+                    EntryType = PurchaseSidebarEntryType.PayableOrder,
+                    RowId = po.POID,
+                    PurchaseOrderId = po.POID,
+                    VendorId = po.VendorID,
+                    Title = "   " + (string.IsNullOrWhiteSpace(po.PONumber) ? "PO" : po.PONumber),
+                    Meta = "Age " + po.AgeDays + "d",
+                    Status = po.IsOverdue ? "Overdue" : "Due",
+                    DateText = po.PayByDate == default(DateTime) ? string.Empty : po.PayByDate.ToString("dd MMM"),
+                    AmountText = po.BalanceDue.ToString("₹#,##0.00"),
+                    IsChecked = isChecked
+                };
+            }
+        }
+
+        private sealed class PurchaseSidebarModule : VirtualListModuleBase<PurchaseSidebarEntry>
+        {
+            public event Action<PurchaseSidebarEntry> EntryActivated;
+            public event Action<PurchaseSidebarEntry, bool> PayableCheckedChanged;
+            private bool _suppressActivation;
+
+            public PurchaseSidebarModule()
+            {
+                BackColor = Color.White;
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = Color.White;
+                ListGrid.CellClick += ListGrid_CellClick;
+            }
+
+            public void SetEntries(IEnumerable<PurchaseSidebarEntry> entries)
+            {
+                SetItems(entries);
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "Select", HeaderText = "", Width = 34 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Title", HeaderText = "Purchase / Vendor", FillWeight = 38f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Meta", HeaderText = "Meta", Width = 102 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", Width = 84 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date", HeaderText = "Date", Width = 92 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Amount", HeaderText = "Amount", Width = 110 });
+            }
+
+            protected override int GetRowId(PurchaseSidebarEntry item)
+            {
+                return item == null ? 0 : item.RowId;
+            }
+
+            protected override object GetCellValue(PurchaseSidebarEntry item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "Select":
+                        return item.EntryType == PurchaseSidebarEntryType.PayableOrder && item.IsChecked;
+                    case "Title":
+                        return item.Title ?? string.Empty;
+                    case "Meta":
+                        return item.Meta ?? string.Empty;
+                    case "Status":
+                        return item.Status ?? string.Empty;
+                    case "Date":
+                        return item.DateText ?? string.Empty;
+                    case "Amount":
+                        return item.AmountText ?? string.Empty;
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No records shown." : visibleCount.ToString("N0") + " of " + totalCount.ToString("N0") + " rows shown.";
+            }
+
+            protected override void OnRowSelected(PurchaseSidebarEntry item)
+            {
+                if (_suppressActivation)
+                {
+                    _suppressActivation = false;
+                    return;
+                }
+                EntryActivated?.Invoke(item);
+            }
+
+            private void ListGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+            {
+                if (e.RowIndex < 0 || e.RowIndex >= VisibleItemsBuffer.Count || e.ColumnIndex < 0 || e.ColumnIndex >= ListGrid.Columns.Count)
+                    return;
+
+                PurchaseSidebarEntry entry = VisibleItemsBuffer[e.RowIndex];
+                if (entry == null)
+                    return;
+
+                if (ListGrid.Columns[e.ColumnIndex].Name == "Select" && entry.EntryType == PurchaseSidebarEntryType.PayableOrder)
+                {
+                    _suppressActivation = true;
+                    entry.IsChecked = !entry.IsChecked;
+                    ListGrid.InvalidateRow(e.RowIndex);
+                    PayableCheckedChanged?.Invoke(entry, entry.IsChecked);
+                }
+            }
         }
 
         private sealed class PurchasePreviewDialog : ServoERP.Infrastructure.ServoFormBase

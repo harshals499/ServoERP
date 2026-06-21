@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -8,9 +9,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Forms.DataVisualization.Charting;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI.Controls;
+using QuestPDF.Fluent;
+using QuestPDF.Helpers;
 using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.UI
@@ -65,7 +69,7 @@ namespace HVAC_Pro_Desktop.UI
         };
 
         private SplitContainer _split;
-        private FlowLayoutPanel _vendorListFlow;
+        private VendorSummaryListModule _vendorListModule;
         private FlowLayoutPanel _chipFlow;
         private Panel _searchSection;
         private Panel _duplicateBanner;
@@ -106,6 +110,7 @@ namespace HVAC_Pro_Desktop.UI
         private ResizableCard _cardTax;
         private ResizableCard _cardPayment;
         private ResizableCard _cardRecentPos;
+        private ResizableCard _cardScorecard;
         private ResizableCard _cardNotes;
 
         private TextBox _txtVendorName;
@@ -154,6 +159,17 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _recentPoFlow;
         private Label _lblRecentPoFooter;
         private TextBox _txtNotes;
+        private Label _lblScorecardPurchases;
+        private Label _lblScorecardOnTime;
+        private Label _lblScorecardFulfilment;
+        private Label _lblScorecardReliability;
+        private ComboBox _cmbScorecardItem;
+        private Button _btnExportScorecard;
+        private Chart _scorecardChart;
+        private Label _lblScorecardLoading;
+        private BackgroundWorker _scorecardWorker;
+        private int? _pendingScorecardVendorId;
+        private int? _activeScorecardVendorId;
 
         private List<VendorSummaryDto> _vendorSummaries = new List<VendorSummaryDto>();
         private List<DuplicateGroupDto> _duplicateGroups = new List<DuplicateGroupDto>();
@@ -172,6 +188,7 @@ namespace HVAC_Pro_Desktop.UI
         private int _dashboardPage = 1;
         private int _dashboardPageSize = 10;
         private string _activeFilter = "All";
+        private bool _syncingVendorSelection;
         private bool _searchPlaceholderActive;
         private bool _renderingDashboard;
         private readonly VendorPartnerPageMode _pageMode;
@@ -186,7 +203,19 @@ namespace HVAC_Pro_Desktop.UI
         private string PartnerSingularLower => IsSupplierPage ? "supplier" : "vendor";
         private string PartnerPluralLower => IsSupplierPage ? "suppliers" : "vendors";
         private string PartnerWindowTitle => IsSupplierPage ? "Suppliers" : "Vendors";
-        private string DashboardSearchPlaceholder => "Search " + PartnerSingularLower + " name, code, email...";
+        private string DashboardSearchPlaceholder => "Search";
+
+        private sealed class ScorecardLoadRequest
+        {
+            public int VendorId { get; set; }
+        }
+
+        private sealed class ScorecardLoadResult
+        {
+            public int VendorId { get; set; }
+            public VendorScorecardDto Scorecard { get; set; }
+            public Exception Error { get; set; }
+        }
 
         public VendorForm()
             : this(VendorPartnerPageMode.Supplier)
@@ -825,6 +854,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             return string.IsNullOrWhiteSpace(value)
                 || string.Equals(value, DashboardSearchPlaceholder, StringComparison.Ordinal)
+                || string.Equals(value, "Search", StringComparison.Ordinal)
                 || string.Equals(value, "Search vendor name, code, email...", StringComparison.Ordinal)
                 || string.Equals(value, "Search supplier name, code, email...", StringComparison.Ordinal);
         }
@@ -1368,7 +1398,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(12, 10),
                 Width = 224
             };
-            ConfigurePlaceholder(_txtSearch, "Search suppliers, category, city...");
+            ConfigurePlaceholder(_txtSearch, "Search");
             _txtSearch.TextChanged += (s, e) => { UpdateSearchClear(); ApplyFilters(); };
             _btnClearSearch = new Button
             {
@@ -1415,16 +1445,10 @@ namespace HVAC_Pro_Desktop.UI
             _duplicateBanner.Controls.Add(_lblDuplicateBanner);
 
             Panel listWrap = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(8, 8, 8, 8) };
-            _vendorListFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = White,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = true,
-                Padding = new Padding(4, 0, 4, 8)
-            };
-            listWrap.Controls.Add(_vendorListFlow);
+            _vendorListModule = new VendorSummaryListModule();
+            _vendorListModule.Dock = DockStyle.Fill;
+            _vendorListModule.RowSelected += HandleVendorRowSelected;
+            listWrap.Controls.Add(_vendorListModule);
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 34, BackColor = White, Padding = new Padding(12, 0, 12, 8) };
             _lblListFooter = new Label { Dock = DockStyle.Fill, ForeColor = TextHint, Font = new Font("Segoe UI", 8.5f), Text = "Loading..." };
@@ -1466,6 +1490,7 @@ namespace HVAC_Pro_Desktop.UI
             BuildCards();
 
             _rightHost.Controls.Add(_cardNotes);
+            _rightHost.Controls.Add(_cardScorecard);
             _rightHost.Controls.Add(_cardRecentPos);
             _rightHost.Controls.Add(_cardIdentity);
             _rightHost.Controls.Add(_warningStrip);
@@ -1730,9 +1755,11 @@ namespace HVAC_Pro_Desktop.UI
             _cardTax = CreateCard("tax_compliance", "Tax & compliance", 320);
             _cardPayment = CreateCard("payment_terms", "Payment terms", 320);
             _cardRecentPos = CreateCard("recent_purchase_orders", "Recent purchase orders", 210);
+            _cardScorecard = CreateCard("vendor_scorecard", "Supplier scorecard", 330);
             _cardNotes = CreateCard("vendor_notes", "Notes", 150);
             _cardRecentPos.AllowResize = false;
             _cardRecentPos.ShowHeader = false;
+            _cardScorecard.AllowResize = false;
             _cardNotes.AllowResize = false;
             _cardNotes.ShowHeader = false;
 
@@ -1742,6 +1769,7 @@ namespace HVAC_Pro_Desktop.UI
             BuildPaymentCard();
             ConsolidateVendorDetailCards();
             BuildRecentPoCard();
+            BuildScorecardCard();
             BuildNotesCard();
         }
 
@@ -2105,6 +2133,194 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(_lblRecentPoFooter);
         }
 
+        private void BuildScorecardCard()
+        {
+            Panel body = _cardScorecard.ContentPanel;
+            body.AutoScroll = false;
+
+            _lblScorecardPurchases = CreateScorecardMetric(body, "Total purchases", new Point(0, 0), 240);
+            _lblScorecardOnTime = CreateScorecardMetric(body, "On-time delivery", new Point(250, 0), 180);
+            _lblScorecardFulfilment = CreateScorecardMetric(body, "Order completeness", new Point(440, 0), 180);
+            _lblScorecardReliability = CreateScorecardMetric(body, "Reliability score", new Point(630, 0), 180);
+
+            Label chartLabel = new Label
+            {
+                Text = "12-month price trend",
+                Location = new Point(0, 88),
+                Size = new Size(200, 20),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            body.Controls.Add(chartLabel);
+
+            _cmbScorecardItem = new ComboBox
+            {
+                Location = new Point(640, 84),
+                Size = new Size(170, 28),
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 8.5f),
+                BackColor = White
+            };
+            _cmbScorecardItem.SelectedIndexChanged += (s, e) => RenderVendorScorecardChart();
+            body.Controls.Add(_cmbScorecardItem);
+
+            _btnExportScorecard = DS.PrimaryBtn("Export Performance Report", 196, 32);
+            _btnExportScorecard.Location = new Point(430, 82);
+            _btnExportScorecard.Click += (s, e) => ExportVendorPerformanceReport();
+            body.Controls.Add(_btnExportScorecard);
+
+            _lblScorecardLoading = new Label
+            {
+                Text = "Loading scorecard...",
+                Location = new Point(0, 88),
+                Size = new Size(180, 20),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                Visible = false
+            };
+            body.Controls.Add(_lblScorecardLoading);
+
+            _scorecardChart = new Chart
+            {
+                Location = new Point(0, 120),
+                Size = new Size(810, 150),
+                BackColor = White,
+                Palette = ChartColorPalette.None
+            };
+            ChartArea area = new ChartArea("ScorecardArea");
+            area.BackColor = White;
+            area.AxisX.LineColor = Border;
+            area.AxisY.LineColor = Border;
+            area.AxisX.MajorGrid.Enabled = false;
+            area.AxisY.MajorGrid.LineColor = BorderLight;
+            area.AxisX.LabelStyle.ForeColor = TextSecondary;
+            area.AxisY.LabelStyle.ForeColor = TextSecondary;
+            area.AxisY.LabelStyle.Format = "₹0";
+            _scorecardChart.ChartAreas.Add(area);
+            Legend legend = new Legend("ScorecardLegend")
+            {
+                Docking = Docking.Top,
+                BackColor = White,
+                ForeColor = TextSecondary,
+                Font = new Font("Segoe UI", 8f)
+            };
+            _scorecardChart.Legends.Add(legend);
+            body.Controls.Add(_scorecardChart);
+        }
+
+        private void EnsureScorecardWorker()
+        {
+            if (_scorecardWorker != null)
+                return;
+
+            _scorecardWorker = new BackgroundWorker();
+            _scorecardWorker.DoWork += (s, e) =>
+            {
+                ScorecardLoadRequest request = e.Argument as ScorecardLoadRequest;
+                ScorecardLoadResult result = new ScorecardLoadResult
+                {
+                    VendorId = request == null ? 0 : request.VendorId
+                };
+
+                try
+                {
+                    if (request != null && request.VendorId > 0)
+                        result.Scorecard = _vendorSvc.GetVendorScorecard(request.VendorId);
+                }
+                catch (Exception ex)
+                {
+                    result.Error = ex;
+                }
+
+                e.Result = result;
+            };
+            _scorecardWorker.RunWorkerCompleted += (s, e) =>
+            {
+                ScorecardLoadResult result = e.Result as ScorecardLoadResult;
+                _activeScorecardVendorId = null;
+
+                if (result != null && result.Error != null)
+                {
+                    AppRuntime.LogException("VendorForm.LoadScorecardBackground", result.Error);
+                    if (_currentVendor != null && _currentVendor.VendorID == result.VendorId)
+                        SetScorecardLoadingState(false);
+                }
+                else if (result != null && _currentVendor != null && _currentVendor.VendorID == result.VendorId)
+                {
+                    _currentVendor.Scorecard = result.Scorecard ?? new VendorScorecardDto();
+                    RenderVendorScorecard(_currentVendor.Scorecard);
+                    SetScorecardLoadingState(false);
+                }
+
+                StartQueuedScorecardLoad();
+            };
+        }
+
+        private void QueueVendorScorecardLoad(int vendorId)
+        {
+            if (vendorId <= 0)
+            {
+                SetScorecardLoadingState(false);
+                return;
+            }
+
+            EnsureScorecardWorker();
+            _pendingScorecardVendorId = vendorId;
+            SetScorecardLoadingState(true);
+            StartQueuedScorecardLoad();
+        }
+
+        private void StartQueuedScorecardLoad()
+        {
+            if (_scorecardWorker == null || _scorecardWorker.IsBusy || !_pendingScorecardVendorId.HasValue)
+                return;
+
+            int vendorId = _pendingScorecardVendorId.Value;
+            _pendingScorecardVendorId = null;
+            _activeScorecardVendorId = vendorId;
+            _scorecardWorker.RunWorkerAsync(new ScorecardLoadRequest { VendorId = vendorId });
+        }
+
+        private void SetScorecardLoadingState(bool isLoading)
+        {
+            if (_lblScorecardLoading != null)
+                _lblScorecardLoading.Visible = isLoading;
+            if (_cmbScorecardItem != null)
+                _cmbScorecardItem.Enabled = !isLoading;
+            if (_btnExportScorecard != null)
+                _btnExportScorecard.Enabled = !isLoading;
+        }
+
+        private Label CreateScorecardMetric(Control parent, string title, Point location, int width)
+        {
+            Panel host = new Panel
+            {
+                Location = location,
+                Size = new Size(width, 68),
+                BackColor = Surface
+            };
+            host.Paint += (s, e) => DrawRoundedSurface(e.Graphics, host.ClientRectangle, Surface, 10);
+            Label heading = new Label
+            {
+                Text = title,
+                Location = new Point(12, 10),
+                Size = new Size(width - 24, 18),
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = TextSecondary
+            };
+            Label value = new Label
+            {
+                Location = new Point(12, 30),
+                Size = new Size(width - 24, 24),
+                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            host.Controls.Add(heading);
+            host.Controls.Add(value);
+            parent.Controls.Add(host);
+            return value;
+        }
+
         private void BuildNotesCard()
         {
             Panel body = _cardNotes.ContentPanel;
@@ -2411,123 +2627,33 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderVendorList(List<VendorSummaryDto> items)
         {
-            _vendorListFlow.SuspendLayout();
-            _vendorListFlow.Controls.Clear();
-
-            if (items.Count == 0)
-            {
-                Panel empty = new Panel { Width = Math.Max(240, _vendorListFlow.ClientSize.Width - 30), Height = 420, Margin = new Padding(0, 20, 0, 0), BackColor = White };
-                Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Vendor, 58, Color.FromArgb(238, 242, 255), Blue);
-                icon.Location = new Point((empty.Width - 58) / 2, 150);
-                Label lbl = new Label { Text = "No suppliers found", Location = new Point(20, 212), Size = new Size(empty.Width - 40, 26), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
-                Label sub = new Label { Text = "Try adjusting your search or create a new vendor.", Location = new Point(36, 240), Size = new Size(empty.Width - 72, 42), Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleCenter };
-                Button create = MakeActionButton("+  New Supplier", White, Blue, 122, true);
-                create.Location = new Point((empty.Width - create.Width) / 2, 302);
-                create.Click += async (s, e) => await BeginNewVendorAsync();
-                LinkLabel lnk = new LinkLabel { Text = "Clear search", Location = new Point(20, 350), Size = new Size(empty.Width - 40, 24), LinkColor = Blue, TextAlign = ContentAlignment.MiddleCenter, Visible = !string.IsNullOrWhiteSpace(GetSearchText()) };
-                lnk.Click += (s, e) => _txtSearch.Text = string.Empty;
-                empty.Resize += (s, e) =>
-                {
-                    icon.Left = (empty.Width - icon.Width) / 2;
-                    lbl.Width = empty.Width - 40;
-                    sub.Width = empty.Width - 72;
-                    create.Left = (empty.Width - create.Width) / 2;
-                    lnk.Width = empty.Width - 40;
-                };
-                empty.Controls.Add(icon);
-                empty.Controls.Add(lbl);
-                empty.Controls.Add(sub);
-                empty.Controls.Add(create);
-                empty.Controls.Add(lnk);
-                _vendorListFlow.Controls.Add(empty);
-                _lnkClearSearch.Visible = !string.IsNullOrWhiteSpace(GetSearchText());
-                _lblListFooter.Text = "No suppliers shown";
-                _vendorListFlow.ResumeLayout();
+            if (_vendorListModule == null)
                 return;
-            }
 
-            foreach (VendorSummaryDto item in items)
-                _vendorListFlow.Controls.Add(BuildVendorListItem(item));
-
+            _vendorListModule.SetItems(items ?? new List<VendorSummaryDto>());
             _lnkClearSearch.Visible = !string.IsNullOrWhiteSpace(GetSearchText());
-            _lblListFooter.Text = items.Count + " suppliers shown";
-            _vendorListFlow.ResumeLayout();
+            _lblListFooter.Text = (items == null || items.Count == 0) ? "No suppliers shown" : items.Count + " suppliers shown";
             UpdateVendorSelectionState();
         }
 
         private void UpdateVendorSelectionState()
         {
-            int selectedVendorId = _currentVendor?.VendorID ?? 0;
-            foreach (Panel panel in _vendorListFlow.Controls.OfType<Panel>())
-            {
-                VendorSummaryDto item = panel.Tag as VendorSummaryDto;
-                if (item == null)
-                    continue;
+            if (_vendorListModule == null)
+                return;
 
-                panel.BackColor = item.VendorId == selectedVendorId ? TealLightBg : White;
-                panel.Invalidate();
+            int? selectedVendorId = _currentVendor == null ? (int?)null : _currentVendor.VendorID;
+            if (_vendorListModule.GetSelectedRowId() == selectedVendorId)
+                return;
+
+            _syncingVendorSelection = true;
+            try
+            {
+                _vendorListModule.SetSelectedRowId(selectedVendorId);
             }
-        }
-
-        private Control BuildVendorListItem(VendorSummaryDto item)
-        {
-            Panel panel = new Panel
+            finally
             {
-                Width = Math.Max(250, _vendorListFlow.ClientSize.Width - 32),
-                Height = 76,
-                BackColor = _currentVendor != null && _currentVendor.VendorID == item.VendorId ? TealLightBg : White,
-                Margin = new Padding(0, 0, 0, 8),
-                Tag = item,
-                Cursor = Cursors.Hand
-            };
-            panel.Paint += (s, e) =>
-            {
-                Rectangle rect = new Rectangle(0, 0, panel.Width - 1, panel.Height - 1);
-                using (SolidBrush brush = new SolidBrush(panel.BackColor))
-                    e.Graphics.FillRectangle(brush, rect);
-                using (Pen pen = new Pen(Border))
-                    e.Graphics.DrawRectangle(pen, rect);
-                if (_currentVendor != null && _currentVendor.VendorID == item.VendorId)
-                {
-                    using (SolidBrush accent = new SolidBrush(Teal))
-                        e.Graphics.FillRectangle(accent, new Rectangle(0, 0, 3, panel.Height));
-                }
-            };
-            panel.MouseEnter += (s, e) =>
-            {
-                if (_currentVendor == null || _currentVendor.VendorID != item.VendorId)
-                    panel.BackColor = Color.FromArgb(250, 250, 250);
-                panel.Invalidate();
-            };
-            panel.MouseLeave += (s, e) =>
-            {
-                panel.BackColor = _currentVendor != null && _currentVendor.VendorID == item.VendorId ? TealLightBg : White;
-                panel.Invalidate();
-            };
-            panel.Click += async (s, e) => await LoadVendorDetailAsync(item.VendorId);
-
-            Label lblName = new Label { Text = item.VendorName, Location = new Point(12, 10), Size = new Size(170, 18), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary };
-            Label lblMeta = new Label { Text = JoinBullet(item.City, item.Category), Location = new Point(12, 32), Size = new Size(190, 16), Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary };
-            Label lblPhone = new Label { Text = string.IsNullOrWhiteSpace(item.Phone) ? "No phone" : item.Phone, Location = new Point(12, 52), Size = new Size(120, 16), Font = new Font("Segoe UI", 8.5f), ForeColor = TextHint };
-            Label lblBalance = new Label
-            {
-                Text = item.OutstandingBalance > 0 ? IndiaFormatHelper.FormatCurrency(item.OutstandingBalance) + " due" : "No balance",
-                Location = new Point(panel.Width - 140, 52),
-                Size = new Size(128, 16),
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = item.HasOverdue ? RedDark : item.OutstandingBalance > 0 ? AmberDark : TextHint,
-                TextAlign = ContentAlignment.TopRight
-            };
-            Panel pill = CreateStatusPill(item);
-            pill.Location = new Point(panel.Width - pill.Width - 12, 8);
-
-            foreach (Control ctl in new Control[] { lblName, lblMeta, lblPhone, lblBalance, pill })
-            {
-                ctl.Click += async (s, e) => await LoadVendorDetailAsync(item.VendorId);
-                panel.Controls.Add(ctl);
+                _syncingVendorSelection = false;
             }
-
-            return panel;
         }
 
         private Panel CreateStatusPill(VendorSummaryDto item)
@@ -2642,6 +2768,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             _isNewMode = true;
             BindVendor(_currentVendor);
+            UpdateVendorSelectionState();
         }
 
         private void BindVendor(VendorDetailDto vendor)
@@ -2684,6 +2811,8 @@ namespace HVAC_Pro_Desktop.UI
 
                 RenderTags(ParseTags(vendor.SpecialisationTags));
                 RenderRecentPurchaseOrders(vendor.RecentPOs, vendor.TotalPurchased);
+                vendor.Scorecard = null;
+                RenderVendorScorecard(null);
                 UpdateStats(vendor);
                 UpdateWarnings(vendor);
                 UpdateMsmeVisibility();
@@ -2695,6 +2824,7 @@ namespace HVAC_Pro_Desktop.UI
                 UpdateCreditVisuals();
                 UpdateActionState();
                 ApplyPartnerTerminology();
+                QueueVendorScorecardLoad(vendor.VendorID);
             }
             finally
             {
@@ -2736,6 +2866,76 @@ namespace HVAC_Pro_Desktop.UI
             _tagFlow.Controls.Add(_lnkAddTag);
             _tagFlow.Controls.Add(_txtAddTag);
             _tagFlow.ResumeLayout();
+        }
+
+        private void RenderVendorScorecard(VendorScorecardDto scorecard)
+        {
+            scorecard = scorecard ?? new VendorScorecardDto();
+            if (_lblScorecardPurchases != null)
+                _lblScorecardPurchases.Text = IndiaFormatHelper.FormatCurrency(scorecard.TotalPurchaseValue);
+            if (_lblScorecardOnTime != null)
+                _lblScorecardOnTime.Text = scorecard.OnTimeDeliveryRatePct.HasValue ? scorecard.OnTimeDeliveryRatePct.Value.ToString("0.##") + "%" : "N/A";
+            if (_lblScorecardFulfilment != null)
+                _lblScorecardFulfilment.Text = scorecard.FulfilmentCompletenessPct.HasValue ? scorecard.FulfilmentCompletenessPct.Value.ToString("0.##") + "%" : "N/A";
+            if (_lblScorecardReliability != null)
+                _lblScorecardReliability.Text = scorecard.ReliabilityScorePct.HasValue ? scorecard.ReliabilityScorePct.Value.ToString("0.##") + "%" : "N/A";
+
+            if (_cmbScorecardItem == null)
+                return;
+
+            string previous = _cmbScorecardItem.SelectedItem as string;
+            _cmbScorecardItem.Items.Clear();
+            foreach (string itemName in scorecard.PriceTrends.Select(t => t.ItemName).Distinct().OrderBy(name => name))
+                _cmbScorecardItem.Items.Add(itemName);
+
+            if (_cmbScorecardItem.Items.Count == 0)
+            {
+                RenderVendorScorecardChart();
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(previous) && _cmbScorecardItem.Items.Contains(previous))
+                _cmbScorecardItem.SelectedItem = previous;
+            else
+                _cmbScorecardItem.SelectedIndex = 0;
+        }
+
+        private void RenderVendorScorecardChart()
+        {
+            if (_scorecardChart == null)
+                return;
+
+            _scorecardChart.Series.Clear();
+            if (_scorecardChart.Titles.Count > 0)
+                _scorecardChart.Titles.Clear();
+
+            VendorScorecardDto scorecard = _currentVendor?.Scorecard;
+            if (scorecard == null || _cmbScorecardItem == null || _cmbScorecardItem.SelectedItem == null)
+            {
+                _scorecardChart.Titles.Add(new Title("No price trend available yet", Docking.Top, new Font("Segoe UI", 9f), TextSecondary));
+                return;
+            }
+
+            VendorPriceTrendSeries seriesData = scorecard.PriceTrends
+                .FirstOrDefault(t => string.Equals(t.ItemName, Convert.ToString(_cmbScorecardItem.SelectedItem), StringComparison.OrdinalIgnoreCase));
+            if (seriesData == null || seriesData.Points.Count == 0)
+            {
+                _scorecardChart.Titles.Add(new Title("No price trend available yet", Docking.Top, new Font("Segoe UI", 9f), TextSecondary));
+                return;
+            }
+
+            Series priceSeries = new Series("Unit Price")
+            {
+                ChartType = SeriesChartType.Line,
+                BorderWidth = 3,
+                Color = Blue,
+                XValueType = ChartValueType.String
+            };
+            foreach (VendorPriceTrendPoint point in seriesData.Points.OrderBy(p => p.PeriodDate))
+                priceSeries.Points.AddXY(point.PeriodDate.ToString("MMM yy"), point.UnitPrice);
+
+            _scorecardChart.Series.Add(priceSeries);
+            _scorecardChart.Titles.Add(new Title(seriesData.ItemName + " (" + (seriesData.UOM ?? "Nos") + ")", Docking.Top, new Font("Segoe UI", 9f, FontStyle.Bold), TextPrimary));
         }
 
         private Control CreateTagChip(string tag)
@@ -3153,6 +3353,146 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void ExportVendorPerformanceReport()
+        {
+            if (_currentVendor == null || _currentVendor.VendorID <= 0)
+            {
+                MessageBox.Show("Select a supplier first.", BrandingService.WindowTitle("Supplier scorecard"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            try
+            {
+                VendorDetailDto detail = _vendorSvc.GetVendorDetail(_currentVendor.VendorID) ?? _currentVendor;
+                detail.Scorecard = _vendorSvc.GetVendorScorecard(detail.VendorID);
+
+                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ServoERP Exports", "Vendor Reports");
+                Directory.CreateDirectory(folder);
+                string fileName = SafeVendorReportFileName((detail.VendorName ?? "Supplier") + "_Performance_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
+                string outputPath = Path.Combine(folder, fileName);
+
+                WriteVendorPerformanceReport(outputPath, detail);
+                Process.Start(new ProcessStartInfo(outputPath) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("VendorForm.ExportVendorPerformanceReport", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Supplier scorecard"), "Exporting performance report", ex);
+            }
+        }
+
+        private static void WriteVendorPerformanceReport(string outputPath, VendorDetailDto vendor)
+        {
+            VendorScorecardDto scorecard = vendor?.Scorecard ?? new VendorScorecardDto();
+            List<VendorPriceTrendSeries> trends = (scorecard.PriceTrends ?? new List<VendorPriceTrendSeries>())
+                .OrderBy(t => t.ItemName)
+                .ToList();
+            string address = string.Join(", ", new[] { vendor?.Address, vendor?.City }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(28);
+                    page.DefaultTextStyle(x => x.FontSize(10));
+
+                    page.Header().Column(column =>
+                    {
+                        column.Spacing(3);
+                        column.Item().Text("ServoERP Supplier Performance Report").Bold().FontSize(18).FontColor(Colors.Blue.Medium);
+                        column.Item().Text(vendor?.VendorName ?? "Supplier").Bold().FontSize(14);
+                        if (!string.IsNullOrWhiteSpace(address))
+                            column.Item().Text(address);
+                        column.Item().Text("Phone: " + SafeReportValue(vendor?.Phone) + "   Email: " + SafeReportValue(vendor?.Email));
+                    });
+
+                    page.Content().Column(column =>
+                    {
+                        column.Spacing(12);
+                        column.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
+                                columns.RelativeColumn();
+                            });
+                            AddSummaryCell(table, "Total purchases", IndiaFormatHelper.FormatCurrency(scorecard.TotalPurchaseValue));
+                            AddSummaryCell(table, "On-time delivery", scorecard.OnTimeDeliveryRatePct.HasValue ? scorecard.OnTimeDeliveryRatePct.Value.ToString("0.##") + "%" : "N/A");
+                            AddSummaryCell(table, "Order completeness", scorecard.FulfilmentCompletenessPct.HasValue ? scorecard.FulfilmentCompletenessPct.Value.ToString("0.##") + "%" : "N/A");
+                            AddSummaryCell(table, "Reliability score", scorecard.ReliabilityScorePct.HasValue ? scorecard.ReliabilityScorePct.Value.ToString("0.##") + "%" : "N/A");
+                        });
+
+                        column.Item().Text("12-month item price history").Bold().FontSize(12);
+                        if (trends.Count == 0)
+                        {
+                            column.Item().Text("No purchase history available for the last 12 months.").FontColor(Colors.Grey.Darken1);
+                        }
+                        else
+                        {
+                            foreach (VendorPriceTrendSeries trend in trends)
+                            {
+                                column.Item().PaddingTop(4).Text((trend.ItemName ?? "Item") + " (" + SafeReportValue(trend.UOM, "Nos") + ")").Bold();
+                                column.Item().Table(table =>
+                                {
+                                    table.ColumnsDefinition(columns =>
+                                    {
+                                        columns.RelativeColumn(2);
+                                        columns.RelativeColumn();
+                                        columns.RelativeColumn();
+                                    });
+                                    AddReportHeader(table, "Period");
+                                    AddReportHeader(table, "Unit Price");
+                                    AddReportHeader(table, "Quantity");
+
+                                    foreach (VendorPriceTrendPoint point in (trend.Points ?? new List<VendorPriceTrendPoint>()).OrderBy(p => p.PeriodDate))
+                                    {
+                                        AddReportCell(table, point.PeriodDate.ToString("MMM yyyy"));
+                                        AddReportCell(table, IndiaFormatHelper.FormatCurrency(point.UnitPrice));
+                                        AddReportCell(table, point.Quantity.ToString("0.###"));
+                                    }
+                                });
+                            }
+                        }
+                    });
+
+                    page.Footer().AlignCenter().Text("Exported " + DateTime.Now.ToString("dd/MM/yyyy HH:mm") + " | ServoERP");
+                });
+            }).GeneratePdf(outputPath);
+        }
+
+        private static void AddSummaryCell(QuestPDF.Fluent.TableDescriptor table, string label, string value)
+        {
+            table.Cell().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(8).Column(column =>
+            {
+                column.Item().Text(label).FontColor(Colors.Grey.Darken1).FontSize(9);
+                column.Item().Text(value).Bold().FontSize(12);
+            });
+        }
+
+        private static void AddReportHeader(QuestPDF.Fluent.TableDescriptor table, string text)
+        {
+            table.Cell().Background(Colors.Grey.Lighten3).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(6).Text(text).Bold();
+        }
+
+        private static void AddReportCell(QuestPDF.Fluent.TableDescriptor table, string text)
+        {
+            table.Cell().Border(1).BorderColor(Colors.Grey.Lighten3).Padding(6).Text(text ?? string.Empty);
+        }
+
+        private static string SafeVendorReportFileName(string fileName)
+        {
+            char[] invalid = Path.GetInvalidFileNameChars();
+            return new string((fileName ?? "VendorReport.pdf").Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
+        }
+
+        private static string SafeReportValue(string value, string fallback = "-")
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        }
+
         private VendorDetailDto BuildVendorFromForm()
         {
             VendorDetailDto vendor = _currentVendor ?? new VendorDetailDto();
@@ -3279,6 +3619,15 @@ namespace HVAC_Pro_Desktop.UI
             _recentPoFlow.Width = _cardRecentPos.ContentPanel.ClientSize.Width - 4;
             _lblRecentPoFooter.Width = _cardRecentPos.ContentPanel.ClientSize.Width - 4;
             y += _cardRecentPos.Height + gap;
+            _cardScorecard.SetBounds(0, y, fullWidth, _cardScorecard.Height);
+            _cardScorecard.ContentPanel.AutoScroll = false;
+            if (_scorecardChart != null)
+                _scorecardChart.Width = Math.Max(300, _cardScorecard.ContentPanel.ClientSize.Width - 16);
+            if (_btnExportScorecard != null)
+                _btnExportScorecard.Left = Math.Max(348, _cardScorecard.ContentPanel.ClientSize.Width - _btnExportScorecard.Width - 188);
+            if (_cmbScorecardItem != null)
+                _cmbScorecardItem.Left = Math.Max(520, _cardScorecard.ContentPanel.ClientSize.Width - _cmbScorecardItem.Width);
+            y += _cardScorecard.Height + gap;
             _cardNotes.SetBounds(0, y, fullWidth, _cardNotes.Height);
             _cardNotes.ContentPanel.AutoScroll = false;
             y += _cardNotes.Height + gap;
@@ -3579,6 +3928,69 @@ namespace HVAC_Pro_Desktop.UI
         private static string GetControlText(TextBox textBox)
         {
             return textBox.ForeColor == TextHint ? string.Empty : textBox.Text;
+        }
+
+        private void HandleVendorRowSelected(VendorSummaryDto item)
+        {
+            if (_syncingVendorSelection || item == null)
+                return;
+
+            _ = LoadVendorDetailAsync(item.VendorId);
+        }
+
+        private sealed class VendorSummaryListModule : VirtualListModuleBase<VendorSummaryDto>
+        {
+            public VendorSummaryListModule()
+            {
+                BackColor = White;
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = White;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "VendorName", HeaderText = "Supplier", FillWeight = 40f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 104 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "City", HeaderText = "City", Width = 88 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Phone", HeaderText = "Phone", Width = 106 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Outstanding", HeaderText = "Outstanding", Width = 110 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "State", HeaderText = "Status", Width = 86 });
+            }
+
+            protected override int GetRowId(VendorSummaryDto item)
+            {
+                return item?.VendorId ?? 0;
+            }
+
+            protected override object GetCellValue(VendorSummaryDto item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "VendorName":
+                        return item.VendorName ?? "Supplier";
+                    case "Category":
+                        return item.Category ?? string.Empty;
+                    case "City":
+                        return item.City ?? string.Empty;
+                    case "Phone":
+                        return string.IsNullOrWhiteSpace(item.Phone) ? "No phone" : item.Phone;
+                    case "Outstanding":
+                        return item.OutstandingBalance > 0m ? IndiaFormatHelper.FormatCurrency(item.OutstandingBalance) : "No balance";
+                    case "State":
+                        return item.IsArchived ? "Archived" : item.IsDuplicate ? "Duplicate" : item.HasOverdue ? "Overdue" : "Active";
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No suppliers found." : visibleCount.ToString("N0") + " of " + totalCount.ToString("N0") + " suppliers shown.";
+            }
         }
 
         private sealed class MergeDuplicatesDialog : ServoERP.Infrastructure.ServoFormBase

@@ -11,13 +11,18 @@ namespace HVAC_Pro_Desktop.UI.Controls
     /// <summary>Reusable ServoERP pagination footer with page entry, page-size selection, and navigation buttons.</summary>
     public class GlobalPaginationControl : UserControl
     {
+        private readonly FlowLayoutPanel _rowFlow;
         private readonly Button _firstButton;
         private readonly Button _previousButton;
         private readonly Button _nextButton;
         private readonly Button _lastButton;
         private readonly TextBox _pageBox;
+        private readonly Label _pageLabel;
         private readonly Label _totalPagesLabel;
         private readonly Label _summaryLabel;
+        private readonly Label _rowsLabel;
+        private readonly Label _leftSeparatorLabel;
+        private readonly Label _rightSeparatorLabel;
         private readonly ComboBox _pageSizeCombo;
         private readonly ToolTip _toolTip = new ToolTip();
         private bool _updating;
@@ -31,30 +36,43 @@ namespace HVAC_Pro_Desktop.UI.Controls
             SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
 
             Height = 38;
-            Width = 600;
+            Width = 760;
             BackColor = Color.Transparent;
-            MinimumSize = new Size(300, 36);
+            MinimumSize = new Size(280, 40);
+
+            _rowFlow = new FlowLayoutPanel
+            {
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                WrapContents = false,
+                FlowDirection = FlowDirection.LeftToRight,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = new Padding(0)
+            };
 
             _summaryLabel = new Label
             {
                 AutoSize = false,
-                Width = 190,
+                Width = 160,
                 Height = 28,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 8f),
+                Font = ModernERPTheme.Small,
                 ForeColor = DS.Slate600,
-                Margin = new Padding(0, 0, 12, 0)
+                Margin = new Padding(0, 0, 10, 0)
             };
+
+            _leftSeparatorLabel = CreateInlineLabel("|", 10, FontStyle.Bold, DS.Slate400, new Padding(0, 0, 10, 0));
 
             _pageSizeCombo = new ComboBox
             {
-                Width = 58,
+                Width = 68,
                 Height = 28,
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 8f),
+                Font = ModernERPTheme.Small,
                 FlatStyle = FlatStyle.Standard,
                 IntegralHeight = false,
-                Margin = new Padding(0, 0, 10, 0),
+                Margin = new Padding(6, 0, 0, 0),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
             _pageSizeCombo.Items.AddRange(new object[] { "10", "25", "50", "100" });
@@ -62,14 +80,15 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
             _firstButton = NavButton("<<", T("First page"));
             _previousButton = NavButton("<", T("Previous page"));
+            _pageLabel = CreateInlineLabel(T("Page"), 34, FontStyle.Regular, DS.Slate700, new Padding(6, 0, 4, 0));
             _pageBox = new TextBox
             {
-                Width = 44,
+                Width = 42,
                 Height = 26,
                 TextAlign = HorizontalAlignment.Center,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = ModernERPTheme.SmallBold,
                 BorderStyle = BorderStyle.FixedSingle,
-                Margin = new Padding(4, 0, 4, 0),
+                Margin = new Padding(0, 0, 4, 0),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
             _pageBox.KeyDown += PageBoxKeyDown;
@@ -77,28 +96,36 @@ namespace HVAC_Pro_Desktop.UI.Controls
             _totalPagesLabel = new Label
             {
                 Width = 56,
-                Height = 30,
+                Height = 28,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 8f),
+                Font = ModernERPTheme.Small,
                 ForeColor = DS.Slate600,
                 Margin = new Padding(0, 0, 6, 0)
             };
             _nextButton = NavButton(">", T("Next page"));
             _lastButton = NavButton(">>", T("Last page"));
+            _rightSeparatorLabel = CreateInlineLabel("|", 10, FontStyle.Bold, DS.Slate400, new Padding(4, 0, 10, 0));
+            _rowsLabel = CreateInlineLabel(T("Rows:"), 38, FontStyle.Regular, DS.Slate700, new Padding(0, 0, 4, 0));
 
             _firstButton.Click += (s, e) => NavigateTo(1);
             _previousButton.Click += (s, e) => NavigateTo(_state.CurrentPage - 1);
             _nextButton.Click += (s, e) => NavigateTo(_state.CurrentPage + 1);
             _lastButton.Click += (s, e) => NavigateTo(Math.Max(1, _state.TotalPages));
 
-            Controls.Add(_summaryLabel);
-            Controls.Add(_pageSizeCombo);
-            Controls.Add(_firstButton);
-            Controls.Add(_previousButton);
-            Controls.Add(_pageBox);
-            Controls.Add(_totalPagesLabel);
-            Controls.Add(_nextButton);
-            Controls.Add(_lastButton);
+            _rowFlow.Controls.Add(_summaryLabel);
+            _rowFlow.Controls.Add(_leftSeparatorLabel);
+            _rowFlow.Controls.Add(_firstButton);
+            _rowFlow.Controls.Add(_previousButton);
+            _rowFlow.Controls.Add(_pageLabel);
+            _rowFlow.Controls.Add(_pageBox);
+            _rowFlow.Controls.Add(_totalPagesLabel);
+            _rowFlow.Controls.Add(_nextButton);
+            _rowFlow.Controls.Add(_lastButton);
+            _rowFlow.Controls.Add(_rightSeparatorLabel);
+            _rowFlow.Controls.Add(_rowsLabel);
+            _rowFlow.Controls.Add(_pageSizeCombo);
+
+            Controls.Add(_rowFlow);
             Resize += (s, e) => LayoutControls();
             SetState(1, 0, 10);
         }
@@ -126,7 +153,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
             _pageSizeCombo.SelectedItem = _state.PageSize.ToString(CultureInfo.InvariantCulture);
             _pageBox.Text = _state.TotalRecords <= 0 ? "0" : _state.CurrentPage.ToString(CultureInfo.InvariantCulture);
             _totalPagesLabel.Text = T("of") + " " + (_state.TotalRecords <= 0 ? "0" : _state.TotalPages.ToString(CultureInfo.InvariantCulture));
-            _summaryLabel.Text = string.Format(CultureInfo.CurrentUICulture, T("Showing {0} to {1} of {2}"), _state.DisplayFrom, _state.DisplayTo, _state.TotalRecords);
+            _summaryLabel.Text = BuildSummaryText();
+            UpdateResponsiveWidths();
             UpdateButtonStates();
             LayoutControls();
             _updating = false;
@@ -209,21 +237,36 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Button button = new Button
             {
                 Text = text,
-                Width = 36,
+                Width = 34,
                 Height = 28,
                 BackColor = Color.White,
                 ForeColor = DS.Slate800,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Font = ModernERPTheme.SmallBold,
                 Cursor = Cursors.Hand,
                 TextAlign = ContentAlignment.MiddleCenter,
-                Margin = new Padding(2, 0, 2, 0),
+                Margin = new Padding(0, 0, 4, 0),
                 UseVisualStyleBackColor = false
             };
             button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.BorderSize = 1;
             _toolTip.SetToolTip(button, tooltip);
             return button;
+        }
+
+        private static Label CreateInlineLabel(string text, int width, FontStyle style, Color foreColor, Padding margin)
+        {
+            return new Label
+            {
+                Text = text,
+                AutoSize = false,
+                Width = width,
+                Height = 28,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 8f, style),
+                ForeColor = foreColor,
+                Margin = margin
+            };
         }
 
         private void UpdateButtonStates()
@@ -252,55 +295,84 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
         private void LayoutControls()
         {
-            int available = Math.Max(0, ClientSize.Width);
-            bool compact = available > 0 && available < GetVisibleWidth(true, true, true);
-            bool hidePageSize = available > 0 && available < GetVisibleWidth(false, true, true);
-            bool hideOuterButtons = available > 0 && available < 330;
-
-            _summaryLabel.Visible = !compact;
-            _pageSizeCombo.Visible = !hidePageSize;
-            _firstButton.Visible = !hideOuterButtons;
-            _lastButton.Visible = !hideOuterButtons;
-
-            int usedWidth = GetVisibleWidth(_summaryLabel.Visible, _pageSizeCombo.Visible, _firstButton.Visible && _lastButton.Visible);
-            int x = Math.Max(0, available - usedWidth);
-
-            foreach (Control control in Controls)
-            {
-                if (!control.Visible)
-                    continue;
-
-                x += control.Margin.Left;
-                int y = Math.Max(0, (ClientSize.Height - control.Height) / 2);
-                control.Location = new Point(x, y);
-                x += control.Width + control.Margin.Right;
-            }
-        }
-
-        private int GetVisibleWidth(bool includeSummary, bool includePageSize, bool includeOuterButtons)
-        {
-            int width = 0;
-            foreach (Control control in Controls)
-            {
-                bool visible = control.Visible;
-                if (control == _summaryLabel)
-                    visible = includeSummary;
-                else if (control == _pageSizeCombo)
-                    visible = includePageSize;
-                else if (control == _firstButton || control == _lastButton)
-                    visible = includeOuterButtons;
-
-                if (visible)
-                    width += control.Width + control.Margin.Left + control.Margin.Right;
-            }
-
-            return width;
+            UpdateResponsiveWidths();
+            int x = Math.Max(0, (ClientSize.Width - _rowFlow.Width) / 2);
+            int y = Math.Max(0, (ClientSize.Height - _rowFlow.Height) / 2);
+            _rowFlow.Location = new Point(x, y);
         }
 
         private void ApplyEnabledState(Button button)
         {
             button.ForeColor = button.Enabled ? DS.Slate800 : DS.Slate400;
             button.BackColor = button.Enabled ? Color.White : DS.BgPage;
+        }
+
+        private string BuildSummaryText()
+        {
+            if (_state.TotalRecords <= 0)
+                return "Showing 0-0 of 0";
+
+            return string.Format(
+                CultureInfo.CurrentUICulture,
+                "Showing {0}-{1} of {2}",
+                _state.DisplayFrom,
+                _state.DisplayTo,
+                _state.TotalRecords);
+        }
+
+        private void UpdateResponsiveWidths()
+        {
+            int available = Math.Max(0, ClientSize.Width);
+            bool veryCompact = available > 0 && available <= 340;
+            bool compact = available > 0 && available <= 460;
+
+            _summaryLabel.Visible = !compact;
+            _leftSeparatorLabel.Visible = !compact;
+            _rightSeparatorLabel.Visible = !compact;
+            _pageLabel.Visible = !veryCompact;
+            _rowsLabel.Visible = !veryCompact;
+
+            int navWidth = veryCompact ? 28 : 34;
+            int navMargin = veryCompact ? 2 : 4;
+            foreach (Button button in new[] { _firstButton, _previousButton, _nextButton, _lastButton })
+            {
+                button.Width = navWidth;
+                button.Margin = new Padding(0, 0, navMargin, 0);
+            }
+
+            _pageBox.Width = veryCompact ? 34 : 42;
+            _totalPagesLabel.Width = veryCompact ? 34 : compact ? 42 : 56;
+            _pageSizeCombo.Width = veryCompact ? 52 : compact ? 58 : 68;
+            _pageSizeCombo.Margin = new Padding(veryCompact ? 2 : 6, 0, 0, 0);
+
+            _pageLabel.Width = veryCompact ? 0 : compact ? 28 : 34;
+            _rowsLabel.Width = veryCompact ? 0 : compact ? 30 : 38;
+            _leftSeparatorLabel.Width = compact ? 0 : 10;
+            _rightSeparatorLabel.Width = compact ? 0 : 10;
+
+            int preferredSummaryWidth = Math.Max(96, Math.Min(230, TextRenderer.MeasureText(_summaryLabel.Text ?? string.Empty, _summaryLabel.Font).Width + 10));
+            int reservedWidth = VisibleWidth(_leftSeparatorLabel)
+                + VisibleWidth(_firstButton)
+                + VisibleWidth(_previousButton)
+                + VisibleWidth(_pageLabel)
+                + VisibleWidth(_pageBox)
+                + VisibleWidth(_totalPagesLabel)
+                + VisibleWidth(_nextButton)
+                + VisibleWidth(_lastButton)
+                + VisibleWidth(_rightSeparatorLabel)
+                + VisibleWidth(_rowsLabel)
+                + VisibleWidth(_pageSizeCombo);
+
+            int summaryWidth = Math.Max(0, available - reservedWidth - 8);
+            _summaryLabel.Width = compact ? 0 : Math.Max(96, Math.Min(preferredSummaryWidth, summaryWidth));
+        }
+
+        private static int VisibleWidth(Control control)
+        {
+            if (control == null || !control.Visible)
+                return 0;
+
+            return control.Width + control.Margin.Horizontal;
         }
 
         protected virtual void OnPageChanged()

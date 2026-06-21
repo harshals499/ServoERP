@@ -15,8 +15,6 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!IsBaseCardCandidate(control))
                 return false;
-            if (control is DashboardDeptCard)
-                return false;
 
             if (control is ResizableCard || control is DraggableCard)
                 return true;
@@ -218,7 +216,7 @@ namespace HVAC_Pro_Desktop.UI
             if (ContainsAny(metadata, "NO_DASHBOARD_RESIZE"))
                 return false;
             if (control is DashboardDeptCard)
-                return false;
+                return true;
             if (IsFixedEditorSurface(control))
                 return false;
             if (IsUtilityControl(control) || HasQuotationDashboardTileAncestor(control))

@@ -431,7 +431,7 @@ namespace HVAC_Pro_Desktop.UI
             decimal jobCost = _jobs.Sum(j => j.EstimatedCost);
             decimal margin = jobRevenue <= 0 ? 0 : Math.Round((jobRevenue - jobCost) / jobRevenue * 100m, 1);
             int openJobs = _jobs.Count(j => !IsComplete(j.Status));
-            int toOrder = _stock.Count(s => s.IsLowStock);
+            int procurementRequired = _stock.Count(s => s.AvailableStock <= 0m || s.IsLowStock);
 
             _lblRevenue.Text = "Rs " + arr.ToString("N0");
             _lblRevenueSub.Text = "MRR Rs " + mrr.ToString("N0");
@@ -443,8 +443,8 @@ namespace HVAC_Pro_Desktop.UI
             _lblMarginSub.Text = "Revenue Rs " + jobRevenue.ToString("N0");
             _lblPayroll.Text = openJobs.ToString();
             _lblPayrollSub.Text = _technicians.Count + " active technicians";
-            _lblInventory.Text = toOrder.ToString();
-            _lblInventorySub.Text = "materials to order";
+            _lblInventory.Text = procurementRequired.ToString();
+            _lblInventorySub.Text = "procurement required";
         }
 
         private void BindCharts()
@@ -514,13 +514,13 @@ namespace HVAC_Pro_Desktop.UI
             int overdueInvoices = _invoices.Count(i => i.PaymentStatus != "Paid" && (i.PaymentStatus == "Overdue" || i.DueDate < DateTime.Today));
             int renewals = _contracts.Count(c => (c.EndDate - DateTime.Today).Days <= 30 && (c.EndDate - DateTime.Today).Days >= -365);
             int unassigned = _jobs.Count(j => !j.AssignedEmployeeID.HasValue && !IsComplete(j.Status));
-            int toOrder = _stock.Count(s => s.IsLowStock);
+            int procurementRequired = _stock.Count(s => s.AvailableStock <= 0m || s.IsLowStock);
             int overduePo = _purchases.Count(p => p.IsOverdue);
 
             AddAction("Chase overdue invoices", overdueInvoices + " invoices need collection follow-up", Red, 1);
             AddAction("Renew expiring contracts", renewals + " contracts need owner review", Amber, 2);
             AddAction("Assign unassigned jobs", unassigned + " jobs need technician assignment", Blue, 3);
-            AddAction("Plan material orders", toOrder + " materials need supplier ordering", Amber, 5);
+            AddAction("Plan material buying", procurementRequired + " materials need procurement follow-up", Amber, 5);
             AddAction("Clear vendor payables", overduePo + " purchase payments overdue", Teal, 7);
         }
 
@@ -612,8 +612,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindInventoryDetail()
         {
-            AddColumns("Item", "Category", "Current Qty", "Reserved", "Plan Qty", "Purchase Value");
-            foreach (StockItem item in _stock.OrderByDescending(i => i.IsLowStock).ThenBy(i => i.ItemName).Take(200))
+            AddColumns("Item", "Category", "Buffer Qty", "Reserved", "Typical Buy Qty", "Reference Value");
+            foreach (StockItem item in _stock.OrderByDescending(i => i.AvailableStock <= 0m || i.IsLowStock).ThenBy(i => i.ItemName).Take(200))
                 _detailGrid.Rows.Add(item.ItemName, item.Category, item.CurrentStock.ToString("N1"), item.ReservedStock.ToString("N1"), item.ReorderLevel.ToString("N1"), item.StockValue.ToString("N0"));
         }
 

@@ -25,35 +25,54 @@ namespace HVAC_Pro_Desktop.UI
         private readonly StockItemValidator _stockItemValidator = new StockItemValidator();
         private readonly ToolTip _toolTip = new ToolTip();
 
-        private FlowLayoutPanel _itemFlow;
+        private InventoryListModule _itemListModule;
         private Panel    _detail;
         private Panel    _selectedCard;
 
         private ComboBox      _cboName, _cboCategory, _cboUnit;
         private NumericUpDown _numStock, _numRate, _numReorder;
         private ComboBox      _cboVendor;
+        private DataGridView  _gridSupplierPrices;
+        private Button        _btnAddSupplierPrice;
+        private Button        _btnRemoveSupplierPrice;
+        private Button        _btnUsePreferredSupplier;
+        private Button        _btnManageSupplierPrices;
         private Label         _lblStatus, _lblStockValue;
         private Label         _lblTotalItems, _lblInStockItems, _lblLowStockItems, _lblOutStockItems, _lblTotalStockValue;
         private TextBox       _txtSearch;
         private ComboBox      _cboListMode;
         private ComboBox      _cboCategoryFilter;
+        private ComboBox      _cboSupplierFilter;
+        private ComboBox      _cboStockStatusFilter;
+        private ComboBox      _cboActivityFilter;
         private Button        _btnReorder;
         private Button        _btnFilterAll;
         private Button        _btnFilterToOrder;
         private Button        _btnFilterSupplierLinked;
         private Button        _btnFilterNeedsSupplier;
+        private Button        _btnClearFilters;
+        private Button        _btnCompareSuppliers;
+        private Label         _lblSupplierSnapshotEyebrow;
+        private Label         _lblSupplierSnapshotItem;
+        private Label         _lblSupplierSnapshotSummary;
+        private Label         _lblSupplierSnapshotDetail;
+        private Label         _lblSupplierSnapshotRecommendation;
         private bool _inventorySearchPlaceholderActive = true;
         private List<StockItem> _listSource = new List<StockItem>();
         private List<StockItem> _allItems = new List<StockItem>();
-        private int _renderedCount;
+        private bool _inventoryForceWarn;
         private int _inventoryPage = 1;
         private int _inventoryPageSize = 25;
-        private bool _inventoryForceWarn;
         private GlobalPaginationControl _inventoryPager;
         private bool _initialInventoryLoadInProgress;
+        private bool _isApplyingItemDefaults;
+        private int _itemDefaultsRequestVersion;
+        private bool _supplierPriceGridSyncInProgress;
 
         private StockItem _current;
-        private AutoCompleteStringCollection _itemSuggestions = new AutoCompleteStringCollection();
+        private readonly Dictionary<string, StockItem> _itemLookupByName = new Dictionary<string, StockItem>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, SupplierOption> _bestSupplierByItemKey = new Dictionary<string, SupplierOption>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<SupplierItemPrice> _currentSupplierPrices = new List<SupplierItemPrice>();
 
         private static readonly Color HeaderBg = DS.White;
         private static readonly Color SectionBg = DS.Slate50;
@@ -135,8 +154,8 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = DS.BgPage, Padding = new Padding(32, 22, 24, 10) };
-            Label title = new Label { Text = "Materials / Procurement", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
-            Label sub = new Label { Text = "Manage material catalog, supplier links, purchase rates, and reorder planning.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(620, 22) };
+            Label title = new Label { Text = "Materials / Job Procurement", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
+            Label sub = new Label { Text = "Manage the material catalog, preferred suppliers, buying rates, and job-by-job procurement readiness.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(620, 22) };
             Button btnHeaderRefresh = MakeBtn("Refresh", Color.White, 96); btnHeaderRefresh.ForeColor = InfoBlue; btnHeaderRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnExport = MakeBtn("Export CSV", Color.White, 104); btnExport.ForeColor = DS.Slate700; btnExport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnImport = MakeBtn("Import CSV", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
@@ -188,8 +207,8 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < 5; i++) kpis.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
             kpis.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             kpis.Controls.Add(CreateInventoryMetric("Total Items", "0", ModernIconKind.Inventory, InfoBlue, out _lblTotalItems), 0, 0);
-            kpis.Controls.Add(CreateInventoryMetric("Supplier Linked", "0", ModernIconKind.Checklist, SaveGreen, out _lblInStockItems), 1, 0);
-            kpis.Controls.Add(CreateInventoryMetric("To Order Items", "0", ModernIconKind.Alert, WarnOrange, out _lblLowStockItems), 2, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Supplier Ready", "0", ModernIconKind.Checklist, SaveGreen, out _lblInStockItems), 1, 0);
+            kpis.Controls.Add(CreateInventoryMetric("Procurement Required", "0", ModernIconKind.Alert, WarnOrange, out _lblLowStockItems), 2, 0);
             kpis.Controls.Add(CreateInventoryMetric("Needs Supplier", "0", ModernIconKind.Alert, DelRed, out _lblOutStockItems), 3, 0);
             kpis.Controls.Add(CreateInventoryMetric("Priced Items", "0", ModernIconKind.Payment, InfoBlue, out _lblTotalStockValue), 4, 0);
             AppRuntime.LogTiming("Inventory.BuildLayout.Kpis", phaseWatch.ElapsedMilliseconds);
@@ -238,12 +257,13 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Fill,
                 BackColor = Color.White,
                 ColumnCount = 1,
-                RowCount = 3,
+                RowCount = 4,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
             filterLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+            filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
             filterLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
 
@@ -258,12 +278,12 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(0)
             };
             _btnFilterAll = MakeFilterChip("All Items", true);
-            _btnFilterToOrder = MakeFilterChip("To Order", false);
-            _btnFilterSupplierLinked = MakeFilterChip("Supplier Linked", false);
+            _btnFilterToOrder = MakeFilterChip("Procurement Required", false);
+            _btnFilterSupplierLinked = MakeFilterChip("Supplier Ready", false);
             _btnFilterNeedsSupplier = MakeFilterChip("Needs Supplier", false);
             _btnFilterAll.Click += (s, e) => { _cboListMode.SelectedItem = "All"; };
-            _btnFilterToOrder.Click += (s, e) => { _cboListMode.SelectedItem = "To Order"; };
-            _btnFilterSupplierLinked.Click += (s, e) => { _cboListMode.SelectedItem = "Supplier Linked"; };
+            _btnFilterToOrder.Click += (s, e) => { _cboListMode.SelectedItem = "Procurement Required"; };
+            _btnFilterSupplierLinked.Click += (s, e) => { _cboListMode.SelectedItem = "Supplier Ready"; };
             _btnFilterNeedsSupplier.Click += (s, e) => { _cboListMode.SelectedItem = "Needs Supplier"; };
             chips.Controls.AddRange(new Control[] { _btnFilterAll, _btnFilterToOrder, _btnFilterSupplierLinked, _btnFilterNeedsSupplier });
 
@@ -277,9 +297,9 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(0, 0, 0, 2)
             };
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170f));
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190f));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180f));
             toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96f));
+            toolbar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 122f));
             toolbar.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             _cboListMode = new ComboBox
@@ -291,7 +311,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 4, 12, 4),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
-            _cboListMode.Items.AddRange(new object[] { "All", "To Order", "Supplier Linked", "Needs Supplier" });
+            _cboListMode.Items.AddRange(new object[] { "All", "Procurement Required", "Supplier Ready", "Needs Supplier" });
             _cboListMode.SelectedIndex = 0;
             _cboListMode.SelectedIndexChanged += (s, e) =>
             {
@@ -314,6 +334,15 @@ namespace HVAC_Pro_Desktop.UI
 
             _txtSearch = new TextBox { Dock = DockStyle.Fill, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "Search item, category, or supplier", ForeColor = DS.Slate500, Margin = new Padding(0, 4, 12, 4) };
             _txtSearch.TextChanged += (s, e) => ApplyInventoryFilter();
+            _txtSearch.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Escape)
+                {
+                    ResetInventorySearchPlaceholder();
+                    ApplyInventoryFilter();
+                    e.Handled = true;
+                }
+            };
             _txtSearch.GotFocus += (s, e) =>
             {
                 if (_inventorySearchPlaceholderActive)
@@ -332,34 +361,68 @@ namespace HVAC_Pro_Desktop.UI
                     _txtSearch.ForeColor = DS.Slate500;
                 }
             };
-            Button btnRefresh = MakeBtn("Refresh", Color.White, 90); btnRefresh.ForeColor = InfoBlue; btnRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnClearFilters = MakeBtn("Clear Filters", Color.White, 116); _btnClearFilters.ForeColor = InfoBlue; _btnClearFilters.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnClearFilters.Dock = DockStyle.Fill;
+            _btnClearFilters.Margin = new Padding(0, 4, 0, 4);
+            _btnClearFilters.Click += (s, e) => ResetInventoryFilters();
+            Button btnRefresh = MakeBtn("Refresh", Color.White, 118); btnRefresh.ForeColor = InfoBlue; btnRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
             btnRefresh.Dock = DockStyle.Fill;
             btnRefresh.Margin = new Padding(0, 4, 0, 4);
             btnRefresh.Click += (s, e) => LoadList();
             toolbar.Controls.Add(_cboListMode, 0, 0);
             toolbar.Controls.Add(_cboCategoryFilter, 1, 0);
             toolbar.Controls.Add(_txtSearch, 2, 0);
-            toolbar.Controls.Add(btnRefresh, 3, 0);
+            TableLayoutPanel actions = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0)
+            };
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            actions.Controls.Add(_btnClearFilters, 0, 0);
+            actions.Controls.Add(btnRefresh, 1, 0);
+            toolbar.Controls.Add(actions, 3, 0);
+
+            TableLayoutPanel secondaryFilters = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = new Padding(0),
+                Padding = new Padding(0, 0, 0, 2)
+            };
+            secondaryFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34f));
+            secondaryFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33f));
+            secondaryFilters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33f));
+            secondaryFilters.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            _cboSupplierFilter = CreateInventoryFilterCombo("All Suppliers", new[] { "All Suppliers" });
+            _cboStockStatusFilter = CreateInventoryFilterCombo("All Material Modes", new[] { "All Material Modes", "Buffer Available", "Direct Purchase", "Reserved For Jobs", "Needs Supplier" });
+            _cboActivityFilter = CreateInventoryFilterCombo("All Activity", new[] { "All Activity", "High Value", "Recently Updated", "Dormant 90+ Days", "Unpriced" });
+            _cboSupplierFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
+            _cboStockStatusFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
+            _cboActivityFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
+            secondaryFilters.Controls.Add(_cboSupplierFilter, 0, 0);
+            secondaryFilters.Controls.Add(_cboStockStatusFilter, 1, 0);
+            secondaryFilters.Controls.Add(_cboActivityFilter, 2, 0);
             _lblStatus = new Label { Dock = DockStyle.Fill, Height = 24, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate500, Text = "Loading inventory...", TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(0, 0, 0, 2) };
             filterLayout.Controls.Add(chips, 0, 0);
             filterLayout.Controls.Add(toolbar, 0, 1);
-            filterLayout.Controls.Add(_lblStatus, 0, 2);
+            filterLayout.Controls.Add(secondaryFilters, 0, 2);
+            filterLayout.Controls.Add(_lblStatus, 0, 3);
             filters.Controls.Add(filterLayout);
             AppRuntime.LogTiming("Inventory.BuildLayout.Filters", phaseWatch.ElapsedMilliseconds);
             phaseWatch.Restart();
 
-            _itemFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                BackColor = Color.White,
-                Padding = new Padding(0)
-            };
-            Panel listWrap = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White };
-            listWrap.Controls.Add(_itemFlow);
-            mainCard.Controls.Add(BuildInventoryFooter());
+            _itemListModule = new InventoryListModule();
+            _itemListModule.Dock = DockStyle.Fill;
+            _itemListModule.RowSelected += item => SelectItem(item);
+            Panel listWrap = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
+            listWrap.Controls.Add(_itemListModule);
             mainCard.Controls.Add(listWrap);
             mainCard.Controls.Add(BuildInventoryTableHeader());
             mainCard.Controls.Add(filters);
@@ -385,10 +448,10 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < 4; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
 
-            grid.Controls.Add(BuildInventoryModeChip("Stock List", "Search, filter, and review material readiness.", InfoBlue), 0, 0);
+            grid.Controls.Add(BuildInventoryModeChip("Catalog", "Search, filter, and review procurement readiness.", InfoBlue), 0, 0);
             grid.Controls.Add(BuildInventoryModeChip("Item Details", "Only item name is mandatory to save.", SaveGreen), 1, 0);
-            grid.Controls.Add(BuildInventoryModeChip("Movement", "Update quantity or transfer stock after selection.", WarnOrange), 2, 0);
-            grid.Controls.Add(BuildInventoryModeChip("Supplier Request", "Create a purchase request when stock is low.", DelRed), 3, 0);
+            grid.Controls.Add(BuildInventoryModeChip("Job Planning", "Capture buying rates, planning quantity, and field availability.", WarnOrange), 2, 0);
+            grid.Controls.Add(BuildInventoryModeChip("Supplier Request", "Create a purchase request when a job needs material.", DelRed), 3, 0);
             guide.Controls.Add(grid);
             return guide;
         }
@@ -419,9 +482,9 @@ namespace HVAC_Pro_Desktop.UI
             Panel bar = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 64,
+                Height = 44,
                 BackColor = Color.White,
-                Padding = new Padding(20, 12, 20, 12)
+                Padding = new Padding(16, 6, 16, 6)
             };
             bar.Paint += (s, e) =>
             {
@@ -447,26 +510,14 @@ namespace HVAC_Pro_Desktop.UI
             if (flow.Controls.Count > 0)
                 flow.Controls[flow.Controls.Count - 1].Margin = new Padding(0);
 
-            Label hint = new Label
-            {
-                Text = "Review material details above. Save, reset, and purchase request actions stay pinned here.",
-                Dock = DockStyle.Left,
-                Width = 360,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate500,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
             Action layoutActions = () =>
             {
-                flow.Location = new Point(Math.Max(20, bar.ClientSize.Width - flow.Width - 20), 15);
-                hint.Width = Math.Max(0, flow.Left - 40);
+                flow.Location = new Point(Math.Max(16, bar.ClientSize.Width - flow.Width - 16), Math.Max(5, (bar.ClientSize.Height - flow.Height) / 2));
             };
             bar.Resize += (s, e) => layoutActions();
             layoutActions();
 
             bar.Controls.Add(flow);
-            bar.Controls.Add(hint);
             return bar;
         }
 
@@ -487,15 +538,22 @@ namespace HVAC_Pro_Desktop.UI
             CardResizeGripService.Attach(card);
             if (!string.IsNullOrWhiteSpace(title))
             {
-                card.Controls.Add(new Label
+                Panel headerHost = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 36,
+                    BackColor = Color.White,
+                    Padding = new Padding(0, 4, 0, 2)
+                };
+                headerHost.Controls.Add(new Label
                 {
                     Text = title,
-                    Dock = DockStyle.Top,
-                    Height = 30,
+                    Dock = DockStyle.Fill,
                     Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                     ForeColor = InfoBlue,
                     TextAlign = ContentAlignment.MiddleLeft
                 });
+                card.Controls.Add(headerHost);
             }
             return card;
         }
@@ -516,7 +574,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button MakeFilterChip(string text, bool selected)
         {
             Button button = MakeBtn(text, selected ? InfoBlue : Color.White, 96);
-            button.ForeColor = selected ? Color.White : (text == "Needs Supplier" ? DelRed : text == "To Order" ? WarnOrange : SaveGreen);
+            button.ForeColor = selected ? Color.White : (text == "Needs Supplier" ? DelRed : text == "Procurement Required" ? WarnOrange : SaveGreen);
             button.FlatAppearance.BorderColor = selected ? InfoBlue : DS.BorderStrong;
             button.Margin = new Padding(0, 10, 10, 0);
             return button;
@@ -524,13 +582,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildInventoryTableHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = DS.Slate50, Padding = new Padding(12, 8, 12, 0) };
-            string[] cols = { "ITEM DETAILS", "UNIT", "CURRENT QTY", "VALUE (₹)", "STATUS", "ACTIONS" };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = DS.Slate50, Padding = new Padding(12, 10, 12, 2) };
+            string[] cols = { "ITEM DETAILS", "UNIT", "BUFFER QTY", "VALUE (₹)", "STATUS", "ACTIONS" };
             int[] widths = { 420, 100, 150, 150, 130, 120 };
             int x = 8;
             for (int i = 0; i < cols.Length; i++)
             {
-                header.Controls.Add(new Label { Text = cols[i], Location = new Point(x, 8), Size = new Size(widths[i], 18), Font = DS.CaptionBold(), ForeColor = DS.Slate700 });
+                header.Controls.Add(new Label { Text = cols[i], Location = new Point(x, 10), Size = new Size(widths[i], 20), Font = DS.CaptionBold(), ForeColor = DS.Slate700 });
                 x += widths[i];
             }
             return header;
@@ -566,31 +624,40 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = CreateModernCard("QUICK ACTIONS");
             card.Dock = DockStyle.Top;
-            card.Height = 150;
+            card.Height = 132;
             card.Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE";
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 36, 0, 0) };
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 2,
+                Padding = new Padding(0, 8, 0, 0),
+                Margin = Padding.Empty
+            };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50));
             Button adjust = MakeBtn("Update Quantity", Color.White, 140); adjust.ForeColor = InfoBlue; adjust.FlatAppearance.BorderColor = DS.BorderStrong;
-            Button reorder = MakeBtn("Ordering Plan", Color.White, 150); reorder.ForeColor = DS.Primary600; reorder.FlatAppearance.BorderColor = DS.BorderStrong; _btnReorder = reorder;
+            Button reorder = MakeBtn("Procurement Queue", Color.White, 150); reorder.ForeColor = DS.Primary600; reorder.FlatAppearance.BorderColor = DS.BorderStrong; _btnReorder = reorder;
             Button open = MakeBtn("More Actions", Color.White, 150); open.ForeColor = InfoBlue; open.FlatAppearance.BorderColor = DS.BorderStrong;
             Button delete = MakeBtn("Delete Item", Color.White, 150); delete.ForeColor = DelRed; delete.FlatAppearance.BorderColor = DS.Border;
             foreach (Button button in new[] { adjust, reorder, open, delete })
             {
                 button.Dock = DockStyle.Fill;
-                button.Margin = new Padding(4, 3, 4, 5);
-                button.MinimumSize = new Size(130, 30);
-                button.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                button.AutoEllipsis = false;
+                button.Margin = new Padding(6, 4, 6, 6);
+                button.MinimumSize = new Size(122, 34);
+                button.Height = 34;
+                button.Font = new Font("Segoe UI", 8.25f, FontStyle.Bold);
+                button.TextAlign = ContentAlignment.MiddleCenter;
             }
             adjust.Click += (s, e) => FocusStockAdjustment();
             reorder.Click += (s, e) => ShowReorderSuggestions();
             open.Click += (s, e) => ShowInventoryActionsMenu(open);
             delete.Click += (s, e) => DeleteCurrentItem();
             _toolTip.SetToolTip(adjust, "Select an item, update the current quantity, then save.");
-            _toolTip.SetToolTip(reorder, "Load materials that need supplier ordering. Select one to create a purchase request.");
+            _toolTip.SetToolTip(reorder, "Load materials that are likely to need supplier procurement for upcoming jobs.");
             _toolTip.SetToolTip(open, "Open bulk update, material report, and purchase valuation actions.");
             _toolTip.SetToolTip(delete, "Archive the selected material from active inventory without deleting historical usage.");
             grid.Controls.Add(adjust, 0, 0);
@@ -689,7 +756,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _detail.Controls.Add(new Label
             {
-                Text = "Required: Item Name. Supplier, price, reorder level, and quantity can be added later.",
+                Text = "Required: Item Name. Supplier, buying rate, planning quantity, and field quantity can be added later.",
                 Location = new Point(DetailLabelX, y),
                 Size = new Size(DetailSectionWidth, 34),
                 Font = new Font("Segoe UI", 8f),
@@ -698,9 +765,15 @@ namespace HVAC_Pro_Desktop.UI
             y += 42;
 
             _cboName = AddComboField("Item Name *", ref y, ComboBoxStyle.DropDown);
+            _cboName.IntegralHeight = false;
+            _cboName.MaxDropDownItems = 12;
+            _cboName.DropDownHeight = 320;
+            _cboName.DropDownWidth = Math.Max(_cboName.Width, 320);
             _cboName.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
-            _cboName.AutoCompleteSource = AutoCompleteSource.CustomSource;
-            _cboName.AutoCompleteCustomSource = _itemSuggestions;
+            _cboName.AutoCompleteSource = AutoCompleteSource.ListItems;
+            _cboName.SelectionChangeCommitted += (s, e) => QueueApplyInventoryItemDefaults();
+            _cboName.Validated += (s, e) => QueueApplyInventoryItemDefaults();
+            _cboName.Leave += (s, e) => QueueApplyInventoryItemDefaults();
 
             _cboCategory = AddComboField("Category", ref y, ComboBoxStyle.DropDownList);
             _cboCategory.Items.AddRange(new object[] { "Filters", "Refrigerant", "Compressors", "Valves", "Belts", "Electrical", "Copper", "Tools", "HVAC Spares", "General" });
@@ -731,7 +804,7 @@ namespace HVAC_Pro_Desktop.UI
             _detail.Controls.Add(_numRate);
             y += 30;
 
-            _detail.Controls.Add(MakeLabel("Reorder Level", new Point(DetailLabelX, y + 3)));
+            _detail.Controls.Add(MakeLabel("Typical Purchase Qty", new Point(DetailLabelX, y + 3)));
             _numReorder = new NumericUpDown
             {
                 Location = new Point(DetailInputX, y), Width = DetailInputWidth,
@@ -761,6 +834,720 @@ namespace HVAC_Pro_Desktop.UI
             _cboVendor.Items.Add(new Vendor { VendorID = 0, VendorName = "(None)" });
             _cboVendor.SelectedIndex = 0;
             _detail.Controls.Add(_cboVendor);
+            y += 36;
+
+            _detail.Controls.Add(MakeSectionLabel("SUPPLIER PRICE BOOK", ref y));
+            Label supplierPriceInfo = new Label
+            {
+                Text = "Add supplier rates for comparison and mark one preferred vendor.",
+                Location = new Point(DetailLabelX, y),
+                Size = new Size(220, 20),
+                Font = new Font("Segoe UI", 8.4f),
+                ForeColor = DS.Slate600
+            };
+            _detail.Controls.Add(supplierPriceInfo);
+            _btnManageSupplierPrices = MakeBtn("Manage Supplier Rates", Color.White, 142);
+            _btnManageSupplierPrices.ForeColor = InfoBlue;
+            _btnManageSupplierPrices.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnManageSupplierPrices.Location = new Point(DetailSectionWidth - 132, y - 4);
+            _btnManageSupplierPrices.Click += (s, e) => OpenSupplierPriceBookDialog();
+            _detail.Controls.Add(_btnManageSupplierPrices);
+            y += 24;
+
+            Panel supplierPriceGridHost = new Panel
+            {
+                Location = new Point(DetailLabelX, y),
+                Size = new Size(DetailSectionWidth, 136),
+                BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
+                Tag = "NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+            };
+            _gridSupplierPrices = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                MultiSelect = false,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                AutoGenerateColumns = false,
+                EditMode = DataGridViewEditMode.EditOnEnter,
+                Margin = Padding.Empty
+            };
+            _gridSupplierPrices.ColumnHeadersHeight = 26;
+            _gridSupplierPrices.RowTemplate.Height = 22;
+            _gridSupplierPrices.Columns.Add(new DataGridViewComboBoxColumn
+            {
+                Name = "SupplierVendorID",
+                HeaderText = "Supplier",
+                Width = 122,
+                DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
+                FlatStyle = FlatStyle.Flat,
+                DisplayMember = "VendorName",
+                ValueMember = "VendorID"
+            });
+            _gridSupplierPrices.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierRate", HeaderText = "Rate", Width = 64 });
+            _gridSupplierPrices.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierUnit", HeaderText = "Unit", Width = 52 });
+            _gridSupplierPrices.Columns.Add(new DataGridViewCheckBoxColumn { Name = "SupplierPreferred", HeaderText = "Pref", Width = 52 });
+            _gridSupplierPrices.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierNotes", HeaderText = "Notes", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            _gridSupplierPrices.CurrentCellDirtyStateChanged += (s, e) =>
+            {
+                if (_gridSupplierPrices.IsCurrentCellDirty)
+                    _gridSupplierPrices.CommitEdit(DataGridViewDataErrorContexts.Commit);
+            };
+            _gridSupplierPrices.CellValueChanged += SupplierPriceGrid_CellValueChanged;
+            _gridSupplierPrices.DataError += (s, e) => e.ThrowException = false;
+            supplierPriceGridHost.Controls.Add(_gridSupplierPrices);
+            _detail.Controls.Add(supplierPriceGridHost);
+            y += 144;
+
+            _btnAddSupplierPrice = MakeBtn("+ Add Supplier", Color.White, 112);
+            _btnAddSupplierPrice.ForeColor = InfoBlue;
+            _btnAddSupplierPrice.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnAddSupplierPrice.Location = new Point(DetailLabelX, y);
+            _btnAddSupplierPrice.Click += (s, e) => AddSupplierPriceRow();
+            _detail.Controls.Add(_btnAddSupplierPrice);
+
+            _btnRemoveSupplierPrice = MakeBtn("Remove Row", Color.White, 96);
+            _btnRemoveSupplierPrice.ForeColor = DS.Slate700;
+            _btnRemoveSupplierPrice.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnRemoveSupplierPrice.Location = new Point(DetailLabelX + 118, y);
+            _btnRemoveSupplierPrice.Click += (s, e) => RemoveSelectedSupplierPriceRow();
+            _detail.Controls.Add(_btnRemoveSupplierPrice);
+
+            _btnUsePreferredSupplier = MakeBtn("Use Preferred", Color.White, 126);
+            _btnUsePreferredSupplier.ForeColor = SaveGreen;
+            _btnUsePreferredSupplier.FlatAppearance.BorderColor = DS.BorderStrong;
+            _btnUsePreferredSupplier.Location = new Point(DetailLabelX + 220, y);
+            _btnUsePreferredSupplier.Click += (s, e) => UpsertPreferredSupplierPriceRowFromForm();
+            _detail.Controls.Add(_btnUsePreferredSupplier);
+            y += 36;
+
+            Panel snapshot = new Panel
+            {
+                Location = new Point(DetailLabelX, y),
+                Size = new Size(DetailSectionWidth, 158),
+                BackColor = Color.FromArgb(248, 250, 252),
+                Padding = new Padding(14, 12, 14, 12)
+            };
+            snapshot.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.BorderStrong))
+                    e.Graphics.DrawRectangle(pen, 0, 0, snapshot.Width - 1, snapshot.Height - 1);
+            };
+            _lblSupplierSnapshotEyebrow = new Label { Text = "SUPPLIER SNAPSHOT", Location = new Point(14, 12), Size = new Size(200, 18), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = DS.Slate500 };
+            _lblSupplierSnapshotItem = new Label { Text = "Select a material to compare offers", Location = new Point(14, 34), Size = new Size(330, 20), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
+            _lblSupplierSnapshotSummary = new Label { Text = "Best supplier, live offer count, and price guidance appear here.", Location = new Point(14, 56), Size = new Size(330, 32), Font = new Font("Segoe UI", 8.6f), ForeColor = DS.Slate600 };
+            _lblSupplierSnapshotDetail = new Label { Text = "Choose a material to see recent supplier history.", Location = new Point(14, 90), Size = new Size(330, 18), Font = new Font("Segoe UI", 8.2f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            _lblSupplierSnapshotRecommendation = new Label { Text = string.Empty, Location = new Point(14, 110), Size = new Size(196, 36), Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = InfoBlue };
+            _btnCompareSuppliers = MakeBtn("Compare Suppliers", Color.White, 136);
+            _btnCompareSuppliers.ForeColor = Color.FromArgb(17, 24, 39);
+            _btnCompareSuppliers.FlatAppearance.BorderColor = Color.FromArgb(209, 213, 219);
+            _btnCompareSuppliers.Location = new Point(218, 112);
+            _btnCompareSuppliers.Enabled = false;
+            _btnCompareSuppliers.Click += (s, e) => OpenInventorySupplierComparison();
+            snapshot.Controls.AddRange(new Control[] { _lblSupplierSnapshotEyebrow, _lblSupplierSnapshotItem, _lblSupplierSnapshotSummary, _lblSupplierSnapshotDetail, _lblSupplierSnapshotRecommendation, _btnCompareSuppliers });
+            _detail.Controls.Add(snapshot);
+            UpdateInventorySupplierSnapshot(null);
+        }
+
+        private void BindSupplierPriceVendorColumn(List<Vendor> vendors)
+        {
+            if (_gridSupplierPrices == null || _gridSupplierPrices.IsDisposed)
+                return;
+
+            var comboColumn = _gridSupplierPrices.Columns["SupplierVendorID"] as DataGridViewComboBoxColumn;
+            if (comboColumn == null)
+                return;
+
+            List<Vendor> choices = new List<Vendor> { new Vendor { VendorID = 0, VendorName = "(Select supplier)" } };
+            choices.AddRange((vendors ?? new List<Vendor>()).Where(v => v != null).OrderBy(v => v.VendorName).ToList());
+            comboColumn.DataSource = choices;
+            comboColumn.DisplayMember = "VendorName";
+            comboColumn.ValueMember = "VendorID";
+        }
+
+        private void LoadSupplierPrices(StockItem item)
+        {
+            List<SupplierItemPrice> prices = new List<SupplierItemPrice>();
+            if (item != null && item.ItemID > 0)
+            {
+                try
+                {
+                    prices = _svc.GetSupplierPrices(item.ItemID) ?? new List<SupplierItemPrice>();
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("InventoryForm.LoadSupplierPrices", ex);
+                }
+            }
+
+            if ((prices == null || prices.Count == 0) && item != null && item.VendorID.GetValueOrDefault() > 0)
+            {
+                prices = new List<SupplierItemPrice>
+                {
+                    new SupplierItemPrice
+                    {
+                        ItemID = item.ItemID,
+                        VendorID = item.VendorID.Value,
+                        VendorName = item.VendorName,
+                        ItemName = item.ItemName,
+                        Category = item.Category,
+                        Unit = DisplayUnit(item.Unit),
+                        Rate = item.LastPurchaseRate,
+                        IsPreferred = true,
+                        Source = "Current item setup"
+                    }
+                };
+            }
+
+            BindSupplierPriceBook(prices);
+        }
+
+        private void BindSupplierPriceBook(IEnumerable<SupplierItemPrice> prices)
+        {
+            if (_gridSupplierPrices == null || _gridSupplierPrices.IsDisposed)
+                return;
+
+            _supplierPriceGridSyncInProgress = true;
+            try
+            {
+                _currentSupplierPrices.Clear();
+                _currentSupplierPrices.AddRange((prices ?? Enumerable.Empty<SupplierItemPrice>()).Where(p => p != null));
+                _gridSupplierPrices.Rows.Clear();
+                foreach (SupplierItemPrice price in _currentSupplierPrices)
+                    AddSupplierPriceRow(price, false);
+            }
+            finally
+            {
+                _supplierPriceGridSyncInProgress = false;
+            }
+
+            if (_gridSupplierPrices.Rows.Count == 0)
+                AddSupplierPriceRow();
+
+            RefreshPreferredSupplierFromPriceBook(false);
+        }
+
+        private void AddSupplierPriceRow(SupplierItemPrice price = null, bool focusNewRow = true)
+        {
+            if (_gridSupplierPrices == null || _gridSupplierPrices.IsDisposed)
+                return;
+
+            int index = _gridSupplierPrices.Rows.Add();
+            DataGridViewRow row = _gridSupplierPrices.Rows[index];
+            row.Cells["SupplierVendorID"].Value = price?.VendorID > 0 ? (object)price.VendorID : 0;
+            row.Cells["SupplierRate"].Value = price == null ? string.Empty : price.Rate.ToString("0.##");
+            row.Cells["SupplierUnit"].Value = string.IsNullOrWhiteSpace(price?.Unit) ? DisplayUnit(_cboUnit?.Text) : price.Unit;
+            row.Cells["SupplierPreferred"].Value = price != null && price.IsPreferred;
+            row.Cells["SupplierNotes"].Value = price?.Notes ?? string.Empty;
+            row.Tag = price;
+
+            if (focusNewRow)
+            {
+                _gridSupplierPrices.ClearSelection();
+                row.Selected = true;
+                _gridSupplierPrices.CurrentCell = row.Cells["SupplierVendorID"];
+            }
+        }
+
+        private void RemoveSelectedSupplierPriceRow()
+        {
+            if (_gridSupplierPrices == null || _gridSupplierPrices.IsDisposed || _gridSupplierPrices.SelectedRows.Count == 0)
+            {
+                SetStatus("Select a supplier row to remove.", WarnOrange);
+                return;
+            }
+
+            foreach (DataGridViewRow row in _gridSupplierPrices.SelectedRows)
+            {
+                if (!row.IsNewRow)
+                    _gridSupplierPrices.Rows.Remove(row);
+            }
+
+            if (_gridSupplierPrices.Rows.Count == 0)
+                AddSupplierPriceRow();
+
+            RefreshPreferredSupplierFromPriceBook(false);
+        }
+
+        private void UpsertPreferredSupplierPriceRowFromForm()
+        {
+            Vendor vendor = _cboVendor.SelectedItem as Vendor;
+            if (vendor == null || vendor.VendorID <= 0)
+            {
+                SetStatus("Choose a preferred supplier first, then add it to the supplier price book.", WarnOrange);
+                return;
+            }
+
+            foreach (DataGridViewRow row in _gridSupplierPrices.Rows)
+            {
+                if (TryParseInt(row.Cells["SupplierVendorID"].Value) == vendor.VendorID)
+                {
+                    row.Cells["SupplierRate"].Value = _numRate.Value.ToString("0.##");
+                    row.Cells["SupplierUnit"].Value = DisplayUnit(_cboUnit?.Text);
+                    row.Cells["SupplierPreferred"].Value = true;
+                    row.Cells["SupplierNotes"].Value = string.IsNullOrWhiteSpace(Convert.ToString(row.Cells["SupplierNotes"].Value))
+                        ? "Preferred supplier from item details"
+                        : row.Cells["SupplierNotes"].Value;
+                    RefreshPreferredSupplierFromPriceBook(true);
+                    SetStatus("Preferred supplier updated in the supplier price book.", SaveGreen);
+                    return;
+                }
+            }
+
+            AddSupplierPriceRow(new SupplierItemPrice
+            {
+                VendorID = vendor.VendorID,
+                VendorName = vendor.VendorName,
+                Rate = _numRate.Value,
+                Unit = DisplayUnit(_cboUnit?.Text),
+                IsPreferred = true,
+                Notes = "Preferred supplier from item details"
+            });
+            RefreshPreferredSupplierFromPriceBook(true);
+            SetStatus("Preferred supplier added to the supplier price book.", SaveGreen);
+        }
+
+        private void OpenSupplierPriceBookDialog()
+        {
+            using (Form dialog = ServoModalForm.Create("Manage Supplier Rates", 820, 560))
+            {
+                Panel shell = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = DS.BgPage,
+                    Padding = new Padding(18),
+                    Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+                };
+
+                Panel headerCard = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 86,
+                    BackColor = Color.White,
+                    Padding = new Padding(18, 16, 18, 14),
+                    Margin = Padding.Empty,
+                    Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+                };
+                headerCard.Paint += (s, e) =>
+                {
+                    using (Pen pen = new Pen(DS.Border))
+                        e.Graphics.DrawRectangle(pen, 0, 0, headerCard.Width - 1, headerCard.Height - 1);
+                };
+                DS.Rounded(headerCard, 10);
+
+                Label eyebrow = new Label
+                {
+                    Text = "SUPPLIER PRICE BOOK",
+                    Dock = DockStyle.Top,
+                    Height = 18,
+                    Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                    ForeColor = InfoBlue
+                };
+                Label title = new Label
+                {
+                    Text = string.IsNullOrWhiteSpace(_cboName?.Text) ? "New material supplier rates" : _cboName.Text.Trim(),
+                    Dock = DockStyle.Top,
+                    Height = 28,
+                    Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                    ForeColor = DS.Slate900
+                };
+                Label hint = new Label
+                {
+                    Text = "Add supplier rate options, choose one preferred vendor, and keep procurement defaults clean and consistent.",
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 8.8f),
+                    ForeColor = DS.Slate600
+                };
+                headerCard.Controls.Add(hint);
+                headerCard.Controls.Add(title);
+                headerCard.Controls.Add(eyebrow);
+
+                DataGridView grid = new DataGridView
+                {
+                    Dock = DockStyle.Fill,
+                    BackgroundColor = Color.White,
+                    BorderStyle = BorderStyle.None,
+                    AllowUserToAddRows = false,
+                    AllowUserToDeleteRows = false,
+                    AllowUserToResizeRows = false,
+                    MultiSelect = false,
+                    RowHeadersVisible = false,
+                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                    AutoGenerateColumns = false,
+                    EditMode = DataGridViewEditMode.EditOnEnter,
+                    ColumnHeadersHeight = 30,
+                    Margin = Padding.Empty,
+                    Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+                };
+                grid.RowTemplate.Height = 26;
+
+                Panel gridCard = new Panel
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = Color.White,
+                    Padding = new Padding(0),
+                    Margin = new Padding(0, 14, 0, 0),
+                    Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+                };
+                gridCard.Paint += (s, e) =>
+                {
+                    using (Pen pen = new Pen(DS.BorderStrong))
+                        e.Graphics.DrawRectangle(pen, 0, 0, gridCard.Width - 1, gridCard.Height - 1);
+                };
+                DS.Rounded(gridCard, 10);
+
+                var vendorColumn = new DataGridViewComboBoxColumn
+                {
+                    Name = "SupplierVendorID",
+                    HeaderText = "Supplier",
+                    Width = 220,
+                    DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
+                    FlatStyle = FlatStyle.Flat,
+                    DisplayMember = "VendorName",
+                    ValueMember = "VendorID"
+                };
+                vendorColumn.DataSource = _cboVendor.Items.OfType<Vendor>().Where(v => v != null).ToList();
+                grid.Columns.Add(vendorColumn);
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierRate", HeaderText = "Rate (₹)", Width = 96 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierUnit", HeaderText = "Unit", Width = 82 });
+                grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "SupplierPreferred", HeaderText = "Preferred", Width = 92 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "SupplierNotes", HeaderText = "Notes", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.CurrentCellDirtyStateChanged += (s, e) =>
+                {
+                    if (grid.IsCurrentCellDirty)
+                        grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
+                };
+                grid.DataError += (s, e) => e.ThrowException = false;
+                grid.CellValueChanged += (s, e) =>
+                {
+                    if (e.RowIndex < 0 || e.ColumnIndex < 0)
+                        return;
+
+                    if (!string.Equals(grid.Columns[e.ColumnIndex].Name, "SupplierPreferred", StringComparison.OrdinalIgnoreCase))
+                        return;
+
+                    bool isPreferred = TryParseBool(grid.Rows[e.RowIndex].Cells["SupplierPreferred"].Value);
+                    if (!isPreferred)
+                        return;
+
+                    for (int i = 0; i < grid.Rows.Count; i++)
+                        grid.Rows[i].Cells["SupplierPreferred"].Value = i == e.RowIndex;
+                };
+
+                Action<SupplierItemPrice> addDialogRow = price =>
+                {
+                    int index = grid.Rows.Add();
+                    DataGridViewRow row = grid.Rows[index];
+                    row.Cells["SupplierVendorID"].Value = price?.VendorID > 0 ? (object)price.VendorID : 0;
+                    row.Cells["SupplierRate"].Value = price == null ? string.Empty : price.Rate.ToString("0.##");
+                    row.Cells["SupplierUnit"].Value = string.IsNullOrWhiteSpace(price?.Unit) ? DisplayUnit(_cboUnit?.Text) : price.Unit;
+                    row.Cells["SupplierPreferred"].Value = price != null && price.IsPreferred;
+                    row.Cells["SupplierNotes"].Value = price?.Notes ?? string.Empty;
+                };
+
+                Func<List<SupplierItemPrice>> readDialogRows = () =>
+                {
+                    var rows = new List<SupplierItemPrice>();
+                    foreach (DataGridViewRow row in grid.Rows)
+                    {
+                        int vendorId = TryParseInt(row.Cells["SupplierVendorID"].Value);
+                        if (vendorId <= 0)
+                            continue;
+
+                        Vendor vendor = FindVendorById(vendorId);
+                        rows.Add(new SupplierItemPrice
+                        {
+                            ItemID = _current?.ItemID,
+                            VendorID = vendorId,
+                            VendorName = vendor?.VendorName,
+                            ItemName = _cboName.Text.Trim(),
+                            Category = _cboCategory.SelectedItem?.ToString() ?? string.Empty,
+                            Unit = Convert.ToString(row.Cells["SupplierUnit"].Value),
+                            Rate = Math.Max(0m, ParseDecimalSafe(row.Cells["SupplierRate"].Value)),
+                            IsPreferred = TryParseBool(row.Cells["SupplierPreferred"].Value),
+                            Notes = Convert.ToString(row.Cells["SupplierNotes"].Value),
+                            Source = "Item details",
+                            EffectiveDate = DateTime.Now
+                        });
+                    }
+
+                    if (rows.Count > 1 && rows.All(r => !r.IsPreferred))
+                        rows[0].IsPreferred = true;
+                    return rows;
+                };
+
+                foreach (SupplierItemPrice price in ReadSupplierPricesFromGrid())
+                    addDialogRow(price);
+                if (grid.Rows.Count == 0)
+                    addDialogRow(null);
+
+                gridCard.Controls.Add(grid);
+
+                Panel footer = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 98,
+                    BackColor = DS.BgPage,
+                    Padding = new Padding(0, 14, 0, 0),
+                    Tag = "NO_DASHBOARD_RESIZE NO_CARD_SURFACE NO_INPUT_HOST NO_INPUT_OUTLINE_HOST"
+                };
+
+                Panel actionBar = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 38,
+                    BackColor = DS.BgPage
+                };
+
+                Button add = MakeBtn("+ Add Supplier", Color.White, 118);
+                add.ForeColor = InfoBlue;
+                add.FlatAppearance.BorderColor = DS.BorderStrong;
+                add.Click += (s, e) =>
+                {
+                    addDialogRow(null);
+                    if (grid.Rows.Count > 0)
+                        grid.CurrentCell = grid.Rows[grid.Rows.Count - 1].Cells["SupplierVendorID"];
+                };
+
+                Button remove = MakeBtn("Remove Row", Color.White, 104);
+                remove.ForeColor = DS.Slate700;
+                remove.FlatAppearance.BorderColor = DS.BorderStrong;
+                remove.Click += (s, e) =>
+                {
+                    if (grid.SelectedRows.Count == 0)
+                        return;
+
+                    foreach (DataGridViewRow row in grid.SelectedRows)
+                    {
+                        if (!row.IsNewRow)
+                            grid.Rows.Remove(row);
+                    }
+
+                    if (grid.Rows.Count == 0)
+                        addDialogRow(null);
+                };
+
+                Button usePreferred = MakeBtn("Use Preferred Above", Color.White, 140);
+                usePreferred.ForeColor = SaveGreen;
+                usePreferred.FlatAppearance.BorderColor = DS.BorderStrong;
+                usePreferred.Click += (s, e) =>
+                {
+                    Vendor vendor = _cboVendor.SelectedItem as Vendor;
+                    if (vendor == null || vendor.VendorID <= 0)
+                        return;
+
+                    int rowIndex = -1;
+                    for (int i = 0; i < grid.Rows.Count; i++)
+                    {
+                        if (TryParseInt(grid.Rows[i].Cells["SupplierVendorID"].Value) == vendor.VendorID)
+                        {
+                            rowIndex = i;
+                            break;
+                        }
+                    }
+
+                    if (rowIndex < 0)
+                    {
+                        addDialogRow(new SupplierItemPrice
+                        {
+                            VendorID = vendor.VendorID,
+                            VendorName = vendor.VendorName,
+                            Rate = _numRate.Value,
+                            Unit = DisplayUnit(_cboUnit?.Text),
+                            IsPreferred = true,
+                            Notes = "Preferred supplier from item details"
+                        });
+                        rowIndex = grid.Rows.Count - 1;
+                    }
+
+                    DataGridViewRow row = grid.Rows[rowIndex];
+                    row.Cells["SupplierVendorID"].Value = vendor.VendorID;
+                    row.Cells["SupplierRate"].Value = _numRate.Value.ToString("0.##");
+                    row.Cells["SupplierUnit"].Value = DisplayUnit(_cboUnit?.Text);
+                    row.Cells["SupplierPreferred"].Value = true;
+                    row.Cells["SupplierNotes"].Value = "Preferred supplier from item details";
+                };
+
+                Label footerHint = new Label
+                {
+                    Dock = DockStyle.Top,
+                    Height = 18,
+                    Text = "Tip: keep one preferred supplier so purchase requests and comparisons stay predictable.",
+                    Font = new Font("Segoe UI", 8.2f),
+                    ForeColor = DS.Slate500
+                };
+
+                Button ok = MakeBtn("Apply", SaveGreen, 100);
+                ok.Click += (s, e) =>
+                {
+                    BindSupplierPriceBook(readDialogRows());
+                    RefreshPreferredSupplierFromPriceBook(true);
+                    dialog.DialogResult = DialogResult.OK;
+                    dialog.Close();
+                };
+
+                Button cancel = MakeBtn("Cancel", Color.White, 90);
+                cancel.ForeColor = DS.Slate700;
+                cancel.FlatAppearance.BorderColor = DS.BorderStrong;
+                cancel.Click += (s, e) =>
+                {
+                    dialog.DialogResult = DialogResult.Cancel;
+                    dialog.Close();
+                };
+
+                actionBar.Controls.AddRange(new Control[] { add, remove, usePreferred, cancel, ok });
+                Action layoutFooterButtons = () =>
+                {
+                    int leftX = 0;
+                    add.Location = new Point(leftX, 1);
+                    leftX += add.Width + 10;
+                    remove.Location = new Point(leftX, 1);
+                    leftX += remove.Width + 10;
+                    usePreferred.Location = new Point(leftX, 1);
+
+                    int rightX = actionBar.ClientSize.Width - ok.Width;
+                    ok.Location = new Point(Math.Max(0, rightX), 1);
+                    cancel.Location = new Point(Math.Max(0, ok.Left - 10 - cancel.Width), 1);
+                };
+                actionBar.Resize += (s, e) => layoutFooterButtons();
+                layoutFooterButtons();
+                footer.Controls.Add(actionBar);
+                footer.Controls.Add(footerHint);
+
+                shell.Controls.Add(gridCard);
+                shell.Controls.Add(footer);
+                shell.Controls.Add(headerCard);
+                dialog.Controls.Add(shell);
+                dialog.AcceptButton = ok;
+                dialog.CancelButton = cancel;
+                dialog.ShowDialog(this);
+            }
+        }
+
+        private List<SupplierItemPrice> ReadSupplierPricesFromGrid()
+        {
+            var prices = new List<SupplierItemPrice>();
+            if (_gridSupplierPrices == null || _gridSupplierPrices.IsDisposed)
+                return prices;
+
+            foreach (DataGridViewRow row in _gridSupplierPrices.Rows)
+            {
+                int vendorId = TryParseInt(row.Cells["SupplierVendorID"].Value);
+                decimal rate = ParseDecimalSafe(row.Cells["SupplierRate"].Value);
+                string unit = Convert.ToString(row.Cells["SupplierUnit"].Value);
+                string notes = Convert.ToString(row.Cells["SupplierNotes"].Value);
+                bool isPreferred = TryParseBool(row.Cells["SupplierPreferred"].Value);
+                if (vendorId <= 0)
+                    continue;
+
+                Vendor vendor = FindVendorById(vendorId);
+                prices.Add(new SupplierItemPrice
+                {
+                    ItemID = _current?.ItemID,
+                    VendorID = vendorId,
+                    VendorName = vendor?.VendorName,
+                    ItemName = _cboName.Text.Trim(),
+                    Category = _cboCategory.SelectedItem?.ToString() ?? string.Empty,
+                    Unit = string.IsNullOrWhiteSpace(unit) ? DisplayUnit(_cboUnit?.Text) : unit.Trim(),
+                    Rate = Math.Max(0m, rate),
+                    IsPreferred = isPreferred,
+                    Notes = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim(),
+                    Source = "Item details",
+                    EffectiveDate = DateTime.Now
+                });
+            }
+
+            if (prices.Count > 1 && prices.All(p => !p.IsPreferred))
+                prices[0].IsPreferred = true;
+
+            return prices;
+        }
+
+        private void SupplierPriceGrid_CellValueChanged(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_supplierPriceGridSyncInProgress || e.RowIndex < 0 || _gridSupplierPrices == null)
+                return;
+
+            if (string.Equals(_gridSupplierPrices.Columns[e.ColumnIndex].Name, "SupplierPreferred", StringComparison.OrdinalIgnoreCase))
+            {
+                bool isPreferred = TryParseBool(_gridSupplierPrices.Rows[e.RowIndex].Cells["SupplierPreferred"].Value);
+                if (isPreferred)
+                    MarkSupplierPriceRowAsPreferred(e.RowIndex);
+            }
+
+            RefreshPreferredSupplierFromPriceBook(false);
+        }
+
+        private void MarkSupplierPriceRowAsPreferred(int preferredRowIndex)
+        {
+            if (_gridSupplierPrices == null || preferredRowIndex < 0 || preferredRowIndex >= _gridSupplierPrices.Rows.Count)
+                return;
+
+            _supplierPriceGridSyncInProgress = true;
+            try
+            {
+                for (int i = 0; i < _gridSupplierPrices.Rows.Count; i++)
+                    _gridSupplierPrices.Rows[i].Cells["SupplierPreferred"].Value = i == preferredRowIndex;
+            }
+            finally
+            {
+                _supplierPriceGridSyncInProgress = false;
+            }
+        }
+
+        private void RefreshPreferredSupplierFromPriceBook(bool alwaysApplyRate)
+        {
+            List<SupplierItemPrice> prices = ReadSupplierPricesFromGrid();
+            SupplierItemPrice preferred = prices.FirstOrDefault(p => p.IsPreferred) ?? prices.FirstOrDefault();
+            if (preferred == null)
+                return;
+
+            SelectInventoryVendorById(preferred.VendorID);
+            if (_numRate != null && (alwaysApplyRate || _numRate.Value <= 0m || ((_cboVendor.SelectedItem as Vendor)?.VendorID ?? 0) == preferred.VendorID))
+                _numRate.Value = Math.Max(_numRate.Minimum, Math.Min(_numRate.Maximum, preferred.Rate));
+            if (_cboUnit != null && !string.IsNullOrWhiteSpace(preferred.Unit))
+                SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(preferred.Unit));
+        }
+
+        private Vendor FindVendorById(int vendorId)
+        {
+            if (_cboVendor == null || vendorId <= 0)
+                return null;
+
+            foreach (object item in _cboVendor.Items)
+            {
+                Vendor vendor = item as Vendor;
+                if (vendor != null && vendor.VendorID == vendorId)
+                    return vendor;
+            }
+
+            return null;
+        }
+
+        private static int TryParseInt(object value)
+        {
+            int parsed;
+            return value != null && int.TryParse(Convert.ToString(value), out parsed) ? parsed : 0;
+        }
+
+        private static decimal ParseDecimalSafe(object value)
+        {
+            decimal parsed;
+            return decimal.TryParse(Convert.ToString(value), NumberStyles.Any, CultureInfo.CurrentCulture, out parsed)
+                || decimal.TryParse(Convert.ToString(value), NumberStyles.Any, CultureInfo.InvariantCulture, out parsed)
+                ? parsed
+                : 0m;
+        }
+
+        private static bool TryParseBool(object value)
+        {
+            bool parsed;
+            return value != null && bool.TryParse(Convert.ToString(value), out parsed) && parsed;
         }
 
         private async Task LoadInitialDataAsync()
@@ -807,32 +1594,57 @@ namespace HVAC_Pro_Desktop.UI
             foreach (var vendor in vendors ?? new List<Vendor>())
                 _cboVendor.Items.Add(vendor);
             _cboVendor.SelectedIndex = 0;
+            BindSupplierPriceVendorColumn(vendors);
             _cboVendor.EndUpdate();
+            PopulateSupplierFilterOptions();
         }
 
         private void UpdateStockValue(object sender, EventArgs e)
         {
             decimal val = _numStock.Value * _numRate.Value;
-            _lblStockValue.Text = "Purchase Value: Rs " + val.ToString("N2");
+            _lblStockValue.Text = "Reference Value: Rs " + val.ToString("N2");
         }
 
         private void LoadItemSuggestions(List<StockItem> items = null)
         {
             var sw = Stopwatch.StartNew();
-            _itemSuggestions.Clear();
             try
             {
+                List<string> names = new List<string>();
+                _itemLookupByName.Clear();
+                _bestSupplierByItemKey.Clear();
                 foreach (var item in items ?? _listSource)
                 {
-                    if (!string.IsNullOrWhiteSpace(item.ItemName))
-                        _itemSuggestions.Add(item.ItemName);
+                    string name = item?.ItemName?.Trim();
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    if (!_itemLookupByName.ContainsKey(name))
+                    {
+                        _itemLookupByName[name] = item;
+                        names.Add(name);
+                    }
+                }
+
+                names.Sort(StringComparer.CurrentCultureIgnoreCase);
+                if (_cboName != null && !_cboName.IsDisposed)
+                {
+                    string currentText = _cboName.Text;
+                    _cboName.BeginUpdate();
+                    _cboName.Items.Clear();
+                    if (names.Count > 0)
+                        _cboName.Items.AddRange(names.Cast<object>().ToArray());
+                    _cboName.Text = currentText;
+                    _cboName.SelectionStart = _cboName.Text == null ? 0 : _cboName.Text.Length;
+                    _cboName.SelectionLength = 0;
+                    _cboName.EndUpdate();
                 }
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("InventoryForm.LoadItemSuggestions", ex);
             }
-            AppRuntime.LogTiming("Inventory.LoadItemSuggestions", sw.ElapsedMilliseconds, "suggestions=" + _itemSuggestions.Count);
+            AppRuntime.LogTiming("Inventory.LoadItemSuggestions", sw.ElapsedMilliseconds, "suggestions=" + _itemLookupByName.Count);
         }
 
         private void BindInventoryList(List<StockItem> items, bool forceWarn)
@@ -841,11 +1653,20 @@ namespace HVAC_Pro_Desktop.UI
             if (!forceWarn)
                 _allItems = new List<StockItem>(_listSource);
             PopulateCategoryFilterOptions();
+            PopulateSupplierFilterOptions();
             UpdateInventoryFilterVisualState();
             UpdateInventoryMetrics(_allItems.Count > 0 ? _allItems : _listSource);
-            RenderItemBatch(reset: true, forceWarn: forceWarn);
-            string suffix = forceWarn ? "items to order" : "items";
-            SetStatus($"Showing {Math.Min(_renderedCount, _listSource.Count)} of {_listSource.Count} {suffix}.", forceWarn ? WarnOrange : Color.Gray);
+            _inventoryForceWarn = forceWarn;
+            if (_itemListModule != null && !_itemListModule.IsDisposed)
+            {
+                _itemListModule.SetItems(_listSource);
+                if (_current != null && _current.ItemID > 0)
+                    _itemListModule.SetSelectedRowId(_current.ItemID);
+                else if (_listSource.Count > 0)
+                    SelectItem(_listSource[0]);
+            }
+            string suffix = forceWarn ? "procurement-ready items" : "catalog items";
+            SetStatus($"Showing {_listSource.Count} {suffix}.", forceWarn ? WarnOrange : Color.Gray);
         }
 
         private void ApplyInventoryFilter()
@@ -853,10 +1674,37 @@ namespace HVAC_Pro_Desktop.UI
             if (_allItems == null || _allItems.Count == 0)
                 return;
 
+            string mode = _cboListMode?.SelectedItem?.ToString() ?? "All";
+            string category = _cboCategoryFilter?.SelectedItem?.ToString() ?? "All Categories";
+            string supplier = _cboSupplierFilter?.SelectedItem?.ToString() ?? "All Suppliers";
+            string stockState = _cboStockStatusFilter?.SelectedItem?.ToString() ?? "All Material Modes";
+            string activity = _cboActivityFilter?.SelectedItem?.ToString() ?? "All Activity";
+            _listSource = BuildFilteredInventoryItems();
+            UpdateInventoryMetrics(_listSource);
+            _inventoryForceWarn = mode == "Procurement Required";
+            if (_itemListModule != null && !_itemListModule.IsDisposed)
+            {
+                _itemListModule.SetItems(_listSource);
+                if (_current != null && _current.ItemID > 0)
+                    _itemListModule.SetSelectedRowId(_current.ItemID);
+                else if (_listSource.Count > 0)
+                    SelectItem(_listSource[0]);
+            }
+            string statusSuffix = BuildInventoryResultSuffix(category, supplier, stockState, activity);
+            Color statusColor = mode == "Procurement Required" || string.Equals(stockState, "Direct Purchase", StringComparison.OrdinalIgnoreCase) ? WarnOrange : Color.Gray;
+            SetStatus($"Showing {_listSource.Count} {statusSuffix}.", statusColor);
+        }
+
+        private List<StockItem> BuildFilteredInventoryItems()
+        {
             string term = GetInventorySearchText();
             string mode = _cboListMode?.SelectedItem?.ToString() ?? "All";
             string category = _cboCategoryFilter?.SelectedItem?.ToString() ?? "All Categories";
-            IEnumerable<StockItem> query = _allItems;
+            string supplier = _cboSupplierFilter?.SelectedItem?.ToString() ?? "All Suppliers";
+            string stockState = _cboStockStatusFilter?.SelectedItem?.ToString() ?? "All Material Modes";
+            string activity = _cboActivityFilter?.SelectedItem?.ToString() ?? "All Activity";
+
+            IEnumerable<StockItem> query = _allItems ?? new List<StockItem>();
             if (!string.IsNullOrWhiteSpace(term))
                 query = query.Where(i =>
                     (i.ItemName ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -864,17 +1712,72 @@ namespace HVAC_Pro_Desktop.UI
                     (i.VendorName ?? string.Empty).IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
             if (!string.Equals(category, "All Categories", StringComparison.OrdinalIgnoreCase))
                 query = query.Where(i => string.Equals(i.Category ?? string.Empty, category, StringComparison.OrdinalIgnoreCase));
-            if (mode == "To Order")
-                query = query.Where(i => i.IsLowStock);
-            else if (mode == "Supplier Linked")
+            if (!string.Equals(supplier, "All Suppliers", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(supplier, "(No Supplier)", StringComparison.OrdinalIgnoreCase))
+                    query = query.Where(i => string.IsNullOrWhiteSpace(i.VendorName));
+                else
+                    query = query.Where(i => string.Equals(i.VendorName ?? string.Empty, supplier, StringComparison.OrdinalIgnoreCase));
+            }
+            if (mode == "Procurement Required")
+                query = query.Where(IsProcurementRequired);
+            else if (mode == "Supplier Ready")
                 query = query.Where(i => !string.IsNullOrWhiteSpace(i.VendorName));
             else if (mode == "Needs Supplier")
                 query = query.Where(i => string.IsNullOrWhiteSpace(i.VendorName));
+            if (string.Equals(stockState, "Buffer Available", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.AvailableStock > 0m);
+            else if (string.Equals(stockState, "Direct Purchase", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.AvailableStock <= 0m && !string.IsNullOrWhiteSpace(i.VendorName));
+            else if (string.Equals(stockState, "Reserved For Jobs", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.ReservedStock > 0m);
+            else if (string.Equals(stockState, "Needs Supplier", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => string.IsNullOrWhiteSpace(i.VendorName));
+            if (string.Equals(activity, "High Value", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.StockValue >= 10000m);
+            else if (string.Equals(activity, "Recently Updated", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.LastUpdated != default(DateTime) && i.LastUpdated.Date >= DateTime.Today.AddDays(-30));
+            else if (string.Equals(activity, "Dormant 90+ Days", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.LastUpdated == default(DateTime) || i.LastUpdated.Date < DateTime.Today.AddDays(-90));
+            else if (string.Equals(activity, "Unpriced", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(i => i.LastPurchaseRate <= 0m);
 
-            _listSource = query.ToList();
-            RenderItemBatch(reset: true, forceWarn: mode == "To Order");
-            string statusSuffix = string.Equals(category, "All Categories", StringComparison.OrdinalIgnoreCase) ? "items" : category + " items";
-            SetStatus($"Showing {Math.Min(_renderedCount, _listSource.Count)} of {_listSource.Count} {statusSuffix}.", mode == "To Order" ? WarnOrange : Color.Gray);
+            return query.ToList();
+        }
+
+        private void ApplyInventoryItemMutation(StockItem freshItem, bool isNewItem)
+        {
+            if (freshItem == null)
+                return;
+
+            int existingIndex = _allItems.FindIndex(i => i.ItemID == freshItem.ItemID);
+            if (existingIndex >= 0)
+                _allItems[existingIndex] = freshItem;
+            else
+                _allItems.Insert(0, freshItem);
+
+            _listSource = BuildFilteredInventoryItems();
+            UpdateInventoryMetrics(_listSource);
+
+            bool updatedVisibleRow = false;
+            if (_itemListModule != null && !_itemListModule.IsDisposed)
+            {
+                _itemListModule.UpdateItem(freshItem.ItemID, freshItem);
+                updatedVisibleRow = IncrementalRefreshService.TryUpdateVirtualRow(
+                    _itemListModule.ListGrid,
+                    _itemListModule.VisibleItemsBuffer,
+                    freshItem.ItemID,
+                    freshItem,
+                    item => item.ItemID);
+
+                if (isNewItem || !updatedVisibleRow || !_listSource.Any(i => i.ItemID == freshItem.ItemID))
+                    _itemListModule.SetItems(_listSource);
+
+                _itemListModule.SetSelectedRowId(freshItem.ItemID);
+            }
+
+            _current = freshItem;
+            PopulateDetail(freshItem);
         }
 
         private string GetInventorySearchText()
@@ -915,12 +1818,43 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void PopulateSupplierFilterOptions()
+        {
+            if (_cboSupplierFilter == null)
+                return;
+
+            string previous = _cboSupplierFilter.SelectedItem?.ToString() ?? "All Suppliers";
+            List<string> suppliers = (_allItems ?? new List<StockItem>())
+                .Select(i => (i.VendorName ?? string.Empty).Trim())
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(name => name)
+                .ToList();
+
+            _cboSupplierFilter.BeginUpdate();
+            try
+            {
+                _cboSupplierFilter.Items.Clear();
+                _cboSupplierFilter.Items.Add("All Suppliers");
+                foreach (string supplier in suppliers)
+                    _cboSupplierFilter.Items.Add(supplier);
+                _cboSupplierFilter.Items.Add("(No Supplier)");
+                SelectComboByText(_cboSupplierFilter, previous);
+                if (_cboSupplierFilter.SelectedIndex < 0)
+                    _cboSupplierFilter.SelectedIndex = 0;
+            }
+            finally
+            {
+                _cboSupplierFilter.EndUpdate();
+            }
+        }
+
         private void UpdateInventoryFilterVisualState()
         {
             string mode = _cboListMode?.SelectedItem?.ToString() ?? "All";
             ApplyFilterChipState(_btnFilterAll, mode == "All");
-            ApplyFilterChipState(_btnFilterToOrder, mode == "To Order");
-            ApplyFilterChipState(_btnFilterSupplierLinked, mode == "Supplier Linked");
+            ApplyFilterChipState(_btnFilterToOrder, mode == "Procurement Required");
+            ApplyFilterChipState(_btnFilterSupplierLinked, mode == "Supplier Ready");
             ApplyFilterChipState(_btnFilterNeedsSupplier, mode == "Needs Supplier");
         }
 
@@ -930,7 +1864,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             button.BackColor = selected ? InfoBlue : Color.White;
-            button.ForeColor = selected ? Color.White : (button.Text == "Needs Supplier" ? DelRed : button.Text == "To Order" ? WarnOrange : SaveGreen);
+            button.ForeColor = selected ? Color.White : (button.Text == "Needs Supplier" ? DelRed : button.Text == "Procurement Required" ? WarnOrange : SaveGreen);
             button.FlatAppearance.BorderColor = selected ? InfoBlue : DS.BorderStrong;
         }
 
@@ -938,7 +1872,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             items = items ?? new List<StockItem>();
             int vendorLinked = items.Count(i => !string.IsNullOrWhiteSpace(i.VendorName));
-            int toOrder = items.Count(i => i.IsLowStock);
+            int toOrder = items.Count(IsProcurementRequired);
             int needsVendor = items.Count(i => string.IsNullOrWhiteSpace(i.VendorName));
             int pricedItems = items.Count(i => i.LastPurchaseRate > 0);
             if (_lblTotalItems != null) _lblTotalItems.Text = items.Count.ToString("N0");
@@ -978,7 +1912,7 @@ namespace HVAC_Pro_Desktop.UI
             var sw = Stopwatch.StartNew();
             try
             {
-                SetStatus("Loading items to order...", WarnOrange);
+                SetStatus("Loading procurement queue...", WarnOrange);
                 var items = await Task.Run(() => _svc.GetLowStock());
                 BindInventoryList(items, true);
             }
@@ -990,41 +1924,12 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Inventory.LoadLowStock", sw.ElapsedMilliseconds, "items=" + (_listSource?.Count ?? 0));
         }
 
-        private void RenderItemBatch(bool reset, bool forceWarn)
-        {
-            _inventoryForceWarn = forceWarn;
-            if (reset)
-                _inventoryPage = 1;
-
-            int total = _listSource?.Count ?? 0;
-            int pageSize = Math.Max(1, _inventoryPageSize);
-            _inventoryPage = PaginationState.NormalizePage(_inventoryPage, total, pageSize);
-            List<StockItem> visibleItems = (_listSource ?? new List<StockItem>())
-                .Skip((_inventoryPage - 1) * pageSize)
-                .Take(pageSize)
-                .ToList();
-
-            UiPerformanceService.WithSuspendedDrawing(_itemFlow, () =>
-            {
-                _itemFlow.Controls.Clear();
-                if (total == 0)
-                {
-                    _itemFlow.Controls.Add(BuildInventoryEmptyState());
-                }
-                foreach (StockItem item in visibleItems)
-                    _itemFlow.Controls.Add(MakeItemCard(item, forceWarn));
-
-                _renderedCount = visibleItems.Count == 0 ? 0 : Math.Min(total, ((_inventoryPage - 1) * pageSize) + visibleItems.Count);
-                if (_inventoryPager != null)
-                    _inventoryPager.SetState(_inventoryPage, total, pageSize);
-            });
-        }
-
         private Panel BuildInventoryEmptyState()
         {
+            bool hasFilters = HasActiveInventoryFilters();
             Panel panel = new Panel
             {
-                Width = Math.Max(760, _itemFlow?.ClientSize.Width > 20 ? _itemFlow.ClientSize.Width - 18 : 880),
+                Width = Math.Max(760, _itemListModule?.ClientSize.Width > 20 ? _itemListModule.ClientSize.Width - 18 : 880),
                 Height = 420,
                 BackColor = Color.White,
                 Margin = new Padding(0)
@@ -1032,11 +1937,17 @@ namespace HVAC_Pro_Desktop.UI
             Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Inventory, 72, Color.FromArgb(238, 242, 255), InfoBlue);
             icon.Location = new Point((panel.Width - icon.Width) / 2, 130);
             panel.Controls.Add(icon);
-            panel.Controls.Add(new Label { Text = "No items found", Location = new Point(0, 218), Size = new Size(panel.Width, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleCenter });
-            panel.Controls.Add(new Label { Text = "Add your first material item. Supplier, rate, and reorder settings can be completed later.", Location = new Point(0, 248), Size = new Size(panel.Width, 24), Font = DS.Body, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter });
-            Button add = MakeBtn("+  Add Item", InfoBlue, 118);
+            panel.Controls.Add(new Label { Text = hasFilters ? "No materials match the current filters" : "No items found", Location = new Point(0, 218), Size = new Size(panel.Width, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleCenter });
+            panel.Controls.Add(new Label { Text = hasFilters ? "Clear one or more filters to broaden the search, or refresh to load the latest catalog." : "Add your first material item. Supplier, buying rate, and planning quantity can be completed later.", Location = new Point(0, 248), Size = new Size(panel.Width, 24), Font = DS.Body, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleCenter });
+            Button add = MakeBtn(hasFilters ? "Clear Filters" : "+  Add Item", InfoBlue, 118);
             add.Location = new Point((panel.Width - add.Width) / 2, 294);
-            add.Click += (s, e) => NewRecord();
+            add.Click += (s, e) =>
+            {
+                if (hasFilters)
+                    ResetInventoryFilters();
+                else
+                    NewRecord();
+            };
             panel.Controls.Add(add);
             panel.Resize += (s, e) =>
             {
@@ -1049,26 +1960,11 @@ namespace HVAC_Pro_Desktop.UI
             return panel;
         }
 
-        private void AddLoadMoreCard(FlowLayoutPanel host, bool show, Action onClick)
+        private void RenderItemBatch(bool reset, bool forceWarn)
         {
-            if (!show)
-                return;
-
-            var btn = new Button
-            {
-                Text = "Load More",
-                Width = 360,
-                Height = 36,
-                BackColor = Color.FromArgb(241, 245, 249),
-                ForeColor = InfoBlue,
-                FlatStyle = FlatStyle.Flat,
-                Margin = new Padding(0, 0, 0, 10),
-                Cursor = Cursors.Hand
-            };
-            btn.FlatAppearance.BorderColor = DS.Border;
-            btn.FlatAppearance.BorderSize = 1;
-            btn.Click += (s, e) => onClick?.Invoke();
-            host.Controls.Add(btn);
+            _inventoryForceWarn = forceWarn;
+            if (_itemListModule != null && !_itemListModule.IsDisposed)
+                _itemListModule.SetItems(_listSource ?? new List<StockItem>());
         }
 
         private Panel MakeItemCard(StockItem item, bool forceWarn)
@@ -1076,9 +1972,10 @@ namespace HVAC_Pro_Desktop.UI
             string lastUpdatedText = (item.LastUpdated == default(DateTime))
                 ? "-"
                 : item.LastUpdated.ToString("dd MMM");
-            bool warn = forceWarn || item.IsLowStock;
+            bool warn = forceWarn || IsProcurementRequired(item);
             bool needsVendor = string.IsNullOrWhiteSpace(item.VendorName);
-            int rowWidth = Math.Max(760, _itemFlow?.ClientSize.Width > 20 ? _itemFlow.ClientSize.Width - 18 : 880);
+            int availableWidth = _itemListModule?.ClientSize.Width ?? ClientSize.Width;
+            int rowWidth = Math.Max(760, availableWidth > 20 ? availableWidth - 18 : 880);
 
             Panel card = new Panel
             {
@@ -1106,7 +2003,7 @@ namespace HVAC_Pro_Desktop.UI
             Label value = new Label { Text = item.StockValue.ToString("N2"), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate900, Location = new Point(690, 20), Width = 120 };
             Label badge = new Label
             {
-                Text = warn ? "To Order" : needsVendor ? "Needs Supplier" : "Supplier Linked",
+                Text = warn ? "Procurement Required" : needsVendor ? "Needs Supplier" : "Supplier Ready",
                 Font = new Font("Segoe UI", 8, FontStyle.Bold),
                 ForeColor = warn ? WarnOrange : needsVendor ? DelRed : SaveGreen,
                 BackColor = warn ? DS.Amber50 : needsVendor ? DS.Red50 : DS.Green50,
@@ -1134,6 +2031,15 @@ namespace HVAC_Pro_Desktop.UI
             PopulateDetail(item);
         }
 
+        private void SelectItem(StockItem item)
+        {
+            if (item == null)
+                return;
+
+            _current = item;
+            PopulateDetail(item);
+        }
+
         private void PopulateDetail(StockItem item)
         {
             _cboName.Text = item.ItemName ?? "";
@@ -1142,14 +2048,11 @@ namespace HVAC_Pro_Desktop.UI
             _numStock.Value   = item.CurrentStock    > _numStock.Maximum   ? _numStock.Maximum   : item.CurrentStock;
             _numRate.Value    = item.LastPurchaseRate > _numRate.Maximum    ? _numRate.Maximum    : item.LastPurchaseRate;
             _numReorder.Value = item.ReorderLevel    > _numReorder.Maximum ? _numReorder.Maximum : item.ReorderLevel;
-            _lblStockValue.Text = "Purchase Value: Rs " + item.StockValue.ToString("N2");
+            _lblStockValue.Text = "Reference Value: Rs " + item.StockValue.ToString("N2");
             UpdateReorderButtonState(item);
-
-            for (int i = 0; i < _cboVendor.Items.Count; i++)
-            {
-                var v = (Vendor)_cboVendor.Items[i];
-                if (v.VendorID == (item.VendorID ?? 0)) { _cboVendor.SelectedIndex = i; break; }
-            }
+            SelectInventoryVendorById(item.VendorID ?? 0);
+            LoadSupplierPrices(item);
+            UpdateInventorySupplierSnapshot(item);
         }
 
         private void NewRecord()
@@ -1158,11 +2061,132 @@ namespace HVAC_Pro_Desktop.UI
             _cboName.Text = "";
             if (_cboCategory.Items.Count > 0) _cboCategory.SelectedIndex = 0;
             SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(UnitMeasurementService.DefaultCode));
-            _numStock.Value = 0; _numRate.Value = 0; _numReorder.Value = 5;
+            _numStock.Value = 0; _numRate.Value = 0; _numReorder.Value = 1;
             _cboVendor.SelectedIndex = 0;
             _lblStockValue.Text = "";
+            BindSupplierPriceBook(null);
             UpdateReorderButtonState(null);
-            SetStatus("New item ready. Select details and save.", Color.Gray);
+            UpdateInventorySupplierSnapshot(null);
+            SetStatus("New material ready. Add supplier and buying context when available.", Color.Gray);
+        }
+
+        private async void QueueApplyInventoryItemDefaults()
+        {
+            if (IsDisposed || _cboName == null || _cboName.IsDisposed)
+                return;
+
+            string itemName = _cboName?.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(itemName))
+                return;
+
+            int requestVersion = ++_itemDefaultsRequestVersion;
+            try
+            {
+                await Task.Delay(120);
+                if (requestVersion != _itemDefaultsRequestVersion || IsDisposed)
+                    return;
+
+                await ApplyInventoryItemDefaultsFromSelectionAsync(itemName, requestVersion);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InventoryForm.QueueApplyInventoryItemDefaults", ex);
+            }
+        }
+
+        private async Task ApplyInventoryItemDefaultsFromSelectionAsync(string itemName, int requestVersion)
+        {
+            if (_isApplyingItemDefaults && requestVersion != _itemDefaultsRequestVersion)
+                return;
+
+            _isApplyingItemDefaults = true;
+            try
+            {
+                StockItem matchedItem = TryGetInventoryItemByName(itemName);
+                ApplyMatchedInventoryItemDefaults(matchedItem);
+
+                string category = matchedItem?.Category ?? _cboCategory?.Text;
+                SupplierOption best = await GetBestSupplierOptionCachedAsync(itemName, category);
+                if (requestVersion != _itemDefaultsRequestVersion || IsDisposed)
+                    return;
+
+                if (!string.Equals(_cboName?.Text?.Trim(), itemName, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                ApplyBestSupplierDefaults(best);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("InventoryForm.ApplyInventoryItemDefaultsFromSelection", ex);
+            }
+            finally
+            {
+                _isApplyingItemDefaults = false;
+            }
+        }
+
+        private StockItem TryGetInventoryItemByName(string itemName)
+        {
+            if (string.IsNullOrWhiteSpace(itemName))
+                return null;
+
+            StockItem item;
+            if (_itemLookupByName.TryGetValue(itemName.Trim(), out item))
+                return item;
+
+            item = (_allItems ?? _listSource ?? new List<StockItem>())
+                .FirstOrDefault(candidate => string.Equals(candidate.ItemName, itemName, StringComparison.OrdinalIgnoreCase));
+            if (item != null)
+                _itemLookupByName[itemName.Trim()] = item;
+            return item;
+        }
+
+        private void ApplyMatchedInventoryItemDefaults(StockItem matchedItem)
+        {
+            if (matchedItem == null)
+                return;
+
+            if (!string.IsNullOrWhiteSpace(matchedItem.Category))
+                SelectComboByText(_cboCategory, matchedItem.Category);
+
+            if (!string.IsNullOrWhiteSpace(matchedItem.Unit))
+                SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(matchedItem.Unit));
+
+            if (matchedItem.LastPurchaseRate > 0 && _numRate != null && _numRate.Value <= 0)
+                _numRate.Value = Math.Min(_numRate.Maximum, matchedItem.LastPurchaseRate);
+
+            if (matchedItem.VendorID.GetValueOrDefault() > 0)
+                SelectInventoryVendorById(matchedItem.VendorID.Value);
+
+            if (matchedItem.ItemID > 0 && _currentSupplierPrices.Count == 0)
+                LoadSupplierPrices(matchedItem);
+        }
+
+        private async Task<SupplierOption> GetBestSupplierOptionCachedAsync(string itemName, string category)
+        {
+            string cacheKey = (itemName ?? string.Empty).Trim() + "|" + (category ?? string.Empty).Trim();
+            SupplierOption cached;
+            if (_bestSupplierByItemKey.TryGetValue(cacheKey, out cached))
+                return cached;
+
+            SupplierOption best = await Task.Run(() => _vndSvc.GetBestSupplierForItem(itemName, 1m, category));
+            _bestSupplierByItemKey[cacheKey] = best;
+            return best;
+        }
+
+        private void ApplyBestSupplierDefaults(SupplierOption best)
+        {
+            if (best == null)
+                return;
+
+            bool vendorSelected = SelectInventoryVendorById(best.VendorID);
+            if (_numRate != null && (_numRate.Value <= 0m || vendorSelected))
+                _numRate.Value = Math.Max(_numRate.Minimum, Math.Min(_numRate.Maximum, best.Rate));
+
+            if (_cboUnit != null && !string.IsNullOrWhiteSpace(best.Unit))
+                SelectComboByText(_cboUnit, _unitSvc.NormalizeForPickerDisplayOrDefault(best.Unit));
+
+            UpsertSupplierOptionInPriceBook(best, false);
         }
 
         private void DeleteCurrentItem()
@@ -1206,6 +2230,7 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
+                List<SupplierItemPrice> supplierPrices = ReadSupplierPricesFromGrid();
                 var vendor = _cboVendor.SelectedItem as Vendor;
                 var item = new StockItem
                 {
@@ -1218,6 +2243,16 @@ namespace HVAC_Pro_Desktop.UI
                     VendorID         = (vendor != null && vendor.VendorID > 0) ? vendor.VendorID : (int?)null,
                 };
 
+                SupplierItemPrice preferredSupplierPrice = supplierPrices.FirstOrDefault(p => p.IsPreferred) ?? supplierPrices.FirstOrDefault();
+                if (preferredSupplierPrice != null)
+                {
+                    item.VendorID = preferredSupplierPrice.VendorID;
+                    if (preferredSupplierPrice.Rate > 0m)
+                        item.LastPurchaseRate = preferredSupplierPrice.Rate;
+                    if (!string.IsNullOrWhiteSpace(preferredSupplierPrice.Unit))
+                        item.Unit = NormalizeUnit(preferredSupplierPrice.Unit);
+                }
+
                 if (!TryValidate(item, _stockItemValidator, BrandingService.WindowTitle("Inventory"), () => _cboName.Focus()))
                 {
                     SetStatus("Check required inventory fields and try again.", Color.Red);
@@ -1228,23 +2263,28 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus("Saving material item...", Color.Gray);
                 bool succeeded = await RunSafeAsync("Saving inventory item", async () =>
                 {
-                    List<StockItem> items = await Task.Run(() =>
+                    StockItem freshItem = await Task.Run(() =>
                     {
+                        int persistedId;
                         if (currentItemId <= 0)
-                            _svc.Create(item);
+                            persistedId = _svc.Create(item);
                         else
                         {
                             item.ItemID = currentItemId;
                             _svc.Update(item);
+                            persistedId = currentItemId;
                         }
 
-                        return _svc.GetAll() ?? new List<StockItem>();
+                        _svc.SaveSupplierPrices(persistedId, item.ItemName, item.Category, supplierPrices);
+
+                        return persistedId > 0 ? _svc.GetById(persistedId) : null;
                     });
 
                     RunOnUI(() =>
                     {
-                        BindInventoryList(items, false);
-                        LoadItemSuggestions(items);
+                        ApplyInventoryItemMutation(freshItem, currentItemId <= 0);
+                        LoadSupplierPrices(freshItem);
+                        LoadItemSuggestions(_allItems);
                         SetStatus("Material item saved. Next: update quantity, supplier, or create a purchase request when required.", SaveGreen);
                     });
                 });
@@ -1326,7 +2366,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(128, dy), Width = 120,
                 Font = new Font("Segoe UI", 9), DecimalPlaces = 2,
                 Minimum = 1, Maximum = 99999,
-                Value = Math.Max(1, _current.ReorderLevel > _current.CurrentStock ? _current.ReorderLevel - _current.CurrentStock : Math.Max(1, _current.ReorderLevel))
+                Value = Math.Max(1, _current.ReorderLevel > 0 ? _current.ReorderLevel : 1)
             };
             dlg.Controls.Add(numQty);
             dy += 36;
@@ -1388,7 +2428,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (best != null)
                     applySupplierOption(best);
                 else
-                    lblSupplierInsight.Text = "No supplier price is saved yet for this material. You can still create the request.";
+                    lblSupplierInsight.Text = "Supplier and price details are not available for this material yet. You can still create the request and enter the rate manually.";
             }
             catch (Exception ex)
             {
@@ -1451,7 +2491,7 @@ namespace HVAC_Pro_Desktop.UI
                     PODate      = DateTime.Today,
                     TotalAmount = total,
                     Status      = "Draft",
-                    Notes       = "Purchase request created from Materials / Procurement."
+                    Notes       = "Purchase request created from Materials / Job Procurement."
                 };
                 po.LineItems.Add(new PurchaseLineItem
                 {
@@ -1494,16 +2534,72 @@ namespace HVAC_Pro_Desktop.UI
             SetStatus("Update the current quantity and save the item.", InfoBlue);
         }
 
+        private void OpenInventorySupplierComparison()
+        {
+            if (_current == null)
+            {
+                SetStatus("Select a material before comparing suppliers.", WarnOrange);
+                return;
+            }
+
+            decimal quantity = _current.ReorderLevel > 0m ? Math.Max(1m, _current.ReorderLevel) : 1m;
+            using (var dialog = new SupplierPriceComparisonDialog(_current.ItemName, _current.Category, quantity, _vndSvc, _current.VendorID))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK || dialog.SelectedOption == null)
+                    return;
+
+                SelectInventoryVendorById(dialog.SelectedOption.VendorID);
+                if (_numRate != null)
+                    _numRate.Value = Math.Max(_numRate.Minimum, Math.Min(_numRate.Maximum, dialog.SelectedOption.Rate));
+                UpsertSupplierOptionInPriceBook(dialog.SelectedOption, true);
+                UpdateInventorySupplierSnapshot(_current);
+                SetStatus("Supplier recommendation applied: " + dialog.SelectedOption.VendorName + ".", SaveGreen);
+            }
+        }
+
+        private void UpsertSupplierOptionInPriceBook(SupplierOption option, bool markPreferred)
+        {
+            if (option == null || option.VendorID <= 0 || _gridSupplierPrices == null)
+                return;
+
+            foreach (DataGridViewRow row in _gridSupplierPrices.Rows)
+            {
+                if (TryParseInt(row.Cells["SupplierVendorID"].Value) != option.VendorID)
+                    continue;
+
+                row.Cells["SupplierRate"].Value = option.Rate.ToString("0.##");
+                row.Cells["SupplierUnit"].Value = string.IsNullOrWhiteSpace(option.Unit) ? DisplayUnit(_cboUnit?.Text) : option.Unit;
+                if (markPreferred)
+                    row.Cells["SupplierPreferred"].Value = true;
+                row.Cells["SupplierNotes"].Value = string.IsNullOrWhiteSpace(option.Source) ? "Supplier comparison" : option.Source;
+                if (markPreferred)
+                    RefreshPreferredSupplierFromPriceBook(true);
+                return;
+            }
+
+            AddSupplierPriceRow(new SupplierItemPrice
+            {
+                VendorID = option.VendorID,
+                VendorName = option.VendorName,
+                Rate = option.Rate,
+                Unit = string.IsNullOrWhiteSpace(option.Unit) ? DisplayUnit(_cboUnit?.Text) : option.Unit,
+                IsPreferred = markPreferred,
+                Notes = string.IsNullOrWhiteSpace(option.Source) ? "Supplier comparison" : option.Source
+            }, false);
+            if (markPreferred)
+                RefreshPreferredSupplierFromPriceBook(true);
+        }
+
         private void ShowReorderSuggestions()
         {
-            if (_current != null && _current.IsLowStock)
+            if (_current != null)
             {
                 CreatePO();
                 return;
             }
 
             LoadLowStock();
-            SetStatus("Supplier ordering plan loaded. Select a material to create a purchase request.", WarnOrange);
+            SetStatus("Procurement queue loaded. Select a material to create a purchase request.", WarnOrange);
         }
 
         private void ShowStockTransferDialog()
@@ -1737,7 +2833,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             rows = rows ?? new List<StockItem>();
             decimal value = rows.Sum(i => i.StockValue);
-            int toOrder = rows.Count(i => i.IsLowStock);
+            int toOrder = rows.Count(IsProcurementRequired);
             int needsVendor = rows.Count(i => string.IsNullOrWhiteSpace(i.VendorName));
             var sb = new StringBuilder();
             sb.Append("<html><head><style>");
@@ -1747,14 +2843,14 @@ namespace HVAC_Pro_Desktop.UI
             sb.Append("<div class='meta'>Generated ").Append(DateTime.Now.ToString("dd MMM yyyy HH:mm")).Append("</div>");
             sb.Append("<div class='cards'>");
             sb.Append(KpiHtml("Items", rows.Count.ToString("N0")));
-            sb.Append(KpiHtml("To order", toOrder.ToString("N0")));
+            sb.Append(KpiHtml("Procurement required", toOrder.ToString("N0")));
             sb.Append(KpiHtml("Needs supplier", needsVendor.ToString("N0")));
             sb.Append(KpiHtml("Purchase value", IndiaFormatHelper.FormatCurrency(value)));
             sb.Append("</div><table><tr><th>Item</th><th>Category</th><th>Unit</th><th class='right'>Current Qty</th><th class='right'>Rate</th><th class='right'>Value</th><th>Status</th><th>Supplier</th></tr>");
             foreach (StockItem item in rows)
             {
                 string status = InventoryProcurementStatus(item);
-                string cls = item.IsLowStock ? "low" : string.IsNullOrWhiteSpace(item.VendorName) ? "out" : "ok";
+                string cls = IsProcurementRequired(item) ? "low" : string.IsNullOrWhiteSpace(item.VendorName) ? "out" : "ok";
                 sb.Append("<tr><td>").Append(Html(item.ItemName)).Append("</td><td>").Append(Html(item.Category)).Append("</td><td>").Append(Html(DisplayUnit(item.Unit))).Append("</td><td class='right'>").Append(item.CurrentStock.ToString("N2")).Append("</td><td class='right'>").Append(item.LastPurchaseRate.ToString("N2")).Append("</td><td class='right'>").Append(item.StockValue.ToString("N2")).Append("</td><td class='").Append(cls).Append("'>").Append(status).Append("</td><td>").Append(Html(item.VendorName)).Append("</td></tr>");
             }
             sb.Append("</table></body></html>");
@@ -1770,9 +2866,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (item == null)
                 return "Catalog";
-            if (item.IsLowStock)
-                return "To Order";
-            return string.IsNullOrWhiteSpace(item.VendorName) ? "Needs Supplier" : "Supplier Linked";
+            if (IsProcurementRequired(item))
+                return "Procurement Required";
+            return string.IsNullOrWhiteSpace(item.VendorName) ? "Needs Supplier" : "Supplier Ready";
         }
 
         private static Dictionary<string, int> BuildCsvHeaderMap(List<string> headers)
@@ -1856,7 +2952,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_btnReorder == null)
                 return;
 
-            bool enabled = item != null && item.CurrentStock < item.ReorderLevel;
+            bool enabled = item != null && !string.IsNullOrWhiteSpace(item.ItemName);
             _btnReorder.Enabled = enabled;
             _btnReorder.ForeColor = enabled ? DS.Primary600 : Color.Gray;
         }
@@ -1869,6 +2965,147 @@ namespace HVAC_Pro_Desktop.UI
         private string DisplayUnit(string unit)
         {
             return _unitSvc.NormalizeForDisplayOrDefault(unit);
+        }
+
+        private ComboBox CreateInventoryFilterCombo(string defaultText, IEnumerable<string> items)
+        {
+            ComboBox combo = new ComboBox
+            {
+                Dock = DockStyle.Fill,
+                FlatStyle = FlatStyle.Standard,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9f),
+                Margin = new Padding(0, 4, 12, 4),
+                Tag = "CUSTOM_INPUT_SHELL"
+            };
+            foreach (string item in items ?? Enumerable.Empty<string>())
+                combo.Items.Add(item);
+            if (combo.Items.Count == 0)
+                combo.Items.Add(defaultText);
+            combo.SelectedIndex = 0;
+            return combo;
+        }
+
+        private void ResetInventoryFilters()
+        {
+            if (_cboListMode != null)
+                _cboListMode.SelectedIndex = 0;
+            if (_cboCategoryFilter != null)
+                _cboCategoryFilter.SelectedIndex = 0;
+            if (_cboSupplierFilter != null)
+                _cboSupplierFilter.SelectedIndex = 0;
+            if (_cboStockStatusFilter != null)
+                _cboStockStatusFilter.SelectedIndex = 0;
+            if (_cboActivityFilter != null)
+                _cboActivityFilter.SelectedIndex = 0;
+
+            ResetInventorySearchPlaceholder();
+            ApplyInventoryFilter();
+            SetStatus("Inventory filters cleared. Showing the full material catalog.", Color.Gray);
+        }
+
+        private void ResetInventorySearchPlaceholder()
+        {
+            if (_txtSearch == null)
+                return;
+
+            _inventorySearchPlaceholderActive = true;
+            _txtSearch.Text = "Search item, category, or supplier";
+            _txtSearch.ForeColor = DS.Slate500;
+        }
+
+        private bool HasActiveInventoryFilters()
+        {
+            return !string.IsNullOrWhiteSpace(GetInventorySearchText())
+                || !string.Equals(_cboListMode?.SelectedItem?.ToString() ?? "All", "All", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(_cboCategoryFilter?.SelectedItem?.ToString() ?? "All Categories", "All Categories", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(_cboSupplierFilter?.SelectedItem?.ToString() ?? "All Suppliers", "All Suppliers", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(_cboStockStatusFilter?.SelectedItem?.ToString() ?? "All Material Modes", "All Material Modes", StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(_cboActivityFilter?.SelectedItem?.ToString() ?? "All Activity", "All Activity", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private string BuildInventoryResultSuffix(string category, string supplier, string stockState, string activity)
+        {
+            List<string> tags = new List<string>();
+            if (!string.Equals(category, "All Categories", StringComparison.OrdinalIgnoreCase))
+                tags.Add(category);
+            if (!string.Equals(supplier, "All Suppliers", StringComparison.OrdinalIgnoreCase))
+                tags.Add(supplier);
+            if (!string.Equals(stockState, "All Material Modes", StringComparison.OrdinalIgnoreCase))
+                tags.Add(stockState);
+            if (!string.Equals(activity, "All Activity", StringComparison.OrdinalIgnoreCase))
+                tags.Add(activity);
+            return tags.Count == 0 ? "items" : string.Join(", ", tags) + " items";
+        }
+
+        private static bool IsProcurementRequired(StockItem item)
+        {
+            if (item == null)
+                return false;
+
+            return item.AvailableStock <= 0m || item.IsLowStock;
+        }
+
+        private void UpdateInventorySupplierSnapshot(StockItem item)
+        {
+            if (_lblSupplierSnapshotEyebrow == null || _lblSupplierSnapshotItem == null || _lblSupplierSnapshotSummary == null || _lblSupplierSnapshotDetail == null || _lblSupplierSnapshotRecommendation == null || _btnCompareSuppliers == null)
+                return;
+
+            SupplierSnapshotSummary summary;
+            if (item == null || string.IsNullOrWhiteSpace(item.ItemName))
+            {
+                summary = SupplierSnapshotFormatter.CreatePrompt(
+                    "Select a material to compare offers",
+                    "Best supplier, live offer count, and price guidance appear here.",
+                    "Choose a material to see recent supplier history.");
+            }
+            else
+            {
+                try
+                {
+                    decimal comparisonQuantity = item.ReorderLevel > 0m ? Math.Max(1m, item.ReorderLevel) : 1m;
+                    List<SupplierOption> options = _vndSvc.GetSupplierOptions(item.ItemName, item.Category);
+                    summary = SupplierSnapshotFormatter.CreateSummary(item.ItemName, comparisonQuantity, options, DisplayUnit);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.LogException("InventoryForm.UpdateInventorySupplierSnapshot", ex);
+                    summary = SupplierSnapshotFormatter.CreatePrompt(
+                        item.ItemName,
+                        "Supplier offers could not be analyzed right now.",
+                        "Open comparison to retry supplier analysis.");
+                }
+            }
+
+            _lblSupplierSnapshotEyebrow.Text = summary.EyebrowText;
+            _lblSupplierSnapshotEyebrow.ForeColor = summary.HasOptions ? (summary.HasMultipleOptions ? InfoBlue : SaveGreen) : DS.Slate500;
+            _lblSupplierSnapshotItem.Text = summary.ItemText;
+            _lblSupplierSnapshotSummary.Text = summary.SummaryText;
+            _lblSupplierSnapshotSummary.ForeColor = summary.HasOptions ? DS.Slate900 : DS.Slate600;
+            _lblSupplierSnapshotDetail.Text = summary.DetailText;
+            _lblSupplierSnapshotDetail.ForeColor = summary.HasOptions ? InfoBlue : DS.Slate500;
+            _lblSupplierSnapshotRecommendation.Text = summary.RecommendationText;
+            _lblSupplierSnapshotRecommendation.Visible = !string.IsNullOrWhiteSpace(summary.RecommendationText);
+            _btnCompareSuppliers.Enabled = item != null && !string.IsNullOrWhiteSpace(item.ItemName);
+            _toolTip.SetToolTip(_btnCompareSuppliers, summary.TooltipText ?? "Compare supplier prices for this material");
+        }
+
+        private bool SelectInventoryVendorById(int vendorId)
+        {
+            if (_cboVendor == null || vendorId <= 0)
+                return false;
+
+            for (int i = 0; i < _cboVendor.Items.Count; i++)
+            {
+                Vendor vendor = _cboVendor.Items[i] as Vendor;
+                if (vendor != null && vendor.VendorID == vendorId)
+                {
+                    _cboVendor.SelectedIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static void EnsureComboItem(ComboBox combo, string value)
@@ -1943,6 +3180,68 @@ namespace HVAC_Pro_Desktop.UI
             };
             btn.FlatAppearance.BorderSize = 0;
             return btn;
+        }
+
+        private sealed class InventoryListModule : VirtualListModuleBase<StockItem>
+        {
+            public InventoryListModule()
+            {
+                BackColor = Color.White;
+                Grid.BorderStyle = BorderStyle.None;
+                Grid.BackgroundColor = Color.White;
+                Grid.GridColor = DS.Border;
+                Grid.EnableHeadersVisualStyles = false;
+                Grid.ColumnHeadersDefaultCellStyle.BackColor = Color.White;
+                Grid.ColumnHeadersDefaultCellStyle.ForeColor = DS.Slate600;
+                Grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                Grid.DefaultCellStyle.Font = new Font("Segoe UI", 8.75f);
+                Grid.DefaultCellStyle.BackColor = Color.White;
+                Grid.DefaultCellStyle.ForeColor = DS.Slate900;
+                Grid.DefaultCellStyle.SelectionBackColor = DS.Indigo50;
+                Grid.DefaultCellStyle.SelectionForeColor = DS.Slate900;
+                Grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+                Grid.RowTemplate.Height = 38;
+                SetStatusVisible(false);
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ItemName", HeaderText = "Material", FillWeight = 30f });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", FillWeight = 16f });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = "Unit", FillWeight = 10f });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "CurrentStock", HeaderText = "Stock", FillWeight = 12f });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "StockValue", HeaderText = "Value", FillWeight = 14f });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "VendorName", HeaderText = "Supplier", FillWeight = 18f });
+            }
+
+            protected override int GetRowId(StockItem item)
+            {
+                return item == null ? 0 : item.ItemID;
+            }
+
+            protected override object GetCellValue(StockItem item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "ItemName":
+                        return item.ItemName ?? string.Empty;
+                    case "Category":
+                        return item.Category ?? "General";
+                    case "Unit":
+                        return item.Unit ?? UnitMeasurementService.DefaultCode;
+                    case "CurrentStock":
+                        return item.CurrentStock.ToString("N1");
+                    case "StockValue":
+                        return item.StockValue.ToString("N2");
+                    case "VendorName":
+                        return string.IsNullOrWhiteSpace(item.VendorName) ? "Needs Supplier" : item.VendorName;
+                    default:
+                        return string.Empty;
+                }
+            }
         }
 
         private sealed class InventoryLoadSnapshot

@@ -48,7 +48,7 @@ namespace HVAC_Pro_Desktop.UI
         private int _tablePageSize = 10;
         private bool _refreshingDashboard;
 
-        private FlowLayoutPanel _contractListFlow;
+        private ContractSidebarListModule _contractListModule;
         private TextBox _sidebarSearch;
         private string _sidebarFilter = "All Contracts";
 
@@ -77,6 +77,7 @@ namespace HVAC_Pro_Desktop.UI
         private AMCContract _current;
         private int? _siteFilterSiteId;
         private static int? PendingSiteNavigationSiteId;
+        private bool _syncingContractSelection;
 
         private static readonly Color PageBg = Color.FromArgb(246, 248, 252);
         private static readonly Color CardBg = Color.White;
@@ -271,10 +272,10 @@ namespace HVAC_Pro_Desktop.UI
                 Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", 10f),
                 BorderStyle = BorderStyle.None,
-                Text = "Search contracts...",
+                Text = "Search",
                 ForeColor = Muted
             };
-            AddPlaceholder(_dashboardSearch, "Search contracts...");
+            AddPlaceholder(_dashboardSearch, "Search");
             dashboardSearchHost.Controls.Add(_dashboardSearch);
             _dashboardSearch.TextChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
 
@@ -590,10 +591,10 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(176, 30),
                 Font = new Font("Segoe UI", 9f),
                 BorderStyle = BorderStyle.FixedSingle,
-                Text = "Search contracts...",
+                Text = "Search",
                 ForeColor = Muted
             };
-            AddPlaceholder(_sidebarSearch, "Search contracts...");
+            AddPlaceholder(_sidebarSearch, "Search");
             _sidebarSearch.TextChanged += (s, e) => RefreshSidebarList();
             card.Controls.Add(_sidebarSearch);
             Button filter = MakeButton("", Color.White, 34);
@@ -634,18 +635,13 @@ namespace HVAC_Pro_Desktop.UI
             Panel divider = new Panel { Location = new Point(0, y + 8), Size = new Size(260, 1), BackColor = Border, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             card.Controls.Add(divider);
 
-            _contractListFlow = new FlowLayoutPanel
-            {
-                Location = new Point(8, y + 22),
-                Size = new Size(238, 430),
-                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = true,
-                BackColor = Color.White
-            };
-            card.Controls.Add(_contractListFlow);
-            card.Resize += (s, e) => _contractListFlow.Size = new Size(card.ClientSize.Width - 16, card.ClientSize.Height - _contractListFlow.Top - 12);
+            _contractListModule = new ContractSidebarListModule();
+            _contractListModule.Location = new Point(8, y + 22);
+            _contractListModule.Size = new Size(238, 430);
+            _contractListModule.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+            _contractListModule.RowSelected += HandleContractRowSelected;
+            card.Controls.Add(_contractListModule);
+            card.Resize += (s, e) => _contractListModule.Size = new Size(card.ClientSize.Width - 16, card.ClientSize.Height - _contractListModule.Top - 12);
             return card;
         }
 
@@ -924,7 +920,7 @@ namespace HVAC_Pro_Desktop.UI
             IEnumerable<AMCContract> contracts = GetContracts();
             if (_siteFilterSiteId.HasValue)
                 contracts = contracts.Where(c => c.SiteID == _siteFilterSiteId.Value);
-            string query = GetBoxText(_dashboardSearch, "Search contracts...");
+            string query = GetBoxText(_dashboardSearch, "Search");
             if (!string.IsNullOrWhiteSpace(query))
             {
                 contracts = contracts.Where(c =>
@@ -1032,11 +1028,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshSidebarList()
         {
-            if (_contractListFlow == null) return;
-            _contractListFlow.SuspendLayout();
-            _contractListFlow.Controls.Clear();
+            if (_contractListModule == null) return;
             IEnumerable<AMCContract> contracts = GetContracts();
-            string query = GetBoxText(_sidebarSearch, "Search contracts...");
+            string query = GetBoxText(_sidebarSearch, "Search");
             if (!string.IsNullOrWhiteSpace(query))
             {
                 contracts = contracts.Where(c => ContractName(c).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
@@ -1046,16 +1040,8 @@ namespace HVAC_Pro_Desktop.UI
                 contracts = contracts.Where(c => GetDisplayStatus(c) == _sidebarFilter || IsStatus(c, _sidebarFilter));
 
             List<AMCContract> list = contracts.OrderByDescending(c => c.ContractID).Take(30).ToList();
-            if (list.Count == 0)
-            {
-                _contractListFlow.Controls.Add(BuildContractEmptyState());
-            }
-            else
-            {
-                foreach (AMCContract contract in list)
-                    _contractListFlow.Controls.Add(MakeSidebarContractCard(contract));
-            }
-            _contractListFlow.ResumeLayout(true);
+            _contractListModule.SetItems(list);
+            SyncContractSelection();
             UpdateContractCount();
         }
 
@@ -1063,6 +1049,34 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_contractCountLabel != null)
                 _contractCountLabel.Text = GetContracts().Count + " contracts.";
+        }
+
+        private void SyncContractSelection()
+        {
+            if (_contractListModule == null)
+                return;
+
+            int? selectedId = _current == null ? (int?)null : _current.ContractID;
+            if (_contractListModule.GetSelectedRowId() == selectedId)
+                return;
+
+            _syncingContractSelection = true;
+            try
+            {
+                _contractListModule.SetSelectedRowId(selectedId);
+            }
+            finally
+            {
+                _syncingContractSelection = false;
+            }
+        }
+
+        private void HandleContractRowSelected(AMCContract contract)
+        {
+            if (_syncingContractSelection || contract == null)
+                return;
+
+            ShowNewContractPage(contract);
         }
 
         private void EnsureSeedContracts()
@@ -1584,6 +1598,55 @@ namespace HVAC_Pro_Desktop.UI
             RecordDeletionUi.AddDeleteMenuItem(menu, async (s, e) => await DeleteContractAsync(contract));
             button.Click += (s, e) => menu.Show(button, new Point(0, button.Height));
             return button;
+        }
+
+        private sealed class ContractSidebarListModule : VirtualListModuleBase<AMCContract>
+        {
+            public ContractSidebarListModule()
+            {
+                BackColor = Color.White;
+                ListGrid.ColumnHeadersHeight = 32;
+                ListGrid.RowTemplate.Height = 34;
+                ListGrid.BackgroundColor = Color.White;
+            }
+
+            protected override void BuildColumns(DataGridView grid)
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Contract", HeaderText = "Contract", FillWeight = 44f, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Client", HeaderText = "Client", Width = 110 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Renewal", HeaderText = "Renewal", Width = 88 });
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", Width = 84 });
+            }
+
+            protected override int GetRowId(AMCContract item)
+            {
+                return item?.ContractID ?? 0;
+            }
+
+            protected override object GetCellValue(AMCContract item, string columnName)
+            {
+                if (item == null)
+                    return string.Empty;
+
+                switch (columnName)
+                {
+                    case "Contract":
+                        return string.IsNullOrWhiteSpace(item.ContractType) ? "AMC Contract" : item.ContractType + " #" + item.ContractID;
+                    case "Client":
+                        return item.ClientID > 0 ? "Client #" + item.ClientID : string.Empty;
+                    case "Renewal":
+                        return item.EndDate == default(DateTime) ? "-" : item.EndDate.ToString("dd MMM yyyy");
+                    case "Status":
+                        return string.IsNullOrWhiteSpace(item.ContractStatus) ? "Draft" : item.ContractStatus;
+                    default:
+                        return string.Empty;
+                }
+            }
+
+            protected override string BuildStatusText(int visibleCount, int totalCount)
+            {
+                return totalCount == 0 ? "No contracts found." : visibleCount.ToString("N0") + " of " + totalCount.ToString("N0") + " contracts shown.";
+            }
         }
 
         private Panel MakeSidebarContractCard(AMCContract contract)

@@ -571,7 +571,7 @@ namespace HVAC_Pro_Desktop.UI
             _quoteRecentGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Status", HeaderText = "Status", FillWeight = 80 });
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Pdf", HeaderText = "", Text = "PDF", UseColumnTextForButtonValue = true, FillWeight = 50 });
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Edit", HeaderText = "", Text = "Edit", UseColumnTextForButtonValue = true, FillWeight = 50 });
-            _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Convert", HeaderText = "", Text = "Invoice", UseColumnTextForButtonValue = true, FillWeight = 60 });
+            _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Convert", HeaderText = "", Text = "PO", UseColumnTextForButtonValue = true, FillWeight = 60 });
             _quoteRecentGrid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true, FillWeight = 60 });
             foreach (QuotationRecentRow row in rows ?? new List<QuotationRecentRow>())
                 _quoteRecentGrid.Rows.Add(row.BidId, row.QuotationNumber, row.ClientName, row.SiteName, IndiaFormatHelper.FormatDate(row.QuotationDate), IndiaFormatHelper.FormatCurrency(row.Value), row.CommercialFlow, row.CustomerDocumentStatus, row.SupplierDocumentStatus, row.Status);
@@ -617,7 +617,7 @@ namespace HVAC_Pro_Desktop.UI
 
             await LoadQuotationFromDashboardAsync(bidId);
             if (column == "Convert")
-                await CreateInvoiceAsync();
+                await CreatePurchaseOrdersAsync();
         }
 
         private async Task DeleteQuotationFromDashboardAsync(int bidId)

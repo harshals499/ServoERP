@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
@@ -9,6 +10,8 @@ namespace HVAC_Pro_Desktop.UI
 {
     public sealed class GlobalSearchDialog : ServoERP.Infrastructure.ServoFormBase
     {
+        private const int EM_SETCUEBANNER = 0x1501;
+
         private readonly GlobalSearchService _searchService = new GlobalSearchService();
         private readonly TextBox _searchBox;
         private readonly ListBox _results;
@@ -26,6 +29,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _searchBox = new TextBox { Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 11f), Margin = new Padding(12) };
             _searchBox.TextChanged += (s, e) => RunSearch();
+            _searchBox.HandleCreated += (s, e) => SetCueBanner(_searchBox, "Search");
             _searchBox.KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Enter)
@@ -51,7 +55,11 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(_results);
             Controls.Add(_searchBox);
             Controls.Add(header);
-            Shown += (s, e) => _searchBox.Focus();
+            Shown += (s, e) =>
+            {
+                SetCueBanner(_searchBox, "Search");
+                _searchBox.Focus();
+            };
         }
 
         private void RunSearch()
@@ -80,6 +88,17 @@ namespace HVAC_Pro_Desktop.UI
             NavigationHelper.OpenSearchResult(this, selected, _navigate);
             Close();
         }
+
+        private static void SetCueBanner(TextBox box, string placeholder)
+        {
+            if (box == null || box.IsDisposed || !box.IsHandleCreated)
+                return;
+
+            SendMessage(box.Handle, EM_SETCUEBANNER, new IntPtr(1), placeholder ?? string.Empty);
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
     }
 }
 

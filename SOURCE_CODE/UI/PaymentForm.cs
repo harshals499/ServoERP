@@ -562,8 +562,8 @@ namespace HVAC_Pro_Desktop.UI
             _txnTypeFilter.SelectedIndexChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
             txnTypeHost.Controls.Add(_txnTypeFilter);
             Panel txnSearchHost = new Panel { Name = "TxnSearchHost", Size = new Size(210, 32), BackColor = DS.BgInput, Padding = new Padding(8, 2, 8, 2) };
-            _txnSearch = new TextBox { Name = "TxnSearchTextBox", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.None, Text = "Search by reference, customer, invoice...", ForeColor = DS.Slate400 };
-            AddDashboardPlaceholder(_txnSearch, "Search by reference, customer, invoice...");
+            _txnSearch = new TextBox { Name = "TxnSearchTextBox", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.None, Text = "Search", ForeColor = DS.Slate400 };
+            AddDashboardPlaceholder(_txnSearch, "Search");
             _txnSearch.TextChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
             txnSearchHost.Controls.Add(_txnSearch);
             Button export = MakePayOutlineButton("Export", 76);
@@ -781,7 +781,7 @@ namespace HVAC_Pro_Desktop.UI
             else if (_overviewTab == "Refunds") query = query.Where(t => t.Type == "Refund");
             string type = _txnTypeFilter?.SelectedItem?.ToString() ?? "All Types";
             if (type != "All Types") query = query.Where(t => t.Type == type);
-            string search = GetTextFilter(_txnSearch, "Search by reference, customer, invoice...");
+            string search = GetTextFilter(_txnSearch, "Search");
             if (!string.IsNullOrWhiteSpace(search))
                 query = query.Where(t => (t.ReferenceNo ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 || (t.CustomerVendor ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 || (t.InvoiceBillNo ?? "").IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
             return query.OrderByDescending(t => t.Date).ToList();

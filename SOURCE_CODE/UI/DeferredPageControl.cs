@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.UI.Helpers;
 
@@ -30,6 +31,9 @@ namespace HVAC_Pro_Desktop.UI
         public bool DeferredLoadCompleted => _deferredLoadCompleted;
 
         public bool HasDeferredLoad => _hasDeferredLoad;
+
+        /// <summary>Deferred ERP modules are treated as heavy shell pages unless a page explicitly opts out.</summary>
+        public virtual bool IsHeavyShellPage => true;
 
         protected virtual Size MainScrollCanvasMinimum => new Size(MINIMUM_MAIN_CANVAS_WIDTH, MINIMUM_MAIN_CANVAS_HEIGHT);
 
@@ -215,6 +219,124 @@ namespace HVAC_Pro_Desktop.UI
             _hasDeferredLoad = true;
             _deferredLoadQueued = false;
             _deferredLoadCompleted = true;
+        }
+
+        /// <summary>Lets the main shell notify a page that it became the active visible module.</summary>
+        public virtual void OnShellActivated()
+        {
+        }
+
+        /// <summary>Lets the main shell notify a page that it is no longer the active visible module.</summary>
+        public virtual void OnShellDeactivated()
+        {
+        }
+
+        /// <summary>Lets the main shell notify a page before it is evicted from cache and disposed.</summary>
+        public virtual void OnShellCacheEvicted()
+        {
+        }
+
+        public virtual ModuleState CaptureModuleState(string pageKey)
+        {
+            return new ModuleState
+            {
+                PageKey = pageKey,
+                ActiveTab = FindActiveTabKey(this),
+                ScrollPosition = FindPrimaryScrollPosition(this)
+            };
+        }
+
+        public virtual void RestoreModuleState(ModuleState state)
+        {
+            if (state == null)
+                return;
+
+            if (!string.IsNullOrWhiteSpace(state.ActiveTab))
+                RestoreActiveTab(this, state.ActiveTab);
+            RestorePrimaryScrollPosition(this, state.ScrollPosition);
+        }
+
+        private static int FindPrimaryScrollPosition(Control root)
+        {
+            if (root == null)
+                return 0;
+
+            ScrollableControl scroll = root as ScrollableControl;
+            if (scroll != null && scroll.VerticalScroll != null)
+                return scroll.VerticalScroll.Value;
+
+            foreach (Control child in root.Controls)
+            {
+                int childPosition = FindPrimaryScrollPosition(child);
+                if (childPosition > 0)
+                    return childPosition;
+            }
+
+            return 0;
+        }
+
+        private static void RestorePrimaryScrollPosition(Control root, int scrollPosition)
+        {
+            if (root == null || scrollPosition <= 0)
+                return;
+
+            ScrollableControl scroll = root as ScrollableControl;
+            if (scroll != null)
+            {
+                try
+                {
+                    scroll.AutoScrollPosition = new Point(0, scrollPosition);
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            foreach (Control child in root.Controls)
+                RestorePrimaryScrollPosition(child, scrollPosition);
+        }
+
+        private static string FindActiveTabKey(Control root)
+        {
+            if (root == null)
+                return string.Empty;
+
+            TabControl tabs = root as TabControl;
+            if (tabs != null && tabs.SelectedTab != null)
+                return tabs.SelectedTab.Name ?? tabs.SelectedTab.Text ?? string.Empty;
+
+            foreach (Control child in root.Controls)
+            {
+                string key = FindActiveTabKey(child);
+                if (!string.IsNullOrWhiteSpace(key))
+                    return key;
+            }
+
+            return string.Empty;
+        }
+
+        private static void RestoreActiveTab(Control root, string tabKey)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(tabKey))
+                return;
+
+            TabControl tabs = root as TabControl;
+            if (tabs != null)
+            {
+                foreach (TabPage tab in tabs.TabPages)
+                {
+                    if (string.Equals(tab.Name, tabKey, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(tab.Text, tabKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        tabs.SelectedTab = tab;
+                        return;
+                    }
+                }
+            }
+
+            foreach (Control child in root.Controls)
+                RestoreActiveTab(child, tabKey);
         }
 
         private void QueueControlTreePolish()
