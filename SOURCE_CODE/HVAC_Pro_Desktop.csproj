@@ -200,6 +200,7 @@
     <Compile Include="MODELS\TenderBid.cs" />
     <Compile Include="MODELS\Vendor.cs" />
     <Compile Include="MODELS\PurchaseOrder.cs" />
+    <Compile Include="MODELS\SupplierItemPrice.cs" />
     <Compile Include="MODELS\StockItem.cs" />
     <Compile Include="MODELS\StockMovement.cs" />
     <Compile Include="MODELS\Employee.cs" />
@@ -213,6 +214,7 @@
     <Compile Include="MODELS\AuthModels.cs" />
     <Compile Include="MODELS\PayrollModels.cs" />
     <Compile Include="MODELS\CardLayoutDto.cs" />
+    <Compile Include="MODELS\ModuleState.cs" />
     <Compile Include="MODELS\PaginationState.cs" />
     <Compile Include="MODELS\ServiceDeskModels.cs" />
     <Compile Include="MODELS\MailIntegrationModels.cs" />
@@ -242,6 +244,7 @@
     <Compile Include="DAL\PaymentRepository.cs" />
     <Compile Include="DAL\SLARepository.cs" />
     <Compile Include="DAL\VendorRepository.cs" />
+    <Compile Include="DAL\SupplierItemPriceRepository.cs" />
     <Compile Include="DAL\PurchaseRepository.cs" />
     <Compile Include="DAL\InventoryRepository.cs" />
     <Compile Include="DAL\EmployeeRepository.cs" />
@@ -268,6 +271,7 @@
     <Compile Include="SERVICES\AppDataCache.cs" />
     <Compile Include="SERVICES\AppWarmupService.cs" />
     <Compile Include="SERVICES\VendorService.cs" />
+    <Compile Include="SERVICES\SupplierItemPriceService.cs" />
     <Compile Include="SERVICES\VendorAdvancePaymentService.cs" />
     <Compile Include="SERVICES\PurchaseService.cs" />
     <Compile Include="SERVICES\InventoryService.cs" />
@@ -444,6 +448,7 @@
     <Compile Include="UI\SupplierPriceComparisonDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\SupplierSnapshotFormatter.cs" />
     <Compile Include="UI\UiPerformanceService.cs" />
     <Compile Include="UI\StatusOptionProvider.cs" />
     <Compile Include="UI\TourEngine.cs" />
@@ -455,6 +460,10 @@
     </Compile>
     <Compile Include="UI\HtmlPreviewDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\JobPreviewDocumentBuilder.cs" />
+    <Compile Include="UI\JobPreviewPage.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\GlobalSearchDialog.cs">
       <SubType>Form</SubType>
@@ -507,6 +516,11 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\DeferredPageControl.cs" />
+    <Compile Include="UI\VirtualListModuleBase.cs" />
+    <Compile Include="UI\LazyDetailHost.cs" />
+    <Compile Include="UI\LazyTabPage.cs" />
+    <Compile Include="UI\AsyncLoadCoordinator.cs" />
+    <Compile Include="UI\IncrementalRefreshService.cs" />
     <Compile Include="UI\PermissionUiHelper.cs" />
     <Compile Include="UI\ResizableCard.cs">
       <SubType>UserControl</SubType>

@@ -98,6 +98,11 @@ namespace HVAC_Pro_Desktop
             }
         }
 
+        private static bool HasArg(string[] args, string expected)
+        {
+            return args != null && args.Any(arg => string.Equals(arg, expected, StringComparison.OrdinalIgnoreCase));
+        }
+
         private static void ShutdownExistingAppInstances()
         {
             try
@@ -215,7 +220,7 @@ namespace HVAC_Pro_Desktop
                 LayoutAuditService.AttachGlobalFormAuditor();
                 InputOutlineService.InstallGlobalApplicationWatcher();
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/firstrun", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/firstrun"))
                 {
                     try
                     {
@@ -230,7 +235,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/serversetup", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/serversetup"))
                 {
                     Application.Run(new ServerFirstRunSetupForm());
                     return;
@@ -238,8 +243,12 @@ namespace HVAC_Pro_Desktop
 
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 LocalSqliteFallbackStore.EnsureReady();
-                var dbManager = new DatabaseManager();
                 Stopwatch stageWatch = Stopwatch.StartNew();
+                stageWatch.Restart();
+                string resolvedSqlServer = DatabaseManager.PrepareSqlServer();
+                AppRuntime.LogTiming("Startup.PrepareSqlServer", stageWatch.ElapsedMilliseconds, resolvedSqlServer);
+                var dbManager = new DatabaseManager();
+                stageWatch.Restart();
                 if (dbManager.IsNormalStartupReady())
                 {
                     AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "skipped; database ready");
@@ -278,7 +287,7 @@ namespace HVAC_Pro_Desktop
                 new BackupService().EnsureBackupInfrastructure();
                 AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/smoketest", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/smoketest"))
                 {
                     string reportPath = EnterpriseUiSmokeTests.WriteReport();
                     if (File.Exists(reportPath) && File.ReadAllText(reportPath).Contains(Environment.NewLine + "FAIL "))
@@ -289,7 +298,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/cardmenuaudit", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/cardmenuaudit"))
                 {
                     string reportPath = GlobalCardContextMenuFormAuditTests.WriteReport();
                     string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
@@ -298,7 +307,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/amctest", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/amctest"))
                 {
                     string dir = System.IO.Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
                     System.IO.Directory.CreateDirectory(dir);
@@ -355,7 +364,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 AppRuntime.LogTiming("Startup.LegalAgreement", stageWatch.ElapsedMilliseconds);
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/amcformtiming", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/amcformtiming"))
                 {
                     stageWatch.Restart();
                     string bypassMessage2;
@@ -371,7 +380,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/navtiming", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/navtiming"))
                 {
                     stageWatch.Restart();
                     string bypassMessage;
@@ -407,7 +416,7 @@ namespace HVAC_Pro_Desktop
                 AppRuntime.LogException("Application startup", ex);
                 LocalSqliteFallbackStore.RecordSqlUnavailable(DatabaseManager.GetConfiguredConnectionString(), ex);
 
-                if (args.Skip(1).Any(arg => string.Equals(arg, "/smoketest", StringComparison.OrdinalIgnoreCase)))
+                if (HasArg(args, "/smoketest"))
                 {
                     WriteStartupSmokeFailure(ex);
                     Environment.ExitCode = 1;

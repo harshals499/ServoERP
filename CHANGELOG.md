@@ -1,5 +1,53 @@
 # Changelog
 
+## 1.1.135.0 - 2026-06-21
+
+- Hardened startup and SQL connection handling so the desktop app is more reliable on office machines using the shared `.\SQLEXPRESS` business database.
+- Standardized shared unit normalization and import preflight behavior across inventory, purchase, quotation, invoice, and job-related flows to reduce inconsistent saved data and brittle imports.
+- Strengthened unattended smoke coverage, pagination responsiveness, and visual verification workflows so release builds are easier to validate before shipping.
+
+## 1.1.134.0 - 2026-06-19
+
+- Fixed the Inventory item-details layout so supplier-rate actions no longer disappear below the visible panel area on client-sized screens.
+- Added a visible `Manage Supplier Rates` action inside the supplier price book section so users can always add, remove, and mark preferred supplier rows even when the inline panel is tight.
+- Rebuilt the Release desktop app and visually rechecked the updated Inventory details panel after the layout fix.
+
+## 1.1.133.0 - 2026-06-19
+
+- Added a multi-supplier price book to item details so each material can now store multiple vendor-rate combinations instead of only one supplier mapping.
+- Kept backward compatibility by syncing one preferred supplier back to the existing material record while using the saved price book for supplier comparison and recommendation flows.
+- Practically verified the new supplier-price source against the local SQL-backed app logic by inserting temporary supplier price rows, confirming comparison results, and restoring the original data.
+
+## 1.1.132.0 - 2026-06-19
+
+- Fixed Desktop-installer config precedence so ServoERP now prefers the established `C:\HVAC_PRO_MSE\HVACPro.config` when it exists, instead of accidentally drifting to a packaged app-local config after an update.
+- Reduced false “inventory became zero” confusion by auto-selecting the first loaded material row so the item detail panel shows a real current quantity instead of staying on the empty `0.00` state after load.
+- Prepared this release as an inventory recovery rollout for clients moving from the older install channel to the Desktop update channel.
+
+## 1.1.131.0 - 2026-06-19
+
+- Improved supplier-rate handling for inventory and purchase flows so missing supplier price history no longer feels like a failed fetch.
+- When no saved supplier rate exists for a material, ServoERP now shows a professional in-app notice that supplier and price details are not yet available and the rate can be entered manually.
+- Updated supplier comparison empty states to use the same clearer wording for missing supplier-price data.
+
+## 1.1.130.0 - 2026-06-19
+
+- Standardized the shared PDF and HTML document branding fallback so company headers default to `Madhusuman Enterprises` instead of placeholder or app-name text when company settings are blank.
+- Upgraded the Jobs preview document surface to use the official top letterhead and a cleaner quotation-style service-report layout for client-facing previews.
+- Rebuilt the Release desktop app for client distribution and revalidated startup on the shipped Release executable.
+
+## 1.1.129.0 - 2026-06-18
+
+- Fixed Desktop update detection for older/manual installs such as `1.1.91` that are not running as Velopack-managed app shortcuts.
+- When ServoERP cannot apply an in-place package update, it now checks the latest GitHub release, reports the newer version correctly, and offers to open the latest installer instead of leaving the client apparently stuck.
+- Release build completed successfully and the updater fallback path was rebuilt for distribution.
+
+## 1.1.128.0 - 2026-06-18
+
+- Reframed Inventory around job-based procurement so the client UI now reflects on-demand material buying instead of warehouse-first replenishment.
+- Updated Materials / Procurement, job material guidance, dashboard summaries, reports, and import descriptions to use procurement-ready, supplier-ready, and direct-purchase language that fits the actual operating model.
+- Rebuilt the Release desktop package and prepared a fresh GitHub Releases update so client desktops can receive the new procurement-first experience through the updater.
+
 ## 1.1.107.0 - 2026-06-18
 
 - Superseded the numerically older `1.1.98` updater package with a new Velopack release above the already-published `1.1.106` feed version so client desktops can detect the update correctly.
