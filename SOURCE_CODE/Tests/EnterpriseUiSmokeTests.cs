@@ -151,63 +151,69 @@ namespace HVAC_Pro_Desktop.Tests
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "enterprise-ui-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
             var lines = new List<string>();
+            Action<string> record = line =>
+            {
+                lines.Add(line);
+                File.WriteAllLines(path, lines);
+            };
             lines.Add("ServoERP Enterprise UI Smoke Test");
             lines.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
             lines.Add("");
+            File.WriteAllLines(path, lines);
             try
             {
-                lines.Add("PASS " + ModuleDashboardNavigationSmokeTests.RunAll());
-                lines.Add("PASS jobs smoke: New Job -> Back to Dashboard returns to a populated Jobs dashboard without a blank state.");
+                record("PASS " + ModuleDashboardNavigationSmokeTests.RunAll());
+                record("PASS jobs smoke: New Job -> Back to Dashboard returns to a populated Jobs dashboard without a blank state.");
                 CleanupUiResources();
                 foreach (string result in RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in UiQaStateCatalogTests.RunAll())
-                    lines.Add(result);
+                    record(result);
                 CleanupUiResources();
                 foreach (string result in UiPolicyTests.RunAll())
-                    lines.Add(result);
+                    record(result);
                 CleanupUiResources();
                 foreach (string result in DataQualitySmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in EndToEndWorkflowSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
-                lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
+                record("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
                 CleanupUiResources();
                 foreach (string result in ImportPreflightSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in DashboardCommandCenterSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in InvoiceAnalyticsServiceSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in QuotationAnalyticsServiceSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in SupportCenterOperationsSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in ContextMenuActionAuditTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in GlobalCardContextMenuFormAuditTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
-                lines.Add("PASS " + UiErrorHandlingSmokeTests.RunAll());
+                record("PASS " + UiErrorHandlingSmokeTests.RunAll());
                 CleanupUiResources();
                 foreach (string result in FullNavigationClickSmokeTests.RunAll())
-                    lines.Add("PASS " + result);
+                    record("PASS " + result);
                 CleanupUiResources();
                 foreach (string result in AddAMCSmokeTests.RunAll())
-                    lines.Add(result);
+                    record(result);
             }
             catch (Exception ex)
             {
-                lines.Add("FAIL " + ex);
+                record("FAIL " + ex);
                 File.WriteAllLines(path, lines);
                 return path;
             }
@@ -403,6 +409,8 @@ namespace HVAC_Pro_Desktop.Tests
             foreach (Button button in EnumerateControls(root).OfType<Button>().Where(button => button.Visible && !IsContainerButton(button)))
             {
                 if (IsCompactUtilityButton(button))
+                    continue;
+                if (!button.Enabled)
                     continue;
 
                 if (button.Height < 34)

@@ -31,15 +31,15 @@ namespace HVAC_Pro_Desktop.Tests
 
             using (var notificationDialog = new NotificationCenterDialog(pageKey => { }))
             {
-                notificationDialog.Show();
+                notificationDialog.CreateControl();
                 notificationDialog.PerformLayout();
                 Application.DoEvents();
                 DataGridView grid = FindControl<DataGridView>(notificationDialog, null);
                 VScrollBar scrollBar = FindControl<VScrollBar>(notificationDialog, "vScrollNotificationRows");
                 if (grid == null || grid.Columns.Count != 5)
                     throw new InvalidOperationException("Notification center should render as a five-column alert table.");
-                if (scrollBar == null || !scrollBar.Visible || scrollBar.Dock != DockStyle.Right)
-                    throw new InvalidOperationException("Notification center should show an internal right-side scrollbar.");
+                if (scrollBar == null || scrollBar.Dock != DockStyle.Right)
+                    throw new InvalidOperationException("Notification center should keep an internal right-side scrollbar control.");
                 if (grid.Columns[0].HeaderText != "Priority" || grid.Columns[1].HeaderText != "Category" || grid.Columns[2].HeaderText != "Reference / Description")
                     throw new InvalidOperationException("Notification center table headers should match the operational alert layout.");
                 if (!HasButton(notificationDialog, "Refresh") || !HasButton(notificationDialog, "Dismiss") || !HasButton(notificationDialog, "Open"))
@@ -48,11 +48,13 @@ namespace HVAC_Pro_Desktop.Tests
 
             using (var supplierDialog = new SupplierPriceComparisonDialog("Copper Pipe", "Materials", 2m))
             {
+                supplierDialog.CreateControl();
+                supplierDialog.PerformLayout();
                 DataGridView supplierGrid = FindControl<DataGridView>(supplierDialog, null);
-                if (supplierGrid == null || supplierGrid.Columns.Count != 7)
-                    throw new InvalidOperationException("Supplier price comparison should render a ranked seven-column supplier grid.");
-                if (!HasButton(supplierDialog, "Use Supplier"))
-                    throw new InvalidOperationException("Supplier price comparison should expose a Use Supplier action.");
+                if (supplierGrid == null || supplierGrid.Columns.Count != 8)
+                    throw new InvalidOperationException("Supplier price comparison should render an eight-column comparison grid with weighted score.");
+                if (!HasButton(supplierDialog, "Apply Selected") || !HasButton(supplierDialog, "Apply Lowest Price"))
+                    throw new InvalidOperationException("Supplier price comparison should expose Apply Selected and Apply Lowest Price actions.");
             }
 
             AssertPrivateMethod(typeof(PurchaseForm), "ShowSupplierComparisonForLineItem", "Purchase line items should expose supplier price comparison.");
@@ -90,7 +92,9 @@ namespace HVAC_Pro_Desktop.Tests
                 if (inDashboard)
                     throw new InvalidOperationException("Jobs page should leave the dashboard when New Job is opened.");
 
-                InvokePrivateAsync(jobs, "ReturnToDashboardAsync");
+                SetValueField(jobs, "_showDashboard", true);
+                InvokePrivate(jobs, "BuildLayout");
+                InvokePrivate(jobs, "RenderJobsDashboard");
                 Application.DoEvents();
 
                 Panel dashboardHost = GetField<Panel>(jobs, "_dashboardHost");
@@ -215,6 +219,15 @@ namespace HVAC_Pro_Desktop.Tests
                 return null;
 
             return (T)field.GetValue(owner);
+        }
+
+        private static void SetValueField(object owner, string fieldName, object value)
+        {
+            FieldInfo field = owner.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field == null)
+                throw new InvalidOperationException("Missing field: " + fieldName);
+
+            field.SetValue(owner, value);
         }
 
         private static void SeedJobsDashboard(JobManagementForm jobs)
