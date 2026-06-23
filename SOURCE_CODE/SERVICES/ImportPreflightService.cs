@@ -44,15 +44,15 @@ namespace HVAC_Pro_Desktop.Services
 
     public static class ImportPreflightService
     {
-        public static ImportReferenceSnapshot LoadReferenceSnapshot(SqlConnection conn)
+        public static ImportReferenceSnapshot LoadReferenceSnapshot(SqlConnection conn, SqlTransaction transaction = null)
         {
             return new ImportReferenceSnapshot
             {
-                ClientNames = QueryStrings(conn, "IF OBJECT_ID('dbo.B2BClients','U') IS NOT NULL SELECT CompanyName FROM B2BClients ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
-                VendorNames = QueryStrings(conn, "IF OBJECT_ID('dbo.Vendors','U') IS NOT NULL SELECT VendorName FROM Vendors ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
-                EmployeeNames = QueryStrings(conn, "IF OBJECT_ID('dbo.Employees','U') IS NOT NULL SELECT Name FROM Employees ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
-                InvoiceNumbers = QueryStrings(conn, "IF OBJECT_ID('dbo.Invoices','U') IS NOT NULL SELECT InvoiceNumber FROM Invoices ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
-                ClientSiteKeys = QueryStrings(conn, @"
+                ClientNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.B2BClients','U') IS NOT NULL SELECT CompanyName FROM B2BClients ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
+                VendorNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Vendors','U') IS NOT NULL SELECT VendorName FROM Vendors ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
+                EmployeeNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Employees','U') IS NOT NULL SELECT Name FROM Employees ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
+                InvoiceNumbers = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Invoices','U') IS NOT NULL SELECT InvoiceNumber FROM Invoices ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
+                ClientSiteKeys = QueryStrings(conn, transaction, @"
 IF OBJECT_ID('dbo.ClientSites','U') IS NOT NULL AND OBJECT_ID('dbo.B2BClients','U') IS NOT NULL
     SELECT c.CompanyName + N'||' + s.SiteName
     FROM ClientSites s
@@ -182,10 +182,10 @@ ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0")
             return Regex.Replace(value.Trim(), @"\s+", " ").ToUpperInvariant();
         }
 
-        private static IEnumerable<string> QueryStrings(SqlConnection conn, string sql)
+        private static IEnumerable<string> QueryStrings(SqlConnection conn, SqlTransaction transaction, string sql)
         {
             var values = new List<string>();
-            using (SqlCommand cmd = new SqlCommand(sql, conn))
+            using (SqlCommand cmd = new SqlCommand(sql, conn, transaction))
             {
                 cmd.CommandTimeout = 30;
                 using (SqlDataReader reader = cmd.ExecuteReader())
