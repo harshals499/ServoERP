@@ -153,6 +153,41 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        /// <summary>Lays out visible controls from left to right and vertically centers them within the host height.</summary>
+        public static void LayoutVisibleControlsLeftToRightCentered(IEnumerable<Control> controls, int x, int hostHeight, int gap = HeaderActionGap)
+        {
+            foreach (Control control in (controls ?? Enumerable.Empty<Control>()).Where(control => control != null && !control.IsDisposed))
+            {
+                if (!control.Visible)
+                    continue;
+
+                int y = Math.Max(0, (hostHeight - control.Height) / 2);
+                control.Location = new Point(x, y);
+                x += control.Width + gap;
+            }
+        }
+
+        /// <summary>Returns a centered X position clamped between the requested left and right bounds.</summary>
+        public static int CenterControlX(int containerWidth, int controlWidth, int leftBound, int rightBound)
+        {
+            int width = Math.Max(0, controlWidth);
+            int safeLeft = Math.Max(0, leftBound);
+            int safeRight = Math.Max(safeLeft + width, rightBound);
+            int centered = Math.Max(0, (containerWidth - width) / 2);
+            return Math.Max(safeLeft, Math.Min(centered, safeRight - width));
+        }
+
+        public static void OpenGlobalSearch(Control owner)
+        {
+            Form ownerForm = owner == null ? null : owner.FindForm();
+            MainForm main = ownerForm as MainForm;
+            if (main == null)
+                return;
+
+            using (GlobalSearchDialog dialog = new GlobalSearchDialog(main.NavigateTo))
+                dialog.ShowDialog(ownerForm);
+        }
+
         private static void ApplyCardPrimitive(Panel panel)
         {
             if (!CardSurfacePolicy.IsDashboardLayoutCard(panel))
@@ -236,6 +271,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ApplyGridPrimitive(DataGridView grid)
         {
+            if (IsCustomInputShell(grid))
+                return;
+
             GridTheme.Apply(grid);
             grid.RowHeadersVisible = false;
             grid.AllowUserToResizeRows = false;
@@ -254,6 +292,21 @@ namespace HVAC_Pro_Desktop.UI
                 column.MinimumWidth = Math.Max(column.MinimumWidth, 70);
                 column.DefaultCellStyle.WrapMode = DataGridViewTriState.False;
             }
+        }
+
+        private static bool IsCustomInputShell(Control control)
+        {
+            Control current = control;
+            while (current != null)
+            {
+                string tag = current.Tag == null ? string.Empty : current.Tag.ToString();
+                if (tag.IndexOf("CUSTOM_INPUT_SHELL", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                current = current.Parent;
+            }
+
+            return false;
         }
 
         private static void ApplyButtonPrimitive(Button button)

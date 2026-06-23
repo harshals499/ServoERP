@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using HVAC_Pro_Desktop.DAL;
+using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Validation;
 using OfficeOpenXml;
@@ -25,6 +26,7 @@ namespace HVAC_Pro_Desktop.Services
         Vendors,
         Sites,
         Inventory,
+        SupplierItemPrices,
         AMC
     }
 
@@ -97,13 +99,22 @@ namespace HVAC_Pro_Desktop.Services
                     ImportPreflightResult preflight = ImportPreflightService.ValidateRows(
                         module,
                         ExtractRows(sheet, map),
-                        ImportPreflightService.LoadReferenceSnapshot(conn));
+                    ImportPreflightService.LoadReferenceSnapshot(conn, transaction));
                     if (!preflight.CanImport)
                         throw new InvalidOperationException(preflight.ToUserMessage());
                 }
 
                 try
                 {
+                    if (module == ExcelImportModule.SupplierItemPrices)
+                    {
+                        ImportSupplierItemPriceWorkbook(conn, transaction, sheet, map, result, options);
+                        transaction?.Commit();
+                        InvalidateModuleCaches(module);
+                        AppLogger.LogInfo("Excel import completed for " + module + " | success=" + result.SuccessCount + " | skipped=" + result.SkippedCount);
+                        return result;
+                    }
+
                     for (int row = 2; row <= sheet.Dimension.End.Row; row++)
                     {
                         try
@@ -188,6 +199,10 @@ namespace HVAC_Pro_Desktop.Services
                 case ExcelImportModule.Purchases:
                     AppDataCache.RemovePrefix("vendors:");
                     break;
+                case ExcelImportModule.SupplierItemPrices:
+                    AppDataCache.RemovePrefix("inventory:");
+                    AppDataCache.RemovePrefix("vendors:");
+                    break;
             }
         }
 
@@ -206,6 +221,47 @@ IF OBJECT_ID('dbo.Vendors', 'U') IS NOT NULL AND COL_LENGTH('dbo.Vendors', 'IsSe
 BEGIN
     ALTER TABLE dbo.Vendors ADD IsServiceVendor BIT NOT NULL DEFAULT(0) WITH VALUES;
 END");
+            }
+
+            if (module == ExcelImportModule.SupplierItemPrices)
+            {
+                Execute(conn, transaction, @"
+IF OBJECT_ID('dbo.SupplierItemPrices', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.SupplierItemPrices (
+        PriceID INT PRIMARY KEY IDENTITY(1,1),
+        VendorID INT NOT NULL FOREIGN KEY REFERENCES dbo.Vendors(VendorID),
+        ItemName NVARCHAR(255) NOT NULL,
+        Category NVARCHAR(100) NULL,
+        Unit NVARCHAR(50) NULL,
+        Rate DECIMAL(12,2) NOT NULL DEFAULT 0,
+        Source NVARCHAR(100) NULL,
+        EffectiveDate DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END;
+
+IF COL_LENGTH('dbo.SupplierItemPrices', 'ItemID') IS NULL
+    ALTER TABLE dbo.SupplierItemPrices ADD ItemID INT NULL;
+
+IF COL_LENGTH('dbo.SupplierItemPrices', 'IsPreferred') IS NULL
+    ALTER TABLE dbo.SupplierItemPrices ADD IsPreferred BIT NOT NULL CONSTRAINT DF_SupplierItemPrices_IsPreferred DEFAULT(0) WITH VALUES;
+
+IF COL_LENGTH('dbo.SupplierItemPrices', 'IsActive') IS NULL
+    ALTER TABLE dbo.SupplierItemPrices ADD IsActive BIT NOT NULL CONSTRAINT DF_SupplierItemPrices_IsActive DEFAULT(1) WITH VALUES;
+
+IF COL_LENGTH('dbo.SupplierItemPrices', 'Notes') IS NULL
+    ALTER TABLE dbo.SupplierItemPrices ADD Notes NVARCHAR(500) NULL;
+
+IF OBJECT_ID('dbo.FK_SupplierItemPrices_StockItems_ItemID', 'F') IS NULL
+   AND COL_LENGTH('dbo.SupplierItemPrices', 'ItemID') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.SupplierItemPrices
+    WITH CHECK ADD CONSTRAINT FK_SupplierItemPrices_StockItems_ItemID
+    FOREIGN KEY (ItemID) REFERENCES dbo.StockItems(ItemID);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SupplierItemPrices_ItemID' AND object_id = OBJECT_ID('dbo.SupplierItemPrices'))
+    CREATE INDEX IX_SupplierItemPrices_ItemID ON dbo.SupplierItemPrices(ItemID, IsActive, VendorID);");
             }
 
             if (module != ExcelImportModule.Inventory)
@@ -288,6 +344,41 @@ END");
             return DateTime.Today;
         }
 
+        private static int? GetNullableInt(ExcelWorksheet sheet, int row, Dictionary<string, int> map, string header)
+        {
+            int value;
+            return int.TryParse(GetCell(sheet, row, map, header), NumberStyles.Integer, CultureInfo.InvariantCulture, out value)
+                || int.TryParse(GetCell(sheet, row, map, header), NumberStyles.Integer, CultureInfo.CurrentCulture, out value)
+                ? (int?)value
+                : null;
+        }
+
+        private static bool GetBoolean(ExcelWorksheet sheet, int row, Dictionary<string, int> map, string header, bool defaultValue)
+        {
+            string raw = NullIfEmpty(GetCell(sheet, row, map, header));
+            if (string.IsNullOrWhiteSpace(raw))
+                return defaultValue;
+
+            switch (raw.Trim().ToLowerInvariant())
+            {
+                case "1":
+                case "y":
+                case "yes":
+                case "true":
+                case "preferred":
+                case "active":
+                    return true;
+                case "0":
+                case "n":
+                case "no":
+                case "false":
+                case "inactive":
+                    return false;
+                default:
+                    return defaultValue;
+            }
+        }
+
         private static bool AddError(ExcelImportResult result, int row, string reason)
         {
             result.SkippedCount++;
@@ -359,8 +450,265 @@ END");
                 case ExcelImportModule.Vendors: return "Vendors";
                 case ExcelImportModule.Sites: return "Clients";
                 case ExcelImportModule.Inventory: return "Inventory";
+                case ExcelImportModule.SupplierItemPrices: return "Inventory";
                 case ExcelImportModule.AMC: return "Contracts";
                 default: return "Settings";
+            }
+        }
+
+        private sealed class SupplierItemImportRow
+        {
+            public int SourceRowNumber { get; set; }
+            public int ItemID { get; set; }
+            public string ItemName { get; set; }
+            public string Category { get; set; }
+            public string Unit { get; set; }
+            public int VendorID { get; set; }
+            public string VendorName { get; set; }
+            public decimal Rate { get; set; }
+            public DateTime EffectiveDate { get; set; }
+            public bool IsPreferred { get; set; }
+            public bool IsActive { get; set; }
+            public string Source { get; set; }
+            public string Notes { get; set; }
+        }
+
+        private ExcelImportResult ImportSupplierItemPriceWorkbook(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, ExcelImportResult result, ExcelImportExecutionOptions options)
+        {
+            var validRows = new List<SupplierItemImportRow>();
+
+            for (int row = 2; row <= sheet.Dimension.End.Row; row++)
+            {
+                try
+                {
+                    if (IsRowEmpty(sheet, row, map.Values))
+                        continue;
+
+                    SupplierItemImportRow parsed = ParseSupplierItemImportRow(conn, transaction, sheet, map, row, result, options);
+                    if (parsed != null)
+                        validRows.Add(parsed);
+                }
+                catch (Exception ex)
+                {
+                    result.SkippedCount++;
+                    result.Errors.Add("Row " + row + " - " + ex.Message);
+                }
+            }
+
+            foreach (IGrouping<int, SupplierItemImportRow> group in validRows.GroupBy(r => r.ItemID))
+            {
+                string itemName = group.First().ItemName;
+                string category = group.First().Category;
+                string defaultUnit = NormalizeUnit(group.First().Unit, options);
+
+                Execute(conn, transaction, @"
+UPDATE dbo.SupplierItemPrices
+SET IsActive = 0,
+    IsPreferred = 0
+WHERE ItemID = @itemId;",
+                    new SqlParameter("@itemId", group.Key));
+
+                List<SupplierItemImportRow> rowsForItem = group
+                    .GroupBy(r => r.VendorID)
+                    .Select(g =>
+                    {
+                        SupplierItemImportRow preferred = g.FirstOrDefault(x => x.IsPreferred && x.IsActive);
+                        return preferred
+                            ?? g.Where(x => x.IsActive).OrderBy(x => x.Rate).ThenBy(x => x.SourceRowNumber).FirstOrDefault()
+                            ?? g.OrderBy(x => x.SourceRowNumber).First();
+                    })
+                    .Where(r => r != null)
+                    .ToList();
+
+                if (rowsForItem.Count > 1 && rowsForItem.All(r => !r.IsPreferred))
+                    rowsForItem[0].IsPreferred = true;
+
+                foreach (SupplierItemImportRow price in rowsForItem)
+                {
+                    Execute(conn, transaction, @"
+INSERT INTO dbo.SupplierItemPrices
+    (ItemID, VendorID, ItemName, Category, Unit, Rate, Source, EffectiveDate, IsPreferred, IsActive, Notes)
+VALUES
+    (@itemId, @vendorId, @itemName, @category, @unit, @rate, @source, @effectiveDate, @isPreferred, @isActive, @notes);",
+                        new SqlParameter("@itemId", group.Key),
+                        new SqlParameter("@vendorId", price.VendorID),
+                        new SqlParameter("@itemName", itemName),
+                        new SqlParameter("@category", (object)category ?? DBNull.Value),
+                        new SqlParameter("@unit", string.IsNullOrWhiteSpace(price.Unit) ? defaultUnit : NormalizeUnit(price.Unit, options)),
+                        new SqlParameter("@rate", price.Rate),
+                        new SqlParameter("@source", (object)price.Source ?? DBNull.Value),
+                        new SqlParameter("@effectiveDate", price.EffectiveDate == default(DateTime) ? DateTime.Now : price.EffectiveDate),
+                        new SqlParameter("@isPreferred", price.IsPreferred),
+                        new SqlParameter("@isActive", price.IsActive),
+                        new SqlParameter("@notes", (object)price.Notes ?? DBNull.Value));
+                    result.SuccessCount++;
+                }
+
+                SupplierItemImportRow preferredRow = rowsForItem.FirstOrDefault(r => r.IsPreferred) ?? rowsForItem.FirstOrDefault();
+                if (preferredRow != null)
+                {
+                    Execute(conn, transaction, @"
+UPDATE dbo.StockItems
+SET VendorID = @vendorId,
+    LastPurchaseRate = CASE WHEN @rate >= 0 THEN @rate ELSE LastPurchaseRate END,
+    LastUpdated = GETDATE()
+WHERE ItemID = @itemId AND ISNULL(IsActive, 1) = 1;",
+                        new SqlParameter("@vendorId", preferredRow.VendorID),
+                        new SqlParameter("@rate", preferredRow.Rate),
+                        new SqlParameter("@itemId", group.Key));
+                }
+            }
+
+            return result;
+        }
+
+        private SupplierItemImportRow ParseSupplierItemImportRow(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result, ExcelImportExecutionOptions options)
+        {
+            string itemName = GetCell(sheet, row, map, "ItemName");
+            string category = GetCell(sheet, row, map, "Category");
+            string unit = NullIfEmpty(GetCell(sheet, row, map, "Unit")) ?? "Nos";
+            string vendorName = GetCell(sheet, row, map, "VendorName");
+            string source = NullIfEmpty(GetCell(sheet, row, map, "Source")) ?? "Supplier item import";
+            string notes = GetCell(sheet, row, map, "Notes");
+            decimal rate = GetDecimal(sheet, row, map, "Rate");
+            DateTime effectiveDate = GetDate(sheet, row, map, "EffectiveDate");
+            int? itemId = GetNullableInt(sheet, row, map, "ItemID");
+            int? vendorId = GetNullableInt(sheet, row, map, "VendorID");
+            bool isPreferred = GetBoolean(sheet, row, map, "IsPreferred", false);
+            bool isActive = GetBoolean(sheet, row, map, "IsActive", true);
+
+            if (string.IsNullOrWhiteSpace(itemName))
+            {
+                AddError(result, row, "Missing required field: ItemName");
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(vendorName) && !vendorId.HasValue)
+            {
+                AddError(result, row, "Missing required field: VendorName");
+                return null;
+            }
+
+            if (rate < 0m)
+            {
+                AddError(result, row, "Rate cannot be negative.");
+                return null;
+            }
+
+            StockItem resolvedItem = ResolveStockItem(conn, transaction, itemId, itemName);
+            if (resolvedItem == null || resolvedItem.ItemID <= 0)
+            {
+                AddError(result, row, "Material item was not found in inventory: " + itemName);
+                return null;
+            }
+
+            int resolvedVendorId = vendorId.GetValueOrDefault();
+            if (resolvedVendorId > 0)
+            {
+                string existingVendorName = GetVendorNameById(conn, transaction, resolvedVendorId);
+                if (string.IsNullOrWhiteSpace(existingVendorName))
+                    resolvedVendorId = 0;
+                else if (string.IsNullOrWhiteSpace(vendorName))
+                    vendorName = existingVendorName;
+            }
+
+            if (resolvedVendorId <= 0)
+            {
+                resolvedVendorId = EnsureVendorId(conn, transaction, vendorName, null, null, null, null, null, null, notes, options);
+            }
+
+            if (resolvedVendorId <= 0)
+            {
+                AddError(result, row, "Supplier could not be resolved: " + vendorName);
+                return null;
+            }
+
+            return new SupplierItemImportRow
+            {
+                SourceRowNumber = row,
+                ItemID = resolvedItem.ItemID,
+                ItemName = resolvedItem.ItemName,
+                Category = string.IsNullOrWhiteSpace(category) ? resolvedItem.Category : category,
+                Unit = NormalizeUnit(unit, options),
+                VendorID = resolvedVendorId,
+                VendorName = vendorName,
+                Rate = rate,
+                EffectiveDate = effectiveDate == default(DateTime) ? DateTime.Now : effectiveDate,
+                IsPreferred = isPreferred,
+                IsActive = isActive,
+                Source = source,
+                Notes = notes
+            };
+        }
+
+        private StockItem ResolveStockItem(SqlConnection conn, SqlTransaction transaction, int? itemId, string itemName)
+        {
+            if (itemId.HasValue && itemId.Value > 0)
+            {
+                using (SqlCommand cmd = new SqlCommand(@"
+SELECT TOP 1 ItemID, ItemName, Category, Unit, LastPurchaseRate, VendorID
+FROM dbo.StockItems
+WHERE ItemID = @id AND ISNULL(IsActive, 1) = 1;", conn, transaction))
+                {
+                    cmd.Parameters.AddWithValue("@id", itemId.Value);
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return new StockItem
+                            {
+                                ItemID = Convert.ToInt32(reader["ItemID"]),
+                                ItemName = Convert.ToString(reader["ItemName"]),
+                                Category = reader["Category"] == DBNull.Value ? null : Convert.ToString(reader["Category"]),
+                                Unit = reader["Unit"] == DBNull.Value ? null : Convert.ToString(reader["Unit"]),
+                                LastPurchaseRate = reader["LastPurchaseRate"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["LastPurchaseRate"]),
+                                VendorID = reader["VendorID"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["VendorID"])
+                            };
+                        }
+                    }
+                }
+            }
+
+            using (SqlCommand cmd = new SqlCommand(@"
+SELECT TOP 1 ItemID, ItemName, Category, Unit, LastPurchaseRate, VendorID
+FROM dbo.StockItems
+WHERE ItemName = @name AND ISNULL(IsActive, 1) = 1;", conn, transaction))
+            {
+                cmd.Parameters.AddWithValue("@name", itemName);
+                using (SqlDataReader reader = cmd.ExecuteReader())
+                {
+                    if (reader.Read())
+                    {
+                        return new StockItem
+                        {
+                            ItemID = Convert.ToInt32(reader["ItemID"]),
+                            ItemName = Convert.ToString(reader["ItemName"]),
+                            Category = reader["Category"] == DBNull.Value ? null : Convert.ToString(reader["Category"]),
+                            Unit = reader["Unit"] == DBNull.Value ? null : Convert.ToString(reader["Unit"]),
+                            LastPurchaseRate = reader["LastPurchaseRate"] == DBNull.Value ? 0m : Convert.ToDecimal(reader["LastPurchaseRate"]),
+                            VendorID = reader["VendorID"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader["VendorID"])
+                        };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static string GetVendorNameById(SqlConnection conn, SqlTransaction transaction, int vendorId)
+        {
+            return GetScalarString(conn, transaction, "SELECT TOP 1 VendorName FROM dbo.Vendors WHERE VendorID = @id",
+                new SqlParameter("@id", vendorId));
+        }
+
+        private static string GetScalarString(SqlConnection conn, SqlTransaction transaction, string sql, params SqlParameter[] parameters)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, transaction))
+            {
+                if (parameters != null && parameters.Length > 0)
+                    cmd.Parameters.AddRange(parameters);
+                object value = cmd.ExecuteScalar();
+                return value == null || value == DBNull.Value ? null : Convert.ToString(value, CultureInfo.InvariantCulture);
             }
         }
 
@@ -1445,6 +1793,8 @@ VALUES
                     return new[] { "SiteName", "ClientName", "Address", "City", "ContactPerson", "Phone", "SiteType", "Notes" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName", "Category", "CurrentStock", "Unit", "LastPurchaseRate", "ReorderLevel", "StockValue", "Notes" };
+                case ExcelImportModule.SupplierItemPrices:
+                    return new[] { "ItemID", "ItemName", "Category", "Unit", "VendorID", "VendorName", "Rate", "EffectiveDate", "IsPreferred", "IsActive", "Source", "Notes" };
                 case ExcelImportModule.AMC:
                     return new[] { "ContractNumber", "ClientName", "SiteName", "ContractStartDate", "ContractEndDate", "ContractValue", "Status", "EquipmentType", "Notes" };
                 default:
@@ -1476,6 +1826,8 @@ VALUES
                     return new[] { "SiteName", "ClientName" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName" };
+                case ExcelImportModule.SupplierItemPrices:
+                    return new[] { "ItemName", "VendorName", "Rate" };
                 case ExcelImportModule.AMC:
                     return new[] { "ContractNumber", "ClientName" };
                 default:
@@ -1507,6 +1859,8 @@ VALUES
                     return new[] { "Main Plant", "ABC Corp", "Industrial Area", "Thane", "Anita Sharma", "9876543210", "Industrial", "Primary service site" };
                 case ExcelImportModule.Inventory:
                     return new[] { "Copper Pipe 1/2 inch", "Copper", "25", "Mtr", "320", "5", "8000", "Opening stock" };
+                case ExcelImportModule.SupplierItemPrices:
+                    return new[] { "101", "Copper Pipe 1/2 inch", "Copper", "Mtr", "", "Cool Parts Pvt Ltd", "320", "22/06/2026", "Yes", "Yes", "Legacy supplier list", "Preferred supplier for copper pipe" };
                 case ExcelImportModule.AMC:
                     return new[] { "AMC-2026-001", "ABC Corp", "Main Plant", "01/04/2026", "31/03/2027", "50000", "Active", "HVAC Unit", "Annual maintenance" };
                 default:

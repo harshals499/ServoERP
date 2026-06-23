@@ -7,6 +7,13 @@ namespace HVAC_Pro_Desktop.Models
     {
         // Core identity
         public int    ClientID      { get; set; }
+        public Guid? SyncPublicId { get; set; }
+        public Guid? OriginNodeId { get; set; }
+        public Guid? LastModifiedNodeId { get; set; }
+        public DateTime? CreatedUtc { get; set; }
+        public DateTime? UpdatedUtc { get; set; }
+        public DateTime? DeletedUtc { get; set; }
+        public long SyncVersion { get; set; }
         public string CompanyName   { get; set; }
         public string IndustryType  { get; set; }   // IT, Banking, Healthcare, Manufacturing
 

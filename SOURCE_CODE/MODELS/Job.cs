@@ -6,6 +6,13 @@ namespace HVAC_Pro_Desktop.Models
     public class Job
     {
         public int JobID { get; set; }
+        public Guid? SyncPublicId { get; set; }
+        public Guid? OriginNodeId { get; set; }
+        public Guid? LastModifiedNodeId { get; set; }
+        public DateTime? CreatedUtc { get; set; }
+        public DateTime? UpdatedUtc { get; set; }
+        public DateTime? DeletedUtc { get; set; }
+        public long SyncVersion { get; set; }
         public string JobNumber { get; set; }
         public int ClientID { get; set; }
         public int SiteID { get; set; }

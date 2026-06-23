@@ -107,11 +107,37 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                OpenPdf(owner, po);
+                if (!OpenPurchaseOrderPreview(owner, po) && !OpenPdf(owner, po))
+                    MessageBox.Show(owner, "The purchase order preview could not be opened automatically.", "Open purchase PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Purchases"), "Opening purchase order PDF", ex);
+            }
+        }
+
+        public static bool OpenPurchaseOrderPreview(IWin32Window owner, PurchaseOrder po)
+        {
+            if (po == null)
+                return false;
+
+            try
+            {
+                PurchaseService service = new PurchaseService();
+                PurchaseOrder printable = po.POID > 0 ? service.GetById(po.POID) ?? po : po;
+                string html = service.BuildPurchaseOrderHtml(printable);
+                var preview = new HtmlPreviewDialog("Purchase Order Preview - " + (printable.PONumber ?? "(draft)"), html);
+                Form formOwner = owner as Form;
+                if (formOwner != null && !formOwner.IsDisposed)
+                    preview.Show(formOwner);
+                else
+                    preview.Show();
+
+                return true;
+            }
+            catch
+            {
+                return false;
             }
         }
 

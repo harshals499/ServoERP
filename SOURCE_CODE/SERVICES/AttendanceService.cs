@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Data.SqlClient;
+using Dapper;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 
@@ -38,6 +39,33 @@ namespace HVAC_Pro_Desktop.Services
         public void SaveAttendanceRecord(AttendanceRecord record)
         {
             _repo.UpsertAttendanceRecord(record);
+        }
+
+        public AttendanceSourceReconciliation GetSourceReconciliation(int month, int year)
+        {
+            using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())
+            {
+                DatabaseConnectionFactory.Open(conn, "AttendanceService.GetSourceReconciliation");
+                int authoritativeRows = CountTableRows(conn, "AttendanceRecords", "AttendanceDate", month, year);
+                int legacyRows = CountTableRows(conn, "EmployeeAttendance", "AttendanceDate", month, year);
+                return new AttendanceSourceReconciliation
+                {
+                    Month = month,
+                    Year = year,
+                    AuthoritativeTable = "AttendanceRecords",
+                    LegacyTable = "EmployeeAttendance",
+                    AuthoritativeRows = authoritativeRows,
+                    LegacyRows = legacyRows
+                };
+            }
+        }
+
+        public string GetSourceReconciliationBanner(int month, int year)
+        {
+            AttendanceSourceReconciliation reconciliation = GetSourceReconciliation(month, year);
+            return reconciliation.RequiresReview
+                ? "Attendance reconciliation: payroll uses AttendanceRecords; " + reconciliation.LegacyRows.ToString("N0") + " legacy EmployeeAttendance row(s) exist for " + new DateTime(year, month, 1).ToString("MMMM yyyy", CultureInfo.InvariantCulture) + ". Review before final close."
+                : string.Empty;
         }
 
         public ServiceResult<int> BulkMarkAttendance(int month, int year, List<int> employeeIds, string status)
@@ -129,6 +157,16 @@ namespace HVAC_Pro_Desktop.Services
             return 6;
         }
 
+        private static int CountTableRows(SqlConnection conn, string tableName, string dateColumn, int month, int year)
+        {
+            const string tableExistsSql = "SELECT COUNT(1) FROM sys.tables WHERE name = @tableName;";
+            if (conn.ExecuteScalar<int>(tableExistsSql, new { tableName }) == 0)
+                return 0;
+
+            string sql = "SELECT COUNT(1) FROM dbo." + tableName + " WHERE MONTH(" + dateColumn + ") = @month AND YEAR(" + dateColumn + ") = @year;";
+            return conn.ExecuteScalar<int>(sql, new { month, year });
+        }
+
         private static string Normalize(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -136,5 +174,16 @@ namespace HVAC_Pro_Desktop.Services
 
             return new string(value.Trim().ToUpperInvariant().Where(char.IsLetterOrDigit).ToArray());
         }
+    }
+
+    public sealed class AttendanceSourceReconciliation
+    {
+        public int Month { get; set; }
+        public int Year { get; set; }
+        public string AuthoritativeTable { get; set; }
+        public string LegacyTable { get; set; }
+        public int AuthoritativeRows { get; set; }
+        public int LegacyRows { get; set; }
+        public bool RequiresReview => LegacyRows > 0;
     }
 }

@@ -26,11 +26,33 @@ namespace HVAC_Pro_Desktop.Services
 
         public ServiceResult<PayrollImportReport> ImportFromSourceFolder()
         {
+            PayrollFolderHelper.EnsureFolders();
+            string[] files = Directory.GetFiles(PayrollFolderHelper.SourcePayrollFolder, "*.*", SearchOption.TopDirectoryOnly);
+            ServiceResult<PayrollImportReport> result = ImportFilesInternal(files, DateTime.Today.Month, DateTime.Today.Year, "PayrollDataImportService.ImportFromSourceFolder");
+            if (result.Success)
+                _settingsService.Set("PayrollHistoricalImportCompleted", "1");
+            return result;
+        }
+
+        public ServiceResult<PayrollImportReport> ImportFiles(IEnumerable<string> filePaths, int defaultMonth, int defaultYear)
+        {
+            return ImportFilesInternal(filePaths, defaultMonth, defaultYear, "PayrollDataImportService.ImportFiles");
+        }
+
+        private ServiceResult<PayrollImportReport> ImportFilesInternal(IEnumerable<string> filePaths, int defaultMonth, int defaultYear, string operationName)
+        {
             var report = new PayrollImportReport();
             try
             {
-                PayrollFolderHelper.EnsureFolders();
-                string[] files = Directory.GetFiles(PayrollFolderHelper.SourcePayrollFolder, "*.*", SearchOption.TopDirectoryOnly);
+                string[] files = (filePaths ?? Enumerable.Empty<string>())
+                    .Where(File.Exists)
+                    .Where(path => IsSupportedImportFile(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+
+                if (files.Length == 0)
+                    return ServiceResult<PayrollImportReport>.Fail("Select at least one payroll or attendance Excel/CSV file.");
+
                 List<Employee> currentEmployees = _employeeService.GetAll();
                 var employeesByCode = currentEmployees.Where(e => !string.IsNullOrWhiteSpace(e.EmployeeCode))
                     .GroupBy(e => e.EmployeeCode.Trim().ToUpperInvariant()).ToDictionary(g => g.Key, g => g.First());
@@ -45,8 +67,7 @@ namespace HVAC_Pro_Desktop.Services
                         {
                             report.FilesProcessed++;
                             PayrollImportLogger.Log("Processing file: " + file);
-                            if (Path.GetExtension(file).Equals(".xls", StringComparison.OrdinalIgnoreCase) || Path.GetExtension(file).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
-                                ImportWorkbook(file, report, employeesByCode, employeesByName, conn, tx);
+                            ImportFile(file, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
                         }
 
                         BackfillMissingSalaryStructures(report, conn, tx);
@@ -54,20 +75,38 @@ namespace HVAC_Pro_Desktop.Services
                     }
                 }
 
-                _settingsService.Set("PayrollHistoricalImportCompleted", "1");
+                string message = BuildSuccessMessage(report);
                 PayrollImportLogger.Log("Import complete | Files=" + report.FilesProcessed + " | PayrollEntries=" + report.PayrollEntriesImported + " | Attendance=" + report.AttendanceRecordsImported);
-                return ServiceResult<PayrollImportReport>.Ok(report, "Import complete: " + report.PayrollEntriesImported + " payroll entries imported.");
+                return ServiceResult<PayrollImportReport>.Ok(report, message);
             }
             catch (Exception ex)
             {
-                AppRuntime.LogException("PayrollDataImportService.ImportFromSourceFolder", ex);
+                AppRuntime.LogException(operationName, ex);
                 PayrollImportLogger.Log("ERROR " + ex);
                 report.ErrorsEncountered++;
                 return ServiceResult<PayrollImportReport>.Fail(ex.Message);
             }
         }
 
-        private void ImportWorkbook(string file, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, SqlConnection conn, SqlTransaction tx)
+        private void ImportFile(string file, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, int defaultMonth, int defaultYear, SqlConnection conn, SqlTransaction tx)
+        {
+            string extension = Path.GetExtension(file) ?? string.Empty;
+            if (extension.Equals(".xls", StringComparison.OrdinalIgnoreCase) || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                ImportWorkbook(file, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
+                return;
+            }
+
+            if (extension.Equals(".csv", StringComparison.OrdinalIgnoreCase))
+            {
+                ImportCsvFile(file, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
+                return;
+            }
+
+            report.Warnings.Add("Skipped unsupported file: " + Path.GetFileName(file));
+        }
+
+        private void ImportWorkbook(string file, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, int defaultMonth, int defaultYear, SqlConnection conn, SqlTransaction tx)
         {
             Dictionary<string, DataTable> sheets = LoadWorkbookSheets(file);
             Dictionary<string, ImportedEmployeeRow> importedEmployees = ParseMasterSheets(sheets);
@@ -82,11 +121,33 @@ namespace HVAC_Pro_Desktop.Services
             foreach (KeyValuePair<string, DataTable> sheet in sheets)
             {
                 string sheetName = sheet.Key;
-                if (sheetName.IndexOf("PAYROLL", StringComparison.OrdinalIgnoreCase) >= 0 || sheetName.IndexOf("PAY ROLL", StringComparison.OrdinalIgnoreCase) >= 0)
-                    ImportPayrollSheet(file, sheet.Value, importedEmployees, report, employeesByCode, employeesByName, conn, tx);
-                else if (Regex.IsMatch(sheetName, @"\b(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", RegexOptions.IgnoreCase))
-                    ImportAttendanceSheet(file, sheet.Value, importedEmployees, report, employeesByCode, employeesByName, conn, tx);
+                if (IsMasterSheet(sheetName, sheet.Value))
+                    continue;
+                if (IsPayrollSheet(sheetName, sheet.Value))
+                    ImportPayrollSheet(file, sheetName, sheet.Value, importedEmployees, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
+                else if (IsAttendanceSheet(sheetName, sheet.Value))
+                    ImportAttendanceSheet(file, sheetName, sheet.Value, importedEmployees, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
             }
+        }
+
+        private void ImportCsvFile(string file, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, int defaultMonth, int defaultYear, SqlConnection conn, SqlTransaction tx)
+        {
+            DataTable table = LoadCsvAsTable(file);
+            var sheets = new Dictionary<string, DataTable>(StringComparer.OrdinalIgnoreCase)
+            {
+                { Path.GetFileNameWithoutExtension(file) ?? "Sheet1", table }
+            };
+            Dictionary<string, ImportedEmployeeRow> importedEmployees = ParseMasterSheets(sheets);
+
+            string contextName = Path.GetFileNameWithoutExtension(file) ?? "CSV";
+            if (IsPayrollSheet(contextName, table))
+                ImportPayrollSheet(file, contextName, table, importedEmployees, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
+            else if (IsAttendanceSheet(contextName, table))
+                ImportAttendanceSheet(file, contextName, table, importedEmployees, report, employeesByCode, employeesByName, defaultMonth, defaultYear, conn, tx);
+            else if (IsMasterSheet(contextName, table))
+                PayrollImportLogger.Log("Master-only CSV detected: " + file);
+            else
+                report.Warnings.Add("Could not detect payroll/attendance layout in " + Path.GetFileName(file) + ".");
         }
 
         private Dictionary<string, DataTable> LoadWorkbookSheets(string file)
@@ -123,7 +184,7 @@ namespace HVAC_Pro_Desktop.Services
             var map = new Dictionary<string, ImportedEmployeeRow>(StringComparer.OrdinalIgnoreCase);
             foreach (KeyValuePair<string, DataTable> pair in sheets)
             {
-                if (pair.Key.IndexOf("MASTER", StringComparison.OrdinalIgnoreCase) < 0)
+                if (!IsMasterSheet(pair.Key, pair.Value))
                     continue;
                 int headerRow = FindRow(pair.Value, row => RowContains(row, "NAMEOFEMPLOYEE") && (RowContains(row, "IDNO") || RowContains(row, "UANNUMBER")));
                 if (headerRow < 0)
@@ -155,11 +216,11 @@ namespace HVAC_Pro_Desktop.Services
             return map;
         }
 
-        private void ImportPayrollSheet(string file, DataTable table, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, SqlConnection conn, SqlTransaction tx)
+        private void ImportPayrollSheet(string file, string contextName, DataTable table, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, int defaultMonth, int defaultYear, SqlConnection conn, SqlTransaction tx)
         {
             int month;
             int year;
-            ResolveMonthYear(file, out month, out year);
+            ResolveMonthYear(file, contextName, table, defaultMonth, defaultYear, out month, out year);
             PayrollRun run = GetOrCreateHistoricalRun(conn, tx, month, year);
             var existing = new HashSet<string>(GetExistingRunEmployeeKeys(conn, tx, run.PayrollRunId), StringComparer.OrdinalIgnoreCase);
 
@@ -241,15 +302,25 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private void ImportAttendanceSheet(string file, DataTable table, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, SqlConnection conn, SqlTransaction tx)
+        private void ImportAttendanceSheet(string file, string contextName, DataTable table, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, int defaultMonth, int defaultYear, SqlConnection conn, SqlTransaction tx)
         {
             int month;
             int year;
-            ResolveMonthYear(file, out month, out year);
+            ResolveMonthYear(file, contextName, table, defaultMonth, defaultYear, out month, out year);
             int headerRow = FindRow(table, row => RowContains(row, "SRNO") && RowContains(row, "NAME"));
-            if (headerRow < 0)
+            if (headerRow >= 0)
+            {
+                ImportAttendanceRegisterLayout(table, headerRow, month, year, importedEmployees, report, employeesByCode, employeesByName, conn, tx);
                 return;
+            }
 
+            int daysRow = FindRow(table, row => Normalize(Cell(row, 0)) == "DAYS");
+            if (daysRow >= 0)
+                ImportAttendanceEmployeeBlockLayout(table, daysRow, month, year, importedEmployees, report, employeesByCode, employeesByName, conn, tx);
+        }
+
+        private void ImportAttendanceRegisterLayout(DataTable table, int headerRow, int month, int year, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, SqlConnection conn, SqlTransaction tx)
+        {
             Dictionary<int, int> dayCols = FindDayColumns(table, headerRow, 3);
             Dictionary<string, int> headerCols = BuildHeaderIndex(table, headerRow, 0);
             int codeCol = FindColumn(headerCols, "ID");
@@ -273,6 +344,54 @@ namespace HVAC_Pro_Desktop.Services
                     string status = NormalizeStatusCode(Cell(table.Rows[rowIndex], dayCol.Key));
                     if (string.IsNullOrWhiteSpace(status))
                         continue;
+                    DateTime attendanceDate = new DateTime(year, month, dayCol.Value);
+                    string key = employee.EmployeeID + "|" + attendanceDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+                    if (existingAttendance.Contains(key))
+                        continue;
+
+                    _repo.UpsertAttendanceRecord(new AttendanceRecord { EmployeeId = employee.EmployeeID, AttendanceDate = attendanceDate, Status = status, OvertimeHours = 0m }, conn, tx);
+                    existingAttendance.Add(key);
+                    report.AttendanceRecordsImported++;
+                }
+            }
+        }
+
+        private void ImportAttendanceEmployeeBlockLayout(DataTable table, int daysRow, int month, int year, Dictionary<string, ImportedEmployeeRow> importedEmployees, PayrollImportReport report, Dictionary<string, Employee> employeesByCode, Dictionary<string, List<Employee>> employeesByName, SqlConnection conn, SqlTransaction tx)
+        {
+            Dictionary<int, int> dayCols = FindDayColumns(table, daysRow, 0);
+            if (dayCols.Count == 0)
+                return;
+
+            var existingAttendance = new HashSet<string>(_repo.GetAttendanceRecordsForMonth(month, year, conn, tx).Select(a => a.EmployeeId + "|" + a.AttendanceDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture)), StringComparer.OrdinalIgnoreCase);
+
+            for (int rowIndex = daysRow + 1; rowIndex < table.Rows.Count; rowIndex++)
+            {
+                if (Normalize(Cell(table.Rows[rowIndex], 0)) != "EMPLOYEE")
+                    continue;
+
+                string employeeDescriptor = FindEmployeeDescriptor(table.Rows[rowIndex]);
+                if (string.IsNullOrWhiteSpace(employeeDescriptor))
+                    continue;
+
+                ParseEmployeeDescriptor(employeeDescriptor, out string employeeCode, out string employeeName);
+                if (string.IsNullOrWhiteSpace(employeeCode) && string.IsNullOrWhiteSpace(employeeName))
+                    continue;
+
+                ImportedEmployeeRow imported = FindImportedEmployee(importedEmployees, employeeCode, employeeName);
+                Employee employee = MatchOrCreateEmployee(imported ?? new ImportedEmployeeRow { EmployeeCode = employeeCode, EmployeeName = employeeName }, report, employeesByCode, employeesByName, conn, tx);
+                if (employee == null)
+                    continue;
+
+                int statusRowIndex = FindNextRow(table, rowIndex + 1, row => Normalize(Cell(row, 0)) == "STATUS");
+                if (statusRowIndex < 0)
+                    continue;
+
+                foreach (KeyValuePair<int, int> dayCol in dayCols)
+                {
+                    string status = NormalizeStatusCode(Cell(table.Rows[statusRowIndex], dayCol.Key));
+                    if (string.IsNullOrWhiteSpace(status))
+                        continue;
+
                     DateTime attendanceDate = new DateTime(year, month, dayCol.Value);
                     string key = employee.EmployeeID + "|" + attendanceDate.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
                     if (existingAttendance.Contains(key))
@@ -480,6 +599,109 @@ namespace HVAC_Pro_Desktop.Services
             return keys;
         }
 
+        private static bool IsSupportedImportFile(string path)
+        {
+            string extension = Path.GetExtension(path) ?? string.Empty;
+            return extension.Equals(".xls", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".csv", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string BuildSuccessMessage(PayrollImportReport report)
+        {
+            return "Import complete. Files: " + report.FilesProcessed
+                + " | Payroll entries: " + report.PayrollEntriesImported
+                + " | Attendance rows: " + report.AttendanceRecordsImported
+                + " | New employees: " + report.NewEmployeesCreated
+                + (report.Warnings.Count > 0 ? " | Warnings: " + report.Warnings.Count : string.Empty);
+        }
+
+        private static bool IsMasterSheet(string sheetName, DataTable table)
+        {
+            return (sheetName ?? string.Empty).IndexOf("MASTER", StringComparison.OrdinalIgnoreCase) >= 0
+                || FindRow(table, row => RowContains(row, "NAMEOFEMPLOYEE") && (RowContains(row, "IDNO") || RowContains(row, "UANNUMBER"))) >= 0;
+        }
+
+        private static bool IsPayrollSheet(string sheetName, DataTable table)
+        {
+            if ((sheetName ?? string.Empty).IndexOf("PAYROLL", StringComparison.OrdinalIgnoreCase) >= 0
+                || (sheetName ?? string.Empty).IndexOf("PAY ROLL", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+
+            return FindRow(table, row =>
+                (RowContains(row, "FULLNAMEOFTHEEMPLOYEE") || RowContains(row, "EMPLOYEE NAME") || RowContains(row, "EMPLOYEE"))
+                && (RowContains(row, "TOTALDAYSWORKED") || RowContains(row, "NETWAGESPAID") || RowContains(row, "TOTALWAGESPAYABLE") || RowContains(row, "GROSS"))) >= 0;
+        }
+
+        private static bool IsAttendanceSheet(string sheetName, DataTable table)
+        {
+            int headerRow = FindRow(table, row => (RowContains(row, "SRNO") || RowContains(row, "EMPLOYEE")) && RowContains(row, "NAME"));
+            if (headerRow >= 0 && FindDayColumns(table, headerRow, 3).Count >= 5)
+                return true;
+
+            int daysRow = FindRow(table, row => Normalize(Cell(row, 0)) == "DAYS");
+            if (daysRow >= 0 && FindDayColumns(table, daysRow, 0).Count >= 5 && FindRow(table, row => Normalize(Cell(row, 0)) == "EMPLOYEE") >= 0)
+                return true;
+
+            return Regex.IsMatch(sheetName ?? string.Empty, @"\b(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b", RegexOptions.IgnoreCase)
+                && FindRow(table, row => RowContains(row, "STATUS")) >= 0;
+        }
+
+        private static DataTable LoadCsvAsTable(string file)
+        {
+            var table = new DataTable();
+            foreach (string line in File.ReadLines(file))
+            {
+                string[] fields = ParseCsvLine(line).ToArray();
+                while (table.Columns.Count < fields.Length)
+                    table.Columns.Add("Column" + table.Columns.Count, typeof(string));
+
+                DataRow row = table.NewRow();
+                for (int i = 0; i < fields.Length; i++)
+                    row[i] = fields[i];
+
+                table.Rows.Add(row);
+            }
+
+            return table;
+        }
+
+        private static IEnumerable<string> ParseCsvLine(string line)
+        {
+            if (line == null)
+                yield break;
+
+            bool insideQuotes = false;
+            var buffer = new List<char>();
+            for (int i = 0; i < line.Length; i++)
+            {
+                char current = line[i];
+                if (current == '"')
+                {
+                    if (insideQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        buffer.Add('"');
+                        i++;
+                    }
+                    else
+                    {
+                        insideQuotes = !insideQuotes;
+                    }
+                }
+                else if (current == ',' && !insideQuotes)
+                {
+                    yield return new string(buffer.ToArray()).Trim();
+                    buffer.Clear();
+                }
+                else
+                {
+                    buffer.Add(current);
+                }
+            }
+
+            yield return new string(buffer.ToArray()).Trim();
+        }
+
         private static Dictionary<string, int> BuildHeaderIndex(DataTable table, int headerRow, int extraRows)
         {
             var headers = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -521,7 +743,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 for (int offset = 0; offset <= extraRows && headerRow + offset < table.Rows.Count; offset++)
                 {
-                    if (int.TryParse(Cell(table.Rows[headerRow + offset], column), out int day) && day >= 1 && day <= 31)
+                    if (TryParseDayNumber(Cell(table.Rows[headerRow + offset], column), out int day))
                     {
                         map[column] = day;
                         break;
@@ -534,6 +756,14 @@ namespace HVAC_Pro_Desktop.Services
         private static int FindRow(DataTable table, Func<DataRow, bool> predicate)
         {
             for (int i = 0; i < table.Rows.Count; i++)
+                if (predicate(table.Rows[i]))
+                    return i;
+            return -1;
+        }
+
+        private static int FindNextRow(DataTable table, int startIndex, Func<DataRow, bool> predicate)
+        {
+            for (int i = Math.Max(0, startIndex); i < table.Rows.Count; i++)
                 if (predicate(table.Rows[i]))
                     return i;
             return -1;
@@ -552,16 +782,82 @@ namespace HVAC_Pro_Desktop.Services
             return Convert.ToString(row[index])?.Trim() ?? string.Empty;
         }
 
-        private static void ResolveMonthYear(string fileName, out int month, out int year)
+        private static bool TryParseDayNumber(string value, out int day)
         {
-            month = 3;
-            year = 2026;
-            Match match = Regex.Match(Path.GetFileNameWithoutExtension(fileName), @"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^\d]*(\d{2,4})", RegexOptions.IgnoreCase);
+            day = 0;
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            Match match = Regex.Match(value.Trim(), @"^(?<day>\d{1,2})\b");
+            if (!match.Success)
+                return false;
+
+            return int.TryParse(match.Groups["day"].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out day) && day >= 1 && day <= 31;
+        }
+
+        private static string FindEmployeeDescriptor(DataRow row)
+        {
+            for (int column = 1; column < row.Table.Columns.Count; column++)
+            {
+                string value = Cell(row, column);
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value;
+            }
+
+            return string.Empty;
+        }
+
+        private static void ParseEmployeeDescriptor(string descriptor, out string employeeCode, out string employeeName)
+        {
+            employeeCode = string.Empty;
+            employeeName = string.Empty;
+            if (string.IsNullOrWhiteSpace(descriptor))
+                return;
+
+            Match match = Regex.Match(descriptor.Trim(), @"^(?<code>[^:]+?)\s*:\s*(?<name>.+)$");
+            if (match.Success)
+            {
+                employeeCode = match.Groups["code"].Value.Trim();
+                employeeName = ToTitle(match.Groups["name"].Value.Trim());
+                return;
+            }
+
+            employeeName = ToTitle(descriptor.Trim());
+        }
+
+        private static void ResolveMonthYear(string fileName, string contextName, DataTable table, int defaultMonth, int defaultYear, out int month, out int year)
+        {
+            month = defaultMonth >= 1 && defaultMonth <= 12 ? defaultMonth : DateTime.Today.Month;
+            year = defaultYear >= 2000 ? defaultYear : DateTime.Today.Year;
+
+            Match match = Regex.Match((Path.GetFileNameWithoutExtension(fileName) ?? string.Empty) + " " + (contextName ?? string.Empty), @"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^\d]*(\d{2,4})", RegexOptions.IgnoreCase);
             if (match.Success)
             {
                 month = DateTime.ParseExact(match.Groups[1].Value, "MMM", CultureInfo.InvariantCulture).Month;
                 year = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
-                if (year < 100) year += 2000;
+                if (year < 100)
+                    year += 2000;
+                return;
+            }
+
+            for (int rowIndex = 0; rowIndex < Math.Min(table?.Rows.Count ?? 0, 8); rowIndex++)
+            {
+                foreach (object cell in table.Rows[rowIndex].ItemArray)
+                {
+                    string text = Convert.ToString(cell);
+                    if (string.IsNullOrWhiteSpace(text))
+                        continue;
+
+                    match = Regex.Match(text, @"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[^\d]*(\d{2,4})", RegexOptions.IgnoreCase);
+                    if (!match.Success)
+                        continue;
+
+                    month = DateTime.ParseExact(match.Groups[1].Value, "MMM", CultureInfo.InvariantCulture).Month;
+                    year = int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture);
+                    if (year < 100)
+                        year += 2000;
+                    return;
+                }
             }
         }
 
@@ -597,7 +893,23 @@ namespace HVAC_Pro_Desktop.Services
             return normalized.Length <= 20 ? normalized : normalized.Substring(0, 20);
         }
         private static string Last4(string value) { string digits = new string((value ?? string.Empty).Where(char.IsDigit).ToArray()); return digits.Length <= 4 ? digits : digits.Substring(digits.Length - 4); }
-        private static string NormalizeStatusCode(string raw) { string value = Normalize(raw); if (value == "A") return "Absent"; if (value == "L") return "Leave"; if (value == "HL" || value == "HD") return "HalfDay"; if (value == "W" || value == "WO" || value == "H" || value == "HO") return "WeekOff"; return value.Length > 0 ? "Present" : string.Empty; }
+        private static string NormalizeStatusCode(string raw)
+        {
+            string value = Normalize(raw);
+            if (value == "A")
+                return "Absent";
+            if (value == "L" || value == "C" || value == "CL" || value == "E" || value == "EL" || value == "PL")
+                return "Leave";
+            if (value == "HL" || value == "HD" || value == "P2" || value == "PH2")
+                return "HalfDay";
+            if (value == "W" || value == "WO")
+                return "WeekOff";
+            if (value == "H" || value == "HO" || value == "PH" || value == "WHO")
+                return "Holiday";
+            if (value == "P")
+                return "Present";
+            return value.Length > 0 ? "Present" : string.Empty;
+        }
         private static bool IsImportableEmployeeName(string value)
         {
             string normalized = Normalize(value);

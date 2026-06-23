@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
@@ -25,6 +26,8 @@ namespace HVAC_Pro_Desktop.UI
         protected virtual bool SuppressAutomaticChildPolish => false;
 
         protected override bool SuppressBaseAutomaticChildPolish => SuppressAutomaticChildPolish;
+
+        private bool _firstPaintTimingLogged;
 
         public bool DeferredLoadQueued => _deferredLoadQueued;
 
@@ -297,6 +300,29 @@ namespace HVAC_Pro_Desktop.UI
                 RestorePrimaryScrollPosition(child, scrollPosition);
         }
 
+        protected void RegisterFirstPaintTiming(string context, Stopwatch stopwatch)
+        {
+            if (stopwatch == null)
+                return;
+
+            VisibleChanged += (s, e) =>
+            {
+                if (!Visible || _firstPaintTimingLogged)
+                    return;
+
+                Action log = () =>
+                {
+                    if (_firstPaintTimingLogged || IsDisposed || !Visible)
+                        return;
+
+                    _firstPaintTimingLogged = true;
+                    AppRuntime.LogTiming(context, stopwatch.ElapsedMilliseconds);
+                };
+
+                InvokeWhenReady(log);
+            };
+        }
+
         private static string FindActiveTabKey(Control root)
         {
             if (root == null)
@@ -345,11 +371,11 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _controlTreePolishQueued = true;
-            BeginInvoke((Action)(() =>
+            InvokeWhenReady(() =>
             {
                 _controlTreePolishQueued = false;
                 QueuePostLoadPolish();
-            }));
+            });
         }
 
         private void QueuePostLoadPolish()
@@ -365,23 +391,46 @@ namespace HVAC_Pro_Desktop.UI
                 _postLoadPolishQueued = false;
                 UiPerformanceService.WithSuspendedDrawing(this, () =>
                 {
+                    ApplyMainScrollCanvas();
+                    PageHeaderPolishService.Apply(this);
+                    if (SuppressAutomaticChildPolish)
+                    {
+                        UIHelper.ApplyButtonAlignment(this);
+                        return;
+                    }
+
                     DS.ApplyTheme(this);
                     if (EnableAutomaticLayoutScaling)
                         LayoutScaler.ScaleControl(this);
                     LayoutScaler.ApplyGlobalScale(this);
                     UIHelper.ApplyGlobalScrollAndResize(this);
-                    ApplyMainScrollCanvas();
                     UIHelper.ApplyButtonAlignment(this);
                     GlobalCardContextMenu.ApplyToTree(this);
-                    PageHeaderPolishService.Apply(this);
                 });
             };
 
             _postLoadPolishQueued = true;
+            InvokeWhenReady(polish);
+        }
+
+        private void InvokeWhenReady(Action action)
+        {
+            if (action == null || IsDisposed)
+                return;
+
             if (IsHandleCreated)
-                BeginInvoke(polish);
-            else
-                HandleCreated += (s, e) => BeginInvoke(polish);
+            {
+                try
+                {
+                    BeginInvoke(action);
+                    return;
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+
+            action();
         }
     }
 }

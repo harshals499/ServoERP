@@ -5,6 +5,13 @@ namespace HVAC_Pro_Desktop.Models
     public class ClientSite
     {
         public int    SiteID                   { get; set; }
+        public Guid? SyncPublicId { get; set; }
+        public Guid? OriginNodeId { get; set; }
+        public Guid? LastModifiedNodeId { get; set; }
+        public DateTime? CreatedUtc { get; set; }
+        public DateTime? UpdatedUtc { get; set; }
+        public DateTime? DeletedUtc { get; set; }
+        public long SyncVersion { get; set; }
         public int    ClientID                 { get; set; }
         public string SiteName                 { get; set; }
         public string Address                  { get; set; }
