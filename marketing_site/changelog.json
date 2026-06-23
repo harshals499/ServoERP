@@ -13,14 +13,14 @@
     {
       "version": "1.1.167.0",
       "date": "2026-06-23",
-      "title": "ServoERP Master Data reference cards",
+      "title": "ServoERP Master Data lookup cards",
       "changes": [
         {
           "type": "release",
           "items": [
-            "Adds centralized Master Lookup categories and values for HR, attendance, payroll, jobs, service desk, AMC, inventory, purchase, and sales documents.",
-            "Adds Master Data reference cards for missing lookup categories with live active-value counts and direct editing navigation.",
-            "Migrates key dropdowns to the shared lookup service while keeping safe fallback values for older databases."
+            "Added centralized Master Lookup categories and values for HR, attendance, payroll, jobs, service desk, AMC, inventory, purchase, and sales documents.",
+            "Added Master Data reference cards with live value counts and direct editing navigation.",
+            "Migrated key dropdowns to shared lookup service with safe fallbacks."
           ]
         }
       ]
