@@ -15,6 +15,7 @@ namespace HVAC_Pro_Desktop.UI
     public partial class AddAMCForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly CultureInfo _india = new CultureInfo("en-IN");
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly int? _contractId;
         private int? _lastSavedContractId;
         private TextBox _txtAMCNumber;
@@ -48,6 +49,7 @@ namespace HVAC_Pro_Desktop.UI
         private AMCInput _loadedInput;
         private int? _pendingSiteId;
         private CancellationTokenSource _referenceLoadCancellation;
+        private int _amcNumberMaxLength = 30;
 
         private static readonly object ClientCacheLock = new object();
         private static readonly TimeSpan ClientCacheTtl = TimeSpan.FromMinutes(3);
@@ -172,14 +174,12 @@ namespace HVAC_Pro_Desktop.UI
             _cmbStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _txtNotes = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical };
 
-            _cmbAMCType.Items.AddRange(new object[] { "Comprehensive", "Non-Comprehensive", "Labour Only", "Preventive" });
-            _cmbCoverageType.Items.AddRange(new object[] { "Comprehensive", "Non-Comprehensive" });
-            _cmbBillingCycle.Items.AddRange(new object[] { "Monthly", "Quarterly", "Half-Yearly", "Annual" });
-            _cmbStatus.Items.AddRange(new object[] { "Draft", "Active", "Cancelled" });
+            _lookupSvc.BindCombo(_cmbAMCType, "AMC.Type", new[] { "Comprehensive", "Non-Comprehensive", "Labour Only", "Preventive" });
+            _lookupSvc.BindCombo(_cmbCoverageType, "AMC.CoverageType", new[] { "Comprehensive", "Non-Comprehensive" });
+            _lookupSvc.BindCombo(_cmbBillingCycle, "AMC.BillingCycle", new[] { "Monthly", "Quarterly", "Half-Yearly", "Annual" }, "Annual");
+            _lookupSvc.BindCombo(_cmbStatus, "AMC.Status", new[] { "Draft", "Active", "Cancelled" }, "Active");
             _cmbAMCType.SelectedIndex = 0;
             _cmbCoverageType.SelectedIndex = 0;
-            _cmbBillingCycle.SelectedIndex = 3;
-            _cmbStatus.SelectedIndex = 1;
 
             AddRow(grid, 0, "AMC Number *", _txtAMCNumber);
             AddRow(grid, 1, "Client *", _cmbClient);
@@ -426,6 +426,7 @@ namespace HVAC_Pro_Desktop.UI
                     payload.NextAMCNumber = GenerateNextAMCNumber(command.ExecuteScalar() as string);
                 }
 
+                payload.AmcNumberMaxLength = GetAmcNumberMaxLength(connection);
                 payload.Clients.AddRange(GetCachedClients(connection));
 
                 if (_contractId.HasValue)
@@ -539,6 +540,8 @@ WHERE ContractID = @ContractID;", connection))
             try
             {
                 _loadedInput = payload.Existing;
+                _amcNumberMaxLength = payload.AmcNumberMaxLength > 0 ? payload.AmcNumberMaxLength : 30;
+                _txtAMCNumber.MaxLength = _amcNumberMaxLength;
                 _txtAMCNumber.Text = _loadedInput == null || string.IsNullOrWhiteSpace(_loadedInput.AMCNumber)
                     ? payload.NextAMCNumber
                     : _loadedInput.AMCNumber;
@@ -689,6 +692,11 @@ WHERE ContractID = @ContractID;", connection))
                 MessageBox.Show(this, ex.Message, BrandingService.WindowTitle("Duplicate AMC Number"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 _txtAMCNumber.Focus();
             }
+            catch (AMCNumberLengthException ex)
+            {
+                MessageBox.Show(this, ex.Message, BrandingService.WindowTitle("AMC Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtAMCNumber.Focus();
+            }
             catch (Exception ex)
             {
                 ShowError("AMC could not be saved. Please check the details and try again.", ex);
@@ -710,8 +718,8 @@ WHERE ContractID = @ContractID;", connection))
         {
             if (string.IsNullOrWhiteSpace(_txtAMCNumber.Text))
                 return "Enter an AMC Number.";
-            if (_txtAMCNumber.Text.Trim().Length > 30)
-                return "AMC Number must be 30 characters or fewer.";
+            if (_txtAMCNumber.Text.Trim().Length > _amcNumberMaxLength)
+                return BuildAMCNumberLengthMessage(_amcNumberMaxLength);
             if (GetSelectedClientId() <= 0)
                 return "Select a client.";
             if (_dtpEnd.Value.Date <= _dtpStart.Value.Date)
@@ -749,7 +757,7 @@ WHERE ContractID = @ContractID;", connection))
         private int SaveInput(AMCInput input)
         {
             DbHelper.EnsureAMCSchema();
-            EnsureUniqueAMCNumber(input);
+            ValidateAMCNumberForSave(input);
             if (_contractId.HasValue)
             {
                 bool updated = UpdateInput(input);
@@ -842,10 +850,23 @@ WHERE ContractID = @ContractID;", connection))
             }
         }
 
-        /// <summary>Checks that the entered AMC number is not already used by another contract.</summary>
-        private void EnsureUniqueAMCNumber(AMCInput input)
+        /// <summary>Checks AMC number length and uniqueness before SQL writes.</summary>
+        private void ValidateAMCNumberForSave(AMCInput input)
         {
             using (SqlConnection connection = DatabaseConnectionFactory.CreateConnection())
+            {
+                DatabaseConnectionFactory.Open(connection, "AddAMCForm.ValidateAMCNumberForSave");
+                int maxLength = GetAmcNumberMaxLength(connection);
+                if ((input.AMCNumber ?? string.Empty).Trim().Length > maxLength)
+                    throw new AMCNumberLengthException(maxLength);
+
+                EnsureUniqueAMCNumber(connection, input);
+            }
+        }
+
+        /// <summary>Checks that the entered AMC number is not already used by another contract.</summary>
+        private void EnsureUniqueAMCNumber(SqlConnection connection, AMCInput input)
+        {
             using (SqlCommand command = new SqlCommand(@"
 SELECT TOP 1 ContractID
 FROM dbo.AMCContracts
@@ -854,11 +875,32 @@ WHERE AMCNumber = @AMCNumber
             {
                 command.Parameters.AddWithValue("@AMCNumber", input.AMCNumber);
                 command.Parameters.AddWithValue("@ContractID", input.ContractId);
-                DatabaseConnectionFactory.Open(connection, "AddAMCForm.EnsureUniqueAMCNumber");
                 object existing = command.ExecuteScalar();
                 if (existing != null && existing != DBNull.Value)
                     throw new DuplicateAMCNumberException(input.AMCNumber);
             }
+        }
+
+        private static int GetAmcNumberMaxLength(SqlConnection connection)
+        {
+            using (SqlCommand command = new SqlCommand("SELECT COL_LENGTH('dbo.AMCContracts', 'AMCNumber');", connection))
+            {
+                command.CommandTimeout = ReferenceCommandTimeoutSeconds;
+                object value = command.ExecuteScalar();
+                if (value == null || value == DBNull.Value)
+                    return 30;
+
+                int sqlLengthBytes = Convert.ToInt32(value, CultureInfo.InvariantCulture);
+                if (sqlLengthBytes <= 0)
+                    return 30;
+
+                return Math.Max(1, sqlLengthBytes / 2);
+            }
+        }
+
+        private static string BuildAMCNumberLengthMessage(int maxLength)
+        {
+            return "AMC Number must be " + maxLength.ToString(CultureInfo.InvariantCulture) + " characters or fewer.";
         }
 
         /// <summary>Adds common insert/update parameters to the save command.</summary>
@@ -1064,9 +1106,18 @@ WHERE AMCNumber = @AMCNumber
             }
         }
 
+        private sealed class AMCNumberLengthException : Exception
+        {
+            public AMCNumberLengthException(int maxLength)
+                : base(BuildAMCNumberLengthMessage(maxLength))
+            {
+            }
+        }
+
         private sealed class ReferencePayload
         {
             public string NextAMCNumber;
+            public int AmcNumberMaxLength = 30;
             public AMCInput Existing;
             public readonly List<LookupItem> Clients = new List<LookupItem>();
         }

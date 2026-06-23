@@ -1,15 +1,134 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.92.0",
-  "updatedAt": "2026-06-17",
+  "latestVersion": "1.1.167.0",
+  "updatedAt": "2026-06-23",
   "download": {
-    "available": false,
-    "message": "Public installer downloads are disabled. Update packages remain available for ServoERP update workflows.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.92/ServoERP.Desktop-1.1.92-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.92.0.exe",
-    "installer": "ServoERP_Setup_1.1.92.0.exe"
+    "available": true,
+    "message": "Public installer and update packages are available for this release.",
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.167/ServoERP.Desktop-1.1.167-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.167.0.exe",
+    "installer": "ServoERP_Setup_1.1.167.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.167.0",
+      "date": "2026-06-23",
+      "title": "ServoERP Master Data reference cards",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Adds centralized Master Lookup categories and values for HR, attendance, payroll, jobs, service desk, AMC, inventory, purchase, and sales documents.",
+            "Adds Master Data reference cards for missing lookup categories with live active-value counts and direct editing navigation.",
+            "Migrates key dropdowns to the shared lookup service while keeping safe fallback values for older databases."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.166.0",
+      "date": "2026-06-23",
+      "title": "ServoERP client update 1.1.166.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Publishes the next ServoERP desktop update package for client rollout.",
+            "Rebuilt the Release desktop app so client PCs can detect and download the newer Velopack release."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.165.0",
+      "date": "2026-06-23",
+      "title": "ServoERP attendance update 1.1.165",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Attendance page now focuses on the daily attendance card only.",
+            "Fixed attendance grid rendering with frozen columns.",
+            "Removed stale attendance dashboard cards and right-side panels."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.144.0",
+      "date": "2026-06-22",
+      "title": "Payroll import support for Deccan attendance and payroll Excel formats",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added direct Payroll import support for selected .xls, .xlsx, and .csv payroll or attendance files from the Payroll page.",
+            "Expanded Payroll attendance import to support employee-block monthly work-duration reports such as WorkDurationReport - 01-05-26.xls.",
+            "Hardened Payroll import for Deccan register-style attendance and payroll workbooks including vendor status codes like W, WO, PH, WHO, C, E, and P/2."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.141.0",
+      "date": "2026-06-22",
+      "title": "ServoERP update 1.1.141.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed Master Data import actions so stale page-refresh state no longer throws the generic current-state screen error.",
+            "Hardened Master Data import and template actions to verify the live control/form owner before showing popup menus or file dialogs.",
+            "Rebuilt the Release desktop executable so this import-state fix is ready for client rollout."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.140.0",
+      "date": "2026-06-22",
+      "title": "ServoERP update 1.1.140.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Published the real 1.1.140 desktop installer and Velopack update packages so client PCs can detect the newest release.",
+            "Updated the public website and download metadata to point at the 1.1.140.0 installer and GitHub release package.",
+            "Added a direct website download call-to-action tied to the live installer metadata instead of a stale hardcoded version."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.138.0",
+      "date": "2026-06-21",
+      "title": "Fix clipped and duplicated page header actions",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed duplicated header action rails so shared page headers no longer get an extra auto-injected Preview or Refresh cluster layered on top of their own page-specific controls.",
+            "Corrected clipped and inconsistent top-bar actions across Quotations, Invoices, Purchases, Payments, Reports, and Settings so search boxes and header buttons render fully inside the real sidebar-constrained app shell.",
+            "Rebuilt and visually rechecked the Release desktop app against the shipped bin\\\\Release output so this update packages the actual on-screen header fixes instead of the stale duplicated layout."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.137.0",
+      "date": "2026-06-21",
+      "title": "ServoERP update 1.1.137.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added stronger dashboard recent-activity behavior so newly saved quotations, invoices, jobs, and purchase orders are surfaced more reliably with direct View actions from the recent cards.",
+            "Refined dashboard and purchase UI polish by repositioning and resizing action cards and buttons, including the Backup Now control and the recent purchase-order card layout.",
+            "Reworked purchase-order viewing so recent View actions open the proper in-app purchase preview window with a cleaner, more professional document layout instead of falling back to poorly formatted file-open behavior."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.92.0",
       "date": "2026-06-17",

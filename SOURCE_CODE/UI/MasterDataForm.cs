@@ -22,12 +22,13 @@ namespace HVAC_Pro_Desktop.UI
         private readonly MasterDataService _svc = new MasterDataService();
         private readonly ClientService _clientSvc = new ClientService();
         private readonly SiteService _siteSvc = new SiteService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly CompanyTemplateManager _templateManager = new CompanyTemplateManager();
         private readonly FormTemplateLibraryService _formTemplateLibrary = new FormTemplateLibraryService();
 
         private TabControl _tabs;
-        private DataGridView _statusGrid, _assetGrid, _docGrid, _rateGrid, _serverGrid, _importGrid;
-        private ComboBox _assetClient, _assetSite, _docClient, _docType, _rateClient, _rateCategory, _serverType, _syncDirection;
+        private DataGridView _statusGrid, _assetGrid, _docGrid, _rateGrid, _serverGrid, _importGrid, _lookupCategoryGrid, _lookupValueGrid;
+        private ComboBox _assetClient, _assetSite, _docClient, _docType, _rateClient, _rateCategory, _serverType, _syncDirection, _lookupValueCategory;
         private TextBox _assetType, _assetTag, _assetBrand, _assetModel, _assetSerial, _assetCapacity, _assetLocation, _assetNotes;
         private DateTimePicker _assetInstall, _assetWarranty, _docExpiry, _rateEffective;
         private CheckBox _assetInstallOn, _assetWarrantyOn, _assetAmc, _docExpiryOn, _rateEmergency;
@@ -35,6 +36,9 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _rateName, _rateUnit, _rateNotes;
         private NumericUpDown _rateAmount, _rateGst, _serverPort;
         private TextBox _serverName, _serverHost, _serverDb, _serverApi, _serverUser, _serverSecret;
+        private TextBox _lookupKey, _lookupModule, _lookupName, _lookupDescription, _lookupValueCode, _lookupValueText, _lookupValueDescription;
+        private NumericUpDown _lookupSort, _lookupValueSort;
+        private CheckBox _lookupActive, _lookupValueDefault, _lookupValueActive;
         private Label _status;
         private FlowLayoutPanel _hubFlow;
         private MasterDataSnapshot _lastSnapshot;
@@ -45,6 +49,8 @@ namespace HVAC_Pro_Desktop.UI
         private ClientAsset _selectedAsset;
         private ServiceRateCard _selectedRate;
         private PrivateServerConnection _selectedConnection;
+        private MasterLookupCategory _selectedLookupCategory;
+        private MasterLookupValue _selectedLookupValue;
 
         private static readonly Color ActionBlue = DS.Indigo600;
         private static readonly Color SaveGreen = DS.Green500;
@@ -87,66 +93,31 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildHeader()
         {
-            Panel header = new Panel { Name = "MasterDataPageHeader", Dock = DockStyle.Top, Height = 86, BackColor = DS.BgPage, Padding = new Padding(28, 12, 28, 10) };
-            header.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Border))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-            Label title = new Label
-            {
-                Text = "Master Data",
-                Location = new Point(28, 15),
-                Size = new Size(460, 32),
-                Font = new Font("Segoe UI", 18, FontStyle.Bold),
-                ForeColor = DS.Slate900,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
-            };
-            Label subtitle = new Label
-            {
-                Text = "Import one Excel file and let ServoERP detect, clean, link, and sync the data automatically.",
-                Location = new Point(30, 50),
-                Size = new Size(620, 22),
-                Font = new Font("Segoe UI", 9.5f),
-                ForeColor = DS.Slate500,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
-            };
             Button upload = MakeButton("Import Excel", Color.White, 138);
             upload.AutoEllipsis = true;
             upload.Click += (s, e) => ShowBulkImportMenu(upload);
             upload.ForeColor = DS.Slate800;
             upload.FlatAppearance.BorderSize = 1;
             upload.FlatAppearance.BorderColor = DS.BorderStrong;
-            upload.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            upload.Location = new Point(header.Width - 356, 24);
             ModernIconSystem.AddButtonIcon(upload, ModernIconKind.Import);
 
             Button validate = MakeButton("Refresh Setup Checks", DS.Primary600, 174, async (s, e) => await LoadAllAsync());
             validate.AutoEllipsis = true;
-            validate.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            validate.Location = new Point(header.Width - 188, 24);
             ModernIconSystem.AddButtonIcon(validate, ModernIconKind.Security);
-
-            header.Resize += (s, e) =>
+            return SharedPageHeader.Build(new SharedPageHeaderModel
             {
-                bool compact = header.ClientSize.Width < 980;
-                header.Height = compact ? 112 : 86;
-                int right = header.ClientSize.Width - 28;
-                int actionsTop = compact ? 72 : 24;
-                validate.Location = new Point(Math.Max(28, right - validate.Width), actionsTop);
-                upload.Location = new Point(Math.Max(28, validate.Left - upload.Width - 10), actionsTop);
-                int textRight = compact ? right : Math.Max(220, upload.Left - 18);
-                title.Width = Math.Max(220, textRight - title.Left);
-                subtitle.Width = Math.Max(220, textRight - subtitle.Left);
-            };
-
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(upload);
-            header.Controls.Add(validate);
-            return header;
+                Name = "MasterDataPageHeader",
+                Mode = SharedPageHeaderMode.Editor,
+                Dock = DockStyle.Top,
+                BackColor = DS.BgPage,
+                Padding = new Padding(18, 16, 18, 10),
+                Title = "Master Data",
+                Subtitle = "Import one Excel file and let ServoERP detect, clean, link, and sync the data automatically.",
+                TitleWidth = 460,
+                SubtitleWidth = 620,
+                AllowCompactWrap = true,
+                RightActions = new List<Control> { upload, validate }
+            }).Header;
         }
 
         private Control BuildToolbar()
@@ -185,6 +156,7 @@ namespace HVAC_Pro_Desktop.UI
             _tabs.TabPages.Add(BuildAssetsTab());
             _tabs.TabPages.Add(BuildDocumentsTab());
             _tabs.TabPages.Add(BuildRatesTab());
+            _tabs.TabPages.Add(BuildLookupsTab());
             _tabs.TabPages.Add(BuildServerTab());
             _tabs.TabPages.Add(BuildImportsTab());
             return _tabs;
@@ -304,6 +276,58 @@ namespace HVAC_Pro_Desktop.UI
             return tab;
         }
 
+        private TabPage BuildLookupsTab()
+        {
+            TabPage tab = new TabPage("Lookups") { BackColor = DS.BgPage, Padding = new Padding(18) };
+            TableLayoutPanel outer = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+            outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
+            outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52));
+
+            TableLayoutPanel categories = MakeSplit();
+            categories.ColumnStyles[0].Width = 58;
+            _lookupCategoryGrid = MakeGrid();
+            _lookupCategoryGrid.SelectionChanged += (s, e) => SelectLookupCategoryFromGrid();
+            categories.Controls.Add(_lookupCategoryGrid, 0, 0);
+            FlowLayoutPanel categoryForm = MakeFormFlow();
+            _lookupKey = AddText(categoryForm, "Category key *");
+            _lookupModule = AddText(categoryForm, "Module *");
+            _lookupName = AddText(categoryForm, "Display name *");
+            _lookupDescription = AddText(categoryForm, "Description", true);
+            _lookupSort = AddNumber(categoryForm, "Sort order", 9999, 0);
+            _lookupActive = new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            categoryForm.Controls.Add(_lookupActive);
+            categoryForm.Controls.Add(ActionRow(
+                MakeButton("New category", ActionBlue, 116, (s, e) => ClearLookupCategoryForm()),
+                MakeButton("Save category", SaveGreen, 126, (s, e) => SaveLookupCategory())));
+            categories.Controls.Add(categoryForm, 1, 0);
+
+            TableLayoutPanel values = MakeSplit();
+            values.ColumnStyles[0].Width = 56;
+            _lookupValueGrid = MakeGrid();
+            _lookupValueGrid.SelectionChanged += (s, e) => SelectLookupValueFromGrid();
+            values.Controls.Add(_lookupValueGrid, 0, 0);
+            FlowLayoutPanel valueForm = MakeFormFlow();
+            _lookupValueCategory = AddCombo(valueForm, "Category *");
+            _lookupValueCategory.SelectedIndexChanged += (s, e) => LoadLookupValuesForSelectedCategory();
+            _lookupValueCode = AddText(valueForm, "Value code *");
+            _lookupValueText = AddText(valueForm, "Display text *");
+            _lookupValueDescription = AddText(valueForm, "Description", true);
+            _lookupValueSort = AddNumber(valueForm, "Sort order", 9999, 0);
+            _lookupValueDefault = new CheckBox { Text = "Default value", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            _lookupValueActive = new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            valueForm.Controls.Add(_lookupValueDefault);
+            valueForm.Controls.Add(_lookupValueActive);
+            valueForm.Controls.Add(ActionRow(
+                MakeButton("New value", ActionBlue, 96, (s, e) => ClearLookupValueForm()),
+                MakeButton("Save value", SaveGreen, 104, (s, e) => SaveLookupValue())));
+            values.Controls.Add(valueForm, 1, 0);
+
+            outer.Controls.Add(categories, 0, 0);
+            outer.Controls.Add(values, 1, 0);
+            tab.Controls.Add(outer);
+            return tab;
+        }
+
         private TabPage BuildServerTab()
         {
             TabPage tab = new TabPage("Server") { BackColor = DS.BgPage, Padding = new Padding(18) };
@@ -366,6 +390,7 @@ namespace HVAC_Pro_Desktop.UI
             _hubFlow.Controls.Add(BuildHeroDropZone());
             _hubFlow.Controls.Add(BuildWorkflowStrip());
             _hubFlow.Controls.Add(BuildHubMainRow(snapshot));
+            _hubFlow.Controls.Add(BuildLookupCardsSection(snapshot));
             _hubFlow.Controls.Add(BuildTipBar());
 
             _hubFlow.ResumeLayout(true);
@@ -509,13 +534,124 @@ namespace HVAC_Pro_Desktop.UI
             AddActionGridTile(actionGrid, BuildActionTile("Refresh all data", "Reload counts and integration status", ModernIconKind.Refresh, DS.Primary600, async () => await LoadAllAsync()), 1);
             AddActionGridTile(actionGrid, BuildActionTile("Download templates", "Get Excel formats for clean imports", ModernIconKind.Import, SaveGreen, () => ShowTemplateMenu(actions)), 2);
             AddActionGridTile(actionGrid, BuildActionTile("Duplicate check", "Find repeated clients, vendors, quotes", ModernIconKind.Filter, Color.FromArgb(249, 115, 22), () => ShowDuplicateCheck()), 3);
-            AddActionGridTile(actionGrid, BuildActionTile("Open import log", "Review recent sync batches", ModernIconKind.Document, Color.FromArgb(124, 58, 237), () => ShowExistingTab(5)), 4);
-            AddActionGridTile(actionGrid, BuildActionTile("Integration status", "Check API and app connectivity", ModernIconKind.Status, DS.Teal600, () => ShowExistingTab(4)), 5);
+            AddActionGridTile(actionGrid, BuildActionTile("Open import log", "Review recent sync batches", ModernIconKind.Document, Color.FromArgb(124, 58, 237), () => ShowExistingTab(6)), 4);
+            AddActionGridTile(actionGrid, BuildActionTile("Integration status", "Check API and app connectivity", ModernIconKind.Status, DS.Teal600, () => ShowExistingTab(5)), 5);
             actions.Controls.Add(actionGrid);
 
             row.Controls.Add(uploads, 0, 0);
             row.Controls.Add(actions, 1, 0);
             return row;
+        }
+
+        private Control BuildLookupCardsSection(MasterDataSnapshot snapshot)
+        {
+            Panel section = CreateSurfaceCard(new Padding(18)) as Panel;
+            section.Height = 396;
+            section.Margin = new Padding(0, 0, 0, 14);
+
+            FlowLayoutPanel grid = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                Padding = new Padding(0),
+                Margin = Padding.Empty,
+                AutoScroll = true,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = true
+            };
+            grid.Resize += (s, e) => ResizeLookupCards(grid);
+
+            grid.Controls.Add(SectionTitle("Reference cards", "Manage missing master-data categories used by HR, payroll, service, purchase, inventory and sales documents."));
+            foreach (LookupCardDefinition definition in LookupCardDefinitions())
+                grid.Controls.Add(BuildLookupCard(definition, snapshot));
+
+            section.Controls.Add(grid);
+            ResizeLookupCards(grid);
+            return section;
+        }
+
+        private Control BuildLookupCard(LookupCardDefinition definition, MasterDataSnapshot snapshot)
+        {
+            List<MasterLookupValue> values = (snapshot?.LookupValues ?? new List<MasterLookupValue>())
+                .Where(v => string.Equals(v.CategoryKey, definition.CategoryKey, StringComparison.OrdinalIgnoreCase) && v.IsActive)
+                .ToList();
+
+            Panel card = new Panel
+            {
+                Width = 236,
+                Height = 96,
+                BackColor = Color.White,
+                Margin = new Padding(0, 0, 12, 12),
+                Padding = new Padding(12),
+                Cursor = Cursors.Hand,
+                Tag = definition.CategoryKey
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 12))
+                using (SolidBrush fill = new SolidBrush(Color.White))
+                using (Pen pen = new Pen(DS.Border))
+                {
+                    e.Graphics.FillPath(fill, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
+                using (SolidBrush accent = new SolidBrush(Color.FromArgb(24, definition.Color)))
+                    e.Graphics.FillRectangle(accent, 0, 0, 4, card.Height);
+            };
+
+            Control icon = ModernIconSystem.Badge(definition.Icon, 34, Color.FromArgb(245, 247, 251), definition.Color, 17);
+            icon.Location = new Point(12, 14);
+            icon.Cursor = Cursors.Hand;
+            icon.Click += (s, e) => OpenLookupCard(definition.CategoryKey);
+
+            Label title = new Label
+            {
+                Text = definition.Title,
+                Location = new Point(56, 12),
+                Size = new Size(142, 22),
+                Font = new Font("Segoe UI", 9.25f, FontStyle.Bold),
+                ForeColor = DS.Slate900,
+                AutoEllipsis = true,
+                BackColor = Color.Transparent
+            };
+            Label module = new Label
+            {
+                Text = definition.Module,
+                Location = new Point(56, 35),
+                Size = new Size(116, 18),
+                Font = new Font("Segoe UI", 8.1f, FontStyle.Bold),
+                ForeColor = definition.Color,
+                AutoEllipsis = true,
+                BackColor = Color.Transparent
+            };
+            Label count = new Label
+            {
+                Text = values.Count.ToString("N0") + " values",
+                Location = new Point(56, 58),
+                Size = new Size(96, 20),
+                Font = new Font("Segoe UI", 8.6f),
+                ForeColor = DS.Slate600,
+                AutoEllipsis = true,
+                BackColor = Color.Transparent
+            };
+            Label arrow = new Label
+            {
+                Text = ">",
+                Location = new Point(card.Width - 30, 35),
+                Size = new Size(18, 20),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                ForeColor = DS.Slate400,
+                TextAlign = ContentAlignment.MiddleCenter,
+                BackColor = Color.Transparent
+            };
+
+            foreach (Control child in new Control[] { title, module, count, arrow })
+                child.Click += (s, e) => OpenLookupCard(definition.CategoryKey);
+            card.Click += (s, e) => OpenLookupCard(definition.CategoryKey);
+            card.Controls.AddRange(new Control[] { icon, title, module, count, arrow });
+            return card;
         }
 
         private Control BuildTipBar()
@@ -623,7 +759,11 @@ namespace HVAC_Pro_Desktop.UI
                         Documents = AppDataCache.GetOrCreate("masterdata:documents", ttl, () => _svc.GetDocuments() ?? new List<ClientDocument>()).ToList(),
                         Rates = AppDataCache.GetOrCreate("masterdata:rates", ttl, () => _svc.GetRateCards() ?? new List<ServiceRateCard>()).ToList(),
                         Connections = AppDataCache.GetOrCreate("masterdata:connections", ttl, () => _svc.GetPrivateServerConnections() ?? new List<PrivateServerConnection>()).ToList(),
-                        ImportBatches = AppDataCache.GetOrCreate("masterdata:import-batches", ttl, () => _svc.GetImportBatches() ?? new List<DataImportBatch>()).ToList()
+                        ImportBatches = AppDataCache.GetOrCreate("masterdata:import-batches", ttl, () => _svc.GetImportBatches() ?? new List<DataImportBatch>()).ToList(),
+                        LookupCategories = _lookupSvc.GetCategories(true),
+                        LookupValues = _lookupSvc.GetCategories(true)
+                            .SelectMany(c => _lookupSvc.GetValues(c.CategoryKey, true))
+                            .ToList()
                     };
                 });
 
@@ -644,6 +784,9 @@ namespace HVAC_Pro_Desktop.UI
                     if (_rateGrid != null) _rateGrid.DataSource = snapshot.Rates;
                     if (_serverGrid != null) _serverGrid.DataSource = snapshot.Connections;
                     if (_importGrid != null) _importGrid.DataSource = snapshot.ImportBatches;
+                    if (_lookupCategoryGrid != null) _lookupCategoryGrid.DataSource = snapshot.LookupCategories;
+                    BindLookupCategoryCombo(snapshot.LookupCategories);
+                    LoadLookupValuesForSelectedCategory();
                     RenderHub(snapshot);
                     ShowStatus("Master data refreshed.", false);
                 });
@@ -665,6 +808,201 @@ namespace HVAC_Pro_Desktop.UI
             base.OnVisibleChanged(e);
             if (Visible && !_masterDataLoading && _lastSnapshot == null)
                 QueueMasterDataLoad();
+        }
+
+        private void BindLookupCategoryCombo(List<MasterLookupCategory> categories)
+        {
+            if (_lookupValueCategory == null)
+                return;
+
+            int previousId = (_lookupValueCategory.SelectedItem as MasterLookupCategory)?.CategoryId ?? _selectedLookupCategory?.CategoryId ?? 0;
+            var source = (categories ?? new List<MasterLookupCategory>())
+                .OrderBy(c => c.ModuleKey)
+                .ThenBy(c => c.SortOrder)
+                .ThenBy(c => c.DisplayName)
+                .ToList();
+            _lookupValueCategory.DataSource = source;
+            _lookupValueCategory.DisplayMember = "DisplayName";
+            _lookupValueCategory.ValueMember = "CategoryId";
+            if (previousId > 0)
+            {
+                for (int i = 0; i < _lookupValueCategory.Items.Count; i++)
+                {
+                    if ((_lookupValueCategory.Items[i] as MasterLookupCategory)?.CategoryId == previousId)
+                    {
+                        _lookupValueCategory.SelectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        private void SelectLookupCategoryFromGrid()
+        {
+            MasterLookupCategory category = CurrentRow<MasterLookupCategory>(_lookupCategoryGrid);
+            if (category == null)
+                return;
+
+            _selectedLookupCategory = category;
+            _lookupKey.Text = category.CategoryKey ?? string.Empty;
+            _lookupKey.ReadOnly = category.IsSystem || category.CategoryId > 0;
+            _lookupModule.Text = category.ModuleKey ?? string.Empty;
+            _lookupName.Text = category.DisplayName ?? string.Empty;
+            _lookupDescription.Text = category.Description ?? string.Empty;
+            _lookupSort.Value = Math.Max(_lookupSort.Minimum, Math.Min(_lookupSort.Maximum, category.SortOrder));
+            _lookupActive.Checked = category.IsActive;
+            SelectLookupCategoryInValueCombo(category.CategoryId);
+            LoadLookupValuesForSelectedCategory();
+        }
+
+        private void SelectLookupCategoryInValueCombo(int categoryId)
+        {
+            if (_lookupValueCategory == null || categoryId <= 0)
+                return;
+
+            for (int i = 0; i < _lookupValueCategory.Items.Count; i++)
+            {
+                if ((_lookupValueCategory.Items[i] as MasterLookupCategory)?.CategoryId == categoryId)
+                {
+                    _lookupValueCategory.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        private void OpenLookupCard(string categoryKey)
+        {
+            ShowExistingTab(4);
+            if (string.IsNullOrWhiteSpace(categoryKey))
+                return;
+
+            if (_lookupCategoryGrid != null)
+            {
+                foreach (DataGridViewRow row in _lookupCategoryGrid.Rows)
+                {
+                    MasterLookupCategory category = row.DataBoundItem as MasterLookupCategory;
+                    if (category == null || !string.Equals(category.CategoryKey, categoryKey, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    _lookupCategoryGrid.ClearSelection();
+                    row.Selected = true;
+                    _lookupCategoryGrid.CurrentCell = row.Cells[0];
+                    SelectLookupCategoryFromGrid();
+                    return;
+                }
+            }
+
+            MasterLookupCategory fallback = (_lastSnapshot?.LookupCategories ?? new List<MasterLookupCategory>())
+                .FirstOrDefault(c => string.Equals(c.CategoryKey, categoryKey, StringComparison.OrdinalIgnoreCase));
+            if (fallback != null)
+            {
+                _selectedLookupCategory = fallback;
+                SelectLookupCategoryInValueCombo(fallback.CategoryId);
+                LoadLookupValuesForSelectedCategory();
+            }
+        }
+
+        private void SelectLookupValueFromGrid()
+        {
+            MasterLookupValue value = CurrentRow<MasterLookupValue>(_lookupValueGrid);
+            if (value == null)
+                return;
+
+            _selectedLookupValue = value;
+            SelectLookupCategoryInValueCombo(value.CategoryId);
+            _lookupValueCode.Text = value.ValueCode ?? string.Empty;
+            _lookupValueText.Text = value.DisplayText ?? string.Empty;
+            _lookupValueDescription.Text = value.Description ?? string.Empty;
+            _lookupValueSort.Value = Math.Max(_lookupValueSort.Minimum, Math.Min(_lookupValueSort.Maximum, value.SortOrder));
+            _lookupValueDefault.Checked = value.IsDefault;
+            _lookupValueActive.Checked = value.IsActive;
+        }
+
+        private void LoadLookupValuesForSelectedCategory()
+        {
+            if (_lookupValueGrid == null || _lookupValueCategory == null)
+                return;
+
+            MasterLookupCategory category = _lookupValueCategory.SelectedItem as MasterLookupCategory;
+            if (category == null)
+            {
+                _lookupValueGrid.DataSource = new List<MasterLookupValue>();
+                return;
+            }
+
+            _lookupValueGrid.DataSource = _lookupSvc.GetValues(category.CategoryKey, true);
+        }
+
+        private void ClearLookupCategoryForm()
+        {
+            _selectedLookupCategory = null;
+            _lookupKey.ReadOnly = false;
+            _lookupKey.Text = string.Empty;
+            _lookupModule.Text = string.Empty;
+            _lookupName.Text = string.Empty;
+            _lookupDescription.Text = string.Empty;
+            _lookupSort.Value = 0;
+            _lookupActive.Checked = true;
+        }
+
+        private void ClearLookupValueForm()
+        {
+            _selectedLookupValue = null;
+            _lookupValueCode.Text = string.Empty;
+            _lookupValueText.Text = string.Empty;
+            _lookupValueDescription.Text = string.Empty;
+            _lookupValueSort.Value = 0;
+            _lookupValueDefault.Checked = false;
+            _lookupValueActive.Checked = true;
+        }
+
+        private async void SaveLookupCategory()
+        {
+            try
+            {
+                MasterLookupCategory category = _selectedLookupCategory ?? new MasterLookupCategory();
+                category.CategoryKey = _lookupKey.Text.Trim();
+                category.ModuleKey = _lookupModule.Text.Trim();
+                category.DisplayName = _lookupName.Text.Trim();
+                category.Description = _lookupDescription.Text.Trim();
+                category.SortOrder = (int)_lookupSort.Value;
+                category.IsActive = _lookupActive.Checked;
+                int id = await Task.Run(() => _lookupSvc.SaveCategory(category));
+                ShowStatus("Lookup category saved.", false);
+                SessionManager.LogAction(category.CategoryId > 0 ? "EDIT" : "CREATE", "MasterData", id, "Lookup category saved");
+                QueueMasterDataLoad();
+            }
+            catch (Exception ex)
+            {
+                ShowError("Lookup category could not be saved.", ex);
+            }
+        }
+
+        private async void SaveLookupValue()
+        {
+            try
+            {
+                MasterLookupCategory category = _lookupValueCategory.SelectedItem as MasterLookupCategory;
+                if (category == null)
+                    throw new InvalidOperationException("Select a lookup category first.");
+
+                MasterLookupValue value = _selectedLookupValue ?? new MasterLookupValue();
+                value.CategoryId = category.CategoryId;
+                value.ValueCode = _lookupValueCode.Text.Trim();
+                value.DisplayText = _lookupValueText.Text.Trim();
+                value.Description = _lookupValueDescription.Text.Trim();
+                value.SortOrder = (int)_lookupValueSort.Value;
+                value.IsDefault = _lookupValueDefault.Checked;
+                value.IsActive = _lookupValueActive.Checked;
+                int id = await Task.Run(() => _lookupSvc.SaveValue(value));
+                ShowStatus("Lookup value saved.", false);
+                SessionManager.LogAction(value.ValueId > 0 ? "EDIT" : "CREATE", "MasterData", id, "Lookup value saved");
+                QueueMasterDataLoad();
+            }
+            catch (Exception ex)
+            {
+                ShowError("Lookup value could not be saved.", ex);
+            }
         }
 
         private async void SaveAsset()
@@ -1153,6 +1491,26 @@ namespace HVAC_Pro_Desktop.UI
             return card;
         }
 
+        private void ResizeLookupCards(FlowLayoutPanel grid)
+        {
+            if (grid == null || grid.IsDisposed)
+                return;
+
+            int width = Math.Max(220, grid.ClientSize.Width - grid.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 4);
+            Control title = grid.Controls.Cast<Control>().FirstOrDefault(c => Convert.ToString(c.Tag) == "SectionTitle");
+            if (title != null)
+                title.Width = width;
+
+            int columns = width >= 1180 ? 5 : width >= 930 ? 4 : width >= 690 ? 3 : 2;
+            int cardWidth = Math.Max(204, (width - ((columns - 1) * 12)) / columns);
+            foreach (Control card in grid.Controls)
+            {
+                if (Convert.ToString(card.Tag) == "SectionTitle")
+                    continue;
+                card.Width = cardWidth;
+            }
+        }
+
         private static string ShortUploadTitle(string title)
         {
             switch ((title ?? string.Empty).Trim())
@@ -1350,19 +1708,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowDroppedFileRouter(string file)
         {
+            if (string.IsNullOrWhiteSpace(file))
+                return;
+
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Auto-detect this Excel file", null, (s, e) => ImportUiHelper.RunImportFile(file, null, FindForm()));
+            menu.Items.Add("Auto-detect this Excel file", null, (s, e) => ImportUiHelper.RunImportFile(file, null, ResolveDialogOwner()));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
                 menu.Items.Add("Import as " + GetUploadTitle(module), null, (s, e) => ImportFileAs(module, file));
-            menu.Show(this, PointToClient(Cursor.Position));
+
+            if (!TryShowMenu(menu, this, PointToClient(Cursor.Position)))
+                ShowStatus("Master Data page is refreshing. Please try the import again.", true);
         }
 
         private void ImportFileAs(ExcelImportModule module, string file)
         {
             try
             {
-                ImportUiHelper.RunImportFile(file, module, FindForm());
+                ImportUiHelper.RunImportFile(file, module, ResolveDialogOwner());
                 _ = LoadAllAsync();
             }
             catch (Exception ex)
@@ -1373,24 +1736,40 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowBulkImportMenu(Control owner)
         {
+            if (!CanUseControl(owner))
+            {
+                ShowStatus("Master Data page is refreshing. Please try again.", true);
+                return;
+            }
+
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Auto-detect from Excel", null, (s, e) => ImportUiHelper.RunImport(FindForm()));
+            menu.Items.Add("Auto-detect from Excel", null, (s, e) => ImportUiHelper.RunImport(ResolveDialogOwner()));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
                 menu.Items.Add("Upload " + GetUploadTitle(module), null, (s, e) => RunModuleImport(module));
-            menu.Show(owner, new Point(12, owner.Height - 8));
+
+            if (!TryShowMenu(menu, owner, new Point(12, owner.Height - 8)))
+                ShowStatus("Master Data page is refreshing. Please try again.", true);
         }
 
         private void ShowTemplateMenu(Control owner)
         {
+            if (!CanUseControl(owner))
+            {
+                ShowStatus("Master Data page is refreshing. Please try again.", true);
+                return;
+            }
+
             ContextMenuStrip menu = new ContextMenuStrip();
             foreach (ExcelImportModule module in ImportableModules())
-                menu.Items.Add(GetUploadTitle(module) + " template", null, (s, e) => ImportUiHelper.DownloadTemplate(module, FindForm()));
+                menu.Items.Add(GetUploadTitle(module) + " template", null, (s, e) => ImportUiHelper.DownloadTemplate(module, ResolveDialogOwner()));
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Open field-service form library", null, (s, e) => OpenFieldServiceFormLibrary());
             menu.Items.Add("Open field-service template ZIP", null, (s, e) => OpenFieldServiceTemplateZip());
             menu.Items.Add("Show field-service library summary", null, (s, e) => ShowFieldServiceLibrarySummary());
-            menu.Show(owner, new Point(12, 42));
+
+            if (!TryShowMenu(menu, owner, new Point(12, 42)))
+                ShowStatus("Master Data page is refreshing. Please try again.", true);
         }
 
         private void OpenFieldServiceFormLibrary()
@@ -1471,7 +1850,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (module.HasValue)
             {
-                ImportUiHelper.RunImport(module.Value, FindForm());
+                ImportUiHelper.RunImport(module.Value, ResolveDialogOwner());
                 _ = LoadAllAsync();
                 return;
             }
@@ -1481,8 +1860,31 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RunModuleImport(ExcelImportModule module)
         {
-            ImportUiHelper.RunImport(module, FindForm());
+            ImportUiHelper.RunImport(module, ResolveDialogOwner());
             _ = LoadAllAsync();
+        }
+
+        private Form ResolveDialogOwner()
+        {
+            Form form = FindForm();
+            return form != null && !form.IsDisposed ? form : null;
+        }
+
+        private static bool CanUseControl(Control control)
+        {
+            return control != null
+                && !control.IsDisposed
+                && control.IsHandleCreated
+                && control.Visible;
+        }
+
+        private static bool TryShowMenu(ContextMenuStrip menu, Control owner, Point location)
+        {
+            if (menu == null || !CanUseControl(owner))
+                return false;
+
+            menu.Show(owner, location);
+            return true;
         }
 
         private static ExcelImportModule[] ImportableModules()
@@ -1493,6 +1895,7 @@ namespace HVAC_Pro_Desktop.UI
                 ExcelImportModule.Vendors,
                 ExcelImportModule.Sites,
                 ExcelImportModule.Inventory,
+                ExcelImportModule.SupplierItemPrices,
                 ExcelImportModule.Purchases,
                 ExcelImportModule.Invoices,
                 ExcelImportModule.Payments,
@@ -1512,6 +1915,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Vendors: return "Suppliers";
                 case ExcelImportModule.Sites: return "Sites";
                 case ExcelImportModule.Inventory: return "Inventory";
+                case ExcelImportModule.SupplierItemPrices: return "Supplier Price Book";
                 case ExcelImportModule.Purchases: return "Purchases";
                 case ExcelImportModule.Invoices: return "Invoices";
                 case ExcelImportModule.Payments: return "Payments";
@@ -1532,6 +1936,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Vendors: return "Supplier master, GST, contacts";
                 case ExcelImportModule.Sites: return "Client sites, city, service contacts";
                 case ExcelImportModule.Inventory: return "Parts, buying rates, planning quantities";
+                case ExcelImportModule.SupplierItemPrices: return "Supplier links, preferred rates, buying history";
                 case ExcelImportModule.Purchases: return "Vendor bills, items, totals";
                 case ExcelImportModule.Invoices: return "Past invoices, due dates, status";
                 case ExcelImportModule.Payments: return "Collections, UTR, modes, notes";
@@ -1622,10 +2027,22 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color color, int width, EventHandler click = null)
         {
-            Button button = new Button { Text = text, Width = Math.Max(width, 104), Height = 36, BackColor = color, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Cursor = Cursors.Hand };
-            button.FlatAppearance.BorderSize = 0;
-            button.FlatAppearance.MouseOverBackColor = DS.Lighten(color, 0.08f);
-            button.FlatAppearance.MouseDownBackColor = DS.Darken(color, 0.08f);
+            bool light = color == Color.White || color.GetBrightness() > 0.92f;
+            Button button = new Button
+            {
+                Text = text,
+                Width = Math.Max(width, 104),
+                Height = 36,
+                BackColor = color,
+                ForeColor = light ? DS.Slate800 : Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            button.FlatAppearance.BorderSize = light ? 1 : 0;
+            button.FlatAppearance.BorderColor = light ? DS.BorderStrong : color;
+            button.FlatAppearance.MouseOverBackColor = light ? DS.BgCardHov : DS.Lighten(color, 0.08f);
+            button.FlatAppearance.MouseDownBackColor = light ? DS.Slate100 : DS.Darken(color, 0.08f);
             if (click != null) button.Click += click;
             return button;
         }
@@ -1958,6 +2375,68 @@ namespace HVAC_Pro_Desktop.UI
             public string Name { get; set; }
         }
 
+        private sealed class LookupCardDefinition
+        {
+            public LookupCardDefinition(string module, string title, string categoryKey, ModernIconKind icon, Color color)
+            {
+                Module = module;
+                Title = title;
+                CategoryKey = categoryKey;
+                Icon = icon;
+                Color = color;
+            }
+
+            public string Module { get; private set; }
+            public string Title { get; private set; }
+            public string CategoryKey { get; private set; }
+            public ModernIconKind Icon { get; private set; }
+            public Color Color { get; private set; }
+        }
+
+        private static IEnumerable<LookupCardDefinition> LookupCardDefinitions()
+        {
+            Color hr = DS.Primary600;
+            Color attendance = DS.Teal600;
+            Color payroll = DS.Green600;
+            Color jobs = Color.FromArgb(124, 58, 237);
+            Color service = Color.FromArgb(14, 116, 144);
+            Color amc = Color.FromArgb(249, 115, 22);
+            Color inventory = DS.Amber600;
+            Color purchase = DS.Red500;
+            Color sales = DS.Indigo600;
+
+            return new[]
+            {
+                new LookupCardDefinition("HR", "Blood Groups", "HR.BloodGroup", ModernIconKind.User, hr),
+                new LookupCardDefinition("HR", "Employee Status", "HR.EmployeeStatus", ModernIconKind.Status, hr),
+                new LookupCardDefinition("HR", "Employment Types", "HR.EmploymentType", ModernIconKind.Document, hr),
+                new LookupCardDefinition("HR", "Tax Regimes", "HR.TaxRegime", ModernIconKind.Security, hr),
+                new LookupCardDefinition("Attendance", "Attendance Status", "Attendance.Status", ModernIconKind.Calendar, attendance),
+                new LookupCardDefinition("Attendance", "Leave Types", "Attendance.LeaveType", ModernIconKind.Calendar, attendance),
+                new LookupCardDefinition("Payroll", "Salary Components", "Payroll.SalaryComponent", ModernIconKind.Payment, payroll),
+                new LookupCardDefinition("Payroll", "Payment Modes", "Payroll.PaymentMode", ModernIconKind.Payment, payroll),
+                new LookupCardDefinition("Jobs", "Job Types", "Jobs.JobType", ModernIconKind.Job, jobs),
+                new LookupCardDefinition("Jobs", "Job Priorities", "Jobs.Priority", ModernIconKind.Alert, jobs),
+                new LookupCardDefinition("Jobs", "Job Status", "Jobs.Status", ModernIconKind.Status, jobs),
+                new LookupCardDefinition("Service Desk", "Ticket Categories", "ServiceDesk.Category", ModernIconKind.Service, service),
+                new LookupCardDefinition("Service Desk", "Equipment Types", "ServiceDesk.EquipmentType", ModernIconKind.Parts, service),
+                new LookupCardDefinition("Service Desk", "Ticket Status", "ServiceDesk.Status", ModernIconKind.Status, service),
+                new LookupCardDefinition("AMC", "AMC Types", "AMC.Type", ModernIconKind.Document, amc),
+                new LookupCardDefinition("AMC", "Coverage Types", "AMC.CoverageType", ModernIconKind.Security, amc),
+                new LookupCardDefinition("AMC", "Billing Cycles", "AMC.BillingCycle", ModernIconKind.Calendar, amc),
+                new LookupCardDefinition("AMC", "AMC Status", "AMC.Status", ModernIconKind.Status, amc),
+                new LookupCardDefinition("Inventory", "Stock Categories", "Inventory.Category", ModernIconKind.Inventory, inventory),
+                new LookupCardDefinition("Inventory", "Godowns", "Inventory.Godown", ModernIconKind.Inventory, inventory),
+                new LookupCardDefinition("Purchase", "Purchase Status", "Purchase.Status", ModernIconKind.Purchase, purchase),
+                new LookupCardDefinition("Purchase", "Linked Types", "Purchase.LinkedType", ModernIconKind.Preference, purchase),
+                new LookupCardDefinition("Sales", "Invoice Status", "Sales.InvoiceStatus", ModernIconKind.Invoice, sales),
+                new LookupCardDefinition("Sales", "GST Modes", "Sales.GstMode", ModernIconKind.Tax, sales),
+                new LookupCardDefinition("Sales", "Coverage Types", "Sales.CoverageType", ModernIconKind.Security, sales),
+                new LookupCardDefinition("Sales", "Warranty Status", "Sales.WarrantyStatus", ModernIconKind.Status, sales),
+                new LookupCardDefinition("Sales", "Quotation Status", "Sales.QuotationStatus", ModernIconKind.Document, sales)
+            };
+        }
+
         private sealed class MasterDataSnapshot
         {
             public List<B2BClient> Clients { get; set; }
@@ -1968,6 +2447,8 @@ namespace HVAC_Pro_Desktop.UI
             public List<ServiceRateCard> Rates { get; set; }
             public List<PrivateServerConnection> Connections { get; set; }
             public List<DataImportBatch> ImportBatches { get; set; }
+            public List<MasterLookupCategory> LookupCategories { get; set; }
+            public List<MasterLookupValue> LookupValues { get; set; }
         }
     }
 }

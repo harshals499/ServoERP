@@ -49,6 +49,9 @@ namespace HVAC_Pro_Desktop.UI
         private readonly VendorService _vendorSvc = new VendorService();
         private readonly SettingsService _settingsSvc = new SettingsService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
+        private readonly SavedViewService _savedViewSvc = new SavedViewService();
+        private readonly CalendarDispatchIntegrationService _calendarDispatchSvc = new CalendarDispatchIntegrationService();
 
         private SplitContainer _split;
         private JobSummaryListModule _jobListModule;
@@ -170,11 +173,14 @@ namespace HVAC_Pro_Desktop.UI
 
         public JobManagementForm()
         {
+            Stopwatch ctorWatch = Stopwatch.StartNew();
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             DoubleBuffered = true;
             BuildLayout();
+            AppRuntime.LogTiming("Jobs.BuildLayout", ctorWatch.ElapsedMilliseconds, "mode=" + (_showDashboard ? "dashboard" : "editor"));
             UIHelper.ApplyInputStyles(Controls);
+            RegisterFirstPaintTiming("Jobs.FirstPaint", ctorWatch);
             RecordDeletionUi.BindDeleteShortcut(this, () => DeleteCurrentJobAsync(), () => !_showDashboard && !_isNewMode && _currentDetail != null && _currentDetail.Job != null);
             Load += (s, e) => QueueInitialJobsLoad();
         }
@@ -239,6 +245,30 @@ namespace HVAC_Pro_Desktop.UI
                     AdjustResponsiveLayout();
                     LayoutCards();
                 }));
+        }
+
+        private static TimeSpan JobCacheTtl => TimeSpan.FromMinutes(2);
+
+        private List<JobSummaryDto> GetCachedJobSummaries(bool forceRefresh)
+        {
+            if (forceRefresh)
+                AppDataCache.Remove("jobs:summary");
+            return AppDataCache.GetOrCreate("jobs:summary", JobCacheTtl, () => _jobSvc.GetAllJobsWithSummary() ?? new List<JobSummaryDto>()).ToList();
+        }
+
+        private List<B2BClient> GetCachedClients()
+        {
+            return AppDataCache.GetOrCreate("clients:active", JobCacheTtl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList();
+        }
+
+        private List<Employee> GetCachedTechnicians()
+        {
+            return AppDataCache.GetOrCreate("employees:technicians-active", JobCacheTtl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList();
+        }
+
+        private List<StockItem> GetCachedInventory()
+        {
+            return AppDataCache.GetOrCreate("inventory:all", JobCacheTtl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList();
         }
 
         private void AdjustResponsiveLayout()
@@ -368,12 +398,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildJobsDashboardHeader(int width)
         {
-            Panel header = new Panel { Name = "JobsDashboardHeader", Tag = "custom-header-actions no-global-actions", Size = new Size(width, width < 1280 ? 104 : 64), BackColor = PageBg };
-            Label title = new Label { Text = "Jobs Dashboard", Location = new Point(0, 0), Size = new Size(320, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
-            Label subtitle = new Label { Text = "Monitor jobs, technicians, and service status. Client is required; site can be selected later.", Location = new Point(1, 30), Size = new Size(660, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = TextSecondary, AutoEllipsis = true };
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-
             _dashboardSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.5f), ForeColor = TextPrimary, Size = new Size(280, 32), Text = _dashboardSearchValue };
             _dashboardSearch.MinimumSize = new Size(260, 32);
             ConfigureDashboardPlaceholder(_dashboardSearch, "Search");
@@ -384,6 +408,12 @@ namespace HVAC_Pro_Desktop.UI
             Button reports = DashboardButton("View Reports", White, TextPrimary, 114, true);
             reports.MinimumSize = new Size(88, 30);
             reports.Click += (s, e) => ShowDashboardMessage("Reports", "Job reports will use the live filtered job data.");
+            Button refresh = DashboardButton("Refresh", White, TextPrimary, 92, true);
+            refresh.MinimumSize = new Size(84, 30);
+            refresh.Click += async (s, e) => await LoadInitialAsync();
+            Button forms = DashboardButton("Forms", White, TextPrimary, 84, true);
+            forms.MinimumSize = new Size(78, 30);
+            forms.Click += (s, e) => OpenJobForms();
             Button add = DashboardButton("+ Add New Job", Blue, White, 146, false);
             add.MinimumSize = new Size(146, 30);
             add.Click += (s, e) =>
@@ -397,74 +427,29 @@ namespace HVAC_Pro_Desktop.UI
             Button more = DashboardButton("Menu", White, TextPrimary, 60, true);
             more.MinimumSize = new Size(60, 30);
             more.Click += (s, e) => ShowDashboardMessage("Jobs", "Use quick actions to assign technicians, open job forms, export filtered jobs, or review scheduling.");
-            Panel toolbar = new Panel
-            {
-                Name = "JobsDashboardHeaderActionRail",
-                Width = 730,
-                Height = 38,
-                Padding = new Padding(0, 1, 0, 0),
-                BackColor = PageBg
-            };
-            foreach (Control control in new Control[] { _dashboardSearch, filters, reports, add, more })
+            foreach (Control control in new Control[] { _dashboardSearch, filters, reports, refresh, forms, add, more })
             {
                 control.Margin = Padding.Empty;
-                control.Anchor = AnchorStyles.Top | AnchorStyles.Right;
                 control.Tag = ((control.Tag == null ? string.Empty : control.Tag + " ") + "FIXED_WIDTH").Trim();
             }
-            Control[] toolbarItems = { _dashboardSearch, filters, reports, add, more };
-            toolbar.Controls.AddRange(toolbarItems);
-            header.Controls.Add(toolbar);
-            bool layoutBusy = false;
-            Action layoutToolbar = () =>
-            {
-                if (layoutBusy)
-                    return;
 
-                layoutBusy = true;
-                try
-                {
-                    bool compact = header.ClientSize.Width < 1280;
-                    bool tight = header.ClientSize.Width < 980;
-                    int actionRailWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                    header.Height = compact ? 104 : 64;
-                    if (compact)
-                    {
-                        title.Size = new Size(Math.Max(260, header.ClientSize.Width - 40), 28);
-                        subtitle.Size = new Size(Math.Max(260, header.ClientSize.Width - 40), 18);
-                        more.Visible = !tight;
-                        reports.Visible = !tight;
-                        _dashboardSearch.Width = tight ? 220 : 260;
-                        actionRailWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                        toolbar.SetBounds(0, 58, Math.Min(Math.Max(actionRailWidth, 300), Math.Max(300, header.ClientSize.Width)), 38);
-                    }
-                    else
-                    {
-                        more.Visible = true;
-                        reports.Visible = true;
-                        _dashboardSearch.Width = 280;
-                        actionRailWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                        int toolbarWidth = actionRailWidth;
-                        toolbar.SetBounds(Math.Max(0, header.ClientSize.Width - toolbarWidth), 0, toolbarWidth, 38);
-                        title.Size = new Size(Math.Max(280, toolbar.Left - 18), 28);
-                        subtitle.Size = new Size(Math.Max(280, toolbar.Left - 18), 18);
-                    }
-
-                    SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, 0, 1);
-
-                    toolbar.BringToFront();
-                }
-                finally
-                {
-                    layoutBusy = false;
-                }
-            };
-            header.Resize += (s, e) =>
-            {
-                layoutToolbar();
-            };
-            toolbar.Layout += (s, e) => layoutToolbar();
-            layoutToolbar();
-            return header;
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "JobsDashboardHeader",
+                "Jobs Dashboard",
+                "Monitor jobs, technicians, and service status. Client is required; site can be selected later.",
+                new List<Control> { filters, refresh, reports, forms, more, add },
+                SharedPageHeader.CreateSearchInputShell("JobsDashboardSearchHost", _dashboardSearch, 280),
+                null,
+                PageBg,
+                new Padding(0, 0, 0, 8));
+            model.Dock = DockStyle.None;
+            model.CompactBreakpoint = 1360;
+            model.CompactHeight = 132;
+            SharedPageHeaderResult result = SharedPageHeader.Build(model);
+            result.Header.Size = new Size(width, result.Header.Height);
+            result.Header.Name = "JobsDashboardHeader";
+            result.Header.Tag = "custom-header-actions no-global-actions";
+            return result.Header;
         }
 
         private IEnumerable<Control> BuildJobStatCards(int width)
@@ -1355,7 +1340,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (_selectedJobId == job.JobId)
                     _selectedJobId = 0;
                 _currentDetail = _currentDetail != null && _currentDetail.Job != null && _currentDetail.Job.JobID == job.JobId ? null : _currentDetail;
-                _allJobs = await Task.Run(() => _jobSvc.GetAllJobsWithSummary()) ?? new List<JobSummaryDto>();
+                _allJobs = await Task.Run(() => GetCachedJobSummaries(true)) ?? new List<JobSummaryDto>();
                 if (_showDashboard)
                 {
                     RenderJobsDashboard();
@@ -1580,13 +1565,13 @@ namespace HVAC_Pro_Desktop.UI
         private void SaveCurrentDashboardView()
         {
             CaptureDashboardFilterState();
-            new SavedViewService().SaveJobsDefaultView(_dashboardSearchValue, _dashboardStatusValue, _dashboardTypeValue);
+            _savedViewSvc.SaveJobsDefaultView(_dashboardSearchValue, _dashboardStatusValue, _dashboardTypeValue);
             ShowDashboardMessage("Saved View", "Current Jobs dashboard filters were saved.");
         }
 
         private void ApplySavedDashboardView()
         {
-            SavedListView view = new SavedViewService().LoadJobsDefaultView();
+            SavedListView view = _savedViewSvc.LoadJobsDefaultView();
             if (view == null)
             {
                 ShowDashboardMessage("Saved View", "No saved Jobs dashboard view found.");
@@ -1603,7 +1588,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ClearSavedDashboardView()
         {
-            new SavedViewService().ClearJobsDefaultView();
+            _savedViewSvc.ClearJobsDefaultView();
             ShowDashboardMessage("Saved View", "Saved Jobs dashboard view cleared.");
         }
 
@@ -1846,14 +1831,12 @@ namespace HVAC_Pro_Desktop.UI
             _btnCloseJob.Click += async (s, e) => await CloseJobAsync();
             Button btnDelete = MakeHeaderButton("Delete", Red, White, 82);
             btnDelete.Click += async (s, e) => await DeleteCurrentJobAsync();
-            actionFlow.Controls.Add(btnBackToDashboard);
-            actionFlow.Controls.Add(_btnSave);
-            actionFlow.Controls.Add(_btnPrintReport);
-            actionFlow.Controls.Add(btnCalendar);
-            actionFlow.Controls.Add(btnForms);
-            actionFlow.Controls.Add(btnWhatsApp);
-            actionFlow.Controls.Add(_btnCloseJob);
-            actionFlow.Controls.Add(btnDelete);
+            Button[] headerButtons = { btnBackToDashboard, _btnSave, _btnPrintReport, btnCalendar, btnForms, btnWhatsApp, _btnCloseJob, btnDelete };
+            for (int i = 0; i < headerButtons.Length; i++)
+            {
+                headerButtons[i].Margin = new Padding(0, 0, i == headerButtons.Length - 1 ? 0 : SharedUiPrimitives.HeaderActionGap, 8);
+                actionFlow.Controls.Add(headerButtons[i]);
+            }
 
             _topBar.Controls.Add(textWrap);
             _topBar.Controls.Add(actionFlow);
@@ -1872,8 +1855,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             int titleMinimum = Math.Min(420, Math.Max(300, clientWidth / 3));
-            int actionWidth = Math.Max(180, clientWidth - titleMinimum - 18);
-            actionWidth = Math.Min(838, actionWidth);
+            int actionWidth = Math.Max(240, clientWidth - titleMinimum - 18);
+            actionWidth = Math.Min(860, actionWidth);
             actionFlow.Width = actionWidth;
             LayoutJobHeaderText(textWrap);
         }
@@ -1977,8 +1960,8 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(BuildFormRow("Priority", out _cmbPriority));
             body.Controls.Add(BuildFormRow("Assign technician", out _cmbTechnician));
 
-            _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High", "Critical" });
-            _cmbStatus.Items.AddRange(new object[] { "Created", "Assigned", "InProgress", "ChecklistDone", "Closed", "Invoiced" });
+            _lookupSvc.BindCombo(_cmbPriority, "Jobs.Priority", new[] { "Low", "Medium", "High", "Critical" }, "Medium");
+            _lookupSvc.BindCombo(_cmbStatus, "Jobs.Status", new[] { "Created", "Assigned", "InProgress", "ChecklistDone", "Closed", "Invoiced" }, "Created");
             _cmbTechnician.SelectedIndexChanged += async (s, e) => { if (!_isBinding) await RefreshTechnicianWorkloadAsync(); };
             _cmbStatus.SelectedIndexChanged += async (s, e) =>
             {
@@ -2135,18 +2118,21 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!_showDashboard)
                 SetListStatus("Loading jobs...");
+            Stopwatch fetchWatch = Stopwatch.StartNew();
             Task<JobLoadSnapshot> loadTask = Task.Run(() => new JobLoadSnapshot
             {
-                Jobs = _jobSvc.GetAllJobsWithSummary(),
-                Clients = _clientSvc.GetAllClients(),
-                Technicians = _employeeSvc.GetActiveTechnicians(),
-                Inventory = _inventorySvc.GetAll()
+                Jobs = GetCachedJobSummaries(false),
+                Clients = GetCachedClients(),
+                Technicians = GetCachedTechnicians(),
+                Inventory = GetCachedInventory()
             });
             Task completed = await Task.WhenAny(loadTask, Task.Delay(TimeSpan.FromSeconds(6)));
             JobLoadSnapshot snapshot = completed == loadTask
                 ? await loadTask
                 : new JobLoadSnapshot { TimedOut = true };
+            AppRuntime.LogTiming("Jobs.FetchInitialData", fetchWatch.ElapsedMilliseconds, "jobs=" + (snapshot.Jobs == null ? 0 : snapshot.Jobs.Count));
 
+            Stopwatch bindWatch = Stopwatch.StartNew();
             _allJobs = snapshot.Jobs ?? new List<JobSummaryDto>();
             _clients = snapshot.Clients ?? new List<B2BClient>();
             _technicians = snapshot.Technicians ?? new List<Employee>();
@@ -2165,10 +2151,8 @@ namespace HVAC_Pro_Desktop.UI
             BindPartInventory();
             RenderFilterChips();
             ApplyFilters();
-            if (_allJobs.Count > 0)
-                await LoadJobDetailAsync(_allJobs[0].JobId);
-            else
-                await BeginNewJobAsync();
+            ShowEmptyJobState();
+            AppRuntime.LogTiming("Jobs.BindInitialData", bindWatch.ElapsedMilliseconds, "jobs=" + _allJobs.Count);
             if (snapshot.TimedOut)
                 SetListStatus("Job data is taking longer than expected.");
         }
@@ -2183,7 +2167,7 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
-                List<JobSummaryDto> latestJobs = await Task.Run(() => _jobSvc.GetAllJobsWithSummary()) ?? new List<JobSummaryDto>();
+                List<JobSummaryDto> latestJobs = await Task.Run(() => GetCachedJobSummaries(true)) ?? new List<JobSummaryDto>();
                 if (IsDisposed || !_showDashboard || _dashboardHost == null || _dashboardHost.IsDisposed)
                     return;
 
@@ -2218,9 +2202,7 @@ namespace HVAC_Pro_Desktop.UI
                 _cmbPriority.SelectedIndex = 1;
                 _cmbStatus.SelectedIndex = 0;
 
-                _cmbJobType.Items.Clear();
-                _cmbJobType.Items.AddRange(new object[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" });
-                _cmbJobType.SelectedItem = "General";
+                _lookupSvc.BindCombo(_cmbJobType, "Jobs.JobType", new[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" }, "General");
             }
             finally
             {
@@ -2278,10 +2260,10 @@ namespace HVAC_Pro_Desktop.UI
 
             JobLoadSnapshot snapshot = await Task.Run(() => new JobLoadSnapshot
             {
-                Jobs = _jobSvc.GetAllJobsWithSummary(),
-                Clients = _clientSvc.GetAllClients(),
-                Technicians = _employeeSvc.GetActiveTechnicians(),
-                Inventory = _inventorySvc.GetAll()
+                Jobs = GetCachedJobSummaries(false),
+                Clients = GetCachedClients(),
+                Technicians = GetCachedTechnicians(),
+                Inventory = GetCachedInventory()
             });
 
             _allJobs = snapshot.Jobs ?? new List<JobSummaryDto>();
@@ -2363,6 +2345,7 @@ namespace HVAC_Pro_Desktop.UI
             RenderNudges(new List<NudgeDto>());
             RefreshHeader(null);
             UpdatePipelineBar("Created");
+            SetListStatus("New job draft ready.");
             await RefreshTechnicianWorkloadAsync();
             LayoutCards();
             ResetEditorScrollToTop();
@@ -2847,7 +2830,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private async Task ReloadJobsAsync(int selectJobId)
         {
-            _allJobs = await Task.Run(() => _jobSvc.GetAllJobsWithSummary());
+            _allJobs = await Task.Run(() => GetCachedJobSummaries(true));
             RenderFilterChips();
             ApplyFilters();
             await LoadJobDetailAsync(selectJobId);
@@ -2877,13 +2860,10 @@ namespace HVAC_Pro_Desktop.UI
                 await Task.Run(() => _jobSvc.Delete(job.JobID));
                 _currentDetail = null;
                 _selectedJobId = 0;
-                _allJobs = await Task.Run(() => _jobSvc.GetAllJobsWithSummary()) ?? new List<JobSummaryDto>();
+                _allJobs = await Task.Run(() => GetCachedJobSummaries(true)) ?? new List<JobSummaryDto>();
                 RenderFilterChips();
                 ApplyFilters();
-                if (_allJobs.Count > 0)
-                    await LoadJobDetailAsync(_allJobs[0].JobId);
-                else
-                    await BeginNewJobAsync();
+                ShowEmptyJobState();
                 SetListStatus("Job deleted.");
             }
             catch (Exception ex)
@@ -2983,7 +2963,8 @@ namespace HVAC_Pro_Desktop.UI
                     ShowChecklistBanner("Material saved locally. Stock will update when the office SQL Server syncs.");
                     return;
                 }
-                _inventory = await Task.Run(() => _inventorySvc.GetAll());
+                AppDataCache.Remove("inventory:all");
+                _inventory = await Task.Run(() => GetCachedInventory());
                 BindPartInventory();
                 ResetPartEntryInputs();
                 await LoadJobDetailAsync(_currentDetail.Job.JobID);
@@ -3425,7 +3406,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            IntegrationOperationResult result = new CalendarDispatchIntegrationService().ExportJobIcs(_currentDetail.Job);
+            IntegrationOperationResult result = _calendarDispatchSvc.ExportJobIcs(_currentDetail.Job);
             if (!result.Success)
             {
                 MessageBox.Show("Calendar export failed: " + result.Message, "Jobs", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -3902,14 +3883,14 @@ namespace HVAC_Pro_Desktop.UI
                 IEnumerable<SupplierOption> seededOptions = best == null
                     ? Enumerable.Empty<SupplierOption>()
                     : new[] { best };
-                supplierSummary = SupplierSnapshotFormatter.CreateSummary(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, seededOptions, unit => new UnitMeasurementService().NormalizeForDisplayOrDefault(unit));
+                supplierSummary = SupplierSnapshotFormatter.CreateSummary(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, seededOptions, unit => _unitSvc.NormalizeForDisplayOrDefault(unit));
             }
 
             if (supplierSummary == null)
             {
                 try
                 {
-                    supplierSummary = SupplierSnapshotFormatter.CreateSummary(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, _vendorSvc.GetSupplierOptions(stock.ItemName, stock.Category), unit => new UnitMeasurementService().NormalizeForDisplayOrDefault(unit));
+                    supplierSummary = SupplierSnapshotFormatter.CreateSummary(stock.ItemName, _numPartQty == null ? 1m : _numPartQty.Value, _vendorSvc.GetSupplierOptions(stock.ItemName, stock.Category), unit => _unitSvc.NormalizeForDisplayOrDefault(unit));
                 }
                 catch (Exception ex)
                 {
@@ -4026,12 +4007,12 @@ namespace HVAC_Pro_Desktop.UI
                 : drift.IsIncrease ? Color.FromArgb(180, 83, 9) : (drift.IsDecrease ? Color.FromArgb(21, 128, 61) : TextHint);
         }
 
-        private static string BuildPartLookupText(StockItem item)
+        private string BuildPartLookupText(StockItem item)
         {
             if (item == null)
                 return string.Empty;
 
-            return item.ItemName + " (" + item.AvailableStock.ToString("0.###") + " " + new UnitMeasurementService().NormalizeForDisplayOrDefault(item.Unit) + ")";
+            return item.ItemName + " (" + item.AvailableStock.ToString("0.###") + " " + _unitSvc.NormalizeForDisplayOrDefault(item.Unit) + ")";
         }
 
         private void ShowChecklistBanner(string text)

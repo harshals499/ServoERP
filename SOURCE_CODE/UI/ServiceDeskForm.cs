@@ -16,6 +16,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ClientService _clientService = new ClientService();
         private readonly EmployeeService _employeeService = new EmployeeService();
         private readonly MailIntegrationService _mailService = new MailIntegrationService();
+        private readonly MasterLookupService _lookupService = new MasterLookupService();
 
         private readonly Color PageBg = DS.BgPage;
         private readonly Color White = DS.White;
@@ -428,10 +429,10 @@ namespace HVAC_Pro_Desktop.UI
             _cmbClient.SelectedIndexChanged += (s, e) => LoadSitesForClient();
             _cmbPriority.SelectedIndexChanged += (s, e) => RefreshSlaPreview();
 
-            _cmbCategory.Items.AddRange(new object[] { "AC Breakdown", "Chiller", "Electrical", "Plumbing", "AMC", "Installation", "Gas Charging", "Customer Complaint", "Emergency", "General" });
-            _cmbEquipment.Items.AddRange(new object[] { "Split AC", "Cassette AC", "Ductable AC", "VRF/VRV", "Chiller", "Cooling Tower", "Pump", "Panel", "Other" });
-            _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High", "Critical" });
-            _cmbStatus.Items.AddRange(new object[] { "New", "Assigned", "In Progress", "On Hold", "Resolved", "Closed" });
+            _lookupService.BindCombo(_cmbCategory, "ServiceDesk.Category", new[] { "AC Breakdown", "Chiller", "Electrical", "Plumbing", "AMC", "Installation", "Gas Charging", "Customer Complaint", "Emergency", "General" });
+            _lookupService.BindCombo(_cmbEquipment, "ServiceDesk.EquipmentType", new[] { "Split AC", "Cassette AC", "Ductable AC", "VRF/VRV", "Chiller", "Cooling Tower", "Pump", "Panel", "Other" });
+            _lookupService.BindCombo(_cmbPriority, "Jobs.Priority", new[] { "Low", "Medium", "High", "Critical" });
+            _lookupService.BindCombo(_cmbStatus, "ServiceDesk.Status", new[] { "New", "Assigned", "In Progress", "On Hold", "Resolved", "Closed" });
 
             Label info = new Label
             {

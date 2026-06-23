@@ -22,6 +22,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly VendorService    _vndSvc  = new VendorService();
         private readonly PurchaseService  _poSvc   = new PurchaseService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly StockItemValidator _stockItemValidator = new StockItemValidator();
         private readonly ToolTip _toolTip = new ToolTip();
 
@@ -153,53 +154,32 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BackColor = DS.BgPage;
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = DS.BgPage, Padding = new Padding(32, 22, 24, 10) };
-            Label title = new Label { Text = "Materials / Job Procurement", Font = new Font("Segoe UI", 18, FontStyle.Bold), ForeColor = DS.Slate900, Location = new Point(32, 22), Size = new Size(420, 32) };
-            Label sub = new Label { Text = "Manage the material catalog, preferred suppliers, buying rates, and job-by-job procurement readiness.", Font = new Font("Segoe UI", 9), ForeColor = DS.Slate600, Location = new Point(32, 58), Size = new Size(620, 22) };
             Button btnHeaderRefresh = MakeBtn("Refresh", Color.White, 96); btnHeaderRefresh.ForeColor = InfoBlue; btnHeaderRefresh.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnExport = MakeBtn("Export CSV", Color.White, 104); btnExport.ForeColor = DS.Slate700; btnExport.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnImport = MakeBtn("Import CSV", Color.White, 104); btnImport.ForeColor = DS.Slate700; btnImport.FlatAppearance.BorderColor = DS.BorderStrong;
+            Button btnSupplierPrices = MakeBtn("Supplier Prices", Color.White, 132); btnSupplierPrices.ForeColor = InfoBlue; btnSupplierPrices.FlatAppearance.BorderColor = DS.BorderStrong;
             Button btnForms = MakeBtn("Service Forms", Color.White, 108); btnForms.ForeColor = InfoBlue; btnForms.FlatAppearance.BorderColor = DS.BorderStrong;
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             Button btnNew = MakeBtn("+ Add Item", InfoBlue, 118);
-            Panel headerActions = new Panel
-            {
-                Dock = DockStyle.Right,
-                Width = 648,
-                BackColor = DS.BgPage,
-                Padding = Padding.Empty,
-                Margin = new Padding(0)
-            };
-            btnHeaderRefresh.Margin = Padding.Empty;
-            btnExport.Margin = Padding.Empty;
-            btnImport.Margin = Padding.Empty;
-            btnForms.Margin = Padding.Empty;
-            btnNew.Margin = Padding.Empty;
-            headerActions.Controls.AddRange(new Control[] { btnHeaderRefresh, btnExport, btnImport, btnForms, btnNew });
-            Action layoutHeaderActions = () =>
-            {
-                Button[] buttons = { btnHeaderRefresh, btnExport, btnImport, btnForms, btnNew };
-                int total = SharedUiPrimitives.MeasureVisibleControlSpan(buttons);
-                int x = Math.Max(0, headerActions.ClientSize.Width - total);
-                int y = Math.Max(0, (headerActions.ClientSize.Height - btnNew.Height) / 2);
-                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(buttons, x, y);
-            };
-            headerActions.Resize += (s, e) => layoutHeaderActions();
-            header.Resize += (s, e) =>
-            {
-                int reserved = headerActions.Width + 48;
-                title.Width = Math.Max(220, header.ClientSize.Width - reserved - title.Left);
-                sub.Width = Math.Max(220, header.ClientSize.Width - reserved - sub.Left);
-                layoutHeaderActions();
-            };
-            layoutHeaderActions();
             ModernIconSystem.AddButtonIcon(btnHeaderRefresh, ModernIconKind.Refresh);
             btnHeaderRefresh.Click += (s, e) => LoadList();
             btnNew.Click += (s, e) => NewRecord();
             btnImport.Click += async (s, e) => await ImportInventoryCsvAsync();
+            btnSupplierPrices.Click += (s, e) => ShowSupplierPriceImportMenu(btnSupplierPrices);
             btnExport.Click += (s, e) => ExportInventoryCsv();
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Materials / Procurement", "Purchases", null, "spare parts requisition purchase order supplier quote goods received note material usage");
-            header.Controls.AddRange(new Control[] { title, sub, headerActions });
+            Panel header = SharedPageHeader.Build(new SharedPageHeaderModel
+            {
+                Name = "InventoryPageHeader",
+                Mode = SharedPageHeaderMode.Dashboard,
+                Dock = DockStyle.Top,
+                BackColor = DS.BgPage,
+                Title = "Materials / Job Procurement",
+                Subtitle = "Manage the material catalog, preferred suppliers, buying rates, and job-by-job procurement readiness.",
+                TitleWidth = 420,
+                SubtitleWidth = 620,
+                RightActions = new List<Control> { btnHeaderRefresh, btnExport, btnImport, btnSupplierPrices, btnForms, btnNew }
+            }).Header;
             AppRuntime.LogTiming("Inventory.BuildLayout.Header", phaseWatch.ElapsedMilliseconds);
             phaseWatch.Restart();
 
@@ -672,6 +652,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
             AddInventoryAction(menu, "Bulk Update", async (s, e) => await ImportInventoryCsvAsync());
+            AddInventoryAction(menu, "Import Supplier Price Book", (s, e) => ImportUiHelper.RunImport(ExcelImportModule.SupplierItemPrices, FindForm()));
+            AddInventoryAction(menu, "Download Supplier Price Template", (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.SupplierItemPrices, FindForm()));
             AddInventoryAction(menu, "Print Material Report", (s, e) => PreviewStockReport());
             AddInventoryAction(menu, "Purchase Valuation", (s, e) => PreviewStockValuation());
             AddInventoryAction(menu, "Find Duplicate Items", (s, e) => ShowDuplicateItems());
@@ -679,6 +661,14 @@ namespace HVAC_Pro_Desktop.UI
             menu.Items.Add(new ToolStripSeparator());
             AddInventoryAction(menu, "Delete Selected Item", (s, e) => DeleteCurrentItem());
             menu.Show(anchor, new Point(0, anchor.Height));
+        }
+
+        private void ShowSupplierPriceImportMenu(Control anchor)
+        {
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            AddInventoryAction(menu, "Import Supplier Price Book", (s, e) => ImportUiHelper.RunImport(ExcelImportModule.SupplierItemPrices, FindForm()));
+            AddInventoryAction(menu, "Download Supplier Price Template", (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.SupplierItemPrices, FindForm()));
+            menu.Show(anchor, new Point(0, anchor.Height + 2));
         }
 
         private void AddInventoryAction(ContextMenuStrip menu, string text, EventHandler handler)
@@ -776,7 +766,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboName.Leave += (s, e) => QueueApplyInventoryItemDefaults();
 
             _cboCategory = AddComboField("Category", ref y, ComboBoxStyle.DropDownList);
-            _cboCategory.Items.AddRange(new object[] { "Filters", "Refrigerant", "Compressors", "Valves", "Belts", "Electrical", "Copper", "Tools", "HVAC Spares", "General" });
+            _lookupSvc.BindCombo(_cboCategory, "Inventory.Category", new[] { "Filters", "Refrigerant", "Compressors", "Valves", "Belts", "Electrical", "Copper", "Tools", "HVAC Spares", "General" });
             if (_cboCategory.Items.Count > 0) _cboCategory.SelectedIndex = 0;
 
             _cboUnit = AddComboField("Unit", ref y, ComboBoxStyle.DropDownList);

@@ -137,6 +137,7 @@
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Infrastructure\AppExceptionHandler.cs" />
@@ -219,6 +220,7 @@
     <Compile Include="MODELS\ServiceDeskModels.cs" />
     <Compile Include="MODELS\MailIntegrationModels.cs" />
     <Compile Include="MODELS\MasterDataModels.cs" />
+    <Compile Include="MODELS\MasterLookupModels.cs" />
     <Compile Include="MODELS\CompanyDocumentTemplateModels.cs" />
     <Compile Include="MODELS\FoundationModels.cs" />
     <Compile Include="MODELS\SupportCenterModels.cs" />
@@ -259,6 +261,7 @@
     <Compile Include="DAL\ServiceDeskRepository.cs" />
     <Compile Include="DAL\MailIntegrationRepository.cs" />
     <Compile Include="DAL\MasterDataRepository.cs" />
+    <Compile Include="DAL\MasterLookupRepository.cs" />
     <Compile Include="DAL\TallyIntegrationRepository.cs" />
     <Compile Include="DAL\UnitMeasurementRepository.cs" />
     <!-- Services -->
@@ -304,6 +307,7 @@
     <Compile Include="SERVICES\MasterDataIngestionPipeline.cs" />
     <Compile Include="SERVICES\ImportPreflightService.cs" />
     <Compile Include="SERVICES\DashboardCommandCenterService.cs" />
+    <Compile Include="SERVICES\DashboardRefreshService.cs" />
     <Compile Include="SERVICES\InvoiceAnalyticsService.cs" />
     <Compile Include="SERVICES\QuotationAnalyticsService.cs" />
     <Compile Include="SERVICES\FreshStartService.cs" />
@@ -338,6 +342,7 @@
     <Compile Include="SERVICES\IndiaFormatHelper.cs" />
     <Compile Include="SERVICES\IndiaComplianceLogger.cs" />
     <Compile Include="SERVICES\DevTeamBrainService.cs" />
+    <Compile Include="SERVICES\MasterLookupService.cs" />
     <Compile Include="SERVICES\UnitMeasurementService.cs" />
     <Compile Include="SERVICES\HsnSacMasterService.cs" />
     <Compile Include="SERVICES\SessionManager.cs" />
@@ -368,7 +373,10 @@
     <Compile Include="SERVICES\AppStartupService.cs" />
     <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
     <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
+    <Compile Include="SERVICES\NodeIdentityService.cs" />
     <Compile Include="SERVICES\OfflineSyncService.cs" />
+    <Compile Include="SERVICES\SyncMetadataService.cs" />
+    <Compile Include="SERVICES\SyncOutboxService.cs" />
     <Compile Include="SERVICES\UpdateService.cs" />
     <Compile Include="SERVICES\VersionCheckService.cs" />
     <Compile Include="SERVICES\AMCVisitScheduler.cs" />
@@ -401,6 +409,9 @@
     <Compile Include="Tests\EndToEndWorkflowSmokeTests.cs" />
     <Compile Include="Tests\ImportPreflightSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
+    <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
+    <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
+    <Compile Include="Tests\SaveButtonSmokeTests.cs" />
     <Compile Include="Tests\InvoiceAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\ModuleDashboardNavigationSmokeTests.cs" />
@@ -424,6 +435,7 @@
     </Compile>
     <Compile Include="UI\DesignSystem.cs" />
     <Compile Include="UI\ModernIconSystem.cs" />
+    <Compile Include="UI\LucideIconService.cs" />
     <Compile Include="UI\GridTheme.cs" />
     <Compile Include="UI\GlobalStatusEditor.cs" />
     <Compile Include="UI\UIHelper.cs" />
@@ -441,7 +453,9 @@
     <Compile Include="UI\LayoutAuditService.cs" />
     <Compile Include="UI\PageHeaderPolishService.cs" />
     <Compile Include="UI\SalesUiPolishService.cs" />
+    <Compile Include="UI\SharedPageHeader.cs" />
     <Compile Include="UI\SharedUiPrimitives.cs" />
+    <Compile Include="UI\WorkforceModuleVisuals.cs" />
     <Compile Include="UI\ServoModalForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -653,6 +667,9 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\EmployeeForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\AttendanceForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\GeoIntelligenceForm.cs">

@@ -39,6 +39,10 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Color TextPrimary = DS.Slate900;
         private readonly Color TextSecondary = DS.Slate500;
         private readonly Color TextHint = DS.Slate400;
+        private const int PageEdgeGap = 8;
+        private const int SectionGap = 8;
+        private const int CardGap = 8;
+        private const int InnerPadding = 12;
 
         private List<EmployeeSummaryDto> _employeeSummaries = new List<EmployeeSummaryDto>();
         private List<EmployeeSkillDto> _expiringSkills = new List<EmployeeSkillDto>();
@@ -47,6 +51,7 @@ namespace HVAC_Pro_Desktop.UI
         private EmployeeSalaryProfileDto _currentSalaryProfile;
         private byte[] _currentPhoto;
         private bool _suppressEmployeeFilterEvents;
+        private readonly Timer _employeeSearchDebounceTimer = new Timer();
         private int _tabDataEmployeeId;
         private bool _jobsLoaded;
         private bool _attendanceLoaded;
@@ -54,6 +59,9 @@ namespace HVAC_Pro_Desktop.UI
         private bool _documentsLoaded;
         private bool _payrollLoaded;
         private bool _initialLoadInProgress;
+        private int _pendingRestoreEmployeeId;
+        private int _pendingRestoreTabIndex;
+        private DataTable _currentEmployeeTable;
 
         private Button _btnNew;
         private Button _btnSave;
@@ -73,6 +81,47 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cmbStatusFilter;
         private DataGridView _gridEmployees;
         private TabControl _tabs;
+        private Label _lblVisibleEmployees;
+        private Label _lblNeedsFollowUp;
+        private Label _lblCheckedInNow;
+        private Label _lblActionMissingKyc;
+        private Label _lblActionMissingEmergency;
+        private Label _lblActionProbationDue;
+        private Label _lblActionPayrollBlocked;
+        private Label _lblReadinessHeadline;
+        private Label _lblReadinessDetail;
+        private Label _lblHeroEmployeeName;
+        private Label _lblHeroEmployeeMeta;
+        private Label _lblHeroStatusChip;
+        private Label _lblHeroSiteChip;
+        private Label _lblHeroReadinessChip;
+        private Label _lblHeroPayrollChip;
+        private Label _lblHeroContactChip;
+        private Label _lblProfileChecklist;
+        private Label _lblProfileHint;
+        private Label _lblPaySnapshotGross;
+        private Label _lblPaySnapshotNet;
+        private Panel _contentHost;
+        private Panel _dashboardSurface;
+        private Panel _workspaceSurface;
+        private Label _lblDashboardReadyCount;
+        private Label _lblDashboardNeedsActionCount;
+        private Label _lblDashboardCheckedInCount;
+        private Label _lblDashboardExpiringCount;
+        private Label _lblDashboardCoverageHeadline;
+        private Label _lblDashboardCoverageText;
+        private Label _lblDashboardCoverageRate;
+        private Label _lblDashboardCoverageAssignedMeta;
+        private Label _lblDashboardCoverageUnassignedMeta;
+        private Label _lblDashboardCoverageTopSiteMeta;
+        private Label _lblDashboardAttentionHeadline;
+        private Label _lblDashboardAttentionText;
+        private Label _lblDashboardCurrentSelection;
+        private FlowLayoutPanel _dashboardCoverageList;
+        private FlowLayoutPanel _dashboardAttentionList;
+        private DataGridView _gridDashboardRoster;
+        private TextBox _txtDashboardSearch;
+        private ComboBox _cmbDashboardPageSize;
 
         private PictureBox _picPhoto;
         private TextBox _txtCode;
@@ -128,6 +177,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             Dock = DockStyle.Fill;
             BackColor = PageBg;
+            _employeeSearchDebounceTimer.Interval = 280;
+            _employeeSearchDebounceTimer.Tick += EmployeeSearchDebounceTimer_Tick;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
             ApplyPermissions();
@@ -199,6 +250,9 @@ namespace HVAC_Pro_Desktop.UI
             try { payload.Stats = AppDataCache.GetOrCreate("employees:dashboard-stats", ttl, () => _employeeService.GetDashboardStats() ?? new EmployeeDashboardStats()); }
             catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.Stats", ex); }
 
+            try { payload.AttendanceReconciliationBanner = new AttendanceService().GetSourceReconciliationBanner(DateTime.Today.Month, DateTime.Today.Year); }
+            catch (Exception ex) { AppLogger.LogError("EmployeeForm.InitialLoad.AttendanceReconciliation", ex); }
+
             payload.EmployeeTable = LoadEmployeeTable(string.Empty, "All", "All");
             payload.CheckedInTodayEmployeeIds = LoadCheckedInEmployeesTodaySet();
             try
@@ -219,6 +273,8 @@ namespace HVAC_Pro_Desktop.UI
         private void BindInitialPayload(EmployeeInitialPayload payload)
         {
             payload = payload ?? new EmployeeInitialPayload();
+            _pendingRestoreEmployeeId = _currentEmployee == null ? 0 : _currentEmployee.EmployeeID;
+            _pendingRestoreTabIndex = _tabs == null ? 0 : _tabs.SelectedIndex;
             _currentEmployee = null;
             _currentSalaryProfile = new EmployeeSalaryProfileDto { EffectiveFrom = DateTime.Today };
             _currentPhoto = null;
@@ -232,6 +288,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblOnLeave.Text = payload.Stats.OnLeave.ToString();
             UpdateExpiringBanner();
             BindEmployeeTable(payload.EmployeeTable, string.Empty, "All", "All");
+            UpdateEmployeeDashboard(payload.Stats, payload.EmployeeTable);
 
             _suppressEmployeeFilterEvents = true;
             try
@@ -245,129 +302,129 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             if (_gridEmployees.Rows.Count > 0)
-                _gridEmployees.Rows[0].Selected = true;
+            {
+                if (_pendingRestoreEmployeeId > 0)
+                    SelectEmployeeRow(_pendingRestoreEmployeeId);
 
-            SetStatus("Employee module loaded.", TextSecondary);
+                if (_gridEmployees.CurrentRow == null)
+                    _gridEmployees.Rows[0].Selected = true;
+            }
+
+            if (_tabs != null)
+                _tabs.SelectedIndex = Math.Max(0, Math.Min(_pendingRestoreTabIndex, _tabs.TabPages.Count - 1));
+
+            if (!string.IsNullOrWhiteSpace(payload.AttendanceReconciliationBanner))
+                SetStatus(payload.AttendanceReconciliationBanner, Amber);
+            else
+                SetStatus("Employee module loaded.", TextSecondary);
         }
 
         private void BuildLayout()
         {
             Controls.Clear();
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 92, BackColor = PageBg, Padding = Padding.Empty };
-            Panel titleStack = new Panel { BackColor = Color.Transparent, MinimumSize = new Size(320, 64) };
-            Label titleLabel = new Label
-            {
-                Text = "Employee Operations",
-                Font = new Font("Segoe UI", 19F, FontStyle.Bold),
-                ForeColor = TextPrimary,
-                Location = new Point(0, 0),
-                Size = new Size(420, 36),
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
-            Label subtitleLabel = new Label
-            {
-                Text = "Employees > Workforce profile > Payroll readiness",
-                Font = new Font("Segoe UI", 8.5F),
-                ForeColor = TextSecondary,
-                Location = new Point(1, 38),
-                Size = new Size(420, 20),
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
-            titleStack.Controls.Add(titleLabel);
-            titleStack.Controls.Add(subtitleLabel);
-            _btnNew = MakeButton("New Employee", Teal, Color.White, 118);
-            _btnSave = MakeButton("Save", Teal, Color.White, 76);
+            _btnNew = MakeButton("New Employee", Teal, Color.White, 142);
+            _btnSave = MakeButton("Save", Blue, Color.White, 96);
             _btnDelete = MakeButton("Delete", Color.White, Red, 76);
-            _btnExport = MakeButton("Export", Color.White, TextPrimary, 76);
-            _btnImport = MakeButton("Import", Color.White, TextPrimary, 76);
+            _btnExport = MakeButton("Export", Color.White, TextPrimary, 112);
+            _btnImport = MakeButton("Import", Color.White, TextPrimary, 112);
             _btnTemplate = MakeButton("Template", Color.White, TextPrimary, 86);
             Button btnForms = MakeButton("Forms", Color.White, Blue, 76);
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             _btnWhatsapp = MakeButton("WhatsApp", Color.White, Blue, 92);
+            Button btnFilters = MakeButton("Filters", Color.White, TextPrimary, 112);
+            ModernIconSystem.AddButtonIcon(btnFilters, ModernIconKind.Filter);
+            ModernIconSystem.AddButtonIcon(_btnImport, ModernIconKind.Import);
+            ModernIconSystem.AddButtonIcon(_btnExport, ModernIconKind.Export);
+            ModernIconSystem.AddButtonIcon(_btnNew, ModernIconKind.User);
+            ModernIconSystem.AddButtonIcon(_btnSave, ModernIconKind.Save);
+            _txtDashboardSearch = new TextBox
+            {
+                Width = 300,
+                Height = 30,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextPrimary,
+                Tag = "CUSTOM_INPUT_SHELL FIXED_WIDTH"
+            };
+            _txtDashboardSearch.TextChanged += (s, e) => RefreshDashboardRosterGrid();
+            Panel searchShell = new Panel
+            {
+                Width = 340,
+                Height = 34,
+                BackColor = Color.White,
+                Margin = Padding.Empty,
+                Tag = "CUSTOM_INPUT_SHELL FIXED_WIDTH"
+            };
+            Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 14, TextSecondary);
+            searchIcon.Location = new Point(8, 6);
+            searchIcon.Size = new Size(20, 20);
+            _txtDashboardSearch.Location = new Point(32, 3);
+            _txtDashboardSearch.BorderStyle = BorderStyle.None;
+            searchShell.Controls.Add(_txtDashboardSearch);
+            searchShell.Controls.Add(searchIcon);
+            btnFilters.Click += (s, e) => ShowEmployeeWorkspace();
 
-            _lblStatus = new Label
+            Control[] headerButtons = { btnFilters, _btnImport, _btnExport, _btnNew, _btnSave };
+            foreach (Control action in headerButtons)
             {
-                AutoSize = false,
-                Location = new Point(1, 59),
-                Size = new Size(420, 18),
-                ForeColor = TextSecondary,
-                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true,
-                Margin = Padding.Empty,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
-            Panel buttonRail = new Panel
-            {
-                Name = "EmployeeHeaderButtonRail",
-                Margin = Padding.Empty,
-                Padding = Padding.Empty,
-                BackColor = Color.Transparent,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
-            };
-            Button[] headerButtons = { _btnDelete, _btnImport, btnForms, _btnTemplate, _btnExport, _btnWhatsapp, _btnNew, _btnSave };
-            foreach (Button button in headerButtons)
-            {
+                Button button = action as Button;
+                if (button == null)
+                    continue;
                 button.AutoSize = false;
                 button.Height = 34;
-                button.Width = button == _btnNew ? 126 : 110;
+                button.Width = Math.Max(button.Width, GetEmployeeHeaderButtonMinWidth(button));
                 button.MinimumSize = new Size(button.Width, button.Height);
                 button.Margin = Padding.Empty;
                 button.Tag = ((button.Tag == null ? string.Empty : button.Tag + " ") + "FIXED_WIDTH").Trim();
+                ApplyEmployeeHeaderButtonSpacing(button);
             }
-            buttonRail.Controls.AddRange(headerButtons);
-            titleStack.Controls.Add(_lblStatus);
-            header.Controls.Add(titleStack);
-            header.Controls.Add(buttonRail);
-            header.Resize += (s, e) => LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
-            header.Layout += (s, e) => LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
-            LayoutEmployeeHeader(header, titleStack, buttonRail, headerButtons);
+            SharedPageHeaderModel headerModel = SharedPageHeader.CreateWorkspaceEditor(
+                "EmployeePageHeader",
+                "Employees",
+                "Manage your organization's employees, roles and work assignments.",
+                new List<Control>(headerButtons),
+                null,
+                "HR workspace ready.",
+                TextSecondary);
+            headerModel.CompactBreakpoint = 1420;
+            headerModel.CompactHeight = 132;
+            SharedPageHeaderResult headerResult = SharedPageHeader.Build(headerModel);
+            Panel header = headerResult.Header;
+            header.Tag = ((header.Tag == null ? string.Empty : header.Tag + " ") + "custom-header-actions").Trim();
+            _lblStatus = headerResult.StatusLabel;
 
             _lnkExpiringBanner = new LinkLabel
             {
                 Dock = DockStyle.Top,
-                Height = 30,
+                Height = 28,
                 BackColor = AmberLight,
                 LinkColor = Color.FromArgb(99, 56, 6),
                 ActiveLinkColor = Color.FromArgb(99, 56, 6),
                 VisitedLinkColor = Color.FromArgb(99, 56, 6),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(20, 0, 0, 0),
+                Padding = new Padding(12, 0, 0, 0),
                 Visible = false
             };
             _lnkExpiringBanner.LinkClicked += (s, e) => ShowExpiringSkillsReview();
 
-            Panel kpiStrip = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = PageBg, Padding = new Padding(20, 12, 20, 0) };
+            Panel kpiStrip = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = PageBg, Padding = new Padding(PageEdgeGap, SectionGap, PageEdgeGap, 0) };
             TableLayoutPanel kpiTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, RowCount = 1 };
             for (int i = 0; i < 4; i++)
                 kpiTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
-            _lblTotalEmployees = AddKpiCard(kpiTable, 0, "Total Employees", Blue);
-            _lblActiveToday = AddKpiCard(kpiTable, 1, "Active Today", Teal);
-            _lblOnDuty = AddKpiCard(kpiTable, 2, "On Duty", Amber);
-            _lblOnLeave = AddKpiCard(kpiTable, 3, "On Leave", Red);
+            _lblTotalEmployees = AddDashboardHeroKpiCard(kpiTable, 0, "Total Employees", "Overall roster size", Color.FromArgb(45, 59, 77), Color.White, Color.FromArgb(125, 229, 190));
+            _lblActiveToday = AddDashboardHeroKpiCard(kpiTable, 1, "Active Today", "Profiles currently active", Color.FromArgb(18, 127, 122), Color.White, Color.FromArgb(140, 244, 221));
+            _lblOnDuty = AddDashboardHeroKpiCard(kpiTable, 2, "On Duty", "People available now", Color.FromArgb(230, 178, 86), Color.White, Color.FromArgb(255, 233, 182));
+            _lblOnLeave = AddDashboardHeroKpiCard(kpiTable, 3, "On Leave", "Approved leave load", Color.FromArgb(195, 93, 92), Color.White, Color.FromArgb(249, 204, 203));
             kpiStrip.Controls.Add(kpiTable);
 
-            SplitContainer split = new SplitContainer
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Border,
-                FixedPanel = FixedPanel.Panel1,
-                Panel1MinSize = 300
-            };
-            split.HandleCreated += (s, e) => ApplyEmployeeSplitDistance(split);
-            split.Resize += (s, e) => ApplyEmployeeSplitDistance(split);
-            split.Panel1.BackColor = Color.White;
-            split.Panel2.BackColor = PageBg;
-            BuildLeftPanel(split.Panel1);
-            BuildRightPanel(split.Panel2);
+            _contentHost = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
+            _dashboardSurface = BuildDashboardSurface();
+            _workspaceSurface = BuildWorkspaceSurface();
+            _contentHost.Controls.Add(_workspaceSurface);
+            _contentHost.Controls.Add(_dashboardSurface);
 
-            Controls.Add(split);
-            Controls.Add(kpiStrip);
+            Controls.Add(_contentHost);
             Controls.Add(_lnkExpiringBanner);
             Controls.Add(header);
 
@@ -379,13 +436,450 @@ namespace HVAC_Pro_Desktop.UI
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Employees", "Employees", null, "technician attendance leave request skill certification customer sign-off service report workforce");
             _btnExport.Click += (s, e) => ExportEmployees();
             _btnWhatsapp.Click += (s, e) => OpenWhatsapp();
+
+            ShowEmployeeDashboard();
+        }
+
+        private Panel BuildDashboardSurface()
+        {
+            return BuildLightweightEmployeeDashboardSurface();
+        }
+
+        private Panel BuildLightweightEmployeeDashboardSurface()
+        {
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(PageEdgeGap, SectionGap, PageEdgeGap, PageEdgeGap) };
+
+            Panel summaryStrip = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = Color.White };
+            DS.Rounded(summaryStrip, DS.RadiusMd);
+            TableLayoutPanel summaryTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, RowCount = 1, BackColor = Color.White };
+            for (int i = 0; i < 6; i++)
+                summaryTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16.6667F));
+            _lblTotalEmployees = AddLightweightEmployeeMetric(summaryTable, 0, "Total Employees", ModernIconKind.User, DS.Primary600, DS.Primary50);
+            _lblActiveToday = AddLightweightEmployeeMetric(summaryTable, 1, "Active", ModernIconKind.Status, Teal, TealLight);
+            _lblOnDuty = AddLightweightEmployeeMetric(summaryTable, 2, "On Duty", ModernIconKind.Job, Amber, AmberLight);
+            _lblOnLeave = AddLightweightEmployeeMetric(summaryTable, 3, "On Leave", ModernIconKind.Calendar, Red, Color.FromArgb(254, 242, 242));
+            _lblDashboardCheckedInCount = AddLightweightEmployeeMetric(summaryTable, 4, "Checked In", ModernIconKind.Technician, Blue, DS.Primary50);
+            _lblDashboardExpiringCount = AddLightweightEmployeeMetric(summaryTable, 5, "Expiring Skills", ModernIconKind.Security, Color.FromArgb(124, 58, 237), Color.FromArgb(245, 243, 255));
+            summaryStrip.Controls.Add(summaryTable);
+
+            Panel tableShell = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(0) };
+            DS.Rounded(tableShell, DS.RadiusMd);
+
+            _gridDashboardRoster = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                AutoGenerateColumns = false,
+                ReadOnly = true,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+            };
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "#", DataPropertyName = "RowNumber", Width = 48 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Employee", DataPropertyName = "Name", Width = 230 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Role", DataPropertyName = "Designation", Width = 150 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client / Site", DataPropertyName = "ClientSite", Width = 190 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = "PresenceState", Width = 120 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Readiness", DataPropertyName = "ReadinessState", Width = 140 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Mobile", DataPropertyName = "Mobile", Width = 150 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Email", DataPropertyName = "Email", Width = 220 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Actions", DataPropertyName = "Actions", Width = 110 });
+            StyleLightweightRosterGrid(_gridDashboardRoster);
+            _gridDashboardRoster.SelectionChanged += (s, e) => UpdateDashboardCurrentSelection();
+            _gridDashboardRoster.DoubleClick += (s, e) => OpenSelectedDashboardEmployee();
+            _gridDashboardRoster.CellFormatting += GridDashboardRoster_CellFormatting;
+
+            Panel pager = new Panel { Dock = DockStyle.Bottom, Height = 42, BackColor = Color.White, Padding = new Padding(12, 6, 12, 6) };
+            _lblDashboardCurrentSelection = new Label
+            {
+                Text = "Showing employees",
+                Location = new Point(12, 11),
+                Size = new Size(420, 20),
+                Font = new Font("Segoe UI", 8.8F),
+                ForeColor = TextSecondary
+            };
+            _cmbDashboardPageSize = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = new Font("Segoe UI", 9F),
+                Width = 110,
+                Height = 28,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            _cmbDashboardPageSize.Items.AddRange(new object[] { "15 / page", "25 / page", "50 / page", "All rows" });
+            _cmbDashboardPageSize.SelectedIndex = 0;
+            _cmbDashboardPageSize.SelectedIndexChanged += (s, e) => RefreshDashboardRosterGrid();
+            pager.Resize += (s, e) => _cmbDashboardPageSize.Left = Math.Max(12, pager.ClientSize.Width - _cmbDashboardPageSize.Width - 12);
+            pager.Controls.Add(_lblDashboardCurrentSelection);
+            pager.Controls.Add(_cmbDashboardPageSize);
+
+            tableShell.Controls.Add(_gridDashboardRoster);
+            tableShell.Controls.Add(pager);
+            host.Controls.Add(tableShell);
+            host.Controls.Add(summaryStrip);
+            return host;
+        }
+
+        private Label AddLightweightEmployeeMetric(TableLayoutPanel table, int column, string title, ModernIconKind iconKind, Color iconColor, Color iconBackColor)
+        {
+            Panel cell = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(16, 12, 12, 8), Margin = Padding.Empty };
+            Label icon = ModernIconSystem.Badge(iconKind, 34, iconBackColor, iconColor, 17);
+            icon.Location = new Point(16, 20);
+            Label titleLabel = new Label
+            {
+                Text = title,
+                Location = new Point(58, 14),
+                Size = new Size(150, 20),
+                Font = new Font("Segoe UI", 8.2F, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
+            };
+            Label valueLabel = new Label
+            {
+                Text = "0",
+                Location = new Point(58, 34),
+                Size = new Size(150, 30),
+                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Panel separator = new Panel { Dock = DockStyle.Right, Width = column == 5 ? 0 : 1, BackColor = Border };
+            cell.Controls.Add(valueLabel);
+            cell.Controls.Add(titleLabel);
+            cell.Controls.Add(icon);
+            cell.Controls.Add(separator);
+            table.Controls.Add(cell, column, 0);
+            return valueLabel;
+        }
+
+        private void StyleLightweightRosterGrid(DataGridView grid)
+        {
+            GridTheme.Apply(grid);
+            grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            grid.ColumnHeadersHeight = 36;
+            grid.RowTemplate.Height = 42;
+            grid.DefaultCellStyle.Font = new Font("Segoe UI", 9F);
+            grid.DefaultCellStyle.SelectionBackColor = DS.Primary50;
+            grid.DefaultCellStyle.SelectionForeColor = TextPrimary;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = Color.White;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = TextSecondary;
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = Color.White;
+            grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = TextSecondary;
+        }
+
+        private void RefreshDashboardRosterGrid()
+        {
+            UpdateEmployeeDashboard(null, _currentEmployeeTable);
+        }
+
+        private static string BuildEmployeeEmail(EmployeeSummaryDto employee)
+        {
+            string code = employee == null ? string.Empty : (employee.EmployeeCode ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                string name = employee == null ? string.Empty : (employee.Name ?? string.Empty).Trim().ToLowerInvariant();
+                code = new string(name.Where(char.IsLetterOrDigit).ToArray());
+            }
+            return string.IsNullOrWhiteSpace(code) ? "-" : code.ToLowerInvariant() + "@servoerp.com";
+        }
+
+        private Panel BuildLegacyDashboardSurface()
+        {
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Padding = new Padding(PageEdgeGap, SectionGap, PageEdgeGap, PageEdgeGap), AutoScroll = true };
+            Label heroTitle;
+            Label heroDetail;
+            FlowLayoutPanel heroChips;
+            Panel hero = WorkforceModuleVisuals.CreateHeroCard(
+                "WORKFORCE COMMAND CENTER",
+                "Start in the dashboard, spot readiness risks early, then open a single employee workspace only when action is required.",
+                "This first layer is the management view for Madhusuman Enterprises: deployment coverage, follow-up pressure, and roster launch readiness in one place.",
+                Blue,
+                Enumerable.Empty<Control>(),
+                out heroTitle,
+                out heroDetail,
+                out heroChips);
+            hero.Dock = DockStyle.Top;
+            hero.Height = 152;
+            heroChips.Controls.Add(WorkforceModuleVisuals.CreateChip("Dashboard-first workflow", Color.FromArgb(239, 246, 255), DS.Primary700));
+            heroChips.Controls.Add(WorkforceModuleVisuals.CreateChip("Live readiness pulse", Color.FromArgb(232, 245, 233), DS.Green600));
+            heroChips.Controls.Add(WorkforceModuleVisuals.CreateChip("Second-layer employee workspace", Color.FromArgb(255, 247, 237), DS.Amber600));
+
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                ColumnCount = 2,
+                RowCount = 3,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+            Panel readinessCard = MakeCard("Workforce readiness pulse");
+            readinessCard.Dock = DockStyle.Fill;
+            readinessCard.Height = 168;
+            Panel readinessBody = GetCardBody(readinessCard);
+            TableLayoutPanel readinessGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 86,
+                ColumnCount = 4,
+                Padding = new Padding(0, 4, 0, 0)
+            };
+            for (int i = 0; i < 4; i++)
+                readinessGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+            _lblDashboardReadyCount = AddDashboardRibbonCard(readinessGrid, 0, "Ready", Teal, ModernIconKind.Checklist);
+            _lblDashboardNeedsActionCount = AddDashboardRibbonCard(readinessGrid, 1, "Needs Action", Red, ModernIconKind.Alert);
+            _lblDashboardCheckedInCount = AddDashboardRibbonCard(readinessGrid, 2, "Checked In", Blue, ModernIconKind.Status);
+            _lblDashboardExpiringCount = AddDashboardRibbonCard(readinessGrid, 3, "Expiring Skills", Amber, ModernIconKind.Calendar);
+            readinessBody.Controls.Add(readinessGrid);
+            Label readinessCaption = new Label
+            {
+                Text = "Use this row as the management pulse: overall readiness, live presence, and expiring compliance records before drilling into a single employee.",
+                Location = new Point(12, 98),
+                Size = new Size(980, 40),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            readinessBody.Controls.Add(readinessCaption);
+            readinessBody.Resize += (s, e) => readinessCaption.Width = Math.Max(420, readinessBody.ClientSize.Width - 24);
+
+            Panel coverageCard = MakeCard("Deployment coverage");
+            coverageCard.Dock = DockStyle.Fill;
+            coverageCard.Height = 236;
+            Panel coverageBody = GetCardBody(coverageCard);
+            coverageBody.Padding = new Padding(12, 10, 12, 12);
+            _lblDashboardCoverageHeadline = new Label
+            {
+                Text = "Coverage summary appears after the employee list loads.",
+                Location = new Point(12, 12),
+                Size = new Size(500, 24),
+                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            _lblDashboardCoverageText = new Label
+            {
+                Text = "Visible site load and uncovered roster will appear here.",
+                Location = new Point(12, 38),
+                Size = new Size(500, 18),
+                Font = new Font("Segoe UI", 8.9F),
+                ForeColor = TextSecondary
+            };
+            Panel coverageSummary = CreateDeploymentCoverageSummaryPanel();
+
+            Panel deploymentVisual = CreateDeploymentCoveragePanel();
+            coverageBody.Controls.Add(_lblDashboardCoverageHeadline);
+            coverageBody.Controls.Add(_lblDashboardCoverageText);
+            coverageBody.Controls.Add(coverageSummary);
+            coverageBody.Controls.Add(deploymentVisual);
+            coverageBody.Resize += (s, e) =>
+            {
+                int visualWidth = Math.Min(360, Math.Max(280, coverageBody.ClientSize.Width / 2 - 4));
+                int textWidth = Math.Max(260, coverageBody.ClientSize.Width - visualWidth - 36);
+                _lblDashboardCoverageHeadline.Width = textWidth;
+                _lblDashboardCoverageText.Width = textWidth;
+                coverageSummary.Width = Math.Max(236, Math.Min(286, textWidth));
+                deploymentVisual.SetBounds(coverageBody.ClientSize.Width - visualWidth - 12, 34, visualWidth, 176);
+            };
+
+            Panel attentionCard = MakeCard("Immediate follow-up");
+            attentionCard.Dock = DockStyle.Fill;
+            attentionCard.Height = 228;
+            Panel attentionBody = GetCardBody(attentionCard);
+            attentionBody.Padding = new Padding(12, 10, 12, 12);
+            _lblDashboardAttentionHeadline = new Label
+            {
+                Text = "Follow-up queue appears after the employee list loads.",
+                Location = new Point(12, 12),
+                Size = new Size(460, 24),
+                Font = new Font("Segoe UI", 10.5F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            _lblDashboardAttentionText = new Label
+            {
+                Text = "Employee profile, KYC, emergency, and compliance issues will surface here.",
+                Location = new Point(12, 40),
+                Size = new Size(460, 18),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            _dashboardAttentionList = new FlowLayoutPanel
+            {
+                Location = new Point(12, 64),
+                Size = new Size(470, 128),
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            attentionBody.Controls.Add(_lblDashboardAttentionHeadline);
+            attentionBody.Controls.Add(_lblDashboardAttentionText);
+            attentionBody.Controls.Add(_dashboardAttentionList);
+            attentionBody.Resize += (s, e) =>
+            {
+                int innerWidth = Math.Max(320, attentionBody.ClientSize.Width - 24);
+                _lblDashboardAttentionHeadline.Width = innerWidth;
+                _lblDashboardAttentionText.Width = innerWidth;
+                _dashboardAttentionList.Width = innerWidth;
+            };
+
+            Panel rosterCard = MakeCard("Roster launchpad");
+            rosterCard.Dock = DockStyle.Fill;
+            rosterCard.Height = 470;
+            Panel rosterBody = GetCardBody(rosterCard);
+            Panel rosterTop = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 64,
+                BackColor = Color.White
+            };
+            Label rosterIntro = new Label
+            {
+                Text = "Review the people most likely to need action or immediate access, then jump into the detailed employee workspace from the dashboard.",
+                Location = new Point(12, 8),
+                Size = new Size(900, 32),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            _lblDashboardCurrentSelection = new Label
+            {
+                Text = "Selected workspace row: choose a person from the roster.",
+                Location = new Point(12, 34),
+                Size = new Size(820, 18),
+                Font = new Font("Segoe UI", 8.75F, FontStyle.Bold),
+                ForeColor = Blue
+            };
+            Button btnOpenSelectedWorkspace = MakeButton("View Employee Workspace", Color.White, TextPrimary, 200);
+            btnOpenSelectedWorkspace.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnOpenSelectedWorkspace.Location = new Point(778, 12);
+            btnOpenSelectedWorkspace.FlatAppearance.BorderColor = Border;
+            btnOpenSelectedWorkspace.FlatAppearance.BorderSize = 1;
+            ModernIconSystem.AddButtonIcon(btnOpenSelectedWorkspace, ModernIconKind.User);
+            btnOpenSelectedWorkspace.Click += (s, e) => OpenSelectedDashboardEmployee();
+            Button btnOpenPayrollFromDashboard = MakeButton("View Payroll Workspace", Color.White, TextPrimary, 186);
+            btnOpenPayrollFromDashboard.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnOpenPayrollFromDashboard.Location = new Point(986, 12);
+            btnOpenPayrollFromDashboard.FlatAppearance.BorderColor = Border;
+            btnOpenPayrollFromDashboard.FlatAppearance.BorderSize = 1;
+            ModernIconSystem.AddButtonIcon(btnOpenPayrollFromDashboard, ModernIconKind.Payment);
+            btnOpenPayrollFromDashboard.Click += (s, e) => (FindForm() as MainForm)?.NavigateTo("Payroll");
+            rosterTop.Resize += (s, e) =>
+            {
+                btnOpenPayrollFromDashboard.Left = Math.Max(760, rosterTop.ClientSize.Width - btnOpenPayrollFromDashboard.Width - 12);
+                btnOpenSelectedWorkspace.Left = btnOpenPayrollFromDashboard.Left - btnOpenSelectedWorkspace.Width - 10;
+                _lblDashboardCurrentSelection.Width = Math.Max(320, btnOpenSelectedWorkspace.Left - 22);
+                rosterIntro.Width = Math.Max(420, btnOpenSelectedWorkspace.Left - 22);
+            };
+            rosterTop.Controls.Add(rosterIntro);
+            rosterTop.Controls.Add(_lblDashboardCurrentSelection);
+            rosterTop.Controls.Add(btnOpenSelectedWorkspace);
+            rosterTop.Controls.Add(btnOpenPayrollFromDashboard);
+
+            _gridDashboardRoster = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                RowHeadersVisible = false,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                AutoGenerateColumns = false,
+                ReadOnly = true
+            };
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Employee", DataPropertyName = "Name", Width = 200 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Role", DataPropertyName = "Designation", Width = 150 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client / Site", DataPropertyName = "ClientSite", Width = 170 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Today", DataPropertyName = "PresenceState", Width = 110 });
+            _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Readiness", DataPropertyName = "ReadinessState", Width = 170, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            StyleDataGrid(_gridDashboardRoster);
+            _gridDashboardRoster.SelectionChanged += (s, e) => UpdateDashboardCurrentSelection();
+            _gridDashboardRoster.DoubleClick += (s, e) => OpenSelectedDashboardEmployee();
+            _gridDashboardRoster.CellFormatting += GridDashboardRoster_CellFormatting;
+            rosterBody.Controls.Add(_gridDashboardRoster);
+            rosterBody.Controls.Add(rosterTop);
+
+            grid.Controls.Add(readinessCard, 0, 0);
+            grid.SetColumnSpan(readinessCard, 2);
+            grid.Controls.Add(coverageCard, 0, 1);
+            grid.Controls.Add(attentionCard, 1, 1);
+            grid.Controls.Add(rosterCard, 0, 2);
+            grid.SetColumnSpan(rosterCard, 2);
+
+            host.Controls.Add(grid);
+            host.Controls.Add(hero);
+            return host;
+        }
+
+        private Panel BuildWorkspaceSurface()
+        {
+            Panel host = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, Visible = false };
+            Panel topBar = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = PageBg, Padding = new Padding(PageEdgeGap, SectionGap, PageEdgeGap, 6) };
+            Button backButton = MakeButton("Back to Dashboard", Color.White, Blue, 156);
+            backButton.Location = new Point(0, 12);
+            backButton.Click += (s, e) => ShowEmployeeDashboard();
+            Button attendanceButton = MakeButton("Attendance Workspace", Color.White, Blue, 164);
+            attendanceButton.Click += (s, e) => (FindForm() as MainForm)?.NavigateTo("Attendance");
+            Button payrollButton = MakeButton("Payroll Workspace", Teal, Color.White, 154);
+            payrollButton.Click += (s, e) => (FindForm() as MainForm)?.NavigateTo("Payroll");
+            Label helper = new Label
+            {
+                Text = "Employee workspace: search, review, and edit one person across profile, work, compliance, and pay from a single second-layer view.",
+                Location = new Point(166, 4),
+                Size = new Size(760, 40),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            topBar.Resize += (s, e) =>
+            {
+                payrollButton.Location = new Point(Math.Max(540, topBar.ClientSize.Width - payrollButton.Width), 12);
+                attendanceButton.Location = new Point(Math.Max(360, payrollButton.Left - attendanceButton.Width - 8), 12);
+                helper.Width = Math.Max(260, attendanceButton.Left - helper.Left - 16);
+            };
+            topBar.Controls.Add(backButton);
+            topBar.Controls.Add(helper);
+            topBar.Controls.Add(attendanceButton);
+            topBar.Controls.Add(payrollButton);
+
+            SplitContainer split = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                FixedPanel = FixedPanel.Panel1,
+                Panel1MinSize = 300
+            };
+            split.HandleCreated += (s, e) => ApplyEmployeeSplitDistance(split);
+            split.Resize += (s, e) => ApplyEmployeeSplitDistance(split);
+            split.Panel1.BackColor = Color.White;
+            split.Panel2.BackColor = PageBg;
+            BuildLeftPanel(split.Panel1);
+            BuildRightPanel(split.Panel2);
+
+            host.Controls.Add(split);
+            host.Controls.Add(topBar);
+            return host;
         }
 
         private void BuildLeftPanel(Control parent)
         {
             parent.Controls.Clear();
 
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 112, BackColor = Color.White, Padding = new Padding(14, 14, 14, 10) };
+            Panel card = MakeCard("Roster navigator");
+            card.Dock = DockStyle.Fill;
+            Panel cardBody = GetCardBody(card);
+            cardBody.Padding = new Padding(0);
+
+            Panel top = new Panel { Dock = DockStyle.Top, Height = 156, BackColor = Color.White, Padding = new Padding(12, 12, 12, 8) };
             _txtSearch = new TextBox { BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 10F), Width = 228 };
             Button clearFilters = MakeButton("Clear", Color.White, Blue, 80);
             clearFilters.FlatAppearance.BorderColor = Border;
@@ -393,14 +887,18 @@ namespace HVAC_Pro_Desktop.UI
             _cmbClientFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
             _cmbStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150, Font = new Font("Segoe UI", 9F) };
 
-            Label lblSearch = new Label { Text = "Search employees", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 6) };
-            _txtSearch.Location = new Point(14, 24);
-            clearFilters.Location = new Point(252, 23);
-            Label lblClient = new Label { Text = "Client / Site", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 58) };
-            _cmbClientFilter.Location = new Point(14, 76);
-            Label lblStatusFilter = new Label { Text = "Status", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(178, 58) };
-            _cmbStatusFilter.Location = new Point(178, 76);
-            top.Controls.AddRange(new Control[] { lblSearch, _txtSearch, clearFilters, lblClient, _cmbClientFilter, lblStatusFilter, _cmbStatusFilter });
+            Label lblSearch = new Label { Text = "Find people", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 6) };
+            Label lblSubtext = new Label { Text = "Scan readiness, use filters, then open one employee workspace.", AutoSize = true, ForeColor = TextHint, Font = new Font("Segoe UI", 8.5F), Location = new Point(14, 24) };
+            _txtSearch.Location = new Point(14, 46);
+            clearFilters.Location = new Point(250, 45);
+            Label lblClient = new Label { Text = "Client / Site", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(14, 80) };
+            _cmbClientFilter.Location = new Point(14, 98);
+            Label lblStatusFilter = new Label { Text = "Status", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(178, 80) };
+            _cmbStatusFilter.Location = new Point(178, 98);
+            _lblVisibleEmployees = CreateLeftMetric(top, 14, 130, "Visible");
+            _lblNeedsFollowUp = CreateLeftMetric(top, 132, 130, "Needs Action");
+            _lblCheckedInNow = CreateLeftMetric(top, 250, 130, "Checked In");
+            top.Controls.AddRange(new Control[] { lblSearch, lblSubtext, _txtSearch, clearFilters, lblClient, _cmbClientFilter, lblStatusFilter, _cmbStatusFilter });
 
             _gridEmployees = new DataGridView
             {
@@ -419,21 +917,25 @@ namespace HVAC_Pro_Desktop.UI
                 MinimumSize = new Size(320, 420)
             };
             _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "", Width = 34, Name = "StatusDot" });
-            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Code", DataPropertyName = "EmployeeCode", Width = 80 });
-            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Name", DataPropertyName = "EmployeeName", Width = 180 });
-            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Designation", DataPropertyName = "Designation", Width = 130, AutoSizeMode = DataGridViewAutoSizeColumnMode.None });
-            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client / Site", DataPropertyName = "ClientSite", Width = 160 });
+            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Employee", DataPropertyName = "EmployeeName", Width = 180 });
+            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Role", DataPropertyName = "Designation", Width = 120, AutoSizeMode = DataGridViewAutoSizeColumnMode.None });
+            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Client / Site", DataPropertyName = "ClientSite", Width = 150 });
+            _gridEmployees.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Readiness", DataPropertyName = "NeedsAction", Width = 150 });
             StyleDataGrid(_gridEmployees);
 
             parent.Controls.Add(_gridEmployees);
             parent.Controls.Add(top);
 
-            _txtSearch.TextChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
+            _txtSearch.TextChanged += (s, e) => QueueEmployeeSearch();
             _cmbClientFilter.SelectedIndexChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
             _cmbStatusFilter.SelectedIndexChanged += (s, e) => { if (!_suppressEmployeeFilterEvents) LoadEmployees(); };
             clearFilters.Click += (s, e) => ClearEmployeeFilters();
             _gridEmployees.SelectionChanged += (s, e) => LoadSelectedEmployeeSafe();
             _gridEmployees.CellFormatting += GridEmployees_CellFormattingSafe;
+
+            cardBody.Controls.Add(_gridEmployees);
+            cardBody.Controls.Add(top);
+            parent.Controls.Add(card);
         }
 
         private void ApplyEmployeeSplitDistance(SplitContainer split)
@@ -455,50 +957,186 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildRightPanel(Control parent)
         {
             parent.Controls.Clear();
-            Panel wrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(16, 14, 16, 16), AutoScroll = false, BackColor = PageBg };
+            Panel wrap = new Panel { Dock = DockStyle.Fill, Padding = new Padding(PageEdgeGap, SectionGap, PageEdgeGap, PageEdgeGap), AutoScroll = false, BackColor = PageBg };
             _tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9F) };
             _tabs.TabPages.Add(BuildOverviewTab());
             _tabs.TabPages.Add(BuildJobsTab());
-            _tabs.TabPages.Add(BuildAttendanceTab());
             _tabs.TabPages.Add(BuildSkillsTab());
-            _tabs.TabPages.Add(BuildDocumentsTab());
             _tabs.TabPages.Add(BuildPayrollTab());
             _tabs.SelectedIndexChanged += (s, e) => LoadCurrentEmployeeTabData();
             wrap.Controls.Add(_tabs);
             parent.Controls.Add(wrap);
         }
 
+        private void ShowEmployeeDashboard()
+        {
+            if (_dashboardSurface != null)
+                _dashboardSurface.Visible = true;
+            if (_workspaceSurface != null)
+                _workspaceSurface.Visible = false;
+            if (_btnSave != null) _btnSave.Enabled = false;
+            if (_btnDelete != null) _btnDelete.Enabled = false;
+            if (_btnWhatsapp != null) _btnWhatsapp.Enabled = false;
+            SetStatus("Employee dashboard ready.", TextSecondary);
+        }
+
+        private void ShowEmployeeWorkspace()
+        {
+            if (_dashboardSurface != null)
+                _dashboardSurface.Visible = false;
+            if (_workspaceSurface != null)
+                _workspaceSurface.Visible = true;
+            if (_btnSave != null) _btnSave.Enabled = true;
+            if (_btnDelete != null) _btnDelete.Enabled = true;
+            if (_btnWhatsapp != null) _btnWhatsapp.Enabled = _currentEmployee != null && !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber);
+
+            if (_gridEmployees != null && _gridEmployees.Rows.Count > 0)
+            {
+                if (_gridEmployees.CurrentRow == null)
+                    _gridEmployees.Rows[0].Selected = true;
+                LoadSelectedEmployeeSafe();
+            }
+
+            SetStatus("Employee workspace opened.", TextSecondary);
+        }
+
+        private void OpenSelectedDashboardEmployee()
+        {
+            if (_gridDashboardRoster == null || _gridDashboardRoster.CurrentRow == null)
+            {
+                ShowEmployeeWorkspace();
+                return;
+            }
+
+            DashboardRosterRow summary = _gridDashboardRoster.CurrentRow.DataBoundItem as DashboardRosterRow;
+            ShowEmployeeWorkspace();
+            if (summary != null && summary.EmployeeID > 0)
+                SelectEmployeeRow(summary.EmployeeID);
+        }
+
         private TabPage BuildOverviewTab()
         {
-            TabPage page = new TabPage("Overview") { BackColor = PageBg };
+            TabPage page = new TabPage("Profile") { BackColor = PageBg };
             Panel content = MakeTabScrollHost();
             FlowLayoutPanel flow = MakeVerticalFlow();
 
-            Panel photoCard = MakeCard("Profile photo");
+            Panel heroCard = MakeCard("Employee workspace");
+            heroCard.Height = 332;
+            Panel heroBody = GetCardBody(heroCard);
+            heroBody.Padding = new Padding(InnerPadding);
+
             _picPhoto = new PictureBox
             {
-                Width = 180,
-                Height = 180,
+                Width = 116,
+                Height = 116,
                 SizeMode = PictureBoxSizeMode.Zoom,
-                BorderStyle = BorderStyle.FixedSingle,
+                BorderStyle = BorderStyle.None,
                 Cursor = Cursors.Hand,
                 BackColor = Surface,
                 Location = new Point(18, 18)
             };
+            _picPhoto.Click += (s, e) => UploadPhoto();
+
+            _lblHeroEmployeeName = new Label
+            {
+                Text = "Select an employee",
+                Location = new Point(154, 18),
+                Size = new Size(420, 30),
+                Font = new Font("Segoe UI", 16F, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                AutoEllipsis = true
+            };
+            _lblHeroEmployeeMeta = new Label
+            {
+                Text = "Choose a person from the left to review profile, work, compliance, and pay.",
+                Location = new Point(154, 52),
+                Size = new Size(520, 20),
+                Font = new Font("Segoe UI", 9F),
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
+            };
+            _lblHeroStatusChip = BuildSummaryChip("Status", TextSecondary, DS.Slate100);
+            _lblHeroSiteChip = BuildSummaryChip("Site pending", DS.Primary700, DS.Primary50);
+            _lblHeroReadinessChip = BuildSummaryChip("Readiness unknown", DS.Amber600, DS.Amber50);
+            _lblHeroPayrollChip = BuildSummaryChip("Payroll pending", DS.Red600, Color.FromArgb(254, 242, 242));
+            _lblHeroContactChip = BuildSummaryChip("Contact not verified", DS.Slate600, DS.Slate100);
+
+            _lblReadinessHeadline = new Label
+            {
+                Text = "Profile readiness",
+                Location = new Point(154, 118),
+                Size = new Size(240, 22),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                AutoEllipsis = true
+            };
+            _lblReadinessDetail = new Label
+            {
+                Text = "KYC, emergency contact, site assignment, and salary setup are reviewed here.",
+                Location = new Point(154, 142),
+                Size = new Size(520, 18),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
+            };
+            _lblProfileChecklist = new Label
+            {
+                Text = "No checklist generated yet.",
+                Location = new Point(154, 168),
+                Size = new Size(560, 18),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextHint,
+                AutoEllipsis = true
+            };
+            _lblProfileHint = new Label
+            {
+                Text = "Use Work, Compliance, and Pay to move from profile maintenance into action.",
+                Location = new Point(154, 190),
+                Size = new Size(560, 18),
+                Font = new Font("Segoe UI", 8.5F),
+                ForeColor = TextHint,
+                AutoEllipsis = true
+            };
+
             Button btnUploadPhoto = MakeButton("Upload Photo", Color.White, Blue, 120);
             btnUploadPhoto.Click += (s, e) => UploadPhoto();
-            _picPhoto.Click += (s, e) => UploadPhoto();
-            photoCard.Height = 238;
-            Panel photoBody = GetCardBody(photoCard);
-            photoBody.Controls.Add(_picPhoto);
-            photoBody.Controls.Add(btnUploadPhoto);
-            photoBody.Resize += (s, e) => LayoutProfilePhotoSection(photoBody, btnUploadPhoto);
-            LayoutProfilePhotoSection(photoBody, btnUploadPhoto);
-            flow.Controls.Add(photoCard);
+
+            Button btnOpenWork = MakeButton("Open Work", Color.White, Blue, 108);
+            btnOpenWork.Click += (s, e) => _tabs.SelectedIndex = 1;
+            Button btnOpenCompliance = MakeButton("Open Compliance", Color.White, Blue, 128);
+            btnOpenCompliance.Click += (s, e) => _tabs.SelectedIndex = 2;
+            Button btnOpenPay = MakeButton("Pay Snapshot", Color.White, Blue, 114);
+            btnOpenPay.Click += (s, e) => _tabs.SelectedIndex = 3;
+            Button btnPayrollWorkspace = MakeButton("Payroll Workspace", Teal, Color.White, 148);
+            btnPayrollWorkspace.Click += (s, e) => (FindForm() as MainForm)?.NavigateTo("Payroll");
+
+            heroBody.Controls.AddRange(new Control[]
+            {
+                _picPhoto,
+                _lblHeroEmployeeName,
+                _lblHeroEmployeeMeta,
+                _lblHeroStatusChip,
+                _lblHeroSiteChip,
+                _lblHeroReadinessChip,
+                _lblHeroPayrollChip,
+                _lblHeroContactChip,
+                _lblReadinessHeadline,
+                _lblReadinessDetail,
+                _lblProfileChecklist,
+                _lblProfileHint,
+                btnUploadPhoto,
+                btnOpenWork,
+                btnOpenCompliance,
+                btnOpenPay,
+                btnPayrollWorkspace
+            });
+            heroBody.Resize += (s, e) => LayoutProfileHero(heroBody, btnUploadPhoto, btnOpenWork, btnOpenCompliance, btnOpenPay, btnPayrollWorkspace);
+            LayoutProfileHero(heroBody, btnUploadPhoto, btnOpenWork, btnOpenCompliance, btnOpenPay, btnPayrollWorkspace);
+            flow.Controls.Add(heroCard);
 
             Panel fieldsCard = MakeCard("Employee profile");
             fieldsCard.Height = 840;
-            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, Padding = new Padding(18, 18, 18, 18), Height = 760 };
+            TableLayoutPanel grid = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, Padding = new Padding(InnerPadding), Height = 736 };
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             for (int i = 0; i < 10; i++)
@@ -512,7 +1150,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtPhone = AddEditor(grid, 1, 2, "Phone");
             _txtWhatsapp = AddEditor(grid, 0, 3, "WhatsApp");
             _cmbBloodGroup = AddComboEditor(grid, 1, 3, "Blood group");
-            _cmbBloodGroup.Items.AddRange(new object[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" });
+            new MasterLookupService().BindCombo(_cmbBloodGroup, "HR.BloodGroup", new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" });
             _txtAadhaar = AddEditor(grid, 0, 4, "Aadhaar");
             _txtPan = AddEditor(grid, 1, 4, "PAN");
             _txtEmergencyName = AddEditor(grid, 0, 5, "Emergency contact name");
@@ -522,7 +1160,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpConfirmation = AddDateEditor(grid, 0, 7, "Confirmation date");
             _dtpLastWorkingDay = AddDateEditor(grid, 1, 7, "Last working day");
             _cmbEmployeeStatus = AddComboEditor(grid, 0, 8, "Status");
-            _cmbEmployeeStatus.Items.AddRange(new object[] { "Active", "Inactive", "Leave" });
+            new MasterLookupService().BindCombo(_cmbEmployeeStatus, "HR.EmployeeStatus", new[] { "Active", "Inactive", "Leave" }, "Active");
             Panel rehirePanel = new Panel { Dock = DockStyle.Fill, Margin = new Padding(8) };
             Label lblRehire = new Label { Text = "Rehire", AutoSize = true, ForeColor = TextSecondary, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), Location = new Point(0, 0) };
             _chkIsRehire = new CheckBox { Text = "Employee is a rehire", AutoSize = true, Location = new Point(0, 28), Font = new Font("Segoe UI", 9F), ForeColor = TextPrimary };
@@ -532,6 +1170,25 @@ namespace HVAC_Pro_Desktop.UI
             GetCardBody(fieldsCard).Controls.Add(grid);
             flow.Controls.Add(fieldsCard);
 
+            Panel paySnapshotCard = MakeCard("Pay snapshot");
+            paySnapshotCard.Height = 168;
+            Panel payBody = GetCardBody(paySnapshotCard);
+            payBody.Padding = new Padding(InnerPadding);
+            Label lblPayIntro = new Label
+            {
+                Text = "Keep payroll editing in the dedicated Pay workflow. This summary keeps HR aware without forcing payroll context into every profile edit.",
+                Location = new Point(18, 18),
+                Size = new Size(660, 36),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            Label lblGrossTitle = new Label { Text = "Gross Salary", Location = new Point(18, 72), Size = new Size(120, 18), Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = TextSecondary };
+            _lblPaySnapshotGross = new Label { Text = IndiaFormatHelper.FormatCurrency(0), Location = new Point(18, 92), Size = new Size(180, 28), Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = Teal };
+            Label lblNetTitle = new Label { Text = "Net Salary", Location = new Point(236, 72), Size = new Size(120, 18), Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = TextSecondary };
+            _lblPaySnapshotNet = new Label { Text = IndiaFormatHelper.FormatCurrency(0), Location = new Point(236, 92), Size = new Size(180, 28), Font = new Font("Segoe UI", 14F, FontStyle.Bold), ForeColor = Blue };
+            payBody.Controls.AddRange(new Control[] { lblPayIntro, lblGrossTitle, _lblPaySnapshotGross, lblNetTitle, _lblPaySnapshotNet });
+            flow.Controls.Add(paySnapshotCard);
+
             content.Controls.Add(flow);
             page.Controls.Add(content);
             return page;
@@ -539,10 +1196,35 @@ namespace HVAC_Pro_Desktop.UI
 
         private TabPage BuildJobsTab()
         {
-            TabPage page = new TabPage("Jobs") { BackColor = PageBg };
+            TabPage page = new TabPage("Work") { BackColor = PageBg };
             Panel host = MakeTabScrollHost();
-            Panel card = MakeCard("Assigned jobs");
-            card.Dock = DockStyle.Fill;
+            FlowLayoutPanel flow = MakeVerticalFlow();
+
+            Panel intro = MakeCard("Work summary");
+            intro.Height = 154;
+            Panel introBody = GetCardBody(intro);
+            introBody.Padding = new Padding(InnerPadding, 12, InnerPadding, 12);
+            Label lblIntroTitle = new Label
+            {
+                Text = "Field output and attendance now live together.",
+                Location = new Point(18, 16),
+                Size = new Size(520, 24),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            Label lblIntroDetail = new Label
+            {
+                Text = "Managers can review assigned work, recent attendance, and closure rhythm in one place instead of switching tabs.",
+                Location = new Point(18, 44),
+                Size = new Size(620, 36),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            introBody.Controls.AddRange(new Control[] { lblIntroTitle, lblIntroDetail });
+            flow.Controls.Add(intro);
+
+            Panel jobsCard = MakeCard("Assigned jobs");
+            jobsCard.Height = 360;
 
             Panel stats = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.White };
             _lblJobsTotal = CreateMiniStat(stats, 18, "Total jobs");
@@ -571,10 +1253,60 @@ namespace HVAC_Pro_Desktop.UI
             StyleDataGrid(_gridJobs);
             _gridJobs.DataBindingComplete += GridJobs_DataBindingComplete;
 
-            Panel body = GetCardBody(card);
-            body.Controls.Add(_gridJobs);
-            body.Controls.Add(stats);
-            host.Controls.Add(card);
+            Panel jobsBody = GetCardBody(jobsCard);
+            jobsBody.Controls.Add(_gridJobs);
+            jobsBody.Controls.Add(stats);
+            flow.Controls.Add(jobsCard);
+
+            Panel attendanceCard = MakeCard("Attendance review");
+            attendanceCard.Height = 360;
+
+            Panel top = new Panel { Dock = DockStyle.Top, Height = 88, BackColor = Color.White };
+            Label lblMonth = new Label { Text = "Month / year", AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Bold), ForeColor = TextSecondary, Location = new Point(18, 14) };
+            _dtpAttendanceMonth = new DateTimePicker
+            {
+                CustomFormat = "MMMM yyyy",
+                Format = DateTimePickerFormat.Custom,
+                ShowUpDown = true,
+                Location = new Point(18, 34),
+                Width = 180,
+                Font = new Font("Segoe UI", 9.5F)
+            };
+            _dtpAttendanceMonth.ValueChanged += (s, e) => RefreshAttendance();
+            _lblPresentDays = CreateMiniStat(top, 240, "Present");
+            _lblAbsentDays = CreateMiniStat(top, 420, "Absent");
+            _lblLateDays = CreateMiniStat(top, 600, "Late");
+            _lblLeaveDays = CreateMiniStat(top, 780, "Leave");
+            top.Controls.Add(lblMonth);
+            top.Controls.Add(_dtpAttendanceMonth);
+
+            _gridAttendance = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                ReadOnly = true,
+                RowHeadersVisible = false,
+                AutoGenerateColumns = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            };
+            _gridAttendance.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Date", DataPropertyName = "AttendanceDate", Width = 115, MinimumWidth = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+            _gridAttendance.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Check In", DataPropertyName = "CheckInTime", Width = 105, MinimumWidth = 95 });
+            _gridAttendance.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Check Out", DataPropertyName = "CheckOutTime", Width = 110, MinimumWidth = 100 });
+            _gridAttendance.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Hours Worked", DataPropertyName = "HoursWorked", Width = 130, MinimumWidth = 125 });
+            _gridAttendance.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = "Status", Width = 110, MinimumWidth = 95 });
+            StyleDataGrid(_gridAttendance);
+            _gridAttendance.DataBindingComplete += GridAttendance_DataBindingComplete;
+
+            Panel attendanceBody = GetCardBody(attendanceCard);
+            attendanceBody.Controls.Add(_gridAttendance);
+            attendanceBody.Controls.Add(top);
+            flow.Controls.Add(attendanceCard);
+
+            host.Controls.Add(flow);
             page.Controls.Add(host);
             return page;
         }
@@ -636,10 +1368,31 @@ namespace HVAC_Pro_Desktop.UI
 
         private TabPage BuildSkillsTab()
         {
-            TabPage page = new TabPage("Skills & Certifications") { BackColor = PageBg };
+            TabPage page = new TabPage("Compliance") { BackColor = PageBg };
             Panel host = MakeTabScrollHost();
-            Panel card = MakeCard("Skills & certifications");
-            card.Dock = DockStyle.Fill;
+            FlowLayoutPanel flow = MakeVerticalFlow();
+
+            Panel actionCard = MakeCard("HR action queue");
+            actionCard.Height = 224;
+            Panel actionBody = GetCardBody(actionCard);
+            TableLayoutPanel actionGrid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                Height = 92,
+                ColumnCount = 4,
+                Padding = new Padding(18, 18, 18, 8)
+            };
+            for (int i = 0; i < 4; i++)
+                actionGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
+            _lblActionMissingKyc = AddKpiCard(actionGrid, 0, "Missing KYC", Red);
+            _lblActionMissingEmergency = AddKpiCard(actionGrid, 1, "Emergency Gaps", Amber);
+            _lblActionProbationDue = AddKpiCard(actionGrid, 2, "Probation Review", Blue);
+            _lblActionPayrollBlocked = AddKpiCard(actionGrid, 3, "Payroll Blocked", Red);
+            actionBody.Controls.Add(actionGrid);
+            flow.Controls.Add(actionCard);
+
+            Panel skillsCard = MakeCard("Skills & certifications");
+            skillsCard.Height = 320;
 
             Panel top = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = Color.White };
             _lblSkillAlert = new Label { AutoSize = true, ForeColor = Red, Font = new Font("Segoe UI", 9F, FontStyle.Bold), Location = new Point(18, 18) };
@@ -669,10 +1422,47 @@ namespace HVAC_Pro_Desktop.UI
             StyleDataGrid(_gridSkills);
             _gridSkills.DataBindingComplete += GridSkills_DataBindingComplete;
 
-            Panel body = GetCardBody(card);
-            body.Controls.Add(_gridSkills);
-            body.Controls.Add(top);
-            host.Controls.Add(card);
+            Panel skillsBody = GetCardBody(skillsCard);
+            skillsBody.Controls.Add(_gridSkills);
+            skillsBody.Controls.Add(top);
+            flow.Controls.Add(skillsCard);
+
+            Panel documentsCard = MakeCard("Employee documents");
+            documentsCard.Height = 320;
+
+            Panel documentsTop = new Panel { Dock = DockStyle.Top, Height = 60, BackColor = Color.White };
+            _btnUploadDocument = MakeButton("Upload Document", Teal, Color.White, 140);
+            _btnUploadDocument.Location = new Point(18, 16);
+            _btnUploadDocument.Click += (s, e) => UploadDocument();
+            documentsTop.Controls.Add(_btnUploadDocument);
+
+            _gridDocuments = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                BackgroundColor = Color.White,
+                BorderStyle = BorderStyle.None,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                ReadOnly = true,
+                RowHeadersVisible = false,
+                AutoGenerateColumns = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect
+            };
+            _gridDocuments.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Document Type", DataPropertyName = "DocumentType", Width = 150 });
+            _gridDocuments.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "File Name", DataPropertyName = "FileName", Width = 220 });
+            _gridDocuments.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Uploaded On", DataPropertyName = "UploadedOn", Width = 120, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy HH:mm" } });
+            _gridDocuments.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Expiry Date", DataPropertyName = "ExpiryDate", Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+            _gridDocuments.Columns.Add(new DataGridViewButtonColumn { HeaderText = "", Text = "Download", UseColumnTextForButtonValue = true, Width = 90 });
+            StyleDataGrid(_gridDocuments);
+            _gridDocuments.CellContentClick += GridDocuments_CellContentClick;
+
+            Panel documentsBody = GetCardBody(documentsCard);
+            documentsBody.Controls.Add(_gridDocuments);
+            documentsBody.Controls.Add(documentsTop);
+            flow.Controls.Add(documentsCard);
+
+            host.Controls.Add(flow);
             page.Controls.Add(host);
             return page;
         }
@@ -721,9 +1511,40 @@ namespace HVAC_Pro_Desktop.UI
 
         private TabPage BuildPayrollTab()
         {
-            TabPage page = new TabPage("Payroll") { BackColor = PageBg };
+            TabPage page = new TabPage("Pay") { BackColor = PageBg };
             Panel host = MakeTabScrollHost();
             FlowLayoutPanel flow = MakeVerticalFlow();
+
+            Panel introCard = MakeCard("Pay operations");
+            introCard.Height = 170;
+            Panel introBody = GetCardBody(introCard);
+            introBody.Padding = new Padding(18, 16, 18, 16);
+            Label lblPayOpsTitle = new Label
+            {
+                Text = "Payroll editing is separated from the employee profile.",
+                Location = new Point(18, 16),
+                Size = new Size(540, 24),
+                Font = new Font("Segoe UI", 10F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            Label lblPayOpsDetail = new Label
+            {
+                Text = "This tab handles structure and slip generation. Use the main Payroll workspace when you need month-wide processing, locking, or statutory review.",
+                Location = new Point(18, 46),
+                Size = new Size(680, 40),
+                Font = new Font("Segoe UI", 8.75F),
+                ForeColor = TextSecondary
+            };
+            Button btnOpenPayrollWorkspace = MakeButton("Open Payroll Workspace", Color.White, Blue, 214);
+            btnOpenPayrollWorkspace.Location = new Point(18, 100);
+            btnOpenPayrollWorkspace.Click += (s, e) => (FindForm() as MainForm)?.NavigateTo("Payroll");
+            introBody.Resize += (s, e) =>
+            {
+                lblPayOpsTitle.Width = Math.Max(320, introBody.ClientSize.Width - 36);
+                lblPayOpsDetail.Width = Math.Max(360, introBody.ClientSize.Width - 36);
+            };
+            introBody.Controls.AddRange(new Control[] { lblPayOpsTitle, lblPayOpsDetail, btnOpenPayrollWorkspace });
+            flow.Controls.Add(introCard);
 
             Panel salaryCard = MakeCard("Current salary structure");
             salaryCard.Height = 380;
@@ -788,6 +1609,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
+                _pendingRestoreEmployeeId = _currentEmployee == null ? 0 : _currentEmployee.EmployeeID;
+                _pendingRestoreTabIndex = _tabs == null ? 0 : _tabs.SelectedIndex;
                 _currentEmployee = null;
                 _currentSalaryProfile = new EmployeeSalaryProfileDto { EffectiveFrom = DateTime.Today };
                 _currentPhoto = null;
@@ -818,7 +1641,16 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 if (_gridEmployees.Rows.Count > 0)
-                    _gridEmployees.Rows[0].Selected = true;
+                {
+                    if (_pendingRestoreEmployeeId > 0)
+                        SelectEmployeeRow(_pendingRestoreEmployeeId);
+
+                    if (_gridEmployees.CurrentRow == null)
+                        _gridEmployees.Rows[0].Selected = true;
+                }
+
+                if (_tabs != null)
+                    _tabs.SelectedIndex = Math.Max(0, Math.Min(_pendingRestoreTabIndex, _tabs.TabPages.Count - 1));
 
                 SetStatus("Employee module loaded.", TextSecondary);
             }
@@ -841,14 +1673,14 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblOnDuty.Text = ExecuteScalarIntSafe(
                 "EmployeeForm.LoadKpis.OnDuty",
-                @"SELECT COUNT(*) FROM dbo.EmployeeAttendance
+                @"SELECT COUNT(*) FROM dbo.AttendanceRecords
                   WHERE AttendanceDate = CAST(GETDATE() AS DATE)
-                    AND CheckInTime IS NOT NULL;",
+                    AND Status IN ('Present', 'Late', 'HalfDay');",
                 attendanceSafe: true).ToString();
 
             _lblOnLeave.Text = ExecuteScalarIntSafe(
                 "EmployeeForm.LoadKpis.OnLeave",
-                @"SELECT COUNT(*) FROM dbo.EmployeeAttendance
+                @"SELECT COUNT(*) FROM dbo.AttendanceRecords
                   WHERE AttendanceDate = CAST(GETDATE() AS DATE)
                     AND Status = 'Leave';",
                 attendanceSafe: true).ToString();
@@ -858,7 +1690,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                if (attendanceSafe && !EmployeeAttendanceTableExists())
+                if (attendanceSafe && !AttendanceRecordsTableExists())
                     return 0;
 
                 using (SqlConnection conn = _db.GetConnection())
@@ -876,14 +1708,14 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private bool EmployeeAttendanceTableExists()
+        private bool AttendanceRecordsTableExists()
         {
             try
             {
                 using (SqlConnection conn = _db.GetConnection())
                 {
                     conn.Open();
-                    using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM sys.tables WHERE name = 'EmployeeAttendance';", conn))
+                    using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM sys.tables WHERE name = 'AttendanceRecords';", conn))
                         return Convert.ToInt32(cmd.ExecuteScalar() ?? 0) > 0;
                 }
             }
@@ -921,7 +1753,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
-                        SELECT EmployeeID, EmployeeCode, Name AS EmployeeName, Designation, Department, ClientSite, Status
+                        SELECT EmployeeID, EmployeeCode, Name AS EmployeeName, Designation, Department, ClientSite, Phone, WhatsAppNumber, Status,
+                               PANNumber, AadhaarNumber, EmergencyContactName, EmergencyContactPhone, ProbationEndDate, ConfirmationDate
                         FROM dbo.Employees
                         WHERE (@search = ''
                                OR Name LIKE '%' + @search + '%'
@@ -948,6 +1781,8 @@ namespace HVAC_Pro_Desktop.UI
         private void BindEmployeeTable(DataTable table, string search, string clientSite, string status)
         {
             table = table ?? new DataTable();
+            EnsureNeedsActionColumn(table);
+            _currentEmployeeTable = table;
             _employeeSummaries = new List<EmployeeSummaryDto>();
             foreach (DataRow row in table.Rows)
             {
@@ -959,13 +1794,385 @@ namespace HVAC_Pro_Desktop.UI
                     Designation = row["Designation"] == DBNull.Value ? string.Empty : Convert.ToString(row["Designation"]),
                     Department = row["Department"] == DBNull.Value ? string.Empty : Convert.ToString(row["Department"]),
                     ClientSite = row["ClientSite"] == DBNull.Value ? string.Empty : Convert.ToString(row["ClientSite"]),
+                    Phone = row["Phone"] == DBNull.Value ? string.Empty : Convert.ToString(row["Phone"]),
                     Status = row["Status"] == DBNull.Value ? string.Empty : Convert.ToString(row["Status"])
                 });
             }
 
             _gridEmployees.DataSource = table;
+            UpdateHrActionQueue(table);
+            UpdateLeftWorkspaceSummary(table);
+            UpdateEmployeeDashboard(null, table);
             if (table.Rows.Count == 0 && HasEmployeeFilters(search, clientSite, status))
                 SetStatus("No employees match current filters. Clear filters to show all employees.", Amber);
+        }
+
+        private void UpdateEmployeeDashboard(EmployeeDashboardStats stats, DataTable table)
+        {
+            table = table ?? _currentEmployeeTable ?? new DataTable();
+            stats = stats ?? new EmployeeDashboardStats
+            {
+                TotalEmployees = _employeeSummaries.Count,
+                ActiveToday = _employeeSummaries.Count(x => !string.Equals(x.Status, "Inactive", StringComparison.OrdinalIgnoreCase)),
+                OnDuty = _employeeSummaries.Count(x => x.CheckedInToday),
+                OnLeave = _employeeSummaries.Count(x => x.OnLeaveToday)
+            };
+
+            int readyCount = 0;
+            int needsActionCount = 0;
+            var attentionLines = new List<string>();
+            foreach (DataRow row in table.Rows)
+            {
+                string issue = GetRowString(row, "NeedsAction");
+                string employeeName = GetRowString(row, "EmployeeName");
+                if (string.Equals(issue, "Ready", StringComparison.OrdinalIgnoreCase))
+                    readyCount++;
+                else
+                {
+                    needsActionCount++;
+                    if (attentionLines.Count < 4)
+                        attentionLines.Add(employeeName + ": " + issue);
+                }
+            }
+
+            if (_lblDashboardReadyCount != null) _lblDashboardReadyCount.Text = readyCount.ToString();
+            if (_lblDashboardNeedsActionCount != null) _lblDashboardNeedsActionCount.Text = needsActionCount.ToString();
+            if (_lblDashboardCheckedInCount != null) _lblDashboardCheckedInCount.Text = stats.OnDuty.ToString();
+            if (_lblDashboardExpiringCount != null) _lblDashboardExpiringCount.Text = _expiringSkills.Count.ToString();
+
+            if (_lblDashboardCoverageText != null)
+            {
+                int assignedSites = _employeeSummaries.Count(x => !string.IsNullOrWhiteSpace(x.ClientSite));
+                int unassignedSites = Math.Max(0, _employeeSummaries.Count - assignedSites);
+                int distinctSites = _employeeSummaries
+                    .Where(x => !string.IsNullOrWhiteSpace(x.ClientSite))
+                    .Select(x => x.ClientSite)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+                var siteGroups = _employeeSummaries
+                    .Where(x => !string.IsNullOrWhiteSpace(x.ClientSite))
+                    .GroupBy(x => x.ClientSite)
+                    .OrderByDescending(g => g.Count())
+                    .ThenBy(g => g.Key)
+                    .Take(4)
+                    .Select(g => new { Site = g.Key, Count = g.Count() })
+                    .ToList();
+                if (_lblDashboardCoverageHeadline != null)
+                {
+                    _lblDashboardCoverageHeadline.Text = distinctSites > 0
+                        ? distinctSites + " active sites | " + assignedSites + " assigned people visible."
+                        : "Site coverage has not been assigned yet.";
+                }
+                _lblDashboardCoverageText.Text = siteGroups.Any()
+                    ? "Busiest visible sites by roster load."
+                    : "No site assignments are visible yet. Use the employee workspace to assign people to active client sites.";
+                int totalVisible = Math.Max(1, _employeeSummaries.Count);
+                int coverageRate = (int)Math.Round((assignedSites / (double)totalVisible) * 100d);
+                if (_lblDashboardCoverageRate != null)
+                    _lblDashboardCoverageRate.Text = coverageRate + "%";
+                if (_lblDashboardCoverageAssignedMeta != null)
+                    _lblDashboardCoverageAssignedMeta.Text = "Assigned: " + assignedSites + " people";
+                if (_lblDashboardCoverageUnassignedMeta != null)
+                    _lblDashboardCoverageUnassignedMeta.Text = "Unassigned: " + unassignedSites + " people";
+                if (_lblDashboardCoverageTopSiteMeta != null)
+                    _lblDashboardCoverageTopSiteMeta.Text = siteGroups.Any()
+                        ? "Top site: " + siteGroups[0].Site + Environment.NewLine + siteGroups[0].Count + " people"
+                        : "Top site: Waiting for roster";
+                if (_dashboardCoverageList != null)
+                {
+                    _dashboardCoverageList.SuspendLayout();
+                    _dashboardCoverageList.Controls.Clear();
+                    if (siteGroups.Any())
+                    {
+                        int maxCount = siteGroups.Max(x => x.Count);
+                        Color[] accents =
+                        {
+                            Blue,
+                            Teal,
+                            Amber,
+                            Color.FromArgb(195, 93, 92)
+                        };
+                        for (int i = 0; i < siteGroups.Count; i++)
+                        {
+                            var group = siteGroups[i];
+                            _dashboardCoverageList.Controls.Add(CreateCoverageBarRow(group.Site, group.Count, maxCount, accents[Math.Min(i, accents.Length - 1)]));
+                        }
+                    }
+                    else
+                    {
+                        _dashboardCoverageList.Controls.Add(CreateCoverageBarRow("No active site assignments", 0, 1, Border));
+                    }
+                    _dashboardCoverageList.ResumeLayout();
+                }
+            }
+
+            if (_lblDashboardAttentionText != null)
+            {
+                var expiringLines = _expiringSkills
+                    .Where(x => x != null && !string.IsNullOrWhiteSpace(x.EmployeeName))
+                    .Take(Math.Max(0, 4 - attentionLines.Count))
+                    .Select(x => x.EmployeeName + ": " + x.SkillName + " expiring");
+                List<string> lines = attentionLines.Concat(expiringLines).Take(4).ToList();
+                if (_lblDashboardAttentionHeadline != null)
+                {
+                    _lblDashboardAttentionHeadline.Text = lines.Count == 0
+                        ? "No urgent HR blockers are visible right now."
+                        : lines.Count + " immediate follow-up signal(s) surfaced from the current roster.";
+                }
+                _lblDashboardAttentionText.Text = lines.Count == 0
+                    ? "Profiles, compliance items, and payroll prerequisites look stable from this dashboard pass."
+                    : "Priority queue for the current shift and HR handoff.";
+                PopulateDashboardAttentionList(lines);
+            }
+
+            if (_gridDashboardRoster != null)
+            {
+                string dashboardSearch = (_txtDashboardSearch == null ? string.Empty : (_txtDashboardSearch.Text ?? string.Empty)).Trim();
+                int pageSize = 15;
+                bool showAllRows = false;
+                if (_cmbDashboardPageSize != null && _cmbDashboardPageSize.SelectedItem != null)
+                {
+                    string selectedPageSize = Convert.ToString(_cmbDashboardPageSize.SelectedItem);
+                    showAllRows = selectedPageSize.IndexOf("All", StringComparison.OrdinalIgnoreCase) >= 0;
+                    if (!showAllRows)
+                    {
+                        int.TryParse(new string((selectedPageSize ?? string.Empty).TakeWhile(char.IsDigit).ToArray()), out pageSize);
+                        if (pageSize <= 0) pageSize = 15;
+                    }
+                }
+                var filteredSummaries = _employeeSummaries
+                    .Where(x => string.IsNullOrWhiteSpace(dashboardSearch)
+                        || ((x.Name ?? string.Empty) + " " + (x.EmployeeCode ?? string.Empty) + " " + (x.Designation ?? string.Empty) + " " + (x.ClientSite ?? string.Empty)).IndexOf(dashboardSearch, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .OrderByDescending(x => x.CheckedInToday)
+                    .ThenBy(x => x.OnLeaveToday)
+                    .ThenBy(x => x.Name)
+                    .ToList();
+                List<EmployeeSummaryDto> visibleSummaries = showAllRows ? filteredSummaries : filteredSummaries.Take(pageSize).ToList();
+                int rowNumber = 1;
+                _gridDashboardRoster.DataSource = visibleSummaries
+                    .Select(x => new DashboardRosterRow
+                    {
+                        RowNumber = rowNumber++,
+                        EmployeeID = x.EmployeeID,
+                        Name = x.Name,
+                        Designation = x.Designation,
+                        ClientSite = x.ClientSite,
+                        PresenceState = x.OnLeaveToday ? "Leave" : (x.CheckedInToday ? "Checked in" : (string.Equals(x.Status, "Active", StringComparison.OrdinalIgnoreCase) ? "Active" : x.Status)),
+                        ReadinessState = GetEmployeeReadinessText(x.EmployeeID),
+                        Mobile = string.IsNullOrWhiteSpace(x.Phone) ? "-" : x.Phone,
+                        Email = BuildEmployeeEmail(x),
+                        Actions = "View  Edit"
+                    })
+                    .ToList();
+                if (_lblDashboardCurrentSelection != null)
+                {
+                    if (visibleSummaries.Count == 0)
+                        _lblDashboardCurrentSelection.Text = "Showing 0 of " + filteredSummaries.Count + " matching employee(s)";
+                    else
+                        _lblDashboardCurrentSelection.Text = "Showing 1 to " + visibleSummaries.Count + " of " + filteredSummaries.Count + " matching employee(s)";
+                }
+            }
+
+            UpdateDashboardCurrentSelection();
+        }
+
+        private void UpdateDashboardCurrentSelection()
+        {
+            if (_lblDashboardCurrentSelection == null)
+                return;
+            if (_cmbDashboardPageSize != null && _gridDashboardRoster != null)
+                return;
+
+            DashboardRosterRow rosterSelection = _gridDashboardRoster == null || _gridDashboardRoster.CurrentRow == null
+                ? null
+                : _gridDashboardRoster.CurrentRow.DataBoundItem as DashboardRosterRow;
+
+            if (_currentEmployee == null && rosterSelection == null)
+            {
+                _lblDashboardCurrentSelection.Text = "Current workspace pick: choose a person from the employee workspace when you need to edit details.";
+                return;
+            }
+
+            int employeeId = 0;
+            string employeeName;
+            string site;
+
+            if (_currentEmployee != null)
+            {
+                employeeId = _currentEmployee.EmployeeID;
+                employeeName = string.IsNullOrWhiteSpace(_currentEmployee.Name) ? "Unnamed employee" : _currentEmployee.Name;
+                site = string.IsNullOrWhiteSpace(_currentEmployee.ClientSite) ? "site pending" : _currentEmployee.ClientSite;
+            }
+            else
+            {
+                employeeId = rosterSelection.EmployeeID;
+                employeeName = string.IsNullOrWhiteSpace(rosterSelection.Name) ? "Unnamed employee" : rosterSelection.Name;
+                site = string.IsNullOrWhiteSpace(rosterSelection.ClientSite) ? "site pending" : rosterSelection.ClientSite;
+            }
+
+            string readiness = GetEmployeeReadinessText(employeeId);
+            _lblDashboardCurrentSelection.Text = "Current workspace pick: " + employeeName + " | " + site;
+            _lblDashboardCurrentSelection.Text += " | " + readiness;
+        }
+
+        private void PopulateDashboardAttentionList(List<string> lines)
+        {
+            if (_dashboardAttentionList == null)
+                return;
+
+            _dashboardAttentionList.SuspendLayout();
+            _dashboardAttentionList.Controls.Clear();
+            lines = lines ?? new List<string>();
+            string[] times = { "12:48 AM", "12:18 AM", "12:15 AM", "12:12 AM" };
+
+            for (int i = 0; i < lines.Count; i++)
+                _dashboardAttentionList.Controls.Add(CreateAttentionRow(lines[i], times[Math.Min(i, times.Length - 1)], i == 0));
+
+            if (lines.Count == 0)
+                _dashboardAttentionList.Controls.Add(CreateAttentionRow("No active follow-up queue.", "Stable", false));
+
+            _dashboardAttentionList.ResumeLayout();
+        }
+
+        private Control CreateAttentionRow(string text, string timeText, bool highPriority)
+        {
+            Panel row = new Panel
+            {
+                Width = 448,
+                Height = 24,
+                Margin = new Padding(0, 0, 0, 6),
+                BackColor = Color.White
+            };
+
+            Panel dot = new Panel
+            {
+                Location = new Point(0, 7),
+                Size = new Size(10, 10),
+                BackColor = highPriority ? Red : Amber
+            };
+            DS.Rounded(dot, 5);
+
+            Panel card = new Panel
+            {
+                Location = new Point(18, 0),
+                Size = new Size(430, 24),
+                BackColor = Color.White
+            };
+            card.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Color.FromArgb(226, 230, 238)), 0, 0, card.Width - 1, card.Height - 1);
+
+            Label lblText = new Label
+            {
+                Text = text,
+                Location = new Point(10, 4),
+                Size = new Size(330, 16),
+                Font = new Font("Segoe UI", 8.25F),
+                ForeColor = TextPrimary
+            };
+            Label lblTime = new Label
+            {
+                Text = timeText,
+                Location = new Point(356, 4),
+                Size = new Size(62, 16),
+                Font = new Font("Segoe UI", 7.75F),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleRight
+            };
+
+            card.Controls.Add(lblText);
+            card.Controls.Add(lblTime);
+            row.Controls.Add(dot);
+            row.Controls.Add(card);
+            return row;
+        }
+
+        private string GetEmployeeReadinessText(int employeeId)
+        {
+            if (employeeId <= 0 || _currentEmployeeTable == null)
+                return "Review profile, compliance, and pay details.";
+
+            foreach (DataRow row in _currentEmployeeTable.Rows)
+            {
+                if (row["EmployeeID"] != DBNull.Value && Convert.ToInt32(row["EmployeeID"]) == employeeId)
+                {
+                    string issue = GetRowString(row, "NeedsAction");
+                    return string.IsNullOrWhiteSpace(issue) ? "Ready" : issue;
+                }
+            }
+
+            return "Review profile, compliance, and pay details.";
+        }
+
+        private void EnsureNeedsActionColumn(DataTable table)
+        {
+            if (table == null)
+                return;
+
+            if (!table.Columns.Contains("NeedsAction"))
+                table.Columns.Add("NeedsAction", typeof(string));
+
+            foreach (DataRow row in table.Rows)
+                row["NeedsAction"] = BuildEmployeeIssueSummary(row);
+        }
+
+        private void UpdateHrActionQueue(DataTable table)
+        {
+            if (_lblActionMissingKyc == null || _lblActionMissingEmergency == null || _lblActionProbationDue == null || _lblActionPayrollBlocked == null)
+                return;
+
+            table = table ?? new DataTable();
+            int missingKyc = 0;
+            int missingEmergency = 0;
+            int probationDue = 0;
+            int payrollBlocked = 0;
+
+            foreach (DataRow row in table.Rows)
+            {
+                bool activeLike = !string.Equals(GetRowString(row, "Status"), "Inactive", StringComparison.OrdinalIgnoreCase);
+                bool missingPan = string.IsNullOrWhiteSpace(GetRowString(row, "PANNumber"));
+                bool missingAadhaar = string.IsNullOrWhiteSpace(GetRowString(row, "AadhaarNumber"));
+                bool missingEmergencyPhone = string.IsNullOrWhiteSpace(GetRowString(row, "EmergencyContactPhone"));
+                bool missingEmergencyName = string.IsNullOrWhiteSpace(GetRowString(row, "EmergencyContactName"));
+                DateTime? probationEnd = GetRowDate(row, "ProbationEndDate");
+                DateTime? confirmationDate = GetRowDate(row, "ConfirmationDate");
+
+                if (activeLike && (missingPan || missingAadhaar))
+                    missingKyc++;
+                if (activeLike && (missingEmergencyPhone || missingEmergencyName))
+                    missingEmergency++;
+                if (activeLike && probationEnd.HasValue && probationEnd.Value.Date <= DateTime.Today && !confirmationDate.HasValue)
+                    probationDue++;
+                if (activeLike && (missingPan || missingAadhaar || missingEmergencyPhone || missingEmergencyName))
+                    payrollBlocked++;
+            }
+
+            _lblActionMissingKyc.Text = missingKyc.ToString();
+            _lblActionMissingEmergency.Text = missingEmergency.ToString();
+            _lblActionProbationDue.Text = probationDue.ToString();
+            _lblActionPayrollBlocked.Text = payrollBlocked.ToString();
+        }
+
+        private string BuildEmployeeIssueSummary(DataRow row)
+        {
+            if (row == null)
+                return string.Empty;
+
+            var issues = new List<string>();
+            string status = GetRowString(row, "Status");
+            if (string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase))
+                return "Inactive record";
+
+            if (string.IsNullOrWhiteSpace(GetRowString(row, "PANNumber")) || string.IsNullOrWhiteSpace(GetRowString(row, "AadhaarNumber")))
+                issues.Add("KYC");
+            if (string.IsNullOrWhiteSpace(GetRowString(row, "EmergencyContactName")) || string.IsNullOrWhiteSpace(GetRowString(row, "EmergencyContactPhone")))
+                issues.Add("Emergency");
+            DateTime? probationEnd = GetRowDate(row, "ProbationEndDate");
+            DateTime? confirmationDate = GetRowDate(row, "ConfirmationDate");
+            if (probationEnd.HasValue && probationEnd.Value.Date <= DateTime.Today && !confirmationDate.HasValue)
+                issues.Add("Probation");
+            if (string.IsNullOrWhiteSpace(GetRowString(row, "ClientSite")))
+                issues.Add("Site");
+
+            return issues.Count == 0 ? "Ready" : string.Join(" + ", issues);
         }
 
         private void LoadCheckedInEmployeesToday()
@@ -977,7 +2184,7 @@ namespace HVAC_Pro_Desktop.UI
         private HashSet<int> LoadCheckedInEmployeesTodaySet()
         {
             var ids = new HashSet<int>();
-            if (!EmployeeAttendanceTableExists())
+            if (!AttendanceRecordsTableExists())
                 return ids;
 
             try
@@ -986,14 +2193,14 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     conn.Open();
                     using (SqlCommand cmd = new SqlCommand(@"
-                        SELECT DISTINCT EmployeeID
-                        FROM dbo.EmployeeAttendance
+                        SELECT DISTINCT EmployeeId
+                        FROM dbo.AttendanceRecords
                         WHERE AttendanceDate = CAST(GETDATE() AS DATE)
-                          AND CheckInTime IS NOT NULL;", conn))
+                          AND Status IN ('Present', 'Late', 'HalfDay');", conn))
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
-                            ids.Add(reader["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(reader["EmployeeID"]));
+                            ids.Add(reader["EmployeeId"] == DBNull.Value ? 0 : Convert.ToInt32(reader["EmployeeId"]));
                     }
                 }
             }
@@ -1010,7 +2217,15 @@ namespace HVAC_Pro_Desktop.UI
             if (e.RowIndex < 0)
                 return;
 
-            if (_gridEmployees.Columns[e.ColumnIndex].HeaderText == "Designation")
+            if (_gridEmployees.Rows[e.RowIndex].DataBoundItem is DataRowView tooltipRowView)
+            {
+                string issueSummary = Convert.ToString(tooltipRowView.Row["NeedsAction"]) ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(issueSummary))
+                    _gridEmployees.Rows[e.RowIndex].Cells[e.ColumnIndex].ToolTipText = issueSummary;
+            }
+
+            string headerText = _gridEmployees.Columns[e.ColumnIndex].HeaderText ?? string.Empty;
+            if (headerText == "Role" || headerText == "Employee")
             {
                 string text = Convert.ToString(e.Value) ?? string.Empty;
                 _gridEmployees.Rows[e.RowIndex].Cells[e.ColumnIndex].ToolTipText = text;
@@ -1035,8 +2250,30 @@ namespace HVAC_Pro_Desktop.UI
             else if (_checkedInTodayEmployeeIds.Contains(employeeId))
                 cell.Style.ForeColor = Teal;
             else
-                cell.Style.ForeColor = Amber;
+            cell.Style.ForeColor = Amber;
             cell.Style.Font = new Font("Segoe UI Symbol", 14F, FontStyle.Bold);
+        }
+
+        private void GridDashboardRoster_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (_gridDashboardRoster == null || e.RowIndex < 0 || e.ColumnIndex < 0)
+                return;
+
+            string propertyName = _gridDashboardRoster.Columns[e.ColumnIndex].DataPropertyName ?? string.Empty;
+            if (string.Equals(propertyName, "PresenceState", StringComparison.OrdinalIgnoreCase))
+            {
+                string text = Convert.ToString(e.Value) ?? string.Empty;
+                e.CellStyle.ForeColor = string.Equals(text, "Active", StringComparison.OrdinalIgnoreCase) || string.Equals(text, "Checked in", StringComparison.OrdinalIgnoreCase)
+                    ? Teal
+                    : (string.Equals(text, "Leave", StringComparison.OrdinalIgnoreCase) ? Red : TextPrimary);
+                e.CellStyle.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            }
+            else if (string.Equals(propertyName, "ReadinessState", StringComparison.OrdinalIgnoreCase))
+            {
+                string text = Convert.ToString(e.Value) ?? string.Empty;
+                e.CellStyle.ForeColor = string.Equals(text, "Ready", StringComparison.OrdinalIgnoreCase) ? Teal : Amber;
+                e.CellStyle.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            }
         }
 
         private void LoadSelectedEmployeeSafe()
@@ -1141,6 +2378,7 @@ namespace HVAC_Pro_Desktop.UI
                 BindOverviewSafe();
                 ClearDeferredTabData();
                 LoadCurrentEmployeeTabData();
+                UpdateSelectedEmployeeReadiness();
                 SetStatus("Loaded " + (_currentEmployee?.Name ?? string.Empty), TextSecondary);
             }
             catch (Exception ex)
@@ -1179,6 +2417,8 @@ namespace HVAC_Pro_Desktop.UI
             _picPhoto.Image = ToImage(_currentPhoto);
             if (_btnWhatsapp != null)
                 _btnWhatsapp.Enabled = !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber);
+            UpdateSelectedEmployeeReadiness();
+            UpdateDashboardCurrentSelection();
         }
 
         private void ClearCurrentEmployeeView()
@@ -1193,6 +2433,7 @@ namespace HVAC_Pro_Desktop.UI
             ClearDeferredTabData();
             if (_btnWhatsapp != null)
                 _btnWhatsapp.Enabled = false;
+            UpdateDashboardCurrentSelection();
         }
 
         private void ClearDeferredTabData()
@@ -1241,11 +2482,12 @@ namespace HVAC_Pro_Desktop.UI
             _cmbEmployeeStatus.Text = "Active";
             _chkIsRehire.Checked = false;
             _picPhoto.Image = ToImage(null);
+            UpdateSelectedEmployeeReadiness();
         }
 
         private async Task SaveCurrentTabAsync()
         {
-            if (_tabs.SelectedTab != null && _tabs.SelectedTab.Text == "Payroll")
+            if (_tabs != null && _tabs.SelectedIndex == 3)
             {
                 SaveSalaryProfile();
                 await Task.CompletedTask;
@@ -1376,7 +2618,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_expiringSkills.Count == 0)
                 return;
 
-            _tabs.SelectedIndex = 3;
+            _tabs.SelectedIndex = 2;
             string message = string.Join(Environment.NewLine, _expiringSkills.Take(12).Select(x =>
                 (x.EmployeeName ?? "Employee") + " - " + x.SkillName + " - " + IndiaFormatHelper.FormatDate(x.ExpiryDate)));
             MessageBox.Show(message, "Expiring certifications", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1407,6 +2649,96 @@ namespace HVAC_Pro_Desktop.UI
             decimal net = gross - pf - esic;
             _lblGrossSalary.Text = IndiaFormatHelper.FormatCurrency(gross);
             _lblNetSalary.Text = IndiaFormatHelper.FormatCurrency(net);
+            if (_lblPaySnapshotGross != null)
+                _lblPaySnapshotGross.Text = IndiaFormatHelper.FormatCurrency(gross);
+            if (_lblPaySnapshotNet != null)
+                _lblPaySnapshotNet.Text = IndiaFormatHelper.FormatCurrency(net);
+        }
+
+        private void UpdateSelectedEmployeeReadiness()
+        {
+            if (_lblReadinessHeadline == null || _lblReadinessDetail == null)
+                return;
+
+            if (_currentEmployee == null || _currentEmployee.EmployeeID <= 0)
+            {
+                _lblHeroEmployeeName.Text = "Select an employee";
+                _lblHeroEmployeeMeta.Text = "Choose a person from the left to review profile, work, compliance, and pay.";
+                ApplySummaryChip(_lblHeroStatusChip, "Status pending", TextSecondary, DS.Slate100);
+                ApplySummaryChip(_lblHeroSiteChip, "Site pending", DS.Primary700, DS.Primary50);
+                ApplySummaryChip(_lblHeroReadinessChip, "Readiness unknown", DS.Amber600, DS.Amber50);
+                ApplySummaryChip(_lblHeroPayrollChip, "Payroll pending", DS.Red600, Color.FromArgb(254, 242, 242));
+                ApplySummaryChip(_lblHeroContactChip, "Contact not verified", DS.Slate600, DS.Slate100);
+                _lblReadinessHeadline.Text = "Select an employee to review HR readiness.";
+                _lblReadinessDetail.Text = "This queue highlights KYC gaps, emergency contact issues, probation follow-up, and payroll blockers.";
+                _lblReadinessHeadline.ForeColor = TextPrimary;
+                _lblProfileChecklist.Text = "Checklist appears here after you select an employee.";
+                _lblProfileHint.Text = "Use Work, Compliance, and Pay to move from profile maintenance into action.";
+                return;
+            }
+
+            var blockers = new List<string>();
+            var checklist = new List<string>();
+            if (string.IsNullOrWhiteSpace(_currentEmployee.PANNumber) && string.IsNullOrWhiteSpace(_currentEmployee.PAN))
+                blockers.Add("PAN missing");
+            else
+                checklist.Add("PAN");
+            if (string.IsNullOrWhiteSpace(_currentEmployee.AadhaarNumber))
+                blockers.Add("Aadhaar missing");
+            else
+                checklist.Add("Aadhaar");
+            if (string.IsNullOrWhiteSpace(_currentEmployee.EmergencyContactName) || string.IsNullOrWhiteSpace(_currentEmployee.EmergencyContactPhone))
+                blockers.Add("Emergency contact incomplete");
+            else
+                checklist.Add("Emergency");
+            if (string.IsNullOrWhiteSpace(_currentEmployee.ClientSite))
+                blockers.Add("Client / Site missing");
+            else
+                checklist.Add("Site");
+            if ((_currentSalaryProfile?.GrossSalary ?? 0m) <= 0m)
+                blockers.Add("Salary structure pending");
+            else
+                checklist.Add("Salary");
+            if (_currentEmployee.ProbationEndDate.HasValue && _currentEmployee.ProbationEndDate.Value.Date <= DateTime.Today && !_currentEmployee.ConfirmationDate.HasValue)
+                blockers.Add("Probation review due");
+            if (string.Equals(_currentEmployee.Status, "Inactive", StringComparison.OrdinalIgnoreCase) && !_currentEmployee.LastWorkingDay.HasValue)
+                blockers.Add("Last working day missing");
+
+            string designation = string.IsNullOrWhiteSpace(_currentEmployee.Designation) ? "Role not set" : _currentEmployee.Designation;
+            string department = string.IsNullOrWhiteSpace(_currentEmployee.Department) ? "Department pending" : _currentEmployee.Department;
+            string code = string.IsNullOrWhiteSpace(_currentEmployee.EmployeeCode) ? "Code pending" : _currentEmployee.EmployeeCode;
+            string status = string.IsNullOrWhiteSpace(_currentEmployee.Status) ? "Active" : _currentEmployee.Status;
+            string site = string.IsNullOrWhiteSpace(_currentEmployee.ClientSite) ? "Site pending" : _currentEmployee.ClientSite;
+            string contact = !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber)
+                ? "WhatsApp verified"
+                : (!string.IsNullOrWhiteSpace(_currentEmployee.Phone) ? "Phone saved" : "Contact not verified");
+            bool payrollReady = (_currentSalaryProfile?.GrossSalary ?? 0m) > 0m;
+
+            _lblHeroEmployeeName.Text = string.IsNullOrWhiteSpace(_currentEmployee.Name) ? "Unnamed employee" : _currentEmployee.Name;
+            _lblHeroEmployeeMeta.Text = code + "  |  " + designation + "  |  " + department;
+            ApplySummaryChip(_lblHeroStatusChip, "Status: " + status, string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? Teal : TextSecondary, string.Equals(status, "Active", StringComparison.OrdinalIgnoreCase) ? TealLight : DS.Slate100);
+            ApplySummaryChip(_lblHeroSiteChip, string.IsNullOrWhiteSpace(_currentEmployee.ClientSite) ? "Site pending" : "Site: " + site, string.IsNullOrWhiteSpace(_currentEmployee.ClientSite) ? DS.Primary700 : Blue, string.IsNullOrWhiteSpace(_currentEmployee.ClientSite) ? DS.Primary50 : Color.FromArgb(239, 246, 255));
+            ApplySummaryChip(_lblHeroReadinessChip, blockers.Count == 0 ? "Ready for HR handoff" : blockers.Count + " follow-up item(s)", blockers.Count == 0 ? Teal : Red, blockers.Count == 0 ? TealLight : Color.FromArgb(255, 241, 242));
+            ApplySummaryChip(_lblHeroPayrollChip, payrollReady ? "Payroll structure ready" : "Payroll pending", payrollReady ? Blue : Red, payrollReady ? Color.FromArgb(239, 246, 255) : Color.FromArgb(254, 242, 242));
+            ApplySummaryChip(_lblHeroContactChip, contact, !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber) || !string.IsNullOrWhiteSpace(_currentEmployee.Phone) ? DS.Slate700 : DS.Slate600, !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber) || !string.IsNullOrWhiteSpace(_currentEmployee.Phone) ? DS.Slate50 : DS.Slate100);
+
+            if (blockers.Count == 0)
+            {
+                _lblReadinessHeadline.Text = (_currentEmployee.Name ?? "Employee") + " is ready for payroll and HR follow-up.";
+                _lblReadinessHeadline.ForeColor = Teal;
+                _lblReadinessDetail.Text = "KYC, emergency contact, site assignment, and salary setup look complete from this page.";
+                _lblProfileChecklist.Text = checklist.Count == 0 ? "Readiness checklist is complete." : "Ready checklist: " + string.Join(", ", checklist);
+                _lblProfileHint.Text = "Use Work for assignments and attendance, Compliance for certificates and documents, and Pay for salary actions.";
+                return;
+            }
+
+            _lblReadinessHeadline.Text = (_currentEmployee.Name ?? "Employee") + " needs " + blockers.Count + " follow-up item(s).";
+            _lblReadinessHeadline.ForeColor = Red;
+            _lblReadinessDetail.Text = string.Join(" | ", blockers);
+            _lblProfileChecklist.Text = checklist.Count == 0
+                ? "No readiness checkpoints are complete yet."
+                : "Completed checkpoints: " + string.Join(", ", checklist);
+            _lblProfileHint.Text = "Start with the blockers above, then use Compliance and Pay to finish this employee setup.";
         }
 
         private void AttachMoneyRecalc(params TextBox[] textBoxes)
@@ -1444,11 +2776,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel MakeCard(string title)
         {
-            Panel card = new Panel { Width = 760, BackColor = Color.White, Margin = new Padding(0, 0, 0, 14), MinimumSize = new Size(340, 140) };
-            card.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, card.Width - 1, card.Height - 1);
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 38, BackColor = Color.White };
-            header.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(240, 240, 240)), 0, header.Height - 1, header.Width, header.Height - 1);
-            Label lblTitle = new Label { Text = title, AutoSize = true, ForeColor = TextPrimary, Font = new Font("Segoe UI", 11F, FontStyle.Bold), Location = new Point(16, 9) };
+            Panel card = new Panel { Width = 760, BackColor = Color.White, Margin = new Padding(0, 0, 0, CardGap), MinimumSize = new Size(340, 120) };
+            DS.Rounded(card, DS.RadiusLg);
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var pen = new Pen(Color.FromArgb(223, 229, 238)))
+                    e.Graphics.DrawPath(pen, DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), DS.RadiusLg));
+            };
+            Panel header = new Panel { Dock = DockStyle.Top, Height = 34, BackColor = Color.White };
+            header.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Color.FromArgb(240, 240, 240)), 12, header.Height - 1, header.Width - 12, header.Height - 1);
+            Label lblTitle = new Label { Text = title, AutoSize = true, ForeColor = TextPrimary, Font = new Font("Segoe UI", 10.5F, FontStyle.Bold), Location = new Point(12, 8) };
             header.Controls.Add(lblTitle);
             Panel body = new Panel
             {
@@ -1466,7 +2804,7 @@ namespace HVAC_Pro_Desktop.UI
             if (flow == null || flow.IsDisposed)
                 return;
 
-            int width = Math.Max(360, Math.Min(1180, flow.ClientSize.Width - flow.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 80));
+            int width = Math.Max(360, Math.Min(1180, flow.ClientSize.Width - flow.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 28));
             foreach (Control child in flow.Controls)
             {
                 if (child.Dock == DockStyle.Fill)
@@ -1550,7 +2888,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel MakeFieldPanel()
         {
-            return new Panel { Dock = DockStyle.Fill, Margin = new Padding(10, 8, 10, 8), Padding = new Padding(0, 0, 0, 0) };
+            return new Panel { Dock = DockStyle.Fill, Margin = new Padding(8, 6, 8, 6), Padding = new Padding(0) };
         }
 
         private Label MakeFieldLabel(string label)
@@ -1614,6 +2952,22 @@ namespace HVAC_Pro_Desktop.UI
         {
             decimal value;
             return decimal.TryParse(text, out value) ? value : 0m;
+        }
+
+        private static string GetRowString(DataRow row, string columnName)
+        {
+            return row == null || !row.Table.Columns.Contains(columnName) || row[columnName] == DBNull.Value
+                ? string.Empty
+                : Convert.ToString(row[columnName]);
+        }
+
+        private static DateTime? GetRowDate(DataRow row, string columnName)
+        {
+            if (row == null || !row.Table.Columns.Contains(columnName) || row[columnName] == DBNull.Value)
+                return null;
+
+            DateTime value;
+            return DateTime.TryParse(Convert.ToString(row[columnName]), out value) ? (DateTime?)value : null;
         }
 
         private void PopulateLeftFilters()
@@ -1801,29 +3155,25 @@ namespace HVAC_Pro_Desktop.UI
                         BindJobs();
                         _jobsLoaded = true;
                     }
-                    break;
-                case 2:
                     if (!_attendanceLoaded)
                     {
                         RefreshAttendance();
                         _attendanceLoaded = true;
                     }
                     break;
-                case 3:
+                case 2:
                     if (!_skillsLoaded)
                     {
                         BindSkills();
                         _skillsLoaded = true;
                     }
-                    break;
-                case 4:
                     if (!_documentsLoaded)
                     {
                         BindDocuments();
                         _documentsLoaded = true;
                     }
                     break;
-                case 5:
+                case 3:
                     if (!_payrollLoaded)
                     {
                         LoadSalaryProfileForCurrentEmployee();
@@ -1914,6 +3264,7 @@ namespace HVAC_Pro_Desktop.UI
             SetDatePicker(_dtpSalaryEffectiveFrom, _currentSalaryProfile.EffectiveFrom);
             _gridAdvances.DataSource = _currentEmployee == null ? null : _payrollService.GetAdvancesByEmployee(_currentEmployee.EmployeeID);
             RecalculateSalaryLabels();
+            UpdateSelectedEmployeeReadiness();
         }
 
         private void SaveOverview()
@@ -2005,6 +3356,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void NewEmployee()
         {
+            ShowEmployeeWorkspace();
             _currentEmployee = null;
             _currentSalaryProfile = new EmployeeSalaryProfileDto { EffectiveFrom = DateTime.Today };
             _currentPhoto = null;
@@ -2043,8 +3395,170 @@ namespace HVAC_Pro_Desktop.UI
             _lblSkillAlert.Text = "No certifications loaded.";
             BindPayroll();
             _tabs.SelectedIndex = 0;
+            UpdateDashboardCurrentSelection();
             SetStatus("New employee ready.", TextSecondary);
             _txtName.Focus();
+        }
+
+        private void EmployeeSearchDebounceTimer_Tick(object sender, EventArgs e)
+        {
+            _employeeSearchDebounceTimer.Stop();
+            if (!_suppressEmployeeFilterEvents)
+                LoadEmployees();
+        }
+
+        private void QueueEmployeeSearch()
+        {
+            if (_suppressEmployeeFilterEvents)
+                return;
+
+            _employeeSearchDebounceTimer.Stop();
+            _employeeSearchDebounceTimer.Start();
+        }
+
+        private Label CreateLeftMetric(Control parent, int x, int y, string caption)
+        {
+            Panel card = new Panel
+            {
+                Parent = parent,
+                BackColor = Surface,
+                Location = new Point(x, y),
+                Size = new Size(108, 28)
+            };
+
+            Label valueLabel = new Label
+            {
+                Text = "0",
+                AutoSize = false,
+                Location = new Point(8, 4),
+                Size = new Size(30, 18),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            Label captionLabel = new Label
+            {
+                Text = caption,
+                AutoSize = false,
+                Location = new Point(36, 5),
+                Size = new Size(66, 16),
+                Font = new Font("Segoe UI", 7.5F),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            card.Controls.Add(valueLabel);
+            card.Controls.Add(captionLabel);
+            parent.Controls.Add(card);
+            return valueLabel;
+        }
+
+        private Label BuildSummaryChip(string text, Color foreColor, Color backColor)
+        {
+            return new Label
+            {
+                AutoSize = true,
+                Text = text,
+                ForeColor = foreColor,
+                BackColor = backColor,
+                Font = new Font("Segoe UI", 8.25F, FontStyle.Bold),
+                Padding = new Padding(10, 5, 10, 5),
+                Margin = Padding.Empty
+            };
+        }
+
+        private void ApplySummaryChip(Label chip, string text, Color foreColor, Color backColor)
+        {
+            if (chip == null)
+                return;
+
+            chip.Text = text;
+            chip.ForeColor = foreColor;
+            chip.BackColor = backColor;
+        }
+
+        private void LayoutProfileHero(Panel heroBody, params Button[] actions)
+        {
+            if (heroBody == null || heroBody.IsDisposed)
+                return;
+
+            int chipTop = 84;
+            int left = 154;
+            int maxWidth = Math.Max(420, heroBody.ClientSize.Width - left - 18);
+            _lblHeroEmployeeName.Width = maxWidth;
+            _lblHeroEmployeeMeta.Width = maxWidth;
+            _lblReadinessHeadline.Width = maxWidth;
+            _lblReadinessDetail.Width = maxWidth;
+            _lblProfileChecklist.Width = maxWidth;
+            _lblProfileHint.Width = maxWidth;
+
+            Label[] chips = { _lblHeroStatusChip, _lblHeroSiteChip, _lblHeroReadinessChip, _lblHeroPayrollChip, _lblHeroContactChip };
+            int chipsBottom = chipTop;
+            foreach (Label chip in chips)
+            {
+                if (chip == null)
+                    continue;
+
+                if (left + chip.Width > heroBody.ClientSize.Width - 24)
+                {
+                    left = 154;
+                    chipTop += chip.Height + 8;
+                }
+
+                chip.Location = new Point(left, chipTop);
+                left += chip.Width + 8;
+                chipsBottom = Math.Max(chipsBottom, chip.Bottom);
+            }
+
+            int contentTop = chipsBottom + 14;
+            _lblReadinessHeadline.Location = new Point(154, contentTop);
+            _lblReadinessDetail.Location = new Point(154, _lblReadinessHeadline.Bottom + 4);
+            _lblProfileChecklist.Location = new Point(154, _lblReadinessDetail.Bottom + 6);
+            _lblProfileHint.Location = new Point(154, _lblProfileChecklist.Bottom + 6);
+
+            int buttonLeft = 18;
+            int buttonTop = Math.Max(_lblProfileHint.Bottom + 16, heroBody.ClientSize.Height - 74);
+            foreach (Button button in actions)
+            {
+                if (button == null)
+                    continue;
+
+                if (buttonLeft + button.Width > heroBody.ClientSize.Width - 24)
+                {
+                    buttonLeft = 18;
+                    buttonTop += button.Height + 8;
+                }
+
+                button.Location = new Point(buttonLeft, buttonTop);
+                buttonLeft += button.Width + 10;
+            }
+        }
+
+        private void UpdateLeftWorkspaceSummary(DataTable table)
+        {
+            if (_lblVisibleEmployees == null || _lblNeedsFollowUp == null || _lblCheckedInNow == null)
+                return;
+
+            table = table ?? new DataTable();
+            int visible = table.Rows.Count;
+            int needsFollowUp = 0;
+            int checkedIn = 0;
+
+            foreach (DataRow row in table.Rows)
+            {
+                string needsAction = GetRowString(row, "NeedsAction");
+                if (!string.Equals(needsAction, "Ready", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(needsAction, "Inactive record", StringComparison.OrdinalIgnoreCase))
+                    needsFollowUp++;
+
+                int employeeId = row["EmployeeID"] == DBNull.Value ? 0 : Convert.ToInt32(row["EmployeeID"]);
+                if (_checkedInTodayEmployeeIds.Contains(employeeId))
+                    checkedIn++;
+            }
+
+            _lblVisibleEmployees.Text = visible.ToString();
+            _lblNeedsFollowUp.Text = needsFollowUp.ToString();
+            _lblCheckedInNow.Text = checkedIn.ToString();
         }
 
         private void DeleteCurrentEmployee()
@@ -2253,6 +3767,38 @@ namespace HVAC_Pro_Desktop.UI
             return button;
         }
 
+        private static int GetEmployeeHeaderButtonMinWidth(Button button)
+        {
+            if (button == null)
+                return 110;
+
+            string text = (button.Text ?? string.Empty).Trim();
+            if (text.IndexOf("New Employee", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 142;
+            if (text.IndexOf("Preview", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 118;
+            if (text.IndexOf("Refresh", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 118;
+            if (text.IndexOf("Import", StringComparison.OrdinalIgnoreCase) >= 0
+                || text.IndexOf("Export", StringComparison.OrdinalIgnoreCase) >= 0
+                || text.IndexOf("Filters", StringComparison.OrdinalIgnoreCase) >= 0)
+                return 112;
+
+            return 104;
+        }
+
+        private static void ApplyEmployeeHeaderButtonSpacing(Button button)
+        {
+            if (button == null)
+                return;
+
+            button.AutoEllipsis = true;
+            button.Padding = new Padding(12, 0, 12, 0);
+            button.ImageAlign = ContentAlignment.MiddleLeft;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        }
+
         /// <summary>Positions the Employee dashboard header so action buttons never force the page header to balloon vertically.</summary>
         private void LayoutEmployeeHeader(Panel header, Panel titleStack, Panel buttonRail, Button[] headerButtons)
         {
@@ -2260,7 +3806,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             const int outerPad = 24;
-            const int gap = 8;
+            int gap = SharedUiPrimitives.HeaderActionGap;
             bool compact = header.ClientSize.Width > 0 && header.ClientSize.Width < 1380;
             int targetHeaderHeight = compact ? 118 : 92;
             if (header.Height != targetHeaderHeight)
@@ -2352,6 +3898,315 @@ namespace HVAC_Pro_Desktop.UI
             return lblValue;
         }
 
+        private Label AddDashboardHeroKpiCard(TableLayoutPanel table, int column, string title, string subtitle, Color backColor, Color foreColor, Color accentColor)
+        {
+            Panel card = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = backColor,
+                Margin = new Padding(column == 0 ? 0 : 12, 0, 0, 0),
+                Padding = new Padding(14, 12, 14, 10)
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
+                using (Brush fill = new SolidBrush(backColor))
+                using (Pen pen = new Pen(Color.FromArgb(80, 0, 0, 0)))
+                {
+                    e.Graphics.FillPath(fill, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
+
+                using (Pen accentPen = new Pen(accentColor, 2.4f))
+                    e.Graphics.DrawLine(accentPen, 14, card.Height - 12, 58, card.Height - 12);
+            };
+            DS.Rounded(card, 8);
+
+            Label lblTitle = new Label
+            {
+                Text = title.ToUpperInvariant(),
+                ForeColor = Color.FromArgb(235, foreColor),
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(14, 10)
+            };
+            Label lblValue = new Label
+            {
+                Text = "0",
+                ForeColor = foreColor,
+                Font = new Font("Segoe UI", 18F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(14, 30)
+            };
+            Label lblSubtitle = new Label
+            {
+                Text = subtitle,
+                ForeColor = Color.FromArgb(210, foreColor),
+                Font = new Font("Segoe UI", 7.6F),
+                AutoSize = true,
+                Location = new Point(14, 56)
+            };
+            card.Controls.Add(lblTitle);
+            card.Controls.Add(lblValue);
+            card.Controls.Add(lblSubtitle);
+            table.Controls.Add(card, column, 0);
+            return lblValue;
+        }
+
+        private Panel CreateDeploymentCoverageSummaryPanel()
+        {
+            Panel card = new Panel
+            {
+                BackColor = Color.FromArgb(249, 251, 254),
+                Location = new Point(18, 78),
+                Size = new Size(286, 126)
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 12))
+                using (Brush fill = new SolidBrush(Color.FromArgb(249, 251, 254)))
+                using (Pen pen = new Pen(Color.FromArgb(225, 230, 238)))
+                {
+                    e.Graphics.FillPath(fill, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
+                using (Pen divider = new Pen(Color.FromArgb(229, 234, 242)))
+                    e.Graphics.DrawLine(divider, 128, 18, 128, card.Height - 18);
+            };
+            DS.Rounded(card, 12);
+
+            Label summaryTitle = new Label
+            {
+                Text = "COVERAGE RATE",
+                Location = new Point(16, 18),
+                Size = new Size(96, 16),
+                Font = new Font("Segoe UI", 7.5F, FontStyle.Bold),
+                ForeColor = TextSecondary
+            };
+            _lblDashboardCoverageRate = new Label
+            {
+                Text = "0%",
+                Location = new Point(16, 34),
+                Size = new Size(96, 34),
+                Font = new Font("Segoe UI", 24F, FontStyle.Bold),
+                ForeColor = Blue
+            };
+            Label summaryHint = new Label
+            {
+                Text = "Visible roster with site assignment",
+                Location = new Point(16, 74),
+                Size = new Size(96, 32),
+                Font = new Font("Segoe UI", 8F),
+                ForeColor = TextSecondary
+            };
+            _lblDashboardCoverageAssignedMeta = new Label
+            {
+                Text = "Assigned: 0",
+                Location = new Point(146, 22),
+                Size = new Size(120, 18),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            _lblDashboardCoverageUnassignedMeta = new Label
+            {
+                Text = "Unassigned: 0",
+                Location = new Point(146, 50),
+                Size = new Size(120, 18),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Red
+            };
+            _lblDashboardCoverageTopSiteMeta = new Label
+            {
+                Text = "Top site: Waiting for roster",
+                Location = new Point(146, 80),
+                Size = new Size(124, 32),
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Bold),
+                ForeColor = Teal
+            };
+            card.Controls.Add(summaryTitle);
+            card.Controls.Add(_lblDashboardCoverageRate);
+            card.Controls.Add(summaryHint);
+            card.Controls.Add(_lblDashboardCoverageAssignedMeta);
+            card.Controls.Add(_lblDashboardCoverageUnassignedMeta);
+            card.Controls.Add(_lblDashboardCoverageTopSiteMeta);
+            return card;
+        }
+
+        private Panel CreateDeploymentCoveragePanel()
+        {
+            Panel card = new Panel
+            {
+                BackColor = Color.FromArgb(248, 250, 253),
+                Size = new Size(340, 176)
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 12))
+                using (Brush fill = new SolidBrush(Color.FromArgb(248, 250, 253)))
+                using (Pen pen = new Pen(Color.FromArgb(221, 227, 236)))
+                {
+                    e.Graphics.FillPath(fill, path);
+                    e.Graphics.DrawPath(pen, path);
+                }
+            };
+            DS.Rounded(card, 12);
+
+            Label title = new Label
+            {
+                Text = "Site load",
+                Location = new Point(16, 14),
+                Size = new Size(140, 18),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            Label subtitle = new Label
+            {
+                Text = "Busiest visible sites by roster load.",
+                Location = new Point(16, 34),
+                Size = new Size(300, 28),
+                Font = new Font("Segoe UI", 8F),
+                ForeColor = TextSecondary
+            };
+            _dashboardCoverageList = new FlowLayoutPanel
+            {
+                Location = new Point(16, 72),
+                Size = new Size(308, 92),
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent
+            };
+            card.Controls.Add(title);
+            card.Controls.Add(subtitle);
+            card.Controls.Add(_dashboardCoverageList);
+            return card;
+        }
+
+        private Panel CreateCoverageBarRow(string siteName, int count, int maxCount, Color accentColor)
+        {
+            Panel row = new Panel
+            {
+                Size = new Size(306, 22),
+                Margin = new Padding(0, 0, 0, 8),
+                BackColor = Color.Transparent
+            };
+            Label lblSite = new Label
+            {
+                Text = siteName,
+                Location = new Point(0, 0),
+                Size = new Size(152, 16),
+                Font = new Font("Segoe UI", 8.25F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            Label lblCount = new Label
+            {
+                Text = count.ToString(),
+                Location = new Point(254, 0),
+                Size = new Size(52, 16),
+                TextAlign = ContentAlignment.TopRight,
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                ForeColor = TextSecondary
+            };
+            Panel track = new Panel
+            {
+                Location = new Point(0, 18),
+                Size = new Size(306, 4),
+                BackColor = Color.FromArgb(231, 236, 244)
+            };
+            int fillWidth = maxCount <= 0 ? 0 : Math.Max(22, (int)Math.Round((count / (double)maxCount) * track.Width));
+            Panel fill = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(Math.Min(track.Width, fillWidth), 4),
+                BackColor = accentColor
+            };
+            track.Controls.Add(fill);
+            row.Controls.Add(lblSite);
+            row.Controls.Add(lblCount);
+            row.Controls.Add(track);
+            return row;
+        }
+
+        private Label AddDashboardRibbonCard(TableLayoutPanel table, int column, string title, Color valueColor, ModernIconKind iconKind)
+        {
+            Panel card = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.White,
+                Margin = new Padding(column == 0 ? 0 : 10, 0, 0, 0),
+                Padding = new Padding(12, 10, 12, 10)
+            };
+            card.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (var path = DS.RoundedRect(new Rectangle(0, 0, card.Width - 1, card.Height - 1), 8))
+                using (Pen pen = new Pen(Border))
+                    e.Graphics.DrawPath(pen, path);
+                using (Pen accentPen = new Pen(Color.FromArgb(190, valueColor), 2.2f))
+                    e.Graphics.DrawLine(accentPen, 12, card.Height - 10, 70, card.Height - 10);
+            };
+            DS.Rounded(card, 8);
+
+            Label lblTitle = new Label
+            {
+                Text = title.ToUpperInvariant(),
+                ForeColor = TextSecondary,
+                Font = new Font("Segoe UI", 8F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(12, 12)
+            };
+            Label lblValue = new Label
+            {
+                Text = "0",
+                ForeColor = valueColor,
+                Font = new Font("Segoe UI", 17F, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(12, 32)
+            };
+            Label badge = ModernIconSystem.Badge(iconKind, 14, Color.FromArgb(32, valueColor), valueColor, 8);
+            badge.Location = new Point(230, 12);
+            badge.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            card.Resize += (s, e) => badge.Left = Math.Max(180, card.ClientSize.Width - badge.Width - 12);
+            card.Controls.Add(lblTitle);
+            card.Controls.Add(lblValue);
+            card.Controls.Add(badge);
+            table.Controls.Add(card, column, 0);
+            return lblValue;
+        }
+
+        private Control CreateLegendPill(string text, Color color)
+        {
+            Panel pill = new Panel
+            {
+                Size = new Size(42, 14),
+                Margin = new Padding(0, 0, 6, 6),
+                BackColor = Color.White
+            };
+            pill.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (Brush fill = new SolidBrush(Color.FromArgb(28, color)))
+                    e.Graphics.FillRectangle(fill, 0, 0, 42, 14);
+                using (Brush dotBrush = new SolidBrush(color))
+                    e.Graphics.FillEllipse(dotBrush, 4, 4, 6, 6);
+            };
+            Label lbl = new Label
+            {
+                Text = text,
+                Location = new Point(14, 0),
+                Size = new Size(24, 14),
+                Font = new Font("Segoe UI", 7.2F, FontStyle.Bold),
+                ForeColor = TextPrimary
+            };
+            pill.Controls.Add(lbl);
+            return pill;
+        }
+
         private sealed class EmployeeInitialPayload
         {
             public EmployeeDashboardStats Stats { get; set; } = new EmployeeDashboardStats();
@@ -2359,6 +4214,21 @@ namespace HVAC_Pro_Desktop.UI
             public DataTable EmployeeTable { get; set; } = new DataTable();
             public HashSet<int> CheckedInTodayEmployeeIds { get; set; } = new HashSet<int>();
             public List<string> SiteNames { get; set; } = new List<string>();
+            public string AttendanceReconciliationBanner { get; set; }
+        }
+
+        private sealed class DashboardRosterRow
+        {
+            public int RowNumber { get; set; }
+            public int EmployeeID { get; set; }
+            public string Name { get; set; }
+            public string Designation { get; set; }
+            public string ClientSite { get; set; }
+            public string PresenceState { get; set; }
+            public string ReadinessState { get; set; }
+            public string Mobile { get; set; }
+            public string Email { get; set; }
+            public string Actions { get; set; }
         }
 
         private sealed class EmployeeSkillDialog : ServoERP.Infrastructure.ServoFormBase

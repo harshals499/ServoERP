@@ -33,9 +33,11 @@ namespace HVAC_Pro_Desktop.UI
         private readonly VendorService _vendorSvc = new VendorService();
         private readonly PaymentService _paymentSvc = new PaymentService();
         private readonly MasterDataService _masterDataSvc = new MasterDataService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
         private readonly InvoiceAnalyticsService _invoiceAnalyticsSvc = new InvoiceAnalyticsService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly JobService _jobSvc = new JobService();
         private readonly ToolTip _toolTip = new ToolTip();
 
         // â”€â”€ List panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -58,6 +60,9 @@ namespace HVAC_Pro_Desktop.UI
         private List<HsnSacMasterEntry> _hsnSacEntries = new List<HsnSacMasterEntry>();
         private List<InvoiceCatalogItem> _invoiceCatalog = new List<InvoiceCatalogItem>();
         private FlowLayoutPanel _itemSourceTabs;
+        private FlowLayoutPanel _invoiceItemActionButtons;
+        private Panel _invoiceLineItemsCard;
+        private Panel _invoiceLineItemsActionRow;
         private string _activeItemSource = "All";
         private Button _btnAddInvoiceLine, _btnAddChecklistRow, _btnAddAssetRow, _btnRecordWorkflowPayment;
 
@@ -65,7 +70,7 @@ namespace HVAC_Pro_Desktop.UI
         private NumericUpDown _numGST;
         private NumericUpDown _numRoundOff;
         private Panel _documentHost;
-        private const int InvoiceDocumentMinWidth = 1450;
+        private const int InvoiceDocumentMinWidth = 920;
         private Panel _documentPage;
 
         // â”€â”€ GST summary labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -107,7 +112,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _summaryRecalcPending;
         private bool _editabilityPending;
         private int _lastProcessedClientId = -1;
-        private FlowLayoutPanel _invoiceHeaderActionRail;
+        private Panel _invoiceHeaderActionRail;
         private Button _btnHeaderPreview;
 
         // â”€â”€ Colours â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -138,6 +143,7 @@ namespace HVAC_Pro_Desktop.UI
             RestoreInvoiceEditorInputState();
             ApplyPermissions();
             AppRuntime.LogTiming("Invoice.Ctor.RestoreAndPermissions", ctorWatch.ElapsedMilliseconds); ctorWatch.Restart();
+            RegisterFirstPaintTiming("Invoice.FirstPaint", ctorWatch);
             if (SessionManager.HasPermission("Invoices", "Create") || SessionManager.HasPermission("Invoices", "Edit"))
                 RestoreInvoiceEditorInputState();
             ShowInvoiceDashboard();
@@ -158,7 +164,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void QueueInitialLoad()
         {
-            Control dispatcher = FindForm() ?? Parent;
+            Control dispatcher = FindForm() ?? Parent ?? (IsHandleCreated ? (Control)this : null);
             if (_initialLoadQueued || _dataInitialized || dispatcher == null || !dispatcher.IsHandleCreated)
                 return;
 
@@ -166,27 +172,25 @@ namespace HVAC_Pro_Desktop.UI
             ShowStatus("Loading invoices...", Color.Gray);
             Task.Run(() =>
             {
+                var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
-                    var clients = _clientSvc.GetAllClients();
-                    if (!IsDisposed && dispatcher.IsHandleCreated)
-                    {
-                        dispatcher.Invoke((Action)(() =>
-                        {
-                            _clients = clients ?? new List<B2BClient>();
-                            LoadClientDropdowns();
-                        }));
-                    }
-
-                    if (IsDisposed || !IsHandleCreated)
+                    var clients = AppDataCache.GetOrCreate("clients:active", TimeSpan.FromMinutes(5), () => _clientSvc.GetAllClients() ?? new List<B2BClient>());
+                    AppRuntime.LogTiming("Invoice.InitialLoad.FetchClients", fetchWatch.ElapsedMilliseconds);
+                    if (IsDisposed || !IsHandleCreated || dispatcher.IsDisposed)
                         return;
 
-                    dispatcher.Invoke((Action)(() =>
+                    dispatcher.BeginInvoke((Action)(() =>
                     {
+                        var bindWatch = System.Diagnostics.Stopwatch.StartNew();
+                        if (IsDisposed || dispatcher.IsDisposed)
+                            return;
+
                         _clients = clients ?? _clients ?? new List<B2BClient>();
                         LoadClientDropdowns();
                         _dataInitialized = true;
                         ShowStatus("Invoice dashboard ready.", DS.Slate600);
+                        AppRuntime.LogTiming("Invoice.InitialLoad.BindClients", bindWatch.ElapsedMilliseconds);
                     }));
                 }
                 finally
@@ -229,7 +233,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void EnsureInvoiceEditorDataLoaded()
         {
-            Control dispatcher = FindForm() ?? Parent;
+            Control dispatcher = FindForm() ?? Parent ?? (IsHandleCreated ? (Control)this : null);
             if (_editorDataInitialized || _editorDataQueued || dispatcher == null || !dispatcher.IsHandleCreated)
                 return;
 
@@ -237,13 +241,14 @@ namespace HVAC_Pro_Desktop.UI
             ShowStatus("Loading invoice editor data...", Color.Gray);
             Task.Run(() =>
             {
+                var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 try
                 {
                     var templates = _invSvc.GetActiveTemplates();
-                    var inventory = _inventorySvc.GetAll();
+                    var inventory = AppDataCache.GetOrCreate("inventory:all", TimeSpan.FromMinutes(5), () => _inventorySvc.GetAll() ?? new List<StockItem>());
                     var rateCards = _masterDataSvc.GetRateCards();
                     var assets = _masterDataSvc.GetAssets();
-                    var hsnSac = _hsnSvc.GetAll();
+                    var hsnSac = AppDataCache.GetOrCreate("hsnsac:all", TimeSpan.FromMinutes(5), () => _hsnSvc.GetAll() ?? new List<HsnSacMasterEntry>());
 
                     _inventoryItems = inventory ?? new List<StockItem>();
                     _serviceRateCards = rateCards ?? new List<ServiceRateCard>();
@@ -251,12 +256,17 @@ namespace HVAC_Pro_Desktop.UI
                     _hsnSacEntries = hsnSac ?? new List<HsnSacMasterEntry>();
                     RebuildInvoiceCatalog();
                     List<string> checklistSuggestions = BuildChecklistSuggestions().ToList();
+                    AppRuntime.LogTiming("Invoice.EditorData.Fetch", fetchWatch.ElapsedMilliseconds);
 
-                    if (IsDisposed || !dispatcher.IsHandleCreated)
+                    if (IsDisposed || !dispatcher.IsHandleCreated || dispatcher.IsDisposed)
                         return;
 
-                    dispatcher.Invoke((Action)(() =>
+                    dispatcher.BeginInvoke((Action)(() =>
                     {
+                        var bindWatch = System.Diagnostics.Stopwatch.StartNew();
+                        if (IsDisposed || dispatcher.IsDisposed)
+                            return;
+
                         _templates = templates ?? new List<InvoiceTemplate>();
                         BindInventoryItems();
                         BindWorkflowPickers(checklistSuggestions);
@@ -264,15 +274,16 @@ namespace HVAC_Pro_Desktop.UI
                         _editorDataInitialized = true;
                         _editorDataQueued = false;
                         ShowStatus("Invoice editor ready.", DS.Slate600);
+                        AppRuntime.LogTiming("Invoice.EditorData.Bind", bindWatch.ElapsedMilliseconds);
                     }));
                 }
                 catch (Exception ex)
                 {
-                    if (!IsDisposed && dispatcher.IsHandleCreated)
+                    if (!IsDisposed && dispatcher.IsHandleCreated && !dispatcher.IsDisposed)
                     {
                         try
                         {
-                            dispatcher.Invoke((Action)(() =>
+                            dispatcher.BeginInvoke((Action)(() =>
                             {
                                 _editorDataQueued = false;
                                 ShowStatus("Invoice editor data could not be loaded.", DS.Red600);
@@ -486,7 +497,7 @@ namespace HVAC_Pro_Desktop.UI
             AddFallbackCatalogItem(items, "AMC / Contract", "AMC preventive visit", "AMC", "998719", "VISIT", 0m, 18m);
         }
 
-        private static void AddFallbackCatalogItem(List<InvoiceCatalogItem> items, string source, string description, string category, string hsnSac, string unit, decimal rate, decimal gst)
+        private void AddFallbackCatalogItem(List<InvoiceCatalogItem> items, string source, string description, string category, string hsnSac, string unit, decimal rate, decimal gst)
         {
             if (items.Any(i => string.Equals(i.Description, description, StringComparison.OrdinalIgnoreCase)))
                 return;
@@ -496,7 +507,7 @@ namespace HVAC_Pro_Desktop.UI
                 Description = description,
                 Category = category,
                 HsnSacCode = hsnSac,
-                Unit = new UnitMeasurementService().NormalizeForStorage(unit),
+                Unit = _unitSvc.NormalizeForStorage(unit),
                 Rate = rate,
                 GstPercent = gst,
                 TaxType = gst <= 0 ? "Nil Rated" : "Taxable",
@@ -551,12 +562,12 @@ namespace HVAC_Pro_Desktop.UI
             return fallback == "Service" ? "Service" : "Material";
         }
 
-        private static string BuildStockNote(StockItem stock, SupplierOption bestSupplier)
+        private string BuildStockNote(StockItem stock, SupplierOption bestSupplier)
         {
             if (stock == null)
                 return string.Empty;
 
-            string note = "Available: " + stock.AvailableStock.ToString("0.###") + " " + new UnitMeasurementService().NormalizeForDisplayOrDefault(stock.Unit);
+            string note = "Available: " + stock.AvailableStock.ToString("0.###") + " " + _unitSvc.NormalizeForDisplayOrDefault(stock.Unit);
             if (bestSupplier != null && bestSupplier.Rate > 0m && !string.IsNullOrWhiteSpace(bestSupplier.VendorName))
                 note += " | Best supplier: " + bestSupplier.VendorName + " @ " + IndiaFormatHelper.FormatCurrency(bestSupplier.Rate);
             return note;
@@ -570,16 +581,6 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Clear();
             BackColor = DS.BgPage;
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 84, BackColor = Color.White, Padding = new Padding(28, 14, 28, 10) };
-            header.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-            Label pageTitle = new Label { Text = "Invoices", Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 15), Size = new Size(360, 28), AutoEllipsis = true };
-            Label pageSubtitle = new Label { Text = "GST billing, receivables and customer invoice workflow.", Font = new Font("Segoe UI", 8.8f), ForeColor = DS.Slate600, Location = new Point(29, 46), Size = new Size(520, 20), AutoEllipsis = true };
-            header.Controls.AddRange(new Control[] { pageTitle, pageSubtitle });
-
             _btnNewInvoice = MakeBtn("+  New Invoice", InfoBlue, 138);
             _btnNewInvoice.MinimumSize = new Size(110, 0);
             Button btnSettings = MakeBtn("⚙", Color.White, 42); btnSettings.ForeColor = DS.Slate700; btnSettings.FlatAppearance.BorderColor = DS.BorderStrong;
@@ -590,37 +591,23 @@ namespace HVAC_Pro_Desktop.UI
             _btnHeaderPreview.ForeColor = InfoBlue;
             _btnHeaderPreview.FlatAppearance.BorderColor = DS.BorderStrong;
             _btnHeaderPreview.Visible = false;
-
-            FlowLayoutPanel actionRail = new FlowLayoutPanel
-            {
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
-                BackColor = Color.White,
-                Size = new Size(500, 38),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Margin = Padding.Empty,
-                Padding = Padding.Empty
-            };
-            _invoiceHeaderActionRail = actionRail;
-            foreach (Button button in new[] { _btnNewInvoice, btnSettings, btnForms, btnImport, _btnHeaderPreview })
-                button.Margin = new Padding(10, 1, 0, 1);
-
-            Action layoutHeaderActions = () =>
-            {
-                actionRail.Width = Math.Min(500, Math.Max(360, header.Width - 610));
-                actionRail.Location = new Point(header.Width - actionRail.Width - 28, 22);
-                pageTitle.Width = Math.Max(260, actionRail.Left - 56);
-                pageSubtitle.Width = Math.Max(320, actionRail.Left - 56);
-            };
-            header.Resize += (s, e) => layoutHeaderActions();
             _btnNewInvoice.Click += BtnNew_Click;
             _btnHeaderPreview.Click += BtnPreview_Click;
             btnSettings.Click += (s, e) => MessageBox.Show("Invoice settings are available from Settings and Templates.", "Invoice Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Invoice Management", "Finance / Payments", null, "invoice payment receipt credit note GST approval customer sign-off");
             btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Invoices, FindForm());
-            actionRail.Controls.AddRange(new Control[] { _btnNewInvoice, _btnHeaderPreview, btnSettings, btnForms, btnImport });
-            header.Controls.Add(actionRail);
-            layoutHeaderActions();
+            SharedPageHeaderModel headerModel = SharedPageHeader.CreateSalesEditor(
+                "InvoicesHeader",
+                "Invoices",
+                "GST billing, receivables and customer invoice workflow.",
+                new List<Control> { btnImport, btnForms, _btnHeaderPreview, btnSettings, _btnNewInvoice },
+                centerContent: SharedPageHeader.CreateSearchCommand("InvoicesHeaderSearch", 320, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)));
+            headerModel.CompactBreakpoint = 1360;
+            headerModel.CompactHeight = 132;
+            headerModel.MinTextWidth = 180;
+            SharedPageHeaderResult headerResult = SharedPageHeader.Build(headerModel);
+            Panel header = headerResult.Header;
+            _invoiceHeaderActionRail = headerResult.ActionHost;
 
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(24, 12, 24, 16), Tag = "NO_CARD_SURFACE" };
             _invoiceWorkspacePanel = new Panel { Visible = false, BackColor = DS.BgPage };
@@ -658,7 +645,7 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = Padding.Empty
             };
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400f));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
             Panel rightPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(0, 16), BackColor = DS.BgPage, Padding = new Padding(18, 0, 0, 0) };
@@ -686,7 +673,10 @@ namespace HVAC_Pro_Desktop.UI
 
             layout.Controls.Add(_documentHost, 0, 0);
             layout.Controls.Add(rightPanel, 1, 0);
+            layout.Resize += (s, e) => UpdateInvoiceEditorSurfaceLayout(layout, rightPanel);
+            UpdateInvoiceEditorSurfaceLayout(layout, rightPanel);
             _invoiceWorkspacePanel.Controls.Add(layout);
+            BindInvoiceEditorDataToControls();
             return _invoiceWorkspacePanel;
         }
 
@@ -715,7 +705,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowInvoiceEditor()
         {
-            EnsureInvoiceEditorDataLoaded();
             if (_invoiceEditorHost != null)
             {
                 _invoiceEditorHost.Visible = true;
@@ -730,10 +719,106 @@ namespace HVAC_Pro_Desktop.UI
                 _invoiceWorkspacePanel.Visible = true;
                 _invoiceWorkspacePanel.BringToFront();
             }
+            EnsureInvoiceEditorDataLoaded();
+            BindInvoiceEditorDataToControls();
+            EnsureInvoiceEditorDataAvailableNow();
+            LayoutInvoiceItemsSection();
             if (_btnHeaderPreview != null)
                 _btnHeaderPreview.Visible = true;
             if (_invoiceHeaderActionRail != null)
                 _invoiceHeaderActionRail.PerformLayout();
+        }
+
+        private void EnsureInvoiceEditorDataAvailableNow()
+        {
+            if (!_dataInitialized)
+            {
+                try
+                {
+                    _clients = AppDataCache.GetOrCreate("clients:active", TimeSpan.FromMinutes(5), () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList();
+                    _dataInitialized = true;
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("InvoiceForm.EnsureInvoiceEditorDataAvailableNow.Clients", ex);
+                    QueueInitialLoad();
+                }
+            }
+
+            if (!_editorDataInitialized)
+                EnsureInvoiceEditorDataLoaded();
+
+            if (_dataInitialized || (_clients != null && _clients.Count > 0))
+                LoadClientDropdowns();
+
+            if (_editorDataInitialized)
+            {
+                BindInventoryItems();
+                BindWorkflowPickers();
+                BindTemplateDropdown();
+            }
+        }
+
+        private void UpdateInvoiceEditorSurfaceLayout(TableLayoutPanel layout, Panel rightPanel)
+        {
+            if (layout == null || rightPanel == null || _documentHost == null)
+                return;
+
+            bool stackSidebar = layout.ClientSize.Width < 1560;
+            layout.SuspendLayout();
+            try
+            {
+                layout.Controls.Clear();
+                layout.ColumnStyles.Clear();
+                layout.RowStyles.Clear();
+
+                if (stackSidebar)
+                {
+                    rightPanel.Padding = new Padding(0, 16, 0, 0);
+                    layout.ColumnCount = 1;
+                    layout.RowCount = 2;
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 520f));
+                    layout.Controls.Add(_documentHost, 0, 0);
+                    layout.Controls.Add(rightPanel, 0, 1);
+                }
+                else
+                {
+                    rightPanel.Padding = new Padding(18, 0, 0, 0);
+                    layout.ColumnCount = 2;
+                    layout.RowCount = 1;
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 400f));
+                    layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                    layout.Controls.Add(_documentHost, 0, 0);
+                    layout.Controls.Add(rightPanel, 1, 0);
+                }
+            }
+            finally
+            {
+                layout.ResumeLayout(true);
+            }
+        }
+
+        private void BindInvoiceEditorDataToControls()
+        {
+            if (_cmbClient != null && _clients != null && _clients.Count > 0 && _cmbClient.Items.Count <= 1)
+                LoadClientDropdowns();
+
+            if (_cmbTemplate != null)
+            {
+                if (_templates != null && _templates.Count > 0 && _cmbTemplate.Items.Count <= 1)
+                    BindTemplateDropdown();
+                else if (_cmbTemplate.Items.Count == 0)
+                    _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
+            }
+
+            if (_editorDataInitialized)
+            {
+                BindInventoryItems();
+                BindWorkflowPickers();
+            }
         }
 
         private Panel BuildInvoiceActionBar()
@@ -1714,8 +1799,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label lblGstMode = new Label { Text = "GST Mode", AutoSize = true, Location = new Point(22, 56), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = DS.Slate500 };
             _cmbGstMode = new ComboBox { Location = new Point(22, 72), Width = 140, Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbGstMode.Items.AddRange(new object[] { "IGST", "CGST+SGST" });
-            _cmbGstMode.SelectedIndex = 1;
+            _lookupSvc.BindCombo(_cmbGstMode, "Sales.GstMode", new[] { "IGST", "CGST+SGST" }, "CGST+SGST");
             _cmbGstMode.SelectedIndexChanged += (s, e) => RequestRecalculateSummary();
             RegisterInvoiceComboBox(_cmbGstMode);
 
@@ -1754,6 +1838,7 @@ namespace HVAC_Pro_Desktop.UI
                 _documentPage.Left = 0;
                 container.AutoScrollPosition = new Point(0, Math.Abs(container.AutoScrollPosition.Y));
                 RefreshInvoiceDocumentScrollBounds(container);
+                LayoutInvoiceItemsSection();
             };
 
             Panel topBar = new Panel { Dock = DockStyle.Top, Height = 54, BackColor = Color.White, Padding = new Padding(18, 12, 18, 8) };
@@ -1880,7 +1965,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _txtInvNo = new TextBox { ReadOnly = false, Text = "(auto-generated)" };
             _cmbStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Paid", "Overdue" });
+            _lookupSvc.BindCombo(_cmbStatus, "Sales.InvoiceStatus", new[] { "Pending", "Approved", "Partial", "Paid", "Overdue" }, "Pending");
             _cmbStatus.SelectedIndexChanged += (s, e) => RequestApplyInvoiceEditability();
             _dtpInvDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
             _dtpDueDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(30) };
@@ -1893,9 +1978,9 @@ namespace HVAC_Pro_Desktop.UI
             _cmbTemplate = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbTemplate.SelectionChangeCommitted += CmbTemplate_SelectionChangeCommitted;
             _cmbCoverageType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbCoverageType.Items.AddRange(new object[] { "Billable Service", "Comprehensive AMC", "Non-Comprehensive AMC", "Warranty" });
+            _lookupSvc.BindCombo(_cmbCoverageType, "Sales.CoverageType", new[] { "Billable Service", "Comprehensive AMC", "Non-Comprehensive AMC", "Warranty" }, "Billable Service");
             _cmbWarrantyStatus = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbWarrantyStatus.Items.AddRange(new object[] { "Out of Warranty", "Under Warranty", "Under Contract" });
+            _lookupSvc.BindCombo(_cmbWarrantyStatus, "Sales.WarrantyStatus", new[] { "Out of Warranty", "Under Warranty", "Under Contract" }, "Out of Warranty");
             _dtpWarrantyExpiry = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddYears(1), ShowCheckBox = true };
             _txtSubject = new TextBox();
             _txtPaymentTerms = new TextBox { Text = "30 Days" };
@@ -1910,6 +1995,19 @@ namespace HVAC_Pro_Desktop.UI
 
             EnsureTaxControls();
             RegisterInvoiceEditorCombos();
+            SeedInvoiceEditorDropdownPlaceholders();
+        }
+
+        private void SeedInvoiceEditorDropdownPlaceholders()
+        {
+            if (_cmbClient != null && _cmbClient.Items.Count == 0)
+                _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
+            if (_cmbSite != null && _cmbSite.Items.Count == 0)
+                _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
+            if (_cmbContract != null && _cmbContract.Items.Count == 0)
+                _cmbContract.Items.Add(new ComboItem { Id = 0, Text = "-- No Contract --" });
+            if (_cmbTemplate != null && _cmbTemplate.Items.Count == 0)
+                _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
         }
 
         private void AddModernField(TableLayoutPanel grid, string label, Control input, int column, int row, bool required, int columnSpan, int rowSpan = 1)
@@ -2312,20 +2410,22 @@ namespace HVAC_Pro_Desktop.UI
             ModernCard card = new ModernCard
             {
                 Height = 430,
-                MinimumSize = new Size(760, 220),
+                MinimumSize = new Size(0, 220),
                 Padding = new Padding(16),
                 Tag = "invoice-no-preview-wrap NO_DASHBOARD_RESIZE NO_CARD_SURFACE"
             };
+            _invoiceLineItemsCard = card;
 
             Panel title = BuildInvoiceSectionTitle("INVOICE ITEMS", ModernIconKind.Inventory);
 
-            _itemSourceTabs = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, BackColor = Color.White, WrapContents = false, Padding = new Padding(0, 3, 0, 2) };
+            _itemSourceTabs = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 34, AutoSize = false, BackColor = Color.White, WrapContents = true, Padding = new Padding(0, 3, 0, 2) };
             foreach (string source in new[] { "All", "Materials", "Services", "Labour", "AMC / Contract", "Custom Item" })
                 _itemSourceTabs.Controls.Add(MakeItemSourceTab(source));
 
             Panel actionRow = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White, Padding = new Padding(0, 4, 0, 4) };
-            FlowLayoutPanel addLineButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 32, BackColor = Color.White, WrapContents = false };
-            addLineButtons.FlowDirection = FlowDirection.LeftToRight;
+            _invoiceLineItemsActionRow = actionRow;
+            _invoiceItemActionButtons = new FlowLayoutPanel { Dock = DockStyle.Fill, Height = 32, BackColor = Color.White, WrapContents = true };
+            _invoiceItemActionButtons.FlowDirection = FlowDirection.LeftToRight;
 
             _btnAddInvoiceLine = MakeGhostAction("+ Add Material", 116);
             _btnAddInvoiceLine.Dock = DockStyle.Left;
@@ -2345,11 +2445,11 @@ namespace HVAC_Pro_Desktop.UI
             addLabour.Margin = new Padding(0, 0, 10, 0);
             addCustom.Margin = new Padding(0, 0, 10, 0);
 
-            addLineButtons.Controls.Add(_btnAddInvoiceLine);
-            addLineButtons.Controls.Add(addService);
-            addLineButtons.Controls.Add(addLabour);
-            addLineButtons.Controls.Add(addCustom);
-            actionRow.Controls.Add(addLineButtons);
+            _invoiceItemActionButtons.Controls.Add(_btnAddInvoiceLine);
+            _invoiceItemActionButtons.Controls.Add(addService);
+            _invoiceItemActionButtons.Controls.Add(addLabour);
+            _invoiceItemActionButtons.Controls.Add(addCustom);
+            actionRow.Controls.Add(_invoiceItemActionButtons);
 
             if (_grid != null)
             {
@@ -2360,8 +2460,81 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(actionRow);
             card.Controls.Add(_itemSourceTabs);
             card.Controls.Add(title);
+            card.Resize += (s, e) => LayoutInvoiceItemsSection();
             RefreshItemSourceTabs();
+            LayoutInvoiceItemsSection();
             return card;
+        }
+
+        private void LayoutInvoiceItemsSection()
+        {
+            if (_invoiceLineItemsCard == null || _invoiceLineItemsCard.IsDisposed)
+                return;
+
+            int availableWidth = Math.Max(320, _invoiceLineItemsCard.ClientSize.Width - _invoiceLineItemsCard.Padding.Horizontal);
+
+            if (_itemSourceTabs != null && !_itemSourceTabs.IsDisposed)
+            {
+                _itemSourceTabs.WrapContents = availableWidth < 940;
+                _itemSourceTabs.Height = _itemSourceTabs.WrapContents ? 62 : 34;
+            }
+
+            if (_invoiceItemActionButtons != null && !_invoiceItemActionButtons.IsDisposed)
+            {
+                _invoiceItemActionButtons.WrapContents = availableWidth < 900;
+                _invoiceItemActionButtons.Height = _invoiceItemActionButtons.WrapContents ? 64 : 32;
+            }
+
+            if (_invoiceLineItemsActionRow != null && !_invoiceLineItemsActionRow.IsDisposed)
+                _invoiceLineItemsActionRow.Height = _invoiceItemActionButtons != null && _invoiceItemActionButtons.WrapContents ? 74 : 42;
+
+            ApplyInvoiceGridResponsiveLayout(availableWidth);
+        }
+
+        private void ApplyInvoiceGridResponsiveLayout(int availableWidth)
+        {
+            if (_grid == null || _grid.IsDisposed)
+                return;
+
+            SetInvoiceGridColumnVisible("HSNCode", availableWidth >= 1040);
+            SetInvoiceGridColumnVisible("CoverageNote", availableWidth >= 1360);
+            SetInvoiceGridColumnVisible("RateDrift", availableWidth >= 1500);
+
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            foreach (DataGridViewColumn column in _grid.Columns)
+            {
+                if (!column.Visible)
+                    continue;
+
+                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            }
+
+            SetInvoiceGridFillWeight("Description", 220f);
+            SetInvoiceGridFillWeight("Category", 92f);
+            SetInvoiceGridFillWeight("Unit", 88f);
+            SetInvoiceGridFillWeight("Quantity", 60f);
+            SetInvoiceGridFillWeight("Rate", 82f);
+            SetInvoiceGridFillWeight("DiscountPercent", 72f);
+            SetInvoiceGridFillWeight("GSTPercent", 68f);
+            SetInvoiceGridFillWeight("TaxType", 84f);
+            SetInvoiceGridFillWeight("Amount", 92f);
+            SetInvoiceGridFillWeight("Delete", 54f);
+            SetInvoiceGridFillWeight("Duplicate", 54f);
+            SetInvoiceGridFillWeight("HSNCode", 74f);
+            SetInvoiceGridFillWeight("CoverageNote", 128f);
+            SetInvoiceGridFillWeight("RateDrift", 96f);
+        }
+
+        private void SetInvoiceGridColumnVisible(string columnName, bool visible)
+        {
+            if (_grid?.Columns[columnName] != null)
+                _grid.Columns[columnName].Visible = visible;
+        }
+
+        private void SetInvoiceGridFillWeight(string columnName, float weight)
+        {
+            if (_grid?.Columns[columnName] != null && _grid.Columns[columnName].Visible)
+                _grid.Columns[columnName].FillWeight = weight;
         }
 
         private Button MakeItemSourceTab(string source)
@@ -2518,18 +2691,25 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void LoadClientDropdowns()
         {
+            if (_cmbClient == null || _cmbClient.IsDisposed)
+                return;
+
             if (_cmbClient != null && _cmbClient.DroppedDown)
             {
                 RunAfterDropdownClosed(LoadClientDropdowns);
                 return;
             }
 
+            int selectedId = GetSelectedComboId(_cmbClient);
+            string selectedText = _cmbClient.Text;
+            _updating = true;
             _cmbClient.Items.Clear();
             _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
             foreach (B2BClient c in _clients)
                 _cmbClient.Items.Add(new ComboItem { Id = c.ClientID, Text = c.CompanyName });
             UIHelper.ShowEmptyClientsMessageIfNeeded(FindForm(), _clients, "InvoiceForm.LoadClientDropdowns");
-            if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
+            RestoreComboSelection(_cmbClient, selectedId, null, selectedText);
+            _updating = false;
         }
 
         private void BindTemplateDropdown()
@@ -2542,11 +2722,15 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
+            string selectedTag = (_cmbTemplate.SelectedItem as ComboItem)?.Tag ?? string.Empty;
+            string selectedText = _cmbTemplate.Text;
+            _updating = true;
             _cmbTemplate.Items.Clear();
             _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
             foreach (InvoiceTemplate template in _templates.OrderBy(t => t.TemplateName))
                 _cmbTemplate.Items.Add(new ComboItem { Id = template.TemplateID, Text = template.TemplateName, Tag = template.TemplateCode });
-            _cmbTemplate.SelectedIndex = 0;
+            RestoreComboSelection(_cmbTemplate, 0, selectedTag, selectedText);
+            _updating = false;
         }
 
         private void LoadContractDropdowns(int clientId)
@@ -2557,16 +2741,25 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
+            int selectedId = GetSelectedComboId(_cmbContract);
+            string selectedText = _cmbContract.Text;
+            _updating = true;
             _cmbContract.Items.Clear();
             _cmbContract.Items.Add(new ComboItem { Id = 0, Text = "-- No Contract --" });
-            if (clientId <= 0) { _cmbContract.SelectedIndex = 0; return; }
+            if (clientId <= 0)
+            {
+                _cmbContract.SelectedIndex = 0;
+                _updating = false;
+                return;
+            }
             try
             {
                 foreach (AMCContract c in _contractSvc.GetContractsByClient(clientId))
                     _cmbContract.Items.Add(new ComboItem { Id = c.ContractID, Text = "Contract #" + c.ContractID + "  [" + c.ContractStatus + "]" });
             }
             catch (Exception ex) { AppLogger.LogError("InvoiceForm.LoadContractDropdowns", ex); }
-            _cmbContract.SelectedIndex = 0;
+            RestoreComboSelection(_cmbContract, selectedId, null, selectedText);
+            _updating = false;
         }
 
         private void Grid_EditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
@@ -2583,16 +2776,47 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     combo.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
                     combo.AutoCompleteSource = AutoCompleteSource.ListItems;
+                    combo.DrawMode = DrawMode.OwnerDrawFixed;
+                    combo.DrawItem -= InvoiceGridDescriptionCombo_DrawItem;
+                    combo.DrawItem += InvoiceGridDescriptionCombo_DrawItem;
                 }
                 else
                 {
                     combo.AutoCompleteMode = AutoCompleteMode.None;
                     combo.AutoCompleteSource = AutoCompleteSource.None;
+                    combo.DrawItem -= InvoiceGridDescriptionCombo_DrawItem;
+                    combo.DrawMode = DrawMode.Normal;
                 }
                 if (columnName == "Unit")
                     combo.DropDownWidth = Math.Max(320, combo.Width);
                 RegisterInvoiceComboBox(combo);
             }
+        }
+
+        private void InvoiceGridDescriptionCombo_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (!(sender is ComboBox combo))
+                return;
+
+            e.DrawBackground();
+            if (e.Index < 0)
+                return;
+
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            using (SolidBrush backBrush = new SolidBrush(selected ? DS.Indigo50 : Color.White))
+                e.Graphics.FillRectangle(backBrush, e.Bounds);
+
+            string text = combo.GetItemText(combo.Items[e.Index]);
+            Color foreColor = DS.Slate900;
+            TextRenderer.DrawText(
+                e.Graphics,
+                text,
+                combo.Font,
+                Rectangle.Inflate(e.Bounds, -4, 0),
+                foreColor,
+                TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+            e.DrawFocusRectangle();
         }
 
         private void LoadSiteDropdowns(int clientId)
@@ -2603,6 +2827,9 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
+            int selectedId = GetSelectedComboId(_cmbSite);
+            string selectedText = _cmbSite.Text;
+            _updating = true;
             _cmbSite.Items.Clear();
             _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
             if (clientId > 0)
@@ -2614,7 +2841,8 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 catch (Exception ex) { AppLogger.LogError("InvoiceForm.LoadSiteDropdowns", ex); }
             }
-            _cmbSite.SelectedIndex = 0;
+            RestoreComboSelection(_cmbSite, selectedId, null, selectedText);
+            _updating = false;
         }
 
         private void LoadInvoiceList()
@@ -2635,21 +2863,22 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
+                var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 List<Invoice> invoices = await Task.Run(() => _invSvc.GetAllInvoices()
                     .OrderByDescending(i => i.InvoiceDate)
                     .ThenByDescending(i => i.InvoiceID)
-                    .Take(120)
+                    .Take(30)
                     .ToList());
-                Invoice firstDetail = null;
-                if (_current == null && invoices.Count > 0)
-                    firstDetail = await Task.Run(() => _invSvc.GetInvoiceById(invoices[0].InvoiceID) ?? invoices[0]);
+                AppRuntime.LogTiming("Invoice.List.Fetch", fetchWatch.ElapsedMilliseconds);
 
                 if (IsDisposed)
                     return;
 
                 _invoiceListRefreshing = false;
                 SetBusy(null);
-                BindInvoiceList(invoices, firstDetail);
+                var bindWatch = System.Diagnostics.Stopwatch.StartNew();
+                BindInvoiceList(invoices, null);
+                AppRuntime.LogTiming("Invoice.List.Bind", bindWatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
@@ -2695,13 +2924,8 @@ namespace HVAC_Pro_Desktop.UI
                         _invoiceFlow.Controls.Add(MakeInvoiceCard(inv, statusColor));
                     }
                 });
-                if (_current == null)
-                {
-                    if (invoiceList.Count > 0)
-                        PopulateForm(firstDetail ?? invoiceList[0]);
-                    else
-                        ClearForm();
-                }
+                if (_current == null && invoiceList.Count == 0)
+                    ClearForm();
                 ShowStatus(_invoiceFlow.Controls.Count + " invoices.", Color.Gray);
             }
             catch (Exception ex)
@@ -2728,59 +2952,83 @@ namespace HVAC_Pro_Desktop.UI
 
         private void PopulateForm(Invoice inv)
         {
+            if (inv == null)
+                return;
+
             _updating = true;
-            _txtInvNo.Text    = inv.InvoiceNumber ?? "";
-            _dtpInvDate.Value = inv.InvoiceDate == default ? DateTime.Today : inv.InvoiceDate;
-            _dtpDueDate.Value = inv.DueDate == default ? DateTime.Today.AddDays(30) : inv.DueDate;
-            _txtNotes.Text    = inv.Notes ?? "";
-            SelectComboByTag(_cmbTemplate, inv.TemplateCode);
-            SelectComboByText(_cmbCoverageType, string.IsNullOrWhiteSpace(inv.ContractCoverageType) ? "Billable Service" : inv.ContractCoverageType);
-            SelectComboByText(_cmbWarrantyStatus, string.IsNullOrWhiteSpace(inv.WarrantyStatus) ? "Out of Warranty" : inv.WarrantyStatus);
-            _dtpWarrantyExpiry.Checked = inv.WarrantyExpiry.HasValue;
-            _dtpWarrantyExpiry.Value = inv.WarrantyExpiry ?? DateTime.Today;
-            _txtPaymentTerms.Text = inv.PaymentTerms ?? "30 Days";
-            _txtPlaceOfSupply.Text = inv.PlaceOfSupply ?? "Maharashtra";
-            _dtpNextServiceDue.Checked = inv.NextServiceDueDate.HasValue;
-            _dtpNextServiceDue.Value = inv.NextServiceDueDate ?? DateTime.Today.AddMonths(3);
-            SelectComboByText(_cmbGstMode, string.IsNullOrWhiteSpace(inv.GSTMode) ? "IGST" : inv.GSTMode);
+            if (_txtInvNo != null) _txtInvNo.Text = inv.InvoiceNumber ?? "";
+            if (_dtpInvDate != null) _dtpInvDate.Value = inv.InvoiceDate == default ? DateTime.Today : inv.InvoiceDate;
+            if (_dtpDueDate != null) _dtpDueDate.Value = inv.DueDate == default ? DateTime.Today.AddDays(30) : inv.DueDate;
+            if (_txtNotes != null) _txtNotes.Text = inv.Notes ?? "";
+            if (_cmbTemplate != null) SelectComboByTag(_cmbTemplate, inv.TemplateCode);
+            if (_cmbCoverageType != null) SelectComboByText(_cmbCoverageType, string.IsNullOrWhiteSpace(inv.ContractCoverageType) ? "Billable Service" : inv.ContractCoverageType);
+            if (_cmbWarrantyStatus != null) SelectComboByText(_cmbWarrantyStatus, string.IsNullOrWhiteSpace(inv.WarrantyStatus) ? "Out of Warranty" : inv.WarrantyStatus);
+            if (_dtpWarrantyExpiry != null)
+            {
+                _dtpWarrantyExpiry.Checked = inv.WarrantyExpiry.HasValue;
+                _dtpWarrantyExpiry.Value = inv.WarrantyExpiry ?? DateTime.Today;
+            }
+            if (_txtPaymentTerms != null) _txtPaymentTerms.Text = inv.PaymentTerms ?? "30 Days";
+            if (_txtPlaceOfSupply != null) _txtPlaceOfSupply.Text = inv.PlaceOfSupply ?? "Maharashtra";
+            if (_dtpNextServiceDue != null)
+            {
+                _dtpNextServiceDue.Checked = inv.NextServiceDueDate.HasValue;
+                _dtpNextServiceDue.Value = inv.NextServiceDueDate ?? DateTime.Today.AddMonths(3);
+            }
+            if (_cmbGstMode != null) SelectComboByText(_cmbGstMode, string.IsNullOrWhiteSpace(inv.GSTMode) ? "IGST" : inv.GSTMode);
             AutoSelectGstModeFromPlaceOfSupply();
-            _numRoundOff.Value = inv.RoundOff;
-            _txtChecklist.Text = inv.ServiceChecklist ?? "";
-            _txtAssetDetails.Text = inv.AssetDetails ?? "";
-            PopulateWorkflowGrid(_gridChecklist, inv.ServiceChecklist);
-            PopulateWorkflowGrid(_gridAssets, inv.AssetDetails);
+            if (_numRoundOff != null) _numRoundOff.Value = inv.RoundOff;
+            if (_txtChecklist != null) _txtChecklist.Text = inv.ServiceChecklist ?? "";
+            if (_txtAssetDetails != null) _txtAssetDetails.Text = inv.AssetDetails ?? "";
+            if (_gridChecklist != null) PopulateWorkflowGrid(_gridChecklist, inv.ServiceChecklist);
+            if (_gridAssets != null) PopulateWorkflowGrid(_gridAssets, inv.AssetDetails);
 
             // GST %
             decimal gstPct = inv.GSTPercent > 0 ? inv.GSTPercent : 18m;
-            _numGST.Value = Math.Min(Math.Max(gstPct, 0), 28);
+            if (_numGST != null)
+                _numGST.Value = Math.Min(Math.Max(gstPct, 0), 28);
 
             // Status
-            int si = _cmbStatus.Items.IndexOf(inv.PaymentStatus ?? "Draft");
-            _cmbStatus.SelectedIndex = si >= 0 ? si : 0;
+            if (_cmbStatus != null)
+            {
+                int si = _cmbStatus.Items.IndexOf(inv.PaymentStatus ?? "Draft");
+                _cmbStatus.SelectedIndex = si >= 0 ? si : 0;
+            }
 
             // Client
-            SelectCombo(_cmbClient, inv.ClientID);
-            LoadSiteDropdowns(inv.ClientID);
-            SelectCombo(_cmbSite, inv.SiteID);
-            LoadContractDropdowns(inv.ClientID);
-            SelectCombo(_cmbContract, inv.ContractID);
+            if (_cmbClient != null)
+                SelectCombo(_cmbClient, inv.ClientID);
+            if (_cmbSite != null)
+            {
+                LoadSiteDropdowns(inv.ClientID);
+                SelectCombo(_cmbSite, inv.SiteID);
+            }
+            if (_cmbContract != null)
+            {
+                LoadContractDropdowns(inv.ClientID);
+                SelectCombo(_cmbContract, inv.ContractID);
+            }
 
             // Line items
-            _grid.Rows.Clear();
-            if (inv.LineItems != null)
-                foreach (var li in inv.LineItems)
-                    AddLineRow(li);
+            if (_grid != null)
+            {
+                _grid.Rows.Clear();
+                if (inv.LineItems != null)
+                    foreach (var li in inv.LineItems)
+                        AddLineRow(li);
 
-            if (_grid.Rows.Count == 0) AddLineRow();
+                if (_grid.Rows.Count == 0) AddLineRow();
+            }
 
-            _txtSubject.Text = inv.Subject ?? "";
-            _txtPONumber.Text = inv.PONumber ?? "";
-            _dtpPODate.Value = inv.PODate ?? inv.InvoiceDate;
-            _txtSendInvoiceTo.Text = inv.SendInvoiceTo ?? "";
-            _txtPaymentHistory.Text = BuildPaymentHistory(inv.InvoiceID);
-            PopulatePaymentHistoryGrid(_txtPaymentHistory.Text);
-            _txtInventorySummary.Text = _invSvc.GetInventorySummary(inv);
-            _txtNudges.Text = _invSvc.GetBehavioralNudges(inv);
+            if (_txtSubject != null) _txtSubject.Text = inv.Subject ?? "";
+            if (_txtPONumber != null) _txtPONumber.Text = inv.PONumber ?? "";
+            if (_dtpPODate != null) _dtpPODate.Value = inv.PODate ?? inv.InvoiceDate;
+            if (_txtSendInvoiceTo != null) _txtSendInvoiceTo.Text = inv.SendInvoiceTo ?? "";
+            string paymentHistory = BuildPaymentHistory(inv.InvoiceID);
+            if (_txtPaymentHistory != null) _txtPaymentHistory.Text = paymentHistory;
+            PopulatePaymentHistoryGrid(paymentHistory);
+            if (_txtInventorySummary != null) _txtInventorySummary.Text = _invSvc.GetInventorySummary(inv);
+            if (_txtNudges != null) _txtNudges.Text = _invSvc.GetBehavioralNudges(inv);
 
             _updating = false;
             RecalculateSummary();
@@ -2962,6 +3210,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ClearForm()
         {
+            if (_txtInvNo == null || _dtpInvDate == null || _dtpDueDate == null || _grid == null)
+                return;
+
             _updating = true;
             _current = null;
             _txtInvNo.Text = "(auto-generated)";
@@ -3051,7 +3302,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     try
                     {
-                        rows.AddRange(new JobService().GetChecklistTemplates(jobType).Select(t => t.ItemText));
+                        rows.AddRange(_jobSvc.GetChecklistTemplates(jobType).Select(t => t.ItemText));
                     }
                     catch (Exception ex) { AppLogger.LogError("InvoiceForm.GetChecklistSuggestions", ex); }
                 }
@@ -3584,8 +3835,8 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void BtnNew_Click(object sender, EventArgs e)
         {
-            ClearForm();
             ShowInvoiceEditor();
+            ClearForm();
             OpenClientDropdown();
             ShowStatus("New invoice - fill the form and click Save.", Color.Gray);
         }
@@ -3596,13 +3847,16 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _cmbClient.Focus();
-            BeginInvoke((Action)(() =>
+            Control dispatcher = _cmbClient.IsHandleCreated ? (Control)_cmbClient : (IsHandleCreated ? this : null);
+            if (dispatcher == null || dispatcher.IsDisposed)
+                return;
+
+            dispatcher.BeginInvoke((Action)(() =>
             {
                 if (_cmbClient == null || _cmbClient.IsDisposed || !_cmbClient.Enabled)
                     return;
 
-                _cmbClient.DropDownHeight = Math.Max(_cmbClient.DropDownHeight, _cmbClient.ItemHeight * Math.Max(8, _cmbClient.MaxDropDownItems) + 2);
-                _cmbClient.DroppedDown = true;
+                _cmbClient.SelectAll();
             }));
         }
 
@@ -3617,6 +3871,33 @@ namespace HVAC_Pro_Desktop.UI
 
             QueueInitialLoad();
             BtnNew_Click(this, EventArgs.Empty);
+        }
+
+        public void OpenInvoiceFromNavigation(int invoiceId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action<int>)OpenInvoiceFromNavigation, invoiceId);
+                return;
+            }
+
+            if (invoiceId <= 0)
+                return;
+
+            QueueInitialLoad();
+            try
+            {
+                _current = _invSvc.GetInvoiceById(invoiceId);
+                if (_current == null)
+                    return;
+
+                PopulateForm(_current);
+                ShowInvoiceEditor();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Opening invoice", ex);
+            }
         }
 
         private void BtnSave_Click(object sender, EventArgs e)
@@ -3773,7 +4054,7 @@ namespace HVAC_Pro_Desktop.UI
                         PaymentMode     = cmbMethod.SelectedItem?.ToString() ?? "Cash",
                         ReferenceNumber = txtRef.Text.Trim()
                     };
-                    new PaymentService().RecordPayment(pay);
+                    _paymentSvc.RecordPayment(pay);
                     dlg.DialogResult = DialogResult.OK;
                     dlg.Close();
                 }
@@ -4101,9 +4382,59 @@ namespace HVAC_Pro_Desktop.UI
                 combo.SelectedIndex = 0;
         }
 
+        private void RestoreComboSelection(ComboBox combo, int selectedId, string selectedTag, string selectedText)
+        {
+            if (combo == null)
+                return;
+
+            if (selectedId > 0)
+            {
+                for (int i = 0; i < combo.Items.Count; i++)
+                {
+                    if ((combo.Items[i] as ComboItem)?.Id == selectedId)
+                    {
+                        combo.SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedTag))
+            {
+                for (int i = 0; i < combo.Items.Count; i++)
+                {
+                    if (string.Equals((combo.Items[i] as ComboItem)?.Tag, selectedTag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        combo.SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(selectedText))
+            {
+                for (int i = 0; i < combo.Items.Count; i++)
+                {
+                    string itemText = combo.Items[i] is ComboItem item ? item.Text : combo.Items[i]?.ToString();
+                    if (string.Equals(itemText, selectedText, StringComparison.OrdinalIgnoreCase))
+                    {
+                        combo.SelectedIndex = i;
+                        return;
+                    }
+                }
+            }
+
+            if (combo.Items.Count > 0)
+                combo.SelectedIndex = 0;
+        }
+
         private void ShowStatus(string msg, Color color)
         {
-            _lblStatus.Text = msg; _lblStatus.ForeColor = color;
+            if (_lblStatus == null || _lblStatus.IsDisposed)
+                return;
+
+            _lblStatus.Text = msg;
+            _lblStatus.ForeColor = color;
         }
 
         private void SetBusy(string message)

@@ -17,6 +17,8 @@ namespace HVAC_Pro_Desktop.UI
 {
     public class PurchaseForm : DeferredPageControl
     {
+        private const int InitialSidebarOrderLimit = 30;
+
         private enum PurchaseListTab
         {
             AllPurchaseOrders,
@@ -69,6 +71,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TenderService _tenderSvc = new TenderService();
         private readonly HsnSacMasterService _hsnSvc = new HsnSacMasterService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly PaymentService _paymentSvc = new PaymentService();
         private readonly VendorAdvancePaymentService _vendorAdvanceSvc = new VendorAdvancePaymentService();
         private readonly EmployeeService _employeeSvc = new EmployeeService();
@@ -214,7 +217,6 @@ namespace HVAC_Pro_Desktop.UI
         private Label _poStatusFilterLabel;
         private Label _poPeriodFilterLabel;
         private Label _poTrendFilterLabel;
-        private Label _poDashSearchLabel;
         private Label _poTableSearchLabel;
         private int _poPage = 1;
         private int _poPageSize = 10;
@@ -232,11 +234,14 @@ namespace HVAC_Pro_Desktop.UI
 
         public PurchaseForm()
         {
+            Stopwatch ctorWatch = Stopwatch.StartNew();
             Dock = DockStyle.Fill;
             BackColor = PoPageBg;
             BuildLayout();
+            AppRuntime.LogTiming("Purchases.BuildLayout", ctorWatch.ElapsedMilliseconds, "mode=" + (_showDashboard ? "dashboard" : "editor"));
             ApplyPermissions();
             MarkDeferredLoadCompleted();
+            RegisterFirstPaintTiming("Purchases.FirstPaint", ctorWatch);
             if (UsePurchaseOrdersDashboard && _showDashboard)
             {
                 RefreshPurchaseDashboard();
@@ -267,40 +272,6 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             BackColor = DS.BgPage;
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = DS.BgPage, Padding = new Padding(22, 12, 22, 10) };
-            Label title = new Label
-            {
-                Text = "Purchase Orders",
-                Font = new Font("Segoe UI", 16, FontStyle.Bold),
-                ForeColor = DS.Slate900,
-                Location = new Point(24, 12),
-                AutoSize = true
-            };
-            Label subtitle = new Label
-            {
-                Text = "Purchase  >  Purchase Orders  >  New PO",
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate600,
-                Location = new Point(25, 42),
-                AutoSize = true
-            };
-            _lblBreadcrumb = subtitle;
-            _lblHeaderStatus = MakeStatusBadge("Draft", SaveGreen, new Point(248, 42), 62);
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(_lblHeaderStatus);
-
-            FlowLayoutPanel toolbar = new FlowLayoutPanel
-            {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = true,
-                AutoSize = false,
-                Height = 40,
-                BackColor = Color.Transparent,
-                Padding = new Padding(0),
-                Margin = Padding.Empty
-            };
             Button btnRefresh = MakeOutlineButton("Refresh", 78);
             Button btnBackToDashboard = MakeOutlineButton("<- Dashboard", 112);
             _btnNewPo = MakeBtn("+  New PO", InfoBlue, 104);
@@ -320,6 +291,7 @@ namespace HVAC_Pro_Desktop.UI
             Button btnSettings = MakeOutlineButton("More Actions", 96);
             _btnBatchPay.Visible = false;
             _btnVendorAdvance.Visible = false;
+            _lblHeaderStatus = MakeStatusBadge("Draft", SaveGreen, Point.Empty, 68);
 
             _lblStatus = new Label
             {
@@ -354,16 +326,20 @@ namespace HVAC_Pro_Desktop.UI
             _toolTip.SetToolTip(btnBackToDashboard, "Return to the purchase dashboard.");
             _toolTip.SetToolTip(_btnSavePo, "Save the PO header and line items as a draft.");
             _toolTip.SetToolTip(btnSettings, "Open more purchase actions.");
-            toolbar.Controls.AddRange(new Control[] { btnBackToDashboard, btnRefresh, _btnPayablesToggle, btnImport, btnTemplate, btnForms, _btnPreview, _btnPrintPdf, _btnNewPo, btnSettings });
-            header.Controls.Add(toolbar);
+            SharedPageHeaderResult headerResult = SharedPageHeader.Build(
+                SharedPageHeader.CreateSalesEditor(
+                    "PurchaseOrdersHeader",
+                    "Purchase Orders",
+                    "Create, receive, pay, and track supplier purchase orders.",
+                    new List<Control> { btnBackToDashboard, btnRefresh, _btnPayablesToggle, btnImport, btnTemplate, btnForms, _btnPreview, _btnPrintPdf, _btnNewPo, btnSettings },
+                    "Purchase / Sales / Purchase Orders / New PO",
+                    DS.Slate600,
+                    _lblHeaderStatus));
+            Panel header = headerResult.Header;
+            _lblBreadcrumb = headerResult.StatusLabel;
             header.Controls.Add(_lblStatus);
-            header.Resize += (s, e) =>
-            {
-                LayoutPurchaseEditorHeader(header, toolbar);
-                LayoutHeaderStatusBadge();
-            };
-            LayoutPurchaseEditorHeader(header, toolbar);
-            LayoutHeaderStatusBadge();
+            header.Resize += (s, e) => LayoutPurchaseEditorStatus(header);
+            LayoutPurchaseEditorStatus(header);
 
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(18, 0, 18, 18) };
             _leftRail = new Panel { Dock = DockStyle.Left, Width = 326, MinimumSize = new Size(326, 0), BackColor = DS.BgPage, Padding = new Padding(0, 0, 12, 0) };
@@ -396,51 +372,18 @@ namespace HVAC_Pro_Desktop.UI
             ApplyPurchaseReferenceSkin(Controls);
         }
 
-        /// <summary>Prevents the purchase editor action toolbar from overlapping the title block on compact widths.</summary>
-        private void LayoutPurchaseEditorHeader(Panel header, FlowLayoutPanel toolbar)
+        private void LayoutPurchaseEditorStatus(Panel header)
         {
-            if (header == null || toolbar == null)
+            if (header == null)
                 return;
-
-            int protectedTitleWidth = Math.Min(460, Math.Max(320, header.ClientSize.Width / 3));
-            int rightPadding = 22;
-            int available = Math.Max(300, header.ClientSize.Width - protectedTitleWidth - rightPadding);
-            bool compact = available < 840;
-
-            toolbar.SetBounds(protectedTitleWidth, 12, available, compact ? 74 : 38);
-            toolbar.WrapContents = compact;
-            header.Height = compact ? 116 : 86;
-
-            foreach (Control control in toolbar.Controls)
-            {
-                control.Margin = new Padding(4, 0, 4, 8);
-            }
-
-            SetToolbarControlVisible(toolbar, "Supplier Payables", available >= 910);
-            SetToolbarControlVisible(toolbar, "Import Excel", available >= 760);
-            SetToolbarControlVisible(toolbar, "Excel Template", available >= 900);
-            SetToolbarControlVisible(toolbar, "Service Forms", available >= 820);
 
             if (_lblStatus != null)
             {
                 _lblStatus.MaximumSize = new Size(Math.Max(120, header.ClientSize.Width - 48), 20);
                 _lblStatus.AutoEllipsis = true;
-                _lblStatus.Location = new Point(24, compact ? 88 : 64);
+                _lblStatus.Location = new Point(24, header.Height - 24);
                 _lblStatus.Size = new Size(Math.Max(120, header.ClientSize.Width - 48), 20);
                 _lblStatus.Visible = !string.IsNullOrWhiteSpace(_lblStatus.Text);
-            }
-        }
-
-        private static void SetToolbarControlVisible(FlowLayoutPanel toolbar, string text, bool visible)
-        {
-            if (toolbar == null)
-                return;
-
-            foreach (Control control in toolbar.Controls)
-            {
-                Button button = control as Button;
-                if (button != null && string.Equals(button.Text, text, StringComparison.OrdinalIgnoreCase))
-                    button.Visible = visible;
             }
         }
 
@@ -451,14 +394,23 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _orderSource = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _svc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList();
             });
-            BeginInvoke((Action)(() =>
+
+            Action refreshDashboard = () =>
             {
                 if (_showDashboard)
                 {
                     QueueRecoveryWatchlistRefresh(true);
                     RefreshPurchaseDashboard();
                 }
-            }));
+            };
+
+            if (IsDisposed)
+                return;
+
+            if (InvokeRequired && IsHandleCreated)
+                BeginInvoke(refreshDashboard);
+            else
+                refreshDashboard();
         }
 
         private async Task RefreshPurchaseDashboardFromHeaderAsync()
@@ -493,7 +445,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             Control header = BuildPoDashboardHeader();
             header.Dock = DockStyle.Top;
-            header.Height = 64;
+            header.Height = 126;
 
             Panel main = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = PoPageBg, Padding = new Padding(0, 0, 10, 0) };
             FlowLayoutPanel stack = new FlowLayoutPanel
@@ -506,10 +458,10 @@ namespace HVAC_Pro_Desktop.UI
             };
             _poStatsFlow = new FlowLayoutPanel { Height = 112, BackColor = PoPageBg, WrapContents = false, AutoScroll = true, Padding = new Padding(0, 4, 0, 6) };
             stack.Controls.Add(_poStatsFlow);
-            stack.Controls.Add(BuildPoWorkflowRow());
             stack.Controls.Add(BuildPoChartRow());
             stack.Controls.Add(BuildPoTableCard());
             stack.Controls.Add(BuildPoBottomRow());
+            stack.Controls.Add(BuildPoWorkflowRow());
             main.Controls.Add(stack);
             main.Resize += (s, e) =>
             {
@@ -539,83 +491,27 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildPoDashboardHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PoPageBg };
-            Label title = new Label { Text = "Purchase Orders", Location = new Point(0, 0), Size = new Size(340, 28), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = PoText, UseMnemonic = false };
-            Label subtitle = new Label { Text = "Manage and track all purchase orders from creation to receipt and payment.", Location = new Point(1, 31), Size = new Size(520, 22), Font = new Font("Segoe UI", 9f), ForeColor = PoMuted, UseMnemonic = false, AutoEllipsis = true };
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-
             _poDashSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Size = new Size(300, 32), Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle, Text = "Search", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
             _poDashSearch.BackColor = Color.White;
             AddDashboardPlaceholder(_poDashSearch, "Search");
             _poDashSearch.TextChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
-            _poDashSearchLabel = MakeSearchVisual("Search");
-            _poDashSearchLabel.Visible = false;
-            _poDashSearchLabel.Click += (s, e) => { _poDashSearch.Focus(); _poDashSearchLabel.Visible = false; };
             Button refreshPo = MakePoOutlineButton("Refresh", 86);
-            refreshPo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             refreshPo.Click += async (s, e) => await RefreshPurchaseDashboardFromHeaderAsync();
             Button importPo = MakePoOutlineButton("Import", 92);
-            importPo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             importPo.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(importPo, ExcelImportModule.Purchases, FindForm());
             Button newPo = MakePoButton("+  New Purchase Order", InfoBlue, 166);
-            newPo.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             newPo.Click += async (s, e) => await OpenNewPurchaseOrderFormAsync();
             Label bell = MakeHeaderIcon("🔔", Color.White, PoMuted);
             Label gear = MakeHeaderIcon("⚙", Color.White, PoMuted);
-            Panel toolbar = new Panel
-            {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Width = 760,
-                Height = 36,
-                Padding = Padding.Empty,
-                BackColor = PoPageBg
-            };
-            Control[] toolbarItems = { _poDashSearch, refreshPo, importPo, newPo, bell, gear };
-            foreach (Control control in toolbarItems)
-            {
-                control.Margin = Padding.Empty;
-                control.MinimumSize = control.Size;
-                control.Height = 32;
-                control.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            }
-            toolbar.Controls.AddRange(toolbarItems);
-            header.Controls.Add(toolbar);
-            Action layoutToolbar = () =>
-            {
-                int headerWidth = Math.Max(0, header.ClientSize.Width);
-                int right = headerWidth;
-                int titleReserve = headerWidth >= 1120 ? 560 : 430;
-                int available = Math.Max(0, right - titleReserve);
-                int iconWidth = bell.Width + gear.Width + 16;
-                int actionWidth = refreshPo.Width + importPo.Width + newPo.Width + 24;
-                int searchWidth = Math.Min(300, available - iconWidth - actionWidth - 8);
-                bool showSearch = searchWidth >= 190;
-
-                _poDashSearch.Visible = showSearch;
-                _poDashSearch.Width = showSearch ? searchWidth : 0;
-                toolbar.Width = Math.Max(iconWidth + actionWidth + 8, (showSearch ? _poDashSearch.Width + 8 : 0) + actionWidth + iconWidth + 16);
-                toolbar.Location = new Point(Math.Max(titleReserve, headerWidth - toolbar.Width), 8);
-                subtitle.Width = Math.Max(260, Math.Min(520, toolbar.Left - subtitle.Left - 18));
-
-                int x = 0;
-                foreach (Control control in toolbarItems)
-                {
-                    if (!control.Visible)
-                        continue;
-
-                    control.Location = new Point(x, 0);
-                    x += control.Width + 8;
-                }
-            };
-            header.Resize += (s, e) =>
-            {
-                _poDashSearchLabel.Visible = false;
-                _poDashSearch.BringToFront();
-                layoutToolbar();
-            };
-            layoutToolbar();
-            return header;
+            return SharedPageHeader.Build(
+                SharedPageHeader.CreateSalesDashboard(
+                    "PurchaseOrdersDashboardHeader",
+                    "Purchase Orders",
+                    "Manage and track all purchase orders from creation to receipt and payment.",
+                    new List<Control> { refreshPo, importPo, bell, gear, newPo },
+                    _poDashSearch,
+                    null,
+                    PoPageBg)).Header;
         }
 
         private Label MakeHeaderIcon(string text, Color back, Color fore)
@@ -754,7 +650,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = MakePoCard();
             card.Tag = "dash-card";
-            card.Height = 300;
+            card.Height = 440;
             card.Margin = new Padding(0, 0, 0, 12);
             card.Controls.Add(new Label { Text = "Recent Purchase Orders", Location = new Point(16, 14), Size = new Size(250, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
             Button viewAll = MakePoOutlineButton("View All", 78);
@@ -819,9 +715,9 @@ namespace HVAC_Pro_Desktop.UI
                 viewAll.Location = new Point(card.Width - 92, 12);
                 filterBar.Size = new Size(card.Width - 32, 34);
                 _poTableSearchLabel.Visible = false;
-                _poTable.Size = new Size(card.Width - 32, card.Height - 132);
+                _poTable.Size = new Size(card.Width - 32, card.Height - 140);
                 _poPager.Width = Math.Max(260, Math.Min(560, card.Width - 36));
-                _poPager.Location = new Point(card.Width - _poPager.Width - 18, card.Height - 42);
+                _poPager.Location = new Point(card.Width - _poPager.Width - 18, card.Height - 46);
             };
             return card;
         }
@@ -1407,6 +1303,12 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 PurchaseOrder printable = po.POID > 0 ? _svc.GetById(po.POID) ?? po : po;
+                if (RecentDocumentOpenService.OpenPurchaseOrderPreview(this, printable))
+                {
+                    SetStatus("Opened PO preview: " + CleanPoNumber(printable.PONumber, printable.POID), SaveGreen);
+                    return;
+                }
+
                 if (RecentDocumentOpenService.OpenPdf(this, printable))
                 {
                     SetStatus("Opened PO PDF: " + CleanPoNumber(printable.PONumber, printable.POID), SaveGreen);
@@ -1568,6 +1470,26 @@ namespace HVAC_Pro_Desktop.UI
             SetStatus("New purchase order form opened. Next: select vendor, add line items, and save the draft.", SaveGreen);
         }
 
+        public async void OpenPurchaseOrderFromNavigation(int poId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action<int>)OpenPurchaseOrderFromNavigation, poId);
+                return;
+            }
+
+            if (poId <= 0)
+                return;
+
+            _showDashboard = false;
+            Controls.Clear();
+            BuildLayout();
+            UIHelper.ApplyInputStyles(Controls);
+            ApplyPurchaseReferenceSkin(Controls);
+            await LoadInitialDataAsync();
+            SelectOrderById(poId);
+        }
+
         private async Task BackToPurchaseDashboardAsync()
         {
             _showDashboard = true;
@@ -1685,7 +1607,7 @@ namespace HVAC_Pro_Desktop.UI
                     }).ToList()
                 };
                 int id = _svc.Create(clone);
-                _orderSource = _svc.GetAllFresh();
+                _orderSource = ReloadFreshPurchaseOrdersFromCache();
                 RefreshPurchaseDashboard();
                 SetStatus("PO duplicated as " + CleanPoNumber(clone.PONumber, id) + ". Next: review vendor, dates, and quantities before saving.", SaveGreen);
             }
@@ -1709,7 +1631,7 @@ namespace HVAC_Pro_Desktop.UI
                 PurchaseOrder existing = _svc.GetById(po.POID) ?? po;
                 existing.Status = "Cancelled";
                 _svc.Update(existing);
-                _orderSource = _svc.GetAllFresh();
+                _orderSource = ReloadFreshPurchaseOrdersFromCache();
                 RefreshPurchaseDashboard();
                 SetStatus("Purchase order cancelled.", DelRed);
             }
@@ -1731,7 +1653,7 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _svc.Delete(po.POID);
-                _orderSource = _svc.GetAllFresh();
+                _orderSource = ReloadFreshPurchaseOrdersFromCache();
                 RefreshPurchaseDashboard();
                 SetStatus("Purchase order deleted.", DelRed);
             }
@@ -2162,477 +2084,6 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildDetailPanel()
         {
             BuildReferencePurchaseDetailPanel();
-            if (DateTime.MinValue != DateTime.MaxValue)
-                return;
-
-            Panel workspace = new Panel
-            {
-                Dock = DockStyle.Top,
-                BackColor = DS.BgPage,
-                Padding = new Padding(0)
-            };
-            _detail.Controls.Add(workspace);
-
-            Panel fields = CreateCardPanel();
-            fields.Width = 860;
-            fields.Height = 1664;
-            fields.Margin = new Padding(0, 0, 0, 12);
-            fields.Padding = new Padding(18, 14, 18, 0);
-            fields.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            fields.Resize += (s, e) =>
-            {
-                foreach (Control child in fields.Controls)
-                {
-                    if (child is TableLayoutPanel table)
-                        table.Width = Math.Max(720, fields.Width - 36);
-                    else if (child is Panel panel && panel.Tag as string == "StaticInfoPanel")
-                    {
-                        panel.Width = Math.Max(720, fields.Width - 36);
-                        foreach (Control row in panel.Controls)
-                            row.Width = Math.Max(700, panel.Width - 20);
-                    }
-                }
-            };
-
-            fields.Controls.Add(new Label
-            {
-                Text = "PO Header",
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = InfoBlue,
-                Location = new Point(0, 0),
-                Width = 500,
-                Height = 22,
-                BackColor = Color.White,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(4, 0, 0, 0)
-            });
-
-            FlowLayoutPanel poTabs = new FlowLayoutPanel
-            {
-                Location = new Point(0, 28),
-                Size = new Size(820, 30),
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                BackColor = Color.White,
-                Visible = false
-            };
-            foreach (string tab in new[] { "PO Details", "Shipping", "Billing", "Other Details", "Attachments", "History" })
-            {
-                Label tabLabel = new Label
-                {
-                    Text = tab,
-                    Tag = tab,
-                    Width = tab == "Other Details" ? 104 : 86,
-                    Height = 26,
-                    Font = new Font("Segoe UI", 8f, FontStyle.Bold),
-                    ForeColor = tab == "PO Details" ? InfoBlue : DS.Slate600,
-                    BackColor = tab == "PO Details" ? Color.FromArgb(238, 242, 255) : Color.White,
-                    TextAlign = ContentAlignment.MiddleCenter,
-                    Margin = new Padding(0, 0, 8, 0),
-                    Cursor = Cursors.Hand
-                };
-                tabLabel.Click += (s, e) => ActivatePoHeaderTab((string)((Label)s).Tag);
-                _poHeaderTabLabels.Add(tabLabel);
-                poTabs.Controls.Add(tabLabel);
-            }
-            fields.Controls.Add(poTabs);
-
-            TableLayoutPanel headerGrid = new TableLayoutPanel
-            {
-                Location = new Point(0, 36),
-                Size = new Size(820, 366),
-                ColumnCount = 3,
-                RowCount = 8,
-                Padding = new Padding(0),
-                Margin = new Padding(0)
-            };
-            headerGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 273));
-            headerGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 273));
-            headerGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 274));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            headerGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
-
-            _cboVendor = new ComboBox { Width = 150, Font = new Font("Segoe UI", 9) };
-            ConfigureDropDownListCombo(_cboVendor);
-            _cboVendor.SelectedIndexChanged += (s, e) => OnVendorChanged();
-            _txtVendorGstin = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), ReadOnly = false, BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
-            _txtPONumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            _txtVendorInvoiceNumber = new TextBox { Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            _dtpDate = new DateTimePicker { Width = 150, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
-            _dtpDate.ValueChanged += (s, e) => RefreshPayByDate();
-            _dtpPayByDate = new DateTimePicker { Width = 150, Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
-            _cboStatus = new ComboBox { Width = 150, Font = new Font("Segoe UI", 9) };
-            ConfigureDropDownListCombo(_cboStatus);
-            _cboStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Received", "Fully Received", "Paid", "Closed", "Cancelled" });
-            _cboStatus.SelectedIndex = 0;
-            _cboLinkedType = new ComboBox { Width = 116, Font = new Font("Segoe UI", 9) };
-            ConfigureDropDownListCombo(_cboLinkedType);
-            _cboLinkedType.Items.AddRange(new object[] { "General", "Contract", "WorkOrder" });
-            _cboLinkedType.SelectedIndexChanged += (s, e) =>
-            {
-                PopulateLinkedRecordCombo();
-                UpdateBillingControls();
-                RefreshDeliveryAddressPreview();
-            };
-            _cboLinkedRecord = new ComboBox { Width = 126, Font = new Font("Segoe UI", 9) };
-            ConfigureDropDownListCombo(_cboLinkedRecord);
-            _cboLinkedRecord.SelectedIndexChanged += (s, e) =>
-            {
-                UpdateBillingControls();
-                RefreshDeliveryAddressPreview();
-            };
-            _txtNotes = new TextBox { Width = 676, Height = 54, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Multiline = true };
-            TextBox txtVendorContact = new TextBox { Text = string.Empty, Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtPhone = new TextBox { Text = string.Empty, Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtEmail = new TextBox { Text = string.Empty, Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtCurrency = new TextBox { Text = "INR - Indian Rupee", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtPaymentTerms = new TextBox { Text = "30 Days", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtExchangeRate = new TextBox { Text = "1.0000", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtVendorAddress = new TextBox { Text = string.Empty, Width = 150, Height = 72, Multiline = true, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtPurchaseType = new TextBox { Text = "General Purchase", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtPriority = new TextBox { Text = "Normal", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtDepartment = new TextBox { Text = "Purchase", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtProjectSite = new TextBox { Text = "Select project", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            TextBox txtCreatedBy = new TextBox { Text = "Administrator", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
-            TextBox txtCreatedOn = new TextBox { Text = DateTime.Now.ToString("dd/MM/yyyy HH:mm"), Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, Tag = "CUSTOM_INPUT_SHELL" };
-
-            headerGrid.Controls.Add(BuildFieldCell("PO Number *", _txtPONumber, 104, 150), 0, 0);
-            headerGrid.Controls.Add(BuildFieldCell("PO Date *", _dtpDate, 104, 150), 1, 0);
-            headerGrid.Controls.Add(BuildFieldCell("Supplier GSTIN", _txtVendorGstin, 104, 150), 2, 0);
-            headerGrid.Controls.Add(BuildFieldCell("Supplier *", _cboVendor, 104, 150), 0, 1);
-            headerGrid.Controls.Add(BuildFieldCell("Required By *", _dtpPayByDate, 104, 150), 1, 1);
-            headerGrid.Controls.Add(BuildFieldCell("Supplier Invoice #", _txtVendorInvoiceNumber, 104, 150), 2, 1);
-            headerGrid.Controls.Add(BuildFieldCell("Supplier Contact", txtVendorContact, 104, 150), 0, 2);
-            headerGrid.Controls.Add(BuildFieldCell("Currency", txtCurrency, 104, 150), 1, 2);
-            headerGrid.Controls.Add(BuildFieldCell("Payment Terms", txtPaymentTerms, 104, 150), 2, 2);
-            headerGrid.Controls.Add(BuildFieldCell("Phone", txtPhone, 104, 150), 0, 3);
-            headerGrid.Controls.Add(BuildFieldCell("Exchange Rate", txtExchangeRate, 104, 150), 1, 3);
-            headerGrid.Controls.Add(BuildFieldCell("Credit Days", new TextBox { Text = "30", Width = 150, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle }, 104, 150), 2, 3);
-            headerGrid.Controls.Add(BuildFieldCell("Email", txtEmail, 104, 150), 0, 4);
-            headerGrid.Controls.Add(BuildLinkedToCell(), 1, 4);
-            headerGrid.Controls.Add(BuildFieldCell("Status *", _cboStatus, 104, 150), 2, 4);
-            headerGrid.Controls.Add(BuildFieldCell("Purchase Type *", txtPurchaseType, 104, 150), 0, 5);
-            headerGrid.Controls.Add(BuildFieldCell("Priority", txtPriority, 104, 150), 1, 5);
-            headerGrid.Controls.Add(BuildFieldCell("Department", txtDepartment, 104, 150), 2, 5);
-            headerGrid.Controls.Add(BuildFieldCell("Project / Site", txtProjectSite, 104, 150), 0, 6);
-            headerGrid.Controls.Add(BuildFieldCell("Created By", txtCreatedBy, 104, 150), 1, 6);
-            headerGrid.Controls.Add(BuildFieldCell("Created On", txtCreatedOn, 104, 150), 2, 6);
-
-            Panel notesPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(0, 4, 0, 0) };
-            Label notesLabel = new Label { Text = "Notes", Width = 70, Location = new Point(0, 8), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _txtNotes.Location = new Point(78, 4);
-            _txtNotes.Width = 450;
-            notesPanel.Controls.Add(notesLabel);
-            notesPanel.Controls.Add(_txtNotes);
-            headerGrid.Controls.Add(BuildFieldCell("Address", txtVendorAddress, 104, 150), 0, 7);
-            headerGrid.Controls.Add(notesPanel, 1, 7);
-            headerGrid.SetColumnSpan(notesPanel, 2);
-            fields.Controls.Add(headerGrid);
-            _poDetailsControls.Add(headerGrid);
-
-            _lblPaymentMeta = new Label
-            {
-                Location = new Point(128, 406),
-                Width = 680,
-                Height = 24,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Color.FromArgb(100, 116, 139)
-            };
-            fields.Controls.Add(_lblPaymentMeta);
-            _poDetailsControls.Add(_lblPaymentMeta);
-
-            Panel deliveryModePanel = new Panel { Location = new Point(0, 436), Size = new Size(840, 34) };
-            Label deliveryModeLabel = new Label { Text = "Delivery Mode", Width = 120, Location = new Point(0, 8), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _rbTechPickup = new RadioButton { Text = "Tech Pickup", Location = new Point(128, 7), Width = 110, Checked = true, Font = new Font("Segoe UI", 9) };
-            _rbSiteDelivery = new RadioButton { Text = "Site Delivery", Location = new Point(246, 7), Width = 110, Font = new Font("Segoe UI", 9) };
-            _rbTechPickup.CheckedChanged += (s, e) => { if (_rbTechPickup.Checked) RefreshDeliveryAddressPreview(); };
-            _rbSiteDelivery.CheckedChanged += (s, e) => { if (_rbSiteDelivery.Checked) RefreshDeliveryAddressPreview(); };
-            deliveryModePanel.Controls.AddRange(new Control[] { deliveryModeLabel, _rbTechPickup, _rbSiteDelivery });
-            fields.Controls.Add(deliveryModePanel);
-            _shippingControls.Add(deliveryModePanel);
-
-            _deliveryAddressPanel = new Panel { Location = new Point(0, 470), Size = new Size(840, 48), Visible = false };
-            Label deliveryAddressLabel = new Label { Text = "Delivery Address", Width = 120, Location = new Point(0, 12), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _txtDeliveryAddress = new TextBox { Location = new Point(128, 8), Width = 676, Height = 34, Multiline = true, ReadOnly = false, BackColor = Color.White, ForeColor = DS.Slate700, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9), Tag = "CUSTOM_INPUT_SHELL" };
-            _toolTip.SetToolTip(_txtDeliveryAddress, "Delivery address auto-filled from linked site");
-            _deliveryAddressPanel.Controls.AddRange(new Control[] { deliveryAddressLabel, _txtDeliveryAddress });
-            fields.Controls.Add(_deliveryAddressPanel);
-            _shippingControls.Add(_deliveryAddressPanel);
-
-            Panel technicianPanel = new Panel { Location = new Point(0, 522), Size = new Size(840, 34) };
-            Label technicianLabel = new Label { Text = "Assigned Technician", Width = 120, Location = new Point(0, 8), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _cboTechnician = new ComboBox { Location = new Point(128, 4), Width = 250, Font = new Font("Segoe UI", 9) };
-            ConfigureDropDownListCombo(_cboTechnician);
-            _cboTechnician.SelectedIndexChanged += (s, e) => ApplyTechnicianSelection();
-            technicianPanel.Controls.AddRange(new Control[] { technicianLabel, _cboTechnician });
-            fields.Controls.Add(technicianPanel);
-            _shippingControls.Add(technicianPanel);
-
-            _lblCreatedByMeta = new Label
-            {
-                Location = new Point(128, 560),
-                Width = 676,
-                Height = 24,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Color.FromArgb(71, 85, 105),
-                Visible = false
-            };
-            fields.Controls.Add(_lblCreatedByMeta);
-            _otherDetailsControls.Add(_lblCreatedByMeta);
-
-            Panel billingPanel = new Panel { Location = new Point(0, 592), Size = new Size(840, 34) };
-            Label billingLabel = new Label { Text = "Bill to Client", Width = 120, Location = new Point(0, 8), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _chkAddToClientInvoice = new CheckBox { Text = "Add parts to client invoice when saved", Location = new Point(128, 7), Width = 320, Font = new Font("Segoe UI", 9) };
-            _chkAddToClientInvoice.CheckedChanged += (s, e) =>
-            {
-                if (_chkAddToClientInvoice.Checked && !IsWorkOrderLinked())
-                {
-                    _toolTip.Show("Link this PO to a Work Order first to enable billing", _chkAddToClientInvoice, 2500);
-                    _chkAddToClientInvoice.Checked = false;
-                }
-            };
-            billingPanel.Controls.AddRange(new Control[] { billingLabel, _chkAddToClientInvoice });
-            fields.Controls.Add(billingPanel);
-            _billingControls.Add(billingPanel);
-
-            Panel receiptPanel = new Panel { Location = new Point(0, 630), Size = new Size(840, 70) };
-            Label receiptLabel = new Label { Text = "Attach packing slip", Width = 120, Location = new Point(0, 10), Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Gray, TextAlign = ContentAlignment.MiddleRight };
-            _btnAttachReceipt = MakeBtn("Attach Photo/File", InfoBlue, 132);
-            _btnAttachReceipt.Location = new Point(128, 6);
-            _btnAttachReceipt.Click += (s, e) => AttachReceipt();
-            _picReceipt = new PictureBox { Location = new Point(272, 4), Size = new Size(64, 64), SizeMode = PictureBoxSizeMode.Zoom, BorderStyle = BorderStyle.FixedSingle, Visible = false };
-            _lblReceiptFile = new Label { Location = new Point(346, 10), Width = 320, Height = 40, Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(71, 85, 105) };
-            _btnInlineViewReceipt = MakeBtn("View", Color.White, 62);
-            _btnInlineViewReceipt.Location = new Point(676, 8);
-            _btnInlineViewReceipt.ForeColor = Color.FromArgb(51, 65, 85);
-            _btnInlineViewReceipt.FlatAppearance.BorderColor = DS.Border;
-            _btnInlineViewReceipt.FlatAppearance.BorderSize = 1;
-            _btnInlineViewReceipt.Click += (s, e) => ViewReceipt();
-            _btnDeleteReceipt = MakeBtn("Delete", Color.FromArgb(254, 226, 226), 62);
-            _btnDeleteReceipt.Location = new Point(744, 8);
-            _btnDeleteReceipt.ForeColor = DelRed;
-            _btnDeleteReceipt.FlatAppearance.BorderColor = DS.Border;
-            _btnDeleteReceipt.FlatAppearance.BorderSize = 1;
-            _btnDeleteReceipt.Click += (s, e) => DeleteReceiptReference();
-            receiptPanel.Controls.AddRange(new Control[] { receiptLabel, _btnAttachReceipt, _picReceipt, _lblReceiptFile, _btnInlineViewReceipt, _btnDeleteReceipt });
-            fields.Controls.Add(receiptPanel);
-            _attachmentControls.Add(receiptPanel);
-
-            Panel shippingExtraPanel = BuildTabInfoPanel("Expected Delivery Date", "04/06/2026", "Contact Person", "Site supervisor", "Site Delivery Notes", "Coordinate delivery window with assigned technician.");
-            shippingExtraPanel.Location = new Point(0, 712);
-            shippingExtraPanel.Visible = true;
-            fields.Controls.Add(shippingExtraPanel);
-            _shippingControls.Add(shippingExtraPanel);
-
-            Panel billingExtraPanel = BuildTabInfoPanel("Bill To", "New Client", "GST Treatment", "Registered Business", "Linked invoice/client billing reference", "Client invoice reference will be created from Work Order billing.");
-            billingExtraPanel.Location = new Point(0, 900);
-            billingExtraPanel.Visible = true;
-            fields.Controls.Add(billingExtraPanel);
-            _billingControls.Add(billingExtraPanel);
-
-            Panel otherExtraPanel = BuildTabInfoPanel("Warranty", "Standard supplier warranty", "Supplier quotation reference", "Supplier quote / RFQ reference pending", "Internal remarks", "Approval required only for high-value or variance-flagged purchases.");
-            otherExtraPanel.Location = new Point(0, 1088);
-            otherExtraPanel.Visible = true;
-            fields.Controls.Add(otherExtraPanel);
-            _otherDetailsControls.Add(otherExtraPanel);
-
-            Panel attachmentExtraPanel = BuildTabInfoPanel("Supplier quote", "Attach and view supplier quotations", "Delivery challan", "Attach packing slip, challan, receipt, or site photo", "Attachment actions", "View, download, and delete use the receipt/document controls until a document backend is added.");
-            attachmentExtraPanel.Location = new Point(0, 1276);
-            attachmentExtraPanel.Visible = true;
-            fields.Controls.Add(attachmentExtraPanel);
-            _attachmentControls.Add(attachmentExtraPanel);
-
-            Panel historyPanel = BuildTabInfoPanel("Audit trail", "No purchase order selected", "Attachment", "No attachment selected", "Status", "No status changes to show.");
-            historyPanel.Location = new Point(0, 1464);
-            historyPanel.Visible = true;
-            fields.Controls.Add(historyPanel);
-            _historyControls.Add(historyPanel);
-            ActivatePoHeaderTab("PO Details");
-
-            Panel gridPanel = CreateCardPanel();
-            gridPanel.Width = 860;
-            gridPanel.Height = 520;
-            gridPanel.Margin = new Padding(0, 0, 0, 12);
-            gridPanel.Padding = new Padding(14, 14, 14, 14);
-
-            _lblVarianceWarning = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 32,
-                Text = "One or more items are priced above historical rates. Review highlighted rows.",
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(146, 64, 14),
-                BackColor = Color.FromArgb(255, 247, 237),
-                Padding = new Padding(8, 8, 0, 0),
-                Visible = false
-            };
-
-            Panel lineActions = new Panel { Dock = DockStyle.Top, Height = 58, BackColor = Color.White, Padding = new Padding(0, 4, 0, 8) };
-            FlowLayoutPanel lineActionLeft = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Left,
-                Width = 470,
-                Height = 46,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                BackColor = Color.White,
-                Padding = new Padding(0),
-                Margin = new Padding(0)
-            };
-            FlowLayoutPanel lineActionRight = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right,
-                Width = 268,
-                Height = 46,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                BackColor = Color.White,
-                Padding = new Padding(0),
-                Margin = new Padding(0)
-            };
-            Button btnAddLine = MakeBtn("+ Add Item", InfoBlue, 108);
-            Button btnAddRfq = MakeOutlineButton("Add from RFQ", 108);
-            Button btnImportItems = MakeBtn("Import Items", InfoBlue, 118);
-            Button btnClearLines = MakeBtn("Clear Items", DelRed, 104);
-            Button btnDiscount = MakeOutlineButton("Apply Discount", 120);
-            Button btnCharges = MakeOutlineButton("+ Add Charges", 110);
-            foreach (Button button in new[] { btnAddLine, btnAddRfq, btnImportItems, btnClearLines, btnDiscount, btnCharges })
-            {
-                button.Height = 36;
-                button.Margin = new Padding(0, 0, 10, 0);
-            }
-            btnCharges.Margin = new Padding(0);
-            btnAddLine.Click += (s, e) => AddLineItemCard();
-            btnAddRfq.Click += (s, e) => AddFromRfq();
-            btnImportItems.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImportItems, ExcelImportModule.Purchases, FindForm());
-            btnClearLines.Click += (s, e) =>
-            {
-                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
-                    this,
-                    "Clear all purchase line items?",
-                    "This removes every unsaved line from the current purchase order editor."))
-                    return;
-                _lineItemFlow.Controls.Clear();
-                RecalcTotal();
-            };
-            btnDiscount.Click += (s, e) => ApplyDiscountToLines();
-            btnCharges.Click += (s, e) => AddCharges();
-            lineActionLeft.Controls.AddRange(new Control[] { btnAddLine, btnAddRfq, btnImportItems, btnClearLines });
-            lineActionRight.Controls.AddRange(new Control[] { btnDiscount, btnCharges });
-            lineActions.Resize += (s, e) =>
-            {
-                lineActionLeft.Width = Math.Max(440, lineActions.ClientSize.Width - lineActionRight.Width - 16);
-                lineActionRight.Width = 268;
-            };
-            lineActions.Controls.Add(lineActionRight);
-            lineActions.Controls.Add(lineActionLeft);
-
-            _lineItemHeader = BuildLineItemHeader();
-            _lineItemHeader.Dock = DockStyle.Top;
-
-            Panel lineScroll = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.White, Padding = new Padding(0, 0, 0, 0) };
-            lineScroll.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Border))
-                    e.Graphics.DrawRectangle(pen, 0, 0, lineScroll.Width - 1, lineScroll.Height - 1);
-            };
-            _lineItemFlow = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                BackColor = Color.White,
-                Padding = new Padding(0, 0, 0, 8)
-            };
-            _lblLineItemEmptyState = new Label
-            {
-                Dock = DockStyle.Fill,
-                Text = "No line items added yet. Use + Add Item to start this purchase order.",
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = DS.Slate500,
-                TextAlign = ContentAlignment.MiddleCenter,
-                BackColor = Color.White,
-                Visible = true
-            };
-            lineScroll.Resize += (s, e) => ResizeLineItemRows();
-            lineScroll.Controls.Add(_lblLineItemEmptyState);
-            lineScroll.Controls.Add(_lineItemFlow);
-            _lblLineItemEmptyState.BringToFront();
-
-            Panel totalBar = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 42,
-                BackColor = Color.FromArgb(235, 245, 255)
-            };
-            _lblLineItemCount = new Label
-            {
-                Dock = DockStyle.Left,
-                Width = 220,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate600,
-                Text = "Showing 0 items",
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(12, 0, 0, 0),
-                BackColor = Color.FromArgb(235, 245, 255)
-            };
-            _lblTotal = new Label
-            {
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 10, FontStyle.Bold),
-                ForeColor = InfoBlue,
-                Text = "Sub Total  Rs 0.00     Discount  Rs 0.00     GST  Rs 0.00     Other Charges  Rs 0.00     Total  Rs 0.00",
-                TextAlign = ContentAlignment.MiddleRight,
-                BackColor = Color.FromArgb(235, 245, 255),
-                Padding = new Padding(0, 0, 12, 0)
-            };
-            totalBar.Controls.Add(_lblTotal);
-            totalBar.Controls.Add(_lblLineItemCount);
-
-            gridPanel.Controls.Add(totalBar);
-            gridPanel.Controls.Add(lineScroll);
-            gridPanel.Controls.Add(_lineItemHeader);
-            gridPanel.Controls.Add(lineActions);
-            gridPanel.Controls.Add(_lblVarianceWarning);
-
-            Panel communication = CreateCardPanel();
-            communication.Width = 860;
-            communication.Height = 130;
-            communication.Margin = new Padding(0, 0, 0, 18);
-            communication.Controls.Add(new Label { Text = "Internal Communication", Location = new Point(16, 14), AutoSize = true, Font = new Font("Segoe UI", 10, FontStyle.Bold), ForeColor = DS.Slate900 });
-            TextBox txtMessage = new TextBox { Name = "txtInternalMessage", Location = new Point(16, 46), Width = 660, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle };
-            txtMessage.Text = "Type your message...";
-            txtMessage.ForeColor = DS.Slate400;
-            txtMessage.GotFocus += (s, e) =>
-            {
-                if (txtMessage.ForeColor == DS.Slate400)
-                {
-                    txtMessage.Text = string.Empty;
-                    txtMessage.ForeColor = DS.Slate900;
-                }
-            };
-            Button btnSendComment = MakeBtn("Send", InfoBlue, 76);
-            btnSendComment.Location = new Point(690, 43);
-            btnSendComment.Click += (s, e) => SendInternalMessage(txtMessage);
-            communication.Controls.AddRange(new Control[] { txtMessage, btnSendComment });
-            communication.Controls.Add(new Label { Text = "Administrator    Please ensure the delivery is done before the required-by date.", Location = new Point(16, 88), Width = 650, Height = 22, Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate700 });
-
-            workspace.Controls.Add(fields);
-            workspace.Controls.Add(gridPanel);
-            workspace.Controls.Add(communication);
-            _detail.Resize += (s, e) =>
-            {
-                int width = Math.Max(820, _detail.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 4);
-                foreach (Control control in workspace.Controls)
-                    control.Width = width;
-            };
         }
 
         private void BuildReferencePurchaseDetailPanel()
@@ -2894,8 +2345,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpDate.ValueChanged += (s, e) => RefreshPayByDate();
             _dtpPayByDate = new DateTimePicker { Font = new Font("Segoe UI", 9), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today.AddDays(9) };
             _cboStatus = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
-            _cboStatus.Items.AddRange(new object[] { "Pending", "Approved", "Partial", "Received", "Fully Received", "Paid", "Closed", "Cancelled" });
-            _cboStatus.SelectedIndex = 0;
+            _lookupSvc.BindCombo(_cboStatus, "Purchase.Status", new[] { "Pending", "Approved", "Partial", "Received", "Fully Received", "Paid", "Closed", "Cancelled" }, "Pending");
             _chkAddToClientInvoice = new CheckBox { Visible = false };
             _txtNotes = CreateInputTextBox("Enter notes");
             _txtNotes.Multiline = true;
@@ -2911,7 +2361,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboTechnician = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
             _cboTechnician.SelectedIndexChanged += (s, e) => ApplyTechnicianSelection();
             _cboLinkedType = new ComboBox { Font = new Font("Segoe UI", 9), DropDownStyle = ComboBoxStyle.DropDown };
-            _cboLinkedType.Items.AddRange(new object[] { "General", "Contract", "WorkOrder" });
+            _lookupSvc.BindCombo(_cboLinkedType, "Purchase.LinkedType", new[] { "General", "Contract", "WorkOrder" }, "General");
             _cboLinkedType.SelectedIndexChanged += (s, e) =>
             {
                 PopulateLinkedRecordCombo();
@@ -3073,6 +2523,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             SetStatus("Loading purchase orders...", Color.Gray);
             Stopwatch sw = Stopwatch.StartNew();
+            Stopwatch fetchWatch = Stopwatch.StartNew();
             TimeSpan ttl = TimeSpan.FromMinutes(2);
 
             var inventoryTask = Task.Run(() => AppDataCache.GetOrCreate("inventory:all", ttl, () => _invSvc.GetAll() ?? new List<StockItem>()).ToList());
@@ -3091,7 +2542,9 @@ namespace HVAC_Pro_Desktop.UI
             PopulateTechnicianCombo();
 
             await Task.WhenAll(inventoryTask, contractTask, jobTask, siteTask, hsnTask, orderTask);
+            AppRuntime.LogTiming("Purchases.FetchInitialData", fetchWatch.ElapsedMilliseconds, "orders=" + (orderTask.Result == null ? 0 : orderTask.Result.Count));
 
+            Stopwatch bindWatch = Stopwatch.StartNew();
             _inventoryItems = inventoryTask.Result ?? new List<StockItem>();
             _contracts = contractTask.Result ?? new List<AMCContract>();
             _jobs = jobTask.Result ?? new List<Job>();
@@ -3105,10 +2558,15 @@ namespace HVAC_Pro_Desktop.UI
             PopulateProjectSiteCombo();
             NewRecord();
             ApplyFiltersAndRender();
-            if (_orderSource.Count > 0)
-                PopulateDetail(_orderSource[0]);
             ApplyNavigationRequest();
+            AppRuntime.LogTiming("Purchases.BindInitialData", bindWatch.ElapsedMilliseconds, "orders=" + _orderSource.Count);
             AppRuntime.LogTiming("Purchases.InitialLoad", sw.ElapsedMilliseconds, "orders=" + _orderSource.Count);
+        }
+
+        private List<PurchaseOrder> ReloadFreshPurchaseOrdersFromCache()
+        {
+            AppDataCache.RemovePrefix("purchases:");
+            return AppDataCache.GetOrCreate("purchases:fresh", TimeSpan.FromMinutes(2), () => _svc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList();
         }
 
         private void PopulateVendorCombo()
@@ -3228,7 +2686,7 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 SetStatus("Refreshing purchase orders...", Color.Gray);
-                _orderSource = await Task.Run(() => _svc.GetAllFresh());
+                _orderSource = await Task.Run(() => ReloadFreshPurchaseOrdersFromCache());
                 ApplyFiltersAndRender();
                 SetStatus("Purchase list refreshed.", Color.Gray);
             }
@@ -3326,17 +2784,18 @@ namespace HVAC_Pro_Desktop.UI
             if (_leftListModule == null)
                 return;
 
+            List<PurchaseOrder> sourceOrders = orders ?? new List<PurchaseOrder>();
             List<PurchaseSidebarEntry> entries = _viewMode == PurchaseViewMode.VendorPayables
-                ? BuildPayableSidebarEntries(orders)
-                : BuildOrderSidebarEntries(orders);
+                ? BuildPayableSidebarEntries(sourceOrders)
+                : BuildOrderSidebarEntries(sourceOrders);
 
             _leftListModule.SetEntries(entries);
             SyncPurchaseSidebarSelection();
 
             if (_viewMode == PurchaseViewMode.VendorPayables)
-                SetStatus("Showing " + entries.Count(entry => entry.EntryType == PurchaseSidebarEntryType.PayableGroup).ToString() + " vendor payable groups.", Color.Gray);
+                SetStatus("Showing " + entries.Count(entry => entry.EntryType == PurchaseSidebarEntryType.PayableGroup).ToString() + " of " + BuildVendorPayableGroups(sourceOrders).Count.ToString() + " vendor payable groups.", Color.Gray);
             else
-                SetStatus("Showing " + (orders ?? new List<PurchaseOrder>()).Count + " purchase orders.", Color.Gray);
+                SetStatus("Showing " + Math.Min(InitialSidebarOrderLimit, sourceOrders.Count).ToString() + " of " + sourceOrders.Count.ToString() + " purchase orders.", Color.Gray);
         }
 
         private List<PurchaseSidebarEntry> BuildOrderSidebarEntries(List<PurchaseOrder> orders)
@@ -3351,6 +2810,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             return source
+                .Take(InitialSidebarOrderLimit)
                 .Select(po => PurchaseSidebarEntry.ForOrder(po))
                 .ToList();
         }
@@ -3367,7 +2827,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             var entries = new List<PurchaseSidebarEntry>();
-            foreach (VendorPayableGroup group in payables)
+            foreach (VendorPayableGroup group in payables.Take(InitialSidebarOrderLimit))
             {
                 bool expanded = _expandedVendors.ContainsKey(group.VendorID) && _expandedVendors[group.VendorID];
                 entries.Add(PurchaseSidebarEntry.ForGroup(group, expanded));
@@ -5200,14 +4660,19 @@ namespace HVAC_Pro_Desktop.UI
             foreach (Control ctl in new Control[] { lblRowNo, cmbDesc, txtCategory, cmbHsn, numQty, cmbUom, numRate, numDiscount, lblTaxable, numGst, lblGstAmount, lblAmt, lblSupplierOffers, lblRateDrift })
                 ctl.Click += (s, e) => SetActiveSupplierComparisonRow(cmbDesc, txtCategory, numQty, cmbUom, numRate);
 
-            Action applySelectedInventory = () =>
+            string lastAppliedItemName = null;
+            Action<bool> applySelectedInventory = forceRateRefresh =>
             {
+                int currentInventoryItemId = cmbDesc.Tag is int itemId ? itemId : 0;
                 StockItem stock = _inventoryItems.FirstOrDefault(item => string.Equals(item.ItemName, cmbDesc.Text, StringComparison.OrdinalIgnoreCase));
                 if (stock != null)
                 {
+                    bool itemChanged = currentInventoryItemId != stock.ItemID
+                        || !string.Equals(lastAppliedItemName, stock.ItemName, StringComparison.OrdinalIgnoreCase);
                     cmbDesc.Tag = stock.ItemID;
+                    lastAppliedItemName = stock.ItemName;
                     txtCategory.Text = string.IsNullOrWhiteSpace(stock.Category) ? ResolveCategory(cmbHsn.Text) : stock.Category;
-                    if (numRate.Value <= 0 && stock.LastPurchaseRate > 0)
+                    if ((forceRateRefresh || itemChanged || numRate.Value <= 0m) && stock.LastPurchaseRate > 0m)
                         numRate.Value = stock.LastPurchaseRate;
                     if (string.IsNullOrWhiteSpace(cmbHsn.Text))
                     {
@@ -5219,18 +4684,25 @@ namespace HVAC_Pro_Desktop.UI
                             txtCategory.Text = resolved.BusinessCategory ?? string.Empty;
                         }
                     }
+
+                    forceRateRefresh = forceRateRefresh || itemChanged;
+                }
+                else if (string.IsNullOrWhiteSpace(cmbDesc.Text))
+                {
+                    cmbDesc.Tag = null;
+                    lastAppliedItemName = null;
                 }
 
-                TryApplyBestSupplierForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate, true, true);
+                TryApplyBestSupplierForLineItem(cmbDesc, txtCategory, numQty, cmbUom, numRate, true, true, forceRateRefresh);
                 RecalcTotal();
                 if (ReferenceEquals(_activeCompareDescription, cmbDesc))
                     RefreshSupplierComparisonCard();
                 UpdateSupplierOfferPreview(cmbDesc, txtCategory, numQty, _supplierCompareCard, lblSupplierOffers);
                 ApplyRateVarianceVisual(card);
             };
-            cmbDesc.SelectionChangeCommitted += (s, e) => applySelectedInventory();
-            cmbDesc.Validated += (s, e) => applySelectedInventory();
-            cmbDesc.Leave += (s, e) => applySelectedInventory();
+            cmbDesc.SelectionChangeCommitted += (s, e) => applySelectedInventory(true);
+            cmbDesc.Validated += (s, e) => applySelectedInventory(false);
+            cmbDesc.Leave += (s, e) => applySelectedInventory(false);
             cmbJobLink.SelectedIndexChanged += (s, e) =>
             {
                 if (cmbJobLink.Text == "This Job" && !IsWorkOrderLinked())
@@ -5276,7 +4748,7 @@ namespace HVAC_Pro_Desktop.UI
             if (selectedStock != null)
             {
                 cmbDesc.SelectedItem = selectedStock.ItemName;
-                applySelectedInventory();
+                applySelectedInventory(true);
             }
             else if (!string.IsNullOrWhiteSpace(line?.Description))
             {
@@ -5480,7 +4952,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private void TryApplyBestSupplierForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate, bool autoSelectVendor, bool notifyWhenUnavailable = false)
+        private void TryApplyBestSupplierForLineItem(ComboBox description, TextBox category, NumericUpDown quantity, ComboBox unit, NumericUpDown rate, bool autoSelectVendor, bool notifyWhenUnavailable = false, bool forceRateRefresh = false)
         {
             string itemDescription = description?.Text?.Trim();
             if (string.IsNullOrWhiteSpace(itemDescription))
@@ -5502,7 +4974,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (switchedVendor)
                     switchedVendor = SelectPurchaseVendorById(best.VendorID);
 
-                if (rate != null && (rate.Value <= 0m || switchedVendor))
+                if (rate != null && (forceRateRefresh || rate.Value <= 0m || switchedVendor))
                     rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, best.Rate));
 
                 if (unit != null && !string.IsNullOrWhiteSpace(best.Unit) && (string.IsNullOrWhiteSpace(unit.Text) || switchedVendor))
@@ -6050,8 +5522,6 @@ namespace HVAC_Pro_Desktop.UI
 
             int textWidth = TextRenderer.MeasureText(_lblHeaderStatus.Text ?? string.Empty, _lblHeaderStatus.Font).Width;
             _lblHeaderStatus.Width = Math.Max(68, textWidth + 24);
-            int left = _lblBreadcrumb != null ? _lblBreadcrumb.Right + 10 : 224;
-            _lblHeaderStatus.Location = new Point(left, 40);
         }
 
         private enum PurchaseSidebarEntryType
@@ -6239,7 +5709,11 @@ namespace HVAC_Pro_Desktop.UI
                 Text = "Purchase Order Preview - " + title;
                 Width = 1100;
                 Height = 760;
+                MinimumSize = new Size(920, 620);
                 StartPosition = FormStartPosition.CenterParent;
+                FormBorderStyle = FormBorderStyle.Sizable;
+                MaximizeBox = true;
+                MinimizeBox = true;
 
                 Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Color.White };
                 Button btnPrintPreview = new Button { Text = "Print Preview", Width = 110, Height = 28, Location = new Point(10, 8), BackColor = Color.FromArgb(41, 128, 185), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };

@@ -1,4 +1,200 @@
 # Changelog
+## 1.1.167.0 - 2026-06-23
+
+- Added a generic Master Lookup system so HR, attendance, payroll, jobs, service desk, AMC, inventory, purchase, and sales document reference values can be managed centrally.
+- Added Master Data reference cards for the missing lookup categories, with each card showing active value counts and opening the correct editable lookup category.
+- Migrated key module dropdowns to the shared lookup service with safe fallbacks and rebuilt Release for client update rollout.
+
+## 1.1.166.0 - 2026-06-23
+
+- Published the next ServoERP desktop update package for client rollout through GitHub Releases.
+- Rebuilt the Release desktop app so client PCs can detect and download the newer Velopack release.
+
+## 1.1.165.0 - 2026-06-23
+
+- Redesigned the Payroll Operations dashboard content into a compact close cockpit with period controls, KPI cards, command-center blockers, exception queues, and control signals aligned to the supplied modern payroll reference.
+- Replaced the oversized payroll chart area with a compact horizontal payroll quality pulse while preserving the existing payroll data refresh, run, lock, import, forms, statutory, salary structure, and employee detail flows.
+- Redesigned the Payroll `Salary Structures` and `Employee Details` tabs with modern employee pickers, selected-employee summary cards, compact salary editors, refreshed history/detail tables, and preserved existing payroll bindings and handlers.
+- Added a shared Lucide SVG icon service that loads icons from the local Lucide pack, renders cached WinForms bitmaps, and routes content-area shared icon buttons through the new provider with safe fallback drawing.
+- Restored Attendance as its own HR & Payroll page between Employees and Payroll, opening the existing Attendance workspace directly.
+- Polished Payroll `Salary Structures` and `Employee Details` with tighter employee rails, cleaner summary cards, refined table spacing, aligned currency columns, compact action columns, and a stronger salary gross total band.
+- Rebuilt Release successfully and visually checked the Payroll content surface with a rendered WinForms capture; the sidebar was not modified.
+
+## 1.1.164.0 - 2026-06-23
+
+- Restyled the Employees first-layer dashboard to closely follow the supplied reference with a colored KPI band, a flatter readiness pulse row, a more structured follow-up queue, and a tighter roster action bar.
+- Strengthened the roster table presentation so live presence and readiness states stand out more clearly at a glance from the dashboard.
+- Rebuilt Release successfully and visually rechecked the updated Employees dashboard from the rendered window capture.
+
+## 1.1.163.0 - 2026-06-23
+
+- Simplified the Employees first-layer dashboard to match the cleaner roster-led direction by removing the oversized hero control block and starting the page directly with workforce KPI signals.
+- Moved workspace actions into the `Roster launchpad` area so the employee table becomes the main decision surface while keeping the second-layer employee workspace one click away.
+- Rebuilt Release successfully and visually rechecked the final Employees dashboard against the cleaner reference layout.
+
+## 1.1.162.0 - 2026-06-23
+
+- Redesigned the Employees first-layer dashboard into a more professional HR operations command center with a stronger hero section, executive workforce signal cards, cleaner deployment and follow-up summaries, and a roster launchpad that leads into the detailed employee workspace.
+- Kept the second-layer employee workspace flow intact while making the dashboard actions explicit on-screen through `Open Employee Workspace`, `Add New Employee`, and payroll entry points.
+- Rebuilt Release successfully and visually rechecked the rendered Employees dashboard after the final layout pass.
+
+## 1.1.161.0 - 2026-06-23
+
+- Reworked the Employees module so `HR & Workforce` now opens on a first-layer employee dashboard instead of dropping users straight into the detailed employee workspace.
+- Added a dashboard-led flow with new workforce cards, readiness and attention summaries, roster preview, and a clear `Open Employee Workspace` action that takes users into the existing profile/work/compliance/pay screen as the second layer.
+- Rebuilt Release successfully for the new Employees dashboard-to-workspace flow.
+
+## 1.1.160.0 - 2026-06-23
+
+- Reworked the Settings workspace card reflow so normal desktop widths use a roomier two-column layout, while three columns are reserved for genuinely wide screens.
+- This broader Settings card polish gives the control center, company, update, HSN/SAC, unit, system tools, backup, and admin cards more readable widths and calmer spacing across the page.
+- Rebuilt Release successfully and visually rechecked both the top and lower Settings card regions from the fresh desktop binary.
+
+## 1.1.159.0 - 2026-06-23
+
+- Fixed the Settings `Unit Management` card so the add-unit form, aliases area, action buttons, and units grid fit cleanly inside the card instead of feeling clipped and cramped.
+- Added a more responsive unit-card layout for narrower widths, improved aliases entry space, and clarified the unit list section heading and column labels.
+- Rebuilt Release successfully and visually rechecked the updated Settings unit card from the fresh desktop binary.
+
+## 1.1.158.0 - 2026-06-23
+
+- Reworked the Settings page into a more guided admin workspace with a new `Settings Control Center`, faster action shortcuts, and clearer release, database, backup, license, and assistant health cues.
+- Refreshed the Tally workspace header and connection overview so export, import, inventory sync, and audit actions feel more task-driven while long connection values stay readable in the summary strip.
+- Rebuilt Release successfully and visually rechecked the shipped app plus the hosted Settings and Tally pages against the fresh binary.
+
+## 1.1.157.0 - 2026-06-22
+
+- Reworked the Employees module into a clearer `HR & Workforce` workspace with dedicated `Profile`, `Work`, `Compliance`, and `Pay` tabs instead of forcing HR users to bounce between fragmented employee sub-pages.
+- Added a richer employee hero, workforce scan metrics, readiness cues, and grouped work/compliance/pay flows so HR can spot blockers and move into action faster from one screen.
+- Rebuilt Release successfully and visually verified the updated HR workspace tabs in the desktop app.
+
+## 1.1.156.0 - 2026-06-22
+
+- Reworked the Payroll dashboard so the vague `who?` detail lines are replaced by dedicated people-focused roster panels for attendance gaps, salary blockers, late or absent employees, payslip follow-up, and live field availability.
+- Removed lower-signal Payroll dashboard cards that duplicated chart insight without helping HR or accounts decide who needs action next.
+- Rebuilt Release successfully for the Payroll dashboard roster-view cleanup.
+
+## 1.1.155.0 - 2026-06-22
+
+- Fixed the Payroll dashboard crash that still occurred after navigation when WinForms chart controls were temporarily laid out at `0px` width during tab creation.
+- Wrapped the Payroll dashboard charts in a guarded chart host so early layout passes cannot throw `Width must be greater than 0px` while the page is still sizing.
+- Rebuilt Release successfully for the Payroll chart-layout fix.
+
+## 1.1.154.0 - 2026-06-22
+
+- Fixed the Payroll screen opening failure that could leave the page blank and show the generic `This action is not available in the current state` dialog during navigation.
+- Hardened deferred page polish scheduling so heavy module pages no longer rely on an unsafe pre-handle `BeginInvoke` timing path while the shell is still creating the page.
+- Rebuilt Release successfully for the Payroll navigation fix.
+
+## 1.1.153.0 - 2026-06-22
+
+- Simplified the Payroll dashboard by removing low-value cards so the page focuses on the decisions HR and accounts actually need during review and close.
+- Reworked the remaining dashboard cards to identify affected employees, crews, or statutory items directly instead of showing vague states that leave users asking who needs action.
+- Rebuilt Release successfully and visually rechecked the updated Payroll dashboard after the card cleanup.
+
+
+## 1.1.152.0 - 2026-06-22
+
+- Added visual charts to the Payroll dashboard so HR and accounts can read compliance pulse, payroll blockers, field capacity mix, and coverage-versus-load through graphs instead of relying only on cards and raw figures.
+- Kept the interpreted card layer in place while adding chart cards beneath the section headers, creating a better balance between quick judgment states and visual trend scanning.
+- Rebuilt Release successfully and visually verified the dashboard with the new chart band rendered in the proof harness.
+
+## 1.1.151.0 - 2026-06-22
+
+- Reworked the Payroll dashboard card language so most operational and compliance tiles now speak in interpreted states such as readiness, risk, pressure, coverage, and balance instead of showing raw counts as the primary message.
+- Kept the supporting detail lines underneath each card so HR and accounts can still inspect the underlying employee counts, due dates, and hours when needed without losing the quick-read interpretation layer.
+- Rebuilt Release successfully after the dashboard interpretation update.
+
+## 1.1.150.0 - 2026-06-22
+
+- Wired the new Payroll dashboard compliance and field-availability cards to live `EmployeeAttendance`, payroll `AttendanceRecords`, employee-status, and open-job data instead of leaving them as visual-only placeholders.
+- Added a future-ready fallback path so the dashboard automatically prefers richer check-in/check-out data when it exists, but still shows usable metrics from payroll attendance when live field data is incomplete.
+- Rebuilt Release successfully and visually rechecked the dashboard after the data-bridging changes.
+
+## 1.1.149.0 - 2026-06-22
+
+- Expanded the Payroll dashboard with dedicated `Schedule Compliance` and `Field Availability & Deployment` sections so HR and accounts can monitor punctuality, absenteeism, leave load, overtime exposure, live crew availability, deployment utilization, open field jobs, and attendance coverage from one place.
+- Kept the dashboard content-fitting behavior while separating payroll close controls from HR operations signals, making the page easier to scan without oversized empty cards.
+- Rebuilt Release successfully and visually verified the updated Payroll dashboard render with the new metric bands.
+
+## 1.1.148.0 - 2026-06-22
+
+- Refined the Payroll dashboard layout so the workflow cards, KPI row, accountant cards, and guidance panel size closer to their actual content instead of relying on oversized fixed heights.
+- Kept the separate Payroll dashboard structure while making the new overview feel tighter and more natural on screen.
+- Rebuilt Release and visually rechecked the updated Payroll dashboard sizing.
+
+## 1.1.147.0 - 2026-06-22
+
+- Split Payroll into clearer sub-pages with a dedicated `Dashboard` tab, a focused `Run Payroll` workspace, plus separate `Salary Structures`, `Attendance`, `Statutory Payments`, and `Employee Details` tabs.
+- Moved the accountant workflow checklist, month-readiness KPIs, and payroll blocker cards out of the run grid and into the new dashboard so review and execution are no longer mixed on one page.
+- Rebuilt Release successfully and visually verified the new Payroll tab structure with a rendered proof capture.
+
+## 1.1.146.0 - 2026-06-22
+
+- Added an accountant-focused dashboard band to Payroll with at-a-glance cards for payroll status, employees in payroll, attendance exceptions, salary setup gaps, pending statutory items, pending payslips, recovery totals, and the next due date.
+- Wired those cards to live month data so accountants can spot blocked payroll runs and month-close risk without opening each sub-tab first.
+- Source changes are ready for release validation; the current environment is blocking overwrite of the running `bin\Release\HVAC_Pro_Desktop.exe` until the open ServoERP process is closed.
+
+## 1.1.145.0 - 2026-06-22
+
+- Reworked the Employees page for HR operators with a new `HR action queue`, direct `Needs Action` visibility in the employee list, and selected-employee readiness guidance for KYC, emergency contact, probation, site assignment, and salary setup gaps.
+- Reworked the Payroll page for accountants with a new month-close checklist, stronger month status messaging, employee-context summaries on salary/details views, and attendance exception guidance for blank, leave, half-day, and absent entries.
+- Rebuilt the Release desktop executable and visually verified the updated Payroll workspace render after fixing the new attendance-grid runtime regression in the shipped build.
+
+## 1.1.144.0 - 2026-06-22
+
+- Expanded Payroll import to support real-world attendance workbooks that use employee-block monthly status layouts like `WorkDurationReport - 01-05-26.xls`, including day headers such as `1 F` and per-employee `Employee:` / `Status` sections.
+- Hardened Payroll attendance imports for register-style monthly sheets like `02-Attendance & Payroll_ May 26.xls` by recognizing vendor status codes such as `W`, `WO`, `H`, `PH`, `WHO`, `C`, `E`, and `P/2`.
+- Rebuilt Release and validated the compiled importer in read-only checks against both supplied Deccan attendance/payroll workbook formats before any live database import.
+
+## 1.1.143.0 - 2026-06-22
+
+- Added direct Payroll import actions for selected `.xls`, `.xlsx`, and `.csv` payroll or attendance files instead of relying only on the historical source folder or CSV-only attendance upload.
+- Hardened payroll import detection so sheets are identified from real header content as payroll, attendance, or employee master layouts even when vendors use different tab names or mixed workbook structures.
+- Rebuilt the Release desktop executable and verified the new Payroll import flow is available from the page header and Attendance tab in the shipped app.
+
+## 1.1.142.0 - 2026-06-22
+
+- Fixed sales tax invoice Excel imports that were failing during preflight with `ExecuteReader requires the command to have a transaction` when ServoERP opened a SQL transaction for the import batch.
+- Updated import preflight lookups to join the active SQL transaction, so invoice and other guarded import flows can safely validate reference data before committing rows.
+- Rebuilt Release and re-tested invoice import with transaction-enabled preflight against the live SQL database to confirm the crash is gone.
+
+## 1.1.141.0 - 2026-06-22
+
+- Fixed Master Data import actions so stale page-refresh state no longer throws the generic `This action is not available in the current state` screen error when opening Import Excel menus or starting import flows.
+- Hardened Master Data import and template actions to verify the live control/form owner before showing popup menus or file dialogs, reducing WinForms invalid-state crashes during page refreshes.
+- Rebuilt the Release desktop executable so this import-state fix is ready for client rollout as a proper update.
+
+## 1.1.140.0 - 2026-06-22
+
+- Fixed Dashboard recent quotation `View` so it no longer opens the wrong quotation after list rebinding or deferred page initialization.
+- Hardened quotation recent-activity navigation state so dashboard-triggered quotation opens keep the intended selected record through the quotations page lazy-load flow.
+- Added clean AMC save validation for duplicate AMC numbers and real database column-length limits so over-length AMC numbers are rejected before SQL truncation errors can occur.
+- Updated AMC smoke coverage to exercise the actual Add AMC save path instead of raw SQL writes, matching the real client workflow more closely.
+
+## 1.1.139.0 - 2026-06-21
+
+- Audited the requested module pages for duplicate header implementations and moved live `WhatsApp Hub` and `Tally Integration` headers onto the shared page-header primitive while keeping their existing actions.
+- Replaced the leftover bespoke quotation-dashboard header implementation with the shared header pattern so the quotations module no longer carries a dead parallel top-bar implementation.
+- Removed duplicate page-level dependency creation in `InvoiceForm`, `TenderBidForm`, `JobManagementForm`, and `ContractManagementForm` by reusing the services and repositories each page already owns.
+
+## 1.1.138.0 - 2026-06-21
+
+- Fixed duplicated header action rails so shared page headers no longer get an extra auto-injected `Preview` or `Refresh` cluster layered on top of their own page-specific controls.
+- Corrected clipped and inconsistent top-bar actions across Quotations, Invoices, Purchases, Payments, Reports, and Settings so search boxes and header buttons render fully inside the real sidebar-constrained app shell.
+- Rebuilt and visually rechecked the Release desktop app against the shipped `bin\Release` output so this update packages the actual on-screen header fixes instead of the stale duplicated layout.
+
+## 1.1.137.0 - 2026-06-21
+
+- Added stronger dashboard recent-activity behavior so newly saved quotations, invoices, jobs, and purchase orders are surfaced more reliably with direct `View` actions from the recent cards.
+- Refined dashboard and purchase UI polish by repositioning and resizing action cards and buttons, including the `Backup Now` control and the recent purchase-order card layout.
+- Reworked purchase-order viewing so recent `View` actions open the proper in-app purchase preview window with a cleaner, more professional document layout instead of falling back to poorly formatted file-open behavior.
+
+## 1.1.136.0 - 2026-06-21
+
+- Fixed Invoice `New Invoice` so the editor opens promptly instead of appearing stuck while background invoice data is still loading.
+- Restored immediate client loading in the new-invoice form and hardened invoice editor data binding so client/template dropdowns populate reliably.
+- Improved invoice editor usability by fitting the invoice-items section more responsively, keeping amount-in-words aligned with `Grand Total` in generated PDFs, and rendering the item-description dropdown list on a white background.
 
 ## 1.1.135.0 - 2026-06-21
 

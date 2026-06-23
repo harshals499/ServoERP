@@ -21,6 +21,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly VendorService _vendorSvc = new VendorService();
         private readonly DocumentTemplateService _docTemplateSvc = new DocumentTemplateService();
         private readonly UnitMeasurementService _unitSvc = new UnitMeasurementService();
+        private readonly MasterLookupService _lookupSvc = new MasterLookupService();
 
         private QuotationListModule _quoteListModule;
         private RenewalAlertListModule _renewalListModule;
@@ -79,9 +80,11 @@ namespace HVAC_Pro_Desktop.UI
         private readonly List<TenderBidLineItem> _lineItems = new List<TenderBidLineItem>();
         private TenderBid _current;
         private bool _syncingQuoteSelection;
+        private bool _bindingQuoteList;
         private Panel _selectedCard;
         private bool _loading;
         private bool _initialized;
+        private int? _pendingNavigationBidId;
         private Timer _initializeTimer;
         private bool _updatingGrid;
         private int _inventorySelectionRow = -1;
@@ -200,9 +203,34 @@ namespace HVAC_Pro_Desktop.UI
                 var quotes = await quotesTask;
                 BindQuoteList(quotes);
                 BindRenewalAlerts();
-                NewRecord(false);
+                if (_pendingNavigationBidId.HasValue || (_current != null && _current.BidID > 0))
+                {
+                    int bidId = _pendingNavigationBidId ?? _current.BidID;
+                    if (_current == null || _current.BidID != bidId)
+                        _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+
+                    if (_current != null)
+                    {
+                        PopulateCurrent(_current);
+                        SyncQuoteSelection();
+                        ShowQuotationEditor();
+                        SetStatus("Quotation loaded.", DS.Slate500);
+                    }
+                    else
+                    {
+                        NewRecord(false);
+                    }
+
+                    _pendingNavigationBidId = null;
+                }
+                else
+                {
+                    NewRecord(false);
+                }
+
                 _initialized = true;
-                SetStatus("Quotation workspace ready.", DS.Slate500);
+                if (_current == null)
+                    SetStatus("Quotation workspace ready.", DS.Slate500);
             }
             catch (Exception ex)
             {
@@ -369,40 +397,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildErpHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 86, BackColor = Color.White, Padding = new Padding(24, 12, 24, 10) };
-            header.Paint += (s, e) =>
-            {
-                using (Pen p = new Pen(BorderColor))
-                    e.Graphics.DrawLine(p, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-
-            Label title = new Label { Text = "Quotations", Font = new Font("Segoe UI", 16.5f, FontStyle.Bold), ForeColor = QuoteText, Location = new Point(24, 12), Size = new Size(260, 28), AutoEllipsis = true };
-            Label subtitle = new Label { Text = "Create, price, approve, and convert customer quotations.", Font = new Font("Segoe UI", 8.8f), ForeColor = QuoteMuted, Location = new Point(25, 42), Size = new Size(430, 18), AutoEllipsis = true };
-            Label breadcrumb = new Label { Text = "Dashboard  /  Sales  /  Quotations", Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = CargoPurple, Location = new Point(25, 62), Size = new Size(360, 18), AutoEllipsis = true };
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(breadcrumb);
-
-            _lblStatus = new Label { Text = "", AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(760, 54) };
-            header.Controls.Add(_lblStatus);
-
-            FlowLayoutPanel actions = new FlowLayoutPanel
-            {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Height = 38,
-                Width = 720,
-                Location = new Point(Math.Max(300, Width - 710), 24),
-                BackColor = Color.Transparent
-            };
-            header.Resize += (s, e) => actions.Location = new Point(Math.Max(420, header.Width - actions.Width - 24), 24);
-
             _btnBackToQuoteDashboard = MakeOutlineBtn("< Back to Dashboard", 150);
             _btnNewQuote = MakeBtn("+  New Quotation", InfoBlue, 142);
             Button btnPreview = MakeOutlineBtn("Preview", 86);
-            Button btnFileActions = MakeOutlineBtn("File Actions", 124);
-            Button btnMore = MakeOutlineBtn("Compare / More", 122);
+            Button btnFileActions = MakeOutlineBtn("File Actions", 132);
+            Button btnMore = MakeOutlineBtn("Compare / More", 142);
             RegisterFilledButton(_btnNewQuote, CargoPurple);
             RegisterSecondaryButton(btnPreview);
             RegisterSecondaryButton(btnFileActions);
@@ -416,9 +415,27 @@ namespace HVAC_Pro_Desktop.UI
             btnMore.Click += (s, e) => CompareQuotation();
             _toolTip.SetToolTip(btnFileActions, "Import, upload, or open quotation PDFs.");
             _toolTip.SetToolTip(btnMore, "Open supplier comparison and quotation actions.");
-            actions.Controls.AddRange(new Control[] { _btnBackToQuoteDashboard, _btnNewQuote, btnPreview, btnFileActions, btnMore });
-            header.Controls.Add(actions);
-            return header;
+            _lblStatus = new Label
+            {
+                Text = string.Empty,
+                Width = 260,
+                Height = 22,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = QuoteMuted,
+                TextAlign = ContentAlignment.MiddleRight,
+                AutoEllipsis = true
+            };
+            return SharedPageHeader.Build(
+                SharedPageHeader.CreateSalesEditor(
+                    "QuotationsHeader",
+                    "Quotations",
+                    "Create, price, approve, and convert customer quotations.",
+                    new List<Control> { _btnBackToQuoteDashboard, btnPreview, btnFileActions, btnMore, _btnNewQuote },
+                    "Dashboard / Sales / Quotations",
+                    CargoPurple,
+                    _lblStatus,
+                    SharedPageHeader.CreateSearchCommand("QuotationsHeaderSearch", 320, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this))))
+                .Header;
         }
 
         /// <summary>Shows compact file actions for quotation documents.</summary>
@@ -798,8 +815,8 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.None,
                 AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
-                ScrollBars = ScrollBars.Both,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                ScrollBars = ScrollBars.Vertical,
                 ColumnHeadersHeight = 58,
                 RowTemplate = { Height = 62 }
             };
@@ -930,6 +947,7 @@ namespace HVAC_Pro_Desktop.UI
                 host.Size = new Size(Math.Max(300, card.ClientSize.Width - 28), Math.Max(220, card.ClientSize.Height - top - 64));
                 _grid.Dock = DockStyle.Fill;
                 _grid.Location = Point.Empty;
+                ApplyQuotationGridColumnSizing();
                 LayoutLineItemsEmptyState(host);
             }
             else
@@ -939,6 +957,7 @@ namespace HVAC_Pro_Desktop.UI
                 _grid.Width = Math.Max(300, card.ClientSize.Width - 28);
                 _grid.Height = Math.Max(220, card.ClientSize.Height - 182);
                 _grid.Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top | AnchorStyles.Bottom;
+                ApplyQuotationGridColumnSizing();
                 LayoutLineItemsEmptyState(card);
             }
         }
@@ -1364,8 +1383,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboValidity.SelectedIndex = 1;
             _cboValidity.SelectedIndexChanged += (s, e) => UpdateDueDate();
             _cboStatus = MakeCombo(true);
-            _cboStatus.Items.AddRange(new object[] { "Draft", "Analysed", "Sent", "Won", "Lost" });
-            _cboStatus.SelectedIndex = 0;
+            _lookupSvc.BindCombo(_cboStatus, "Sales.QuotationStatus", new[] { "Draft", "Analysed", "Sent", "Won", "Lost" }, "Draft");
             _dtpDate = MakeDatePicker();
             _dtpDate.ValueChanged += (s, e) => UpdateDueDate();
             _dtpDue = MakeDatePicker();
@@ -1795,8 +1813,16 @@ namespace HVAC_Pro_Desktop.UI
             if (_quoteListModule == null)
                 return;
 
-            _quoteListModule.SetItems((quotes ?? Enumerable.Empty<TenderBid>()).ToList());
-            SyncQuoteSelection();
+            _bindingQuoteList = true;
+            try
+            {
+                _quoteListModule.SetItems((quotes ?? Enumerable.Empty<TenderBid>()).ToList());
+                SyncQuoteSelection();
+            }
+            finally
+            {
+                _bindingQuoteList = false;
+            }
         }
 
         private void BindRenewalAlerts()
@@ -1906,7 +1932,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void HandleQuoteRowSelected(TenderBid quote)
         {
-            if (_syncingQuoteSelection || quote == null)
+            if (_syncingQuoteSelection || _bindingQuoteList || quote == null)
                 return;
 
             _ = SelectQuoteAsync(quote, null);
@@ -1943,20 +1969,35 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            _txtQuoteNo.Text = bid.QuotationNumber ?? string.Empty;
-            _txtTitle.Text = bid.TenderName ?? string.Empty;
-            SelectCombo(_cboClient, bid.ClientID);
-            LoadSites();
-            SelectCombo(_cboSite, bid.SiteID);
-            SelectComboByText(_cboStatus, NormalizeWorkflowStatus(bid.Status));
-            SelectComboByText(_cboCommercialFlow, string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow);
-            SelectComboByText(_cboCustomerDocStatus, string.IsNullOrWhiteSpace(bid.CustomerDocumentStatus) ? "Quote Draft" : bid.CustomerDocumentStatus);
-            SelectComboByText(_cboSupplierDocStatus, string.IsNullOrWhiteSpace(bid.SupplierDocumentStatus) ? "Not Required" : bid.SupplierDocumentStatus);
-            SelectComboByText(_cboValidity, Math.Max(1, (bid.DueDate.Date - (bid.SubmittedDate ?? DateTime.Today).Date).Days) + " Days");
-            _dtpDate.Value = bid.SubmittedDate ?? DateTime.Today;
-            _dtpDue.Value = bid.DueDate == default(DateTime) ? DateTime.Today.AddDays(30) : bid.DueDate;
-            _dtpRequiredBy.Value = bid.RequiredByDate ?? DateTime.Today.AddDays(7);
-            _txtNotes.Text = bid.Notes ?? string.Empty;
+            if (_txtQuoteNo != null)
+                _txtQuoteNo.Text = bid.QuotationNumber ?? string.Empty;
+            if (_txtTitle != null)
+                _txtTitle.Text = bid.TenderName ?? string.Empty;
+            if (_cboClient != null)
+                SelectCombo(_cboClient, bid.ClientID);
+            if (_cboSite != null)
+            {
+                LoadSites();
+                SelectCombo(_cboSite, bid.SiteID);
+            }
+            if (_cboStatus != null)
+                SelectComboByText(_cboStatus, NormalizeWorkflowStatus(bid.Status));
+            if (_cboCommercialFlow != null)
+                SelectComboByText(_cboCommercialFlow, string.IsNullOrWhiteSpace(bid.CommercialFlow) ? "Revenue" : bid.CommercialFlow);
+            if (_cboCustomerDocStatus != null)
+                SelectComboByText(_cboCustomerDocStatus, string.IsNullOrWhiteSpace(bid.CustomerDocumentStatus) ? "Quote Draft" : bid.CustomerDocumentStatus);
+            if (_cboSupplierDocStatus != null)
+                SelectComboByText(_cboSupplierDocStatus, string.IsNullOrWhiteSpace(bid.SupplierDocumentStatus) ? "Not Required" : bid.SupplierDocumentStatus);
+            if (_cboValidity != null)
+                SelectComboByText(_cboValidity, Math.Max(1, (bid.DueDate.Date - (bid.SubmittedDate ?? DateTime.Today).Date).Days) + " Days");
+            if (_dtpDate != null)
+                _dtpDate.Value = bid.SubmittedDate ?? DateTime.Today;
+            if (_dtpDue != null)
+                _dtpDue.Value = bid.DueDate == default(DateTime) ? DateTime.Today.AddDays(30) : bid.DueDate;
+            if (_dtpRequiredBy != null)
+                _dtpRequiredBy.Value = bid.RequiredByDate ?? DateTime.Today.AddDays(7);
+            if (_txtNotes != null)
+                _txtNotes.Text = bid.Notes ?? string.Empty;
             _lineItems.Clear();
             _lineItems.AddRange(bid.LineItems ?? new List<TenderBidLineItem>());
             if (_lineItems.Count == 0)
@@ -1973,20 +2014,32 @@ namespace HVAC_Pro_Desktop.UI
                 HighlightCard(_selectedCard, false);
             _selectedCard = null;
             SyncQuoteSelection();
-            _txtQuoteNo.Text = string.Empty;
-            _txtTitle.Text = string.Empty;
-            if (_cboClient.Items.Count > 0) _cboClient.SelectedIndex = 0;
-            LoadSites();
-            if (_cboSite.Items.Count > 0) _cboSite.SelectedIndex = 0;
-            _cboValidity.SelectedIndex = 1;
-            _cboStatus.SelectedIndex = 0;
-            if (_cboCommercialFlow != null) _cboCommercialFlow.SelectedIndex = 0;
-            if (_cboCustomerDocStatus != null) _cboCustomerDocStatus.SelectedIndex = 0;
-            if (_cboSupplierDocStatus != null) _cboSupplierDocStatus.SelectedIndex = 0;
-            _txtQuoteNo.Text = GenerateNextQuoteNumber();
-            _dtpDate.Value = DateTime.Today;
+            if (_txtQuoteNo != null)
+                _txtQuoteNo.Text = string.Empty;
+            if (_txtTitle != null)
+                _txtTitle.Text = string.Empty;
+            if (_cboClient != null && _cboClient.Items.Count > 0)
+                _cboClient.SelectedIndex = 0;
+            if (_cboSite != null)
+            {
+                LoadSites();
+                if (_cboSite.Items.Count > 0)
+                    _cboSite.SelectedIndex = 0;
+            }
+            if (_cboValidity != null)
+                _cboValidity.SelectedIndex = Math.Min(1, _cboValidity.Items.Count - 1);
+            if (_cboStatus != null && _cboStatus.Items.Count > 0)
+                _cboStatus.SelectedIndex = 0;
+            if (_cboCommercialFlow != null && _cboCommercialFlow.Items.Count > 0) _cboCommercialFlow.SelectedIndex = 0;
+            if (_cboCustomerDocStatus != null && _cboCustomerDocStatus.Items.Count > 0) _cboCustomerDocStatus.SelectedIndex = 0;
+            if (_cboSupplierDocStatus != null && _cboSupplierDocStatus.Items.Count > 0) _cboSupplierDocStatus.SelectedIndex = 0;
+            if (_txtQuoteNo != null)
+                _txtQuoteNo.Text = GenerateNextQuoteNumber();
+            if (_dtpDate != null)
+                _dtpDate.Value = DateTime.Today;
             UpdateDueDate();
-            _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
+            if (_dtpRequiredBy != null)
+                _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
             if (_txtNotes != null)
                 _txtNotes.Text = string.Empty;
             _lineItems.Clear();
@@ -2009,6 +2062,38 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             NewRecord(true);
+        }
+
+        public async void OpenQuotationFromNavigation(int bidId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action<int>)OpenQuotationFromNavigation, bidId);
+                return;
+            }
+
+            if (bidId <= 0)
+                return;
+
+            try
+            {
+                _pendingNavigationBidId = bidId;
+                QueueInitialize();
+                _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
+                if (_current == null)
+                    return;
+
+                PopulateCurrent(_current);
+                SyncQuoteSelection();
+                ShowQuotationEditor();
+                if (_initialized)
+                    _pendingNavigationBidId = null;
+                SetStatus("Quotation loaded.", DS.Slate500);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Quotations"), "Opening quotation", ex);
+            }
         }
 
         private static List<TenderBidLineItem> BuildFallbackQuotationRows()
@@ -3246,9 +3331,8 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
-        private static TenderBidLineItem CloneLine(TenderBidLineItem source, int sortOrder)
+        private TenderBidLineItem CloneLine(TenderBidLineItem source, int sortOrder)
         {
-            var unitService = new UnitMeasurementService();
             return new TenderBidLineItem
             {
                 LineItemId = source.LineItemId,
@@ -3258,7 +3342,7 @@ namespace HVAC_Pro_Desktop.UI
                 InventoryItemId = source.InventoryItemId,
                 ItemDescription = source.ItemDescription,
                 Quantity = source.Quantity,
-                Unit = unitService.NormalizeForStorage(source.Unit),
+                Unit = _unitSvc.NormalizeForStorage(source.Unit),
                 HsnSacCode = source.HsnSacCode,
                 GSTRatePct = source.GSTRatePct,
                 BestSupplierId = source.BestSupplierId,
@@ -3934,8 +4018,6 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_grid != null)
             {
-                _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
-                _grid.ScrollBars = ScrollBars.Both;
                 ApplyQuotationGridColumnSizing();
             }
 
@@ -3990,25 +4072,55 @@ namespace HVAC_Pro_Desktop.UI
             if (_grid == null || _grid.Columns.Count == 0)
                 return;
 
-            GridTheme.ApplyColumnPolicy(_grid, new[]
+            int availableWidth = Math.Max(0, _grid.ClientSize.Width);
+            bool showCategory = availableWidth >= 1080;
+            bool showUnit = availableWidth >= 820;
+            bool showSupplier = availableWidth >= 1180;
+            bool showRateDrift = availableWidth >= 1320;
+            bool showGst = availableWidth >= 980;
+            bool showStock = availableWidth >= 900;
+
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            _grid.ScrollBars = ScrollBars.Vertical;
+
+            foreach (DataGridViewColumn column in _grid.Columns)
             {
-                new GridColumnPolicy("Sr", 44, GridColumnPriority.Required),
-                new GridColumnPolicy("ItemDescription", 220, GridColumnPriority.Required),
-                new GridColumnPolicy("Category", 90, GridColumnPriority.Secondary),
-                new GridColumnPolicy("Qty", 56, GridColumnPriority.Required),
-                new GridColumnPolicy("Unit", 64, GridColumnPriority.Secondary),
-                new GridColumnPolicy("Supplier", 120, GridColumnPriority.Secondary),
-                new GridColumnPolicy("CostPerUnit", 90, GridColumnPriority.Required),
-                new GridColumnPolicy("SellPrice", 100, GridColumnPriority.Required),
-                new GridColumnPolicy("MarginPct", 86, GridColumnPriority.Required),
-                new GridColumnPolicy("Gst", 70, GridColumnPriority.Secondary),
-                new GridColumnPolicy("Stock", 72, GridColumnPriority.Required),
-                new GridColumnPolicy("Shortfall", 92, GridColumnPriority.Required),
-                new GridColumnPolicy("LineTotal", 105, GridColumnPriority.Required),
-                new GridColumnPolicy("Actions", 80, GridColumnPriority.Optional),
-                new GridColumnPolicy("HsnSac", 86, GridColumnPriority.Secondary),
-                new GridColumnPolicy("Delete", 58, GridColumnPriority.Optional)
-            });
+                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+                column.Visible = true;
+            }
+
+            SetResponsiveColumnState("Category", showCategory, 80, 8f);
+            SetResponsiveColumnState("Unit", showUnit, 70, 7f);
+            SetResponsiveColumnState("Supplier", showSupplier, 100, 10f);
+            SetResponsiveColumnState("RateDrift", showRateDrift, 110, 10f);
+            SetResponsiveColumnState("Gst", showGst, 58, 6f);
+            SetResponsiveColumnState("Stock", showStock, 64, 7f);
+            SetResponsiveColumnState("Sr", true, 40, 4f);
+            SetResponsiveColumnState("ItemDescription", true, 190, 25f);
+            SetResponsiveColumnState("Qty", true, 52, 5f);
+            SetResponsiveColumnState("CostPerUnit", true, 82, 8f);
+            SetResponsiveColumnState("SellPrice", true, 88, 9f);
+            SetResponsiveColumnState("MarginPct", true, 72, 7f);
+            SetResponsiveColumnState("Shortfall", true, 76, 8f);
+            SetResponsiveColumnState("LineTotal", true, 92, 9f);
+            SetResponsiveColumnState("Actions", true, 42, 5f);
+
+            _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        }
+
+        private void SetResponsiveColumnState(string columnName, bool visible, int minimumWidth, float fillWeight)
+        {
+            if (_grid == null || !_grid.Columns.Contains(columnName))
+                return;
+
+            DataGridViewColumn column = _grid.Columns[columnName];
+            column.Visible = visible;
+            if (!visible)
+                return;
+
+            column.MinimumWidth = minimumWidth;
+            column.FillWeight = fillWeight;
+            column.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
         }
 
         private static void ApplyInputFillRecursive(Control root)
@@ -4230,7 +4342,11 @@ namespace HVAC_Pro_Desktop.UI
                 Text = title;
                 Width = 1100;
                 Height = 760;
+                MinimumSize = new Size(920, 620);
                 StartPosition = FormStartPosition.CenterParent;
+                FormBorderStyle = FormBorderStyle.Sizable;
+                MaximizeBox = true;
+                MinimizeBox = true;
                 WebBrowser browser = new WebBrowser { Dock = DockStyle.Fill, DocumentText = html };
                 Controls.Add(browser);
             }

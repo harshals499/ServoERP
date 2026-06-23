@@ -1752,6 +1752,8 @@ namespace HVAC_Pro_Desktop.DAL
                     CONSTRAINT UQ_HsnSacMaster_Code UNIQUE (CodeType, Code)
                 );");
 
+                EnsureMasterLookupSchema(conn);
+
                 // Insert default settings if empty
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM CompanySettings WHERE SettingKey='CompanyName')
                 BEGIN
@@ -1786,6 +1788,9 @@ namespace HVAC_Pro_Desktop.DAL
                 EnsureSetting(conn, "DefaultMarkupPct", "25");
                 EnsureSetting(conn, "AttendanceWorkWeek", "6");
                 EnsureSetting(conn, "PayrollHistoricalImportCompleted", "0");
+                EnsureMasterLookupSeedData(conn);
+
+                EnsureSynchronizationInfrastructure(conn);
 
                 Exec(conn, @"
                     IF EXISTS (SELECT 1 FROM CompanySettings WHERE SettingKey = 'OfficeLatitude')
@@ -2316,8 +2321,9 @@ namespace HVAC_Pro_Desktop.DAL
                     EffectiveDate DATETIME NOT NULL DEFAULT GETDATE()
                 );");
 
-                Exec(conn, @"UPDATE Invoices SET BalanceDue = TotalAmount - PaidAmount
-                             WHERE BalanceDue = 0 AND TotalAmount > 0;");
+                Exec(conn, @"UPDATE Invoices
+                             SET BalanceDue = COALESCE(TotalAmount, 0) - COALESCE(PaidAmount, 0)
+                             WHERE BalanceDue = 0 AND COALESCE(TotalAmount, 0) > 0;");
 
                 Exec(conn, @"UPDATE i SET i.ClientID = c.ClientID
                              FROM Invoices i
@@ -4540,6 +4546,304 @@ THEN 1 ELSE 0 END";
                 WHERE object_id = OBJECT_ID('{table}') AND name = '{column}')
                 ALTER TABLE {table} ALTER COLUMN {column} {definition};";
             Exec(conn, sql);
+        }
+
+        private void EnsureMasterLookupSchema(SqlConnection conn)
+        {
+            Exec(conn, @"
+                IF OBJECT_ID('dbo.MasterLookupCategories', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.MasterLookupCategories (
+                        CategoryId INT IDENTITY(1,1) PRIMARY KEY,
+                        CategoryKey NVARCHAR(100) NOT NULL,
+                        ModuleKey NVARCHAR(50) NOT NULL,
+                        DisplayName NVARCHAR(120) NOT NULL,
+                        Description NVARCHAR(500) NULL,
+                        IsSystem BIT NOT NULL DEFAULT 0,
+                        IsActive BIT NOT NULL DEFAULT 1,
+                        SortOrder INT NOT NULL DEFAULT 0,
+                        CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+                        ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+                        CONSTRAINT UX_MasterLookupCategories_CategoryKey UNIQUE (CategoryKey)
+                    );
+                END;
+
+                IF OBJECT_ID('dbo.MasterLookupValues', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.MasterLookupValues (
+                        ValueId INT IDENTITY(1,1) PRIMARY KEY,
+                        CategoryId INT NOT NULL,
+                        ValueCode NVARCHAR(100) NOT NULL,
+                        DisplayText NVARCHAR(150) NOT NULL,
+                        Description NVARCHAR(500) NULL,
+                        MetadataJson NVARCHAR(MAX) NULL,
+                        IsDefault BIT NOT NULL DEFAULT 0,
+                        IsSystem BIT NOT NULL DEFAULT 0,
+                        IsActive BIT NOT NULL DEFAULT 1,
+                        SortOrder INT NOT NULL DEFAULT 0,
+                        CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+                        ModifiedDate DATETIME NOT NULL DEFAULT GETDATE(),
+                        CONSTRAINT FK_MasterLookupValues_Category FOREIGN KEY (CategoryId) REFERENCES dbo.MasterLookupCategories(CategoryId),
+                        CONSTRAINT UX_MasterLookupValues_CategoryCode UNIQUE (CategoryId, ValueCode)
+                    );
+                END;");
+        }
+
+        private void EnsureMasterLookupSeedData(SqlConnection conn)
+        {
+            EnsureLookupCategory(conn, "HR.BloodGroup", "HR", "Blood groups", "Employee blood group choices", 10);
+            EnsureLookupValues(conn, "HR.BloodGroup", new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" });
+
+            EnsureLookupCategory(conn, "HR.EmployeeStatus", "HR", "Employee status", "Employee lifecycle status choices", 20);
+            EnsureLookupValues(conn, "HR.EmployeeStatus", new[] { "Active", "Inactive", "Leave", "Terminated" });
+
+            EnsureLookupCategory(conn, "HR.EmploymentType", "HR", "Employment types", "Employee contract and engagement types", 30);
+            EnsureLookupValues(conn, "HR.EmploymentType", new[] { "Permanent", "Probation", "Contract", "Temporary", "Apprentice", "Consultant" });
+
+            EnsureLookupCategory(conn, "HR.TaxRegime", "HR", "Tax regimes", "Payroll income tax regime choices", 40);
+            EnsureLookupValues(conn, "HR.TaxRegime", new[] { "New", "Old" });
+
+            EnsureLookupCategory(conn, "Attendance.Status", "Attendance", "Attendance status", "Daily attendance status choices", 100);
+            EnsureLookupValues(conn, "Attendance.Status", new[] { "Present", "Late", "Half Day", "Leave", "Absent", "Holiday", "Week Off" });
+
+            EnsureLookupCategory(conn, "Attendance.LeaveType", "Attendance", "Leave types", "Leave categories for HR and attendance", 110);
+            EnsureLookupValues(conn, "Attendance.LeaveType", new[] { "Casual Leave", "Sick Leave", "Earned Leave", "Unpaid Leave", "Comp Off" });
+
+            EnsureLookupCategory(conn, "Payroll.SalaryComponent", "Payroll", "Salary components", "Common payroll earning and deduction heads", 200);
+            EnsureLookupValues(conn, "Payroll.SalaryComponent", new[] { "Basic", "HRA", "Conveyance", "Special Allowance", "Overtime", "PF", "ESI", "Professional Tax", "TDS", "Advance" });
+
+            EnsureLookupCategory(conn, "Payroll.PaymentMode", "Payroll", "Payroll payment modes", "Payroll and salary disbursement modes", 210);
+            EnsureLookupValues(conn, "Payroll.PaymentMode", new[] { "Bank Transfer", "NEFT/RTGS", "UPI", "Cash", "Cheque" });
+
+            EnsureLookupCategory(conn, "Jobs.JobType", "Jobs", "Job types", "Service job categories", 300);
+            EnsureLookupValues(conn, "Jobs.JobType", new[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" });
+
+            EnsureLookupCategory(conn, "Jobs.Priority", "Jobs", "Job priorities", "Work order and field priority choices", 310);
+            EnsureLookupValues(conn, "Jobs.Priority", new[] { "Low", "Medium", "High", "Critical" });
+
+            EnsureLookupCategory(conn, "Jobs.Status", "Jobs", "Job status", "Work order lifecycle status choices", 320);
+            EnsureLookupValues(conn, "Jobs.Status", new[] { "Created", "Assigned", "InProgress", "ChecklistDone", "Closed", "Invoiced" });
+
+            EnsureLookupCategory(conn, "ServiceDesk.Category", "ServiceDesk", "Ticket categories", "Service desk incident categories", 400);
+            EnsureLookupValues(conn, "ServiceDesk.Category", new[] { "AC Breakdown", "Chiller", "Electrical", "Plumbing", "AMC", "Installation", "Gas Charging", "Customer Complaint", "Emergency", "General" });
+
+            EnsureLookupCategory(conn, "ServiceDesk.EquipmentType", "ServiceDesk", "Equipment types", "Service desk equipment choices", 410);
+            EnsureLookupValues(conn, "ServiceDesk.EquipmentType", new[] { "Split AC", "Cassette AC", "Ductable AC", "VRF/VRV", "Chiller", "Cooling Tower", "Pump", "Panel", "Other" });
+
+            EnsureLookupCategory(conn, "ServiceDesk.Status", "ServiceDesk", "Ticket status", "Service desk status choices", 420);
+            EnsureLookupValues(conn, "ServiceDesk.Status", new[] { "New", "Assigned", "In Progress", "On Hold", "Resolved", "Closed" });
+
+            EnsureLookupCategory(conn, "AMC.Type", "AMC", "AMC types", "AMC contract type choices", 500);
+            EnsureLookupValues(conn, "AMC.Type", new[] { "Comprehensive", "Non-Comprehensive", "Labour Only", "Preventive" });
+
+            EnsureLookupCategory(conn, "AMC.CoverageType", "AMC", "AMC coverage types", "AMC coverage choices", 510);
+            EnsureLookupValues(conn, "AMC.CoverageType", new[] { "Comprehensive", "Non-Comprehensive" });
+
+            EnsureLookupCategory(conn, "AMC.BillingCycle", "AMC", "AMC billing cycles", "AMC billing frequency choices", 520);
+            EnsureLookupValues(conn, "AMC.BillingCycle", new[] { "Monthly", "Quarterly", "Half-Yearly", "Annual" });
+
+            EnsureLookupCategory(conn, "AMC.Status", "AMC", "AMC status", "AMC contract status choices", 530);
+            EnsureLookupValues(conn, "AMC.Status", new[] { "Draft", "Active", "Cancelled" });
+
+            EnsureLookupCategory(conn, "Inventory.Category", "Inventory", "Stock categories", "Inventory category choices", 600);
+            EnsureLookupValues(conn, "Inventory.Category", new[] { "Filters", "Refrigerant", "Compressors", "Valves", "Belts", "Electrical", "Copper", "Tools", "HVAC Spares", "General" });
+
+            EnsureLookupCategory(conn, "Inventory.Godown", "Inventory", "Godown / locations", "Inventory stock location choices", 610);
+            EnsureLookupValues(conn, "Inventory.Godown", new[] { "Main Store", "Service Van", "Site Store", "Supplier Return", "Damaged Hold" });
+
+            EnsureLookupCategory(conn, "Purchase.Status", "Purchase", "Purchase status", "Purchase order status choices", 700);
+            EnsureLookupValues(conn, "Purchase.Status", new[] { "Pending", "Approved", "Partial", "Received", "Fully Received", "Paid", "Closed", "Cancelled" });
+
+            EnsureLookupCategory(conn, "Purchase.LinkedType", "Purchase", "Purchase linked types", "Purchase linkage choices", 710);
+            EnsureLookupValues(conn, "Purchase.LinkedType", new[] { "General", "Contract", "WorkOrder" });
+
+            EnsureLookupCategory(conn, "Sales.InvoiceStatus", "Sales", "Invoice status", "Invoice payment and workflow status choices", 800);
+            EnsureLookupValues(conn, "Sales.InvoiceStatus", new[] { "Pending", "Approved", "Partial", "Paid", "Overdue" });
+
+            EnsureLookupCategory(conn, "Sales.GstMode", "Sales", "GST modes", "GST calculation mode choices", 810);
+            EnsureLookupValues(conn, "Sales.GstMode", new[] { "IGST", "CGST+SGST" });
+
+            EnsureLookupCategory(conn, "Sales.CoverageType", "Sales", "Invoice coverage types", "Invoice coverage and billing categories", 820);
+            EnsureLookupValues(conn, "Sales.CoverageType", new[] { "Billable Service", "Comprehensive AMC", "Non-Comprehensive AMC", "Warranty" });
+
+            EnsureLookupCategory(conn, "Sales.WarrantyStatus", "Sales", "Warranty status", "Invoice warranty status choices", 830);
+            EnsureLookupValues(conn, "Sales.WarrantyStatus", new[] { "Out of Warranty", "Under Warranty", "Under Contract" });
+
+            EnsureLookupCategory(conn, "Sales.QuotationStatus", "Sales", "Quotation status", "Quotation lifecycle status choices", 840);
+            EnsureLookupValues(conn, "Sales.QuotationStatus", new[] { "Draft", "Analysed", "Sent", "Won", "Lost" });
+        }
+
+        private void EnsureLookupCategory(SqlConnection conn, string key, string module, string name, string description, int sortOrder)
+        {
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF NOT EXISTS (SELECT 1 FROM dbo.MasterLookupCategories WHERE CategoryKey = @key)
+                BEGIN
+                    INSERT INTO dbo.MasterLookupCategories
+                        (CategoryKey, ModuleKey, DisplayName, Description, IsSystem, IsActive, SortOrder)
+                    VALUES
+                        (@key, @module, @name, @description, 1, 1, @sortOrder);
+                END;", conn))
+            {
+                cmd.Parameters.AddWithValue("@key", key);
+                cmd.Parameters.AddWithValue("@module", module);
+                cmd.Parameters.AddWithValue("@name", name);
+                cmd.Parameters.AddWithValue("@description", description);
+                cmd.Parameters.AddWithValue("@sortOrder", sortOrder);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void EnsureLookupValues(SqlConnection conn, string categoryKey, IEnumerable<string> values)
+        {
+            int sort = 10;
+            foreach (string value in values ?? new string[0])
+            {
+                using (SqlCommand cmd = new SqlCommand(@"
+                    DECLARE @categoryId INT = (SELECT TOP 1 CategoryId FROM dbo.MasterLookupCategories WHERE CategoryKey = @categoryKey);
+                    IF @categoryId IS NOT NULL
+                       AND NOT EXISTS (SELECT 1 FROM dbo.MasterLookupValues WHERE CategoryId = @categoryId AND ValueCode = @valueCode)
+                    BEGIN
+                        INSERT INTO dbo.MasterLookupValues
+                            (CategoryId, ValueCode, DisplayText, IsDefault, IsSystem, IsActive, SortOrder)
+                        VALUES
+                            (@categoryId, @valueCode, @displayText, @isDefault, 1, 1, @sortOrder);
+                    END;", conn))
+                {
+                    cmd.Parameters.AddWithValue("@categoryKey", categoryKey);
+                    cmd.Parameters.AddWithValue("@valueCode", value);
+                    cmd.Parameters.AddWithValue("@displayText", value);
+                    cmd.Parameters.AddWithValue("@isDefault", sort == 10 ? 1 : 0);
+                    cmd.Parameters.AddWithValue("@sortOrder", sort);
+                    cmd.ExecuteNonQuery();
+                }
+                sort += 10;
+            }
+        }
+
+        private void EnsureSynchronizationInfrastructure(SqlConnection conn)
+        {
+            Guid nodeId = NodeIdentityService.GetOrCreateNodePublicId();
+            string nodeLiteral = nodeId.ToString("D");
+
+            Exec(conn, @"
+                IF OBJECT_ID('dbo.SyncNodes', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.SyncNodes (
+                        SyncNodeId INT IDENTITY(1,1) PRIMARY KEY,
+                        NodePublicId UNIQUEIDENTIFIER NOT NULL UNIQUE,
+                        NodeName NVARCHAR(100) NOT NULL,
+                        MachineName NVARCHAR(100) NOT NULL,
+                        ServerRole NVARCHAR(50) NOT NULL,
+                        IsActive BIT NOT NULL DEFAULT 1,
+                        LastSeenUtc DATETIME NULL,
+                        CreatedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                    );
+                END;
+
+                IF OBJECT_ID('dbo.SyncOutbox', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.SyncOutbox (
+                        SyncOutboxId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        EntityType NVARCHAR(50) NOT NULL,
+                        EntitySyncPublicId UNIQUEIDENTIFIER NOT NULL,
+                        Operation NVARCHAR(30) NOT NULL,
+                        PayloadJson NVARCHAR(MAX) NOT NULL,
+                        SourceNodeId UNIQUEIDENTIFIER NOT NULL,
+                        OccurredUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                        DispatchedUtc DATETIME NULL,
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Pending',
+                        ErrorMessage NVARCHAR(1000) NULL,
+                        IdempotencyKey NVARCHAR(100) NOT NULL
+                    );
+                END;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM sys.indexes
+                    WHERE name = 'UX_SyncOutbox_IdempotencyKey'
+                      AND object_id = OBJECT_ID('dbo.SyncOutbox'))
+                CREATE UNIQUE INDEX UX_SyncOutbox_IdempotencyKey ON dbo.SyncOutbox(IdempotencyKey);
+
+                IF OBJECT_ID('dbo.SyncConflicts', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.SyncConflicts (
+                        SyncConflictId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        EntityType NVARCHAR(50) NOT NULL,
+                        EntitySyncPublicId UNIQUEIDENTIFIER NOT NULL,
+                        ConflictType NVARCHAR(50) NOT NULL,
+                        IncomingPayloadJson NVARCHAR(MAX) NOT NULL,
+                        CurrentPayloadJson NVARCHAR(MAX) NOT NULL,
+                        DetectedUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Open',
+                        ResolutionNotes NVARCHAR(1000) NULL
+                    );
+                END;");
+
+            EnsureSyncColumns(conn, "B2BClients");
+            EnsureSyncColumns(conn, "ClientSites");
+            EnsureSyncColumns(conn, "Jobs");
+
+            BackfillSyncColumns(conn, "B2BClients");
+            BackfillSyncColumns(conn, "ClientSites");
+            BackfillSyncColumns(conn, "Jobs");
+
+            using (SqlCommand cmd = new SqlCommand(@"
+IF EXISTS (SELECT 1 FROM dbo.SyncNodes WHERE NodePublicId = @nodePublicId)
+BEGIN
+    UPDATE dbo.SyncNodes
+    SET NodeName = @nodeName,
+        MachineName = @machineName,
+        ServerRole = @serverRole,
+        IsActive = 1,
+        LastSeenUtc = GETUTCDATE()
+    WHERE NodePublicId = @nodePublicId;
+END
+ELSE
+BEGIN
+    INSERT INTO dbo.SyncNodes
+        (NodePublicId, NodeName, MachineName, ServerRole, IsActive, LastSeenUtc, CreatedUtc)
+    VALUES
+        (@nodePublicId, @nodeName, @machineName, @serverRole, 1, GETUTCDATE(), GETUTCDATE());
+END", conn))
+            {
+                cmd.Parameters.AddWithValue("@nodePublicId", nodeId);
+                cmd.Parameters.AddWithValue("@nodeName", NodeIdentityService.GetNodeName());
+                cmd.Parameters.AddWithValue("@machineName", Environment.MachineName);
+                cmd.Parameters.AddWithValue("@serverRole", ConfigService.Get("Database", "ServerRole", "AlwaysOnOfficeServer"));
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void EnsureSyncColumns(SqlConnection conn, string table)
+        {
+            AddColumn(conn, table, "SyncPublicId", "UNIQUEIDENTIFIER NULL");
+            AddColumn(conn, table, "OriginNodeId", "UNIQUEIDENTIFIER NULL");
+            AddColumn(conn, table, "LastModifiedNodeId", "UNIQUEIDENTIFIER NULL");
+            AddColumn(conn, table, "CreatedUtc", "DATETIME NULL");
+            AddColumn(conn, table, "UpdatedUtc", "DATETIME NULL");
+            AddColumn(conn, table, "DeletedUtc", "DATETIME NULL");
+            AddColumn(conn, table, "SyncVersion", "BIGINT NOT NULL DEFAULT 0");
+        }
+
+        private void BackfillSyncColumns(SqlConnection conn, string table)
+        {
+            Guid nodeId = NodeIdentityService.GetOrCreateNodePublicId();
+            using (SqlCommand cmd = new SqlCommand(@"
+UPDATE " + table + @"
+SET SyncPublicId = COALESCE(SyncPublicId, NEWID()),
+    OriginNodeId = COALESCE(OriginNodeId, @nodeId),
+    LastModifiedNodeId = COALESCE(LastModifiedNodeId, @nodeId),
+    CreatedUtc = COALESCE(CreatedUtc, GETUTCDATE()),
+    UpdatedUtc = COALESCE(UpdatedUtc, GETUTCDATE()),
+    SyncVersion = COALESCE(SyncVersion, 0)
+WHERE SyncPublicId IS NULL
+   OR OriginNodeId IS NULL
+   OR LastModifiedNodeId IS NULL
+   OR CreatedUtc IS NULL
+   OR UpdatedUtc IS NULL;", conn))
+            {
+                cmd.Parameters.AddWithValue("@nodeId", nodeId);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         /// <summary>Allows client-level records to be saved before a service site is known.</summary>
