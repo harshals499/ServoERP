@@ -21,7 +21,7 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _txtAMCNumber;
         private ComboBox _cmbClient;
         private ComboBox _cmbSite;
-        private TextBox _txtEquipment;
+        private ComboBox _cmbEquipment;
         private ComboBox _cmbAMCType;
         private ComboBox _cmbCoverageType;
         private DateTimePicker _dtpStart;
@@ -158,12 +158,17 @@ namespace HVAC_Pro_Desktop.UI
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             for (int i = 0; i < 13; i++)
-                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, i == 5 || i == 12 ? 68 : 40));
+                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, i == 12 ? 68 : 40));
 
             _txtAMCNumber = new TextBox { MaxLength = 30, ReadOnly = false, Enabled = true };
             _cmbClient = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbSite = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _txtEquipment = new TextBox { Multiline = true, ScrollBars = ScrollBars.Vertical };
+            _cmbEquipment = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
             _cmbAMCType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _cmbCoverageType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
             _dtpStart = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Value = DateTime.Today };
@@ -186,7 +191,7 @@ namespace HVAC_Pro_Desktop.UI
             AddRow(grid, 2, "Site", _cmbSite);
             AddRow(grid, 3, "AMC Type *", _cmbAMCType);
             AddRow(grid, 4, "Coverage Type", _cmbCoverageType);
-            AddRow(grid, 5, "Equipment Covered", _txtEquipment);
+            AddRow(grid, 5, "Equipment Covered", _cmbEquipment);
             AddRow(grid, 6, "Start Date", _dtpStart);
             AddRow(grid, 7, "End Date *", _dtpEnd);
             AddRow(grid, 8, "Contract Value (INR)", _numValue);
@@ -207,7 +212,7 @@ namespace HVAC_Pro_Desktop.UI
                 await BeginLoadSitesAsync();
                 UpdateSummary();
             };
-            foreach (Control control in new Control[] { _txtAMCNumber, _cmbClient, _cmbSite, _txtEquipment, _cmbAMCType, _cmbCoverageType, _dtpStart, _dtpEnd, _numValue, _cmbBillingCycle, _numVisits, _cmbStatus, _txtNotes })
+            foreach (Control control in new Control[] { _txtAMCNumber, _cmbClient, _cmbSite, _cmbEquipment, _cmbAMCType, _cmbCoverageType, _dtpStart, _dtpEnd, _numValue, _cmbBillingCycle, _numVisits, _cmbStatus, _txtNotes })
             {
                 control.TextChanged += (s, e) => UpdateSummary();
                 if (control is ComboBox combo) combo.SelectedIndexChanged += (s, e) => UpdateSummary();
@@ -376,11 +381,12 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetReferenceLoadingState(bool isLoading)
         {
-            if (_cmbClient == null || _cmbSite == null)
+            if (_cmbClient == null || _cmbSite == null || _cmbEquipment == null)
                 return;
 
             _cmbClient.Enabled = !isLoading;
             _cmbSite.Enabled = !isLoading;
+            _cmbEquipment.Enabled = !isLoading;
             _btnSave.Enabled = !isLoading;
             if (isLoading)
             {
@@ -392,12 +398,15 @@ namespace HVAC_Pro_Desktop.UI
                 _cmbSite.Items.Clear();
                 _cmbSite.Items.Add("Loading sites...");
                 _cmbSite.SelectedIndex = 0;
+                _cmbEquipment.Items.Clear();
+                _cmbEquipment.Items.Add("Loading material list...");
+                _cmbEquipment.SelectedIndex = 0;
             }
         }
 
         private void SetReferenceLoadFailedState(string message)
         {
-            if (_cmbClient == null || _cmbSite == null || _btnSave == null)
+            if (_cmbClient == null || _cmbSite == null || _cmbEquipment == null || _btnSave == null)
                 return;
 
             _cmbClient.DataSource = null;
@@ -410,6 +419,10 @@ namespace HVAC_Pro_Desktop.UI
             _cmbSite.Items.Add("Sites unavailable");
             _cmbSite.SelectedIndex = 0;
             _cmbSite.Enabled = false;
+            _cmbEquipment.Items.Clear();
+            _cmbEquipment.Items.Add("Material list unavailable");
+            _cmbEquipment.SelectedIndex = 0;
+            _cmbEquipment.Enabled = false;
             _btnSave.Enabled = false;
         }
 
@@ -437,7 +450,40 @@ namespace HVAC_Pro_Desktop.UI
                 }
             }
 
+            payload.EquipmentOptions.AddRange(LoadEquipmentOptions());
             return payload;
+        }
+
+        /// <summary>Returns active inventory item names for the AMC equipment selector.</summary>
+        private List<string> LoadEquipmentOptions()
+        {
+            var options = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                var items = new InventoryService().GetAll();
+                if (items == null)
+                    return options;
+
+                foreach (var item in items)
+                {
+                    string name = item == null ? string.Empty : item.ItemName;
+                    if (string.IsNullOrWhiteSpace(name))
+                        continue;
+
+                    name = name.Trim();
+                    if (seen.Add(name))
+                        options.Add(name);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogInfo("AddAMCForm inventory equipment load failed: " + ex.GetType().Name + ": " + ex.Message);
+            }
+
+            options.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return options;
         }
 
         /// <summary>Returns active clients from a short-lived cache so opening Add AMC stays instant.</summary>
@@ -548,6 +594,7 @@ WHERE ContractID = @ContractID;", connection))
                 _cmbClient.DataSource = payload.Clients;
                 _cmbClient.DisplayMember = "Text";
                 _cmbClient.ValueMember = "Id";
+                BindEquipmentOptions(payload.EquipmentOptions);
 
                 if (_loadedInput != null)
                 {
@@ -561,7 +608,7 @@ WHERE ContractID = @ContractID;", connection))
                     SelectText(_cmbBillingCycle, string.IsNullOrWhiteSpace(_loadedInput.BillingCycle) ? "Annual" : _loadedInput.BillingCycle);
                     _numVisits.Value = Math.Max(_numVisits.Minimum, Math.Min(_numVisits.Maximum, _loadedInput.VisitsPerYear));
                     SelectText(_cmbStatus, string.IsNullOrWhiteSpace(_loadedInput.Status) ? "Active" : NormalizeEditableStatus(_loadedInput.Status));
-                    _txtEquipment.Text = _loadedInput.EquipmentDesc ?? string.Empty;
+                    _cmbEquipment.Text = _loadedInput.EquipmentDesc ?? string.Empty;
                     _txtNotes.Text = _loadedInput.Notes ?? string.Empty;
                 }
                 else if (_cmbClient.Items.Count > 0)
@@ -576,6 +623,29 @@ WHERE ContractID = @ContractID;", connection))
 
             _ = BeginLoadSitesAsync();
             UpdateSummary();
+        }
+
+        /// <summary>Binds inventory material names while keeping the equipment field editable.</summary>
+        private void BindEquipmentOptions(List<string> equipmentOptions)
+        {
+            _cmbEquipment.BeginUpdate();
+            try
+            {
+                _cmbEquipment.Items.Clear();
+                _cmbEquipment.Text = string.Empty;
+                if (equipmentOptions == null)
+                    return;
+
+                foreach (string option in equipmentOptions)
+                {
+                    if (!string.IsNullOrWhiteSpace(option))
+                        _cmbEquipment.Items.Add(option);
+                }
+            }
+            finally
+            {
+                _cmbEquipment.EndUpdate();
+            }
         }
 
         /// <summary>Loads sites for the selected client asynchronously.</summary>
@@ -740,7 +810,7 @@ WHERE ContractID = @ContractID;", connection))
                 AMCNumber = _txtAMCNumber.Text.Trim(),
                 ClientId = GetSelectedClientId(),
                 SiteId = GetSelectedSiteId(),
-                EquipmentDesc = _txtEquipment.Text.Trim(),
+                EquipmentDesc = _cmbEquipment.Text.Trim(),
                 AMCType = Convert.ToString(_cmbAMCType.SelectedItem, CultureInfo.InvariantCulture),
                 CoverageType = Convert.ToString(_cmbCoverageType.SelectedItem, CultureInfo.InvariantCulture),
                 StartDate = _dtpStart.Value.Date,
@@ -1120,6 +1190,7 @@ WHERE AMCNumber = @AMCNumber
             public int AmcNumberMaxLength = 30;
             public AMCInput Existing;
             public readonly List<LookupItem> Clients = new List<LookupItem>();
+            public readonly List<string> EquipmentOptions = new List<string>();
         }
 
         private sealed class LookupItem

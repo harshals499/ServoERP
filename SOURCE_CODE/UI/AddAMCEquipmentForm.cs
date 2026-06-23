@@ -1,5 +1,5 @@
 using System;
-using System.ComponentModel;
+using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Threading.Tasks;
@@ -13,7 +13,7 @@ namespace HVAC_Pro_Desktop.UI
     public partial class AddAMCEquipmentForm : ServoERP.Infrastructure.ServoFormBase
     {
         private readonly int _amcId;
-        private TextBox _name;
+        private ComboBox _name;
         private TextBox _model;
         private TextBox _serial;
         private DateTimePicker _installDate;
@@ -44,7 +44,12 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < 6; i++) grid.RowStyles.Add(new RowStyle(SizeType.Absolute, i == 5 ? 70 : 40));
             grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
 
-            _name = new TextBox();
+            _name = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDown,
+                AutoCompleteMode = AutoCompleteMode.SuggestAppend,
+                AutoCompleteSource = AutoCompleteSource.ListItems
+            };
             _model = new TextBox();
             _serial = new TextBox();
             _installDate = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", ShowCheckBox = true, Checked = false };
@@ -69,6 +74,80 @@ namespace HVAC_Pro_Desktop.UI
             grid.SetColumnSpan(buttons, 2);
             Controls.Add(grid);
             UIHelper.ApplyInputStyles(Controls);
+            LoadEquipmentListAsync();
+        }
+
+        /// <summary>Loads active inventory items into the equipment selector without blocking the dialog.</summary>
+        private async void LoadEquipmentListAsync()
+        {
+            if (_name == null || IsDisposed)
+                return;
+
+            _name.Enabled = false;
+            _name.Items.Clear();
+            _name.Items.Add("Loading material list...");
+            _name.SelectedIndex = 0;
+
+            try
+            {
+                List<string> equipmentOptions = await Task.Run(() => LoadEquipmentOptions()) ?? new List<string>();
+                if (IsDisposed)
+                    return;
+
+                _name.BeginUpdate();
+                try
+                {
+                    _name.Items.Clear();
+                    _name.Text = string.Empty;
+                    foreach (string option in equipmentOptions)
+                    {
+                        if (!string.IsNullOrWhiteSpace(option))
+                            _name.Items.Add(option);
+                    }
+                }
+                finally
+                {
+                    _name.EndUpdate();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogInfo("AddAMCEquipmentForm inventory equipment load failed: " + ex.GetType().Name + ": " + ex.Message);
+                if (!IsDisposed)
+                {
+                    _name.Items.Clear();
+                    _name.Text = string.Empty;
+                }
+            }
+            finally
+            {
+                if (!IsDisposed)
+                    _name.Enabled = true;
+            }
+        }
+
+        /// <summary>Returns distinct active inventory item names for AMC equipment selection.</summary>
+        private List<string> LoadEquipmentOptions()
+        {
+            var options = new List<string>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var items = new InventoryService().GetAll();
+            if (items == null)
+                return options;
+
+            foreach (var item in items)
+            {
+                string name = item == null ? string.Empty : item.ItemName;
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                name = name.Trim();
+                if (seen.Add(name))
+                    options.Add(name);
+            }
+
+            options.Sort(StringComparer.CurrentCultureIgnoreCase);
+            return options;
         }
 
         /// <summary>Adds one row to the form grid.</summary>

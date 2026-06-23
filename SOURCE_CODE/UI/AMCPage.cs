@@ -17,7 +17,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly CultureInfo _india = new CultureInfo("en-IN");
         private readonly List<AMCRow> _allRows = new List<AMCRow>();
         private FlowLayoutPanel _kpiFlow;
-        private FlowLayoutPanel _cardFlow;
+        private DataGridView _contractGrid;
         private Label _emptyLabel;
         private Label _totalValue;
         private Label _activeValue;
@@ -26,11 +26,13 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _searchBox;
         private ComboBox _statusFilter;
         private ComboBox _typeFilter;
+        private ComboBox _renewalFilter;
         private Label _listCaption;
         private Button _btnAddAMC;
         private Button _btnImportAMC;
         private bool _loadInProgress;
         private bool _addAmcDialogOpen;
+        private Control _dashboardShell;
 
         private static readonly Color PageBg = Color.FromArgb(246, 248, 252);
         private static readonly Color Ink = Color.FromArgb(15, 23, 42);
@@ -47,7 +49,10 @@ namespace HVAC_Pro_Desktop.UI
             InitializeComponent();
             Dock = DockStyle.Fill;
             BackColor = PageBg;
-            BuildLayout();
+            var ctorWatch = System.Diagnostics.Stopwatch.StartNew();
+            EnsureDashboardShell();
+            AppRuntime.LogTiming("AMC.BuildLayout", ctorWatch.ElapsedMilliseconds);
+            RegisterFirstPaintTiming("AMC.FirstPaint", ctorWatch);
             Load += (s, e) => QueueAMCDataLoad();
         }
 
@@ -67,14 +72,22 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Returns the cached AMC module to its dashboard state when users reopen it from navigation.</summary>
         public void ShowDashboardFromNavigation()
         {
-            BuildLayout();
+            EnsureDashboardShell();
             _ = LoadAMCDataAsync();
         }
 
-        /// <summary>Builds the dashboard shell, KPI strip, and scrollable cards area.</summary>
-        private void BuildLayout()
+        private void EnsureDashboardShell()
         {
+            if (_dashboardShell == null || _dashboardShell.IsDisposed)
+                _dashboardShell = BuildLayout();
+
             Controls.Clear();
+            Controls.Add(_dashboardShell);
+        }
+
+        /// <summary>Builds the dashboard shell, KPI strip, and scrollable cards area.</summary>
+        private Control BuildLayout()
+        {
             var root = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -90,51 +103,32 @@ namespace HVAC_Pro_Desktop.UI
             root.Controls.Add(BuildHeader(), 0, 0);
             root.Controls.Add(BuildKpiStrip(), 0, 1);
             root.Controls.Add(BuildCardCanvas(), 0, 2);
-            Controls.Add(root);
+            return root;
         }
 
         /// <summary>Creates the page header and Add AMC action.</summary>
         private Control BuildHeader()
         {
-            var header = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            header.Controls.Add(new Label
-            {
-                Text = "AMC Contracts",
-                Location = new Point(0, 0),
-                Size = new Size(360, 34),
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
-                ForeColor = Ink
-            });
-            header.Controls.Add(new Label
-            {
-                Text = "Track annual maintenance contracts, renewal windows, visits, and covered equipment.",
-                Location = new Point(1, 38),
-                Size = new Size(640, 22),
-                Font = new Font("Segoe UI", 10f),
-                ForeColor = Muted
-            });
-
             _btnAddAMC = MakeButton("+ Add AMC", Blue, 132);
             _btnAddAMC.Name = "btnAddAMC";
-            _btnAddAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _btnAddAMC.Click += (s, e) => BeginOpenAddAMCForm();
 
             _btnImportAMC = MakeButton("Import Excel", Blue, 120);
             _btnImportAMC.Name = "btnImportAMC";
-            _btnImportAMC.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _btnImportAMC.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.AMC, FindForm());
-            Control[] toolbarItems = { _btnImportAMC, _btnAddAMC };
-            header.Controls.AddRange(toolbarItems);
 
-            Action layoutHeader = () =>
+            return SharedPageHeader.Build(new SharedPageHeaderModel
             {
-                int toolbarWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                int x = Math.Max(360, header.ClientSize.Width - toolbarWidth);
-                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, x, 4);
-            };
-            header.Resize += (s, e) => layoutHeader();
-            layoutHeader();
-            return header;
+                Name = "AMCPageHeader",
+                Mode = SharedPageHeaderMode.Dashboard,
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                Title = "AMC Contracts",
+                Subtitle = "Track annual maintenance contracts, renewal windows, visits, and covered equipment.",
+                TitleWidth = 360,
+                SubtitleWidth = 640,
+                RightActions = new List<Control> { _btnImportAMC, _btnAddAMC }
+            }).Header;
         }
 
         /// <summary>Creates the four KPI cards shown while data loads.</summary>
@@ -149,19 +143,20 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = PageBg,
                 Padding = new Padding(0, 10, 0, 12)
             };
-            _totalValue = AddKpi("Total AMC", "-");
-            _activeValue = AddKpi("Active", "-");
-            _expiringValue = AddKpi("Expiring Soon", "-");
-            _expiredValue = AddKpi("Expired", "-");
+            _totalValue = AddKpi("Total AMC", "-", string.Empty);
+            _activeValue = AddKpi("Active", "-", "Active");
+            _expiringValue = AddKpi("Expiring Soon", "-", "Expiring Soon");
+            _expiredValue = AddKpi("Expired", "-", "Expired");
             return _kpiFlow;
         }
 
         /// <summary>Adds one KPI card and returns its mutable value label.</summary>
-        private Label AddKpi(string title, string value)
+        private Label AddKpi(string title, string value, string statusFilter)
         {
             Panel card = MakeCard(new Padding(18, 14, 18, 14));
             card.Size = new Size(210, 86);
             card.Margin = new Padding(0, 0, 14, 0);
+            card.Cursor = Cursors.Hand;
             card.Controls.Add(new Label
             {
                 Text = title,
@@ -179,6 +174,9 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = Ink
             };
             card.Controls.Add(number);
+            card.Click += (s, e) => ApplyStatusQuickFilter(statusFilter);
+            foreach (Control child in card.Controls)
+                child.Click += (s, e) => ApplyStatusQuickFilter(statusFilter);
             _kpiFlow.Controls.Add(card);
             return number;
         }
@@ -233,14 +231,35 @@ namespace HVAC_Pro_Desktop.UI
             _typeFilter.SelectedIndexChanged += (s, e) => ApplyFilters();
             shell.Controls.Add(_typeFilter);
 
-            _cardFlow = new FlowLayoutPanel
+            _renewalFilter = BuildFilter(new[] { "All Renewals", "Next 7 Days", "Next 30 Days", "Next 60 Days", "Expired" });
+            _renewalFilter.Size = new Size(136, 30);
+            _renewalFilter.SelectedIndexChanged += (s, e) => ApplyFilters();
+            shell.Controls.Add(_renewalFilter);
+
+            _contractGrid = new DataGridView
             {
                 Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom,
                 Location = new Point(18, 64),
-                AutoScroll = true,
-                WrapContents = true,
                 BackColor = Color.White,
-                Padding = new Padding(0, 0, 6, 10)
+                BorderStyle = BorderStyle.None,
+                ReadOnly = true,
+                AllowUserToAddRows = false,
+                AllowUserToDeleteRows = false,
+                AllowUserToResizeRows = false,
+                RowHeadersVisible = false,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                MultiSelect = false,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                BackgroundColor = Color.White
+            };
+            ConfigureContractGrid();
+            _contractGrid.CellContentClick += (s, e) =>
+            {
+                if (e.RowIndex < 0 || _contractGrid.Columns[e.ColumnIndex].Name != "OpenAction")
+                    return;
+
+                if (_contractGrid.Rows[e.RowIndex].Tag is AMCRow row)
+                    OpenDetailPage(row.ContractId);
             };
             _emptyLabel = new Label
             {
@@ -250,41 +269,117 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleCenter,
                 Visible = false
             };
-            shell.Controls.Add(_cardFlow);
+            shell.Controls.Add(_contractGrid);
             shell.Controls.Add(_emptyLabel);
             shell.Resize += (s, e) => LayoutCardCanvas(shell);
             LayoutCardCanvas(shell);
             return shell;
         }
 
+        /// <summary>Configures the operational AMC list grid.</summary>
+        private void ConfigureContractGrid()
+        {
+            _contractGrid.Columns.Clear();
+            _contractGrid.Columns.Add(MakeTextColumn("AMCNumber", "AMC No", 105));
+            _contractGrid.Columns.Add(MakeTextColumn("ClientName", "Client", 170));
+            _contractGrid.Columns.Add(MakeTextColumn("SiteName", "Site", 150));
+            _contractGrid.Columns.Add(MakeTextColumn("Status", "Status", 95));
+            _contractGrid.Columns.Add(MakeTextColumn("EndDate", "Ends", 95));
+            _contractGrid.Columns.Add(MakeTextColumn("DaysLeft", "Days", 85));
+            _contractGrid.Columns.Add(MakeTextColumn("Value", "Value", 110));
+            _contractGrid.Columns.Add(MakeTextColumn("Visits", "Visits", 90));
+            _contractGrid.Columns.Add(MakeTextColumn("NextVisit", "Next Visit", 120));
+            var open = new DataGridViewButtonColumn
+            {
+                Name = "OpenAction",
+                HeaderText = "Action",
+                Text = "Open",
+                UseColumnTextForButtonValue = true,
+                FillWeight = 75,
+                MinimumWidth = 70,
+                FlatStyle = FlatStyle.Flat
+            };
+            _contractGrid.Columns.Add(open);
+            _contractGrid.RowTemplate.Height = 44;
+            _contractGrid.CellFormatting += ContractGrid_CellFormatting;
+            GridTheme.Apply(_contractGrid);
+            _contractGrid.Dock = DockStyle.None;
+            _contractGrid.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
+        }
+
+        private static DataGridViewTextBoxColumn MakeTextColumn(string name, string header, int fillWeight)
+        {
+            return new DataGridViewTextBoxColumn
+            {
+                Name = name,
+                HeaderText = header,
+                FillWeight = fillWeight,
+                MinimumWidth = 60
+            };
+        }
+
+        /// <summary>Applies status and urgency styling to the operational AMC grid.</summary>
+        private void ContractGrid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 || _contractGrid == null || e.RowIndex >= _contractGrid.Rows.Count)
+                return;
+
+            AMCRow row = _contractGrid.Rows[e.RowIndex].Tag as AMCRow;
+            if (row == null)
+                return;
+
+            string columnName = _contractGrid.Columns[e.ColumnIndex].Name;
+            if (columnName == "Status")
+            {
+                e.CellStyle.ForeColor = GetStatusColor(row.DisplayStatus);
+                e.CellStyle.Font = new Font(_contractGrid.Font, FontStyle.Bold);
+            }
+            else if (columnName == "DaysLeft")
+            {
+                e.CellStyle.ForeColor = GetDaysLeftColor(row);
+                e.CellStyle.Font = new Font(_contractGrid.Font, FontStyle.Bold);
+            }
+            else if (columnName == "Visits")
+            {
+                e.CellStyle.ForeColor = GetVisitProgressColor(row);
+                e.CellStyle.Font = new Font(_contractGrid.Font, FontStyle.Bold);
+            }
+            else if (columnName == "Value" || columnName == "AMCNumber" || columnName == "ClientName")
+            {
+                e.CellStyle.Font = new Font(_contractGrid.Font, FontStyle.Bold);
+            }
+        }
+
         /// <summary>Keeps AMC filters and list content usable on compact module widths.</summary>
         private void LayoutCardCanvas(Control shell)
         {
-            if (shell == null || _typeFilter == null || _statusFilter == null || _searchBox == null || _cardFlow == null || _emptyLabel == null)
+            if (shell == null || _typeFilter == null || _statusFilter == null || _renewalFilter == null || _searchBox == null || _contractGrid == null || _emptyLabel == null)
                 return;
 
             int width = Math.Max(360, shell.ClientSize.Width);
             int height = Math.Max(220, shell.ClientSize.Height);
-            bool compact = width < 760;
+            bool compact = width < 900;
             int filterTop = compact ? 48 : 15;
             int listTop = compact ? 94 : 64;
 
-            _listCaption.Width = compact ? width - 36 : Math.Max(220, width - 560);
-            _typeFilter.Location = new Point(Math.Max(18, width - 520), filterTop);
-            _statusFilter.Location = new Point(Math.Max(18, width - 384), filterTop);
+            _listCaption.Width = compact ? width - 36 : Math.Max(220, width - 720);
+            _typeFilter.Location = new Point(Math.Max(18, width - 664), filterTop);
+            _statusFilter.Location = new Point(Math.Max(18, width - 528), filterTop);
+            _renewalFilter.Location = new Point(Math.Max(18, width - 390), filterTop);
             _searchBox.Location = new Point(Math.Max(18, width - 246), filterTop);
 
             if (compact)
             {
                 _typeFilter.Location = new Point(18, filterTop);
                 _statusFilter.Location = new Point(154, filterTop);
-                _searchBox.Location = new Point(290, filterTop);
+                _renewalFilter.Location = new Point(290, filterTop);
+                _searchBox.Location = new Point(434, filterTop);
                 _searchBox.Width = Math.Max(160, width - _searchBox.Left - 18);
             }
 
-            _cardFlow.Location = new Point(18, listTop);
-            _cardFlow.Size = new Size(Math.Max(120, width - 36), Math.Max(120, height - listTop - 18));
-            _emptyLabel.Bounds = new Rectangle(18, listTop, Math.Max(120, width - 36), Math.Max(120, height - listTop - 18));
+            _contractGrid.Location = new Point(18, listTop);
+            _contractGrid.Size = new Size(Math.Max(120, width - 36), Math.Max(120, height - listTop - 18));
+            _emptyLabel.Bounds = _contractGrid.Bounds;
         }
 
         /// <summary>Creates a dropdown filter.</summary>
@@ -312,9 +407,13 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 SetLoading();
+                var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 AMCPayload payload = await Task.Run(() =>
                     AppDataCache.GetOrCreate("amc:dashboard-payload", TimeSpan.FromMinutes(2), LoadPayload));
+                AppRuntime.LogTiming("AMC.FetchData", fetchWatch.ElapsedMilliseconds);
+                var bindWatch = System.Diagnostics.Stopwatch.StartNew();
                 BindPayload(payload ?? new AMCPayload());
+                AppRuntime.LogTiming("AMC.BindData", bindWatch.ElapsedMilliseconds);
             }
             catch (Exception ex)
             {
@@ -447,7 +546,7 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
         /// <summary>Applies the current dashboard filters to the loaded AMC rows.</summary>
         private void ApplyFilters()
         {
-            if (_cardFlow == null)
+            if (_contractGrid == null)
                 return;
 
             string search = _searchBox == null || _searchBox.Text == "Search" ? string.Empty : _searchBox.Text.Trim();
@@ -457,19 +556,46 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             List<AMCRow> rows = _allRows
                 .Where(row => string.IsNullOrWhiteSpace(status) || string.Equals(row.DisplayStatus, status, StringComparison.OrdinalIgnoreCase))
                 .Where(row => string.IsNullOrWhiteSpace(type) || string.Equals(row.AMCType, type, StringComparison.OrdinalIgnoreCase))
+                .Where(row => MatchesRenewalWindow(row))
                 .Where(row => MatchesSearch(row, search))
                 .ToList();
 
-            _cardFlow.Controls.Clear();
-            foreach (AMCRow row in rows)
-                _cardFlow.Controls.Add(BuildAMCCard(row));
+            rows = rows
+                .OrderBy(row => row.EndDate ?? DateTime.MaxValue)
+                .ThenBy(row => row.ClientName)
+                .ToList();
+
+            _contractGrid.Rows.Clear();
+            _contractGrid.SuspendLayout();
+            try
+            {
+                foreach (AMCRow row in rows)
+                {
+                    int index = _contractGrid.Rows.Add(
+                        DisplayAmcNumber(row),
+                        string.IsNullOrWhiteSpace(row.ClientName) ? "-" : row.ClientName,
+                        string.IsNullOrWhiteSpace(row.SiteName) ? "-" : row.SiteName,
+                        row.DisplayStatus,
+                        FormatDate(row.EndDate),
+                        BuildDaysLeft(row),
+                        row.ContractValue.ToString("C0", _india),
+                        BuildVisitProgress(row).Replace(" visits done", ""),
+                        BuildNextServiceDate(row),
+                        "Open");
+                    _contractGrid.Rows[index].Tag = row;
+                }
+            }
+            finally
+            {
+                _contractGrid.ResumeLayout();
+            }
 
             _listCaption.Text = "AMC Contract List (" + rows.Count.ToString(CultureInfo.InvariantCulture) + ")";
             _emptyLabel.Text = _allRows.Count == 0
                 ? "No AMC contracts yet. Click '+ Add AMC' to create one."
                 : "No AMC contracts match the current view.";
             _emptyLabel.Visible = rows.Count == 0;
-            _cardFlow.Visible = rows.Count > 0;
+            _contractGrid.Visible = rows.Count > 0;
         }
 
         /// <summary>Returns whether a row matches the user search text.</summary>
@@ -490,6 +616,41 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             return haystack.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        /// <summary>Returns whether a row matches the selected renewal timing filter.</summary>
+        private bool MatchesRenewalWindow(AMCRow row)
+        {
+            if (_renewalFilter == null || _renewalFilter.SelectedIndex <= 0)
+                return true;
+
+            string filter = Convert.ToString(_renewalFilter.SelectedItem, CultureInfo.InvariantCulture);
+            DateTime today = DateTime.Today;
+            if (string.Equals(filter, "Expired", StringComparison.OrdinalIgnoreCase))
+                return row.EndDate.HasValue && row.EndDate.Value.Date < today;
+
+            int days = 0;
+            if (string.Equals(filter, "Next 7 Days", StringComparison.OrdinalIgnoreCase)) days = 7;
+            if (string.Equals(filter, "Next 30 Days", StringComparison.OrdinalIgnoreCase)) days = 30;
+            if (string.Equals(filter, "Next 60 Days", StringComparison.OrdinalIgnoreCase)) days = 60;
+            return days <= 0 || (row.EndDate.HasValue && row.EndDate.Value.Date >= today && row.EndDate.Value.Date <= today.AddDays(days));
+        }
+
+        /// <summary>Applies a KPI quick filter to the status dropdown.</summary>
+        private void ApplyStatusQuickFilter(string status)
+        {
+            if (_statusFilter == null)
+                return;
+
+            string target = string.IsNullOrWhiteSpace(status) ? "All Status" : status;
+            int index = _statusFilter.Items.IndexOf(target);
+            if (index >= 0)
+                _statusFilter.SelectedIndex = index;
+
+            if (_renewalFilter != null && string.IsNullOrWhiteSpace(status))
+                _renewalFilter.SelectedIndex = 0;
+
+            ApplyFilters();
+        }
+
         /// <summary>Shows loading placeholders on the dashboard.</summary>
         private void SetLoading()
         {
@@ -498,47 +659,159 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             _expiringValue.Text = "-";
             _expiredValue.Text = "-";
             _allRows.Clear();
-            _cardFlow.Controls.Clear();
+            if (_contractGrid != null)
+                _contractGrid.Rows.Clear();
             _emptyLabel.Visible = false;
-            _cardFlow.Visible = true;
+            if (_contractGrid != null)
+                _contractGrid.Visible = true;
         }
 
-        /// <summary>Builds one AMC summary card.</summary>
-        private Control BuildAMCCard(AMCRow row)
+        /// <summary>Builds the list header row.</summary>
+        private Control BuildListHeader()
         {
-            Panel card = MakeCard(new Padding(16));
-            card.Size = new Size(352, 236);
-            card.Margin = new Padding(0, 0, 14, 14);
+            Panel header = CreateListRowPanel(38, true);
+            AddHeaderCell(header, "AMC No", 0);
+            AddHeaderCell(header, "Client", 1);
+            AddHeaderCell(header, "Site", 2);
+            AddHeaderCell(header, "Status", 3);
+            AddHeaderCell(header, "Ends", 4);
+            AddHeaderCell(header, "Days", 5);
+            AddHeaderCell(header, "Value", 6);
+            AddHeaderCell(header, "Visits", 7);
+            AddHeaderCell(header, "Next Visit", 8);
+            AddHeaderCell(header, "Action", 9);
+            LayoutListRow(header);
+            return header;
+        }
 
-            card.Controls.Add(new Label
+        /// <summary>Builds one operational AMC list row.</summary>
+        private Control BuildAMCListRow(AMCRow row)
+        {
+            Panel shell = CreateListRowPanel(72, false);
+            shell.Tag = row;
+
+            AddValueCell(shell, DisplayAmcNumber(row), 0, Ink, FontStyle.Bold);
+            AddValueCell(shell, row.ClientName, 1, Ink, FontStyle.Bold);
+            AddValueCell(shell, string.IsNullOrWhiteSpace(row.SiteName) ? "-" : row.SiteName, 2, Muted, FontStyle.Regular);
+            AddBadgeCell(shell, row.DisplayStatus, GetStatusColor(row.DisplayStatus), 3);
+            AddValueCell(shell, FormatDate(row.EndDate), 4, Ink, FontStyle.Regular);
+            AddValueCell(shell, BuildDaysLeft(row), 5, GetDaysLeftColor(row), FontStyle.Bold);
+            AddValueCell(shell, row.ContractValue.ToString("C0", _india), 6, Ink, FontStyle.Bold);
+            AddValueCell(shell, BuildVisitProgress(row).Replace(" visits done", ""), 7, GetVisitProgressColor(row), FontStyle.Bold);
+            AddValueCell(shell, BuildNextServiceDate(row), 8, IsNextServiceOverdue(row) ? Red : Muted, FontStyle.Regular);
+
+            Button open = MakeButton("Open", Color.White, 76);
+            open.ForeColor = Blue;
+            open.FlatAppearance.BorderColor = DS.Border;
+            open.FlatAppearance.BorderSize = 1;
+            open.Tag = 9;
+            open.Click += (s, e) => OpenDetailPage(row.ContractId);
+            shell.Controls.Add(open);
+
+            LayoutListRow(shell);
+            return shell;
+        }
+
+        /// <summary>Creates a lightweight list row panel.</summary>
+        private Panel CreateListRowPanel(int height, bool header)
+        {
+            var shell = new Panel
             {
-                Text = string.IsNullOrWhiteSpace(row.AMCNumber) ? "AMC-" + row.ContractId.ToString("000", CultureInfo.InvariantCulture) : row.AMCNumber,
-                Location = new Point(16, 14),
-                Size = new Size(190, 24),
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
-                ForeColor = Ink,
-                AutoEllipsis = true
-            });
-            card.Controls.Add(MakeBadge(row.AMCType, GetTypeColor(row.AMCType), new Point(214, 15), 118));
-            card.Controls.Add(new Label { Text = row.ClientName, Location = new Point(16, 43), Size = new Size(312, 22), Font = new Font("Segoe UI", 9.5f), ForeColor = Muted, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.SiteName) ? "Site: -" : "Site: " + row.SiteName, Location = new Point(16, 65), Size = new Size(312, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = Muted, AutoEllipsis = true });
-            card.Controls.Add(MakeBadge(row.DisplayStatus, GetStatusColor(row.DisplayStatus), new Point(16, 92), 112));
-            card.Controls.Add(new Label { Text = FormatDate(row.StartDate) + " -> " + FormatDate(row.EndDate), Location = new Point(138, 94), Size = new Size(190, 20), Font = new Font("Segoe UI", 9f), ForeColor = Ink, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = row.ContractValue.ToString("C0", _india), Location = new Point(16, 126), Size = new Size(150, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = string.IsNullOrWhiteSpace(row.BillingCycle) ? "Annual" : row.BillingCycle, Location = new Point(172, 126), Size = new Size(90, 22), Font = new Font("Segoe UI", 9f), ForeColor = Muted, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = row.EquipmentCount.ToString(CultureInfo.InvariantCulture) + " units covered", Location = new Point(16, 150), Size = new Size(130, 20), Font = new Font("Segoe UI", 9f), ForeColor = Muted, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = BuildVisitProgress(row), Location = new Point(152, 150), Size = new Size(176, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = GetVisitProgressColor(row), AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = BuildNextServiceText(row), Location = new Point(16, 170), Size = new Size(170, 20), Font = new Font("Segoe UI", 8.5f), ForeColor = IsNextServiceOverdue(row) ? Red : Muted, AutoEllipsis = true });
-            card.Controls.Add(MakeBadge(string.IsNullOrWhiteSpace(row.CoverageType) ? "Comprehensive" : row.CoverageType, GetCoverageColor(row.CoverageType), new Point(202, 170), 126));
+                Width = GetListRowWidth(),
+                Height = height,
+                BackColor = header ? Color.FromArgb(248, 250, 252) : Color.White,
+                Margin = new Padding(0, 0, 0, header ? 2 : 1),
+                Padding = new Padding(0)
+            };
+            shell.Resize += (s, e) => LayoutListRow(shell);
+            shell.Paint += (s, e) =>
+            {
+                using (var pen = new Pen(DS.Border))
+                    e.Graphics.DrawLine(pen, 0, shell.Height - 1, shell.Width, shell.Height - 1);
+            };
+            return shell;
+        }
 
-            Button view = MakeButton("View / Edit", Color.White, 104);
-            view.ForeColor = Blue;
-            view.FlatAppearance.BorderColor = DS.Border;
-            view.FlatAppearance.BorderSize = 1;
-            view.Location = new Point(16, 196);
-            view.Click += (s, e) => OpenDetailPage(row.ContractId);
-            card.Controls.Add(view);
-            return card;
+        private void AddHeaderCell(Panel parent, string text, int column)
+        {
+            parent.Controls.Add(new Label
+            {
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = Muted,
+                AutoEllipsis = true,
+                Tag = column
+            });
+        }
+
+        private void AddValueCell(Panel parent, string text, int column, Color color, FontStyle style)
+        {
+            parent.Controls.Add(new Label
+            {
+                Text = string.IsNullOrWhiteSpace(text) ? "-" : text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Font = new Font("Segoe UI", 9f, style),
+                ForeColor = color,
+                AutoEllipsis = true,
+                Tag = column
+            });
+        }
+
+        private void AddBadgeCell(Panel parent, string text, Color color, int column)
+        {
+            Label badge = MakeBadge(text, color, new Point(0, 0), 96);
+            badge.Tag = column;
+            parent.Controls.Add(badge);
+        }
+
+        /// <summary>Positions all cells in a lightweight AMC row.</summary>
+        private void LayoutListRow(Panel row)
+        {
+            if (row == null || row.IsDisposed)
+                return;
+
+            int[] widths = BuildColumnWidths(Math.Max(720, row.ClientSize.Width));
+            int[] lefts = new int[widths.Length];
+            for (int i = 1; i < lefts.Length; i++)
+                lefts[i] = lefts[i - 1] + widths[i - 1];
+
+            foreach (Control child in row.Controls)
+            {
+                int column = child.Tag is int ? (int)child.Tag : 0;
+                column = Math.Max(0, Math.Min(column, widths.Length - 1));
+                int left = lefts[column] + 10;
+                int width = Math.Max(30, widths[column] - 16);
+
+                if (child is Button)
+                {
+                    child.Bounds = new Rectangle(left, Math.Max(8, (row.Height - 34) / 2), Math.Max(64, width), 34);
+                }
+                else if (child.BackColor != Color.Transparent && child.ForeColor == Color.White)
+                {
+                    child.Bounds = new Rectangle(left, Math.Max(8, (row.Height - 24) / 2), Math.Min(96, width), 24);
+                }
+                else
+                {
+                    child.Bounds = new Rectangle(left, 0, width, row.Height - 1);
+                }
+            }
+        }
+
+        /// <summary>Calculates column widths for the operational AMC list.</summary>
+        private static int[] BuildColumnWidths(int totalWidth)
+        {
+            int[] percents = { 10, 16, 12, 10, 9, 7, 10, 8, 10, 8 };
+            int[] widths = new int[percents.Length];
+            int used = 0;
+            for (int i = 0; i < percents.Length; i++)
+            {
+                widths[i] = Math.Max(52, totalWidth * percents[i] / 100);
+                used += widths[i];
+            }
+
+            widths[widths.Length - 1] += Math.Max(0, totalWidth - used);
+            return widths;
         }
 
         /// <summary>Defers modal launch so the AMC page finishes its click cycle before the form opens.</summary>
@@ -612,14 +885,33 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             }
 
             Controls.Clear();
-            Controls.Add(new AMCDetailPage(contractId, ShowDashboard));
+            Controls.Add(new AMCDetailPage(contractId, ShowDashboard, OpenEditAMCForm));
         }
 
         /// <summary>Returns from detail view to the refreshed AMC dashboard.</summary>
         private void ShowDashboard()
         {
-            BuildLayout();
+            EnsureDashboardShell();
             _ = LoadAMCDataAsync();
+        }
+
+        /// <summary>Opens an existing AMC contract in edit mode and returns to detail after save.</summary>
+        private void OpenEditAMCForm(int contractId)
+        {
+            if (contractId <= 0)
+                return;
+
+            bool saved = false;
+            using (var form = new AddAMCForm(contractId))
+            {
+                saved = form.ShowDialog(this) == DialogResult.OK;
+            }
+
+            if (saved)
+            {
+                AppDataCache.Remove("amc:dashboard-payload");
+                OpenDetailPage(contractId);
+            }
         }
 
         /// <summary>Creates a shared styled button.</summary>
@@ -722,10 +1014,65 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
                 : "Next: not scheduled";
         }
 
+        /// <summary>Builds a compact next service date for the operational list.</summary>
+        private string BuildNextServiceDate(AMCRow row)
+        {
+            return row.NextServiceDue.HasValue
+                ? row.NextServiceDue.Value.ToString("dd/MM/yyyy", _india)
+                : "Not scheduled";
+        }
+
         /// <summary>Returns whether next service date is overdue.</summary>
         private bool IsNextServiceOverdue(AMCRow row)
         {
             return row.NextServiceDue.HasValue && row.NextServiceDue.Value.Date < DateTime.Today;
+        }
+
+        /// <summary>Returns the AMC number shown to the user.</summary>
+        private static string DisplayAmcNumber(AMCRow row)
+        {
+            return string.IsNullOrWhiteSpace(row.AMCNumber)
+                ? "AMC-" + row.ContractId.ToString("000", CultureInfo.InvariantCulture)
+                : row.AMCNumber;
+        }
+
+        /// <summary>Builds the renewal countdown text.</summary>
+        private string BuildDaysLeft(AMCRow row)
+        {
+            if (!row.EndDate.HasValue)
+                return "-";
+
+            int days = (row.EndDate.Value.Date - DateTime.Today).Days;
+            if (days < 0)
+                return Math.Abs(days).ToString(CultureInfo.InvariantCulture) + " overdue";
+            if (days == 0)
+                return "Today";
+            return days.ToString(CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>Returns the urgency colour for the renewal countdown.</summary>
+        private Color GetDaysLeftColor(AMCRow row)
+        {
+            if (!row.EndDate.HasValue)
+                return Muted;
+
+            int days = (row.EndDate.Value.Date - DateTime.Today).Days;
+            if (days < 0)
+                return Red;
+            if (days <= 30)
+                return Amber;
+            return Green;
+        }
+
+        /// <summary>Returns the current list row width without causing horizontal scrollbars.</summary>
+        private int GetListRowWidth()
+        {
+            return _contractGrid == null ? 1000 : Math.Max(720, _contractGrid.ClientSize.Width);
+        }
+
+        /// <summary>Keeps all operational rows aligned to the available list width.</summary>
+        private void ResizeListRows()
+        {
         }
 
         /// <summary>Returns the display status based on saved status and end date.</summary>

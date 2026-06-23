@@ -1,4 +1,18 @@
 # Changelog
+## 1.1.170.0 - 2026-06-23
+
+- Updated the AMC Equipment add dialog so Equipment Name is also an editable dropdown populated from active inventory item/material names.
+
+## 1.1.169.0 - 2026-06-23
+
+- Updated the AMC Add/Edit form so Equipment Covered is an editable dropdown populated from the active inventory item/material list while preserving existing custom equipment descriptions.
+
+## 1.1.168.0 - 2026-06-23
+
+- Redesigned the AMC dashboard from dense contract cards into a full-width operational contract grid with renewal status, days-left, value, visits, next-service, and one-click open actions.
+- Added clickable AMC KPI quick filters plus a renewal-window filter so active, expired, and upcoming contracts can be scanned faster.
+- Wired the AMC detail `Edit AMC` action to the existing edit form instead of the placeholder message, and rebuilt Release with visual smoke checks for dashboard filtering, detail open, and edit launch.
+
 ## 1.1.167.0 - 2026-06-23
 
 - Added a generic Master Lookup system so HR, attendance, payroll, jobs, service desk, AMC, inventory, purchase, and sales document reference values can be managed centrally.

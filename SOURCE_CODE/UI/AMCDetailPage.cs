@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         private readonly int _amcId;
         private readonly Action _backAction;
+        private readonly Action<int> _editAction;
         private readonly CultureInfo _india = new CultureInfo("en-IN");
         private Label _number;
         private Label _client;
@@ -41,10 +42,15 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color Grey = Color.FromArgb(100, 116, 139);
         private static readonly Color DarkGrey = Color.FromArgb(51, 65, 85);
 
-        public AMCDetailPage(int amcId, Action backAction)
+        public AMCDetailPage(int amcId, Action backAction) : this(amcId, backAction, null)
+        {
+        }
+
+        public AMCDetailPage(int amcId, Action backAction, Action<int> editAction)
         {
             _amcId = amcId;
             _backAction = backAction;
+            _editAction = editAction;
             InitializeComponent();
             Dock = DockStyle.Fill;
             BackColor = PageBg;
@@ -85,7 +91,7 @@ namespace HVAC_Pro_Desktop.UI
             Button edit = MakeButton("Edit AMC", Blue, Color.White, 104);
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             edit.Location = new Point(header.Width - 104, 36);
-            edit.Click += (s, e) => MessageBox.Show("Edit coming soon.", BrandingService.WindowTitle("AMC"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            edit.Click += (s, e) => _editAction?.Invoke(_amcId);
             header.Controls.Add(_number);
             header.Controls.Add(_client);
             header.Controls.Add(_status);
