@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.259.0 - 2026-06-24
+
+- Published the Attendance and Quotations page-load fixes above the latest `1.1.258` client release so desktops can detect the next update.
+- Fixed the Attendance page crash caused by inherited DataGridView fill autosizing on hidden/non-fill columns.
+- Added a guarded quotation schema repair path so the Quotations page opens even when the customer database is missing the `Quotations` table.
+
 ## 1.1.228.0 - 2026-06-24
 
 - Fixed the separate Attendance page so legacy `EmployeeAttendance` rows are shown when matching payroll `AttendanceRecords` rows do not exist yet.
