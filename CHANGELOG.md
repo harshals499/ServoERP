@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.228.0 - 2026-06-24
+
+- Fixed the separate Attendance page so legacy `EmployeeAttendance` rows are shown when matching payroll `AttendanceRecords` rows do not exist yet.
+- Updated the Attendance reconciliation banner to report only legacy rows that still need saving into the payroll attendance table.
+- Removed hardcoded June/2026 placeholder text from the Attendance workspace.
+
 ## 1.1.199.0 - 2026-06-24
 
 - Restored Attendance as its own HR & Payroll sidebar page between Employees and Payroll, opening the Attendance workspace directly.

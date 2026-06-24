@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "1.1.199",
+    [string]$Version = "1.1.228",
     [string]$Repository = "harshals499/ServoERP",
     [string]$ArtifactsDir,
     [string]$Token,
@@ -47,7 +47,15 @@ if ([string]::IsNullOrWhiteSpace($resolvedToken)) {
 if ([string]::IsNullOrWhiteSpace($resolvedToken)) {
     $gh = Get-Command gh -ErrorAction SilentlyContinue
     if ($gh) {
-        $resolvedToken = (& gh auth token 2>$null)
+        try {
+            $ghTokenOutput = (& gh auth token 2>$null)
+            if ($LASTEXITCODE -eq 0) {
+                $resolvedToken = $ghTokenOutput
+            }
+        }
+        catch {
+            $resolvedToken = ""
+        }
     }
 }
 if ([string]::IsNullOrWhiteSpace($resolvedToken)) {
