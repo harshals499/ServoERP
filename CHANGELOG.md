@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.291.0 - 2026-06-24
+
+- Fixed shared grid theming so Attendance frozen columns cannot inherit or receive Fill autosizing during page navigation.
+
 ## 1.1.259.0 - 2026-06-24
 
 - Published the Attendance and Quotations page-load fixes above the latest `1.1.258` client release so desktops can detect the next update.

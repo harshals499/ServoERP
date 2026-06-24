@@ -60,9 +60,9 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             dgv.Dock = DockStyle.Fill;
-            dgv.AutoSizeColumnsMode = fillWidth
-                ? DataGridViewAutoSizeColumnsMode.Fill
-                : dgv.AutoSizeColumnsMode;
+            bool hasFrozenColumn = NormalizeFrozenColumns(dgv);
+            if (fillWidth && !hasFrozenColumn)
+                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             dgv.ScrollBars = ScrollBars.Both;
             dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgv.RowTemplate.Height = rowHeight;
@@ -104,7 +104,8 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             FormatColumns(dgv);
-            FillColumns(dgv);
+            if (!hasFrozenColumn)
+                FillColumns(dgv);
             GlobalStatusEditor.Attach(dgv);
 
             if (!BoundGrids.Contains(dgv))
@@ -115,7 +116,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (ColumnPolicies.ContainsKey(dgv))
                         ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
                     else if (fillWidth)
-                        FillColumns(dgv);
+                        FillColumnsSafely(dgv);
                     FormatColumns(dgv);
                     dgv.Invalidate();
                 };
@@ -124,7 +125,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (ColumnPolicies.ContainsKey(dgv))
                         ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
                     else if (fillWidth)
-                        FillColumns(dgv);
+                        FillColumnsSafely(dgv);
                     FormatColumns(dgv);
                 };
                 ShowEmptyState(dgv);
@@ -161,9 +162,36 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (DataGridViewColumn col in dgv.Columns)
             {
-                if (col.Visible)
+                if (col.Visible && !col.Frozen)
                     col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
             }
+        }
+
+        private static void FillColumnsSafely(DataGridView dgv)
+        {
+            NormalizeFrozenColumns(dgv);
+            FillColumns(dgv);
+        }
+
+        private static bool NormalizeFrozenColumns(DataGridView dgv)
+        {
+            if (dgv == null || dgv.Columns.Count == 0)
+                return false;
+
+            bool hasFrozenColumn = false;
+            foreach (DataGridViewColumn column in dgv.Columns)
+            {
+                if (!column.Frozen)
+                    continue;
+
+                hasFrozenColumn = true;
+                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            }
+
+            if (hasFrozenColumn)
+                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+
+            return hasFrozenColumn;
         }
 
         public static void ApplyColumnPolicy(DataGridView dgv, IEnumerable<GridColumnPolicy> policies)
