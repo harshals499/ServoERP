@@ -1823,11 +1823,16 @@ namespace HVAC_Pro_Desktop.UI
 				return;
 			}
 			_gridAttendance.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.Single;
+			_gridAttendance.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.None;
 			_gridAttendance.ColumnHeadersDefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 			_gridAttendance.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.White;
 			_gridAttendance.ColumnHeadersDefaultCellStyle.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;
 			_gridAttendance.ColumnHeadersDefaultCellStyle.SelectionBackColor = System.Drawing.Color.White;
 			_gridAttendance.ColumnHeadersDefaultCellStyle.SelectionForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;
+			foreach (System.Windows.Forms.DataGridViewColumn column in _gridAttendance.Columns)
+			{
+				column.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.None;
+			}
 			_gridAttendance.Columns["Avatar"].Width = 42;
 			_gridAttendance.Columns["Employee"].Width = 190;
 			_gridAttendance.Columns["Avatar"].SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;

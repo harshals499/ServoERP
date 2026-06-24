@@ -27,6 +27,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public TenderBid GetByIdDetailed(int id)
         {
+            HVAC_Pro_Desktop.DAL.DbHelper.EnsureQuotationSchemaMigration();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
@@ -59,6 +60,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public int SaveTenderBid(TenderBid bid)
         {
+            HVAC_Pro_Desktop.DAL.DbHelper.EnsureQuotationSchemaMigration();
             PrepareDetailedBid(bid);
             ValidateQuotationForSave(bid);
 

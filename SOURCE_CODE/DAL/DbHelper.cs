@@ -7,12 +7,118 @@ namespace HVAC_Pro_Desktop.DAL
     public static class DbHelper
     {
         private static readonly object AMCSchemaLock = new object();
+        private static readonly object QuotationSchemaLock = new object();
         private static bool _amcSchemaEnsured;
+        private static bool _quotationSchemaEnsured;
 
-        /// <summary>Reserved for approved quotation schema migrations.</summary>
+        /// <summary>Ensures the additive quotation workspace schema exists.</summary>
         public static void EnsureQuotationSchemaMigration()
         {
-            // Schema Guard: table renames require Harshal approval and a compatibility view release plan.
+            if (_quotationSchemaEnsured)
+                return;
+
+            lock (QuotationSchemaLock)
+            {
+                if (_quotationSchemaEnsured)
+                    return;
+
+                using (var connection = DatabaseConnectionFactory.CreateConnection())
+                {
+                    DatabaseConnectionFactory.Open(connection, "DbHelper.EnsureQuotationSchemaMigration");
+
+                    Execute(connection, @"
+IF OBJECT_ID('dbo.Quotations', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Quotations (
+        BidID INT IDENTITY(1,1) PRIMARY KEY,
+        TenderName NVARCHAR(255) NULL,
+        SystemCount INT NULL,
+        BidValue DECIMAL(12,2) NULL,
+        DueDate DATETIME NULL,
+        SubmittedDate DATETIME NULL,
+        Status NVARCHAR(50) NULL,
+        ClientName NVARCHAR(255) NULL,
+        Notes NVARCHAR(MAX) NULL
+    );
+END;");
+
+                    AddColumn(connection, "Quotations", "QuotationNumber", "NVARCHAR(50) NULL");
+                    AddColumn(connection, "Quotations", "ClientID", "INT NULL");
+                    AddColumn(connection, "Quotations", "SiteID", "INT NULL");
+                    AddColumn(connection, "Quotations", "RequirementCategory", "NVARCHAR(100) NULL");
+                    AddColumn(connection, "Quotations", "ItemName", "NVARCHAR(255) NULL");
+                    AddColumn(connection, "Quotations", "RequiredQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "Unit", "NVARCHAR(50) NULL");
+                    AddColumn(connection, "Quotations", "RequiredByDate", "DATETIME NULL");
+                    AddColumn(connection, "Quotations", "InventoryAvailable", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "ShortfallQuantity", "DECIMAL(10,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "EstimatedInternalRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "EstimatedSupplierRate", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "EstimatedInternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "EstimatedExternalCost", "DECIMAL(12,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "RecommendedVendorID", "INT NULL");
+                    AddColumn(connection, "Quotations", "ComparisonSummary", "NVARCHAR(MAX) NULL");
+                    AddColumn(connection, "Quotations", "AnalysisStatus", "NVARCHAR(100) NULL");
+                    AddColumn(connection, "Quotations", "CommercialFlow", "NVARCHAR(30) NOT NULL DEFAULT 'Revenue'");
+                    AddColumn(connection, "Quotations", "CustomerDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Quote Draft'");
+                    AddColumn(connection, "Quotations", "SupplierDocumentStatus", "NVARCHAR(40) NOT NULL DEFAULT 'Not Required'");
+                    AddColumn(connection, "Quotations", "FlowNotes", "NVARCHAR(500) NULL");
+                    AddColumn(connection, "Quotations", "IsMultiLine", "BIT NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "TotalTaxableValue", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "TotalGSTAmount", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "TotalWithGST", "DECIMAL(18,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "AverageMarginPct", "DECIMAL(5,2) NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "TemplateId", "INT NULL");
+                    AddColumn(connection, "Quotations", "ClientPriceMemoryApplied", "BIT NOT NULL DEFAULT 0");
+                    AddColumn(connection, "Quotations", "SuggestionsJson", "NVARCHAR(MAX) NULL");
+                    AddColumn(connection, "Quotations", "CreatedByUserId", "INT NULL");
+                    AddColumn(connection, "Quotations", "CreatedByName", "NVARCHAR(100) NULL");
+                    AddColumn(connection, "Quotations", "ModifiedByUserId", "INT NULL");
+                    AddColumn(connection, "Quotations", "ModifiedByName", "NVARCHAR(100) NULL");
+                    AddColumn(connection, "Quotations", "ModifiedDate", "DATETIME NULL");
+
+                    Execute(connection, @"
+IF OBJECT_ID('dbo.QuotationLineItems', 'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.QuotationLineItems (
+        LineItemId INT IDENTITY(1,1) PRIMARY KEY,
+        TenderBidId INT NOT NULL,
+        SortOrder INT NOT NULL DEFAULT 0,
+        Category NVARCHAR(100) NULL,
+        InventoryItemId INT NULL,
+        ItemDescription NVARCHAR(255) NOT NULL,
+        Quantity DECIMAL(10,3) NOT NULL DEFAULT 1,
+        Unit NVARCHAR(30) NOT NULL DEFAULT 'Nos',
+        HsnSacCode NVARCHAR(20) NULL,
+        GSTRatePct DECIMAL(5,2) NOT NULL DEFAULT 18.00,
+        BestSupplierId INT NULL,
+        BestSupplierName NVARCHAR(100) NULL,
+        CostPerUnit DECIMAL(18,2) NOT NULL DEFAULT 0,
+        SellPricePerUnit DECIMAL(18,2) NOT NULL DEFAULT 0,
+        TaxableLineTotal DECIMAL(18,2) NOT NULL DEFAULT 0,
+        GSTAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+        MarginPct DECIMAL(6,2) NOT NULL DEFAULT 0,
+        StockAvailable DECIMAL(10,3) NOT NULL DEFAULT 0,
+        Shortfall DECIMAL(10,3) NOT NULL DEFAULT 0,
+        IsInternalLabour BIT NOT NULL DEFAULT 0,
+        AnalysisStatus NVARCHAR(100) NULL,
+        AnalysisNotes NVARCHAR(MAX) NULL,
+        IsSellPriceManual BIT NOT NULL DEFAULT 0,
+        PriceMemoryApplied BIT NOT NULL DEFAULT 0,
+        SuggestedSellPrice DECIMAL(18,2) NOT NULL DEFAULT 0,
+        PriceMemoryDate DATETIME NULL,
+        PriceMemoryQuotationNumber NVARCHAR(50) NULL,
+        MinimumRecommendedPrice DECIMAL(18,2) NOT NULL DEFAULT 0,
+        RateDriftText NVARCHAR(255) NULL,
+        CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+        ModifiedDate DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END;");
+                    AddColumn(connection, "QuotationLineItems", "VendorID", "INT NULL");
+                }
+
+                _quotationSchemaEnsured = true;
+            }
         }
 
         /// <summary>Ensures the additive AMC dashboard columns and guarded constraints exist.</summary>
@@ -272,6 +378,16 @@ END;");
                 command.CommandTimeout = 60;
                 command.ExecuteNonQuery();
             }
+        }
+
+        private static void AddColumn(SqlConnection connection, string table, string column, string definition)
+        {
+            Execute(connection, $@"
+IF OBJECT_ID('dbo.{table}', 'U') IS NOT NULL
+   AND COL_LENGTH('dbo.{table}', '{column}') IS NULL
+BEGIN
+    ALTER TABLE dbo.{table} ADD {column} {definition};
+END;");
         }
     }
 }

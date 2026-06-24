@@ -25,6 +25,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public List<TenderBid> GetAll()
         {
+            DbHelper.EnsureQuotationSchemaMigration();
             return AppDataCache.GetOrCreate("tenders:all", CacheTtl, LoadAllQuotes);
         }
 
@@ -50,6 +51,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public TenderBid GetById(int id)
         {
+            DbHelper.EnsureQuotationSchemaMigration();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
@@ -72,6 +74,7 @@ namespace HVAC_Pro_Desktop.Services
         public int Create(TenderBid t)
         {
             SessionManager.DemandPermission("Quotations", "Create");
+            DbHelper.EnsureQuotationSchemaMigration();
             if (string.IsNullOrWhiteSpace(t.QuotationNumber))
                 throw new Exception("Quotation number is required.");
             ValidateQuotationForSave(t);
@@ -102,6 +105,8 @@ namespace HVAC_Pro_Desktop.Services
                     AddParams(cmd, t);
                     int id = Convert.ToInt32(cmd.ExecuteScalar());
                     AppDataCache.RemovePrefix("tenders:");
+                    AppDataCache.RemovePrefix("quotations:");
+                    DashboardRefreshService.NotifyChanged("Quotations");
                     SessionManager.LogAction("CREATE", "Quotations", id, "Quotation saved");
                     return id;
                 }
@@ -111,6 +116,7 @@ namespace HVAC_Pro_Desktop.Services
         public void Update(TenderBid t)
         {
             SessionManager.DemandPermission("Quotations", "Edit");
+            DbHelper.EnsureQuotationSchemaMigration();
             ValidateQuotationForSave(t);
             if (SessionManager.IsLoggedIn)
             {
@@ -162,6 +168,8 @@ namespace HVAC_Pro_Desktop.Services
                     AddParams(cmd, t);
                     cmd.ExecuteNonQuery();
                     AppDataCache.RemovePrefix("tenders:");
+                    AppDataCache.RemovePrefix("quotations:");
+                    DashboardRefreshService.NotifyChanged("Quotations");
                     SessionManager.LogAction("EDIT", "Quotations", t.BidID, "Quotation saved");
                 }
             }
@@ -170,6 +178,7 @@ namespace HVAC_Pro_Desktop.Services
         public void Delete(int bidId)
         {
             SessionManager.DemandPermission("Quotations", "Delete");
+            DbHelper.EnsureQuotationSchemaMigration();
             TenderBid existing = GetById(bidId);
             if (existing == null)
                 throw new Exception("Quotation not found.");
@@ -196,8 +205,10 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             AppDataCache.RemovePrefix("tenders:");
+            AppDataCache.RemovePrefix("quotations:");
             AppDataCache.RemovePrefix("purchases:");
             AppDataCache.RemovePrefix("invoices:");
+            DashboardRefreshService.NotifyChanged("Quotations");
             SessionManager.LogAction("DELETE", "Quotations", bidId, "Quotation deleted");
             _audit.Record("DELETE", "Quotations", bidId, "Quotation and child records deleted");
         }
@@ -213,6 +224,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public string GenerateQuotationNumber()
         {
+            DbHelper.EnsureQuotationSchemaMigration();
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
