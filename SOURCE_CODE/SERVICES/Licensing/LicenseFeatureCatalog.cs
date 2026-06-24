@@ -9,7 +9,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
         private static readonly string[] AllModules =
         {
             "Dashboard", "Clients", "Contracts", "Invoices", "Payments", "Quotations", "Reports",
-            "Settings", "Vendors", "Purchases", "Inventory", "Employees", "Payroll",
+            "Settings", "Vendors", "Purchases", "Inventory", "Employees", "Attendance", "Payroll",
             "GeoIntelligence", "WorkOrders", "ServiceDesk", "MasterData"
         };
 
@@ -28,7 +28,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                 return new List<string>
                 {
                     "Dashboard", "Clients", "Contracts", "Invoices", "Payments", "Quotations", "Reports",
-                    "Settings", "Vendors", "Purchases", "Inventory", "Employees", "WorkOrders", "ServiceDesk", "MasterData"
+                    "Settings", "Vendors", "Purchases", "Inventory", "Employees", "Attendance", "WorkOrders", "ServiceDesk", "MasterData"
                 };
             }
 
@@ -51,6 +51,13 @@ namespace HVAC_Pro_Desktop.Services.Licensing
             List<string> modules = snapshot.EnabledModules == null || snapshot.EnabledModules.Count == 0
                 ? GetModulesForPlan(snapshot.PlanType)
                 : snapshot.EnabledModules;
+
+            if (string.Equals(moduleKey, "Attendance", StringComparison.OrdinalIgnoreCase))
+            {
+                return modules.Exists(m => string.Equals(m, "Attendance", StringComparison.OrdinalIgnoreCase))
+                    || modules.Exists(m => string.Equals(m, "Payroll", StringComparison.OrdinalIgnoreCase))
+                    || modules.Exists(m => string.Equals(m, "Employees", StringComparison.OrdinalIgnoreCase));
+            }
 
             return modules.Exists(m => string.Equals(m, moduleKey, StringComparison.OrdinalIgnoreCase));
         }

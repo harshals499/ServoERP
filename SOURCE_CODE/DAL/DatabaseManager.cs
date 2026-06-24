@@ -4199,7 +4199,7 @@ THEN 1 ELSE 0 END";
             int adminId = GetRoleId(conn, "Admin");
             string[] modules =
             {
-                "Dashboard", "Quotations", "Invoices", "Payments", "Contracts", "Employees", "Inventory",
+                "Dashboard", "Quotations", "Invoices", "Payments", "Contracts", "Employees", "Attendance", "Inventory",
                 "Purchases", "Vendors", "Clients", "Reports", "Settings", "WorkOrders", "ServiceDesk", "GeoIntelligence", "Payroll", "MasterData"
             };
 

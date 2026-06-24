@@ -71,6 +71,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int TallyIntegrationPageIndex = 19;
         private const int VendorsPageIndex = 20;
         private const int AMCPageIndex = 21;
+        private const int AttendancePageIndex = 22;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -119,12 +120,13 @@ namespace HVAC_Pro_Desktop.UI
             ("Tally", "T"),
             ("Vendors", "V"),
             ("AMC", "A"),
+            ("Attendance", "A"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
         private static readonly int[] OperationsItems = { 14, 11, 1, 9, VendorsPageIndex, 15, AMCPageIndex };
-        private static readonly int[] HrPayrollItems = { 12, 13 };
+        private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
         private static readonly int[] SettingsSupportItems = { 8, 18, 19 };
@@ -1566,6 +1568,7 @@ namespace HVAC_Pro_Desktop.UI
                 case VendorsPageIndex: return "\uE716"; // Vendors
                 case 11: return "\uE8F1"; // Inventory
                 case 12: return "\uE77B"; // Employees
+                case AttendancePageIndex: return "\uE787"; // Attendance
                 case 13: return "\uE8C7"; // Payroll
                 case 14: return "\uE8A5"; // Dispatch
                 case 15: return "\uE8F1"; // Jobs
@@ -1994,6 +1997,30 @@ namespace HVAC_Pro_Desktop.UI
                 selectedJobs.OpenJobEditorFromNavigation(jobId);
         }
 
+        public void NavigateToInvoice(int invoiceId)
+        {
+            if (invoiceId <= 0)
+                return;
+
+            OpenPageShortcut<InvoiceForm>(InvoicesPageIndex, page => page.OpenInvoiceFromNavigation(invoiceId));
+        }
+
+        public void NavigateToQuotation(int bidId)
+        {
+            if (bidId <= 0)
+                return;
+
+            OpenPageShortcut<TenderBidForm>(QuotationsPageIndex, page => page.OpenQuotationFromNavigation(bidId));
+        }
+
+        public void NavigateToPurchase(int poId)
+        {
+            if (poId <= 0)
+                return;
+
+            OpenPageShortcut<PurchaseForm>(10, page => page.OpenPurchaseOrderFromNavigation(poId));
+        }
+
         public void NavigateToClientDetail(int clientId)
         {
             NavigateToClientDetail(clientId, 0);
@@ -2147,6 +2174,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 10: page = new PurchaseForm(); break;
                 case 11: page = new InventoryForm(); break;
                 case 12: page = new EmployeeForm(); break;
+                case AttendancePageIndex: page = new AttendanceForm(); break;
                 case 13: page = new PayrollForm(); break;
                 case 14: page = new GeoIntelligenceForm(); break;
                 case 15: page = new JobManagementForm(); break;
@@ -2186,7 +2214,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex || index == AttendancePageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -2194,6 +2222,7 @@ namespace HVAC_Pro_Desktop.UI
                 || page is ReportForm
                 || page is SettingsForm
                 || page is VendorForm
+                || page is AttendanceForm
                 || page is PurchaseForm
                 || page is InventoryForm
                 || page is EmployeeForm
@@ -2778,6 +2807,7 @@ namespace HVAC_Pro_Desktop.UI
                 case "PURCHASES": return 10;
                 case "INVENTORY": return 11;
                 case "EMPLOYEES": return 12;
+                case "ATTENDANCE": return AttendancePageIndex;
                 case "PAYROLL": return 13;
                 case "GEOINTELLIGENCE": return 14;
                 case "WORKORDERS":
@@ -2819,6 +2849,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 10: return "Purchases";
                 case 11: return "Inventory";
                 case 12: return "Employees";
+                case AttendancePageIndex: return "Attendance";
                 case 13: return "Payroll";
                 case 14: return "GeoIntelligence";
                 case 15: return "WorkOrders";

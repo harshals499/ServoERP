@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.199.0 - 2026-06-24
+
+- Restored Attendance as its own HR & Payroll sidebar page between Employees and Payroll, opening the Attendance workspace directly.
+- Added Attendance to HR/Payroll license/module entitlements so existing client licenses no longer hide the separate sidebar page.
+
 ## 1.1.170.0 - 2026-06-23
 
 - Updated the AMC Equipment add dialog so Equipment Name is also an editable dropdown populated from active inventory item/material names.
