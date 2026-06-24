@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.292.0 - 2026-06-24
+
+- Restored Payroll Dashboard as the HR & Payroll navigation entry and landing view.
+- Removed the standalone Attendance item from the HR & Payroll sidebar group.
+
 ## 1.1.291.0 - 2026-06-24
 
 - Fixed shared grid theming so Attendance frozen columns cannot inherit or receive Fill autosizing during page navigation.
