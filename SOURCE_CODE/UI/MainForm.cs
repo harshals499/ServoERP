@@ -244,6 +244,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             _sidebarScroll.HorizontalScroll.Enabled = false;
             _sidebarScroll.HorizontalScroll.Visible = false;
+            _sidebarScroll.Resize += (s, e) => UpdateSidebarScrollRange();
             _userStrip = BuildUserStrip();
             _sidebar.Controls.Add(_sidebarScroll);
             BuildSidebar();
@@ -1237,7 +1238,27 @@ namespace HVAC_Pro_Desktop.UI
             AddNavGroup(LanguageManager.Get("Sales"), SalesItems, true);
             AddNavGroup(LanguageManager.Get("Dashboard"), DashboardItems, false);
             _sidebarScroll.Controls.Add(MakeSidebarBrandHeader());
+            UpdateSidebarScrollRange();
             _sidebarScroll.AutoScrollPosition = new Point(0, 0);
+        }
+
+        private void UpdateSidebarScrollRange()
+        {
+            if (_sidebarScroll == null)
+                return;
+
+            int contentHeight = 0;
+            foreach (Control control in _sidebarScroll.Controls)
+            {
+                if (control == null || !control.Visible)
+                    continue;
+
+                contentHeight += control.Height + control.Margin.Top + control.Margin.Bottom;
+            }
+
+            _sidebarScroll.AutoScrollMinSize = new Size(0, contentHeight + 8);
+            _sidebarScroll.HorizontalScroll.Enabled = false;
+            _sidebarScroll.HorizontalScroll.Visible = false;
         }
 
         private Panel MakeSidebarBrandHeader()

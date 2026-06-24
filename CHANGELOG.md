@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.294.0 - 2026-06-24
+
+- Added an explicit scrollbar range to the sidebar so all navigation groups remain reachable on smaller screens.
+
 ## 1.1.293.0 - 2026-06-24
 
 - Restored Attendance as its own HR & Payroll sidebar page while keeping Payroll Dashboard as the payroll landing view.
