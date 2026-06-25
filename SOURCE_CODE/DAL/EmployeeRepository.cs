@@ -185,6 +185,29 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void SetStatus(int employeeId, string status)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE Employees
+                    SET Status = @status,
+                        LastWorkingDay = CASE
+                            WHEN @status = 'Inactive' THEN ISNULL(LastWorkingDay, CAST(GETDATE() AS DATE))
+                            WHEN @status = 'Active' THEN NULL
+                            ELSE LastWorkingDay
+                        END,
+                        ModifiedDate = GETDATE()
+                    WHERE EmployeeID = @id", conn))
+                {
+                    cmd.Parameters.AddWithValue("@id", employeeId);
+                    cmd.Parameters.AddWithValue("@status", string.IsNullOrWhiteSpace(status) ? "Active" : status.Trim());
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public int GetActiveCount()
         {
             using (SqlConnection conn = _db.GetConnection())

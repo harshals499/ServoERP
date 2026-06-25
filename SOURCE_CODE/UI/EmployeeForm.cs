@@ -43,6 +43,8 @@ namespace HVAC_Pro_Desktop.UI
         private const int SectionGap = 8;
         private const int CardGap = 8;
         private const int InnerPadding = 12;
+        private const string EmployeeStatusActive = "Active";
+        private const string EmployeeStatusInactive = "Inactive";
 
         private List<EmployeeSummaryDto> _employeeSummaries = new List<EmployeeSummaryDto>();
         private List<EmployeeSkillDto> _expiringSkills = new List<EmployeeSkillDto>();
@@ -491,7 +493,7 @@ namespace HVAC_Pro_Desktop.UI
             _gridDashboardRoster.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Actions", DataPropertyName = "Actions", Width = 110 });
             StyleLightweightRosterGrid(_gridDashboardRoster);
             _gridDashboardRoster.SelectionChanged += (s, e) => UpdateDashboardCurrentSelection();
-            _gridDashboardRoster.DoubleClick += (s, e) => OpenSelectedDashboardEmployee();
+            _gridDashboardRoster.CellDoubleClick += GridDashboardRoster_CellDoubleClick;
             _gridDashboardRoster.CellFormatting += GridDashboardRoster_CellFormatting;
 
             Panel pager = new Panel { Dock = DockStyle.Bottom, Height = 42, BackColor = Color.White, Padding = new Padding(12, 6, 12, 6) };
@@ -1009,9 +1011,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             DashboardRosterRow summary = _gridDashboardRoster.CurrentRow.DataBoundItem as DashboardRosterRow;
-            ShowEmployeeWorkspace();
             if (summary != null && summary.EmployeeID > 0)
-                SelectEmployeeRow(summary.EmployeeID);
+                OpenDashboardEmployeeInWorkspace(summary.EmployeeID);
+            else
+                ShowEmployeeWorkspace();
         }
 
         private TabPage BuildOverviewTab()
@@ -1961,7 +1964,8 @@ namespace HVAC_Pro_Desktop.UI
                         ReadinessState = GetEmployeeReadinessText(x.EmployeeID),
                         Mobile = string.IsNullOrWhiteSpace(x.Phone) ? "-" : x.Phone,
                         Email = BuildEmployeeEmail(x),
-                        Actions = "View  Edit"
+                        Actions = "View  Edit",
+                        EmployeeStatus = NormalizeEmployeeRosterStatus(x.Status)
                     })
                     .ToList();
                 if (_lblDashboardCurrentSelection != null)
@@ -1974,6 +1978,67 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             UpdateDashboardCurrentSelection();
+        }
+
+        private void GridDashboardRoster_CellDoubleClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_gridDashboardRoster == null || e.RowIndex < 0 || e.ColumnIndex < 0)
+                return;
+
+            DataGridViewColumn column = _gridDashboardRoster.Columns[e.ColumnIndex];
+            DashboardRosterRow row = _gridDashboardRoster.Rows[e.RowIndex].DataBoundItem as DashboardRosterRow;
+            if (row == null || row.EmployeeID <= 0)
+                return;
+
+            if (string.Equals(column.DataPropertyName, "PresenceState", StringComparison.OrdinalIgnoreCase))
+            {
+                ToggleDashboardEmployeeStatus(row);
+                return;
+            }
+
+            OpenDashboardEmployeeInWorkspace(row.EmployeeID);
+        }
+
+        private void ToggleDashboardEmployeeStatus(DashboardRosterRow row)
+        {
+            if (row == null || row.EmployeeID <= 0)
+                return;
+
+            string nextStatus = string.Equals(row.EmployeeStatus, EmployeeStatusInactive, StringComparison.OrdinalIgnoreCase)
+                ? EmployeeStatusActive
+                : EmployeeStatusInactive;
+            try
+            {
+                _employeeService.SetStatus(row.EmployeeID, nextStatus);
+                row.EmployeeStatus = nextStatus;
+                _pendingRestoreEmployeeId = row.EmployeeID;
+                LoadData();
+                SelectEmployeeRow(row.EmployeeID);
+                SetStatus((string.IsNullOrWhiteSpace(row.Name) ? "Employee" : row.Name) + " set to " + nextStatus + ".", nextStatus == EmployeeStatusActive ? Teal : TextSecondary);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("EmployeeForm.ToggleDashboardEmployeeStatus", ex);
+                SetStatus("Employee status could not be updated: " + ex.Message, Red);
+                RefreshDashboardRosterGrid();
+            }
+        }
+
+        private static string NormalizeEmployeeRosterStatus(string status)
+        {
+            return string.Equals(status, EmployeeStatusInactive, StringComparison.OrdinalIgnoreCase)
+                ? EmployeeStatusInactive
+                : EmployeeStatusActive;
+        }
+
+        private void OpenDashboardEmployeeInWorkspace(int employeeId)
+        {
+            ShowEmployeeWorkspace();
+            if (employeeId > 0)
+            {
+                SelectEmployeeRow(employeeId);
+                LoadEmployeeDetailsSafe(employeeId);
+            }
         }
 
         private void UpdateDashboardCurrentSelection()
@@ -4229,6 +4294,7 @@ namespace HVAC_Pro_Desktop.UI
             public string Mobile { get; set; }
             public string Email { get; set; }
             public string Actions { get; set; }
+            public string EmployeeStatus { get; set; }
         }
 
         private sealed class EmployeeSkillDialog : ServoERP.Infrastructure.ServoFormBase

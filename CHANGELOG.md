@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.311.0 - 2026-06-25
+
+- Added an Employees dashboard status double-click action that toggles employee records between Active and Inactive.
+- Persisted the status change through the Employees service/repository path so KPIs, filters, roster, workspace, and related employee surfaces stay synchronized.
+- Restored the Employees dashboard Action column to its non-edit command display.
+
 ## 1.1.310.0 - 2026-06-25
 
 - Added visible create/delete/deactivate actions across Payroll, Master Data, Service Desk, Attendance, AMC, Client, Vendor, Purchase, and Invoice workflows.

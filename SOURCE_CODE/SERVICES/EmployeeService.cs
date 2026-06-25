@@ -78,6 +78,15 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.LogAction("DELETE", "Employees", employeeId, "Employee marked inactive");
         }
 
+        public void SetStatus(int employeeId, string status)
+        {
+            SessionManager.DemandPermission("Employees", "Edit");
+            string normalized = string.Equals(status, "Inactive", StringComparison.OrdinalIgnoreCase) ? "Inactive" : "Active";
+            _repo.SetStatus(employeeId, normalized);
+            InvalidateEmployeeCache();
+            SessionManager.LogAction("EDIT", "Employees", employeeId, "Employee status changed to " + normalized);
+        }
+
         public int SaveSkill(EmployeeSkillDto skill)
         {
             SessionManager.DemandPermission("Employees", "Edit");
