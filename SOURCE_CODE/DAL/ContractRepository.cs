@@ -68,6 +68,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _dbManager.GetConnection())
             {
                 conn.Open();
+                EnsureReadSchema(conn);
                 string query = "SELECT ISNULL(SUM(MonthlyValue), 0) FROM AMCContracts WHERE ContractStatus = 'Active'";
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
@@ -82,6 +83,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _dbManager.GetConnection())
             {
                 conn.Open();
+                EnsureReadSchema(conn);
                 string query = "SELECT COUNT(*) FROM AMCContracts WHERE ContractStatus = 'Active'";
                 using (SqlCommand cmd = new SqlCommand(query, conn))
                 {
@@ -95,6 +97,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _dbManager.GetConnection())
             {
                 conn.Open();
+                EnsureReadSchema(conn);
                 string query = @"INSERT INTO AMCContracts
                     (ClientID, SiteID, StartDate, EndDate, MonthlyValue, AnnualValue, ContractStatus,
                      SLAResponseTimeHours, SLAUptimePercent, SLARepairTimeHours, MaintenanceFrequency,
@@ -133,6 +136,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _dbManager.GetConnection())
             {
                 conn.Open();
+                EnsureReadSchema(conn);
                 string query = @"UPDATE AMCContracts SET
                     ClientID = @clientId, SiteID = @siteId,
                     StartDate = @startDate, EndDate = @endDate,
@@ -173,15 +177,16 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _dbManager.GetConnection())
             {
                 conn.Open();
+                EnsureReadSchema(conn);
                 using (SqlTransaction tx = conn.BeginTransaction())
                 {
                     try
                     {
-                        ExecuteDelete(conn, tx, "UPDATE Invoices SET ContractID=NULL WHERE ContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "DELETE FROM SLALogs WHERE ContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "UPDATE Jobs SET LinkedContractId=NULL WHERE LinkedContractId=@id", contractId);
-                        ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET RelatedContractID=NULL WHERE RelatedContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "UPDATE PurchaseOrders SET LinkedToId=NULL WHERE LinkedToType='Contract' AND LinkedToId=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL AND COL_LENGTH('dbo.Invoices', 'ContractID') IS NOT NULL UPDATE dbo.Invoices SET ContractID=NULL WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.SLALogs', 'U') IS NOT NULL AND COL_LENGTH('dbo.SLALogs', 'ContractID') IS NOT NULL DELETE FROM dbo.SLALogs WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Jobs', 'U') IS NOT NULL AND COL_LENGTH('dbo.Jobs', 'LinkedContractId') IS NOT NULL UPDATE dbo.Jobs SET LinkedContractId=NULL WHERE LinkedContractId=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'RelatedContractID') IS NOT NULL UPDATE dbo.PurchaseOrders SET RelatedContractID=NULL WHERE RelatedContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToId') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToType') IS NOT NULL UPDATE dbo.PurchaseOrders SET LinkedToId=NULL WHERE LinkedToType='Contract' AND LinkedToId=@id", contractId);
                         ExecuteDelete(conn, tx, "DELETE FROM AMCContracts WHERE ContractID=@id", contractId);
                         tx.Commit();
                     }
@@ -228,8 +233,37 @@ FROM AMCContracts";
 
         private static void EnsureReadSchema(SqlConnection conn)
         {
-            conn.Execute(@"IF OBJECT_ID('dbo.AMCContracts', 'U') IS NOT NULL
+            conn.Execute(@"IF OBJECT_ID('dbo.AMCContracts', 'U') IS NULL
 BEGIN
+    CREATE TABLE dbo.AMCContracts (
+        ContractID INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        ClientID INT NOT NULL DEFAULT 0,
+        SiteID INT NULL,
+        StartDate DATETIME NULL,
+        EndDate DATETIME NULL,
+        MonthlyValue DECIMAL(12,2) NULL,
+        AnnualValue DECIMAL(12,2) NULL,
+        ContractStatus NVARCHAR(50) NULL,
+        SLAResponseTimeHours INT NULL,
+        SLAUptimePercent DECIMAL(5,2) NULL,
+        SLARepairTimeHours INT NULL,
+        MaintenanceFrequency NVARCHAR(50) NULL,
+        ContractType NVARCHAR(50) NULL,
+        Notes NVARCHAR(MAX) NULL,
+        CreatedByUserId INT NULL,
+        CreatedByName NVARCHAR(100) NULL,
+        ModifiedByUserId INT NULL,
+        ModifiedByName NVARCHAR(100) NULL,
+        ModifiedDate DATETIME NULL
+    );
+END
+
+IF OBJECT_ID('dbo.AMCContracts', 'U') IS NOT NULL
+BEGIN
+    IF COL_LENGTH('dbo.AMCContracts', 'ClientID') IS NULL ALTER TABLE dbo.AMCContracts ADD ClientID INT NOT NULL CONSTRAINT DF_AMCContracts_ClientID DEFAULT 0;
+    IF COL_LENGTH('dbo.AMCContracts', 'SiteID') IS NULL ALTER TABLE dbo.AMCContracts ADD SiteID INT NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'StartDate') IS NULL ALTER TABLE dbo.AMCContracts ADD StartDate DATETIME NULL;
+    IF COL_LENGTH('dbo.AMCContracts', 'EndDate') IS NULL ALTER TABLE dbo.AMCContracts ADD EndDate DATETIME NULL;
     IF COL_LENGTH('dbo.AMCContracts', 'CreatedByUserId') IS NULL ALTER TABLE dbo.AMCContracts ADD CreatedByUserId INT NULL;
     IF COL_LENGTH('dbo.AMCContracts', 'CreatedByName') IS NULL ALTER TABLE dbo.AMCContracts ADD CreatedByName NVARCHAR(100) NULL;
     IF COL_LENGTH('dbo.AMCContracts', 'ModifiedByUserId') IS NULL ALTER TABLE dbo.AMCContracts ADD ModifiedByUserId INT NULL;

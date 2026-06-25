@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.307.0 - 2026-06-25
+
+- Fixed Contracts loading on older or empty client databases by self-healing the AMC contract schema before reads, saves, counts, and deletes.
+- Hardened contract deletion cleanup so missing optional invoice, job, purchase, or SLA link columns do not block the Contracts page.
+
 ## 1.1.306.0 - 2026-06-25
 
 - Added a visible Delete Contract action on the Contracts editor with confirmation, disabled state for unsaved contracts, and safe unlinking of related invoices, jobs, and purchase orders.
