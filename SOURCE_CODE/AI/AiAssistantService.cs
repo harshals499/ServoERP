@@ -127,7 +127,7 @@ namespace HVAC_Pro_Desktop.AI
             }
             if (ContainsAny(text, "job", "technician", "dispatch", "delay"))
             {
-                sb.AppendLine("- Open Dispatch Center or Jobs, sort delayed work by schedule date, then call the customer or assign technician follow-up.");
+                sb.AppendLine("- Open Site Monitor or Jobs, sort delayed work by schedule date, then call the customer or assign technician follow-up.");
                 sb.AppendLine("- Check whether material ordering or invoice/payment dependency is blocking the job.");
                 return;
             }

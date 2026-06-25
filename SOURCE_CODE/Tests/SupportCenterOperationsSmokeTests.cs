@@ -21,6 +21,10 @@ namespace HVAC_Pro_Desktop.Tests
             RequireSuccessWithPath(health, "office health report");
             passed.Add("office health report generated");
 
+            var sync = service.CreateSynchronizationReport();
+            RequireSuccessWithPath(sync, "synchronization report");
+            passed.Add("synchronization report generated");
+
             var operations = service.CreateOperationsCommandCenterReport();
             RequireSuccessWithPath(operations, "operations command center report");
             passed.Add("operations command center report generated");

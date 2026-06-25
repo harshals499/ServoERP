@@ -202,6 +202,7 @@ namespace HVAC_Pro_Desktop.Services
                 WriteText(exportFolder, "config_summary.txt", BuildConfigSummary());
                 WriteText(exportFolder, "recent_logs.txt", BuildRecentLogs());
                 WriteText(exportFolder, "layout_summary.txt", BuildLayoutSummary());
+                WriteText(exportFolder, "sync_health.txt", BuildSynchronizationText());
 
                 string zipPath = exportFolder + ".zip";
                 if (File.Exists(zipPath))
@@ -264,6 +265,23 @@ namespace HVAC_Pro_Desktop.Services
             {
                 AppLogger.LogError("SupportCenterService.CreateOfficeHealthReport", ex);
                 return Fail("Office health report failed", ex.Message);
+            }
+        }
+
+        public SupportToolResult CreateSynchronizationReport()
+        {
+            try
+            {
+                Directory.CreateDirectory(DiagnosticsRoot);
+                string path = Path.Combine(DiagnosticsRoot, "sync-health-" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".txt");
+                string report = BuildSynchronizationText();
+                File.WriteAllText(path, report, Encoding.UTF8);
+                return WithPath(Ok("Synchronization report ready", "Node identity, queue state, replay backlog, and sync outbox status were summarized.", report), path);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SupportCenterService.CreateSynchronizationReport", ex);
+                return Fail("Synchronization report failed", ex.Message);
             }
         }
 
@@ -501,9 +519,64 @@ namespace HVAC_Pro_Desktop.Services
                    Environment.NewLine +
                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
                    Environment.NewLine +
-                   LocalSqliteFallbackStore.BuildStatusText() + Environment.NewLine +
-                   Environment.NewLine +
-                   BuildCountsBlock();
+                    LocalSqliteFallbackStore.BuildStatusText() + Environment.NewLine +
+                    Environment.NewLine +
+                    BuildCountsBlock();
+        }
+
+        private string BuildSynchronizationText()
+        {
+            Guid nodeId = NodeIdentityService.GetOrCreateNodePublicId();
+            List<OfflineSyncItem> pending = OfflineSyncService.GetPendingItems(200);
+            Dictionary<string, int> outbox = new SyncOutboxService().GetOutboxStatusCounts();
+            SqlConnectionStringBuilder connection = new SqlConnectionStringBuilder(DatabaseManager.RequireConfiguredConnectionString());
+
+            StringBuilder builder = new StringBuilder();
+            builder.AppendLine("ServoERP Synchronization Health");
+            builder.AppendLine("Generated: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            builder.AppendLine("Node Public ID: " + nodeId.ToString("D"));
+            builder.AppendLine("Node Name: " + NodeIdentityService.GetNodeName());
+            builder.AppendLine("Machine: " + Environment.MachineName);
+            builder.AppendLine("Configured SQL Server: " + SafeValue(connection.DataSource));
+            builder.AppendLine("Configured Database: " + SafeValue(connection.InitialCatalog));
+            builder.AppendLine("Local SQLite: " + LocalSqliteFallbackStore.GetDatabasePath());
+            builder.AppendLine("Pending Offline Items: " + pending.Count);
+            builder.AppendLine("Pending Queue Statuses:");
+            foreach (IGrouping<string, OfflineSyncItem> group in pending.GroupBy(item => string.IsNullOrWhiteSpace(item.Status) ? "Unknown" : item.Status))
+                builder.AppendLine("  " + group.Key + ": " + group.Count());
+
+            builder.AppendLine("Outbox Statuses:");
+            if (outbox.Count == 0)
+            {
+                builder.AppendLine("  none");
+            }
+            else
+            {
+                foreach (KeyValuePair<string, int> pair in outbox.OrderBy(pair => pair.Key))
+                    builder.AppendLine("  " + pair.Key + ": " + pair.Value);
+            }
+
+            builder.AppendLine();
+            builder.AppendLine(DatabaseConnectionStateService.BuildSupportStatusText());
+            builder.AppendLine();
+            builder.AppendLine(LocalSqliteFallbackStore.BuildStatusText());
+
+            if (pending.Count > 0)
+            {
+                builder.AppendLine();
+                builder.AppendLine("Pending Queue Items");
+                foreach (OfflineSyncItem item in pending.Take(20))
+                {
+                    builder.AppendLine(
+                        item.QueueId.ToString() + " | " +
+                        SafeValue(item.Module) + "." + SafeValue(item.Operation) + " | " +
+                        SafeValue(item.Status) + " | " +
+                        SafeValue(item.EntitySyncPublicId) + " | " +
+                        SafeValue(item.LastError));
+                }
+            }
+
+            return builder.ToString();
         }
 
         private string BuildOperationsCommandCenterText()
@@ -649,10 +722,10 @@ ORDER BY sip.ItemName, sip.Rate");
         {
             return string.Join(Environment.NewLine, new[]
             {
-                "Dashboard", "Quotations", "Invoices", "Service Desk", "Dispatch Center",
+                "Dashboard", "Quotations", "Invoices", "Service Desk", "Site Monitor",
                 "Inventory", "Purchases", "Clients", "Vendors", "Payments", "Contracts",
                 "Jobs", "Payroll", "Employees", "Reports", "Settings", "Master Data",
-                "TallyPrime Integration", "WhatsApp Cloud API Integration", "Calendar Dispatch Integration",
+                "WhatsApp Cloud API Integration", "Calendar Dispatch Integration",
                 "Cloud Backup Integration", "GST/e-Invoice Integration"
             });
         }
@@ -959,7 +1032,7 @@ ORDER BY sip.ItemName, sip.Rate");
                     "Create a safety backup before restore.",
                     "Restore only after all users close ServoERP."),
                 Article("Service Desk", "How to use dispatch board", "Coordinate incidents, jobs, and technician scheduling.", "dispatch,technician,service desk,jobs",
-                    "Open Dispatch Center when enabled.",
+                    "Open Site Monitor when enabled.",
                     "Filter by technician, job status, or date.",
                     "Assign jobs based on availability and priority.",
                     "Use job activity and service desk notes for field updates.",

@@ -254,7 +254,7 @@ namespace HVAC_Pro_Desktop.UI
 				e.ThrowException = false;
 			};
 			panel3.Controls.Add(_gridAttendance);
-			System.Windows.Forms.Panel control3 = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Daily coverage grid", "Each active employee across June. Click any cell to cycle its status.", panel3, BuildStatusLegend(), 560);
+			System.Windows.Forms.Panel control3 = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Daily coverage grid", "Each active employee across the selected month. Click any cell to cycle its status.", panel3, BuildStatusLegend(), 560);
 			System.Windows.Forms.Panel dailyGridShell = CreateResizableDailyCoverageShell(control3);
 			panel2.Controls.Add(dailyGridShell);
 			panel2.Controls.Add(periodStrip);
@@ -343,7 +343,7 @@ namespace HVAC_Pro_Desktop.UI
 				Margin = System.Windows.Forms.Padding.Empty,
 				Padding = System.Windows.Forms.Padding.Empty
 			};
-			return HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Review queue", "Employees with exceptions to resolve before payroll.", _reviewQueueBody, HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("22 open", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber600, 72), 340);
+			return HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Review queue", "Employees with exceptions to resolve before payroll.", _reviewQueueBody, HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("Open", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber600, 72), 340);
 		}
 
 		private System.Windows.Forms.Panel CreatePayrollHandoffCard()
@@ -368,7 +368,7 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				Dock = System.Windows.Forms.DockStyle.Top,
 				Height = 56,
-				Text = "22 employees still need review before you can close June 2026.",
+				Text = "Review attendance before closing the selected month.",
 				Font = new System.Drawing.Font("Segoe UI Semibold", 12f, System.Drawing.FontStyle.Bold),
 				ForeColor = System.Drawing.Color.White,
 				Padding = new System.Windows.Forms.Padding(0, 8, 0, 0)

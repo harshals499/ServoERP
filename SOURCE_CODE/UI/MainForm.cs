@@ -68,7 +68,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int RetiredServiceDeskPageIndex = 16;
         private const int MasterDataPageIndex = 17;
         private const int WhatsAppHubPageIndex = 18;
-        private const int TallyIntegrationPageIndex = 19;
+        private const int RemovedTallyPageIndex = 19;
         private const int VendorsPageIndex = 20;
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
@@ -112,12 +112,12 @@ namespace HVAC_Pro_Desktop.UI
             ("Inventory", "N"),
             ("Employees", "E"),
             ("Payroll Dashboard", "Y"),
-            ("Dispatch Center", "D"),
+            ("Site Monitor", "S"),
             ("Jobs", "J"),
             ("Retired", "K"),
             ("Master Data", "M"),
             ("WhatsApp Hub", "W"),
-            ("Tally", "T"),
+            ("Removed", "R"),
             ("Vendors", "V"),
             ("AMC", "A"),
             ("Attendance", "A"),
@@ -129,7 +129,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
-        private static readonly int[] SettingsSupportItems = { 8, 18, 19 };
+        private static readonly int[] SettingsSupportItems = { 8, 18 };
 
         public MainForm()
         {
@@ -493,7 +493,7 @@ namespace HVAC_Pro_Desktop.UI
                 MakeWorkspaceTourStep("Clients", "Maintain B2B clients, client sites, contacts, and active relationship history.", Color.FromArgb(37, 99, 235)),
                 MakeWorkspaceTourStep("Jobs", "Track service calls, technician assignment, job status, parts, checklist, and closure.", DS.Green600),
                 MakeWorkspaceTourStep("Invoices", "Create GST invoices with Indian tax handling, HSN/SAC details, and PDF output.", DS.Amber600),
-                MakeWorkspaceTourStep("Dispatch Center", "Use dispatch and geo-intelligence to coordinate technicians and service locations.", Color.FromArgb(14, 116, 144)),
+                MakeWorkspaceTourStep("Site Monitor", "Use site monitoring and geo-intelligence to coordinate technicians and service locations.", Color.FromArgb(14, 116, 144)),
                 MakeWorkspaceTourStep("Contracts", "Manage AMC contracts, SLA commitments, renewal windows, and customer coverage.", DS.Primary600),
                 MakeWorkspaceTourStep("Payments", "Record collections, track outstanding amounts, and keep customer ledgers current.", DS.Green600),
                 MakeWorkspaceTourStep("SLA Dashboard", "Review SLA logs, response performance, and service commitment status.", DS.Red600),
@@ -507,7 +507,6 @@ namespace HVAC_Pro_Desktop.UI
                 MakeWorkspaceTourStep("Payroll", "Manage salary, advances, payslips, and payroll reporting for staff.", Color.FromArgb(124, 58, 237)),
                 MakeWorkspaceTourStep("Master Data", "Import, clean, validate, and sync client-owned Excel master data.", DS.Amber600),
                 MakeWorkspaceTourStep("WhatsApp Hub", "Open WhatsApp workflows for customer communication and service coordination.", DS.Green600),
-                MakeWorkspaceTourStep("Tally", "Export vouchers, import masters, and sync accounting data with Tally Prime.", DS.Primary600)
             };
         }
 
@@ -1596,7 +1595,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "\uE90F"; // Retired
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
-                case 19: return "\uE8A5"; // Tally
                 default: return "\uE10F";
             }
         }
@@ -2205,7 +2203,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
-                case 19: page = new TallyIntegrationForm(); break;
                 case VendorsPageIndex: page = new VendorForm(VendorPartnerPageMode.ServiceVendor); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
@@ -2239,7 +2236,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == 19 || index == VendorsPageIndex || index == AMCPageIndex || index == AttendancePageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == VendorsPageIndex || index == AMCPageIndex || index == AttendancePageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -2254,7 +2251,6 @@ namespace HVAC_Pro_Desktop.UI
                 || page is GeoIntelligenceForm
                 || page is MasterDataForm
                 || page is WhatsAppHubForm
-                || page is TallyIntegrationForm
                 || page is JobManagementForm
                 || page is AMCPage;
         }
@@ -2793,7 +2789,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool CanViewNavItem(int index)
         {
-            if (index < 0 || index >= NavItems.Length || index == RetiredServiceDeskPageIndex)
+            if (index < 0 || index >= NavItems.Length || index == RetiredServiceDeskPageIndex || index == RemovedTallyPageIndex)
                 return false;
 
             string moduleKey = GetModuleKeyForNav(index);
@@ -2850,9 +2846,6 @@ namespace HVAC_Pro_Desktop.UI
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
-                case "TALLY":
-                case "TALLYPRIME":
-                case "TALLY PRIME": return TallyIntegrationPageIndex;
                 default: return 0;
             }
         }
@@ -2881,7 +2874,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "WorkOrders";
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
-                case 19: return "Settings";
                 case VendorsPageIndex: return "Vendors";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";

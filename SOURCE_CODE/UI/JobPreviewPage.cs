@@ -84,39 +84,36 @@ namespace HVAC_Pro_Desktop.UI
         {
             Controls.Clear();
 
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 118, BackColor = White, Padding = new Padding(18, 16, 18, 16) };
+            Panel top = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = White, Padding = new Padding(14, 10, 14, 10) };
             top.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, top.Height - 1, top.Width, top.Height - 1);
 
             Panel backHost = new Panel
             {
                 Dock = DockStyle.Left,
-                Width = 154,
+                Width = 126,
                 BackColor = White,
-                Padding = new Padding(0, 18, 12, 18)
+                Padding = new Padding(0, 10, 10, 10)
             };
-            Button btnBack = MakeButton("<- Back to Jobs", White, TextPrimary, 132);
+            Button btnBack = MakeButton("<- Back", White, TextPrimary, 104);
             btnBack.FlatAppearance.BorderColor = Border;
-            btnBack.Location = new Point(0, 18);
+            btnBack.Location = new Point(0, 12);
             btnBack.Click += (s, e) => OnBackToJobs?.Invoke(JobId);
             backHost.Controls.Add(btnBack);
 
-            FlowLayoutPanel actions = new FlowLayoutPanel
+            Panel actions = new Panel
             {
                 Dock = DockStyle.Right,
-                Width = 116,
-                Height = 186,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
+                Width = 430,
                 BackColor = White,
                 Padding = new Padding(0),
                 Margin = new Padding(0)
             };
 
-            Button btnEdit = MakeButton("Edit Job", Teal, White, 92);
-            Button btnPrint = MakeButton("Print", Blue, White, 84);
-            Button btnOpenPdf = MakeButton("Open PDF", White, TextPrimary, 90);
-            Button btnSavePdf = MakeButton("Save PDF", White, TextPrimary, 90);
-            Button btnRefresh = MakeButton("Refresh", White, TextPrimary, 86);
+            Button btnEdit = MakeButton("Edit Job", Teal, White, 88);
+            Button btnPrint = MakeButton("Print", Blue, White, 70);
+            Button btnOpenPdf = MakeButton("Open PDF", White, TextPrimary, 82);
+            Button btnSavePdf = MakeButton("Save PDF", White, TextPrimary, 82);
+            Button btnRefresh = MakeButton("Refresh", White, TextPrimary, 76);
 
             btnOpenPdf.FlatAppearance.BorderColor = Border;
             btnSavePdf.FlatAppearance.BorderColor = Border;
@@ -132,35 +129,45 @@ namespace HVAC_Pro_Desktop.UI
             btnSavePdf.Click += (s, e) => SavePdf();
             btnRefresh.Click += async (s, e) => await ReloadPreviewAsync();
 
-            btnEdit.Margin = new Padding(0, 0, 0, 6);
-            btnPrint.Margin = new Padding(0, 0, 0, 6);
-            btnOpenPdf.Margin = new Padding(0, 0, 0, 6);
-            btnSavePdf.Margin = new Padding(0, 0, 0, 6);
-            btnRefresh.Margin = new Padding(0);
+            Action layoutActions = () =>
+            {
+                int y = 12;
+                int right = Math.Max(0, actions.ClientSize.Width - 4);
+                Button[] ordered = { btnRefresh, btnSavePdf, btnOpenPdf, btnPrint, btnEdit };
+                foreach (Button button in ordered)
+                {
+                    right -= button.Width;
+                    button.Location = new Point(Math.Max(0, right), y);
+                    right -= 6;
+                }
+            };
 
             actions.Controls.AddRange(new Control[] { btnEdit, btnPrint, btnOpenPdf, btnSavePdf, btnRefresh });
+            actions.Resize += (s, e) => layoutActions();
+            layoutActions();
 
-            Panel titleHost = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(8, 2, 16, 0) };
+            Panel titleHost = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(10, 0, 12, 0) };
             _lblTitle.Dock = DockStyle.Top;
-            _lblTitle.Height = 30;
-            _lblTitle.Font = new Font("Segoe UI", 17f, FontStyle.Bold);
+            _lblTitle.Height = 24;
+            _lblTitle.Font = new Font("Segoe UI", 12.6f, FontStyle.Bold);
             _lblTitle.ForeColor = TextPrimary;
             _lblTitle.Text = "Job Preview";
             _lblCompany.Dock = DockStyle.Top;
-            _lblCompany.Height = 22;
-            _lblCompany.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            _lblCompany.Height = 18;
+            _lblCompany.Font = new Font("Segoe UI", 8.9f, FontStyle.Bold);
             _lblCompany.ForeColor = Blue;
             _lblCompany.Text = DocumentBranding.DefaultCompanyName;
             _lblMeta.Dock = DockStyle.Top;
-            _lblMeta.Height = 20;
-            _lblMeta.Font = new Font("Segoe UI", 9f);
+            _lblMeta.Height = 18;
+            _lblMeta.Font = new Font("Segoe UI", 8.2f);
             _lblMeta.ForeColor = TextSecondary;
+            _lblMeta.AutoEllipsis = true;
             _lblStatus.AutoSize = true;
-            _lblStatus.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            _lblStatus.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             _lblStatus.ForeColor = Teal;
             _lblStatus.BackColor = Color.FromArgb(232, 248, 241);
-            _lblStatus.Padding = new Padding(10, 4, 10, 4);
-            _lblStatus.Location = new Point(0, 72);
+            _lblStatus.Padding = new Padding(8, 3, 8, 3);
+            _lblStatus.Location = new Point(0, 56);
             titleHost.Controls.Add(_lblStatus);
             titleHost.Controls.Add(_lblMeta);
             titleHost.Controls.Add(_lblCompany);
@@ -215,7 +222,13 @@ namespace HVAC_Pro_Desktop.UI
                 BindHeader(payload.Detail, payload.Settings);
                 SetLoading("Rendering preview...");
                 AppRuntime.LogTiming("JobPreviewPage.LoadData", watch.ElapsedMilliseconds);
-                BeginInvoke((Action)(() => RenderPreviewHtml(_currentHtml, watch)));
+                Action render = () => RenderPreviewHtml(_currentHtml, watch);
+                if (IsDisposed)
+                    return;
+                if (InvokeRequired && IsHandleCreated)
+                    BeginInvoke(render);
+                else
+                    render();
             }
             catch (Exception ex)
             {
@@ -401,12 +414,12 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = text,
                 Width = width,
-                Height = 34,
+                Height = 30,
                 BackColor = backColor,
                 ForeColor = foreColor,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                Margin = new Padding(6, 0, 0, 0)
+                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Margin = new Padding(4, 0, 0, 0)
             };
             button.FlatAppearance.BorderSize = 1;
             return button;

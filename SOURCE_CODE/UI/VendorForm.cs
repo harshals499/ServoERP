@@ -191,6 +191,9 @@ namespace HVAC_Pro_Desktop.UI
         private bool _syncingVendorSelection;
         private bool _searchPlaceholderActive;
         private bool _renderingDashboard;
+        private Timer _dashboardRenderTimer;
+        private bool _dashboardRenderPending;
+        private int _lastDashboardRenderWidth;
         private readonly VendorPartnerPageMode _pageMode;
 
         protected override bool EnableAutomaticLayoutScaling => false;
@@ -224,15 +227,18 @@ namespace HVAC_Pro_Desktop.UI
 
         public VendorForm(VendorPartnerPageMode pageMode)
         {
+            Stopwatch ctorWatch = Stopwatch.StartNew();
             _pageMode = pageMode;
             _dashboardTab = IsSupplierPage ? "All Suppliers" : "All Vendors";
             ConfigurePartnerTypeOptions();
             Dock = DockStyle.Fill;
             BackColor = PageBg;
             BuildLayout();
+            AppRuntime.LogTiming("VendorForm.BuildLayout", ctorWatch.ElapsedMilliseconds, "mode=" + (_showDashboard ? "dashboard" : "editor") + ";page=" + PartnerWindowTitle);
             UIHelper.ApplyInputStyles(Controls);
             RestoreVendorInputChrome();
             ApplyPartnerTerminology();
+            RegisterFirstPaintTiming("VendorForm.FirstPaint." + PartnerWindowTitle, ctorWatch);
             if (_showDashboard)
             {
                 RenderVendorDashboard();
@@ -321,7 +327,10 @@ namespace HVAC_Pro_Desktop.UI
             if (_vendorDashboardHost.ClientSize.Width <= 0 || _vendorDashboardHost.ClientSize.Height <= 0)
                 return;
 
-            RenderVendorDashboard();
+            if (Math.Abs(_vendorDashboardHost.ClientSize.Width - _lastDashboardRenderWidth) < 24 && _lastDashboardRenderWidth > 0)
+                return;
+
+            QueueVendorDashboardRender(120);
         }
 
         private void RenderVendorDashboard()
@@ -329,9 +338,11 @@ namespace HVAC_Pro_Desktop.UI
             if (_vendorDashboardHost == null || _vendorDashboardHost.IsDisposed)
                 return;
 
+            _dashboardRenderPending = false;
             _renderingDashboard = true;
             _vendorDashboardHost.SuspendLayout();
             _vendorDashboardHost.Controls.Clear();
+            _lastDashboardRenderWidth = _vendorDashboardHost.ClientSize.Width;
 
             Panel content = new Panel { BackColor = PageBg, Location = new Point(22, 16), Width = Math.Max(960, _vendorDashboardHost.ClientSize.Width - 58), Height = 1180 };
             _vendorDashboardHost.AutoScrollMinSize = new Size(0, content.Height + 44);
@@ -379,16 +390,35 @@ namespace HVAC_Pro_Desktop.UI
             ApplyPartnerTerminology();
         }
 
+        private void QueueVendorDashboardRender(int delayMs)
+        {
+            if (_vendorDashboardHost == null || _vendorDashboardHost.IsDisposed)
+                return;
+
+            if (_dashboardRenderTimer == null)
+            {
+                _dashboardRenderTimer = new Timer();
+                _dashboardRenderTimer.Tick += (s, e) =>
+                {
+                    _dashboardRenderTimer.Stop();
+                    if (_dashboardRenderPending && !_renderingDashboard)
+                        RenderVendorDashboard();
+                };
+            }
+
+            _dashboardRenderPending = true;
+            _dashboardRenderTimer.Stop();
+            _dashboardRenderTimer.Interval = Math.Max(1, delayMs);
+            _dashboardRenderTimer.Start();
+        }
+
         private Control BuildVendorDashboardHeader(int width)
         {
             NormalizeDashboardSearchState();
-            Panel header = new Panel { Size = new Size(width, 58), BackColor = PageBg, Name = "VendorDashboardHeader", Tag = "custom-header-actions no-global-actions" };
             string titleText = IsSupplierPage ? "Supplier Management" : "Service Vendor Management";
             string subtitleText = IsSupplierPage
                 ? "Manage suppliers, purchase performance, GST and compliance in one place."
                 : "Manage service vendors, support partners, contacts, and operating readiness in one place.";
-            header.Controls.Add(new Label { Text = titleText, Location = new Point(0, 0), Size = new Size(340, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = TextPrimary });
-            header.Controls.Add(new Label { Text = subtitleText, Location = new Point(1, 30), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.8f), ForeColor = TextSecondary });
 
             Panel dashboardSearchHost = new Panel
             {
@@ -422,24 +452,25 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Show(addVendor, new Point(0, addVendor.Height));
             };
 
-            Panel toolbar = new Panel { Name = "VendorDashboardHeaderActionRail", Height = 38, BackColor = PageBg };
-            Control[] toolbarItems = { dashboardSearchHost, filters, addVendor };
-            foreach (Control control in toolbarItems)
+            foreach (Control control in new Control[] { filters, addVendor })
                 control.Margin = Padding.Empty;
-            toolbar.Controls.AddRange(toolbarItems);
-            header.Controls.Add(toolbar);
-            Action layoutHeader = () =>
-            {
-                int availableWidth = Math.Max(320, header.ClientSize.Width - 360);
-                int fixedWidth = SharedUiPrimitives.MeasureVisibleControlSpan(new Control[] { filters, addVendor });
-                dashboardSearchHost.Width = Math.Min(250, Math.Max(210, availableWidth - fixedWidth - SharedUiPrimitives.HeaderActionGap));
-                int toolbarWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                toolbar.SetBounds(Math.Max(360, header.ClientSize.Width - toolbarWidth), 0, toolbarWidth, 38);
-                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, 0, 1);
-            };
-            header.Resize += (s, e) => layoutHeader();
-            layoutHeader();
-            return header;
+
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "VendorDashboardHeader",
+                titleText,
+                subtitleText,
+                new List<Control> { filters, addVendor },
+                dashboardSearchHost,
+                null,
+                PageBg,
+                new Padding(0, 0, 0, 8));
+            model.Dock = DockStyle.None;
+            model.CompactBreakpoint = 1320;
+            SharedPageHeaderResult result = SharedPageHeader.Build(model);
+            result.Header.Size = new Size(width, result.Header.Height);
+            result.Header.Name = "VendorDashboardHeader";
+            result.Header.Tag = "custom-header-actions no-global-actions";
+            return result.Header;
         }
 
         private IEnumerable<Control> BuildVendorStatCards(int width)
@@ -1575,6 +1606,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int x = actions.ClientSize.Width;
                 int y = 4;
+                int gap = SharedUiPrimitives.HeaderActionGap;
                 foreach (Button button in topActions)
                 {
                     if (!button.Visible)
@@ -1587,7 +1619,7 @@ namespace HVAC_Pro_Desktop.UI
                         x = actions.ClientSize.Width - button.Width;
                     }
                     button.SetBounds(Math.Max(0, x), y, button.Width, 32);
-                    x -= 8;
+                    x -= gap;
                 }
             };
             actions.Resize += (s, e) => layoutActions();
@@ -2368,7 +2400,7 @@ namespace HVAC_Pro_Desktop.UI
                 _duplicateGroups = new List<DuplicateGroupDto>();
                 _dashboardPurchases = new List<PurchaseOrder>();
                 _dashboardContracts = new List<AMCContract>();
-                RenderVendorDashboard();
+                QueueVendorDashboardRender(1);
             }
             catch (Exception ex)
             {
@@ -2379,7 +2411,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<VendorSummaryDto> BuildLightweightDashboardSummaries()
         {
-            List<Vendor> vendors = _vendorSvc.GetAllIncludingArchived();
+            List<Vendor> vendors = AppDataCache.GetOrCreate(
+                "vendors:all-including-archived",
+                TimeSpan.FromMinutes(2),
+                () => _vendorSvc.GetAllIncludingArchived() ?? new List<Vendor>());
 
             return (vendors ?? new List<Vendor>())
                 .Select(v => new VendorSummaryDto
@@ -2421,27 +2456,33 @@ namespace HVAC_Pro_Desktop.UI
                 int? selectedVendorId = preserveSelection ? (int?)_currentVendor?.VendorID : null;
                 List<VendorSummaryDto> summaries = null;
                 List<DuplicateGroupDto> duplicates = null;
+                Stopwatch fetchWatch = Stopwatch.StartNew();
 
                 await Task.Run(() =>
                 {
                     if (IsSupplierPage)
                         _vendorSvc.MovePendingApprovalSuppliersToInactive();
-                    summaries = _vendorSvc.GetAllVendorsWithSummary();
+                    AppDataCache.Remove("vendors:summaries");
+                    summaries = AppDataCache.GetOrCreate(
+                        "vendors:summaries",
+                        TimeSpan.FromMinutes(2),
+                        () => _vendorSvc.GetAllVendorsWithSummary() ?? new List<VendorSummaryDto>());
                     duplicates = _vendorSvc.DetectDuplicates();
                 });
+                AppRuntime.LogTiming("VendorForm.Refresh.Fetch", fetchWatch.ElapsedMilliseconds, "mode=" + (_showDashboard ? "dashboard" : "editor"));
 
+                Stopwatch bindWatch = Stopwatch.StartNew();
                 _vendorSummaries = FilterPartnerSummaries(summaries).ToList();
                 _duplicateGroups = duplicates ?? new List<DuplicateGroupDto>();
                 UpdateTopBar();
                 BuildFilterChips();
                 UpdateDuplicateBanner();
                 ApplyFilters();
+                AppRuntime.LogTiming("VendorForm.Refresh.Bind", bindWatch.ElapsedMilliseconds, "count=" + _vendorSummaries.Count);
                 AppRuntime.LogTiming("VendorForm.Refresh.ListBound", stopwatch.ElapsedMilliseconds);
 
                 if (selectedVendorId.HasValue && _vendorSummaries.Any(v => v.VendorId == selectedVendorId.Value))
                     await LoadVendorDetailAsync(selectedVendorId.Value);
-                else if (_vendorSummaries.Count > 0)
-                    await LoadVendorDetailAsync(_vendorSummaries[0].VendorId);
                 else
                     PrepareBlankVendor();
             }
@@ -3044,9 +3085,9 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(BorderLight))
                     e.Graphics.DrawLine(pen, 0, row.Height - 1, row.Width, row.Height - 1);
             };
-            row.Click += (s, e) => RecentDocumentOpenService.OpenPdf(this, po);
+            row.Click += (s, e) => RecentDocumentOpenService.OpenPurchaseOrderPreview(this, po);
             LinkLabel lnkPo = new LinkLabel { Text = po.PONumber, Location = new Point(0, 2), Size = new Size(140, 18), LinkColor = Blue, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
-            lnkPo.Click += (s, e) => RecentDocumentOpenService.OpenPdf(this, po);
+            lnkPo.Click += (s, e) => RecentDocumentOpenService.OpenPurchaseOrderPreview(this, po);
             Label lblDate = new Label { Text = IndiaFormatHelper.FormatDate(po.PODate), Location = new Point(0, 24), Size = new Size(140, 16), Font = new Font("Segoe UI", 8.5f), ForeColor = TextHint };
             Label lblLink = new Label { Text = string.IsNullOrWhiteSpace(po.LinkedToLabel) ? (po.LinkedToType ?? "No linked record") : po.LinkedToLabel, Location = new Point(150, 12), Size = new Size(260, 16), Font = new Font("Segoe UI", 8.5f), ForeColor = TextSecondary };
             Label lblAmount = new Label { Text = IndiaFormatHelper.FormatCurrency(po.TotalAmount), Location = new Point(row.Width - 180, 8), Size = new Size(100, 18), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.TopRight };

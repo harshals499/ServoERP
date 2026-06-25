@@ -53,6 +53,7 @@ namespace HVAC_Pro_Desktop.Services
             int id = _repo.Create(po);
             _vendorService.RefreshVendorPurchaseTotals(po.VendorID);
             AppDataCache.RemovePrefix("purchases:");
+            DashboardRefreshService.NotifyChanged("Purchases");
             SessionManager.LogAction("CREATE", "Purchases", id, "Purchase order saved");
             _audit.Record("CREATE", "Purchases", id, "Purchase order saved with data-quality validation");
             return id;
@@ -75,6 +76,7 @@ namespace HVAC_Pro_Desktop.Services
             _repo.Update(po);
             _vendorService.RefreshVendorPurchaseTotals(po.VendorID, existing?.VendorID ?? 0);
             AppDataCache.RemovePrefix("purchases:");
+            DashboardRefreshService.NotifyChanged("Purchases");
             SessionManager.LogAction("EDIT", "Purchases", po.POID, "Purchase order saved");
             _audit.Record("EDIT", "Purchases", po.POID, "Purchase order saved with data-quality validation");
         }
@@ -606,7 +608,7 @@ namespace HVAC_Pro_Desktop.Services
 
             decimal tdsDeducted = TryParseDecimal(_settingsService.Get("PurchaseOrderTDS", "0"));
             decimal netPayable = grandTotal - tdsDeducted;
-            string amountWords = "Rupees " + ToWords((long)Math.Round(netPayable)) + " Only";
+            string amountWords = IndiaFormatHelper.ToRupeesOnlyWords(netPayable);
             string shopLicense = _settingsService.Get("CompanyShopLicense", "");
             string pfNumber = _settingsService.Get("CompanyPFNumber", "");
             string esicNumber = _settingsService.Get("CompanyESICNumber", "");
@@ -617,38 +619,111 @@ namespace HVAC_Pro_Desktop.Services
             string companyName = string.IsNullOrWhiteSpace(settings.CompanyName) || string.Equals(settings.CompanyName.Trim(), "New Client", StringComparison.OrdinalIgnoreCase)
                 ? DocumentBranding.DefaultCompanyName
                 : settings.CompanyName.Trim();
+            string vendorAddress = Html(vendor?.Address).Replace("\n", "<br/>");
+            string companyAddress = Html(settings.Address).Replace("\n", "<br/>");
+            string orderNumber = Html(po.PONumber);
+            string supplierInvoiceNumber = Html(po.VendorInvoiceNumber);
+            string amountWordsLine = Html(amountWords.EndsWith(".") ? amountWords : amountWords + ".");
+            string purchaseCss = @"
+.mse-official-header{margin:0 0 8px 0 !important;}
+.mse-official-header-logo img{max-width:640px !important;}
+.company-template-banner{margin:0 0 8px 0;}
+.po-sheet{border:1px solid #cbd5e1;border-radius:12px;padding:14px 16px 16px 16px;background:#fff;box-sizing:border-box;}
+.po-title-row{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding-bottom:10px;border-bottom:2px solid #0f172a;}
+.po-title-block{min-width:0;}
+.po-kicker{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#2563eb;margin-bottom:6px;}
+.po-title{font-family:'Segoe UI',sans-serif;font-size:24px;font-weight:800;letter-spacing:.02em;color:#0f172a;line-height:1.05;}
+.po-subject{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.45;color:#475569;margin-top:6px;max-width:470px;}
+.po-meta-box{min-width:220px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;padding:8px 10px;}
+.po-meta-line{display:flex;justify-content:space-between;gap:12px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:2px 0;}
+.po-meta-label{font-weight:700;color:#475569;white-space:nowrap;}
+.po-meta-value{font-weight:700;color:#0f172a;text-align:right;}
+.po-party-grid{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;}
+.po-party-grid td{vertical-align:top;width:50%;}
+.po-card{border:1px solid #dbe4f0;border-radius:10px;padding:12px 14px;min-height:118px;background:#fff;}
+.po-card-label{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;}
+.po-card-title{font-family:'Segoe UI',sans-serif;font-size:18px;font-weight:700;color:#0f172a;line-height:1.25;margin-bottom:6px;}
+.po-card-body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.55;color:#334155;}
+.po-card-body .muted{color:#64748b;}
+.po-inline-note{margin-top:10px;border:1px solid #dbe4f0;border-radius:10px;background:#f8fafc;padding:9px 12px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;color:#334155;}
+.po-inline-note strong{color:#0f172a;}
+.po-items{width:100%;border-collapse:separate;border-spacing:0;margin-top:14px;border:1px solid #dbe4f0;border-radius:12px;overflow:hidden;}
+.po-items th{background:#f8fafc;color:#0f172a;font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:700;padding:10px 8px;border-bottom:1px solid #dbe4f0;text-align:left;}
+.po-items td{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:9px 8px;border-bottom:1px solid #e8eef5;color:#334155;vertical-align:top;}
+.po-items tbody tr:last-child td{border-bottom:none;}
+.po-items .center{text-align:center;}
+.po-items .num{text-align:right;}
+.po-items .desc{color:#0f172a;}
+.po-items .empty-row td{height:18px;color:#94a3b8;}
+.po-summary-wrap{display:flex;justify-content:flex-end;margin-top:14px;}
+.po-summary{width:320px;border:1px solid #dbe4f0;border-radius:12px;background:#fff;overflow:hidden;}
+.po-summary table{width:100%;border-collapse:collapse;}
+.po-summary td{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:8px 12px;border-bottom:1px solid #e8eef5;}
+.po-summary tr:last-child td{border-bottom:none;}
+.po-summary .label{color:#475569;font-weight:600;}
+.po-summary .value{text-align:right;color:#0f172a;font-weight:700;}
+.po-summary .grand td{background:#f8fafc;font-weight:800;font-size:12px;}
+.po-words{margin-top:10px;border:1px solid #fde68a;border-radius:10px;background:#fffbeb;padding:10px 12px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;color:#92400e;}
+.po-words strong{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#b45309;margin-bottom:4px;}
+.po-footer-grid{width:100%;border-collapse:separate;border-spacing:0 12px;margin-top:14px;}
+.po-footer-grid td{vertical-align:top;}
+.po-footer-card{border:1px solid #dbe4f0;border-radius:12px;padding:12px 14px;background:#fff;min-height:150px;}
+.po-footer-title{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;}
+.po-footer-copy{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.6;color:#334155;}
+.po-footer-copy strong{color:#0f172a;}
+.po-terms{margin-top:12px;border-top:1px dashed #cbd5e1;padding-top:10px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.6;color:#334155;}
+.po-terms strong{color:#0f172a;}
+.signature{border:none !important;padding:0 !important;min-height:0 !important;font-size:11px !important;}
+.signature .signature-body{min-height:82px !important;margin-top:0 !important;}
+.signature img{max-width:170px !important;max-height:64px !important;}
+.signature .small{margin-top:12px !important;font-family:'Segoe UI',sans-serif !important;}
+.signature .signature-company,.signature .signature-signed-by{font-family:'Segoe UI',sans-serif !important;}
+";
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
             + DocumentBranding.BuildOfficialHeaderCss()
             + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + DocumentBranding.BuildOfficialPrintCss()
+            + purchaseCss
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
             + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.PurchaseOrder)
-            + "<div class='print-frame'><div class='doc-title'>PURCHASE ORDER</div>"
-            + "<table class='doc-grid'><tr><td class='client-cell'>To,<br/>" + Html(vendor?.VendorName ?? po.VendorName) + "<br/>" + Html(vendor?.Address).Replace("\n", "<br/>") + "<br/>GST No. " + Html(vendor?.GSTNumber ?? po.VendorGSTIN) + "</td>"
-            + "<td class='meta-cell'>Date : " + orderDate + "</td></tr>"
-            + "<tr><td></td><td class='meta-cell'>PO No. " + Html(po.PONumber) + "</td></tr>"
-            + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
-            + "<tr class='po-row'><td colspan='2'>Supplier Invoice No : " + Html(po.VendorInvoiceNumber) + " &nbsp;&nbsp; Pay By Date : " + payByDate.ToString("dd/MM/yyyy") + "</td></tr>"
-            + "<tr class='blank-row'><td colspan='2'></td></tr></table>"
-            + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN Code</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
+            + "<div class='po-sheet'>"
+            + "<div class='po-title-row'>"
+            + "<div class='po-title-block'><div class='po-kicker'>Procurement Document</div><div class='po-title'>Purchase Order</div><div class='po-subject'>" + Html(subject) + "</div></div>"
+            + "<div class='po-meta-box'>"
+            + "<div class='po-meta-line'><span class='po-meta-label'>PO Number</span><span class='po-meta-value'>" + orderNumber + "</span></div>"
+            + "<div class='po-meta-line'><span class='po-meta-label'>Order Date</span><span class='po-meta-value'>" + orderDate + "</span></div>"
+            + "<div class='po-meta-line'><span class='po-meta-label'>Pay By Date</span><span class='po-meta-value'>" + payByDate.ToString("dd/MM/yyyy") + "</span></div>"
+            + "<div class='po-meta-line'><span class='po-meta-label'>Supplier Invoice No</span><span class='po-meta-value'>" + (string.IsNullOrWhiteSpace(po.VendorInvoiceNumber) ? "-" : supplierInvoiceNumber) + "</span></div>"
+            + "</div></div>"
+            + "<table class='po-party-grid'><tr>"
+            + "<td style='padding-right:8px;'><div class='po-card'><div class='po-card-label'>Supplier</div><div class='po-card-title'>" + Html(vendor?.VendorName ?? po.VendorName) + "</div><div class='po-card-body'>" + (string.IsNullOrWhiteSpace(vendorAddress) ? "<span class='muted'>Address not available</span>" : vendorAddress) + "<br/><span class='muted'>GST No.</span> " + Html(vendor?.GSTNumber ?? po.VendorGSTIN) + "</div></div></td>"
+            + "<td style='padding-left:8px;'><div class='po-card'><div class='po-card-label'>Bill / Dispatch To</div><div class='po-card-title'>" + Html(companyName) + "</div><div class='po-card-body'>" + (string.IsNullOrWhiteSpace(companyAddress) ? "<span class='muted'>Address not available</span>" : companyAddress) + "<br/><span class='muted'>GST No.</span> " + Html(settings.GSTIN) + "</div></div></td>"
+            + "</tr></table>"
+            + "<div class='po-inline-note'><strong>Instruction:</strong> Please supply goods / services as per the approved purchase order and agreed commercial terms.</div>"
+            + "<table class='po-items'><thead><tr><th style='width:52px' class='center'>Sr.</th><th>Description</th><th style='width:90px' class='center'>HSN Code</th><th style='width:62px' class='center'>Unit</th><th style='width:62px' class='center'>Qty</th><th style='width:118px' class='num'>Rate (Rs.)</th><th style='width:132px' class='num'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows.ToString()
-            + "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td class='total-value'>-</td></tr>"
-            + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + taxableTotal.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='6'>Add: CGST</td><td class='total-value'>" + cgstTotal.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='6'>Add: SGST</td><td class='total-value'>" + sgstTotal.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='6'>Add: IGST</td><td class='total-value'>" + igstTotal.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='6'>TDS Deducted</td><td class='total-value'>" + tdsDeducted.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='6' class='total-label'>Grand Total Amount</td><td class='total-value'>" + netPayable.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='7' class='words'>" + Html(amountWords) + ".</td></tr></tbody></table>"
-            + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
+            + "<tr class='empty-row'><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td class='num'>-</td></tr>"
+            + "</tbody></table>"
+            + "<div class='po-summary-wrap'><div class='po-summary'><table>"
+            + "<tr><td class='label'>Taxable Total</td><td class='value'>" + taxableTotal.ToString("N2") + "</td></tr>"
+            + "<tr><td class='label'>Add: CGST</td><td class='value'>" + cgstTotal.ToString("N2") + "</td></tr>"
+            + "<tr><td class='label'>Add: SGST</td><td class='value'>" + sgstTotal.ToString("N2") + "</td></tr>"
+            + "<tr><td class='label'>Add: IGST</td><td class='value'>" + igstTotal.ToString("N2") + "</td></tr>"
+            + "<tr><td class='label'>TDS Deducted</td><td class='value'>" + tdsDeducted.ToString("N2") + "</td></tr>"
+            + "<tr class='grand'><td class='label'>Grand Total</td><td class='value'>" + netPayable.ToString("N2") + "</td></tr>"
+            + "</table></div></div>"
+            + "<div class='po-words'><strong>Amount in Words</strong>" + amountWordsLine + "</div>"
+            + "<table class='po-footer-grid'><tr>"
+            + "<td style='width:52%;padding-right:8px;'><div class='po-footer-card'><div class='po-footer-title'>Compliance Details</div><div class='po-footer-copy compliance'>"
             + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, settings.PAN, settings.GSTIN, msmeNumber, false)
-            + "</td>"
-            + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
-            + "<tr><td class='certification'>Please supply goods / services as per the above purchase order and agreed terms.</td>"
-            + "<td class='footer-right'><span class='send-title'>Bill / Dispatch To : </span><br/>" + Html(companyName) + "<br/>" + Html(settings.Address).Replace("\n", "<br/>") + "</td></tr>"
-            + "</table></div></div></body></html>";
+            + "</div><div class='po-terms'><strong>Terms</strong><br/>Please supply goods / services as per the above purchase order and agreed terms.</div></div></td>"
+            + "<td style='width:48%;padding-left:8px;'><div class='po-footer-card'><div class='po-footer-title'>Authorisation</div><div class='po-footer-copy'>"
+            + DocumentBranding.BuildSignatureHtml(companyName)
+            + "</div></div></td>"
+            + "</tr></table>"
+            + "</div></div></body></html>";
         }
 
         private string ResolveUnit(string description)
@@ -709,29 +784,6 @@ namespace HVAC_Pro_Desktop.Services
         private static string Html(string value)
         {
             return WebUtility.HtmlEncode(value ?? string.Empty).Replace(Environment.NewLine, "<br/>");
-        }
-
-        private static string ToWords(long number)
-        {
-            if (number == 0) return "Zero";
-            if (number < 0) return "Minus " + ToWords(Math.Abs(number));
-            string[] units = { "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
-            string[] tens = { "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
-
-            Func<long, string> underHundred = null;
-            underHundred = n => n < 20 ? units[n] : tens[n / 10] + (n % 10 > 0 ? " " + units[n % 10] : "");
-
-            Func<long, string> convert = null;
-            convert = n =>
-            {
-                if (n < 100) return underHundred(n);
-                if (n < 1000) return units[n / 100] + " Hundred" + (n % 100 > 0 ? " " + convert(n % 100) : "");
-                if (n < 100000) return convert(n / 1000) + " Thousand" + (n % 1000 > 0 ? " " + convert(n % 1000) : "");
-                if (n < 10000000) return convert(n / 100000) + " Lakh" + (n % 100000 > 0 ? " " + convert(n % 100000) : "");
-                return convert(n / 10000000) + " Crore" + (n % 10000000 > 0 ? " " + convert(n % 10000000) : "");
-            };
-
-            return convert(number);
         }
 
         private void ValidatePurchaseOrderForSave(PurchaseOrder po)

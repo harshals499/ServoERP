@@ -136,11 +136,11 @@ namespace HVAC_Pro_Desktop.Tests
         private static void EnsureDispatchTechnicianClassification()
         {
             if (!EmployeeService.IsDispatchTechnicianRole(new Employee { Designation = "AC Technician", Department = "Semi Skilled", NatureOfWork = "Semi Skilled" }))
-                throw new InvalidOperationException("AC Technician must be visible in Dispatch Center.");
+                throw new InvalidOperationException("AC Technician must be visible in Site Monitor.");
             if (!EmployeeService.IsDispatchTechnicianRole(new Employee { Designation = "Helper", Department = "Semi Skilled", NatureOfWork = "Semi Skilled" }))
-                throw new InvalidOperationException("Helper field staff must be visible in Dispatch Center.");
+                throw new InvalidOperationException("Helper field staff must be visible in Site Monitor.");
             if (!EmployeeService.IsDispatchTechnicianRole(new Employee { Designation = "DCS OFFICER", Department = "Skilled", NatureOfWork = "Skilled" }))
-                throw new InvalidOperationException("DCS Officer field staff must be visible in Dispatch Center.");
+                throw new InvalidOperationException("DCS Officer field staff must be visible in Site Monitor.");
             if (EmployeeService.IsDispatchTechnicianRole(new Employee { Designation = "Sr.Accountant", Department = "Skilled", NatureOfWork = "Skilled" }))
                 throw new InvalidOperationException("Accounts staff must not be counted as dispatch technicians.");
             if (EmployeeService.GetDispatchTechnicianSortRank(new Employee { Designation = "HVAC Technician" }) >= EmployeeService.GetDispatchTechnicianSortRank(new Employee { Designation = "Helper" }))

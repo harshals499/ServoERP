@@ -92,6 +92,10 @@ namespace HVAC_Pro_Desktop.UI
 
         public static Image IconBitmap(ModernIconKind kind, int size, Color foreColor)
         {
+            string lucideName = LucideName(kind);
+            if (!string.IsNullOrWhiteSpace(lucideName))
+                return LucideIconService.GetIcon(lucideName, size, foreColor);
+
             int bitmapSize = Math.Max(12, size);
             Bitmap bitmap = new Bitmap(bitmapSize, bitmapSize);
             bitmap.SetResolution(96f, 96f);
@@ -110,6 +114,52 @@ namespace HVAC_Pro_Desktop.UI
                 graphics.DrawString(Glyph(kind), font, brush, new RectangleF(0, 0, bitmapSize, bitmapSize), format);
             }
             return bitmap;
+        }
+
+        private static string LucideName(ModernIconKind kind)
+        {
+            switch (kind)
+            {
+                case ModernIconKind.Activity: return "activity.svg";
+                case ModernIconKind.Alert: return "triangle-alert.svg";
+                case ModernIconKind.Analytics: return "bar-chart-3.svg";
+                case ModernIconKind.Backup: return "archive.svg";
+                case ModernIconKind.Calendar: return "calendar.svg";
+                case ModernIconKind.Checklist: return "clipboard-list.svg";
+                case ModernIconKind.ChevronDown: return "chevron-down.svg";
+                case ModernIconKind.Client: return "building-2.svg";
+                case ModernIconKind.Company: return "building-2.svg";
+                case ModernIconKind.Contract: return "file-signature.svg";
+                case ModernIconKind.Document: return "file-text.svg";
+                case ModernIconKind.EmptyBox: return "package-open.svg";
+                case ModernIconKind.Email: return "mail.svg";
+                case ModernIconKind.Export: return "download.svg";
+                case ModernIconKind.Filter: return "funnel.svg";
+                case ModernIconKind.Import: return "upload.svg";
+                case ModernIconKind.Inventory: return "package.svg";
+                case ModernIconKind.Invoice: return "receipt.svg";
+                case ModernIconKind.Job: return "clipboard-list.svg";
+                case ModernIconKind.Location: return "map-pin.svg";
+                case ModernIconKind.Money: return "banknote.svg";
+                case ModernIconKind.Parts: return "wrench.svg";
+                case ModernIconKind.Payment: return "credit-card.svg";
+                case ModernIconKind.Phone: return "phone.svg";
+                case ModernIconKind.Preference: return "sliders-horizontal.svg";
+                case ModernIconKind.Print: return "printer.svg";
+                case ModernIconKind.Purchase: return "shopping-cart.svg";
+                case ModernIconKind.Refresh: return "refresh-cw.svg";
+                case ModernIconKind.Save: return "save.svg";
+                case ModernIconKind.Search: return "search.svg";
+                case ModernIconKind.Security: return "lock.svg";
+                case ModernIconKind.Service: return "wrench.svg";
+                case ModernIconKind.Settings: return "settings.svg";
+                case ModernIconKind.Status: return "circle-check.svg";
+                case ModernIconKind.Tax: return "indian-rupee.svg";
+                case ModernIconKind.Technician: return "user.svg";
+                case ModernIconKind.User: return "users.svg";
+                case ModernIconKind.Vendor: return "store.svg";
+                default: return null;
+            }
         }
 
         public static Panel EmptyStateIcon(ModernIconKind kind, int size, Color backColor, Color foreColor)

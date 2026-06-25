@@ -24,6 +24,8 @@ namespace HVAC_Pro_Desktop.Services
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
+        private readonly SyncMetadataService _syncMetadata = new SyncMetadataService();
+        private readonly SyncOutboxService _syncOutbox = new SyncOutboxService();
 
         public List<Job> GetAll() => AppDataCache.GetOrCreate("jobs:all", CacheTtl, _repo.GetAll);
 
@@ -88,6 +90,15 @@ namespace HVAC_Pro_Desktop.Services
 
             try
             {
+                _syncMetadata.EnsureJobIdentity(job);
+                Job existing = job.SyncPublicId.HasValue ? _repo.GetBySyncPublicId(job.SyncPublicId.Value) : null;
+                if (existing != null)
+                {
+                    job.JobID = existing.JobID;
+                    Update(job);
+                    return existing.JobID;
+                }
+
                 NormalizeJob(job, isNewJob: true);
                 if (SessionManager.IsLoggedIn)
                 {
@@ -96,19 +107,25 @@ namespace HVAC_Pro_Desktop.Services
                 }
 
                 int id = _repo.Create(job);
+                job.JobID = id;
+                _syncMetadata.TouchJob(id, job.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Jobs", job.SyncPublicId ?? Guid.Empty, "Create", job);
                 if (!string.IsNullOrWhiteSpace(job.JobType))
                     _repo.ReplaceChecklistFromTemplate(id, job.JobType);
 
                 LogActivity(id, "Job created by " + GetCurrentUserLabel(), "Success");
                 AppDataCache.RemovePrefix("jobs:");
+                DashboardRefreshService.NotifyChanged("Jobs");
                 SessionManager.LogAction("CREATE", "WorkOrders", id, "Work order saved");
                 _audit.Record("CREATE", "WorkOrders", id, "Work order saved with data-quality validation");
                 return id;
             }
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineQueueResult queued = OfflineSyncService.Queue("Jobs", "Create", job, null, false, ex.Message);
+                OfflineQueueResult queued = OfflineSyncService.Queue("Jobs", "Create", job, null, false, ex.Message, job == null ? (Guid?)null : job.SyncPublicId);
                 AppDataCache.RemovePrefix("jobs:");
+                DashboardRefreshService.NotifyChanged("Jobs");
                 return queued.LocalId;
             }
         }
@@ -121,6 +138,7 @@ namespace HVAC_Pro_Desktop.Services
 
             try
             {
+                _syncMetadata.EnsureJobIdentity(job);
                 NormalizeJob(job, isNewJob: false);
                 if (SessionManager.IsLoggedIn)
                 {
@@ -130,15 +148,20 @@ namespace HVAC_Pro_Desktop.Services
                 }
 
                 _repo.Update(job);
+                _syncMetadata.TouchJob(job.JobID, job.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Jobs", job.SyncPublicId ?? Guid.Empty, "Update", job);
                 AppDataCache.RemovePrefix("jobs:");
+                DashboardRefreshService.NotifyChanged("Jobs");
                 SessionManager.LogAction("EDIT", "WorkOrders", job.JobID, "Work order saved");
                 _audit.Record("EDIT", "WorkOrders", job.JobID, "Work order saved with data-quality validation");
                 LogActivity(job.JobID, "Job details updated by " + GetCurrentUserLabel(), "Info");
             }
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineSyncService.Queue("Jobs", "Update", job, job.JobID, false, ex.Message);
+                OfflineSyncService.Queue("Jobs", "Update", job, job.JobID, false, ex.Message, job == null ? (Guid?)null : job.SyncPublicId);
                 AppDataCache.RemovePrefix("jobs:");
+                DashboardRefreshService.NotifyChanged("Jobs");
             }
         }
 

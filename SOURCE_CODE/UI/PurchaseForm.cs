@@ -728,12 +728,14 @@ namespace HVAC_Pro_Desktop.UI
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 68));
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32));
             Panel aging = MakePoCard();
+            AttachPurchaseExceptionCard(aging, "aging");
             aging.Margin = new Padding(0, 0, 8, 0);
             aging.Controls.Add(new Label { Text = "PO Aging Summary", Location = new Point(16, 14), Size = new Size(220, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
             _poAgingFlow = new FlowLayoutPanel { Location = new Point(16, 48), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, WrapContents = false, AutoScroll = true, BackColor = Color.Transparent };
             aging.Controls.Add(_poAgingFlow);
             aging.Resize += (s, e) => _poAgingFlow.Size = new Size(aging.Width - 32, aging.Height - 62);
             Panel overdue = MakePoCard();
+            AttachPurchaseExceptionCard(overdue, "overdue");
             overdue.Margin = new Padding(8, 0, 0, 0);
             overdue.Controls.Add(new Label { Text = "Overdue POs", Location = new Point(16, 14), Size = new Size(180, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = PoText });
             _poOverdueFlow = new FlowLayoutPanel { Location = new Point(16, 44), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.Transparent };
@@ -748,11 +750,13 @@ namespace HVAC_Pro_Desktop.UI
         {
             FlowLayoutPanel side = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = PoPageBg, Padding = new Padding(8, 0, 0, 0), AutoScroll = false };
             _poSummaryPanel = MakePoCard();
+            AttachPurchaseExceptionCard(_poSummaryPanel, "summary");
             _poSummaryPanel.Dock = DockStyle.None;
             _poSummaryPanel.Width = 280;
             _poSummaryPanel.Height = 180;
             _poTopSuppliersFlow = new FlowLayoutPanel { Width = 252, Height = 178, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = PoSurface };
             Panel suppliers = MakePoCard();
+            AttachPurchaseExceptionCard(suppliers, "suppliers");
             suppliers.Dock = DockStyle.None;
             suppliers.Width = 280;
             suppliers.Height = 260;
@@ -764,6 +768,7 @@ namespace HVAC_Pro_Desktop.UI
             allSuppliers.Click += (s, e) => ShowTopSuppliersDialog();
             suppliers.Controls.Add(allSuppliers);
             _poRecoveryPanel = MakePoCard();
+            AttachPurchaseExceptionCard(_poRecoveryPanel, "recovery");
             _poRecoveryPanel.Dock = DockStyle.None;
             _poRecoveryPanel.Width = 280;
             _poRecoveryPanel.Height = 286;
@@ -832,6 +837,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel MakePoStat(string label, string value, string sub, string trend, Color accent, ModernIconKind icon, bool chevron)
         {
             Panel card = MakePoCard();
+            AttachPurchaseExceptionCard(card, "stat_" + (label ?? string.Empty).Replace(" ", "_").ToLowerInvariant());
             card.Dock = DockStyle.None;
             card.Width = 206;
             card.Height = 96;
@@ -1672,36 +1678,91 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowTopSuppliersDialog()
         {
-            List<PurchaseOrder> orders = _orderSource ?? new List<PurchaseOrder>();
-            string body = string.Join(Environment.NewLine, orders
-                .GroupBy(o => Safe(o.VendorName, "Supplier #" + o.VendorID))
-                .Select(g => new { Name = g.Key, Value = g.Sum(o => o.TotalAmount), Count = g.Count() })
-                .OrderByDescending(g => g.Value)
-                .Select(g => g.Name + " - " + FormatCurrency(g.Value) + " across " + g.Count + " POs"));
-            MessageBox.Show(string.IsNullOrWhiteSpace(body) ? "No suppliers found." : body, "Top Suppliers", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ExceptionCardDetailDialog.ShowFor(this, BuildPurchaseExceptionDetail("suppliers"));
         }
 
         private void ShowPurchaseReportDialog()
         {
-            List<PurchaseOrder> orders = _orderSource ?? new List<PurchaseOrder>();
-            decimal total = orders.Sum(o => o.TotalAmount);
-            decimal received = orders.Sum(o => Math.Max(0m, o.PaidAmount));
-            decimal overdue = orders.Where(IsOverduePo).Sum(o => o.TotalAmount);
-            MessageBox.Show(
-                "Total POs: " + orders.Count + Environment.NewLine +
-                "Total PO Value: " + FormatCurrency(total) + Environment.NewLine +
-                "Received Value: " + FormatCurrency(received) + Environment.NewLine +
-                "Pending Value: " + FormatCurrency(Math.Max(0m, total - received)) + Environment.NewLine +
-                "Overdue Value: " + FormatCurrency(overdue),
-                "Purchase Detailed Report",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+            ExceptionCardDetailDialog.ShowFor(this, BuildPurchaseExceptionDetail("summary"));
         }
 
         private void ShowPurchaseOrderListDialog(string title, List<PurchaseOrder> orders)
         {
-            string body = string.Join(Environment.NewLine, (orders ?? new List<PurchaseOrder>()).Take(20).Select(o => CleanPoNumber(o.PONumber, o.POID) + " - " + Safe(o.VendorName, "Supplier") + " - " + FormatCurrency(o.TotalAmount) + " - " + NormalizePoStatus(o.Status)));
-            MessageBox.Show(string.IsNullOrWhiteSpace(body) ? "No purchase orders found." : body, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ExceptionCardDetailDialog.ShowFor(this, BuildPurchaseOrderDetail(title, orders ?? new List<PurchaseOrder>(), "Full purchase order list."));
+        }
+
+        private void AttachPurchaseExceptionCard(Control card, string key)
+        {
+            if (card == null)
+                return;
+            card.Cursor = Cursors.Hand;
+            EventHandler open = (s, e) => ExceptionCardDetailDialog.ShowFor(this, BuildPurchaseExceptionDetail(key));
+            card.Click += open;
+            card.DoubleClick += open;
+            foreach (Control child in card.Controls)
+            {
+                if (child is Button || child is ComboBox || child is TextBox || child is TableLayoutPanel)
+                    continue;
+                child.Cursor = Cursors.Hand;
+                child.Click += open;
+                child.DoubleClick += open;
+            }
+        }
+
+        private ExceptionCardDetail BuildPurchaseExceptionDetail(string key)
+        {
+            string normalized = key ?? string.Empty;
+            List<PurchaseOrder> orders = _orderSource ?? new List<PurchaseOrder>();
+            if (normalized.StartsWith("stat_total", StringComparison.OrdinalIgnoreCase) || normalized == "summary")
+                return BuildPurchaseOrderDetail("Purchase Summary", orders, "Every purchase order behind the purchase summary card.");
+            if (normalized.StartsWith("stat_open", StringComparison.OrdinalIgnoreCase))
+                return BuildPurchaseOrderDetail("Open Purchase Orders", orders.Where(IsOpenPo).ToList(), "All open POs behind the card.");
+            if (normalized.StartsWith("stat_goods", StringComparison.OrdinalIgnoreCase))
+                return BuildPurchaseOrderDetail("Goods Received", orders.Where(o => IsStatus(o, "Fully Received") || IsStatus(o, "Received") || IsStatus(o, "Partially Received") || IsStatus(o, "Partial")).ToList(), "POs counted as received or partially received.");
+            if (normalized.StartsWith("stat_overdue", StringComparison.OrdinalIgnoreCase) || normalized == "overdue")
+                return BuildPurchaseOrderDetail("Overdue Purchase Orders", orders.Where(IsOverduePo).OrderBy(o => o.PayByDate).ToList(), "All overdue POs requiring attention.");
+            if (normalized.StartsWith("stat_pending", StringComparison.OrdinalIgnoreCase))
+                return BuildPurchaseOrderDetail("Pending Purchase Payments", orders.Where(o => o.BalanceDue > 0.01m).OrderBy(o => o.PayByDate).ToList(), "All purchase orders with payable balance.");
+            if (normalized == "aging")
+            {
+                var detail = ExceptionCardDetail.Create("Purchase Aging Summary", "Every open PO grouped by current age.", "Bucket", "PO", "Supplier", "PO Date", "Required", "Age Days", "Value", "Status");
+                foreach (PurchaseOrder po in orders.Where(o => !IsClosedPo(o)).OrderByDescending(o => o.AgeDays))
+                    detail.AddRow(PurchaseAgingBucket(po), CleanPoNumber(po.PONumber, po.POID), Safe(po.VendorName, "Supplier #" + po.VendorID), FormatDate(po.PODate), FormatDate(po.PayByDate), po.AgeDays, FormatCurrency(po.TotalAmount), NormalizePoStatus(po.Status));
+                return detail;
+            }
+            if (normalized == "suppliers")
+            {
+                var detail = ExceptionCardDetail.Create("Top Suppliers", "All suppliers ranked by purchase order value.", "Supplier", "PO Count", "Total Value", "Overdue POs", "Pending Payable");
+                foreach (var supplier in orders.GroupBy(o => Safe(o.VendorName, "Supplier #" + o.VendorID)).Select(g => new { Name = g.Key, Count = g.Count(), Value = g.Sum(o => o.TotalAmount), Overdue = g.Count(IsOverduePo), Pending = g.Sum(o => Math.Max(0m, o.BalanceDue)) }).OrderByDescending(g => g.Value))
+                    detail.AddRow(supplier.Name, supplier.Count, FormatCurrency(supplier.Value), supplier.Overdue, FormatCurrency(supplier.Pending));
+                return detail;
+            }
+            if (normalized == "recovery")
+            {
+                var detail = ExceptionCardDetail.Create("Recovery Watchlist", "All pending charge recovery rows behind the card.", "Work Order", "Client", "Item", "Amount", "PO", "Age Days", "Status", "Summary");
+                foreach (PendingChargeRecoveryRow row in _poRecoveryRows ?? new List<PendingChargeRecoveryRow>())
+                    detail.AddRow(row.WorkOrderName, row.ClientName, row.ItemDescription, FormatCurrency(row.Amount), row.SourcePONumber, row.AgeDays, row.RecoveryStatus, row.SourceSummary);
+                return detail;
+            }
+            return BuildPurchaseOrderDetail("Purchase Orders", GetFilteredPos(), "All filtered purchase orders.");
+        }
+
+        private ExceptionCardDetail BuildPurchaseOrderDetail(string title, List<PurchaseOrder> orders, string subtitle)
+        {
+            var detail = ExceptionCardDetail.Create(title, subtitle, "PO Number", "Supplier", "PO Date", "Required", "PO Value", "Received", "Balance", "Status", "Payment");
+            foreach (PurchaseOrder po in orders ?? new List<PurchaseOrder>())
+                detail.AddRow(CleanPoNumber(po.PONumber, po.POID), Safe(po.VendorName, "Supplier #" + po.VendorID), FormatDate(po.PODate), FormatDate(po.PayByDate), FormatCurrency(po.TotalAmount), FormatCurrency(Math.Max(0m, po.PaidAmount)), FormatCurrency(Math.Max(0m, po.BalanceDue)), NormalizePoStatus(po.Status), GetPaymentStatus(po));
+            return detail;
+        }
+
+        private static string PurchaseAgingBucket(PurchaseOrder po)
+        {
+            int age = po == null ? 0 : po.AgeDays;
+            if (age <= 15) return "0 - 15 Days";
+            if (age <= 30) return "16 - 30 Days";
+            if (age <= 60) return "31 - 60 Days";
+            if (age <= 90) return "61 - 90 Days";
+            return "90+ Days";
         }
 
         private void ImportDashboardPurchaseOrders()

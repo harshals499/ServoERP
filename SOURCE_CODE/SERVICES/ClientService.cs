@@ -22,6 +22,8 @@ namespace HVAC_Pro_Desktop.Services
         private readonly ReferenceIntegrityService _referenceIntegrity = new ReferenceIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly B2BClientValidator _clientValidator = new B2BClientValidator();
+        private readonly SyncMetadataService _syncMetadata = new SyncMetadataService();
+        private readonly SyncOutboxService _syncOutbox = new SyncOutboxService();
 
         // ── READ ─────────────────────────────────────────────
         public List<B2BClient> GetAllClients()
@@ -174,21 +176,34 @@ namespace HVAC_Pro_Desktop.Services
         public int CreateClient(B2BClient client)
         {
             SessionManager.DemandPermission("Clients", "Create");
+            _syncMetadata.EnsureClientIdentity(client);
             ValidateClientForSave(client);
             client.CustomerSince = client.CustomerSince == default
                 ? DateTime.Today
                 : client.CustomerSince;
             try
             {
+                B2BClient existing = client != null && client.SyncPublicId.HasValue ? _clientRepo.GetBySyncPublicId(client.SyncPublicId.Value) : null;
+                if (existing != null)
+                {
+                    client.ClientID = existing.ClientID;
+                    UpdateClient(client);
+                    return existing.ClientID;
+                }
+
                 int id = _clientRepo.Create(client);
+                client.ClientID = id;
                 _clientRepo.ReplaceClientContacts(id, client.Contacts ?? new List<ClientContact>());
+                _syncMetadata.TouchClient(id, client.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Clients", client.SyncPublicId ?? Guid.Empty, "Create", client);
                 AppDataCache.RemovePrefix("clients:");
                 _audit.Record("CREATE", "Clients", id, "Client saved with data-quality validation");
                 return id;
             }
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineQueueResult queued = OfflineSyncService.Queue("Clients", "Create", client, null, false, ex.Message);
+                OfflineQueueResult queued = OfflineSyncService.Queue("Clients", "Create", client, null, false, ex.Message, client == null ? (Guid?)null : client.SyncPublicId);
                 AppDataCache.RemovePrefix("clients:");
                 return queued.LocalId;
             }
@@ -198,17 +213,21 @@ namespace HVAC_Pro_Desktop.Services
         public void UpdateClient(B2BClient client)
         {
             SessionManager.DemandPermission("Clients", "Edit");
+            _syncMetadata.EnsureClientIdentity(client);
             ValidateClientForSave(client);
             try
             {
                 _clientRepo.Update(client);
                 _clientRepo.ReplaceClientContacts(client.ClientID, client.Contacts ?? new List<ClientContact>());
+                _syncMetadata.TouchClient(client.ClientID, client.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Clients", client.SyncPublicId ?? Guid.Empty, "Update", client);
                 AppDataCache.RemovePrefix("clients:");
                 _audit.Record("EDIT", "Clients", client.ClientID, "Client saved with data-quality validation");
             }
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineSyncService.Queue("Clients", "Update", client, client.ClientID, false, ex.Message);
+                OfflineSyncService.Queue("Clients", "Update", client, client.ClientID, false, ex.Message, client == null ? (Guid?)null : client.SyncPublicId);
                 AppDataCache.RemovePrefix("clients:");
             }
         }
@@ -242,14 +261,36 @@ namespace HVAC_Pro_Desktop.Services
         public int CreateSite(ClientSite site)
         {
             SessionManager.DemandPermission("Clients", "Create");
+            _syncMetadata.EnsureSiteIdentity(site);
             ValidationResult result = _businessRules.ValidateSite(site);
             if (site != null)
                 result.Merge(_referenceIntegrity.CheckClientSite(site.ClientID, site.SiteID, GetClientSites(site.ClientID), "Sites"));
             _validation.EnsureValid(result, "Site validation failed");
-            int id = _clientRepo.CreateSite(site);
-            AppDataCache.RemovePrefix("sites:");
-            _audit.Record("CREATE", "Sites", id, "Site saved with data-quality validation");
-            return id;
+            try
+            {
+                ClientSite existing = site != null && site.SyncPublicId.HasValue ? new SiteRepository().GetBySyncPublicId(site.SyncPublicId.Value) : null;
+                if (existing != null)
+                {
+                    site.SiteID = existing.SiteID;
+                    new SiteService().Update(site);
+                    return existing.SiteID;
+                }
+
+                int id = _clientRepo.CreateSite(site);
+                site.SiteID = id;
+                _syncMetadata.TouchSite(id, site.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Sites", site.SyncPublicId ?? Guid.Empty, "Create", site);
+                AppDataCache.RemovePrefix("sites:");
+                _audit.Record("CREATE", "Sites", id, "Site saved with data-quality validation");
+                return id;
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineQueueResult queued = OfflineSyncService.Queue("Sites", "Create", site, null, false, ex.Message, site == null ? (Guid?)null : site.SyncPublicId);
+                AppDataCache.RemovePrefix("sites:");
+                return queued.LocalId;
+            }
         }
 
         // ── BUSINESS LOGIC ───────────────────────────────────

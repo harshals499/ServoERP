@@ -100,7 +100,16 @@ namespace HVAC_Pro_Desktop.Services
 .footer{text-align:center;font-size:10px;color:#64748b;margin-top:18px;}
 </style></head><body>"
             + DocumentBranding.BuildOfficialHeaderHtml()
-            + DocumentBranding.BuildFromBlockHtml(DocumentBranding.DefaultCompanyName, null, null, null, null, null, null, null, false)
+            + DocumentBranding.BuildFromBlockHtml(
+                company.CompanyName,
+                null,
+                null,
+                null,
+                null,
+                company.PAN,
+                company.GSTIN,
+                null,
+                false)
             + "<div class='title'>SALARY SLIP</div>"
             + "<div class='meta'>Month: " + Html(monthLabel) + " | Pay Date: " + Html(IndiaFormatHelper.FormatDate(payDate)) + "</div>"
             + "<div class='section'><table class='details'>"

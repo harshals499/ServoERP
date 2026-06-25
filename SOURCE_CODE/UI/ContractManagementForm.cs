@@ -23,6 +23,10 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ContractService _contractSvc = new ContractService();
         private readonly ClientService _clientSvc = new ClientService();
         private readonly SiteService _siteSvc = new SiteService();
+        private readonly SiteRepository _siteRepo = new SiteRepository();
+        private readonly ContractRepository _contractRepo = new ContractRepository();
+        private readonly InvoiceService _invoiceSvc = new InvoiceService();
+        private readonly SLAService _slaSvc = new SLAService();
 
         private readonly Dictionary<int, B2BClient> _clientsById = new Dictionary<int, B2BClient>();
         private readonly Dictionary<int, ClientSite> _sitesById = new Dictionary<int, ClientSite>();
@@ -78,6 +82,7 @@ namespace HVAC_Pro_Desktop.UI
         private int? _siteFilterSiteId;
         private static int? PendingSiteNavigationSiteId;
         private bool _syncingContractSelection;
+        private bool _showingDashboard = true;
 
         private static readonly Color PageBg = Color.FromArgb(246, 248, 252);
         private static readonly Color CardBg = Color.White;
@@ -102,7 +107,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             Dock = DockStyle.Fill;
             BackColor = PageBg;
+            var ctorWatch = System.Diagnostics.Stopwatch.StartNew();
             BuildDashboardLayout();
+            AppRuntime.LogTiming("Contracts.BuildLayout", ctorWatch.ElapsedMilliseconds);
+            RegisterFirstPaintTiming("Contracts.FirstPaint", ctorWatch);
             RecordDeletionUi.BindDeleteShortcut(this, () => DeleteCurrentContractAsync(), () => _current != null && _current.ContractID > 0);
             EnableDeferredLoad(
                 async () => await LoadPageDataAndRefreshAsync(),
@@ -125,25 +133,30 @@ namespace HVAC_Pro_Desktop.UI
 
             _siteFilterSiteId = PendingSiteNavigationSiteId;
             PendingSiteNavigationSiteId = null;
-            BuildDashboardLayout();
+            if (!_showingDashboard)
+                BuildDashboardLayout();
             _ = LoadPageDataAndRefreshAsync();
         }
 
         private async Task LoadPageDataAndRefreshAsync()
         {
             SetStatus("Loading contracts...", Muted);
+            var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
             ContractPageSnapshot snapshot = await Task.Run(() => LoadPageSnapshot());
+            AppRuntime.LogTiming("Contracts.FetchData", fetchWatch.ElapsedMilliseconds);
+            var bindWatch = System.Diagnostics.Stopwatch.StartNew();
             ApplyPageSnapshot(snapshot);
             RefreshDashboard();
+            AppRuntime.LogTiming("Contracts.BindData", bindWatch.ElapsedMilliseconds);
         }
 
         private ContractPageSnapshot LoadPageSnapshot()
         {
             return new ContractPageSnapshot
             {
-                Clients = _clientSvc.GetAllClients() ?? new List<B2BClient>(),
-                Sites = _siteSvc.GetAll() ?? new List<ClientSite>(),
-                Contracts = _contractSvc.GetAllContracts() ?? new List<AMCContract>()
+                Clients = AppDataCache.GetOrCreate("clients:active", TimeSpan.FromMinutes(5), () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(),
+                Sites = AppDataCache.GetOrCreate("sites:all", TimeSpan.FromMinutes(5), () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList(),
+                Contracts = AppDataCache.GetOrCreate("contracts:all", TimeSpan.FromMinutes(5), () => _contractSvc.GetAllContracts() ?? new List<AMCContract>()).ToList()
             };
         }
 
@@ -162,6 +175,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildDashboardLayout()
         {
+            _showingDashboard = true;
             Controls.Clear();
             BackColor = PageBg;
 
@@ -221,34 +235,12 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildDashboardHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            header.Controls.Add(new Label
-            {
-                Text = "Contract Management",
-                Location = new Point(0, 0),
-                Size = new Size(420, 34),
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
-                ForeColor = Ink
-            });
-            header.Controls.Add(new Label
-            {
-                Text = "Track AMC agreements, renewals, SLA terms, and optional site links.",
-                Location = new Point(1, 38),
-                Size = new Size(420, 22),
-                Font = new Font("Segoe UI", 10f),
-                ForeColor = Muted
-            });
-
             Button newButton = MakeButton("+  New Contract", Blue, 150);
-            newButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            newButton.Location = new Point(Math.Max(0, header.Width - 150), 6);
             newButton.Click += (s, e) => ShowNewContractPage(null);
 
             Label bell = new Label
             {
                 Text = "!",
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(Math.Max(0, header.Width - 210), 10),
                 Size = new Size(32, 32),
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 ForeColor = Color.White,
@@ -257,50 +249,47 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bell, 16);
 
-            Panel dashboardSearchHost = new Panel
-            {
-                Name = "ContractDashboardSearchHost",
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(Math.Max(0, header.Width - 520), 7),
-                Size = new Size(280, 32),
-                BackColor = DS.BgInput,
-                Padding = new Padding(8, 2, 8, 2)
-            };
             _dashboardSearch = new TextBox
             {
                 Name = "ContractDashboardSearchTextBox",
-                Dock = DockStyle.Fill,
                 Font = new Font("Segoe UI", 10f),
-                BorderStyle = BorderStyle.None,
+                BorderStyle = BorderStyle.FixedSingle,
                 Text = "Search",
                 ForeColor = Muted
             };
             AddPlaceholder(_dashboardSearch, "Search");
-            dashboardSearchHost.Controls.Add(_dashboardSearch);
             _dashboardSearch.TextChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
 
             _statusLabel = new Label
             {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(Math.Max(0, header.Width - 685), 12),
                 Size = new Size(150, 24),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 ForeColor = Muted,
                 TextAlign = ContentAlignment.MiddleRight
             };
-
-            header.Controls.Add(_statusLabel);
-            header.Controls.Add(dashboardSearchHost);
-            header.Controls.Add(bell);
-            header.Controls.Add(newButton);
-            header.Resize += (s, e) =>
+            Panel meta = new Panel
             {
-                newButton.Location = new Point(header.ClientSize.Width - 150, 6);
-                bell.Location = new Point(header.ClientSize.Width - 208, 10);
-                dashboardSearchHost.Location = new Point(header.ClientSize.Width - 520, 7);
-                _statusLabel.Location = new Point(header.ClientSize.Width - 685, 12);
+                Name = "ContractDashboardMetaPanel",
+                Size = new Size(198, 32),
+                BackColor = Color.Transparent
             };
-            return header;
+            bell.Location = new Point(0, 0);
+            _statusLabel.Location = new Point(42, 4);
+            _statusLabel.Size = new Size(150, 24);
+            meta.Controls.Add(bell);
+            meta.Controls.Add(_statusLabel);
+
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "ContractDashboardHeader",
+                "Contract Management",
+                "Track AMC agreements, renewals, SLA terms, and optional site links.",
+                new List<Control> { newButton },
+                SharedPageHeader.CreateSearchInputShell("ContractDashboardSearchHost", _dashboardSearch, 320),
+                meta,
+                PageBg,
+                new Padding(0, 0, 0, 8));
+            model.Dock = DockStyle.Fill;
+            return SharedPageHeader.Build(model).Header;
         }
 
         private Control BuildStatusChartCard()
@@ -458,6 +447,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowNewContractPage(AMCContract existing)
         {
+            _showingDashboard = false;
             _current = existing;
             if (existing == null)
                 _sidebarFilter = "All Contracts";
@@ -976,14 +966,14 @@ namespace HVAC_Pro_Desktop.UI
             _sitesById.Clear();
             try
             {
-                foreach (B2BClient client in _clientSvc.GetAllClients() ?? new List<B2BClient>())
+                foreach (B2BClient client in AppDataCache.GetOrCreate("clients:active", TimeSpan.FromMinutes(5), () => _clientSvc.GetAllClients() ?? new List<B2BClient>()))
                     _clientsById[client.ClientID] = client;
             }
             catch (Exception ex) { AppLogger.LogError("ContractManagementForm.LoadClients", ex); }
 
             try
             {
-                foreach (ClientSite site in _siteSvc.GetAll() ?? new List<ClientSite>())
+                foreach (ClientSite site in AppDataCache.GetOrCreate("sites:all", TimeSpan.FromMinutes(5), () => _siteSvc.GetAll() ?? new List<ClientSite>()))
                     _sitesById[site.SiteID] = site;
             }
             catch (Exception ex) { AppLogger.LogError("ContractManagementForm.LoadSites", ex); }
@@ -1089,10 +1079,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    SiteRepository siteRepo = new SiteRepository();
                     foreach (B2BClient client in _clientsById.Values.OrderBy(c => c.CompanyName).Take(8))
                     {
-                        siteRepo.Create(new ClientSite
+                        _siteRepo.Create(new ClientSite
                         {
                             ClientID = client.ClientID,
                             SiteName = client.CompanyName + " Main Site",
@@ -1131,13 +1120,12 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
-                ContractRepository repo = new ContractRepository();
                 for (int i = contracts.Count; i < 8; i++)
                 {
                     ClientSite site = sites[i % sites.Count];
                     DateTime start = today.AddMonths(-Math.Max(1, i + 1));
                     DateTime end = statuses[i] == "Expired" ? today.AddDays(-12) : statuses[i] == "Expiring Soon" ? today.AddDays(18) : start.AddYears(1);
-                    repo.Create(new AMCContract
+                    _contractRepo.Create(new AMCContract
                     {
                         ClientID = site.ClientID,
                         SiteID = site.SiteID,
@@ -1365,7 +1353,7 @@ namespace HVAC_Pro_Desktop.UI
                         new InvoiceLineItem { Description = "Contract service - " + DateTime.Today.ToString("MMMM yyyy", CultureInfo.InvariantCulture), Quantity = 1, Rate = _current.MonthlyValue, Amount = _current.MonthlyValue }
                     }
                 };
-                new InvoiceService().CreateInvoiceWithLineItems(invoice);
+                _invoiceSvc.CreateInvoiceWithLineItems(invoice);
                 MessageBox.Show("Invoice created for " + GetClientName(_current.ClientID) + ".", "Invoice Generated", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
@@ -1397,7 +1385,7 @@ namespace HVAC_Pro_Desktop.UI
                 MessageBox.Show("Please select a contract first.", "SLA Log", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            int count = new SLAService().GetAll().Count(log => log.ContractID == _current.ContractID);
+            int count = _slaSvc.GetAll().Count(log => log.ContractID == _current.ContractID);
             MessageBox.Show("Contract " + _current.ContractID + ": " + count + " SLA events logged.", "SLA Log", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 

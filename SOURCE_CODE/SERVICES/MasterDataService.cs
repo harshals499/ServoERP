@@ -119,6 +119,7 @@ namespace HVAC_Pro_Desktop.Services
                 case ExcelImportModule.Vendors: return "Suppliers";
                 case ExcelImportModule.Sites: return "Sites";
                 case ExcelImportModule.Inventory: return "Inventory";
+                case ExcelImportModule.SupplierItemPrices: return "SupplierItemPrices";
                 case ExcelImportModule.Purchases: return "Purchases";
                 case ExcelImportModule.Invoices: return "Invoices";
                 case ExcelImportModule.Payments: return "Payments";

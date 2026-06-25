@@ -296,12 +296,12 @@ namespace HVAC_Pro_Desktop.UI.Controls
             DefaultCellStyle.ForeColor = ModernERPTheme.Text;
             DefaultCellStyle.BackColor = GridTheme.RowNormal;
             DefaultCellStyle.SelectionBackColor = GridTheme.RowSelected;
-            DefaultCellStyle.SelectionForeColor = Color.White;
+            DefaultCellStyle.SelectionForeColor = GridTheme.RowSelectedFore;
             DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
 
             AlternatingRowsDefaultCellStyle.BackColor = GridTheme.RowAlt;
             AlternatingRowsDefaultCellStyle.SelectionBackColor = GridTheme.RowSelected;
-            AlternatingRowsDefaultCellStyle.SelectionForeColor = Color.White;
+            AlternatingRowsDefaultCellStyle.SelectionForeColor = GridTheme.RowSelectedFore;
 
             foreach (DataGridViewColumn column in Columns)
             {

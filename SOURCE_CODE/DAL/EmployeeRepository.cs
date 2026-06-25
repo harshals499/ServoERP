@@ -220,14 +220,14 @@ namespace HVAC_Pro_Desktop.DAL
                     SELECT
                         (SELECT COUNT(*) FROM Employees) AS TotalEmployees,
                         (SELECT COUNT(*) FROM Employees WHERE Status = 'Active') AS ActiveToday,
-                        (SELECT COUNT(DISTINCT EmployeeID)
-                         FROM EmployeeAttendance
+                        (SELECT COUNT(DISTINCT EmployeeId)
+                         FROM AttendanceRecords
                          WHERE AttendanceDate = CAST(GETDATE() AS DATE)
-                           AND Status IN ('Present', 'Late', 'HalfDay')) AS OnDuty,
-                        (SELECT COUNT(DISTINCT EmployeeID)
-                         FROM EmployeeAttendance
+                            AND Status IN ('Present', 'Late', 'HalfDay')) AS OnDuty,
+                        (SELECT COUNT(DISTINCT EmployeeId)
+                         FROM AttendanceRecords
                          WHERE AttendanceDate = CAST(GETDATE() AS DATE)
-                           AND Status = 'Leave') AS OnLeave;", conn))
+                            AND Status = 'Leave') AS OnLeave;", conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
                 {
                     if (!r.Read())
@@ -261,14 +261,14 @@ namespace HVAC_Pro_Desktop.DAL
                         e.Phone,
                         e.Status,
                         CASE WHEN EXISTS (
-                            SELECT 1 FROM EmployeeAttendance a
-                            WHERE a.EmployeeID = e.EmployeeID
+                            SELECT 1 FROM AttendanceRecords a
+                            WHERE a.EmployeeId = e.EmployeeID
                               AND a.AttendanceDate = CAST(GETDATE() AS DATE)
                               AND a.Status IN ('Present', 'Late', 'HalfDay')
                         ) THEN 1 ELSE 0 END AS CheckedInToday,
                         CASE WHEN EXISTS (
-                            SELECT 1 FROM EmployeeAttendance a
-                            WHERE a.EmployeeID = e.EmployeeID
+                            SELECT 1 FROM AttendanceRecords a
+                            WHERE a.EmployeeId = e.EmployeeID
                               AND a.AttendanceDate = CAST(GETDATE() AS DATE)
                               AND a.Status = 'Leave'
                         ) THEN 1 ELSE 0 END AS OnLeaveToday
@@ -277,8 +277,8 @@ namespace HVAC_Pro_Desktop.DAL
                         CASE
                             WHEN e.Status <> 'Active' THEN 2
                             WHEN EXISTS (
-                                SELECT 1 FROM EmployeeAttendance a
-                                WHERE a.EmployeeID = e.EmployeeID
+                                SELECT 1 FROM AttendanceRecords a
+                                WHERE a.EmployeeId = e.EmployeeID
                                   AND a.AttendanceDate = CAST(GETDATE() AS DATE)
                                   AND a.Status IN ('Present', 'Late', 'HalfDay')
                             ) THEN 0
@@ -366,15 +366,16 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT
-                        AttendanceID,
+                        AttendanceId AS AttendanceID,
                         AttendanceDate,
-                        CheckInTime,
-                        CheckOutTime,
-                        CheckInLatitude,
-                        CheckInLongitude,
+                        CAST(NULL AS time) AS CheckInTime,
+                        CAST(NULL AS time) AS CheckOutTime,
+                        CAST(NULL AS decimal(9,6)) AS CheckInLatitude,
+                        CAST(NULL AS decimal(9,6)) AS CheckInLongitude,
+                        OvertimeHours,
                         Status
-                    FROM EmployeeAttendance
-                    WHERE EmployeeID = @employeeId
+                    FROM AttendanceRecords
+                    WHERE EmployeeId = @employeeId
                       AND YEAR(AttendanceDate) = @year
                       AND MONTH(AttendanceDate) = @month
                     ORDER BY AttendanceDate DESC;", conn))
@@ -388,7 +389,7 @@ namespace HVAC_Pro_Desktop.DAL
                         {
                             TimeSpan? checkIn = ToTime(r["CheckInTime"]);
                             TimeSpan? checkOut = ToTime(r["CheckOutTime"]);
-                            decimal hoursWorked = 0m;
+                            decimal hoursWorked = ToDecimal(r["OvertimeHours"]);
                             if (checkIn.HasValue && checkOut.HasValue && checkOut.Value > checkIn.Value)
                                 hoursWorked = Convert.ToDecimal((checkOut.Value - checkIn.Value).TotalHours);
 
@@ -422,8 +423,8 @@ namespace HVAC_Pro_Desktop.DAL
                         SUM(CASE WHEN Status = 'Absent' THEN 1 ELSE 0 END) AS AbsentDays,
                         SUM(CASE WHEN Status = 'Late' THEN 1 ELSE 0 END) AS LateDays,
                         SUM(CASE WHEN Status = 'Leave' THEN 1 ELSE 0 END) AS LeaveDays
-                    FROM EmployeeAttendance
-                    WHERE EmployeeID = @employeeId
+                    FROM AttendanceRecords
+                    WHERE EmployeeId = @employeeId
                       AND YEAR(AttendanceDate) = @year
                       AND MONTH(AttendanceDate) = @month;", conn))
                 {

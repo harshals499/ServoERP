@@ -35,6 +35,15 @@ namespace HVAC_Pro_Desktop.UI
         private readonly AuthService _authSvc = new AuthService();
         private readonly FreshStartService _freshStartSvc = new FreshStartService();
         private readonly UnitMeasurementService _unitMeasurementSvc = new UnitMeasurementService();
+        private readonly OpenSourceLicenseService _openSourceLicenseSvc = new OpenSourceLicenseService();
+        private readonly ModuleCatalogService _moduleCatalogSvc = new ModuleCatalogService();
+        private readonly CompliancePackService _compliancePackSvc = new CompliancePackService();
+        private readonly BackupService _backupSvc = new BackupService();
+        private readonly AiAssistantService _aiAssistantSvc = new AiAssistantService();
+        private readonly LicenseService _licenseSvc = new LicenseService();
+        private readonly DeviceFingerprintService _deviceFingerprintSvc = new DeviceFingerprintService();
+        private readonly CloudBackupIntegrationService _cloudBackupIntegrationSvc = new CloudBackupIntegrationService();
+        private readonly CardLayoutService _cardLayoutSvc = new CardLayoutService();
 
         private TextBox _txtCompanyName;
         private TextBox _txtGST;
@@ -103,6 +112,11 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _auditGridCard;
         private Label _lblBackupStatus;
         private Label _lblLicenseStatus;
+        private Label _lblSettingsVersionState;
+        private Label _lblSettingsDbState;
+        private Label _lblSettingsBackupState;
+        private Label _lblSettingsLicenseState;
+        private Label _lblSettingsAssistantState;
         private bool _reflowingSettingsCards;
         private bool _initialLoadQueued;
         private bool _settingsCardsBuilt;
@@ -120,7 +134,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color SectionBg = DS.Slate50;
         private static readonly Color SaveGreen = DS.Teal600;
         private static readonly Color InfoBlue = DS.Primary600;
-        private const int GeneralCanvasWidth = 1540;
+        private const int GeneralCanvasWidth = 1720;
 
         private sealed class SectionCardState
         {
@@ -357,17 +371,16 @@ namespace HVAC_Pro_Desktop.UI
                 _lblInstalledVersion.Text = "Current version: " + ConfigService.GetAppVersion();
             if (_lblLastUpdateCheckStatus != null && !_lblLastUpdateCheckStatus.IsDisposed)
                 _lblLastUpdateCheckStatus.Text = UpdateService.GetLastUpdateStatusDisplay();
+            RefreshSettingsWorkspaceSummary();
         }
 
         private void BuildLayout()
         {
-            Panel header = BuildModernSettingsHeader();
-
             Button btnSave = MakeBtn("Save Settings", SaveGreen, 146);
             btnSave.Location = new Point(0, 0);
             ModernIconSystem.AddButtonIcon(btnSave, ModernIconKind.Save);
             btnSave.Click += (s, e) => Save();
-            Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 148);
+            Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 184);
             btnResetDefaults.ForeColor = DS.Slate700;
             btnResetDefaults.FlatAppearance.BorderSize = 1;
             btnResetDefaults.FlatAppearance.BorderColor = DS.Border;
@@ -388,12 +401,11 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSize = false,
                 Font = new Font("Segoe UI", 9),
                 ForeColor = DS.Slate500,
-                Location = new Point(162, 4),
-                Width = 760,
+                Width = 220,
                 Height = 22,
-                TextAlign = ContentAlignment.MiddleLeft
+                TextAlign = ContentAlignment.MiddleRight
             };
-            Panel toolbar = BuildModernActionBar(btnSave, btnResetDefaults, btnToolbarCheckUpdates, btnFormsLibrary);
+            Panel header = BuildModernSettingsHeader(btnSave, btnResetDefaults, btnToolbarCheckUpdates, btnFormsLibrary);
 
             _tabs = new TabControl
             {
@@ -446,7 +458,6 @@ namespace HVAC_Pro_Desktop.UI
             _tabs.SelectedIndexChanged += SettingsTabs_SelectedIndexChanged;
 
             Controls.Add(_tabs);
-            Controls.Add(toolbar);
             Controls.Add(header);
         }
 
@@ -670,23 +681,60 @@ namespace HVAC_Pro_Desktop.UI
             };
             AppRuntime.LogTiming("Settings.BuildForm.Hsn.Complete", 0);
 
-            Panel unitBody = AddModernSettingsCard(parent, "Unit", "Add new units to the global unit list used across the app.", 430);
+            Panel unitBody = AddModernSettingsCard(parent, "Unit Management", "Add and review global units used across inventory, quotations, invoices, and jobs.", 560);
             BuildUnitManagementCard(unitBody);
 
-            Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection and saved card layout controls.", 330);
-            _lblDbStatus = new Label { Location = new Point(0, 0), Size = new Size(520, 24), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate700 };
+            Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection checks, setup, and saved dashboard-layout recovery tools.", 438);
+            systemBody.Controls.Add(new Label
+            {
+                Text = "Database Health",
+                Location = new Point(0, 0),
+                Size = new Size(180, 20),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate700
+            });
+            _lblDbStatus = new Label { Location = new Point(0, 24), Size = new Size(520, 44), Font = new Font("Segoe UI", 9), ForeColor = DS.Slate700 };
             systemBody.Controls.Add(_lblDbStatus);
             Button btnTest = MakeBtn("Test Connection", InfoBlue, 140);
-            btnTest.Location = new Point(0, 42);
+            btnTest.Location = new Point(0, 80);
             btnTest.Click += (s, e) => CheckDbConnection();
             systemBody.Controls.Add(btnTest);
             Button btnSetup = MakeBtn("Connection Setup", SaveGreen, 156);
-            btnSetup.Location = new Point(154, 42);
+            btnSetup.Location = new Point(154, 80);
             btnSetup.Click += (s, e) => OpenConnectionSetup();
             systemBody.Controls.Add(btnSetup);
-            Panel resetArea = new Panel { Location = new Point(0, 88), Size = new Size(526, 112), BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            systemBody.Controls.Add(new Label
+            {
+                Text = "Layout Recovery",
+                Location = new Point(0, 132),
+                Size = new Size(180, 20),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate700
+            });
+            systemBody.Controls.Add(new Label
+            {
+                Text = "Reset saved card layouts for specific workspaces when dashboards look broken, cramped, or out of place.",
+                Location = new Point(0, 154),
+                Size = new Size(530, 34),
+                Font = new Font("Segoe UI", 8.7f),
+                ForeColor = DS.Slate500
+            });
+            Panel resetArea = new Panel { Location = new Point(0, 196), Size = new Size(526, 164), BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom };
             systemBody.Controls.Add(resetArea);
             BuildLayoutResetSection(resetArea);
+            systemBody.Resize += (s, e) =>
+            {
+                int width = Math.Max(320, systemBody.ClientSize.Width);
+                _lblDbStatus.Width = width;
+                bool stackActions = width < 360;
+                btnTest.Top = 80;
+                btnTest.Left = 0;
+                btnSetup.Top = stackActions ? btnTest.Bottom + 10 : 80;
+                btnSetup.Left = stackActions ? 0 : btnTest.Right + 14;
+                resetArea.Top = stackActions ? btnSetup.Bottom + 28 : 196;
+                resetArea.Width = width;
+                resetArea.Height = Math.Max(150, systemBody.ClientSize.Height - resetArea.Top);
+            };
 
             if (IsAdminUser())
             {
@@ -838,25 +886,74 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildGeneralSettingsGuide(Panel parent)
         {
-            Panel body = AddModernSettingsCard(parent, "General Setup Map", "Use this as the safe order for first-time setup and audits.", 250);
-            TableLayoutPanel grid = new TableLayoutPanel
+            Panel body = AddModernSettingsCard(parent, "Settings Control Center", "Keep release health, protection, and daily admin actions visible before diving into each settings card.", 318);
+
+            Label intro = new Label
             {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 3,
-                BackColor = Color.White
+                Text = "This workspace is strongest when it answers three questions quickly: is the build healthy, is the client protected, and what should the admin do next?",
+                Location = new Point(0, 0),
+                Size = new Size(520, 38),
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = DS.Slate600
             };
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            for (int i = 0; i < 3; i++)
-                grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.333f));
-            grid.Controls.Add(BuildSettingsGuideRow("1. Company", "GSTIN, PAN, address, state, office.", InfoBlue), 0, 0);
-            grid.Controls.Add(BuildSettingsGuideRow("2. India Defaults", "Prefix, GST, payment terms, INR.", SaveGreen), 1, 0);
-            grid.Controls.Add(BuildSettingsGuideRow("3. Display", "Fit mode and UI scale.", DS.Amber500), 0, 1);
-            grid.Controls.Add(BuildSettingsGuideRow("4. HSN / SAC", "Tax rows for invoices and quotes.", DS.Teal600), 1, 1);
-            grid.Controls.Add(BuildSettingsGuideRow("5. Backup", "SQL backup and restore readiness.", DS.Primary700), 0, 2);
-            grid.Controls.Add(BuildSettingsGuideRow("6. Risk Controls", "License, users, audit, Fresh Start.", DS.Red600), 1, 2);
-            body.Controls.Add(grid);
+            body.Controls.Add(intro);
+
+            FlowLayoutPanel summaryFlow = new FlowLayoutPanel
+            {
+                Location = new Point(0, 52),
+                Size = new Size(530, 88),
+                BackColor = Color.White,
+                WrapContents = true
+            };
+            _lblSettingsVersionState = AddSummaryCard(summaryFlow, "Release", ConfigService.GetAppVersion(), DS.Primary600);
+            _lblSettingsDbState = AddSummaryCard(summaryFlow, "Database", "Checking", SaveGreen);
+            _lblSettingsBackupState = AddSummaryCard(summaryFlow, "Backup", "Pending", DS.Amber600);
+            _lblSettingsLicenseState = AddSummaryCard(summaryFlow, "License", "Review", DS.Red600);
+            _lblSettingsAssistantState = AddSummaryCard(summaryFlow, "Assistant", "Disabled", DS.Teal600);
+            body.Controls.Add(summaryFlow);
+
+            Label playbook = new Label
+            {
+                Text = "Suggested order: company profile, India defaults, display fit, backups, then risk controls and updates.",
+                Location = new Point(0, 150),
+                Size = new Size(530, 18),
+                Font = new Font("Segoe UI", 8.7f, FontStyle.Bold),
+                ForeColor = DS.Slate500
+            };
+            body.Controls.Add(playbook);
+
+            FlowLayoutPanel actionFlow = new FlowLayoutPanel
+            {
+                Location = new Point(0, 182),
+                Size = new Size(530, 80),
+                BackColor = Color.White,
+                WrapContents = true
+            };
+            Button btnOpenCompany = MakeBtn("Review Company", Color.White, 146);
+            btnOpenCompany.ForeColor = DS.Primary600;
+            btnOpenCompany.FlatAppearance.BorderColor = DS.Border;
+            btnOpenCompany.FlatAppearance.BorderSize = 1;
+            btnOpenCompany.Click += (s, e) => _txtCompanyName.Focus();
+            Button btnCheckDatabase = MakeBtn("Check Database", InfoBlue, 142);
+            btnCheckDatabase.Click += (s, e) => CheckDbConnection();
+            Button btnBackupNow = MakeBtn("Backup Now", SaveGreen, 122);
+            btnBackupNow.Click += async (s, e) => await CreateBackupAsync();
+            Button btnOpenUsers = MakeBtn("Users & Logins", Color.White, 138);
+            btnOpenUsers.ForeColor = DS.Slate700;
+            btnOpenUsers.FlatAppearance.BorderColor = DS.Border;
+            btnOpenUsers.FlatAppearance.BorderSize = 1;
+            btnOpenUsers.Click += (s, e) =>
+            {
+                if (_usersTab != null)
+                    _tabs.SelectedTab = _usersTab;
+            };
+            Button btnCheckUpdates = MakeBtn("Check Updates", Color.White, 132);
+            btnCheckUpdates.ForeColor = DS.Primary600;
+            btnCheckUpdates.FlatAppearance.BorderColor = DS.Border;
+            btnCheckUpdates.FlatAppearance.BorderSize = 1;
+            btnCheckUpdates.Click += async (s, e) => await CheckVersionNowAsync();
+            actionFlow.Controls.AddRange(new Control[] { btnOpenCompany, btnCheckDatabase, btnBackupNow, btnOpenUsers, btnCheckUpdates });
+            body.Controls.Add(actionFlow);
         }
 
         private Panel BuildSettingsGuideRow(string title, string text, Color accent)
@@ -1146,7 +1243,12 @@ namespace HVAC_Pro_Desktop.UI
             _txtUnitDisplayName = new TextBox();
             _cmbUnitCategory = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbUnitMeasurementSystem = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList };
-            _txtUnitAliases = new TextBox();
+            _txtUnitAliases = new TextBox
+            {
+                Multiline = true,
+                ScrollBars = ScrollBars.Vertical,
+                AcceptsReturn = false
+            };
 
             _cmbUnitMeasurementSystem.Items.AddRange(new object[] { "", "Metric", "Imperial", "Mixed", "Count", "Service" });
             _cmbUnitMeasurementSystem.SelectedIndex = 0;
@@ -1156,7 +1258,7 @@ namespace HVAC_Pro_Desktop.UI
             PlaceLabeledControl(parent, "Display Name *", _txtUnitDisplayName, 252, 0, 268);
             PlaceLabeledControl(parent, "Category", _cmbUnitCategory, 0, 74, 250);
             PlaceLabeledControl(parent, "Measurement System", _cmbUnitMeasurementSystem, 266, 74, 254);
-            PlaceLabeledControl(parent, "Aliases", _txtUnitAliases, 0, 148, 520);
+            PlaceLabeledControl(parent, "Aliases", _txtUnitAliases, 0, 148, 520, 58);
 
             Label aliasHelp = new Label
             {
@@ -1188,10 +1290,29 @@ namespace HVAC_Pro_Desktop.UI
             };
             parent.Controls.Add(_lblUnitSummary);
 
+            Label gridLabel = new Label
+            {
+                Text = "Available Units",
+                Location = new Point(0, 274),
+                Size = new Size(220, 20),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate700
+            };
+            parent.Controls.Add(gridLabel);
+
+            Panel gridHost = new Panel
+            {
+                Location = new Point(0, 302),
+                Size = new Size(520, 156),
+                BackColor = Color.White,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
+            };
+            parent.Controls.Add(gridHost);
+
             _gridUnits = new DataGridView
             {
-                Location = new Point(0, 274),
-                Size = new Size(520, 128),
+                Location = Point.Empty,
+                Size = new Size(520, 156),
                 ReadOnly = true,
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
@@ -1200,28 +1321,101 @@ namespace HVAC_Pro_Desktop.UI
                 BorderStyle = BorderStyle.None,
                 RowHeadersVisible = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                MultiSelect = false
             };
             StyleDataGrid(_gridUnits);
-            parent.Controls.Add(_gridUnits);
+            gridHost.Controls.Add(_gridUnits);
 
-            parent.Resize += (s, e) =>
+            Action layout = () =>
             {
                 int width = Math.Max(320, parent.ClientSize.Width);
-                int leftWidth = Math.Max(150, (width - 16) / 2);
-                int rightX = leftWidth + 16;
-                int rightWidth = Math.Max(150, width - rightX);
-                SetLabeledControlBounds(parent, "Unit Code *", _txtUnitCode, 0, 0, 110);
-                SetLabeledControlBounds(parent, "Short Code", _txtUnitShortCode, 126, 0, 110);
-                SetLabeledControlBounds(parent, "Display Name *", _txtUnitDisplayName, 252, 0, Math.Max(160, width - 252));
-                SetLabeledControlBounds(parent, "Category", _cmbUnitCategory, 0, 74, leftWidth);
-                SetLabeledControlBounds(parent, "Measurement System", _cmbUnitMeasurementSystem, rightX, 74, rightWidth);
-                SetLabeledControlBounds(parent, "Aliases", _txtUnitAliases, 0, 148, width);
+                int gap = 16;
+                bool narrow = width < 470;
+                int actionsTop;
+                int summaryTop;
+                int summaryHeight;
+
+                if (narrow)
+                {
+                    int shortWidth = Math.Max(110, Math.Min(140, (width - gap) / 2));
+                    int codeWidth = Math.Max(110, width - shortWidth - gap);
+                    SetLabeledControlBounds(parent, "Unit Code *", _txtUnitCode, 0, 0, codeWidth);
+                    SetLabeledControlBounds(parent, "Short Code", _txtUnitShortCode, codeWidth + gap, 0, shortWidth);
+                    SetLabeledControlBounds(parent, "Display Name *", _txtUnitDisplayName, 0, 74, width);
+                    SetLabeledControlBounds(parent, "Category", _cmbUnitCategory, 0, 148, width);
+                    SetLabeledControlBounds(parent, "Measurement System", _cmbUnitMeasurementSystem, 0, 222, width);
+                    SetLabeledControlBounds(parent, "Aliases", _txtUnitAliases, 0, 296, width, 58);
+                    aliasHelp.Top = 376;
+                    aliasHelp.Width = width;
+                    btnAddUnit.Top = 410;
+                    btnAddUnit.Left = 0;
+                    btnRefreshUnits.Top = 410;
+                    btnRefreshUnits.Left = Math.Min(width - btnRefreshUnits.Width, btnAddUnit.Right + 12);
+                    actionsTop = btnAddUnit.Top;
+                    summaryTop = btnAddUnit.Bottom + 10;
+                    summaryHeight = 20;
+                    _lblUnitSummary.TextAlign = ContentAlignment.MiddleLeft;
+                    _lblUnitSummary.Left = 0;
+                    _lblUnitSummary.Top = summaryTop;
+                    _lblUnitSummary.Width = width;
+                    gridLabel.Top = _lblUnitSummary.Bottom + 12;
+                }
+                else
+                {
+                    int leftWidth = Math.Max(150, (width - gap) / 2);
+                    int rightX = leftWidth + gap;
+                    int rightWidth = Math.Max(150, width - rightX);
+                    SetLabeledControlBounds(parent, "Unit Code *", _txtUnitCode, 0, 0, 110);
+                    SetLabeledControlBounds(parent, "Short Code", _txtUnitShortCode, 126, 0, 110);
+                    SetLabeledControlBounds(parent, "Display Name *", _txtUnitDisplayName, 252, 0, Math.Max(160, width - 252));
+                    SetLabeledControlBounds(parent, "Category", _cmbUnitCategory, 0, 74, leftWidth);
+                    SetLabeledControlBounds(parent, "Measurement System", _cmbUnitMeasurementSystem, rightX, 74, rightWidth);
+                    SetLabeledControlBounds(parent, "Aliases", _txtUnitAliases, 0, 148, width, 58);
+                    aliasHelp.Top = 226;
+                    aliasHelp.Width = width;
+                    btnAddUnit.Top = 258;
+                    btnAddUnit.Left = 0;
+                    btnRefreshUnits.Top = 258;
+                    btnRefreshUnits.Left = btnAddUnit.Right + 16;
+                    actionsTop = btnAddUnit.Top;
+                    summaryTop = actionsTop + 4;
+                    summaryHeight = 22;
+                    _lblUnitSummary.TextAlign = ContentAlignment.MiddleRight;
+                    _lblUnitSummary.Top = summaryTop;
+                    _lblUnitSummary.Width = Math.Min(260, Math.Max(180, width - btnRefreshUnits.Right - 16));
+                    _lblUnitSummary.Left = Math.Max(btnRefreshUnits.Right + 12, width - _lblUnitSummary.Width);
+                    gridLabel.Top = btnAddUnit.Bottom + 18;
+                }
+
+                aliasHelp.Left = 0;
+                _lblUnitSummary.Height = summaryHeight;
+                gridLabel.Left = 0;
+                gridLabel.Width = Math.Min(240, width);
                 aliasHelp.Width = width;
-                _lblUnitSummary.Left = Math.Max(btnRefreshUnits.Right + 12, width - _lblUnitSummary.Width);
-                _gridUnits.Width = width;
-                _gridUnits.Height = Math.Max(96, parent.ClientSize.Height - _gridUnits.Top);
+                gridHost.Top = gridLabel.Bottom + 8;
+                gridHost.Left = 0;
+                gridHost.Width = width;
+                gridHost.Height = Math.Max(150, parent.ClientSize.Height - gridHost.Top);
+                _gridUnits.Width = gridHost.ClientSize.Width;
+                _gridUnits.Height = gridHost.ClientSize.Height;
+
+                gridHost.SendToBack();
+                _gridUnits.SendToBack();
+                gridLabel.BringToFront();
+                _lblUnitSummary.BringToFront();
+                btnAddUnit.BringToFront();
+                btnRefreshUnits.BringToFront();
+                aliasHelp.BringToFront();
+                _txtUnitCode.BringToFront();
+                _txtUnitShortCode.BringToFront();
+                _txtUnitDisplayName.BringToFront();
+                _cmbUnitCategory.BringToFront();
+                _cmbUnitMeasurementSystem.BringToFront();
+                _txtUnitAliases.BringToFront();
             };
+            parent.Resize += (s, e) => layout();
+            layout();
         }
 
         private void BuildLocalAiCard(Panel parent)
@@ -1332,7 +1526,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    string path = new OpenSourceLicenseService().ExportDisclosureReport();
+            string path = _openSourceLicenseSvc.ExportDisclosureReport();
                     _lblStatus.Text = "Open-source disclosure exported: " + path;
                     _lblStatus.ForeColor = SaveGreen;
                     System.Diagnostics.Process.Start("notepad.exe", path);
@@ -1374,7 +1568,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    string path = new ModuleCatalogService().ExportReport();
+            string path = _moduleCatalogSvc.ExportReport();
                     _lblStatus.Text = "Module catalog exported: " + path;
                     _lblStatus.ForeColor = SaveGreen;
                     System.Diagnostics.Process.Start("notepad.exe", path);
@@ -1416,7 +1610,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    string path = new CompliancePackService().ExportPack();
+            string path = _compliancePackSvc.ExportPack();
                     _lblStatus.Text = "Compliance pack created: " + path;
                     _lblStatus.ForeColor = SaveGreen;
                     System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + path + "\"");
@@ -1500,6 +1694,15 @@ namespace HVAC_Pro_Desktop.UI
                     System = unit.MeasurementSystem
                 })
                 .ToList();
+
+            if (_gridUnits.Columns.Count > 0)
+            {
+                if (_gridUnits.Columns["Code"] != null) _gridUnits.Columns["Code"].HeaderText = "Code";
+                if (_gridUnits.Columns["Short"] != null) _gridUnits.Columns["Short"].HeaderText = "Short";
+                if (_gridUnits.Columns["Name"] != null) _gridUnits.Columns["Name"].HeaderText = "Display Name";
+                if (_gridUnits.Columns["Category"] != null) _gridUnits.Columns["Category"].HeaderText = "Category";
+                if (_gridUnits.Columns["System"] != null) _gridUnits.Columns["System"].HeaderText = "System";
+            }
 
             if (_lblUnitSummary != null)
                 _lblUnitSummary.Text = units.Count.ToString("N0") + " global units";
@@ -2195,6 +2398,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtAiModel.Text = config.ModelName;
             _numAiMaxTokens.Value = Clamp(_numAiMaxTokens, config.MaxTokens);
             _numAiTemperature.Value = Clamp(_numAiTemperature, config.Temperature);
+            RefreshSettingsWorkspaceSummary();
         }
 
         private void SaveAiSettings()
@@ -2221,7 +2425,7 @@ namespace HVAC_Pro_Desktop.UI
                 SaveAiSettings();
                 _lblStatus.Text = "Checking assistant...";
                 _lblStatus.ForeColor = InfoBlue;
-                bool ok = await new AiAssistantService().IsLocalAiReachableAsync(CancellationToken.None);
+            bool ok = await _aiAssistantSvc.IsLocalAiReachableAsync(CancellationToken.None);
                 _lblStatus.Text = ok
                     ? "ServoERP Assistant is ready."
                     : "ServoERP Assistant is disabled.";
@@ -2280,6 +2484,7 @@ namespace HVAC_Pro_Desktop.UI
                     AppRuntime.LogTiming("Settings.CheckDbConnection.Complete", 0);
                     _lblDbStatus.Text = "Database: " + result.Message;
                     _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
+                    RefreshSettingsWorkspaceSummary();
                 });
             }
             catch (Exception ex)
@@ -2291,6 +2496,7 @@ namespace HVAC_Pro_Desktop.UI
                         return;
                     _lblDbStatus.Text = "Database: NOT connected - " + ex.Message;
                     _lblDbStatus.ForeColor = Color.Red;
+                    RefreshSettingsWorkspaceSummary();
                 });
                 ShowError("Failed to check office SQL Server connection. Please try again.", ex);
             }
@@ -2309,11 +2515,13 @@ namespace HVAC_Pro_Desktop.UI
 
                 _lblDbStatus.Text = "Database: " + result.Message;
                 _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
+                RefreshSettingsWorkspaceSummary();
             }
             catch (Exception ex)
             {
                 _lblDbStatus.Text = "Database: NOT connected - " + ex.Message;
                 _lblDbStatus.ForeColor = Color.Red;
+                RefreshSettingsWorkspaceSummary();
             }
         }
 
@@ -2595,36 +2803,10 @@ namespace HVAC_Pro_Desktop.UI
             return button;
         }
 
-        private Panel BuildModernSettingsHeader()
+        private Panel BuildModernSettingsHeader(params Button[] actions)
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = Color.White, Padding = new Padding(28, 12, 28, 10) };
-            header.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-
-            Label title = new Label
-            {
-                Text = "Settings",
-                Location = new Point(28, 14),
-                Size = new Size(260, 26),
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
-                ForeColor = DS.Slate900
-            };
-            Label breadcrumb = new Label
-            {
-                Text = "Home  >  Settings",
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Location = new Point(header.Width - 360, 19),
-                Size = new Size(150, 22),
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = DS.Slate500,
-                TextAlign = ContentAlignment.MiddleRight
-            };
             Panel avatar = new Panel
             {
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = DS.Primary600,
                 Size = new Size(38, 38)
             };
@@ -2640,22 +2822,35 @@ namespace HVAC_Pro_Desktop.UI
             Label user = new Label
             {
                 Text = SessionManager.CurrentUser == null ? "Administrator\r\nAdmin" : (SessionManager.CurrentUser.DisplayName + "\r\n" + SessionManager.CurrentUser.RoleName),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Size = new Size(150, 42),
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
                 ForeColor = DS.Slate900
             };
-            header.Resize += (s, e) =>
+            Panel meta = new Panel
             {
-                user.Location = new Point(header.ClientSize.Width - 178, 16);
-                avatar.Location = new Point(user.Left - 48, 16);
-                breadcrumb.Location = new Point(avatar.Left - 176, 21);
+                Name = "SettingsHeaderMetaPanel",
+                Size = new Size(196, 42),
+                BackColor = Color.Transparent
             };
-            header.Controls.Add(title);
-            header.Controls.Add(breadcrumb);
-            header.Controls.Add(avatar);
-            header.Controls.Add(user);
-            return header;
+            avatar.Location = new Point(0, 2);
+            user.Location = new Point(46, 0);
+            meta.Controls.Add(avatar);
+            meta.Controls.Add(user);
+
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceEditor(
+                "SettingsHeader",
+                "Settings",
+                "Configure company profile, compliance, backups, users, and system preferences.",
+                (actions ?? new Button[0]).Cast<Control>().ToList(),
+                SharedPageHeader.CreateSearchCommand("SettingsGlobalSearch", 280, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                null,
+                null,
+                meta);
+            model.Dock = DockStyle.Top;
+            model.DefaultHeight = 94;
+            model.CompactHeight = 132;
+            model.BackColor = Color.White;
+            return SharedPageHeader.Build(model).Header;
         }
 
         private Panel BuildModernActionBar(params Button[] buttons)
@@ -2852,7 +3047,7 @@ namespace HVAC_Pro_Desktop.UI
                     _generalCanvas.Width = canvasWidth;
                 if (_generalFlow.Width != canvasWidth)
                     _generalFlow.Width = canvasWidth;
-                int columns = canvasWidth >= 1220 ? 3 : (canvasWidth >= 980 ? 2 : 1);
+                int columns = canvasWidth >= 1560 ? 3 : (canvasWidth >= 980 ? 2 : 1);
                 int gap = 14;
                 int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
                 int[] columnHeights = new int[columns];
@@ -3156,6 +3351,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayoutResetSection(Panel parent)
         {
+            parent.Controls.Clear();
             string[] pageKeys =
             {
                 "Dashboard",
@@ -3166,25 +3362,28 @@ namespace HVAC_Pro_Desktop.UI
                 "PurchaseAnalysis"
             };
 
-            int x = 0;
-            int y = 0;
-            int availableWidth = Math.Max(300, parent.ClientSize.Width);
+            FlowLayoutPanel actions = new FlowLayoutPanel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(Math.Max(320, parent.ClientSize.Width), 108),
+                BackColor = Color.White,
+                WrapContents = true,
+                AutoScroll = false,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            parent.Controls.Add(actions);
+
             foreach (string pageKey in pageKeys)
             {
                 Button button = MakeBtn("Reset " + pageKey.Replace("Analysis", " Analysis"), InfoBlue, 174);
-                if (x > 0 && x + button.Width > availableWidth)
-                {
-                    x = 0;
-                    y += 40;
-                }
-                button.Location = new Point(x, y);
+                button.Margin = new Padding(0, 0, 14, 12);
                 button.Click += (s, e) => ResetLayout(pageKey);
-                parent.Controls.Add(button);
-                x += 188;
+                actions.Controls.Add(button);
             }
 
             Button resetAll = MakeBtn("Reset all layouts", SaveGreen, 180);
-            resetAll.Location = new Point(0, y + 42);
+            resetAll.Location = new Point(0, actions.Bottom + 6);
             resetAll.Click += (s, e) =>
             {
                 foreach (string pageKey in pageKeys)
@@ -3192,7 +3391,28 @@ namespace HVAC_Pro_Desktop.UI
                 _lblStatus.Text = "All card layouts reset to default.";
             };
             parent.Controls.Add(resetAll);
-            parent.Height = resetAll.Bottom + 4;
+            Action layout = () =>
+            {
+                actions.Width = Math.Max(320, parent.ClientSize.Width);
+                int rows = 1;
+                int runningWidth = 0;
+                foreach (Control control in actions.Controls)
+                {
+                    int nextWidth = control.Width + control.Margin.Horizontal;
+                    if (runningWidth > 0 && runningWidth + nextWidth > actions.Width)
+                    {
+                        rows++;
+                        runningWidth = 0;
+                    }
+                    runningWidth += nextWidth;
+                }
+
+                actions.Height = Math.Max(46, rows * 46);
+                resetAll.Top = actions.Bottom + 6;
+                parent.Height = resetAll.Bottom + 4;
+            };
+            parent.Resize += (s, e) => layout();
+            layout();
         }
 
         private void BuildFreshStartSection(Panel parent)
@@ -3335,7 +3555,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private string BuildLicenseSummary()
         {
-            LicenseValidationResult result = new LicenseService().ValidateCurrentLicense();
+            LicenseValidationResult result = _licenseSvc.ValidateCurrentLicense();
             LicenseSnapshot s = result.Snapshot;
             if (s == null || string.IsNullOrWhiteSpace(s.LicenseKey))
                 return "License: activation required.";
@@ -3379,6 +3599,7 @@ namespace HVAC_Pro_Desktop.UI
                 _lblLicenseStatus.Text = BuildLicenseSummary();
             _lblStatus.Text = "License status refreshed.";
             _lblStatus.ForeColor = SaveGreen;
+            RefreshSettingsWorkspaceSummary();
         }
 
         private void OpenLicenseActivation()
@@ -3393,7 +3614,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void CopyLicenseDeviceFingerprint()
         {
-            string fingerprint = new DeviceFingerprintService().GetFingerprintHash();
+            string fingerprint = _deviceFingerprintSvc.GetFingerprintHash();
             if (UIHelper.TrySetClipboardText(this, fingerprint, BrandingService.WindowTitle("License")))
             {
                 _lblStatus.Text = "Device fingerprint copied for license issuance.";
@@ -3405,7 +3626,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             try
             {
-                var latest = new BackupService().GetBackupLog(50).FirstOrDefault(r => r.Success);
+            var latest = _backupSvc.GetBackupLog(50).FirstOrDefault(r => r.Success);
                 if (latest == null)
                     return "No successful backups found. Local fallback folder: " + BackupService.BackupRoot;
 
@@ -3423,7 +3644,7 @@ namespace HVAC_Pro_Desktop.UI
             SetBackupStatus("Creating database backup...", DS.Slate700);
             try
             {
-                BackupResult result = await Task.Run(() => new BackupService().RunBackup(BackupTrigger.Manual));
+            BackupResult result = await Task.Run(() => _backupSvc.RunBackup(BackupTrigger.Manual));
                 SetBackupStatus(result.Success ? BuildBackupSummary() : "Backup failed: " + result.Message, result.Success ? SaveGreen : Color.Red);
                 ToastNotification.ShowToast(result.Success ? "Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed) : "Backup failed - please check settings", result.Success ? SaveGreen : Color.Red);
             }
@@ -3441,6 +3662,42 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_lblBackupStatus != null)
                 _lblBackupStatus.Text = BuildBackupSummary();
+            RefreshSettingsWorkspaceSummary();
+        }
+
+        private void RefreshSettingsWorkspaceSummary()
+        {
+            if (_lblSettingsVersionState == null)
+                return;
+
+            _lblSettingsVersionState.Text = ConfigService.GetAppVersion();
+
+            string dbStatus = _lblDbStatus == null ? string.Empty : _lblDbStatus.Text;
+            if (dbStatus.IndexOf("NOT connected", StringComparison.OrdinalIgnoreCase) >= 0)
+                _lblSettingsDbState.Text = "Issue";
+            else if (dbStatus.IndexOf("checking", StringComparison.OrdinalIgnoreCase) >= 0)
+                _lblSettingsDbState.Text = "Checking";
+            else if (!string.IsNullOrWhiteSpace(dbStatus))
+                _lblSettingsDbState.Text = "Ready";
+            else
+                _lblSettingsDbState.Text = "Pending";
+
+            string backupSummary = _lblBackupStatus != null && !string.IsNullOrWhiteSpace(_lblBackupStatus.Text)
+                ? _lblBackupStatus.Text
+                : BuildBackupSummary();
+            _lblSettingsBackupState.Text = backupSummary.IndexOf("No successful backups", StringComparison.OrdinalIgnoreCase) >= 0
+                ? "Pending"
+                : (backupSummary.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0 ? "Issue" : "Ready");
+
+            string licenseSummary = _lblLicenseStatus != null && !string.IsNullOrWhiteSpace(_lblLicenseStatus.Text)
+                ? _lblLicenseStatus.Text
+                : BuildLicenseSummary();
+            _lblSettingsLicenseState.Text = licenseSummary.IndexOf("activation required", StringComparison.OrdinalIgnoreCase) >= 0
+                ? "Action"
+                : "Active";
+
+            bool assistantEnabled = _chkAiEnabled != null && _chkAiEnabled.Checked;
+            _lblSettingsAssistantState.Text = assistantEnabled ? "Enabled" : "Disabled";
         }
 
         private async Task CreateCloudBackupAsync()
@@ -3448,7 +3705,7 @@ namespace HVAC_Pro_Desktop.UI
             SetBackupStatus("Creating cloud backup...", DS.Slate700);
             try
             {
-                IntegrationOperationResult result = await new CloudBackupIntegrationService().CreateAndUploadBackupAsync(System.Threading.CancellationToken.None);
+            IntegrationOperationResult result = await _cloudBackupIntegrationSvc.CreateAndUploadBackupAsync(System.Threading.CancellationToken.None);
                 SetBackupStatus(result.Success ? "Cloud backup complete: " + result.ReferenceId : "Cloud backup failed: " + result.Message, result.Success ? SaveGreen : Color.Red);
                 MessageBox.Show(
                     result.Success ? "Cloud backup completed:\r\n" + result.LocalPath : "Cloud backup failed:\r\n" + result.Message,
@@ -3492,7 +3749,7 @@ namespace HVAC_Pro_Desktop.UI
             SetBackupStatus("Restoring database from " + fileName + "...", DS.Slate700);
             try
             {
-                BackupResult result = await Task.Run(() => new BackupService().RestoreDatabaseBackup(backupPath, true));
+            BackupResult result = await Task.Run(() => _backupSvc.RestoreDatabaseBackup(backupPath, true));
                 if (result.Success)
                 {
                     MainForm mainForm = FindForm() as MainForm;
@@ -3600,7 +3857,7 @@ namespace HVAC_Pro_Desktop.UI
         private void ResetLayout(string pageKey)
         {
             int userId = CardLayoutService.ResolveCurrentUserId();
-            System.Threading.Tasks.Task.Run(() => new CardLayoutService().ResetPageLayout(userId, pageKey));
+            System.Threading.Tasks.Task.Run(() => _cardLayoutSvc.ResetPageLayout(userId, pageKey));
             MainForm mainForm = FindForm() as MainForm;
             if (mainForm != null)
                 mainForm.ReloadPageByKey(pageKey);

@@ -41,7 +41,7 @@ namespace HVAC_Pro_Desktop.Tests
             results.Add(Run("Insert new AMC contract returns positive ID",
                 () => TestInsert(qaClientId)));
 
-            int insertedId = DirectInsert(qaClientId, QaAMCPrefix + "UPD-" + DateTime.Today.Year);
+            int insertedId = SaveViaForm(null, qaClientId, BuildUniqueAmcNumber("UPD"));
             results.Add(Run("Update existing AMC contract returns same ID",
                 () => TestUpdate(insertedId)));
 
@@ -50,6 +50,9 @@ namespace HVAC_Pro_Desktop.Tests
 
             results.Add(Run("Duplicate AMC number raises DuplicateAMCNumberException, not generic exception",
                 () => TestDuplicateRejection(qaClientId)));
+
+            results.Add(Run("Over-length AMC number is rejected before SQL save",
+                () => TestLengthValidation(qaClientId)));
 
             results.Add(Run("AMCPage.OpenContractById is a public method",
                 () => TestOpenContractByIdExists()));
@@ -83,29 +86,26 @@ namespace HVAC_Pro_Desktop.Tests
 
         private static void TestInsert(int clientId)
         {
-            string amcNumber = QaAMCPrefix + "N-" + (Environment.TickCount & 0xFFFF).ToString("X4");
-            int id = DirectInsert(clientId, amcNumber);
+            string amcNumber = BuildUniqueAmcNumber("N");
+            int id = SaveViaForm(null, clientId, amcNumber);
             if (id <= 0)
                 throw new InvalidOperationException("Insert returned ID <= 0 (" + id + ").");
         }
 
         private static void TestUpdate(int contractId)
         {
-            string newAmcNumber = QaAMCPrefix + "U-" + (Environment.TickCount & 0xFFFF).ToString("X4");
-            bool updated = DirectUpdate(contractId, newAmcNumber);
-            if (!updated)
-                throw new InvalidOperationException("Update returned false for contract " + contractId + " (0 rows affected).");
+            int clientId = GetClientIdForContract(contractId);
+            string newAmcNumber = BuildUniqueAmcNumber("U");
+            int savedId = SaveViaForm(contractId, clientId, newAmcNumber);
+            if (savedId != contractId)
+                throw new InvalidOperationException("Update returned " + savedId + " instead of the existing contract " + contractId + ".");
         }
 
         private static void TestFallbackInsert(int clientId)
         {
             int nonExistentId = -999999;
-            string amcNumber = QaAMCPrefix + "FB-" + (Environment.TickCount & 0xFFFF).ToString("X4");
-            bool updated = DirectUpdate(nonExistentId, amcNumber);
-            if (updated)
-                throw new InvalidOperationException("DirectUpdate returned true for non-existent ID — fallback path not taken.");
-            // Fallback: insert as new
-            int newId = DirectInsert(clientId, amcNumber);
+            string amcNumber = BuildUniqueAmcNumber("FB");
+            int newId = SaveViaForm(nonExistentId, clientId, amcNumber);
             if (newId <= 0)
                 throw new InvalidOperationException("Fallback insert returned ID <= 0 (" + newId + ").");
             if (newId == nonExistentId)
@@ -114,28 +114,43 @@ namespace HVAC_Pro_Desktop.Tests
 
         private static void TestDuplicateRejection(int clientId)
         {
-            string amcNumber = QaAMCPrefix + "DUP-" + DateTime.Today.Year;
-            // First insert: may already exist from a previous run; only swallow unique-key violations.
-            // Any other exception (e.g. connection failure) propagates so the test fails with a meaningful message.
-            try { DirectInsert(clientId, amcNumber); }
-            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627) { }
+            string amcNumber = BuildUniqueAmcNumber("DUP");
+            SaveViaForm(null, clientId, amcNumber);
 
             bool gotDuplicate = false;
             try
             {
-                DirectInsert(clientId, amcNumber);
+                SaveViaForm(null, clientId, amcNumber);
             }
-            catch (SqlException ex) when (ex.Number == 2601 || ex.Number == 2627)
-            {
-                gotDuplicate = true;
-            }
-            catch (Exception ex) when (ex.GetType().Name == "DuplicateAMCNumberException")
+            catch (Exception ex) when (Unwrap(ex).GetType().Name == "DuplicateAMCNumberException")
             {
                 gotDuplicate = true;
             }
 
             if (!gotDuplicate)
                 throw new InvalidOperationException("Duplicate AMC number did not raise a uniqueness violation.");
+        }
+
+        private static void TestLengthValidation(int clientId)
+        {
+            int maxLength = GetAmcNumberMaxLength();
+            string tooLong = new string('A', maxLength + 1);
+            bool gotLengthValidation = false;
+            try
+            {
+                SaveViaForm(null, clientId, tooLong);
+            }
+            catch (Exception ex)
+            {
+                Exception baseException = Unwrap(ex);
+                if (baseException.GetType().Name == "AMCNumberLengthException")
+                    gotLengthValidation = true;
+                else if (baseException is SqlException)
+                    throw new InvalidOperationException("AMC number length validation reached SQL instead of failing cleanly.", baseException);
+            }
+
+            if (!gotLengthValidation)
+                throw new InvalidOperationException("Over-length AMC number did not raise the expected validation exception.");
         }
 
         private static void TestOpenContractByIdExists()
@@ -161,53 +176,116 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("AddAMCForm.LastSavedContractId property is not readable.");
         }
 
-        // ── SQL helpers ───────────────────────────────────────────────────────
+        // ── save helpers ──────────────────────────────────────────────────────
 
-        private static int DirectInsert(int clientId, string amcNumber)
+        private static int SaveViaForm(int? contractId, int clientId, string amcNumber)
+        {
+            using (var form = contractId.HasValue ? new AddAMCForm(contractId.Value) : new AddAMCForm())
+            {
+                object input = CreateInput(form.GetType(), contractId.GetValueOrDefault(), clientId, amcNumber);
+                return InvokeSaveInputOn(form, input);
+            }
+        }
+
+        private static object CreateInput(Type formType, int contractId, int clientId, string amcNumber)
+        {
+            Type inputType = formType.GetNestedType("AMCInput", BindingFlags.NonPublic);
+            if (inputType == null)
+                throw new InvalidOperationException("AddAMCForm.AMCInput nested type not found.");
+
+            object input = Activator.CreateInstance(inputType, true);
+            SetField(inputType, input, "ContractId", contractId);
+            SetField(inputType, input, "AMCNumber", amcNumber);
+            SetField(inputType, input, "ClientId", clientId);
+            SetField(inputType, input, "SiteId", null);
+            SetField(inputType, input, "EquipmentDesc", "QA Smoke Test Equipment");
+            SetField(inputType, input, "AMCType", "Comprehensive");
+            SetField(inputType, input, "CoverageType", "Comprehensive");
+            SetField(inputType, input, "StartDate", DateTime.Today);
+            SetField(inputType, input, "EndDate", DateTime.Today.AddYears(1));
+            SetField(inputType, input, "ContractValue", 12000m);
+            SetField(inputType, input, "BillingCycle", "Annual");
+            SetField(inputType, input, "VisitsPerYear", 2);
+            SetField(inputType, input, "Status", "Active");
+            SetField(inputType, input, "Notes", "Created by AddAMCSmokeTests");
+            return input;
+        }
+
+        private static int InvokeSaveInputOn(AddAMCForm form, object input)
+        {
+            MethodInfo method = typeof(AddAMCForm).GetMethod("SaveInput", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null)
+                throw new InvalidOperationException("AddAMCForm.SaveInput private method not found.");
+
+            try
+            {
+                return Convert.ToInt32(method.Invoke(form, new[] { input }), CultureInfo.InvariantCulture);
+            }
+            catch (TargetInvocationException ex)
+            {
+                throw ex.InnerException ?? ex;
+            }
+        }
+
+        private static void SetField(Type type, object target, string fieldName, object value)
+        {
+            FieldInfo field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field == null)
+                throw new InvalidOperationException("Field not found on AMCInput: " + fieldName);
+
+            field.SetValue(target, value);
+        }
+
+        private static string BuildUniqueAmcNumber(string marker)
+        {
+            int maxLength = GetAmcNumberMaxLength();
+            string suffix = "-" + marker + "-" + DateTime.Now.ToString("HHmmss", CultureInfo.InvariantCulture) + "-" + (Environment.TickCount & 0xFFFF).ToString("X4", CultureInfo.InvariantCulture);
+            string prefix = QaAMCPrefix.TrimEnd('-');
+            int availablePrefix = Math.Max(1, maxLength - suffix.Length);
+            if (prefix.Length > availablePrefix)
+                prefix = prefix.Substring(0, availablePrefix);
+            return prefix + suffix;
+        }
+
+        private static int GetAmcNumberMaxLength()
         {
             using (var conn = DatabaseConnectionFactory.CreateConnection())
             {
-                DatabaseConnectionFactory.Open(conn, "AddAMCSmokeTests.DirectInsert");
-                using (var cmd = new SqlCommand(@"
-INSERT INTO AMCContracts
-    (AMCNumber, ClientID, SiteID, EquipmentDesc, AMCType, StartDate, EndDate,
-     ContractValue, BillingCycle, CoverageType, VisitsPerYear, Status, Notes,
-     CreatedAt, UpdatedAt, MonthlyValue, AnnualValue, ContractStatus,
-     MaintenanceFrequency, ContractType)
-VALUES
-    (@AMCNumber, @ClientID, NULL, 'QA Smoke Test Equipment', 'Comprehensive', @Start, @End,
-     12000, 'Annual', 'Comprehensive', 2, 'Active', 'Created by AddAMCSmokeTests',
-     GETDATE(), GETDATE(), 1000, 12000, 'Active', 'Annual', 'AMC');
-SELECT CAST(SCOPE_IDENTITY() AS INT);", conn))
+                DatabaseConnectionFactory.Open(conn, "AddAMCSmokeTests.GetAmcNumberMaxLength");
+                using (var cmd = new SqlCommand("SELECT COL_LENGTH('dbo.AMCContracts', 'AMCNumber');", conn))
                 {
-                    cmd.CommandTimeout = 10;
-                    cmd.Parameters.AddWithValue("@AMCNumber", amcNumber);
-                    cmd.Parameters.AddWithValue("@ClientID", clientId);
-                    cmd.Parameters.AddWithValue("@Start", DateTime.Today);
-                    cmd.Parameters.AddWithValue("@End", DateTime.Today.AddYears(1));
-                    return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+                    cmd.CommandTimeout = 8;
+                    object result = cmd.ExecuteScalar();
+                    if (result == null || result == DBNull.Value)
+                        return 30;
+
+                    int sqlLengthBytes = Convert.ToInt32(result, CultureInfo.InvariantCulture);
+                    return sqlLengthBytes > 0 ? Math.Max(1, sqlLengthBytes / 2) : 30;
                 }
             }
         }
 
-        private static bool DirectUpdate(int contractId, string newAmcNumber)
+        private static int GetClientIdForContract(int contractId)
         {
             using (var conn = DatabaseConnectionFactory.CreateConnection())
             {
-                DatabaseConnectionFactory.Open(conn, "AddAMCSmokeTests.DirectUpdate");
-                using (var cmd = new SqlCommand(@"
-UPDATE AMCContracts
-SET AMCNumber = @AMCNumber, UpdatedAt = GETDATE()
-WHERE ContractID = @ContractID;
-SELECT @@ROWCOUNT;", conn))
+                DatabaseConnectionFactory.Open(conn, "AddAMCSmokeTests.GetClientIdForContract");
+                using (var cmd = new SqlCommand("SELECT TOP 1 ClientID FROM AMCContracts WHERE ContractID = @ContractID;", conn))
                 {
-                    cmd.CommandTimeout = 10;
-                    cmd.Parameters.AddWithValue("@AMCNumber", newAmcNumber);
+                    cmd.CommandTimeout = 8;
                     cmd.Parameters.AddWithValue("@ContractID", contractId);
-                    int rows = Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-                    return rows > 0;
+                    object result = cmd.ExecuteScalar();
+                    if (result == null || result == DBNull.Value)
+                        throw new InvalidOperationException("AMC contract " + contractId + " was not found for update smoke.");
+
+                    return Convert.ToInt32(result, CultureInfo.InvariantCulture);
                 }
             }
+        }
+
+        private static Exception Unwrap(Exception ex)
+        {
+            return ex is TargetInvocationException tie && tie.InnerException != null ? tie.InnerException : ex;
         }
 
         private static int EnsureQaClient()

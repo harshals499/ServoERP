@@ -312,6 +312,8 @@ namespace HVAC_Pro_Desktop.DAL
                     return "SELECT COUNT(*) FROM dbo.ClientSites;";
                 case "Inventory":
                     return "SELECT COUNT(*) FROM dbo.StockItems;";
+                case "SupplierItemPrices":
+                    return "SELECT COUNT(*) FROM dbo.SupplierItemPrices;";
                 case "Purchases":
                     return "SELECT COUNT(*) FROM dbo.PurchaseOrders;";
                 case "Invoices":

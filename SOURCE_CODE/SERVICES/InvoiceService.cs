@@ -144,6 +144,7 @@ namespace HVAC_Pro_Desktop.Services
                     MarkInventoryReservationStatus(id, "Reserved");
                 }
                 AppDataCache.RemovePrefix("invoices:");
+                DashboardRefreshService.NotifyChanged("Invoices");
                 SessionManager.LogAction("CREATE", "Invoices", id, "Invoice saved");
                 _audit.Record("CREATE", "Invoices", id, "Invoice saved with data-quality validation");
                 return id;
@@ -155,6 +156,7 @@ namespace HVAC_Pro_Desktop.Services
                 bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
                 OfflineQueueResult queued = OfflineSyncService.Queue("Invoices", "CreateDraft", inv, null, review, ex.Message);
                 AppDataCache.RemovePrefix("invoices:");
+                DashboardRefreshService.NotifyChanged("Invoices");
                 return queued.LocalId;
             }
         }
@@ -191,6 +193,7 @@ namespace HVAC_Pro_Desktop.Services
                     MarkInventoryReservationStatus(inv.InvoiceID, "Reserved");
                 }
                 AppDataCache.RemovePrefix("invoices:");
+                DashboardRefreshService.NotifyChanged("Invoices");
                 SessionManager.LogAction("EDIT", "Invoices", inv.InvoiceID, "Invoice saved");
                 _audit.Record("EDIT", "Invoices", inv.InvoiceID, "Invoice saved with data-quality validation");
             }
@@ -199,6 +202,7 @@ namespace HVAC_Pro_Desktop.Services
                 bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
                 OfflineSyncService.Queue("Invoices", "UpdateDraft", inv, inv.InvoiceID, review, ex.Message);
                 AppDataCache.RemovePrefix("invoices:");
+                DashboardRefreshService.NotifyChanged("Invoices");
             }
         }
 
@@ -245,6 +249,7 @@ namespace HVAC_Pro_Desktop.Services
 
             invoice.InvoiceID = _invoiceRepo.Create(invoice);
             AppDataCache.RemovePrefix("invoices:");
+            DashboardRefreshService.NotifyChanged("Invoices");
             return invoice;
         }
 
@@ -564,7 +569,7 @@ namespace HVAC_Pro_Desktop.Services
             string customerBlockHtml = BuildInvoiceCustomerBlock(client, site, inv.ClientName);
             string subject = FirstNonEmpty(inv.Subject, "Supply / service invoice.");
             string invoiceNo = FirstNonEmpty(inv.InvoiceNumber, "DRAFT-PREVIEW");
-            string words = ToWords((long)Math.Round(inv.TotalAmount)) + " Only.";
+            string words = IndiaFormatHelper.ToRupeesOnlyWords(inv.TotalAmount);
 
             var rows = new StringBuilder();
             int sr = 1;
@@ -611,8 +616,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + inv.SubTotal.ToString("N2") + "</td></tr>"
             + taxRows
             + roundOffRow
-            + "<tr><td colspan='6' class='total-label'>Grand Total Amount</td><td class='total-value'>" + inv.TotalAmount.ToString("N2") + "</td></tr>"
-            + "<tr><td colspan='7' class='words'>Rupees - " + Html(words) + "</td></tr></tbody></table>"
+            + "<tr><td colspan='6' class='total-label'><div class='total-summary'><span>Grand Total Amount : </span><span class='words-inline'>" + Html(words.EndsWith(".") ? words : words + ".") + "</span></div></td><td class='total-value'>" + inv.TotalAmount.ToString("N2") + "</td></tr></tbody></table>"
             + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
             + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGst, msmeNumber, false)
             + "</td>"
@@ -1092,31 +1096,5 @@ namespace HVAC_Pro_Desktop.Services
                 && string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static string ToWords(long number)
-        {
-            if (number == 0) return "Zero";
-            if (number < 0) return "Minus " + ToWords(Math.Abs(number));
-            string[] units = { "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
-            string[] tens = { "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
-
-            Func<long, string> underHundred = null;
-            underHundred = n =>
-            {
-                if (n < 20) return units[n];
-                return tens[n / 10] + (n % 10 > 0 ? " " + units[n % 10] : "");
-            };
-
-            Func<long, string> convert = null;
-            convert = n =>
-            {
-                if (n < 100) return underHundred(n);
-                if (n < 1000) return units[n / 100] + " Hundred" + (n % 100 > 0 ? " " + convert(n % 100) : "");
-                if (n < 100000) return convert(n / 1000) + " Thousand" + (n % 1000 > 0 ? " " + convert(n % 1000) : "");
-                if (n < 10000000) return convert(n / 100000) + " Lakh" + (n % 100000 > 0 ? " " + convert(n % 100000) : "");
-                return convert(n / 10000000) + " Crore" + (n % 10000000 > 0 ? " " + convert(n % 10000000) : "");
-            };
-
-            return convert(number);
-        }
     }
 }

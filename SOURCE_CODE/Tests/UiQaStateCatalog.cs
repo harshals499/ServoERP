@@ -61,8 +61,7 @@ namespace HVAC_Pro_Desktop.Tests
             new UiQaModule("Jobs", "HVAC_Pro_Desktop.UI.JobManagementForm", 15, true),
             new UiQaModule("RetiredServiceDesk", "HVAC_Pro_Desktop.UI.ServiceDeskForm", 16, false),
             new UiQaModule("MasterData", "HVAC_Pro_Desktop.UI.MasterDataForm", 17, false),
-            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false),
-            new UiQaModule("Tally", "HVAC_Pro_Desktop.UI.TallyIntegrationForm", 19, false)
+            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false)
         };
 
         public static IEnumerable<Tuple<UiQaModule, string>> Matrix()

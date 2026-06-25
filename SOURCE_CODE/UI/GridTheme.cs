@@ -33,8 +33,8 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color HeaderFore = Color.FromArgb(15, 23, 42);
         public static readonly Color RowAlt = Color.FromArgb(248, 250, 252);
         public static readonly Color RowNormal = Color.White;
-        public static readonly Color RowSelected = Color.FromArgb(37, 99, 235);
-        public static readonly Color RowSelectedFore = Color.White;
+        public static readonly Color RowSelected = Color.FromArgb(241, 245, 249);
+        public static readonly Color RowSelectedFore = Color.FromArgb(15, 23, 42);
         public static readonly Color GridLine = Color.FromArgb(209, 213, 219);
         public static readonly Color BorderColor = Color.FromArgb(209, 213, 219);
 

@@ -500,12 +500,6 @@
     <Compile Include="UI\WhatsAppHubForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UI\TallyIntegrationForm.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="UI\TallyIntegrationForm.Designer.cs">
-      <DependentUpon>TallyIntegrationForm.cs</DependentUpon>
-    </Compile>
     <Compile Include="UI\WhatsAppQuickActionDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -639,6 +633,7 @@
     <Compile Include="UI\InvoiceForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\ExceptionCardDetailDialog.cs" />
     <Compile Include="UI\SLADashboardForm.cs">
       <SubType>UserControl</SubType>
     </Compile>

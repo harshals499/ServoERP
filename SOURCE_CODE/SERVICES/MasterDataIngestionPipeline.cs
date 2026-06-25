@@ -494,6 +494,7 @@ namespace HVAC_Pro_Desktop.Services
             { ExcelImportModule.Clients, new[] { "clientname", "customername", "companyname", "gstin", "phone", "billingaddress" } },
             { ExcelImportModule.Vendors, new[] { "vendorname", "suppliername", "gstin", "paymentterms", "creditdays", "phone" } },
             { ExcelImportModule.Inventory, new[] { "itemname", "productname", "materialname", "sku", "itemcode", "unit", "rate", "hsncode" } },
+            { ExcelImportModule.SupplierItemPrices, new[] { "vendorname", "itemname", "rate", "effectivedate", "ispreferred", "vendorid", "itemid" } },
             { ExcelImportModule.Sites, new[] { "sitename", "clientname", "siteaddress", "location", "city" } },
             { ExcelImportModule.Employees, new[] { "employeename", "employeecode", "designation", "department", "salary", "phone" } },
             { ExcelImportModule.Invoices, new[] { "invoicenumber", "invoicedate", "taxamount", "totalamount", "duedate" } },
@@ -602,6 +603,22 @@ namespace HVAC_Pro_Desktop.Services
                     { "ReorderLevel", new[] { "Reorder Level", "Min Stock", "Minimum Stock", "Safety Stock" } },
                     { "StockValue", new[] { "Stock Value", "Value", "Amount" } },
                     { "Notes", new[] { "Notes", "Remarks", "Comments" } }
+                }
+            },
+            { ExcelImportModule.SupplierItemPrices, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                {
+                    { "ItemID", new[] { "Item ID", "Material ID", "ItemID_Matched", "Matched Item ID" } },
+                    { "ItemName", new[] { "Item Name", "Material Name", "Product Name", "ItemName_Matched", "ItemName_Source" } },
+                    { "Category", new[] { "Category", "Item Category", "Category_Matched" } },
+                    { "Unit", new[] { "Unit", "UOM", "Unit_Matched" } },
+                    { "VendorID", new[] { "Vendor ID", "Supplier ID", "VendorID_Matched", "Matched Vendor ID" } },
+                    { "VendorName", new[] { "Vendor Name", "Supplier Name", "VendorName_Matched", "SupplierName_Source", "Vendor" } },
+                    { "Rate", new[] { "Rate", "Unit Price", "SupplierItemPrice_Rate", "LastPurchaseRate_Suggested", "Last Purchase Rate" } },
+                    { "EffectiveDate", new[] { "Effective Date", "EffectiveDate", "Price Date" } },
+                    { "IsPreferred", new[] { "Preferred", "IsPreferred", "Is Preferred" } },
+                    { "IsActive", new[] { "Active", "IsActive", "Is Active" } },
+                    { "Source", new[] { "Source", "SourceSheet", "Import Source" } },
+                    { "Notes", new[] { "Notes", "Remarks", "Comments", "ContactDetails", "ReviewReason" } }
                 }
             },
             { ExcelImportModule.Sites, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)

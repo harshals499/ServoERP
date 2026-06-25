@@ -39,6 +39,20 @@ namespace HVAC_Pro_Desktop.DAL
             return list;
         }
 
+        public ClientSite GetBySyncPublicId(Guid syncPublicId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand("SELECT * FROM ClientSites WHERE SyncPublicId=@syncPublicId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@syncPublicId", syncPublicId);
+                    using (SqlDataReader r = cmd.ExecuteReader())
+                        return r.Read() ? Map(r) : null;
+                }
+            }
+        }
+
         public int Create(ClientSite s)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -142,6 +156,13 @@ namespace HVAC_Pro_Desktop.DAL
         private static ClientSite Map(SqlDataReader r) => new ClientSite
         {
             SiteID                   = (int)r["SiteID"],
+            SyncPublicId             = r["SyncPublicId"] == DBNull.Value ? (Guid?)null : (Guid)r["SyncPublicId"],
+            OriginNodeId             = r["OriginNodeId"] == DBNull.Value ? (Guid?)null : (Guid)r["OriginNodeId"],
+            LastModifiedNodeId       = r["LastModifiedNodeId"] == DBNull.Value ? (Guid?)null : (Guid)r["LastModifiedNodeId"],
+            CreatedUtc               = r["CreatedUtc"] == DBNull.Value ? (DateTime?)null : (DateTime)r["CreatedUtc"],
+            UpdatedUtc               = r["UpdatedUtc"] == DBNull.Value ? (DateTime?)null : (DateTime)r["UpdatedUtc"],
+            DeletedUtc               = r["DeletedUtc"] == DBNull.Value ? (DateTime?)null : (DateTime)r["DeletedUtc"],
+            SyncVersion              = r["SyncVersion"] == DBNull.Value ? 0L : Convert.ToInt64(r["SyncVersion"]),
             ClientID                 = (int)r["ClientID"],
             SiteName                 = r["SiteName"] as string,
             Address                  = r["Address"]  as string,

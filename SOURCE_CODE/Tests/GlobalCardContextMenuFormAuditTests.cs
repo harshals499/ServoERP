@@ -49,7 +49,6 @@ namespace HVAC_Pro_Desktop.Tests
             typeof(JobManagementForm),
             typeof(MasterDataForm),
             typeof(WhatsAppHubForm),
-            typeof(TallyIntegrationForm),
             typeof(ClientDetailPage),
             typeof(JobDetailPage)
         };

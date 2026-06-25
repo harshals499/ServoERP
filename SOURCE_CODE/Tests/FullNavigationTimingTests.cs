@@ -290,11 +290,10 @@ namespace HVAC_Pro_Desktop.Tests
                 yield return new NavSpec(11, "Inventory", typeof(InventoryForm));
                 yield return new NavSpec(12, "Employees", typeof(EmployeeForm));
                 yield return new NavSpec(13, "Payroll", typeof(PayrollForm));
-                yield return new NavSpec(14, "Dispatch Center", typeof(GeoIntelligenceForm));
+                yield return new NavSpec(14, "Site Monitor", typeof(GeoIntelligenceForm));
                 yield return new NavSpec(15, "Jobs", typeof(JobManagementForm));
                 yield return new NavSpec(17, "Master Data", typeof(MasterDataForm));
                 yield return new NavSpec(18, "WhatsApp Hub", typeof(WhatsAppHubForm));
-                yield return new NavSpec(19, "Tally", typeof(TallyIntegrationForm));
                 yield return new NavSpec(20, "Vendors", typeof(VendorForm));
                 yield return new NavSpec(21, "AMC", typeof(AMCPage));
             }

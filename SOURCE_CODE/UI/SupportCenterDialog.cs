@@ -406,8 +406,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             ClearContent("System Health");
             bool compact = IsCompactSupportLayout();
-            TableLayoutPanel grid = ContentGrid(compact ? 1 : 2, compact ? 15 : 8);
-            for (int i = 0; i < (compact ? 15 : 8); i++)
+            TableLayoutPanel grid = ContentGrid(compact ? 1 : 2, compact ? 16 : 8);
+            for (int i = 0; i < (compact ? 16 : 8); i++)
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
 
             AddGridCard(grid, compact, ToolCard("Check Database", "Validate SQL Server connection without changing data.", ModernIconKind.Security, () => _service.CheckDatabase()), 0, 0, 0);
@@ -419,11 +419,12 @@ namespace HVAC_Pro_Desktop.UI
             AddGridCard(grid, compact, ToolCard("Export Diagnostics Package", "Export safe logs, version, health, and layout summaries.", ModernIconKind.Export, () => _service.ExportDiagnosticsPackage()), 6, 0, 3);
             AddGridCard(grid, compact, ToolCard("Client Server Setup Wizard", "Detect server IP, SQL target, and generate client connection ZIP.", ModernIconKind.Settings, () => _service.GenerateClientServerSetupPackage()), 7, 1, 3);
             AddGridCard(grid, compact, ToolCard("Office Sync Health Monitor", "Show this PC, configured server, SQL reachability, version, backup, and row counts.", ModernIconKind.Activity, () => _service.CreateOfficeHealthReport()), 8, 0, 4);
-            AddGridCard(grid, compact, ToolCard("Operations Command Center", "Create COO report for sales, jobs, AMC, vendors, inventory, technicians, and quotations.", ModernIconKind.Analytics, () => _service.CreateOperationsCommandCenterReport()), 9, 1, 4);
-            AddGridCard(grid, compact, ToolCard("Material Price Intelligence", "Summarize supplier rates, price variance, quotation margins, and best supplier readiness.", ModernIconKind.Inventory, () => _service.CreateMaterialPriceIntelligenceReport()), 10, 0, 5);
-            AddGridCard(grid, compact, ToolCard("Document Automation", "Audit letterhead, quotation, invoice, PO, AMC, delivery note templates and defaults.", ModernIconKind.Document, () => _service.CreateDocumentAutomationReport()), 11, 1, 5);
-            AddGridCard(grid, compact, ToolCard("Fresh Client Deployment Mode", "Generate deployment report: clean database status, connection, import order, backup readiness.", ModernIconKind.Checklist, () => _service.CreateFreshClientDeploymentReport()), 12, 0, 6);
-            AddGridCard(grid, compact, DataCleanRoomCard(), 13, 1, 6);
+            AddGridCard(grid, compact, ToolCard("Synchronization Health", "Export node identity, local replay queue, and SQL sync outbox status.", ModernIconKind.Refresh, () => _service.CreateSynchronizationReport()), 9, 1, 4);
+            AddGridCard(grid, compact, ToolCard("Operations Command Center", "Create COO report for sales, jobs, AMC, vendors, inventory, technicians, and quotations.", ModernIconKind.Analytics, () => _service.CreateOperationsCommandCenterReport()), 10, 0, 5);
+            AddGridCard(grid, compact, ToolCard("Material Price Intelligence", "Summarize supplier rates, price variance, quotation margins, and best supplier readiness.", ModernIconKind.Inventory, () => _service.CreateMaterialPriceIntelligenceReport()), 11, 1, 5);
+            AddGridCard(grid, compact, ToolCard("Document Automation", "Audit letterhead, quotation, invoice, PO, AMC, delivery note templates and defaults.", ModernIconKind.Document, () => _service.CreateDocumentAutomationReport()), 12, 0, 6);
+            AddGridCard(grid, compact, ToolCard("Fresh Client Deployment Mode", "Generate deployment report: clean database status, connection, import order, backup readiness.", ModernIconKind.Checklist, () => _service.CreateFreshClientDeploymentReport()), 13, 1, 6);
+            AddGridCard(grid, compact, DataCleanRoomCard(), 14, 0, 7);
 
             Panel guidance = CardPanel();
             guidance.Padding = new Padding(20);
@@ -436,7 +437,7 @@ namespace HVAC_Pro_Desktop.UI
             text.MaximumSize = new Size(460, 0);
             guidance.Controls.Add(text);
             guidance.Controls.Add(title);
-            grid.Controls.Add(guidance, 0, compact ? 14 : 7);
+            grid.Controls.Add(guidance, 0, compact ? 15 : 7);
             grid.SetColumnSpan(guidance, compact ? 1 : 2);
 
             _content.Controls.Add(grid);
@@ -527,7 +528,7 @@ namespace HVAC_Pro_Desktop.UI
                 "Invoices, Vendors, Purchases, Clients, Contracts",
                 "Jobs, Service Desk, Inventory, Payments, Payroll",
                 "Reports, Settings, Master Data",
-                "Integrations: TallyPrime, WhatsApp Cloud, Calendar, Cloud Backup, GST/e-Invoice"
+                "Integrations: WhatsApp Cloud, Calendar, Cloud Backup, GST/e-Invoice"
             }, ModernIconKind.Inventory), 2, 0, 1);
             AddGridCard(grid, compact, InfoCard("Support Boundaries", new[]
             {

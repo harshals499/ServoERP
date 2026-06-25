@@ -59,15 +59,20 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .total-label{font-size:18px;font-weight:700;}
 .total-value{text-align:right;font-size:17px;font-weight:700;}
 .words{font-size:18px;font-weight:700;color:#f00;}
+.total-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.words-inline{font-size:18px;font-weight:700;color:#f00;text-align:right;white-space:nowrap;}
 .footer-left{width:47%;font-size:15px;line-height:1.2;}
 .footer-right{font-size:15px;line-height:1.2;}
 .compliance{font-weight:700;}
 .certification{font-size:14px;line-height:1.18;font-weight:400;}
 .send-title{font-weight:700;font-size:16px;}
-.signature{text-align:center;font-size:17px;line-height:1.25;padding:12px 6px;min-height:88px;}
-.signature .small{font-size:12px;font-family:'Segoe UI',sans-serif;font-weight:400;}
-.signature img{display:block;max-width:190px;max-height:70px;margin:8px auto 4px auto;object-fit:contain;}
-.signature .blank-space{display:block;height:58px;}
+.signature{text-align:center;font-size:17px;line-height:1.25;padding:12px 6px 4px 6px;min-height:168px;}
+.signature .signature-body{display:flex;align-items:flex-end;justify-content:center;min-height:112px;margin-top:10px;}
+.signature .small{display:block;font-size:12px;font-family:'Segoe UI',sans-serif;font-weight:400;margin-top:24px;}
+.signature .signature-company{display:block;font-size:15px;margin-top:6px;}
+.signature .signature-signed-by{display:block;font-size:14px;margin-top:4px;position:relative;left:-60px;}
+.signature img{display:block;max-width:190px;max-height:70px;margin:0 auto;object-fit:contain;}
+.signature .blank-space{display:block;height:112px;}
 .blank-row td{height:18px;}
 .mse-official-header{margin-top:6px;margin-bottom:12px;border-bottom:0;padding-bottom:0;}
 .company-template-banner{font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;margin:0 0 8px 0;}
@@ -81,9 +86,9 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .mse-from-block{font-size:14px;line-height:1.25;color:#000;}
 .mse-from-title{font-size:18px;font-weight:700;text-decoration:underline;margin:0 0 8px 0;}
 .mse-from-company{font-size:18px;font-weight:700;margin:0 0 8px 0;}
-.mse-detail-line{display:flex;align-items:flex-start;gap:8px;}
-.mse-detail-label{display:inline-block;min-width:165px;font-weight:700;}
-.mse-detail-value{display:inline-block;font-weight:700;}
+.mse-detail-line{display:flex;align-items:flex-start;gap:8px;white-space:nowrap;}
+.mse-detail-label{display:inline-block;min-width:150px;font-weight:700;flex:0 0 150px;}
+.mse-detail-value{display:inline-block;font-weight:700;white-space:nowrap;}
 ";
         }
 
@@ -181,9 +186,10 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
                 ? "<img src='" + imageDataUri + "' alt='Authorised signature' />"
                 : "<span class='blank-space'></span>";
 
-            return "For " + Html(FirstNonEmpty(companyName, DefaultCompanyName))
-                + "<br/>" + signatureBody
-                + "<span class='small'>Authorised Signatory</span>";
+            return "<div class='signature-body'>" + signatureBody + "</div>"
+                + "<span class='small'>Authorised Signatory</span>"
+                + "<span class='signature-company'>From " + Html(FirstNonEmpty(companyName, DefaultCompanyName)) + "</span>"
+                + "<span class='signature-signed-by'>Signed by :</span>";
         }
 
         private static string Html(string text)

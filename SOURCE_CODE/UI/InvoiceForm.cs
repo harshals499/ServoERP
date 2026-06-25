@@ -993,13 +993,14 @@ namespace HVAC_Pro_Desktop.UI
             Color[] accents = { DS.Primary600, DS.Green600, DS.Teal600, DS.Amber500, DS.Red600 };
             string[] icons = { "INV", "Rs", "OK", "P", "!" };
             for (int i = 0; i < kpis.Length; i++)
-                host.Controls.Add(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0, "invoiceDashKpi" + i));
+                host.Controls.Add(AttachInvoiceExceptionCard(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0, "invoiceDashKpi" + i), "kpi_" + i));
 
             Panel overview = MakeInvoiceDashCard();
             overview.Name = "invoiceDashOverview";
             overview.Tag = "dash-card";
             overview.Controls.Add(new Label { Text = "Invoice Overview", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             overview.Controls.Add(new InvoiceOverviewChart { Snapshot = _invoiceDashboardSnapshot, Location = new Point(12, 42), Size = new Size(520, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
+            AttachInvoiceExceptionCard(overview, "overview");
             host.Controls.Add(overview);
 
             Panel status = MakeInvoiceDashCard();
@@ -1007,6 +1008,7 @@ namespace HVAC_Pro_Desktop.UI
             status.Tag = "dash-card";
             status.Controls.Add(new Label { Text = "Invoices by Status", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             status.Controls.Add(new InvoiceStatusDonut { Snapshot = _invoiceDashboardSnapshot, Location = new Point(10, 42), Size = new Size(390, 170), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom });
+            AttachInvoiceExceptionCard(status, "status");
             host.Controls.Add(status);
 
             Panel recent = MakeInvoiceDashCard();
@@ -1015,6 +1017,7 @@ namespace HVAC_Pro_Desktop.UI
             recent.Controls.Add(new Label { Text = "Recent Invoices", Location = new Point(16, 12), Size = new Size(180, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
             DataGridView grid = BuildInvoiceDashRecentGrid();
             recent.Controls.Add(grid);
+            AttachInvoiceExceptionCard(recent, "recent");
             host.Controls.Add(recent);
 
             Panel side = MakeInvoiceDashCard();
@@ -1034,6 +1037,7 @@ namespace HVAC_Pro_Desktop.UI
                 side.Controls.Add(new Label { Text = "• " + reminder, Location = new Point(18, y), Size = new Size(310, 20), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate700 });
                 y += 22;
             }
+            AttachInvoiceExceptionCard(side, "receivables");
             host.Controls.Add(side);
 
             host.Controls.Add(BuildInvoiceWorkflowCard());
@@ -1060,7 +1064,73 @@ namespace HVAC_Pro_Desktop.UI
             body.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom;
             workflow.Controls.Add(body);
             workflow.Resize += (s, e) => body.Size = new Size(Math.Max(120, workflow.ClientSize.Width - 20), Math.Max(120, workflow.ClientSize.Height - 54));
+            AttachInvoiceExceptionCard(workflow, "workflow");
             return workflow;
+        }
+
+        private Panel AttachInvoiceExceptionCard(Panel card, string key)
+        {
+            if (card == null)
+                return card;
+            card.Cursor = Cursors.Hand;
+            card.Tag = "dash-card";
+            EventHandler open = (s, e) => ShowInvoiceExceptionDetail(key);
+            card.Click += open;
+            card.DoubleClick += open;
+            foreach (Control child in card.Controls)
+            {
+                if (child is Button || child is DataGridView || child is ComboBox || child is DateTimePicker)
+                    continue;
+                child.Cursor = Cursors.Hand;
+                child.Click += open;
+                child.DoubleClick += open;
+            }
+            return card;
+        }
+
+        private void ShowInvoiceExceptionDetail(string key)
+        {
+            ExceptionCardDetailDialog.ShowFor(this, BuildInvoiceExceptionDetail(key));
+        }
+
+        private ExceptionCardDetail BuildInvoiceExceptionDetail(string key)
+        {
+            InvoiceDashboardSnapshot s = _invoiceDashboardSnapshot ?? new InvoiceDashboardSnapshot();
+            if ((key ?? string.Empty).StartsWith("kpi_", StringComparison.OrdinalIgnoreCase) || key == "recent" || key == "receivables")
+            {
+                var detail = ExceptionCardDetail.Create("Invoice Details", "Complete invoice list behind this dashboard card.", "Invoice", "Client", "Site", "Date", "Due Date", "Amount", "Status");
+                IEnumerable<InvoiceRecentRow> rows = s.RecentInvoices ?? new List<InvoiceRecentRow>();
+                if (key == "kpi_2") rows = rows.Where(r => IsInvoicePaid(r.Status));
+                else if (key == "kpi_3") rows = rows.Where(r => !IsInvoicePaid(r.Status));
+                else if (key == "kpi_4" || key == "receivables") rows = rows.Where(r => !IsInvoicePaid(r.Status) && r.DueDate.Date < DateTime.Today);
+                foreach (InvoiceRecentRow r in rows.OrderByDescending(r => r.InvoiceDate))
+                    detail.AddRow(r.InvoiceNumber, r.ClientName, r.SiteName, IndiaFormatHelper.FormatDate(r.InvoiceDate), IndiaFormatHelper.FormatDate(r.DueDate), IndiaFormatHelper.FormatCurrency(r.Amount), r.Status);
+                return detail;
+            }
+            if (key == "status")
+            {
+                var detail = ExceptionCardDetail.Create("Invoices by Status", "All status buckets represented in the dashboard.", "Status", "Count", "Percentage");
+                foreach (InvoiceStatusSlice row in s.Statuses ?? new List<InvoiceStatusSlice>())
+                    detail.AddRow(row.Status, row.Count, row.Percentage.ToString("0.#") + "%");
+                return detail;
+            }
+            if (key == "overview")
+            {
+                var detail = ExceptionCardDetail.Create("Invoice Overview", "All trend points behind the overview chart.", "Period", "Total", "Paid", "Pending", "Overdue", "Amount");
+                foreach (InvoiceOverviewPoint row in s.Overview ?? new List<InvoiceOverviewPoint>())
+                    detail.AddRow(row.Period, row.TotalCount, row.PaidCount, row.PendingCount, row.OverdueCount, IndiaFormatHelper.FormatCurrency(row.TotalAmount));
+                return detail;
+            }
+            if (key == "workflow")
+            {
+                var detail = ExceptionCardDetail.Create("Invoice Workflow", "Full workflow and reminder data.", "Type", "Value", "Count");
+                foreach (InvoiceWorkflowSummaryRow row in s.Workflow ?? new List<InvoiceWorkflowSummaryRow>())
+                    detail.AddRow("Status", row.Status, row.Count);
+                foreach (string reminder in s.Reminders ?? new List<string>())
+                    detail.AddRow("Reminder", reminder, "");
+                return detail;
+            }
+            return ExceptionCardDetail.Create("Invoice Details", "No matching invoice detail found.", "Message").AddRow("No rows found.");
         }
 
         private IEnumerable<string> BuildInvoiceWorkflowLines(Func<InvoiceRecentRow, bool> predicate)

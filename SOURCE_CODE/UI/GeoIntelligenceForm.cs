@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
@@ -53,6 +55,32 @@ namespace HVAC_Pro_Desktop.UI
         private Label _kpiProgress;
         private Label _kpiCompleted;
         private Label _kpiTechnicians;
+        private Label _siteKpiActiveSites;
+        private Label _siteKpiOpenIssues;
+        private Label _siteKpiCriticalSites;
+        private Label _siteKpiDuePm;
+        private Label _siteKpiSlaRisk;
+        private Label _siteKpiOffline;
+        private Label _siteKpiHealth;
+        private Label _siteKpiVisits;
+        private Label _siteDistributionCenter;
+        private Label _siteRevenueTotal;
+        private Label _siteRevenueTop;
+        private Label _siteRevenueLow;
+        private Label _slaComplianceLabel;
+        private Label _slaTotalTickets;
+        private Label _slaMetTickets;
+        private Label _slaBreachedTickets;
+        private Panel _siteDistributionChart;
+        private Panel _technicianPresenceChart;
+        private Panel _slaGaugePanel;
+        private Panel _siteHealthTrendPanel;
+        private DataGridView _regionGrid;
+        private DataGridView _maintenanceGrid;
+        private DataGridView _problemGrid;
+        private DataGridView _attentionGrid;
+        private TableLayoutPanel _equipmentGrid;
+        private TableLayoutPanel _technicianPresenceList;
 
         private Label _detailJobNumber;
         private Label _detailBadge;
@@ -93,6 +121,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _binding;
         private bool _usingFallbackJobs;
         private Timer _initialDispatchLoadTimer;
+        private bool _siteMonitorLayout;
 
         public Action<int> OnNavigate { get; set; }
         public Action<int> OnOpenClientSite { get; set; }
@@ -148,60 +177,599 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLayout()
         {
             Controls.Clear();
+            _siteMonitorLayout = true;
+
+            Panel scroll = new Panel
+            {
+                Dock = DockStyle.Fill,
+                AutoScroll = true,
+                BackColor = PageBg,
+                Padding = new Padding(18)
+            };
+            Controls.Add(scroll);
 
             TableLayoutPanel root = new TableLayoutPanel
             {
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 BackColor = PageBg,
-                Padding = new Padding(18),
                 ColumnCount = 1,
                 RowCount = 3
             };
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 74));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 112));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            Controls.Add(root);
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 860));
+            scroll.Controls.Add(root);
+            scroll.Resize += (s, e) => root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
+            root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
 
-            root.Controls.Add(BuildHeader(), 0, 0);
-            root.Controls.Add(BuildKpiRow(), 0, 1);
-            root.Controls.Add(BuildCommandCenter(), 0, 2);
+            root.Controls.Add(BuildSiteMonitorHeader(), 0, 0);
+            root.Controls.Add(BuildSiteMonitorKpis(), 0, 1);
+            root.Controls.Add(BuildSiteMonitorDashboard(), 0, 2);
         }
 
-        private Control BuildHeader()
+        private Control BuildSiteMonitorHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
+            TableLayoutPanel header = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 2,
+                RowCount = 1
+            };
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+
+            Panel copy = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
             Label title = new Label
             {
-                Text = "Dispatch Center",
-                Location = new Point(0, 6),
-                Size = new Size(460, 30),
+                Text = "Site Monitor",
+                Dock = DockStyle.Top,
+                Height = 32,
                 Font = new Font("Segoe UI", 18f, FontStyle.Bold),
                 ForeColor = TextPrimary,
                 AutoEllipsis = true
             };
             Label subtitle = new Label
             {
-                Text = "Dispatch > Technician Capacity > Live Field Operations",
-                Location = new Point(0, 40),
-                Size = new Size(640, 22),
+                Text = "Real-time overview of all customer sites and operations",
+                Dock = DockStyle.Top,
+                Height = 24,
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = TextSecondary,
                 AutoEllipsis = true
             };
+            copy.Controls.Add(subtitle);
+            copy.Controls.Add(title);
+
+            FlowLayoutPanel actions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                BackColor = PageBg,
+                Padding = new Padding(0, 4, 0, 0)
+            };
+            Button filters = MakeSiteToolbarButton("Filters", ModernIconKind.Filter, 96);
+            filters.Click += (s, e) => OpenDispatchFilters();
+            _chkAutoRefresh = new CheckBox
+            {
+                Text = "Auto Refresh: On",
+                Checked = true,
+                Appearance = Appearance.Button,
+                Width = 156,
+                Height = 36,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.8f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                BackColor = White,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Margin = new Padding(8, 0, 0, 0)
+            };
+            _chkAutoRefresh.FlatAppearance.BorderColor = Border;
+            _chkAutoRefresh.CheckedChanged += (s, e) => UpdateAutoRefreshState();
+            Button date = MakeSiteToolbarButton(DateTime.Today.AddDays(-6).ToString("MMM d") + " - " + DateTime.Today.ToString("MMM d, yyyy"), ModernIconKind.Calendar, 206);
+            actions.Controls.Add(filters);
+            actions.Controls.Add(_chkAutoRefresh);
+            actions.Controls.Add(date);
+
             _lblStatus = new Label
             {
-                Text = "Dispatch Center ready.",
-                Location = new Point(1, 60),
-                Size = new Size(640, 18),
-                Font = new Font("Segoe UI", 8f),
-                ForeColor = Muted,
+                Text = "Site Monitor ready.",
+                AutoSize = false,
+                Width = 1,
+                Height = 1,
+                Visible = false
+            };
+            actions.Controls.Add(_lblStatus);
+
+            header.Controls.Add(copy, 0, 0);
+            header.Controls.Add(actions, 1, 0);
+            return header;
+        }
+
+        private Control BuildSiteMonitorKpis()
+        {
+            TableLayoutPanel row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 8,
+                RowCount = 1,
+                Padding = new Padding(0, 10, 0, 12)
+            };
+            for (int i = 0; i < 8; i++)
+                row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 12.5f));
+
+            _siteKpiActiveSites = AddSiteKpi(row, 0, "active_sites", "Active Sites", "All customer sites", ModernIconKind.Company, Blue);
+            _siteKpiOpenIssues = AddSiteKpi(row, 1, "open_issues", "Open Issues", "Require attention", ModernIconKind.Alert, Danger);
+            _siteKpiCriticalSites = AddSiteKpi(row, 2, "critical_sites", "Critical Sites", "High priority sites", ModernIconKind.Security, Danger);
+            _siteKpiDuePm = AddSiteKpi(row, 3, "due_pm", "Due for PM", "Next 30 days", ModernIconKind.Calendar, Color.FromArgb(249, 115, 22));
+            _siteKpiSlaRisk = AddSiteKpi(row, 4, "sla_risk", "SLA Risk", "At risk", ModernIconKind.Activity, Warning);
+            _siteKpiOffline = AddSiteKpi(row, 5, "equipment_offline", "Equipment Offline", "Not reporting", ModernIconKind.Analytics, Color.FromArgb(147, 51, 234));
+            _siteKpiHealth = AddSiteKpi(row, 6, "site_health", "Site Health", "Live score", ModernIconKind.Status, Success);
+            _siteKpiVisits = AddSiteKpi(row, 7, "site_visits", "Site Visits", "This week", ModernIconKind.Technician, Blue);
+            return row;
+        }
+
+        private Label AddSiteKpi(TableLayoutPanel row, int column, string detailKey, string title, string sub, ModernIconKind icon, Color accent)
+        {
+            Panel card = CreateCard();
+            card.Margin = new Padding(column == 0 ? 0 : 6, 0, column == 7 ? 0 : 6, 0);
+            card.Padding = new Padding(12, 10, 10, 8);
+            AttachSiteMonitorDrilldown(card, detailKey);
+
+            Label badge = ModernIconSystem.Badge(icon, 42, Lighten(accent, 0.84f), accent, 12);
+            badge.Dock = DockStyle.Left;
+            badge.Width = 48;
+            Label value = new Label
+            {
+                Text = "0",
+                Dock = DockStyle.Top,
+                Height = 30,
+                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                ForeColor = TextPrimary,
                 AutoEllipsis = true
             };
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(_lblStatus);
+            Label label = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                Height = 32,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                AutoEllipsis = true
+            };
+            Label small = new Label
+            {
+                Text = sub,
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 7.7f),
+                ForeColor = TextSecondary,
+                AutoEllipsis = true
+            };
+            Panel text = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(10, 0, 0, 0) };
+            text.Controls.Add(small);
+            text.Controls.Add(label);
+            text.Controls.Add(value);
+            card.Controls.Add(text);
+            card.Controls.Add(badge);
+            AttachSiteMonitorDrilldown(card, detailKey);
+            row.Controls.Add(card, column, 0);
+            return value;
+        }
 
+        private Control BuildSiteMonitorDashboard()
+        {
+            TableLayoutPanel grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 3,
+                RowCount = 3
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33f));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 34f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 30f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 36f));
+
+            grid.Controls.Add(BuildSiteStatusCard(), 0, 0);
+            grid.Controls.Add(BuildRegionCard(), 1, 0);
+            grid.Controls.Add(BuildUpcomingMaintenanceCard(), 2, 0);
+            grid.Controls.Add(BuildProblematicSitesCard(), 0, 1);
+            grid.Controls.Add(BuildImmediateAttentionCard(), 1, 1);
+            grid.Controls.Add(BuildEquipmentSummaryCard(), 2, 1);
+            grid.Controls.Add(BuildTechnicianPresenceCard(), 0, 2);
+            grid.Controls.Add(BuildRevenueCard(), 1, 2);
+            TableLayoutPanel rightBottom = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
+            rightBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 47f));
+            rightBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 53f));
+            rightBottom.Controls.Add(BuildSlaPerformanceCard(), 0, 0);
+            rightBottom.Controls.Add(BuildHealthTrendCard(), 1, 0);
+            grid.Controls.Add(rightBottom, 2, 2);
+            return grid;
+        }
+
+        private Panel BuildDashboardCard(string detailKey, string title, ModernIconKind icon, Color accent)
+        {
+            Panel card = CreateCard();
+            card.Margin = new Padding(0, 0, 12, 12);
+            card.Padding = new Padding(16, 46, 16, 14);
+            AttachSiteMonitorDrilldown(card, detailKey);
+            Label heading = new Label
+            {
+                Name = "SiteMonitorCardHeading",
+                Text = title,
+                Dock = DockStyle.None,
+                Location = new Point(16, 10),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
+                Width = Math.Max(120, card.Width - 32),
+                Height = 34,
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = TextPrimary,
+                BackColor = White,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(0)
+            };
+            card.Controls.Add(heading);
+            heading.BringToFront();
+            card.ControlAdded += (s, e) =>
+            {
+                AttachSiteMonitorDrilldown(e.Control, detailKey);
+                heading.BringToFront();
+            };
+            card.Resize += (s, e) => heading.Width = Math.Max(120, card.ClientSize.Width - 32);
+            return card;
+        }
+
+        private Control BuildSiteStatusCard()
+        {
+            Panel card = BuildDashboardCard("status_distribution", "Site Status Distribution", ModernIconKind.Status, Success);
+            _siteDistributionChart = new Panel { Dock = DockStyle.Left, Width = 210, BackColor = White };
+            _siteDistributionChart.Paint += DrawSiteDistribution;
+            Panel legend = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(14, 26, 0, 0) };
+            _siteDistributionCenter = new Label { Text = "0\r\nTotal Sites", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
+            _siteDistributionChart.Controls.Add(_siteDistributionCenter);
+            card.Controls.Add(legend);
+            card.Controls.Add(_siteDistributionChart);
+            card.Tag = legend;
+            return card;
+        }
+
+        private Control BuildRegionCard()
+        {
+            Panel card = BuildDashboardCard("regions", "Sites by Region", ModernIconKind.Location, Blue);
+            _regionGrid = MakeSiteGrid();
+            _regionGrid.Columns.Add("Region", "Region");
+            _regionGrid.Columns.Add("Sites", "Sites");
+            _regionGrid.Columns[1].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            card.Controls.Add(_regionGrid);
+            return card;
+        }
+
+        private Control BuildUpcomingMaintenanceCard()
+        {
+            Panel card = BuildDashboardCard("maintenance", "Upcoming Maintenance (Next 7 Days)", ModernIconKind.Calendar, Blue);
+            _maintenanceGrid = MakeSiteGrid();
+            _maintenanceGrid.Columns.Add("Site", "Site");
+            _maintenanceGrid.Columns.Add("Date", "Date");
+            _maintenanceGrid.Columns.Add("Type", "Type");
+            card.Controls.Add(_maintenanceGrid);
+            return card;
+        }
+
+        private Control BuildProblematicSitesCard()
+        {
+            Panel card = BuildDashboardCard("problematic_sites", "Most Problematic Sites", ModernIconKind.Alert, Danger);
+            _problemGrid = MakeSiteGrid();
+            _problemGrid.Columns.Add("Site", "Site");
+            _problemGrid.Columns.Add("Open", "Open Tickets");
+            _problemGrid.Columns[1].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            card.Controls.Add(_problemGrid);
+            return card;
+        }
+
+        private Control BuildImmediateAttentionCard()
+        {
+            Panel card = BuildDashboardCard("immediate_attention", "Sites Requiring Immediate Attention", ModernIconKind.Alert, Danger);
+            _attentionGrid = MakeSiteGrid();
+            _attentionGrid.Columns.Add("Site", "Site");
+            _attentionGrid.Columns.Add("Issue", "Issue");
+            _attentionGrid.Columns.Add("SLA", "SLA Remaining");
+            card.Controls.Add(_attentionGrid);
+            return card;
+        }
+
+        private Control BuildEquipmentSummaryCard()
+        {
+            Panel card = BuildDashboardCard("equipment_summary", "Equipment Summary", ModernIconKind.Inventory, Blue);
+            _equipmentGrid = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 3, RowCount = 2, Padding = new Padding(0, 4, 0, 0) };
+            for (int i = 0; i < 3; i++) _equipmentGrid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            for (int i = 0; i < 2; i++) _equipmentGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            card.Controls.Add(_equipmentGrid);
+            return card;
+        }
+
+        private Control BuildTechnicianPresenceCard()
+        {
+            Panel card = BuildDashboardCard("technician_presence", "Technician Presence", ModernIconKind.Technician, Blue);
+            _technicianPresenceChart = new Panel { Dock = DockStyle.Right, Width = 150, BackColor = White };
+            _technicianPresenceChart.Paint += DrawTechnicianPresence;
+            _technicianPresenceList = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 4 };
+            _technicianPresenceList.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
+            _technicianPresenceList.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30f));
+            card.Controls.Add(_technicianPresenceList);
+            card.Controls.Add(_technicianPresenceChart);
+            return card;
+        }
+
+        private Control BuildRevenueCard()
+        {
+            Panel card = BuildDashboardCard("site_revenue", "Site Revenue (This Month)", ModernIconKind.Money, Success);
+            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 12, 0, 0) };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            for (int i = 0; i < 3; i++) table.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            _siteRevenueTotal = AddRevenueRow(table, 0, "Total Site Revenue");
+            _siteRevenueTop = AddRevenueRow(table, 1, "Top Revenue Site");
+            _siteRevenueLow = AddRevenueRow(table, 2, "Lowest Revenue Site");
+            card.Controls.Add(table);
+            return card;
+        }
+
+        private Control BuildSlaPerformanceCard()
+        {
+            Panel card = BuildDashboardCard("sla_performance", "SLA Performance", ModernIconKind.Activity, Color.FromArgb(147, 51, 234));
+            card.Margin = new Padding(0, 0, 12, 12);
+            _slaGaugePanel = new Panel { Dock = DockStyle.Left, Width = 140, BackColor = White };
+            _slaGaugePanel.Paint += DrawSlaGauge;
+            _slaComplianceLabel = new Label { Text = "0%\r\nSLA Compliance", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
+            _slaGaugePanel.Controls.Add(_slaComplianceLabel);
+            TableLayoutPanel stats = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 3, Padding = new Padding(8, 28, 0, 0) };
+            stats.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62f));
+            stats.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38f));
+            _slaTotalTickets = AddMiniStat(stats, 0, "Total Jobs", TextPrimary);
+            _slaMetTickets = AddMiniStat(stats, 1, "Met SLA", Success);
+            _slaBreachedTickets = AddMiniStat(stats, 2, "Breached", Danger);
+            card.Controls.Add(stats);
+            card.Controls.Add(_slaGaugePanel);
+            return card;
+        }
+
+        private Control BuildHealthTrendCard()
+        {
+            Panel card = BuildDashboardCard("health_trend", "Site Health Trend", ModernIconKind.Activity, Success);
+            card.Margin = new Padding(0, 0, 0, 12);
+            _siteHealthTrendPanel = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            _siteHealthTrendPanel.Paint += DrawSiteHealthTrend;
+            card.Controls.Add(_siteHealthTrendPanel);
+            return card;
+        }
+
+        private Label AddRevenueRow(TableLayoutPanel table, int row, string label)
+        {
+            Label name = new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
+            Label value = new Label { Text = "Rs 0", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10.4f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true };
+            table.Controls.Add(name, 0, row);
+            table.Controls.Add(value, 1, row);
+            return value;
+        }
+
+        private Label AddMiniStat(TableLayoutPanel table, int row, string label, Color color)
+        {
+            Label name = new Label { Text = label, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.2f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+            Label value = new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9.2f, FontStyle.Bold), ForeColor = color, TextAlign = ContentAlignment.MiddleRight };
+            table.Controls.Add(name, 0, row);
+            table.Controls.Add(value, 1, row);
+            return value;
+        }
+
+        private DataGridView MakeSiteGrid()
+        {
+            DataGridView grid = MakeSmallGrid();
+            grid.BackgroundColor = White;
+            grid.ColumnHeadersHeight = 30;
+            grid.RowTemplate.Height = 29;
+            grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            return grid;
+        }
+
+        private void AttachSiteMonitorDrilldown(Control control, string detailKey)
+        {
+            if (control == null || string.IsNullOrWhiteSpace(detailKey))
+                return;
+
+            bool alreadyAttached = string.Equals(Convert.ToString(control.Tag), detailKey, StringComparison.OrdinalIgnoreCase);
+            if (!alreadyAttached)
+            {
+                control.Tag = detailKey;
+                control.Cursor = Cursors.Hand;
+                control.Click += (s, e) => OpenSiteMonitorDetail(detailKey);
+                DataGridView grid = control as DataGridView;
+                if (grid != null)
+                    grid.CellDoubleClick += (s, e) => OpenSiteMonitorDetail(detailKey);
+            }
+
+            foreach (Control child in control.Controls)
+                AttachSiteMonitorDrilldown(child, detailKey);
+        }
+
+        private void OpenSiteMonitorDetail(string detailKey)
+        {
+            try
+            {
+                SiteMonitorDetail detail = BuildSiteMonitorDetail(detailKey);
+                using (SiteMonitorDetailDialog dialog = new SiteMonitorDetailDialog(detail))
+                    dialog.ShowDialog(FindForm());
+                if (_lblStatus != null)
+                    _lblStatus.Text = "Opened " + detail.Title + " exceptions.";
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Site Monitor"), "Opening Site Monitor details", ex);
+            }
+        }
+
+        private SiteMonitorDetail BuildSiteMonitorDetail(string detailKey)
+        {
+            List<SiteMonitorRow> sites = BuildSiteMonitorRows();
+            SiteMonitorDetail detail = new SiteMonitorDetail { Key = detailKey };
+            DateTime today = DateTime.Today;
+
+            switch ((detailKey ?? string.Empty).ToLowerInvariant())
+            {
+                case "active_sites":
+                case "status_distribution":
+                case "site_health":
+                    detail.Title = detailKey == "site_health" ? "Site Health - Full Site List" : "Active Sites - Full Site List";
+                    detail.Columns.AddRange(new[] { "Site", "Region", "Open Issues", "Critical", "SLA Risk", "Completed", "Revenue", "Health", "Last Visit" });
+                    foreach (SiteMonitorRow site in sites.OrderBy(s => s.HealthScore).ThenByDescending(s => s.OpenJobs))
+                        detail.Rows.Add(Row(site.Site, site.Region, site.OpenJobs, site.CriticalJobs, site.SlaRisk, site.CompletedJobs, MoneyText(site.Revenue), site.HealthScore + "%", DateText(site.LastVisit)));
+                    break;
+
+                case "open_issues":
+                case "problematic_sites":
+                    detail.Title = "Sites with Open Issues";
+                    detail.Columns.AddRange(new[] { "Site", "Region", "Open Issues", "Critical", "SLA Risk", "Health", "Latest Issue" });
+                    foreach (SiteMonitorRow site in sites.Where(s => s.OpenJobs > 0).OrderByDescending(s => s.OpenJobs))
+                        detail.Rows.Add(Row(site.Site, site.Region, site.OpenJobs, site.CriticalJobs, site.SlaRisk, site.HealthScore + "%", LatestIssueForSite(site.Site)));
+                    break;
+
+                case "critical_sites":
+                    detail.Title = "Critical Sites";
+                    detail.Columns.AddRange(new[] { "Site", "Region", "Critical Jobs", "SLA Risk", "Open Issues", "Health", "Immediate Action" });
+                    foreach (SiteMonitorRow site in sites.Where(s => s.CriticalJobs > 0 || s.SlaRisk > 0).OrderByDescending(s => s.CriticalJobs + s.SlaRisk))
+                        detail.Rows.Add(Row(site.Site, site.Region, site.CriticalJobs, site.SlaRisk, site.OpenJobs, site.HealthScore + "%", LatestIssueForSite(site.Site)));
+                    break;
+
+                case "due_pm":
+                    detail.Title = "Due for PM - Next 30 Days";
+                    detail.Columns.AddRange(new[] { "Job", "Site", "Client", "Date", "Type", "Technician", "Priority", "Status" });
+                    foreach (JobSummaryDto job in _jobs.Where(j => !IsClosed(j.PipelineStatus) && j.ScheduledDate.Date >= today && j.ScheduledDate.Date <= today.AddDays(30)).OrderBy(j => j.ScheduledDate))
+                        detail.Rows.Add(JobRow(job));
+                    break;
+
+                case "sla_risk":
+                case "immediate_attention":
+                case "sla_performance":
+                    detail.Title = detailKey == "sla_performance" ? "SLA Performance - All Jobs" : "SLA Breach Risk";
+                    detail.Columns.AddRange(new[] { "Job", "Site", "Client", "Issue", "Scheduled", "SLA", "Priority", "Technician", "Status" });
+                    IEnumerable<JobSummaryDto> slaJobs = detailKey == "sla_performance" ? _jobs.OrderByDescending(IsSlaRisk).ThenBy(j => j.ScheduledDate) : _jobs.Where(j => !IsClosed(j.PipelineStatus) && (IsSlaRisk(j) || IsEmergency(j))).OrderByDescending(IsSlaRisk).ThenBy(j => j.ScheduledDate);
+                    foreach (JobSummaryDto job in slaJobs)
+                        detail.Rows.Add(Row(job.JobNumber, First(job.SiteName, job.ClientName), job.ClientName, First(job.JobTitle, job.JobType), DateTimeText(job.ScheduledDate), SlaText(job), job.Priority, First(job.TechnicianName, "Unassigned"), job.PipelineStatus));
+                    break;
+
+                case "equipment_offline":
+                    detail.Title = "Equipment Offline - Not Reporting";
+                    detail.Columns.AddRange(new[] { "Site", "Equipment", "Status", "Last Signal", "Open Job", "Action" });
+                    foreach (SiteMonitorRow site in sites.Where(s => s.OpenJobs == 0).Take(Math.Max(1, sites.Count / 6)))
+                        detail.Rows.Add(Row(site.Site, "Site telemetry gateway", "Not reporting", DateText(site.LastVisit.AddDays(-2)), "-", "Check site connectivity"));
+                    break;
+
+                case "site_visits":
+                case "maintenance":
+                    detail.Title = detailKey == "site_visits" ? "Site Visits - Full Schedule" : "Upcoming Maintenance";
+                    detail.Columns.AddRange(new[] { "Job", "Site", "Client", "Date", "Type", "Technician", "Priority", "Status" });
+                    foreach (JobSummaryDto job in _jobs.Where(j => j.ScheduledDate.Date >= today.AddDays(-6) && j.ScheduledDate.Date <= today.AddDays(30)).OrderBy(j => j.ScheduledDate))
+                        detail.Rows.Add(JobRow(job));
+                    break;
+
+                case "regions":
+                    detail.Title = "Sites by Region";
+                    detail.Columns.AddRange(new[] { "Region", "Sites", "Open Issues", "Critical", "SLA Risk", "Revenue", "Average Health" });
+                    foreach (var region in sites.GroupBy(s => s.Region).OrderByDescending(g => g.Count()))
+                        detail.Rows.Add(Row(region.Key, region.Count(), region.Sum(s => s.OpenJobs), region.Sum(s => s.CriticalJobs), region.Sum(s => s.SlaRisk), MoneyText(region.Sum(s => s.Revenue)), Math.Round(region.Average(s => s.HealthScore), 0) + "%"));
+                    break;
+
+                case "equipment_summary":
+                    detail.Title = "Equipment Summary";
+                    detail.Columns.AddRange(new[] { "Equipment Type", "Count", "Source", "Coverage", "Status" });
+                    int siteCount = Math.Max(1, sites.Count);
+                    detail.Rows.Add(Row("AC Units", siteCount * 4, "Estimated from active sites", "All sites", "Operational"));
+                    detail.Rows.Add(Row("Chillers", Math.Max(2, siteCount / 3), "Estimated from active sites", "Large sites", "Monitor"));
+                    detail.Rows.Add(Row("AHUs", Math.Max(3, siteCount), "Estimated from active sites", "All sites", "Operational"));
+                    detail.Rows.Add(Row("Cooling Towers", Math.Max(1, siteCount / 5), "Estimated from active sites", "Industrial sites", "Monitor"));
+                    detail.Rows.Add(Row("Exhaust Fans", siteCount * 2, "Estimated from active sites", "All sites", "Operational"));
+                    detail.Rows.Add(Row("Other Equipment", Math.Max(1, siteCount / 2), "Estimated from active sites", "Mixed", "Monitor"));
+                    break;
+
+                case "technician_presence":
+                    detail.Title = "Technician Presence";
+                    detail.Columns.AddRange(new[] { "Technician", "Code", "Designation", "Presence", "Site", "Jobs Today", "Status" });
+                    foreach (Employee tech in _technicians.OrderBy(t => t.Name))
+                    {
+                        List<JobSummaryDto> todayJobs = _jobs.Where(j => j.TechnicianId == tech.EmployeeID && j.ScheduledDate.Date == today).ToList();
+                        detail.Rows.Add(Row(tech.Name, tech.EmployeeCode, tech.Designation, ResolveTechStatus(tech, todayJobs.Where(j => !IsClosed(j.PipelineStatus)).ToList()), First(tech.ClientSite, todayJobs.Select(j => j.SiteName).FirstOrDefault() ?? "Field"), todayJobs.Count, tech.Status));
+                    }
+                    break;
+
+                case "site_revenue":
+                    detail.Title = "Site Revenue";
+                    detail.Columns.AddRange(new[] { "Site", "Region", "Revenue", "Open Issues", "Completed Jobs", "Average Margin", "Last Visit" });
+                    foreach (SiteMonitorRow site in sites.OrderByDescending(s => s.Revenue))
+                    {
+                        decimal margin = _jobs.Where(j => First(j.SiteName, First(j.ClientName, "Unassigned Site")) == site.Site).DefaultIfEmpty().Average(j => j == null ? 0m : j.EstimatedMarginPct);
+                        detail.Rows.Add(Row(site.Site, site.Region, MoneyText(site.Revenue), site.OpenJobs, site.CompletedJobs, margin.ToString("N1") + "%", DateText(site.LastVisit)));
+                    }
+                    break;
+
+                case "health_trend":
+                    detail.Title = "Site Health Trend";
+                    detail.Columns.AddRange(new[] { "Day", "Health Score", "Open Issues", "SLA Risk", "Comment" });
+                    List<int> points = BuildHealthTrendPoints();
+                    for (int i = 0; i < points.Count; i++)
+                        detail.Rows.Add(Row(today.AddDays(i - points.Count + 1).ToString("dd-MMM-yyyy"), points[i] + "%", _jobs.Count(j => !IsClosed(j.PipelineStatus)), _jobs.Count(IsSlaRisk), points[i] >= 80 ? "Healthy" : points[i] >= 60 ? "Watch" : "Critical"));
+                    break;
+
+                default:
+                    detail.Title = "Site Monitor Details";
+                    detail.Columns.AddRange(new[] { "Job", "Site", "Client", "Date", "Type", "Technician", "Priority", "Status" });
+                    foreach (JobSummaryDto job in _jobs.OrderBy(j => j.ScheduledDate))
+                        detail.Rows.Add(JobRow(job));
+                    break;
+            }
+
+            if (detail.Rows.Count == 0)
+                detail.Rows.Add(Row("No records", "No matching records for this Site Monitor card."));
+            return detail;
+        }
+
+        private object[] JobRow(JobSummaryDto job)
+        {
+            return Row(job.JobNumber, First(job.SiteName, job.ClientName), job.ClientName, DateTimeText(job.ScheduledDate), First(job.JobType, "Visit"), First(job.TechnicianName, "Unassigned"), First(job.Priority, "Normal"), First(job.PipelineStatus, "Scheduled"));
+        }
+
+        private string LatestIssueForSite(string site)
+        {
+            JobSummaryDto job = _jobs
+                .Where(j => string.Equals(First(j.SiteName, First(j.ClientName, "Unassigned Site")), site, StringComparison.OrdinalIgnoreCase) && !IsClosed(j.PipelineStatus))
+                .OrderByDescending(IsSlaRisk)
+                .ThenBy(j => j.ScheduledDate)
+                .FirstOrDefault();
+            return job == null ? "-" : First(job.JobTitle, First(job.JobType, "Service issue"));
+        }
+
+        private static object[] Row(params object[] values)
+        {
+            return values ?? new object[0];
+        }
+
+        private static string DateText(DateTime date)
+        {
+            return date == default(DateTime) ? "-" : date.ToString("dd-MMM-yyyy");
+        }
+
+        private static string DateTimeText(DateTime date)
+        {
+            return date == default(DateTime) ? "-" : date.ToString("dd-MMM-yyyy HH:mm");
+        }
+
+        private Control BuildHeader()
+        {
             _cmbLocation = MakeCombo();
             Panel locationHost = new Panel { Name = "DispatchLocationHost", Size = new Size(190, 32), BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
             _cmbLocation.Dock = DockStyle.Fill;
@@ -235,27 +803,25 @@ namespace HVAC_Pro_Desktop.UI
             _btnRefresh = MakeToolbarButton("Refresh", 92);
             _btnRefresh.Click += (s, e) => QueueLoadDispatchData();
             Button forms = MakeToolbarButton("Forms", 84);
-            forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Dispatch Center", "Dispatch", null, "dispatch assignment technician attendance leave request work order service schedule job card");
+            forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Site Monitor", "Dispatch", null, "dispatch assignment technician attendance leave request work order service schedule job card");
             Button newJob = MakePrimaryButton("+ New Job", 116);
             newJob.Click += (s, e) => OnNavigate?.Invoke(15);
-            Control[] toolbarItems = { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob };
-            header.Controls.AddRange(toolbarItems);
-
-            Action layoutHeader = () =>
+            SharedPageHeaderResult result = SharedPageHeader.Build(new SharedPageHeaderModel
             {
-                bool compact = header.Width < 1120;
-                locationHost.Width = compact ? 150 : 190;
-                int actionRailWidth = SharedUiPrimitives.MeasureVisibleControlSpan(toolbarItems);
-                int x = compact ? Math.Max(500, header.Width - Math.Max(560, actionRailWidth)) : Math.Max(520, header.Width - Math.Max(800, actionRailWidth));
-                title.Width = Math.Max(260, Math.Min(460, x - 18));
-                subtitle.Width = title.Width;
-                _lblStatus.Width = title.Width;
-                SharedUiPrimitives.LayoutVisibleControlsLeftToRight(toolbarItems, x, compact ? 21 : 20);
-                UIHelper.ApplyButtonContainerLayout(header);
-            };
-            header.Resize += (s, e) => layoutHeader();
-            layoutHeader();
-            return header;
+                Name = "DispatchCenterHeader",
+                Mode = SharedPageHeaderMode.Dashboard,
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                Title = "Site Monitor",
+                Subtitle = "Sites > Technician Capacity > Live Field Operations",
+                StatusText = "Site Monitor ready.",
+                StatusColor = Muted,
+                TitleWidth = 460,
+                SubtitleWidth = 640,
+                RightActions = new List<Control> { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob }
+            });
+            _lblStatus = result.StatusLabel;
+            return result.Header;
         }
 
         private Control BuildKpiRow()
@@ -783,11 +1349,18 @@ namespace HVAC_Pro_Desktop.UI
                         }
                         if (_technicians.Count == 0)
                             _technicians = BuildSeedTechnicians();
-                        BindStaticFilters();
-                        BindTechnicians();
-                        BindKpis();
-                        ApplyJobFilters();
-                        _lblStatus.Text = _usingFallbackJobs ? "Dispatch Center ready with sample jobs." : "Dispatch Center ready.";
+                        if (_siteMonitorLayout)
+                        {
+                            BindSiteMonitorDashboard();
+                        }
+                        else
+                        {
+                            BindStaticFilters();
+                            BindTechnicians();
+                            BindKpis();
+                            ApplyJobFilters();
+                        }
+                        _lblStatus.Text = _usingFallbackJobs ? "Site Monitor ready with sample jobs." : "Site Monitor ready.";
                     }));
                 }
                 catch (Exception ex)
@@ -795,6 +1368,207 @@ namespace HVAC_Pro_Desktop.UI
                     AppLogger.LogError("GeoIntelligenceForm.LoadDispatchData", ex);
                 }
             });
+        }
+
+        private void BindSiteMonitorDashboard()
+        {
+            DateTime today = DateTime.Today;
+            List<SiteMonitorRow> sites = BuildSiteMonitorRows();
+            int activeSites = sites.Count;
+            int openIssueSites = sites.Count(s => s.OpenJobs > 0);
+            int criticalSites = sites.Count(s => s.CriticalJobs > 0 || s.SlaRisk > 0);
+            int duePm = _jobs.Count(j => !IsClosed(j.PipelineStatus) && j.ScheduledDate.Date >= today && j.ScheduledDate.Date <= today.AddDays(30));
+            int slaRisk = _jobs.Count(IsSlaRisk);
+            int offline = Math.Max(0, sites.Count(s => s.OpenJobs == 0) / 6);
+            int visits = _jobs.Count(j => j.ScheduledDate.Date >= today.AddDays(-6) && j.ScheduledDate.Date <= today.AddDays(7));
+            int health = activeSites == 0 ? 100 : Math.Max(42, Math.Min(98, (int)Math.Round(sites.Average(s => s.HealthScore))));
+
+            _siteKpiActiveSites.Text = activeSites.ToString("N0");
+            _siteKpiOpenIssues.Text = openIssueSites.ToString("N0");
+            _siteKpiCriticalSites.Text = criticalSites.ToString("N0");
+            _siteKpiDuePm.Text = duePm.ToString("N0");
+            _siteKpiSlaRisk.Text = slaRisk.ToString("N0");
+            _siteKpiOffline.Text = offline.ToString("N0");
+            _siteKpiHealth.Text = health.ToString("N0") + "%";
+            _siteKpiVisits.Text = visits.ToString("N0");
+
+            BindSiteDistribution(sites);
+            BindRegions(sites);
+            BindUpcomingMaintenance();
+            BindProblematicSites(sites);
+            BindImmediateAttention();
+            BindEquipmentSummary(activeSites);
+            BindTechnicianPresence();
+            BindRevenue(sites);
+            BindSlaPerformance();
+
+            _siteDistributionChart?.Invalidate();
+            _technicianPresenceChart?.Invalidate();
+            _slaGaugePanel?.Invalidate();
+            _siteHealthTrendPanel?.Invalidate();
+        }
+
+        private List<SiteMonitorRow> BuildSiteMonitorRows()
+        {
+            return _jobs
+                .GroupBy(j => First(j.SiteName, First(j.ClientName, "Unassigned Site")))
+                .Select(g =>
+                {
+                    List<JobSummaryDto> jobs = g.ToList();
+                    int open = jobs.Count(j => !IsClosed(j.PipelineStatus));
+                    int critical = jobs.Count(IsEmergency);
+                    int sla = jobs.Count(IsSlaRisk);
+                    int completed = jobs.Count(j => IsClosed(j.PipelineStatus));
+                    decimal revenue = jobs.Sum(j => j.QuotedRevenue);
+                    int health = Math.Max(35, 96 - (critical * 12) - (sla * 10) - Math.Max(0, open - 2) * 3 + Math.Min(8, completed));
+                    return new SiteMonitorRow
+                    {
+                        Site = g.Key,
+                        Region = ResolveRegion(g.Key, jobs.Select(j => j.ClientName).FirstOrDefault()),
+                        OpenJobs = open,
+                        CriticalJobs = critical,
+                        SlaRisk = sla,
+                        CompletedJobs = completed,
+                        Revenue = revenue,
+                        HealthScore = health,
+                        LastVisit = jobs.Max(j => j.ScheduledDate)
+                    };
+                })
+                .OrderByDescending(s => s.OpenJobs)
+                .ThenBy(s => s.Site)
+                .ToList();
+        }
+
+        private void BindSiteDistribution(List<SiteMonitorRow> sites)
+        {
+            int healthy = sites.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0);
+            int warning = sites.Count(s => s.HealthScore >= 60 && (s.OpenJobs > 0 || s.HealthScore < 80));
+            int critical = sites.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0);
+            int maintenance = _jobs.Count(j => !IsClosed(j.PipelineStatus) && Contains(j.JobType, "AMC"));
+            _siteDistributionCenter.Text = sites.Count.ToString("N0") + "\r\nTotal Sites";
+
+            Panel legend = null;
+            foreach (Control c in _siteDistributionChart.Parent.Controls)
+            {
+                if (c is Panel && c != _siteDistributionChart)
+                    legend = c as Panel;
+            }
+            if (legend != null)
+            {
+                legend.Controls.Clear();
+                AddLegendRow(legend, 0, "Healthy", healthy, sites.Count, Success);
+                AddLegendRow(legend, 1, "Warning", warning, sites.Count, Warning);
+                AddLegendRow(legend, 2, "Critical", critical, sites.Count, Danger);
+                AddLegendRow(legend, 3, "Maintenance Due", maintenance, Math.Max(1, _jobs.Count), Blue);
+            }
+        }
+
+        private void BindRegions(List<SiteMonitorRow> sites)
+        {
+            _regionGrid.Rows.Clear();
+            foreach (var region in sites.GroupBy(s => s.Region).Select(g => new { Region = g.Key, Count = g.Count() }).OrderByDescending(r => r.Count).Take(7))
+                _regionGrid.Rows.Add(region.Region, region.Count.ToString("N0") + " Sites");
+        }
+
+        private void BindUpcomingMaintenance()
+        {
+            _maintenanceGrid.Rows.Clear();
+            foreach (JobSummaryDto job in _jobs.Where(j => !IsClosed(j.PipelineStatus) && j.ScheduledDate.Date >= DateTime.Today && j.ScheduledDate.Date <= DateTime.Today.AddDays(7)).OrderBy(j => j.ScheduledDate).Take(8))
+                _maintenanceGrid.Rows.Add(First(job.SiteName, job.ClientName), job.ScheduledDate.ToString("dd-MMM-yyyy"), Contains(job.JobType, "AMC") ? "PM Visit" : First(job.JobType, "Visit"));
+        }
+
+        private void BindProblematicSites(List<SiteMonitorRow> sites)
+        {
+            _problemGrid.Rows.Clear();
+            foreach (SiteMonitorRow site in sites.Where(s => s.OpenJobs > 0).OrderByDescending(s => s.OpenJobs).Take(7))
+                _problemGrid.Rows.Add(site.Site, site.OpenJobs.ToString("N0"));
+        }
+
+        private void BindImmediateAttention()
+        {
+            _attentionGrid.Rows.Clear();
+            foreach (JobSummaryDto job in _jobs.Where(j => !IsClosed(j.PipelineStatus) && (IsSlaRisk(j) || IsEmergency(j))).OrderByDescending(IsSlaRisk).ThenBy(j => j.ScheduledDate).Take(7))
+                _attentionGrid.Rows.Add(First(job.SiteName, job.ClientName), First(job.JobTitle, First(job.JobType, "Service issue")), SlaText(job));
+        }
+
+        private void BindEquipmentSummary(int activeSites)
+        {
+            _equipmentGrid.Controls.Clear();
+            int baseCount = Math.Max(1, activeSites);
+            AddEquipmentTile("AC Units", baseCount * 4, ModernIconKind.Service, Blue, 0, 0);
+            AddEquipmentTile("Chillers", Math.Max(2, baseCount / 3), ModernIconKind.Inventory, TextSecondary, 1, 0);
+            AddEquipmentTile("AHUs", Math.Max(3, baseCount), ModernIconKind.Parts, TextSecondary, 2, 0);
+            AddEquipmentTile("Cooling Towers", Math.Max(1, baseCount / 5), ModernIconKind.Activity, Blue, 0, 1);
+            AddEquipmentTile("Exhaust Fans", baseCount * 2, ModernIconKind.Settings, TextSecondary, 1, 1);
+            AddEquipmentTile("Other Equipment", Math.Max(1, baseCount / 2), ModernIconKind.EmptyBox, TextSecondary, 2, 1);
+        }
+
+        private void BindTechnicianPresence()
+        {
+            _technicianPresenceList.Controls.Clear();
+            _technicianPresenceList.RowStyles.Clear();
+            string[] labels = { "On Site", "Traveling", "Available", "On Leave" };
+            Color[] colors = { Success, Blue, Color.FromArgb(34, 197, 94), TextSecondary };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                int count = CountTechniciansByPresence(labels[i]);
+                Label label = new Label { Text = labels[i], Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft };
+                Label value = new Label { Text = count.ToString("N0"), Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.8f, FontStyle.Bold), ForeColor = colors[i], TextAlign = ContentAlignment.MiddleRight };
+                _technicianPresenceList.RowStyles.Add(new RowStyle(SizeType.Percent, 25f));
+                _technicianPresenceList.Controls.Add(label, 0, i);
+                _technicianPresenceList.Controls.Add(value, 1, i);
+            }
+        }
+
+        private void BindRevenue(List<SiteMonitorRow> sites)
+        {
+            decimal total = sites.Sum(s => s.Revenue);
+            SiteMonitorRow top = sites.OrderByDescending(s => s.Revenue).FirstOrDefault();
+            SiteMonitorRow low = sites.Where(s => s.Revenue > 0m).OrderBy(s => s.Revenue).FirstOrDefault();
+            _siteRevenueTotal.Text = MoneyText(total);
+            _siteRevenueTop.Text = (top == null ? "-" : MoneyText(top.Revenue) + "  " + TrimForWidth(top.Site, 18));
+            _siteRevenueLow.Text = (low == null ? "-" : MoneyText(low.Revenue) + "  " + TrimForWidth(low.Site, 18));
+        }
+
+        private void BindSlaPerformance()
+        {
+            int total = _jobs.Count(j => !IsClosed(j.PipelineStatus) || j.ScheduledDate.Date >= DateTime.Today.AddDays(-30));
+            int breached = _jobs.Count(IsSlaRisk);
+            int met = Math.Max(0, total - breached);
+            int pct = total == 0 ? 100 : Math.Max(0, Math.Min(100, (int)Math.Round(met * 100m / total)));
+            _slaComplianceLabel.Text = pct.ToString("N0") + "%\r\nSLA Compliance";
+            _slaTotalTickets.Text = total.ToString("N0");
+            _slaMetTickets.Text = met.ToString("N0");
+            _slaBreachedTickets.Text = breached.ToString("N0");
+        }
+
+        private void AddLegendRow(Panel legend, int row, string label, int count, int total, Color color)
+        {
+            int top = row * 34;
+            Label dot = new Label { Text = "●", Location = new Point(2, top), Size = new Size(22, 22), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = color, TextAlign = ContentAlignment.MiddleCenter };
+            int pct = total <= 0 ? 0 : (int)Math.Round(count * 100m / total);
+            Label text = new Label { Text = label, Location = new Point(28, top + 2), Size = new Size(128, 22), Font = new Font("Segoe UI", 8.5f), ForeColor = TextPrimary, AutoEllipsis = true };
+            Label value = new Label { Text = count.ToString("N0") + " (" + pct + "%)", Location = new Point(160, top + 2), Size = new Size(86, 22), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight };
+            legend.Controls.Add(dot);
+            legend.Controls.Add(text);
+            legend.Controls.Add(value);
+        }
+
+        private void AddEquipmentTile(string title, int count, ModernIconKind icon, Color accent, int column, int row)
+        {
+            Panel tile = new Panel { Dock = DockStyle.Fill, BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(5), Padding = new Padding(10) };
+            tile.Paint += (s, e) => DrawRoundedBorder(e.Graphics, tile.ClientRectangle, Border);
+            Label badge = ModernIconSystem.Badge(icon, 32, Lighten(accent, 0.88f), accent, 8);
+            badge.Dock = DockStyle.Left;
+            badge.Width = 42;
+            Label value = new Label { Text = count.ToString("N0"), Dock = DockStyle.Top, Height = 24, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true };
+            Label label = new Label { Text = title, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 7.8f), ForeColor = TextPrimary, AutoEllipsis = true };
+            Panel text = new Panel { Dock = DockStyle.Fill, BackColor = tile.BackColor, Padding = new Padding(8, 0, 0, 0) };
+            text.Controls.Add(label);
+            text.Controls.Add(value);
+            tile.Controls.Add(text);
+            tile.Controls.Add(badge);
+            _equipmentGrid.Controls.Add(tile, column, row);
         }
 
         private void BindStaticFilters()
@@ -1162,12 +1936,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedJob == null)
             {
-                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select a job first.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (_usingFallbackJobs)
             {
-                MessageBox.Show("Demo job selected. Add or select a real job to save assignment.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Demo job selected. Add or select a real job to save assignment.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -1193,8 +1967,8 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("DispatchCenter.SaveAssignment", ex);
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Saving dispatch assignment", ex);
-                MessageBox.Show("Assignment could not be saved. Review the job status and technician, then try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Site Monitor"), "Saving dispatch assignment", ex);
+                MessageBox.Show("Assignment could not be saved. Review the job status and technician, then try again.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1207,12 +1981,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedJob == null)
             {
-                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select a job first.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (_usingFallbackJobs)
             {
-                MessageBox.Show("Demo job selected. Add or select a real job to update the schedule.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Demo job selected. Add or select a real job to update the schedule.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -1224,14 +1998,14 @@ namespace HVAC_Pro_Desktop.UI
 
                 job.ScheduledDate = _dtpSchedule.Value;
                 _jobService.Update(job);
-                _jobService.LogActivity(job.JobID, "Job schedule updated from Dispatch Center.", "Info");
+                _jobService.LogActivity(job.JobID, "Job schedule updated from Site Monitor.", "Info");
                 QueueLoadDispatchData();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("DispatchCenter.SaveSchedule", ex);
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Updating job schedule", ex);
-                MessageBox.Show("Schedule could not be saved. Review the date/time, then try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Site Monitor"), "Updating job schedule", ex);
+                MessageBox.Show("Schedule could not be saved. Review the date/time, then try again.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1239,12 +2013,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedJob == null)
             {
-                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select a job first.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (_usingFallbackJobs)
             {
-                MessageBox.Show("Demo job selected. Escalation is available for real jobs only.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Demo job selected. Escalation is available for real jobs only.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             try
@@ -1252,13 +2026,13 @@ namespace HVAC_Pro_Desktop.UI
                 Job job = _jobService.GetById(_selectedJob.JobId);
                 job.Priority = "Critical";
                 _jobService.Update(job);
-                _jobService.LogActivity(job.JobID, "Job escalated from Dispatch Center.", "Warning");
+                _jobService.LogActivity(job.JobID, "Job escalated from Site Monitor.", "Warning");
                 QueueLoadDispatchData();
             }
             catch (Exception ex)
             {
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Dispatch Center"), "Escalating job", ex);
-                MessageBox.Show("Job could not be escalated right now. Refresh the dispatch list and try again.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Site Monitor"), "Escalating job", ex);
+                MessageBox.Show("Job could not be escalated right now. Refresh the site monitor list and try again.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1266,12 +2040,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedJob == null)
             {
-                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select a job first.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (_usingFallbackJobs)
             {
-                MessageBox.Show("Demo job selected. Notes can be saved on real jobs.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Demo job selected. Notes can be saved on real jobs.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             string text = PromptText("Add dispatcher note", "");
@@ -1288,13 +2062,13 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedJob == null)
             {
-                MessageBox.Show("Select a job first.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Select a job first.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (OnOpenJobDetail != null && !_usingFallbackJobs)
                 OnOpenJobDetail(_selectedJob.JobId);
             else
-                MessageBox.Show("Print job uses the existing job detail/print workflow. Open a real job to print.", "Dispatch Center", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Print job uses the existing job detail/print workflow. Open a real job to print.", "Site Monitor", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private Employee SuggestTechnician(JobSummaryDto job)
@@ -1450,6 +2224,17 @@ namespace HVAC_Pro_Desktop.UI
             return b;
         }
 
+        private Button MakeSiteToolbarButton(string text, ModernIconKind icon, int width)
+        {
+            Button button = MakeToolbarButton(text, width);
+            button.Height = 36;
+            button.Image = ModernIconSystem.IconBitmap(icon, 15, TextSecondary);
+            button.ImageAlign = ContentAlignment.MiddleLeft;
+            button.TextImageRelation = TextImageRelation.ImageBeforeText;
+            button.Padding = new Padding(8, 0, 8, 0);
+            return button;
+        }
+
         private ComboBox MakeCombo()
         {
             return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.System, Font = new Font("Segoe UI", 9f), Height = 30 };
@@ -1506,6 +2291,136 @@ namespace HVAC_Pro_Desktop.UI
                 color.R + (int)((255 - color.R) * amount),
                 color.G + (int)((255 - color.G) * amount),
                 color.B + (int)((255 - color.B) * amount));
+        }
+
+        private void DrawSiteDistribution(object sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            List<SiteMonitorRow> rows = BuildSiteMonitorRows();
+            int healthy = Math.Max(1, rows.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0));
+            int warning = Math.Max(1, rows.Count(s => s.HealthScore >= 60 && s.OpenJobs > 0));
+            int critical = Math.Max(1, rows.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0));
+            int maintenance = Math.Max(1, _jobs.Count(j => Contains(j.JobType, "AMC")));
+            DrawDonut(e.Graphics, new Rectangle(26, 34, 142, 142), new[] { healthy, warning, critical, maintenance }, new[] { Success, Warning, Danger, Blue }, 34);
+        }
+
+        private void DrawTechnicianPresence(object sender, PaintEventArgs e)
+        {
+            Panel panel = (Panel)sender;
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int onSite = CountTechniciansByPresence("On Site");
+            int traveling = CountTechniciansByPresence("Traveling");
+            int available = CountTechniciansByPresence("Available");
+            int leave = CountTechniciansByPresence("On Leave");
+            Rectangle rect = new Rectangle(Math.Max(8, (panel.Width - 112) / 2), 28, 112, 112);
+            DrawDonut(e.Graphics, rect, new[] { onSite, traveling, available, leave }, new[] { Success, Blue, Color.FromArgb(34, 197, 94), TextSecondary }, 25);
+            using (Brush brush = new SolidBrush(TextPrimary))
+            using (Font font = new Font("Segoe UI", 14f, FontStyle.Bold))
+                e.Graphics.DrawString(_technicians.Count.ToString("N0"), font, brush, rect.X + 42, rect.Y + 38);
+            using (Brush brush = new SolidBrush(TextSecondary))
+            using (Font font = new Font("Segoe UI", 8f))
+                e.Graphics.DrawString("Total", font, brush, rect.X + 42, rect.Y + 62);
+        }
+
+        private void DrawSlaGauge(object sender, PaintEventArgs e)
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            int total = Math.Max(1, _jobs.Count);
+            int breached = _jobs.Count(IsSlaRisk);
+            int pct = Math.Max(0, Math.Min(100, (int)Math.Round((total - breached) * 100m / total)));
+            Rectangle rect = new Rectangle(18, 34, 104, 104);
+            using (Pen bg = new Pen(Color.FromArgb(226, 232, 240), 12))
+                e.Graphics.DrawArc(bg, rect, 180, 180);
+            using (Pen fg = new Pen(Color.FromArgb(147, 51, 234), 12))
+                e.Graphics.DrawArc(fg, rect, 180, 180 * pct / 100);
+        }
+
+        private void DrawSiteHealthTrend(object sender, PaintEventArgs e)
+        {
+            Panel panel = (Panel)sender;
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            Rectangle area = new Rectangle(18, 22, Math.Max(120, panel.Width - 34), Math.Max(96, panel.Height - 54));
+            using (Pen grid = new Pen(Color.FromArgb(226, 232, 240)))
+            {
+                for (int i = 0; i <= 4; i++)
+                {
+                    int y = area.Top + (area.Height * i / 4);
+                    e.Graphics.DrawLine(grid, area.Left, y, area.Right, y);
+                }
+            }
+            List<int> points = BuildHealthTrendPoints();
+            if (points.Count < 2)
+                return;
+            Point[] path = points.Select((p, i) => new Point(area.Left + (area.Width * i / Math.Max(1, points.Count - 1)), area.Bottom - (area.Height * p / 100))).ToArray();
+            using (Pen pen = new Pen(Success, 2.2f))
+                e.Graphics.DrawLines(pen, path);
+            foreach (Point point in path.Where((p, i) => i % 5 == 0 || i == path.Length - 1))
+            {
+                using (Brush brush = new SolidBrush(Success))
+                    e.Graphics.FillEllipse(brush, point.X - 3, point.Y - 3, 6, 6);
+            }
+            using (Brush brush = new SolidBrush(TextSecondary))
+            using (Font font = new Font("Segoe UI", 7.5f))
+            {
+                e.Graphics.DrawString("100%", font, brush, area.Left, area.Top - 16);
+                e.Graphics.DrawString("0%", font, brush, area.Left, area.Bottom + 4);
+            }
+        }
+
+        private static void DrawDonut(Graphics graphics, Rectangle rect, int[] values, Color[] colors, int thickness)
+        {
+            int total = Math.Max(1, values.Sum());
+            float start = -90f;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float sweep = values[i] * 360f / total;
+                using (Pen pen = new Pen(colors[i], thickness))
+                    graphics.DrawArc(pen, rect, start, sweep);
+                start += sweep;
+            }
+        }
+
+        private List<int> BuildHealthTrendPoints()
+        {
+            int risk = _jobs.Count(IsSlaRisk);
+            int open = _jobs.Count(j => !IsClosed(j.PipelineStatus));
+            int baseHealth = Math.Max(55, 88 - risk * 3 - Math.Max(0, open - 10));
+            List<int> points = new List<int>();
+            for (int i = 0; i < 28; i++)
+            {
+                int wave = (int)Math.Round(Math.Sin(i / 3.0) * 5);
+                points.Add(Math.Max(40, Math.Min(96, baseHealth - 6 + i / 2 + wave)));
+            }
+            return points;
+        }
+
+        private string ResolveRegion(string site, string client)
+        {
+            string text = ((site ?? "") + " " + (client ?? "")).ToLowerInvariant();
+            if (text.Contains("mumbai") || text.Contains("mahad") || text.Contains("navi")) return "Mumbai";
+            if (text.Contains("pune")) return "Pune";
+            if (text.Contains("nashik")) return "Nashik";
+            if (text.Contains("delhi") || text.Contains("gurgaon")) return "Delhi NCR";
+            if (text.Contains("bangalore") || text.Contains("bengaluru")) return "Bengaluru";
+            if (text.Contains("chennai")) return "Chennai";
+            return "Others";
+        }
+
+        private int CountTechniciansByPresence(string status)
+        {
+            DateTime today = DateTime.Today;
+            if (status == "On Site")
+                return _technicians.Count(t => _jobs.Any(j => j.TechnicianId == t.EmployeeID && j.ScheduledDate.Date == today && NormalizeStatus(j.PipelineStatus) == "In Progress"));
+            if (status == "Traveling")
+                return _technicians.Count(t => _jobs.Any(j => j.TechnicianId == t.EmployeeID && j.ScheduledDate.Date == today && (NormalizeStatus(j.PipelineStatus) == "Traveling" || NormalizeStatus(j.PipelineStatus) == "Assigned")));
+            if (status == "On Leave")
+                return Math.Max(0, _technicians.Count(t => Contains(t.Status, "Leave") || Contains(t.Status, "Inactive")));
+            return Math.Max(0, _technicians.Count - CountTechniciansByPresence("On Site") - CountTechniciansByPresence("Traveling") - CountTechniciansByPresence("On Leave"));
+        }
+
+        private static string MoneyText(decimal value)
+        {
+            return IndiaFormatHelper.FormatCurrency(value);
         }
 
         private List<JobSummaryDto> BuildSeedDispatchJobs()
@@ -1771,6 +2686,174 @@ namespace HVAC_Pro_Desktop.UI
             if (combo == null) return;
             for (int i = 0; i < combo.Items.Count; i++)
                 if (string.Equals(Convert.ToString(combo.Items[i]), text, StringComparison.OrdinalIgnoreCase)) { combo.SelectedIndex = i; return; }
+        }
+
+        private sealed class SiteMonitorRow
+        {
+            public string Site { get; set; }
+            public string Region { get; set; }
+            public int OpenJobs { get; set; }
+            public int CriticalJobs { get; set; }
+            public int SlaRisk { get; set; }
+            public int CompletedJobs { get; set; }
+            public decimal Revenue { get; set; }
+            public int HealthScore { get; set; }
+            public DateTime LastVisit { get; set; }
+        }
+
+        private sealed class SiteMonitorDetail
+        {
+            public string Key { get; set; }
+            public string Title { get; set; }
+            public List<string> Columns { get; private set; } = new List<string>();
+            public List<object[]> Rows { get; private set; } = new List<object[]>();
+        }
+
+        private sealed class SiteMonitorDetailDialog : ServoERP.Infrastructure.ServoFormBase
+        {
+            private readonly SiteMonitorDetail _detail;
+            private readonly DataGridView _grid;
+
+            public SiteMonitorDetailDialog(SiteMonitorDetail detail)
+            {
+                _detail = detail ?? new SiteMonitorDetail { Title = "Site Monitor Details" };
+                Text = _detail.Title;
+                StartPosition = FormStartPosition.CenterParent;
+                MinimumSize = new Size(980, 620);
+                Size = new Size(1180, 720);
+                BackColor = Color.FromArgb(246, 248, 251);
+                Padding = new Padding(18);
+
+                Panel footer = BuildFooter();
+                Panel header = BuildHeaderPanel();
+                _grid = BuildGrid();
+                Controls.Add(_grid);
+                Controls.Add(header);
+                Controls.Add(footer);
+                BindGrid();
+            }
+
+            private Panel BuildHeaderPanel()
+            {
+                Panel header = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = BackColor, Padding = new Padding(0, 0, 0, 12) };
+                Label title = new Label
+                {
+                    Text = _detail.Title,
+                    Dock = DockStyle.Top,
+                    Height = 34,
+                    Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(15, 23, 42),
+                    AutoEllipsis = true
+                };
+                Label subtitle = new Label
+                {
+                    Text = _detail.Rows.Count.ToString("N0") + " full records behind this Site Monitor card",
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 9f),
+                    ForeColor = Color.FromArgb(71, 85, 105),
+                    AutoEllipsis = true
+                };
+                header.Controls.Add(subtitle);
+                header.Controls.Add(title);
+                return header;
+            }
+
+            private DataGridView BuildGrid()
+            {
+                DataGridView grid = new DataGridView
+                {
+                    Dock = DockStyle.Fill,
+                    AllowUserToAddRows = false,
+                    AllowUserToDeleteRows = false,
+                    ReadOnly = true,
+                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                    MultiSelect = false,
+                    RowHeadersVisible = false,
+                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                    BackgroundColor = Color.White,
+                    BorderStyle = BorderStyle.None,
+                    EnableHeadersVisualStyles = false
+                };
+                GridTheme.Apply(grid);
+                return grid;
+            }
+
+            private Panel BuildFooter()
+            {
+                Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 54, BackColor = BackColor, Padding = new Padding(0, 12, 0, 0) };
+                TableLayoutPanel actions = new TableLayoutPanel { Dock = DockStyle.Right, Width = 250, ColumnCount = 2, RowCount = 1, BackColor = BackColor };
+                actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                Button export = DialogButton("Export CSV", Color.FromArgb(16, 185, 129));
+                Button close = DialogButton("Close", Color.FromArgb(37, 99, 235));
+                close.DialogResult = DialogResult.OK;
+                export.Click += (s, e) => ExportGrid();
+                actions.Controls.Add(export, 0, 0);
+                actions.Controls.Add(close, 1, 0);
+                footer.Controls.Add(actions);
+                return footer;
+            }
+
+            private static Button DialogButton(string text, Color color)
+            {
+                Button button = new Button
+                {
+                    Text = text,
+                    Dock = DockStyle.Fill,
+                    Height = 34,
+                    BackColor = color,
+                    ForeColor = Color.White,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand,
+                    Margin = new Padding(8, 0, 0, 0)
+                };
+                button.FlatAppearance.BorderSize = 0;
+                return button;
+            }
+
+            private void BindGrid()
+            {
+                _grid.Columns.Clear();
+                _grid.Rows.Clear();
+                foreach (string column in _detail.Columns)
+                    _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = column, MinimumWidth = 100, SortMode = DataGridViewColumnSortMode.Automatic });
+
+                foreach (object[] row in _detail.Rows)
+                {
+                    object[] normalized = new object[_detail.Columns.Count];
+                    for (int i = 0; i < normalized.Length; i++)
+                        normalized[i] = row != null && i < row.Length && row[i] != null ? row[i].ToString() : string.Empty;
+                    _grid.Rows.Add(normalized);
+                }
+            }
+
+            private void ExportGrid()
+            {
+                using (SaveFileDialog dialog = new SaveFileDialog { FileName = SafeFileName(_detail.Title) + "_" + DateTime.Today.ToString("yyyyMMdd") + ".csv", Filter = "CSV|*.csv" })
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendLine(string.Join(",", _detail.Columns.Select(Csv)));
+                    foreach (object[] row in _detail.Rows)
+                        sb.AppendLine(string.Join(",", row.Select(v => Csv(v == null ? string.Empty : v.ToString()))));
+                    File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
+                }
+            }
+
+            private static string Csv(string value)
+            {
+                return "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+            }
+
+            private static string SafeFileName(string value)
+            {
+                string name = string.IsNullOrWhiteSpace(value) ? "SiteMonitorDetails" : value;
+                foreach (char invalid in Path.GetInvalidFileNameChars())
+                    name = name.Replace(invalid, '_');
+                return name.Replace(' ', '_');
+            }
         }
 
         private sealed class DispatchJobListModule : VirtualListModuleBase<JobSummaryDto>

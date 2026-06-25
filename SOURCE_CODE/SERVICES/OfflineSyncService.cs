@@ -27,6 +27,9 @@ namespace HVAC_Pro_Desktop.Services
         public int Attempts { get; set; }
         public string LastError { get; set; }
         public bool RequiresReview { get; set; }
+        public string NodePublicId { get; set; }
+        public string EntitySyncPublicId { get; set; }
+        public string IdempotencyKey { get; set; }
     }
 
     public static class OfflineSyncService
@@ -54,10 +57,13 @@ CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
     CreatedUtc TEXT NOT NULL,
     UpdatedUtc TEXT NOT NULL,
     MachineName TEXT NOT NULL,
+    NodePublicId TEXT NULL,
     Module TEXT NOT NULL,
     Operation TEXT NOT NULL,
     LocalReference TEXT NOT NULL,
     ServerRecordId INTEGER NULL,
+    EntitySyncPublicId TEXT NULL,
+    IdempotencyKey TEXT NULL,
     PayloadJson TEXT NOT NULL,
     Status TEXT NOT NULL,
     Attempts INTEGER NOT NULL DEFAULT 0,
@@ -65,6 +71,9 @@ CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
     RequiresReview INTEGER NOT NULL DEFAULT 0,
     SyncedUtc TEXT NULL
 );");
+                    EnsureColumn(conn, "OfflineSyncQueue", "NodePublicId", "TEXT NULL");
+                    EnsureColumn(conn, "OfflineSyncQueue", "EntitySyncPublicId", "TEXT NULL");
+                    EnsureColumn(conn, "OfflineSyncQueue", "IdempotencyKey", "TEXT NULL");
                     Execute(conn, "CREATE INDEX IF NOT EXISTS IX_OfflineSyncQueue_Status ON OfflineSyncQueue(Status, QueueId);");
                     Execute(conn, "CREATE INDEX IF NOT EXISTS IX_OfflineSyncQueue_Module ON OfflineSyncQueue(Module, Operation);");
                 }
@@ -73,28 +82,39 @@ CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
 
         public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason)
         {
+            return Queue(module, operation, payload, serverRecordId, requiresReview, reason, null);
+        }
+
+        public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason, Guid? entitySyncPublicId)
+        {
             EnsureReady();
             string localReference = BuildLocalReference(module, operation);
             string payloadJson = JsonConvert.SerializeObject(payload);
+            string nodePublicId = NodeIdentityService.GetOrCreateNodePublicId().ToString("D");
+            string entitySyncPublicIdText = entitySyncPublicId.HasValue && entitySyncPublicId.Value != Guid.Empty ? entitySyncPublicId.Value.ToString("D") : string.Empty;
+            string idempotencyKey = SyncOutboxService.BuildIdempotencyKey(module, entitySyncPublicId ?? Guid.Empty, operation, payloadJson);
             long queueId;
             lock (Sync)
             {
                 using (SQLiteConnection conn = OpenConnection())
                 using (SQLiteCommand cmd = new SQLiteCommand(@"
 INSERT INTO OfflineSyncQueue
-    (CreatedUtc, UpdatedUtc, MachineName, Module, Operation, LocalReference, ServerRecordId, PayloadJson, Status, Attempts, LastError, RequiresReview)
+    (CreatedUtc, UpdatedUtc, MachineName, NodePublicId, Module, Operation, LocalReference, ServerRecordId, EntitySyncPublicId, IdempotencyKey, PayloadJson, Status, Attempts, LastError, RequiresReview)
 VALUES
-    (@created, @updated, @machine, @module, @operation, @localRef, @serverId, @payload, @status, 0, @reason, @review);
+    (@created, @updated, @machine, @nodePublicId, @module, @operation, @localRef, @serverId, @entitySyncPublicId, @idempotencyKey, @payload, @status, 0, @reason, @review);
 SELECT last_insert_rowid();", conn))
                 {
                     string now = DateTime.UtcNow.ToString("o");
                     cmd.Parameters.AddWithValue("@created", now);
                     cmd.Parameters.AddWithValue("@updated", now);
                     cmd.Parameters.AddWithValue("@machine", Environment.MachineName);
+                    cmd.Parameters.AddWithValue("@nodePublicId", nodePublicId);
                     cmd.Parameters.AddWithValue("@module", module ?? string.Empty);
                     cmd.Parameters.AddWithValue("@operation", operation ?? string.Empty);
                     cmd.Parameters.AddWithValue("@localRef", localReference);
                     cmd.Parameters.AddWithValue("@serverId", serverRecordId.HasValue ? (object)serverRecordId.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@entitySyncPublicId", string.IsNullOrWhiteSpace(entitySyncPublicIdText) ? (object)DBNull.Value : entitySyncPublicIdText);
+                    cmd.Parameters.AddWithValue("@idempotencyKey", string.IsNullOrWhiteSpace(idempotencyKey) ? (object)DBNull.Value : idempotencyKey);
                     cmd.Parameters.AddWithValue("@payload", payloadJson ?? string.Empty);
                     cmd.Parameters.AddWithValue("@status", StatusPending);
                     cmd.Parameters.AddWithValue("@reason", reason ?? string.Empty);
@@ -127,7 +147,7 @@ SELECT last_insert_rowid();", conn))
             var items = new List<OfflineSyncItem>();
             using (SQLiteConnection conn = OpenConnection())
             using (SQLiteCommand cmd = new SQLiteCommand(@"
-SELECT QueueId, Module, Operation, LocalReference, PayloadJson, Status, Attempts, LastError, RequiresReview
+SELECT QueueId, Module, Operation, LocalReference, PayloadJson, Status, Attempts, LastError, RequiresReview, NodePublicId, EntitySyncPublicId, IdempotencyKey
 FROM OfflineSyncQueue
 WHERE Status IN ('Pending','Failed','Conflict')
 ORDER BY QueueId
@@ -148,7 +168,10 @@ LIMIT @max;", conn))
                             Status = Read(reader, 5),
                             Attempts = reader.GetInt32(6),
                             LastError = Read(reader, 7),
-                            RequiresReview = !reader.IsDBNull(8) && reader.GetInt32(8) == 1
+                            RequiresReview = !reader.IsDBNull(8) && reader.GetInt32(8) == 1,
+                            NodePublicId = Read(reader, 9),
+                            EntitySyncPublicId = Read(reader, 10),
+                            IdempotencyKey = Read(reader, 11)
                         });
                     }
                 }
@@ -239,6 +262,16 @@ LIMIT @max;", conn))
             if (module == "Jobs" && operation == "Create")
             {
                 new JobService().Create(JsonConvert.DeserializeObject<Job>(item.PayloadJson));
+                return;
+            }
+            if (module == "Sites" && operation == "Create")
+            {
+                new SiteService().Create(JsonConvert.DeserializeObject<ClientSite>(item.PayloadJson));
+                return;
+            }
+            if (module == "Sites" && operation == "Update")
+            {
+                new SiteService().Update(JsonConvert.DeserializeObject<ClientSite>(item.PayloadJson));
                 return;
             }
             if (module == "Jobs" && operation == "Update")
@@ -344,6 +377,29 @@ WHERE QueueId=@id;", conn))
         {
             using (SQLiteCommand cmd = new SQLiteCommand(sql, conn))
                 cmd.ExecuteNonQuery();
+        }
+
+        private static void EnsureColumn(SQLiteConnection conn, string tableName, string columnName, string definition)
+        {
+            if (HasColumn(conn, tableName, columnName))
+                return;
+
+            Execute(conn, "ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition + ";");
+        }
+
+        private static bool HasColumn(SQLiteConnection conn, string tableName, string columnName)
+        {
+            using (SQLiteCommand cmd = new SQLiteCommand("PRAGMA table_info(" + tableName + ");", conn))
+            using (SQLiteDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    if (string.Equals(Convert.ToString(reader["name"]), columnName, StringComparison.OrdinalIgnoreCase))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private static string Read(SQLiteDataReader reader, int index)

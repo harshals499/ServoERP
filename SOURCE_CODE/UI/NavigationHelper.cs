@@ -53,6 +53,24 @@ namespace HVAC_Pro_Desktop.UI
                         return;
                     }
 
+                    if (normalizedType == "INVOICE" || normalizedType == "INVOICES")
+                    {
+                        main.NavigateToInvoice(recordId);
+                        return;
+                    }
+
+                    if (normalizedType == "QUOTATION" || normalizedType == "QUOTATIONS" || normalizedType == "TENDERBID")
+                    {
+                        main.NavigateToQuotation(recordId);
+                        return;
+                    }
+
+                    if (normalizedType == "PURCHASE" || normalizedType == "PURCHASES" || normalizedType == "PURCHASEORDER" || normalizedType == "PURCHASEORDERS")
+                    {
+                        OpenPurchaseOrderPreview(source, main, recordId);
+                        return;
+                    }
+
                     if (!string.IsNullOrWhiteSpace(targetPage))
                     {
                         main.NavigateTo(targetPage);
@@ -172,6 +190,25 @@ namespace HVAC_Pro_Desktop.UI
         {
             MainForm fromSource = source == null ? null : source.FindForm() as MainForm;
             return fromSource ?? Application.OpenForms.OfType<MainForm>().FirstOrDefault();
+        }
+
+        private static void OpenPurchaseOrderPreview(Control source, MainForm main, int poId)
+        {
+            if (poId <= 0)
+                return;
+
+            var service = new PurchaseService();
+            PurchaseOrder po = service.GetById(poId);
+            if (po == null)
+                return;
+
+            string html = service.BuildPurchaseOrderHtml(po);
+            var preview = new HtmlPreviewDialog("Purchase Order Preview - " + (po.PONumber ?? "(draft)"), html);
+            Form owner = (source == null ? null : source.FindForm()) ?? main;
+            if (owner != null && !owner.IsDisposed)
+                preview.Show(owner);
+            else
+                preview.Show();
         }
 
         private static bool IsFileRecord(string recordType)

@@ -15,6 +15,19 @@ namespace HVAC_Pro_Desktop.UI
 {
     public class DashboardForm : DeferredPageControl
     {
+        private sealed class DashboardRecentItem
+        {
+            public string Module { get; set; }
+            public int RecordId { get; set; }
+            public string Reference { get; set; }
+            public string PartyName { get; set; }
+            public string SiteName { get; set; }
+            public string Status { get; set; }
+            public string Summary { get; set; }
+            public decimal Amount { get; set; }
+            public DateTime ActivityDate { get; set; }
+        }
+
         public const string ShortcutNewJob = "NewJob";
         public const string ShortcutNewQuotation = "NewQuotation";
         public const string ShortcutNewInvoice = "NewInvoice";
@@ -62,6 +75,7 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Fill;
             BackColor = DS.BgPage;
             AutoScroll = false;
+            DashboardRefreshService.RefreshRequested += DashboardRefreshService_RefreshRequested;
             EnableDeferredLoad(async () =>
             {
                 BuildShell();
@@ -69,6 +83,19 @@ namespace HVAC_Pro_Desktop.UI
                 if (!IsDisposed)
                     BuildShell();
             });
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                DashboardRefreshService.RefreshRequested -= DashboardRefreshService_RefreshRequested;
+                _clockTimer?.Stop();
+                _clockTimer?.Dispose();
+                _clockTimer = null;
+            }
+
+            base.Dispose(disposing);
         }
 
         /// <summary>Refreshes dashboard labels and fonts after the selected language changes.</summary>
@@ -81,17 +108,41 @@ namespace HVAC_Pro_Desktop.UI
 
         private void LoadData()
         {
-            TimeSpan ttl = TimeSpan.FromMinutes(2);
-            try { _clients = AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Clients", ex); }
-            try { _vendors = AppDataCache.GetOrCreate("vendors:suppliers", ttl, () => _vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Vendors", ex); }
-            try { _jobs = AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Jobs", ex); }
-            try { _invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Invoices", ex); }
-            try { _payments = AppDataCache.GetOrCreate("payments:all", ttl, () => _paymentSvc.GetAllPayments() ?? new List<Payment>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Payments", ex); }
-            try { _purchaseOrders = AppDataCache.GetOrCreate("purchases:fresh", ttl, () => _purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Purchases", ex); }
-            try { _quotations = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Quotations", ex); }
-            try { _inventory = AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Inventory", ex); }
-            try { _employees = AppDataCache.GetOrCreate("employees:all", ttl, () => _employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Employees", ex); }
-            try { _serviceTickets = AppDataCache.GetOrCreate("servicedesk:all", ttl, () => _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.ServiceDesk", ex); }
+            try { _clients = (_clientSvc.GetAllClients() ?? new List<B2BClient>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Clients", ex); }
+            try { _vendors = (_vendorSvc.GetSuppliers() ?? new List<Vendor>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Vendors", ex); }
+            try { _jobs = (_jobSvc.GetAll() ?? new List<Job>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Jobs", ex); }
+            try { _invoices = (_invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Invoices", ex); }
+            try { _payments = (_paymentSvc.GetAllPayments() ?? new List<Payment>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Payments", ex); }
+            try { _purchaseOrders = (_purchaseSvc.GetAllFresh() ?? new List<PurchaseOrder>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Purchases", ex); }
+            try { _quotations = (_tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Quotations", ex); }
+            try { _inventory = (_inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Inventory", ex); }
+            try { _employees = (_employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Employees", ex); }
+            try { _serviceTickets = (_serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.ServiceDesk", ex); }
+        }
+
+        private void DashboardRefreshService_RefreshRequested(object sender, DashboardRefreshEventArgs e)
+        {
+            if (IsDisposed || !IsHandleCreated)
+                return;
+
+            BeginInvoke((Action)(async () => await RefreshDashboardDataAsync()));
+        }
+
+        private async Task RefreshDashboardDataAsync()
+        {
+            if (IsDisposed || _buildingShell)
+                return;
+
+            try
+            {
+                await Task.Run((Action)LoadData);
+                if (!IsDisposed)
+                    BuildShell();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("DashboardForm.RefreshDashboardDataAsync", ex);
+            }
         }
 
         private void BuildShell()
@@ -124,6 +175,7 @@ namespace HVAC_Pro_Desktop.UI
             AddGreetingBanner();
             AddAlertsBar();
             AddShortcutActionsRow();
+            AddRecentActivityRow();
             AddDepartmentRows();
             AddFinancialOverviewRow();
 
@@ -165,143 +217,89 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddTopBar()
         {
-            Panel bar = CardPanel(ContentWidth(), 78);
+            Panel bar = CardPanel(ContentWidth(), 96);
             bar.BackColor = Color.White;
-            bar.Padding = new Padding(22, 12, 22, 12);
 
-            const int userWidth = 150;
-            const int avatarSize = 32;
-            const int languageWidth = 160;
-            const int actionWidth = 122;
-            const int notificationSize = 38;
-            const int gap = 14;
-            bool showTopBarMeta = bar.Width >= 1120;
-            int right = bar.Width - 22;
-            int customizeX = right - actionWidth;
-            int backupX = customizeX - actionWidth - gap;
-            int userBlockWidth = avatarSize + 8 + userWidth;
-            int notificationX = backupX - notificationSize - gap;
-            int avatarX = notificationX - userBlockWidth - gap;
-            int userX = avatarX + avatarSize + 8;
-            int languageX = avatarX - languageWidth - gap;
-            bool showLanguage = languageX >= 820;
-            if (!showLanguage)
-                languageX = -languageWidth;
-            int rightClusterLeft = showLanguage ? languageX : avatarX;
-            bool showUser = avatarX >= 1010;
-            bool showActions = backupX >= 900;
-            bool showBackup = backupX >= 1020;
-            bool showCustomize = customizeX >= 900;
-            bool showNotifications = notificationX >= 840;
-            if (!showUser)
-            {
-                avatarX = -avatarSize;
-                userX = -userWidth;
-                rightClusterLeft = showNotifications ? notificationX : (showActions ? Math.Min(backupX, customizeX) : right);
-            }
-            if (!showActions)
-                rightClusterLeft = right;
-
-            int searchX = 292;
-            int searchLimit = rightClusterLeft - searchX - (showTopBarMeta ? 128 : 16);
-            int searchWidth = Math.Max(240, Math.Min(430, searchLimit));
-            bool showSearch = searchLimit >= 260;
-            if (!showSearch)
-                searchWidth = 0;
-
-            Label pageTitle = new Label
-            {
-                Text = "Dashboard",
-                Location = new Point(22, 14),
-                Size = new Size(220, 26),
-                Font = new Font("Segoe UI", 15.5f, FontStyle.Bold),
-                ForeColor = DS.Slate950,
-                AutoEllipsis = true
-            };
-            Label pageSubtitle = new Label
-            {
-                Text = "Business overview for today",
-                Location = new Point(23, 42),
-                Size = new Size(220, 18),
-                Font = new Font("Segoe UI", 8.6f),
-                ForeColor = DS.Slate600,
-                AutoEllipsis = true
-            };
-
-            Panel searchHost = new Panel
-            {
-                Location = new Point(searchX, 18),
-                Size = new Size(searchWidth, 40),
-                BackColor = Color.White,
-                Visible = showSearch
-            };
-            searchHost.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, searchHost.Width - 1, searchHost.Height - 1), 9))
-                using (Pen pen = new Pen(DS.BorderStrong))
-                    e.Graphics.DrawPath(pen, path);
-            };
-            Label search = new Label
-            {
-                Text = "Search",
-                Location = new Point(46, 11),
-                Font = new Font(LanguageManager.GetUiFontFamily(), 8.7f),
-                ForeColor = DS.Slate700,
-                BackColor = Color.White,
-                AutoSize = true,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            Label searchIcon = ModernIconSystem.Icon(ModernIconKind.Search, 19, DS.Slate700);
-            searchIcon.Location = new Point(16, 9);
-            searchIcon.Size = new Size(22, 22);
-            Label ctrl = new Label
-            {
-                Text = "Ctrl + K",
-                Location = new Point(Math.Max(10, searchHost.Width - 76), 8),
-                Size = new Size(62, 24),
-                BackColor = Color.FromArgb(248, 250, 252),
-                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
-                ForeColor = DS.Slate700,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            ctrl.Paint += (s, e) =>
-            {
-                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, ctrl.Width - 1, ctrl.Height - 1), 4))
-                using (Pen pen = new Pen(DS.BorderStrong))
-                    e.Graphics.DrawPath(pen, path);
-            };
-            searchHost.Controls.AddRange(new Control[] { searchIcon, search, ctrl });
-            search.BringToFront();
-            ctrl.BringToFront();
-
-            int timeX = showSearch ? searchHost.Right + 12 : 292;
-            Panel timeBlock = new Panel { Location = new Point(timeX, 16), Size = new Size(100, 44), BackColor = Color.White, Visible = showTopBarMeta && timeX + 100 < rightClusterLeft - 8 };
-            Label date = new Label { Text = DateTime.Today.ToString("dd/MM/yyyy"), Location = new Point(0, 5), Size = new Size(92, 18), Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = DS.Slate700 };
-            _clockLabel = new Label { Text = DateTime.Now.ToString("hh:mm tt"), Location = new Point(0, 24), Size = new Size(78, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500 };
-            timeBlock.Controls.AddRange(new Control[] { date, _clockLabel });
-            date.Visible = showTopBarMeta;
-            _clockLabel.Visible = showTopBarMeta;
-            Button customize = SecondaryButton(T("Customize"), customizeX, 22, actionWidth, 34);
-            Button notifications = BuildNotificationButton(notificationX, 20, notificationSize, GetNotificationCountText());
-            Label avatar = new Label { Text = Initials(CurrentUserName()), Location = new Point(avatarX, 22), Size = new Size(avatarSize, avatarSize), BackColor = DS.Primary50, ForeColor = DS.Primary600, Font = new Font("Segoe UI", 8.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-            DS.Rounded(avatar, 16);
-            Label user = new Label { Text = CurrentUserName(), Location = new Point(userX, 28), Size = new Size(userWidth, 20), Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
-            Button backupNow = SecondaryButton("Backup Now", backupX, 22, actionWidth, 34);
+            Button notifications = BuildNotificationButton(0, 0, 38, GetNotificationCountText());
+            Button customize = SecondaryButton(T("Customize"), 0, 0, 110, 34);
+            Button backupNow = SecondaryButton("Backup Now", 0, 0, 138, 34);
             ModernIconSystem.AddButtonIcon(backupNow, ModernIconKind.Backup);
-            customize.Visible = showActions && showCustomize;
-            backupNow.Visible = showActions && showBackup;
-            notifications.Visible = showNotifications;
-            avatar.Visible = showUser;
-            user.Visible = showUser;
+            backupNow.TextAlign = ContentAlignment.MiddleRight;
+            backupNow.Padding = new Padding(10, 0, 14, 0);
             backupNow.Name = "btnDashboardBackupNow";
             backupNow.Click += (s, e) => RunDashboardBackupNow(backupNow);
-            Panel languagePanel = BuildLanguageSelector(languageX, 23, languageWidth, 30);
-            languagePanel.Visible = showLanguage;
 
-            bar.Controls.AddRange(new Control[] { pageTitle, pageSubtitle, searchHost, timeBlock, customize, backupNow, notifications, languagePanel, avatar, user });
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "DashboardTopHeader",
+                "Dashboard",
+                "Business overview for today",
+                new List<Control> { notifications, customize, backupNow },
+                SharedPageHeader.CreateSearchCommand("DashboardGlobalSearch", 300, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                BuildDashboardHeaderMetaPanel(),
+                Color.White,
+                new Padding(22, 12, 22, 12));
+            model.Dock = DockStyle.Fill;
+            model.DrawBottomBorder = false;
+            model.DefaultHeight = 82;
+            model.CompactHeight = 118;
+            Panel header = SharedPageHeader.Build(model).Header;
+            bar.Controls.Add(header);
             _root.Controls.Add(bar);
+        }
+
+        private Panel BuildDashboardHeaderMetaPanel()
+        {
+            Panel meta = new Panel
+            {
+                Name = "DashboardHeaderMetaPanel",
+                Size = new Size(184, 38),
+                BackColor = Color.Transparent
+            };
+
+            Label avatar = new Label
+            {
+                Text = Initials(CurrentUserName()),
+                Location = new Point(0, 3),
+                Size = new Size(32, 32),
+                BackColor = DS.Primary50,
+                ForeColor = DS.Primary600,
+                Font = new Font("Segoe UI", 8.8f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            DS.Rounded(avatar, 16);
+
+            Label user = new Label
+            {
+                Text = CurrentUserName(),
+                Location = new Point(40, 2),
+                Size = new Size(72, 16),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
+                ForeColor = DS.Slate900,
+                AutoEllipsis = true
+            };
+
+            Label date = new Label
+            {
+                Text = DateTime.Today.ToString("dd/MM/yyyy"),
+                Location = new Point(40, 20),
+                Size = new Size(72, 14),
+                Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
+                ForeColor = DS.Slate700,
+                AutoEllipsis = true
+            };
+
+            _clockLabel = new Label
+            {
+                Text = DateTime.Now.ToString("hh:mm tt"),
+                Location = new Point(118, 10),
+                Size = new Size(60, 16),
+                Font = new Font("Segoe UI", 8f),
+                ForeColor = DS.Slate500,
+                TextAlign = ContentAlignment.MiddleRight
+            };
+
+            meta.Controls.AddRange(new Control[] { avatar, user, date, _clockLabel });
+            return meta;
         }
 
         private Button BuildNotificationButton(int x, int y, int size, string countText)
@@ -622,6 +620,245 @@ namespace HVAC_Pro_Desktop.UI
             _root.Controls.Add(row2);
         }
 
+        private void AddRecentActivityRow()
+        {
+            int width = ContentWidth();
+            List<DashboardRecentItem> items = BuildRecentItems().Take(6).ToList();
+            int cardHeight = items.Count == 0 ? 184 : 86 + (items.Count * 74);
+            FlowLayoutPanel row = RowPanel(width, cardHeight + 12);
+            Panel card = CardPanel(width, cardHeight);
+            card.BackColor = Color.White;
+
+            Label title = new Label
+            {
+                Text = "Recent Activity",
+                Location = new Point(18, 14),
+                Size = new Size(240, 22),
+                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                ForeColor = DS.Slate900
+            };
+            Label subtitle = new Label
+            {
+                Text = "Latest saved quotations, invoices, jobs, and purchase orders.",
+                Location = new Point(18, 38),
+                Size = new Size(width - 140, 18),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8.1f),
+                ForeColor = DS.Slate600
+            };
+
+            card.Controls.Add(title);
+            card.Controls.Add(subtitle);
+
+            if (items.Count == 0)
+            {
+                card.Controls.Add(new Label
+                {
+                    Text = "No recent records yet. Saved quotations, invoices, jobs, and purchase orders will appear here.",
+                    Location = new Point(18, 106),
+                    Size = new Size(width - 36, 24),
+                    Font = new Font(LanguageManager.GetUiFontFamily(), 8.5f),
+                    ForeColor = DS.Slate500
+                });
+            }
+            else
+            {
+                int y = 66;
+                for (int i = 0; i < items.Count; i++)
+                {
+                    Panel itemRow = BuildRecentItemRow(items[i], width - 36, i == items.Count - 1);
+                    itemRow.Location = new Point(18, y);
+                    card.Controls.Add(itemRow);
+                    y += itemRow.Height + 8;
+                }
+            }
+
+            row.Controls.Add(card);
+            _root.Controls.Add(row);
+        }
+
+        private Panel BuildRecentItemRow(DashboardRecentItem item, int width, bool isLast)
+        {
+            var row = new Panel
+            {
+                Size = new Size(width, 66),
+                BackColor = Color.FromArgb(249, 251, 253)
+            };
+
+            row.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, row.Width - 1, row.Height - 1), 10))
+                using (Pen pen = new Pen(isLast ? Color.FromArgb(220, 227, 237) : Color.FromArgb(214, 223, 234)))
+                    e.Graphics.DrawPath(pen, path);
+            };
+
+            Label module = new Label
+            {
+                Text = item.Module.ToUpperInvariant(),
+                Location = new Point(12, 12),
+                Size = new Size(88, 22),
+                Font = new Font("Segoe UI", 7.2f, FontStyle.Bold),
+                ForeColor = ModuleColor(item.Module),
+                BackColor = Blend(ModuleColor(item.Module), 0.88f),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            DS.Rounded(module, 10);
+
+            int textLeft = 112;
+            int actionLeft = Math.Max(textLeft + 222, width - 86);
+            int amountLeft = Math.Max(textLeft + 180, actionLeft - 136);
+            int textWidth = Math.Max(190, amountLeft - textLeft - 16);
+
+            Label reference = new Label
+            {
+                Text = Safe(item.Reference, "-"),
+                Location = new Point(textLeft, 9),
+                Size = new Size(textWidth, 20),
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                ForeColor = DS.Slate900,
+                AutoEllipsis = true
+            };
+            Label detail = new Label
+            {
+                Text = BuildRecentDetail(item),
+                Location = new Point(textLeft, 31),
+                Size = new Size(textWidth, 16),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 8f),
+                ForeColor = DS.Slate700,
+                AutoEllipsis = true
+            };
+            Label summary = new Label
+            {
+                Text = Safe(item.Summary, item.Status),
+                Location = new Point(textLeft, 48),
+                Size = new Size(textWidth, 14),
+                Font = new Font(LanguageManager.GetUiFontFamily(), 7.6f),
+                ForeColor = DS.Slate500,
+                AutoEllipsis = true
+            };
+            Button view = SecondaryButton("View", actionLeft, 17, 74, 32);
+            view.Font = new Font(LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+            view.FlatAppearance.BorderColor = Color.FromArgb(190, 201, 216);
+            view.Click += (s, e) => OpenRecentActivityItem(item);
+            Label amount = new Label
+            {
+                Text = item.Amount > 0m ? Money(item.Amount) : item.Status,
+                Location = new Point(amountLeft, 11),
+                Size = new Size(actionLeft - amountLeft - 10, 18),
+                Font = new Font("Segoe UI", 8.4f, FontStyle.Bold),
+                ForeColor = item.Amount > 0m ? DS.Slate900 : ModuleColor(item.Module),
+                TextAlign = ContentAlignment.MiddleRight
+            };
+            Label when = new Label
+            {
+                Text = item.ActivityDate.ToString("dd/MM/yyyy hh:mm tt"),
+                Location = new Point(amountLeft, 33),
+                Size = new Size(actionLeft - amountLeft - 10, 16),
+                Font = new Font("Segoe UI", 7.6f),
+                ForeColor = DS.Slate500,
+                TextAlign = ContentAlignment.MiddleRight
+            };
+
+            row.Controls.Add(module);
+            row.Controls.Add(reference);
+            row.Controls.Add(detail);
+            row.Controls.Add(summary);
+            row.Controls.Add(view);
+            row.Controls.Add(amount);
+            row.Controls.Add(when);
+            return row;
+        }
+
+        private void OpenRecentActivityItem(DashboardRecentItem item)
+        {
+            if (item == null || item.RecordId <= 0)
+                return;
+
+            NavigationHelper.OpenRecord(this, item.Module, item.RecordId);
+        }
+
+        private IEnumerable<DashboardRecentItem> BuildRecentItems()
+        {
+            IEnumerable<DashboardRecentItem> quotes = _quotations.Select(q => new DashboardRecentItem
+            {
+                Module = "Quotation",
+                RecordId = q.BidID,
+                Reference = q.QuotationNumber,
+                PartyName = q.ClientName,
+                SiteName = q.SiteName,
+                Status = Safe(q.Status, "Draft"),
+                Summary = q.TenderName,
+                Amount = QuoteValue(q),
+                ActivityDate = q.ModifiedDate ?? q.SubmittedDate ?? q.RequiredByDate ?? q.DueDate
+            });
+
+            IEnumerable<DashboardRecentItem> invoices = _invoices.Select(i => new DashboardRecentItem
+            {
+                Module = "Invoice",
+                RecordId = i.InvoiceID,
+                Reference = i.InvoiceNumber,
+                PartyName = i.ClientName,
+                SiteName = i.SiteName,
+                Status = Safe(i.PaymentStatus, "Pending"),
+                Summary = i.Subject,
+                Amount = i.TotalAmount,
+                ActivityDate = i.ModifiedDate ?? i.InvoiceDate
+            });
+
+            IEnumerable<DashboardRecentItem> jobs = _jobs.Select(j => new DashboardRecentItem
+            {
+                Module = "Job",
+                RecordId = j.JobID,
+                Reference = j.JobNumber,
+                PartyName = j.ClientName,
+                SiteName = j.SiteName,
+                Status = Safe(FirstNonEmpty(j.PipelineStatus, j.Status), "Pending"),
+                Summary = FirstNonEmpty(j.JobTitle, j.Title, j.Description),
+                Amount = JobRecentAmount(j),
+                ActivityDate = j.ModifiedDate ?? j.CreatedDate
+            });
+
+            IEnumerable<DashboardRecentItem> purchases = _purchaseOrders.Select(p => new DashboardRecentItem
+            {
+                Module = "Purchase",
+                RecordId = p.POID,
+                Reference = p.PONumber,
+                PartyName = p.VendorName,
+                SiteName = p.SiteName,
+                Status = Safe(p.Status, "Draft"),
+                Summary = p.Notes,
+                Amount = p.TotalAmount,
+                ActivityDate = p.ModifiedDate ?? p.CreatedByDate ?? p.CreatedDate
+            });
+
+            return quotes
+                .Concat(invoices)
+                .Concat(jobs)
+                .Concat(purchases)
+                .OrderByDescending(item => item.ActivityDate)
+                .ThenByDescending(item => item.Amount);
+        }
+
+        private static string BuildRecentDetail(DashboardRecentItem item)
+        {
+            string party = Safe(item.PartyName, "No party");
+            string site = string.IsNullOrWhiteSpace(item.SiteName) ? "No site" : item.SiteName.Trim();
+            return party + " | " + site;
+        }
+
+        private static Color ModuleColor(string module)
+        {
+            if (string.Equals(module, "Quotation", StringComparison.OrdinalIgnoreCase))
+                return Color.FromArgb(124, 58, 237);
+            if (string.Equals(module, "Invoice", StringComparison.OrdinalIgnoreCase))
+                return Color.FromArgb(13, 148, 136);
+            if (string.Equals(module, "Job", StringComparison.OrdinalIgnoreCase))
+                return Color.FromArgb(249, 115, 22);
+            if (string.Equals(module, "Purchase", StringComparison.OrdinalIgnoreCase))
+                return Color.FromArgb(22, 163, 74);
+            return DS.Slate700;
+        }
+
         private DashboardDeptCard Dept(int width, ModernIconKind icon, string bg, string color, string title, string primaryValue, string primaryLabel, string secondaryValue, string secondaryLabel, IEnumerable<DashboardCardPill> pills, int nav, Color? primaryColor = null, Color? secondaryColor = null)
         {
             var card = new DashboardDeptCard(icon, ColorTranslator.FromHtml(bg), ColorTranslator.FromHtml(color), title,
@@ -632,6 +869,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Width = width;
             card.Margin = new Padding(4, 6, 4, 6);
             card.Tag = "dashboard-card";
+            AttachDashboardExceptionCard(card, title);
             GlobalCardContextMenu.AttachCard(card, title, "Dashboard", "Nav" + nav, () => OnNavigate?.Invoke(nav));
             return card;
         }
@@ -642,8 +880,106 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel row = RowPanel(width, 270);
             Panel finance = CardPanel(width, 258);
             BuildFinance(finance);
+            AttachDashboardExceptionCard(finance, "Financial Overview");
             row.Controls.Add(finance);
             _root.Controls.Add(row);
+        }
+
+        private void AttachDashboardExceptionCard(Control card, string key)
+        {
+            if (card == null)
+                return;
+            card.Cursor = Cursors.Hand;
+            card.DoubleClick += (s, e) => ExceptionCardDetailDialog.ShowFor(this, BuildDashboardExceptionDetail(key));
+            foreach (Control child in card.Controls)
+            {
+                if (child is Button || child is ComboBox)
+                    continue;
+                child.Cursor = Cursors.Hand;
+                child.DoubleClick += (s, e) => ExceptionCardDetailDialog.ShowFor(this, BuildDashboardExceptionDetail(key));
+            }
+        }
+
+        private ExceptionCardDetail BuildDashboardExceptionDetail(string key)
+        {
+            string normalized = (key ?? string.Empty).Trim();
+            if (normalized == T("Sales / Quotations") || normalized.IndexOf("Quotation", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Sales / Quotations", "All quotation rows behind the dashboard card.", "Quotation", "Client", "Site", "Date", "Value", "Status");
+                foreach (TenderBid q in _quotations.OrderByDescending(q => q.ModifiedDate ?? q.SubmittedDate ?? q.DueDate))
+                    detail.AddRow(q.QuotationNumber, q.ClientName, q.SiteName, (q.ModifiedDate ?? q.SubmittedDate ?? q.DueDate).ToString("dd/MM/yyyy"), Money(QuoteValue(q)), Safe(q.Status, "Draft"));
+                return detail;
+            }
+            if (normalized.IndexOf("Purchase", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Purchase Orders", "All purchase rows behind the dashboard card.", "PO", "Supplier", "PO Date", "Required", "Value", "Balance", "Status");
+                foreach (PurchaseOrder p in _purchaseOrders.OrderByDescending(p => p.PODate))
+                    detail.AddRow(p.PONumber, p.VendorName, p.PODate.ToString("dd/MM/yyyy"), p.PayByDate.ToString("dd/MM/yyyy"), Money(p.TotalAmount), Money(Math.Max(0m, p.BalanceDue)), Safe(p.Status, "Draft"));
+                return detail;
+            }
+            if (normalized.IndexOf("Invoice", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Invoices", "All invoices behind the dashboard card.", "Invoice", "Client", "Site", "Date", "Due", "Amount", "Balance", "Status");
+                foreach (Invoice i in _invoices.OrderByDescending(i => i.InvoiceDate))
+                    detail.AddRow(i.InvoiceNumber, i.ClientName, i.SiteName, i.InvoiceDate.ToString("dd/MM/yyyy"), i.DueDate.ToString("dd/MM/yyyy"), Money(i.TotalAmount), Money(Math.Max(0m, i.BalanceDue)), Safe(i.PaymentStatus, "Pending"));
+                return detail;
+            }
+            if (normalized.IndexOf("Payment", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Payments", "All payments behind the dashboard card.", "Payment", "Client", "Invoice", "Date", "Mode", "Amount", "Reference");
+                foreach (Payment p in _payments.OrderByDescending(p => p.PaymentDate))
+                    detail.AddRow(p.PaymentNumber, p.ClientName, p.InvoiceNumber, p.PaymentDate.ToString("dd/MM/yyyy"), p.PaymentMode, Money(p.AmountPaid), p.ReferenceNumber);
+                return detail;
+            }
+            if (normalized.IndexOf("Client", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Clients", "All client rows behind the dashboard card.", "Client", "Phone", "Email", "Status");
+                foreach (B2BClient c in _clients.OrderBy(c => c.CompanyName))
+                    detail.AddRow(c.CompanyName, c.Phone, c.Email, c.IsActive ? "Active" : "Inactive");
+                return detail;
+            }
+            if (normalized.IndexOf("Supplier", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Suppliers", "All supplier rows behind the dashboard card.", "Supplier", "Phone", "Email", "Status");
+                foreach (Vendor v in _vendors.OrderBy(v => v.VendorName))
+                    detail.AddRow(v.VendorName, v.Phone, v.Email, v.IsActive && !v.IsArchived ? "Active" : "Inactive");
+                return detail;
+            }
+            if (normalized.IndexOf("Material", StringComparison.OrdinalIgnoreCase) >= 0 || normalized.IndexOf("Procurement", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Materials / Procurement", "All inventory rows behind the dashboard card.", "Item", "Category", "Available", "Minimum", "Rate", "Stock Status");
+                foreach (StockItem item in _inventory.OrderBy(i => i.ItemName))
+                    detail.AddRow(item.ItemName, item.Category, item.AvailableStock.ToString("0.##"), item.ReorderLevel.ToString("0.##"), Money(item.LastPurchaseRate), item.IsLowStock ? "Low Stock" : "Healthy");
+                return detail;
+            }
+            if (normalized.IndexOf("Employee", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Employees", "All employee rows behind the dashboard card.", "Employee", "Role", "Phone", "Status");
+                foreach (Employee e in _employees.OrderBy(e => e.Name))
+                    detail.AddRow(e.Name, e.Designation, e.Phone, e.Status);
+                return detail;
+            }
+            if (normalized.IndexOf("Service", StringComparison.OrdinalIgnoreCase) >= 0 || normalized.IndexOf("Job", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                var detail = ExceptionCardDetail.Create("Service Operations", "Open jobs and service tickets behind the dashboard cards.", "Type", "Reference", "Client", "Site", "Date", "Priority", "Status");
+                foreach (Job j in _jobs.OrderByDescending(j => j.ScheduledDate))
+                    detail.AddRow("Job", j.JobNumber, j.ClientName, j.SiteName, j.ScheduledDate.ToString("dd/MM/yyyy"), FirstNonEmpty(j.Priority, "-"), FirstNonEmpty(j.PipelineStatus, j.Status));
+                foreach (ServiceDeskIncident t in _serviceTickets.OrderByDescending(t => t.OpenedAt))
+                    detail.AddRow("Ticket", t.IncidentNumber, t.ClientName, t.SiteName, t.OpenedAt.ToString("dd/MM/yyyy"), t.Priority, t.Status);
+                return detail;
+            }
+            if (normalized.IndexOf("Financial", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                decimal revenue = _invoices.Where(i => IsThisMonth(i.InvoiceDate)).Sum(i => i.TotalAmount);
+                decimal expenses = _purchaseOrders.Where(p => IsThisMonth(p.PODate)).Sum(p => p.TotalAmount);
+                return ExceptionCardDetail.Create("Financial Overview", "This-month totals behind the finance card.", "Metric", "Amount")
+                    .AddRow("Total Revenue", Money(revenue))
+                    .AddRow("Expenses", Money(expenses))
+                    .AddRow("Gross Profit", Money(revenue - expenses))
+                    .AddRow("Net Profit", Money(revenue - expenses))
+                    .AddRow("Receipts", Money(_payments.Where(p => IsThisMonth(p.PaymentDate)).Sum(p => p.AmountPaid)));
+            }
+            return ExceptionCardDetail.Create("Dashboard Details", "No matching dashboard detail found.", "Message").AddRow("No rows found.");
         }
 
         private void BuildFinance(Panel panel)
@@ -766,6 +1102,8 @@ namespace HVAC_Pro_Desktop.UI
         private static string Count(int n) => n.ToString("N0");
         private static string Money(decimal n) => IndiaFormatHelper.FormatCurrency(n);
         private static string Safe(string text, string fallback) => string.IsNullOrWhiteSpace(text) ? fallback : text.Trim();
+        private static string FirstNonEmpty(params string[] values) => (values ?? new string[0]).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v))?.Trim() ?? string.Empty;
+        private static decimal JobRecentAmount(Job job) => job == null ? 0m : Math.Max(job.ActualRevenue, Math.Max(job.QuotedRevenue, job.Revenue));
         private static decimal QuoteValue(TenderBid q) => q == null ? 0 : (q.TotalWithGST > 0 ? q.TotalWithGST : (q.BidValue > 0 ? q.BidValue : q.TotalTaxableValue + q.TotalGSTAmount));
         private static string TimeOfDay() { int h = DateTime.Now.Hour; return h < 12 ? T("morning") : h < 17 ? T("afternoon") : T("evening"); }
         private static string T(string key) => LanguageManager.Get(key);

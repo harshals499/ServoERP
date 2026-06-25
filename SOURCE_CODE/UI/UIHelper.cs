@@ -1027,6 +1027,9 @@ namespace HVAC_Pro_Desktop.UI
 
             if (ctrl is DataGridView grid)
             {
+                if (IsInsideCustomInputShell(grid))
+                    return;
+
                 GridTheme.Apply(grid);
                 return;
             }
@@ -1566,6 +1569,9 @@ namespace HVAC_Pro_Desktop.UI
         private static void ConfigureDataGrid(Control control)
         {
             if (!(control is DataGridView grid))
+                return;
+
+            if (IsInsideCustomInputShell(grid))
                 return;
 
             grid.ScrollBars = ScrollBars.Both;

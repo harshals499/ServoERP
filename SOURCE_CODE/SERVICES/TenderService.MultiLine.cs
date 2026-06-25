@@ -150,6 +150,8 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             AppDataCache.RemovePrefix("tenders:");
+            AppDataCache.RemovePrefix("quotations:");
+            DashboardRefreshService.NotifyChanged("Quotations");
             _audit.Record("SAVE", "Quotations", bid.BidID, "Quotation saved with data-quality validation");
             return bid.BidID;
         }
@@ -664,7 +666,7 @@ namespace HVAC_Pro_Desktop.Services
                 ? "<tr><td class='total-label' colspan='6'>Add: CGST @ 9%</td><td class='total-value'>" + FormatTenderAmount(cgst) + "</td></tr><tr><td class='total-label' colspan='6'>Add: SGST @ 9%</td><td class='total-value'>" + FormatTenderAmount(sgst) + "</td></tr>"
                 : "<tr><td class='total-label' colspan='6'>Add: IGST @ 18%</td><td class='total-value'>" + FormatTenderAmount(igst) + "</td></tr>";
 
-            string amountWords = "Rupees :- " + ToTenderWords((long)Math.Round(bid.TotalWithGST)) + " Only.";
+            string amountWords = IndiaFormatHelper.ToRupeesOnlyWords(bid.TotalWithGST);
             string subject = string.IsNullOrWhiteSpace(bid.TenderName) ? "Quotation for HVAC supply / service work at your site." : bid.TenderName;
             string customerBlockHtml = BuildTenderCustomerBlock(client, site, bid.ClientName);
             string submittedDate = IndiaFormatHelper.FormatDate(bid.SubmittedDate ?? DateTime.Today);
@@ -691,9 +693,11 @@ namespace HVAC_Pro_Desktop.Services
             + rows
             + "<tr><td class='total-label' colspan='6'>Total Rs.</td><td class='total-value'>" + FormatTenderAmount(bid.TotalTaxableValue) + "</td></tr>"
             + taxRows
-            + "<tr><td class='total-label grand' colspan='6'>Total Amount</td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr>"
-            + "<tr><td colspan='7' class='words'>" + HtmlTender(amountWords) + "</td></tr></tbody></table>"
-            + "<table class='quote-grid terms'><tr><td class='terms-left'>"
+            + "<tr><td class='total-label grand' colspan='6'><div class='total-summary'><span>Total Amount : </span><span class='words-inline'>" + HtmlTender(amountWords.EndsWith(".") ? amountWords : amountWords + ".") + "</span></div></td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr></tbody></table>"
+            + "<table class='quote-grid terms'><tr><td class='quote-footer-left'>"
+            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false)
+            + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
+            + "<tr><td class='terms-left'>"
             + "<div>&#8226; Quotation is Valid Upto " + validityDays + " days.</div>"
             + "<div>&#8226; If any Extra Work Required Charge We be Extra at<br/>Actual</div>"
             + "</td><td class='terms-right'></td></tr>"
@@ -738,10 +742,14 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .total-value{text-align:right;font-weight:700;font-size:14px;}
 .grand{font-size:15px;}
 .words{font-weight:700;font-size:14px;line-height:1.25;height:24px;}
+.total-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.words-inline{font-weight:700;font-size:14px;line-height:1.25;color:#f00;text-align:right;white-space:nowrap;}
 .terms td{height:58px;font-size:13px;line-height:1.22;}
 .terms tr:first-child td{border-top:0;}
 .terms-left{width:47%;}
 .terms-right{width:53%;}
+.quote-footer-left{width:47%;font-size:13px;line-height:1.2;font-weight:700;}
+.quote-footer-right{width:53%;}
 .comments{font-weight:700;height:38px;}
 .contact{font-size:12px;line-height:1.22;}
 @media screen{
@@ -766,6 +774,7 @@ body{background:#fff;}
 .total-label,.total-value{font-size:12px;}
 .grand{font-size:13px;}
 .words{font-size:12px;height:20px;}
+.words-inline{font-size:12px;}
 .terms td{height:42px;font-size:12px;}
 .comments{height:30px;}
 .contact{font-size:11px;}
@@ -1200,23 +1209,5 @@ body{background:#fff;}
             return parts.Length == 0 ? fallbackState : parts[parts.Length - 1].Trim();
         }
 
-        private static string ToTenderWords(long number)
-        {
-            if (number == 0) return "Zero";
-            if (number < 0) return "Minus " + ToTenderWords(Math.Abs(number));
-            string[] units = { "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen" };
-            string[] tens = { "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety" };
-            Func<long, string> underHundred = n => n < 20 ? units[n] : tens[n / 10] + (n % 10 > 0 ? " " + units[n % 10] : "");
-            Func<long, string> convert = null;
-            convert = n =>
-            {
-                if (n < 100) return underHundred(n);
-                if (n < 1000) return units[n / 100] + " Hundred" + (n % 100 > 0 ? " " + convert(n % 100) : "");
-                if (n < 100000) return convert(n / 1000) + " Thousand" + (n % 1000 > 0 ? " " + convert(n % 1000) : "");
-                if (n < 10000000) return convert(n / 100000) + " Lakh" + (n % 100000 > 0 ? " " + convert(n % 100000) : "");
-                return convert(n / 10000000) + " Crore" + (n % 10000000 > 0 ? " " + convert(n % 10000000) : "");
-            };
-            return convert(number);
-        }
     }
 }

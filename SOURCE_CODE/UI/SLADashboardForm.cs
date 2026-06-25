@@ -42,42 +42,33 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void BuildLayout()
         {
-            // â”€â”€ Page header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Panel header = new Panel
-            {
-                Dock = DockStyle.Top, Height = 56, BackColor = HeaderBg,
-                Padding = new Padding(16, 0, 0, 0)
-            };
-            header.Controls.Add(new Label
-            {
-                Text = "SLA Dashboard", Font = new Font("Segoe UI", 14, FontStyle.Bold),
-                ForeColor = DS.Slate900, Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            });
-
-            // â”€â”€ Toolbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            Panel toolbar = new Panel
-            {
-                Dock = DockStyle.Top, Height = 44, BackColor = Color.White,
-                Padding = new Padding(8, 6, 8, 6)
-            };
-
             Button btnLog = MakeBtn("Log SLA Event", Color.FromArgb(39, 174, 96), 130);
             Button btnRefresh = MakeBtn("Refresh",   AccentBlue,                   90);
-
-            btnLog.Location     = new Point(8,   8);
-            btnRefresh.Location = new Point(148, 8);
 
             btnLog.Click     += BtnLog_Click;
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
 
             _lblStatus = new Label
             {
-                AutoSize  = true, Font = new Font("Segoe UI", 9),
-                ForeColor = Color.Gray, Location = new Point(260, 14)
+                AutoSize = false,
+                Size = new Size(180, 24),
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = Color.Gray,
+                TextAlign = ContentAlignment.MiddleRight
             };
-
-            toolbar.Controls.AddRange(new Control[] { btnLog, btnRefresh, _lblStatus });
+            SharedPageHeaderModel headerModel = SharedPageHeader.CreateWorkspaceDashboard(
+                "SlaDashboardHeader",
+                "SLA Dashboard",
+                "Review contract compliance, breach trends, and service commitment status.",
+                new List<Control> { btnRefresh, btnLog },
+                SharedPageHeader.CreateSearchCommand("SlaDashboardSearch", 320, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                _lblStatus,
+                HeaderBg,
+                new Padding(16, 10, 16, 8));
+            headerModel.Dock = DockStyle.Top;
+            headerModel.DefaultHeight = 84;
+            headerModel.CompactHeight = 116;
+            Panel header = SharedPageHeader.Build(headerModel).Header;
 
             // â”€â”€ Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             _grid = new DataGridView
@@ -119,7 +110,6 @@ namespace HVAC_Pro_Desktop.UI
             // â”€â”€ Add controls in reverse visual order â”€â”€â”€â”€â”€â”€â”€â”€â”€
             this.Controls.Add(_lblNoRecords);
             this.Controls.Add(_grid);      // Fill (must be added first)
-            this.Controls.Add(toolbar);
             this.Controls.Add(header);
         }
 

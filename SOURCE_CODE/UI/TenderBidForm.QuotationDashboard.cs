@@ -24,6 +24,7 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _quoteDashboardCards;
         private QuotationDashboardTile _quoteDashboardDragCard;
         private readonly Dictionary<string, Size> _quoteDashboardBaseSizes = new Dictionary<string, Size>();
+        private QuotationDashboardSnapshot _quoteDashboardSnapshot;
         private QuotationOverviewChart _quoteOverviewChart;
         private DataGridView _quoteRecentGrid = null;
         private FlowLayoutPanel _quoteVendorReceived;
@@ -109,9 +110,6 @@ namespace HVAC_Pro_Desktop.UI
             quick.Controls.Add(QuickAction("Quotation Report", () => OnNavigate?.Invoke(12)));
             quick.Controls.Add(QuickAction("Export Data", () => MessageBox.Show("Use the quotation PDF/export tools after selecting a quotation.", "Export Data", MessageBoxButtons.OK, MessageBoxIcon.Information)));
 
-            AddDashboardCard("vendor_workflow", "Supplier Workflow", BuildQuotationWorkflowSection("Sent to Suppliers", _quoteVendorSent, "Received from Suppliers", _quoteVendorReceived), 360, 452, "Workflow");
-            AddDashboardCard("client_workflow", "Client Workflow", BuildQuotationWorkflowSection("Sent to Clients", _quoteClientSent, "Received from Clients", _quoteClientReceived), 360, 452, "Workflow");
-            AddDashboardCard("work_attached", "Work Attached", _quoteAttachedWork, 360, 452, "Workflow");
             AddDashboardCard("overview", "Overview", _quoteOverviewChart, 560, 216, "Large");
             AddDashboardCard("business", "Business Health", _quoteBusinessCards, 560, 214, "Large");
             AddDashboardCard("trend", "Value Trend", _quoteValueTrend, 560, 214, "Large");
@@ -121,6 +119,9 @@ namespace HVAC_Pro_Desktop.UI
             AddDashboardCard("lost_reasons", "Lost Reasons", _quoteLostDonut, 280, 196, "Compact");
             AddDashboardCard("insights", "Insights", _quoteInsights, 560, 178, "Large");
             AddDashboardCard("quick_actions", "Quick Actions", quick, 560, 178, "Large");
+            AddDashboardCard("vendor_workflow", "Supplier Workflow", BuildQuotationWorkflowSection("Sent to Suppliers", _quoteVendorSent, "Received from Suppliers", _quoteVendorReceived), 360, 452, "Workflow");
+            AddDashboardCard("client_workflow", "Client Workflow", BuildQuotationWorkflowSection("Sent to Clients", _quoteClientSent, "Received from Clients", _quoteClientReceived), 360, 452, "Workflow");
+            AddDashboardCard("work_attached", "Work Attached", _quoteAttachedWork, 360, 452, "Workflow");
 
             _quoteDashboardCards.Resize += (s, e) => LayoutQuotationDashboardCards();
             ApplySavedQuotationDashboardOrder();
@@ -129,61 +130,60 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildQuoteDashboardHeader()
         {
-            var header = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(16, 8, 16, 8) };
-            header.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(BorderColor))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-            header.Controls.Add(new Label
-            {
-                Text = "Quotation Dashboard",
-                Location = new Point(16, 8),
-                Size = new Size(300, 24),
-                Font = new Font("Segoe UI", 15.5f, FontStyle.Bold),
-                ForeColor = QuoteText,
-                AutoEllipsis = true
-            });
-            header.Controls.Add(new Label
-            {
-                Text = "Overview of all quotations and business analytics",
-                Location = new Point(17, 34),
-                Size = new Size(420, 18),
-                Font = new Font("Segoe UI", 9),
-                ForeColor = QuoteMuted,
-                AutoEllipsis = true
-            });
-
             Button more = MakeDashButton("...", 38, QuoteSurface, QuoteText);
-            more.Location = new Point(header.Width - 56, 12);
-            more.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             more.Click += (s, e) => MessageBox.Show("Quotation dashboard actions are available from the quick action cards below.", "Quotation Dashboard", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Button newQuote = MakeDashButton("+ New Quotation", 154, CargoPurple, Color.White);
-            newQuote.Location = new Point(header.Width - 218, 12);
-            newQuote.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             newQuote.Click += (s, e) => NewRecord();
 
             Button refresh = MakeDashButton("Refresh", 82, QuoteSurface, InfoBlue);
-            refresh.Location = new Point(header.Width - 308, 12);
-            refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             refresh.Click += (s, e) => RefreshQuotationDashboardSafe();
 
-            _quoteDashGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 94, Height = 30, Location = new Point(header.Width - 536, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _quoteDashGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 94, Height = 30 };
             _quoteDashGroup.Items.AddRange(new object[] { "Week", "Day", "Month" });
             _quoteDashGroup.SelectedIndex = 0;
             _quoteDashGroup.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
 
             DateTime today = DateTime.Today;
-            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, 1), Location = new Point(header.Width - 776, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _quoteDashTo = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)), Location = new Point(header.Width - 656, 14), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, 1) };
+            _quoteDashTo = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)) };
             _quoteDashFrom.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();
             _quoteDashTo.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();
 
-            _quoteDashStatus = new Label { AutoSize = true, ForeColor = QuoteMuted, Font = new Font("Segoe UI", 8), Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(header.Width - 926, 20), Text = "Loading..." };
+            _quoteDashStatus = new Label { AutoSize = true, ForeColor = QuoteMuted, Font = new Font("Segoe UI", 8), Text = "Loading..." };
+            FlowLayoutPanel metaRail = new FlowLayoutPanel
+            {
+                Name = "QuotationDashboardMetaRail",
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            foreach (Control control in new Control[] { _quoteDashStatus, _quoteDashFrom, _quoteDashTo, _quoteDashGroup })
+            {
+                control.Margin = new Padding(0, 0, SharedUiPrimitives.HeaderActionGap, 0);
+                metaRail.Controls.Add(control);
+            }
+            if (metaRail.Controls.Count > 0)
+                metaRail.Controls[metaRail.Controls.Count - 1].Margin = Padding.Empty;
 
-            header.Controls.AddRange(new Control[] { _quoteDashStatus, _quoteDashFrom, _quoteDashTo, _quoteDashGroup, refresh, newQuote, more });
-            return header;
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "QuotationDashboardHeader",
+                "Quotation Dashboard",
+                "Overview of all quotations and business analytics",
+                new List<Control> { refresh, newQuote, more },
+                null,
+                metaRail,
+                Color.White,
+                new Padding(16, 8, 16, 8));
+            model.Dock = DockStyle.Fill;
+            model.DefaultHeight = 72;
+            model.CompactHeight = 108;
+            model.CompactBreakpoint = 1380;
+            return SharedPageHeader.Build(model).Header;
         }
 
         private DataGridView CreateRecentQuotationGrid()
@@ -255,16 +255,17 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (snapshot == null)
                 return;
+            _quoteDashboardSnapshot = snapshot;
             _quoteDashStatus.Text = snapshot.UsesDemoData ? "No live quotation data" : "Live quotation data";
             _quoteDashStatus.ForeColor = snapshot.UsesDemoData ? WarnOrange : SaveGreen;
 
             _quoteDashKpis.Controls.Clear();
-            AddKpi(snapshot.Kpis.TotalQuotations, false, "0");
-            AddKpi(snapshot.Kpis.TotalValue, true, "N2");
-            AddKpi(snapshot.Kpis.ConvertedValue, true, "N2");
-            AddKpi(snapshot.Kpis.ConversionRate, false, "0.0'%'");
-            AddKpi(snapshot.Kpis.PendingValue, true, "N2");
-            AddKpi(snapshot.Kpis.AverageQuotationValue, true, "N2");
+            AddKpi(snapshot.Kpis.TotalQuotations, false, "0", "kpi_total");
+            AddKpi(snapshot.Kpis.TotalValue, true, "N2", "kpi_value");
+            AddKpi(snapshot.Kpis.ConvertedValue, true, "N2", "kpi_converted");
+            AddKpi(snapshot.Kpis.ConversionRate, false, "0.0'%'", "kpi_conversion");
+            AddKpi(snapshot.Kpis.PendingValue, true, "N2", "kpi_pending");
+            AddKpi(snapshot.Kpis.AverageQuotationValue, true, "N2", "kpi_average");
             LayoutQuotationDashboardKpis();
 
             _quoteOverviewChart.SetData(snapshot.Overview);
@@ -278,7 +279,7 @@ namespace HVAC_Pro_Desktop.UI
             BindInsights(snapshot.Insights);
         }
 
-        private void AddKpi(QuotationKpi kpi, bool currency, string format)
+        private void AddKpi(QuotationKpi kpi, bool currency, string format, string key)
         {
             Panel card = new Panel { Width = 168, Height = 78, MinimumSize = new Size(148, 78), BackColor = QuoteSurface, Margin = new Padding(0, 0, 8, 0), Padding = new Padding(12, 10, 10, 8) };
             DS.Rounded(card, 10);
@@ -289,6 +290,7 @@ namespace HVAC_Pro_Desktop.UI
             Color changeColor = kpi.MonthOverMonthPercent >= 0m ? SaveGreen : Color.FromArgb(220, 38, 38);
             string arrow = kpi.MonthOverMonthPercent >= 0m ? "^ " : "v ";
             card.Controls.Add(new Label { Text = arrow + Math.Abs(kpi.MonthOverMonthPercent).ToString("0.#") + "% from last month", Font = new Font("Segoe UI", 7.6f), ForeColor = changeColor, Size = new Size(144, 16), Location = new Point(12, 57), AutoEllipsis = true });
+            AttachQuotationExceptionCard(card, key);
             _quoteDashKpis.Controls.Add(card);
         }
 
@@ -309,6 +311,115 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _quoteDashKpis.PerformLayout();
+        }
+
+        private void AttachQuotationExceptionCard(Control card, string key)
+        {
+            if (card == null)
+                return;
+            card.Cursor = Cursors.Hand;
+            EventHandler open = (s, e) => ShowQuotationExceptionDetail(key);
+            card.DoubleClick += open;
+            if (!(card is QuotationDashboardTile))
+                card.Click += open;
+            foreach (Control child in card.Controls)
+            {
+                if (child is Button || child is DataGridView || child is ComboBox || child is DateTimePicker)
+                    continue;
+                child.Cursor = Cursors.Hand;
+                child.DoubleClick += open;
+            }
+        }
+
+        private void ShowQuotationExceptionDetail(string key)
+        {
+            ExceptionCardDetailDialog.ShowFor(this, BuildQuotationExceptionDetail(key));
+        }
+
+        private ExceptionCardDetail BuildQuotationExceptionDetail(string key)
+        {
+            QuotationDashboardSnapshot s = _quoteDashboardSnapshot ?? new QuotationDashboardSnapshot();
+            string normalized = key ?? string.Empty;
+            if (normalized.StartsWith("kpi_", StringComparison.OrdinalIgnoreCase) || normalized == "overview" || normalized == "recent")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Details", "Complete quotation rows behind this dashboard card.", "Quotation", "Client", "Site", "Date", "Valid Till", "Value", "Flow", "Customer", "Supplier", "Status");
+                IEnumerable<QuotationRecentRow> rows = s.RecentQuotations ?? new List<QuotationRecentRow>();
+                if (normalized == "kpi_converted")
+                    rows = rows.Where(IsClientReceivedQuotation);
+                else if (normalized == "kpi_pending")
+                    rows = rows.Where(r => !IsClientReceivedQuotation(r));
+                foreach (QuotationRecentRow row in rows.OrderByDescending(r => r.QuotationDate))
+                    detail.AddRow(row.QuotationNumber, row.ClientName, row.SiteName, IndiaFormatHelper.FormatDate(row.QuotationDate), IndiaFormatHelper.FormatDate(row.ValidTill), IndiaFormatHelper.FormatCurrency(row.Value), row.CommercialFlow, row.CustomerDocumentStatus, row.SupplierDocumentStatus, row.Status);
+                return detail;
+            }
+            if (normalized == "business")
+            {
+                QuotationKpiSet k = s.Kpis ?? new QuotationKpiSet();
+                return ExceptionCardDetail.Create("Quotation Business Health", "Every business KPI shown in the dashboard.", "Metric", "Value", "Month Change")
+                    .AddRow(k.WinRate.Title, k.WinRate.Value.ToString("0.0") + "%", k.WinRate.MonthOverMonthPercent.ToString("0.#") + "%")
+                    .AddRow(k.AverageSalesCycle.Title, k.AverageSalesCycle.Value.ToString("0.0") + " days", k.AverageSalesCycle.MonthOverMonthPercent.ToString("0.#") + "%")
+                    .AddRow(k.RepeatClientRate.Title, k.RepeatClientRate.Value.ToString("0.0") + "%", k.RepeatClientRate.MonthOverMonthPercent.ToString("0.#") + "%")
+                    .AddRow(k.RevenuePipeline.Title, IndiaFormatHelper.FormatCurrency(k.RevenuePipeline.Value), k.RevenuePipeline.MonthOverMonthPercent.ToString("0.#") + "%")
+                    .AddRow(k.WeightedPipeline.Title, IndiaFormatHelper.FormatCurrency(k.WeightedPipeline.Value), k.WeightedPipeline.MonthOverMonthPercent.ToString("0.#") + "%")
+                    .AddRow(k.ExpectedRevenue.Title, IndiaFormatHelper.FormatCurrency(k.ExpectedRevenue.Value), k.ExpectedRevenue.MonthOverMonthPercent.ToString("0.#") + "%");
+            }
+            if (normalized == "trend")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Value Trend", "All trend points behind the chart.", "Period", "Count", "Value");
+                foreach (QuotationTrendPoint row in s.ValueTrend ?? new List<QuotationTrendPoint>())
+                    detail.AddRow(row.Period, row.Count, IndiaFormatHelper.FormatCurrency(row.Value));
+                return detail;
+            }
+            if (normalized == "top_clients")
+            {
+                var detail = ExceptionCardDetail.Create("Top Quotation Clients", "All client value rows behind the card.", "Client", "Value");
+                foreach (QuotationTopClientRow row in s.TopClients ?? new List<QuotationTopClientRow>())
+                    detail.AddRow(row.ClientName, IndiaFormatHelper.FormatCurrency(row.Amount));
+                return detail;
+            }
+            if (normalized == "top_items")
+            {
+                var detail = ExceptionCardDetail.Create("Top Quotation Items", "All item rows behind the card.", "Item", "Quantity", "Value");
+                foreach (QuotationTopItemRow row in s.TopItems ?? new List<QuotationTopItemRow>())
+                    detail.AddRow(row.ItemName, row.Quantity.ToString("0.##"), IndiaFormatHelper.FormatCurrency(row.TotalValue));
+                return detail;
+            }
+            if (normalized == "followups")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Follow Ups", "All upcoming follow ups behind the card.", "Quotation", "Client", "Follow Up", "Value");
+                foreach (QuotationFollowUpRow row in s.UpcomingFollowUps ?? new List<QuotationFollowUpRow>())
+                    detail.AddRow(row.QuotationNumber, row.ClientName, IndiaFormatHelper.FormatDate(row.FollowUpDate), IndiaFormatHelper.FormatCurrency(row.Value));
+                return detail;
+            }
+            if (normalized == "lost_reasons")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Lost Reasons", "All lost-reason buckets behind the card.", "Reason", "Count", "Percentage");
+                foreach (QuotationLostReasonSlice row in s.LostReasons ?? new List<QuotationLostReasonSlice>())
+                    detail.AddRow(row.Reason, row.Count, row.Percentage.ToString("0.#") + "%");
+                return detail;
+            }
+            if (normalized == "insights")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Insights", "Complete insight list behind the card.", "Insight", "Details");
+                foreach (QuotationInsight row in s.Insights ?? new List<QuotationInsight>())
+                    detail.AddRow(row.Title, row.Text);
+                return detail;
+            }
+            if (normalized == "vendor_workflow" || normalized == "client_workflow" || normalized == "work_attached")
+            {
+                var detail = ExceptionCardDetail.Create("Quotation Workflow", "Full workflow rows behind this card.", "Quotation", "Client", "Date", "Value", "Customer", "Supplier", "Status");
+                IEnumerable<QuotationRecentRow> rows = s.RecentQuotations ?? new List<QuotationRecentRow>();
+                if (normalized == "vendor_workflow")
+                    rows = rows.Where(r => IsVendorSentQuotation(r) || IsVendorReceivedQuotation(r));
+                else if (normalized == "client_workflow")
+                    rows = rows.Where(r => IsClientSentQuotation(r) || IsClientReceivedQuotation(r));
+                else
+                    rows = rows.Where(IsWorkAttachedQuotation);
+                foreach (QuotationRecentRow row in rows.OrderByDescending(r => r.QuotationDate))
+                    detail.AddRow(row.QuotationNumber, row.ClientName, IndiaFormatHelper.FormatDate(row.QuotationDate), IndiaFormatHelper.FormatCurrency(row.Value), row.CustomerDocumentStatus, row.SupplierDocumentStatus, row.Status);
+                return detail;
+            }
+            return ExceptionCardDetail.Create("Quotation Details", "No matching quotation detail found.", "Message").AddRow("No rows found.");
         }
 
         private FlowLayoutPanel CreateRecentQuoteFlow()
@@ -775,6 +886,7 @@ namespace HVAC_Pro_Desktop.UI
                 new Size(1040, Math.Max(height + 120, 320)));
             content.Dock = DockStyle.Fill;
             card.ContentHost.Controls.Add(content);
+            AttachQuotationExceptionCard(card.ContentHost, key);
             card.DragRequested += QuoteDashboardCard_DragRequested;
             card.ResizeCompleted += (s, e) =>
             {
@@ -920,6 +1032,8 @@ namespace HVAC_Pro_Desktop.UI
                     if (card != null)
                         _quoteDashboardCards.Controls.SetChildIndex(card, 0);
                 }
+
+                MoveQuotationWorkflowCardsToBottom();
             }
             catch
             {
@@ -931,11 +1045,34 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(QuotationDashboardOrderPath));
+                MoveQuotationWorkflowCardsToBottom();
                 string order = string.Join(",", _quoteDashboardCards.Controls.OfType<QuotationDashboardTile>().Select(c => c.CardKey));
                 File.WriteAllText(QuotationDashboardOrderPath, order);
             }
             catch
             {
+            }
+        }
+
+        private void MoveQuotationWorkflowCardsToBottom()
+        {
+            if (_quoteDashboardCards == null)
+                return;
+
+            string[] workflowKeys =
+            {
+                "quote_dash_vendor_workflow",
+                "quote_dash_client_workflow",
+                "quote_dash_work_attached"
+            };
+
+            foreach (string workflowKey in workflowKeys)
+            {
+                QuotationDashboardTile card = _quoteDashboardCards.Controls
+                    .OfType<QuotationDashboardTile>()
+                    .FirstOrDefault(c => string.Equals(c.CardKey, workflowKey, StringComparison.OrdinalIgnoreCase));
+                if (card != null)
+                    _quoteDashboardCards.Controls.SetChildIndex(card, _quoteDashboardCards.Controls.Count - 1);
             }
         }
 

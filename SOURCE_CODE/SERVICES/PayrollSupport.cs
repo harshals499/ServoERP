@@ -60,40 +60,9 @@ namespace HVAC_Pro_Desktop.Services
 
     internal static class PayrollWordsHelper
     {
-        private static readonly string[] Ones =
-        {
-            "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
-            "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"
-        };
-
-        private static readonly string[] Tens =
-        {
-            "Zero", "Ten", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"
-        };
-
         public static string ToIndianCurrencyWords(decimal amount)
         {
-            long rupees = (long)Math.Floor(amount);
-            int paise = (int)Math.Round((amount - rupees) * 100m, MidpointRounding.AwayFromZero);
-            string words = ConvertNumber(rupees) + " Rupees";
-            if (paise > 0)
-                words += " and " + ConvertNumber(paise) + " Paise";
-            return words + " Only";
-        }
-
-        private static string ConvertNumber(long number)
-        {
-            if (number < 20)
-                return Ones[number];
-            if (number < 100)
-                return Tens[number / 10] + (number % 10 == 0 ? string.Empty : " " + ConvertNumber(number % 10));
-            if (number < 1000)
-                return ConvertNumber(number / 100) + " Hundred" + (number % 100 == 0 ? string.Empty : " " + ConvertNumber(number % 100));
-            if (number < 100000)
-                return ConvertNumber(number / 1000) + " Thousand" + (number % 1000 == 0 ? string.Empty : " " + ConvertNumber(number % 1000));
-            if (number < 10000000)
-                return ConvertNumber(number / 100000) + " Lakh" + (number % 100000 == 0 ? string.Empty : " " + ConvertNumber(number % 100000));
-            return ConvertNumber(number / 10000000) + " Crore" + (number % 10000000 == 0 ? string.Empty : " " + ConvertNumber(number % 10000000));
+            return IndiaFormatHelper.ToRupeesOnlyWords(amount);
         }
     }
 }

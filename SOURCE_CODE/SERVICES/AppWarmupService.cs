@@ -1,6 +1,8 @@
 using System;
+using System.ComponentModel;
+using System.Collections.Generic;
 using System.Threading;
-using System.Threading.Tasks;
+using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -8,56 +10,41 @@ namespace HVAC_Pro_Desktop.Services
     {
         private static int _started;
         private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(3);
-        private static readonly TimeSpan BetweenBatchesDelay = TimeSpan.FromSeconds(2);
-        private static readonly TimeSpan HeavyBatchDelay = TimeSpan.FromSeconds(6);
+        private static BackgroundWorker _worker;
 
         public static void StartBackgroundWarmup()
         {
             if (Interlocked.Exchange(ref _started, 1) == 1)
                 return;
 
-            Task.Run(async () =>
+            _worker = new BackgroundWorker();
+            _worker.DoWork += (s, e) =>
             {
-                await Task.Delay(InitialDelay).ConfigureAwait(false);
+                Thread.Sleep(InitialDelay);
 
-                // Warm the smallest, most frequently reused datasets first.
-                Warm("settings", () => new SettingsService().GetAll());
-                Warm("clients", () => new ClientService().GetAllClients());
-                Warm("sites", () => new SiteService().GetAll());
-                Warm("contracts", () => new ContractService().GetAllContracts());
-                Warm("invoices", () => new InvoiceService().GetAllInvoices());
-                Warm("payments", () => new PaymentService().GetAllPayments());
-                Warm("inventory", () => new InventoryService().GetAll());
-                Warm("jobs", () => new JobService().GetAll());
-
-                await Task.Delay(BetweenBatchesDelay).ConfigureAwait(false);
-
-                Warm("vendors", () => new VendorService().GetAll());
-                Warm("purchases", () => new PurchaseService().GetAll());
-                Warm("employees", () => new EmployeeService().GetAll());
-                Warm("sla", () => new SLAService().GetAll());
-                Warm("hsn/sac", () => new HsnSacMasterService().GetAll());
-                Warm("quotations", () => new TenderService().GetAll());
-                Warm("service desk", () => new ServiceDeskService().GetAll());
-
-                // Summary-heavy warmups are useful, but they are also some of the most
-                // expensive joins/aggregations in the app. Delay them until after the
-                // user has had a chance to open the shell and first page.
-                await Task.Delay(HeavyBatchDelay).ConfigureAwait(false);
-                Warm("vendor summaries", () => new VendorService().GetAllVendorsWithSummary());
-                Warm("job summaries", () => new JobService().GetAllJobsWithSummary());
-            });
+                TimeSpan ttl = TimeSpan.FromMinutes(5);
+                WarmCache("clients:active", ttl, () => new ClientService().GetAllClients() ?? new List<B2BClient>());
+                WarmCache("vendors:suppliers", ttl, () => new VendorService().GetSuppliers() ?? new List<Vendor>());
+                WarmCache("vendors:all-including-archived", ttl, () => new VendorService().GetAllIncludingArchived() ?? new List<Vendor>());
+                WarmCache("vendors:summaries", ttl, () => new VendorService().GetAllVendorsWithSummary() ?? new List<VendorSummaryDto>());
+                WarmCache("inventory:all", ttl, () => new InventoryService().GetAll() ?? new List<StockItem>());
+                WarmCache("jobs:all", ttl, () => new JobService().GetAll() ?? new List<Job>());
+                WarmCache("jobs:summary", ttl, () => new JobService().GetAllJobsWithSummary() ?? new List<JobSummaryDto>());
+                WarmCache("contracts:all", ttl, () => new ContractService().GetAllContracts() ?? new List<AMCContract>());
+                WarmCache("hsnsac:all", ttl, () => new HsnSacMasterService().GetAll() ?? new List<HsnSacMasterEntry>());
+            };
+            _worker.RunWorkerAsync();
         }
 
-        private static void Warm<T>(string name, Func<T> factory)
+        private static void WarmCache<T>(string key, TimeSpan ttl, Func<T> factory)
         {
             try
             {
-                factory();
+                AppDataCache.GetOrCreate(key, ttl, factory);
             }
             catch (Exception ex)
             {
-                AppLogger.LogError("AppWarmupService." + name, ex);
+                AppLogger.LogError("AppWarmupService." + key, ex);
             }
         }
     }

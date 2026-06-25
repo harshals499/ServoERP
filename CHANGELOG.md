@@ -1,4 +1,48 @@
 # Changelog
+## 1.1.305.0 - 2026-06-24
+
+- Permanently removed the Tally page from navigation, page creation, QA catalogs, support module lists, language labels, and the desktop project compilation.
+
+## 1.1.304.0 - 2026-06-24
+
+- Renamed the Dispatch Center navigation/page surface to Site Monitor across the sidebar, page header, status messages, support text, language labels, and navigation smoke expectations.
+
+## 1.1.303.0 - 2026-06-24
+
+- Fixed the Inventory page freeze/open failure by suppressing automatic item-detail dialog launches during grid data binding, and widened the filter action area so Clear Filters and Refresh render cleanly.
+
+## 1.1.302.0 - 2026-06-24
+
+- Fixed the Inventory page open path by moving material catalog loading back onto the deferred page loader after the item details editor was moved into an on-demand dialog.
+
+## 1.1.301.0 - 2026-06-24
+
+- Moved Inventory item details out of the built-in page layout and into an on-demand Add/Edit Material dialog opened from the Add New Material button or material row selection.
+
+## 1.1.300.0 - 2026-06-24
+
+- Added full exception/detail drilldowns with CSV export to Quotation, Invoice, Payment, Purchase, and Main Dashboard cards, showing complete underlying rows instead of card previews only.
+
+## 1.1.299.0 - 2026-06-24
+
+- Added full exception/detail drilldowns to every Site Monitor card in Dispatch Center, with complete rows behind each KPI and section plus CSV export.
+
+## 1.1.298.0 - 2026-06-24
+
+- Redesigned the existing Dispatch Center page as a Site Monitor dashboard with site KPIs, operations tables, HVAC equipment summary, technician presence, SLA performance, revenue, and site health trend views while keeping the navigation entry unchanged.
+
+## 1.1.297.0 - 2026-06-24
+
+- Added full drilldown detail dialogs for Reports command center cards, including summary metrics, complete sortable data grids, and CSV export for each card.
+
+## 1.1.296.0 - 2026-06-24
+
+- Refined the Reports command center layout with compact one-line report library buttons and priority-based card sizing for larger financial/action cards and smaller supporting cards.
+
+## 1.1.295.0 - 2026-06-24
+
+- Replaced the Reports dashboard cards with a combined owner command center covering business health, receivables, sales pipeline, jobs, AMC contracts, purchases, inventory, clients, suppliers, payroll, service desk, and daily action queue signals.
+
 ## 1.1.294.0 - 2026-06-24
 
 - Added an explicit scrollbar range to the sidebar so all navigation groups remain reachable on smaller screens.

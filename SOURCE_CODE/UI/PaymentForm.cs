@@ -236,18 +236,6 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 94, BackColor = DS.BgPage, Padding = new Padding(28, 16, 28, 10) };
-            Label title = new Label { Text = "Payment Recording", Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(28, 18), Width = 390, Height = 30 };
-            Label subtitle = new Label { Text = "Record, reconcile and review customer invoice payments.", Font = DS.Body, ForeColor = DS.Slate600, Location = new Point(29, 53), Width = 520, Height = 22 };
-            Panel headerActions = new Panel
-            {
-                Dock = DockStyle.Right,
-                Width = 768,
-                Height = 46,
-                Padding = new Padding(0, 10, 0, 0),
-                BackColor = Color.Transparent
-            };
-
             _btnNewPayment = MakeBtn("+ New Payment", DS.Primary600, 130);
             Button btnRefresh = MakeBtn("Refresh", DS.White, 88, DS.Slate700, DS.BorderStrong);
             Button btnImport = MakeBtn("Import Excel", DS.White, 104, DS.Slate700, DS.BorderStrong);
@@ -272,20 +260,12 @@ namespace HVAC_Pro_Desktop.UI
             btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Payments, FindForm());
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Payments, FindForm());
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Payments", "Finance / Payments", null, "payment receipt collections follow-up invoice approval credit note customer sign-off");
-            headerActions.Controls.AddRange(headerButtons.Cast<Control>().ToArray());
-            Action layoutHeaderButtons = () =>
-            {
-                int actionRight = headerActions.ClientSize.Width;
-                foreach (Button button in headerButtons)
-                {
-                    actionRight -= button.Width;
-                    button.Location = new Point(Math.Max(0, actionRight), 10);
-                    actionRight -= 10;
-                }
-            };
-            headerActions.Resize += (s, e) => layoutHeaderButtons();
-            layoutHeaderButtons();
-            header.Controls.AddRange(new Control[] { title, subtitle, headerActions });
+            Control header = SharedPageHeader.Build(
+                SharedPageHeader.CreateSalesEditor(
+                    "PaymentsEditorHeader",
+                    "Payments",
+                    "Record, reconcile, and review customer invoice payments.",
+                    new List<Control> { btnBackToOverview, btnRefresh, btnImport, btnTemplate, btnForms, _btnNewPayment })).Header;
 
             _lblStatus = new Label { AutoSize = false, Font = DS.Small, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleLeft };
             _btnSavePayment = MakeBtn("Save Payment", SaveGreen, 150);
@@ -356,9 +336,9 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel stack = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = PayPageBg };
             _payStatsFlow = new FlowLayoutPanel { Height = 98, WrapContents = false, AutoScroll = false, BackColor = PayPageBg, Padding = new Padding(0, 2, 0, 4) };
             stack.Controls.Add(_payStatsFlow);
-            stack.Controls.Add(BuildPaymentsWorkflowRow());
             stack.Controls.Add(BuildPaymentsChartsRow());
             stack.Controls.Add(BuildTransactionsCard());
+            stack.Controls.Add(BuildPaymentsWorkflowRow());
             main.Controls.Add(stack);
             main.Resize += (s, e) =>
             {
@@ -370,10 +350,15 @@ namespace HVAC_Pro_Desktop.UI
             body.Controls.Add(main, 0, 0);
             body.Controls.Add(BuildPaymentsRightSidebar(), 1, 0);
             TableLayoutPanel shell = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PayPageBg, ColumnCount = 1, RowCount = 2 };
-            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 86f));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, Math.Max(126, header.Height)));
             shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             shell.Controls.Add(header, 0, 0);
             shell.Controls.Add(body, 0, 1);
+            header.Resize += (s, e) =>
+            {
+                if (shell.RowStyles.Count > 0)
+                    shell.RowStyles[0].Height = Math.Max(126, header.Height);
+            };
             root.Controls.Add(shell);
             Controls.Add(root);
             BuildOverviewData();
@@ -392,12 +377,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildPaymentsOverviewHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = PayPageBg, Padding = new Padding(0, 0, 0, 8) };
-            Label title = new Label { Text = "Payments Management", Location = new Point(0, 0), Size = new Size(360, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = PayText, BackColor = PayPageBg };
-            Label subtitle = new Label { Text = "Track receipts, receivables, refunds, and supplier payments.", Location = new Point(1, 31), Size = new Size(560, 20), Font = new Font("Segoe UI", 8.8f), ForeColor = PayMuted, BackColor = PayPageBg };
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-
             _dateRangeLabel = MakePayHeaderButton(_overviewStart.ToString("dd MMM yyyy") + " - " + _overviewEnd.ToString("dd MMM yyyy"), 196, PayText);
             _dateRangeLabel.Click += (s, e) => SelectPaymentDateRange();
             Label filters = MakePayHeaderButton("Filters", 82, PayText);
@@ -412,28 +391,19 @@ namespace HVAC_Pro_Desktop.UI
             bell.Cursor = Cursors.Hand;
             bell.Click += (s, e) => ShowPaymentAlerts();
             Panel user = BuildSessionUserPanel();
-            header.Controls.AddRange(new Control[] { _dateRangeLabel, filters, import, report, newPayment, bell, user });
-            Action layoutHeaderControls = () =>
-            {
-                int top = header.Width < 1260 ? 38 : 4;
-                user.Visible = header.Width >= 1220;
-                user.Location = new Point(header.Width - user.Width, top);
-                bell.Location = new Point((user.Visible ? user.Left : header.Width) - 38, top + 1);
-                newPayment.Location = new Point(bell.Left - 134, top);
-                report.Location = new Point(newPayment.Left - 140, top + 1);
-                import.Location = new Point(report.Left - 90, top + 1);
-                filters.Location = new Point(import.Left - 90, top + 1);
-                _dateRangeLabel.Location = new Point(filters.Left - 206, top + 1);
-                bool showAllActions = _dateRangeLabel.Left > title.Right + 16;
-                _dateRangeLabel.Visible = showAllActions;
-                filters.Visible = showAllActions;
-                import.Visible = showAllActions;
-                report.Visible = showAllActions;
-                bell.Visible = showAllActions;
-            };
-            header.Resize += (s, e) => layoutHeaderControls();
-            layoutHeaderControls();
-            return header;
+            SharedPageHeaderModel model = SharedPageHeader.CreateSalesDashboard(
+                    "PaymentsOverviewHeader",
+                    "Payments",
+                    "Track receipts, receivables, refunds, and supplier payments.",
+                    new List<Control> { _dateRangeLabel, filters, import, report, bell, newPayment },
+                    SharedPageHeader.CreateSearchCommand("PaymentsHeaderSearch", 260, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                    user,
+                    PayPageBg,
+                    new Padding(0, 0, 0, 8));
+            model.CompactHeight = 138;
+            model.CompactBreakpoint = 1320;
+            model.MinTextWidth = 180;
+            return SharedPageHeader.Build(model).Header;
         }
 
         private Panel BuildSessionUserPanel()
@@ -443,16 +413,17 @@ namespace HVAC_Pro_Desktop.UI
             string role = !string.IsNullOrWhiteSpace(user?.RoleName) ? user.RoleName : "User";
             string initials = string.Concat(name.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => char.ToUpperInvariant(p[0])));
             if (string.IsNullOrWhiteSpace(initials)) initials = "U";
-            Panel panel = new Panel { Size = new Size(150, 38), BackColor = PayPageBg };
+            Panel panel = new Panel { Size = new Size(120, 38), BackColor = PayPageBg };
             panel.Controls.Add(new Label { Text = initials, Location = new Point(0, 4), Size = new Size(30, 30), BackColor = Color.FromArgb(219, 234, 254), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
-            panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(92, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = PayText, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(80, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = PayMuted, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = name, Location = new Point(38, 1), Size = new Size(76, 17), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = PayText, AutoEllipsis = true });
+            panel.Controls.Add(new Label { Text = role, Location = new Point(38, 18), Size = new Size(76, 15), Font = new Font("Segoe UI", 7.2f), ForeColor = PayMuted, AutoEllipsis = true });
             return panel;
         }
 
         private Control BuildPaymentsWorkflowRow()
         {
             Panel card = MakePayCard("Payment Workflow");
+            AttachPaymentExceptionCard(card, "workflow");
             card.Dock = DockStyle.None;
             card.Height = 300;
             card.Margin = new Padding(0, 0, 0, 12);
@@ -500,6 +471,7 @@ namespace HVAC_Pro_Desktop.UI
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
 
             Panel cash = MakePayCard("Cash Flow Trend");
+            AttachPaymentExceptionCard(cash, "cash_flow");
             _payCashChart = new PayCashFlowChart { Location = new Point(14, 48), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             Label cashLegend = new Label { Text = "● Receipts    ● Payments    ● Net Cash Flow", Location = new Point(18, 30), Size = new Size(280, 18), Font = new Font("Segoe UI", 7.5f), ForeColor = PayMuted, AutoEllipsis = true };
             Label cashFilter = MakeSmallFilter("This Month", cash);
@@ -514,12 +486,14 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             Panel donut = MakePayCard("Receipts vs Payments");
+            AttachPaymentExceptionCard(donut, "receipts_payments");
             _payDonutChart = new PayDonutChart { Location = new Point(12, 42), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom };
             donut.Controls.Add(MakeSmallFilter("This Month", donut));
             donut.Controls.Add(_payDonutChart);
             donut.Resize += (s, e) => _payDonutChart.Size = new Size(donut.Width - 24, donut.Height - 52);
 
             Panel aging = MakePayCard("Aging Summary (Receivables)  i");
+            AttachPaymentExceptionCard(aging, "aging");
             _agingTable = new TableLayoutPanel { Location = new Point(14, 44), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, ColumnCount = 3, RowCount = 6, BackColor = Color.White };
             _agingTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
             _agingTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36));
@@ -528,6 +502,7 @@ namespace HVAC_Pro_Desktop.UI
             aging.Resize += (s, e) => _agingTable.Size = new Size(aging.Width - 28, aging.Height - 58);
 
             Panel methods = MakePayCard("Payment Methods (Receipts)  i");
+            AttachPaymentExceptionCard(methods, "methods");
             methods.Controls.Add(MakeSmallFilter("This Month", methods));
             _methodList = new FlowLayoutPanel { Location = new Point(14, 44), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = Color.White };
             methods.Controls.Add(_methodList);
@@ -543,6 +518,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildTransactionsCard()
         {
             Panel card = MakePayCard("");
+            AttachPaymentExceptionCard(card, "transactions");
             card.Height = 384;
             card.Margin = new Padding(0, 0, 0, 14);
             string[] tabs = { "All Transactions", "Receipts", "Payments Made", "Refunds" };
@@ -590,6 +566,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             FlowLayoutPanel side = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(8, 0, 0, 0), BackColor = PayPageBg };
             Panel settlements = MakePayCard("Upcoming Settlements");
+            AttachPaymentExceptionCard(settlements, "settlements");
             settlements.Dock = DockStyle.None; settlements.Width = 314; settlements.Height = 214;
             Label viewSettlements = new Label { Text = "View All", Location = new Point(254, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
             viewSettlements.Click += (s, e) => ShowUpcomingSettlements();
@@ -607,6 +584,7 @@ namespace HVAC_Pro_Desktop.UI
             AddPayQuickButton(quick, "View Reports", 162, 118, 138, OrangeCol);
 
             Panel alerts = MakePayCard("Smart Alerts  i");
+            AttachPaymentExceptionCard(alerts, "alerts");
             alerts.Dock = DockStyle.None; alerts.Width = 314; alerts.Height = 180;
             Label viewAlerts = new Label { Text = "View All", Location = new Point(254, 14), Size = new Size(50, 18), ForeColor = InfoBlue, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Cursor = Cursors.Hand };
             viewAlerts.Click += (s, e) => ShowPaymentAlerts();
@@ -897,6 +875,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel MakePayStat(string label, string value, string trend, Color accent, ModernIconKind icon)
         {
             Panel card = MakePayCard("");
+            AttachPaymentExceptionCard(card, "stat_" + (label ?? string.Empty).Replace(" ", "_").Replace("(", string.Empty).Replace(")", string.Empty).ToLowerInvariant());
             card.Dock = DockStyle.None;
             card.Width = 210;
             card.Height = 88;
@@ -1100,15 +1079,110 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowUpcomingSettlements()
         {
-            string body = string.Join(Environment.NewLine, _overviewReceivables.Where(r => r.DueDate >= DateTime.Today).OrderBy(r => r.DueDate).Take(20).Select(r => r.CustomerName + " - " + r.InvoiceNo + " - " + IndiaFormatHelper.FormatCurrency(Math.Max(0m, r.Amount - r.PaidAmount)) + " - due " + r.DueDate.ToString("dd MMM yyyy")));
-            MessageBox.Show(string.IsNullOrWhiteSpace(body) ? "No upcoming settlements found." : body, "Upcoming Settlements", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ExceptionCardDetailDialog.ShowFor(this, BuildPaymentExceptionDetail("settlements"));
         }
 
         private void ShowPaymentAlerts()
         {
-            int oldOverdue = _overviewReceivables.Count(r => r.DueDate < DateTime.Today && r.AgingDays > 90);
-            int pending = _overviewTransactions.Count(t => t.Status == "Pending");
-            MessageBox.Show(oldOverdue + " invoices are overdue for more than 90 days" + Environment.NewLine + pending + " payments are pending approval" + Environment.NewLine + "Bank statement imported successfully", "Payment Alerts", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            ExceptionCardDetailDialog.ShowFor(this, BuildPaymentExceptionDetail("alerts"));
+        }
+
+        private void AttachPaymentExceptionCard(Control card, string key)
+        {
+            if (card == null)
+                return;
+            card.Cursor = Cursors.Hand;
+            EventHandler open = (s, e) => ExceptionCardDetailDialog.ShowFor(this, BuildPaymentExceptionDetail(key));
+            card.Click += open;
+            card.DoubleClick += open;
+            foreach (Control child in card.Controls)
+            {
+                if (child is Button || child is ComboBox || child is TextBox || child is TableLayoutPanel)
+                    continue;
+                child.Cursor = Cursors.Hand;
+                child.Click += open;
+                child.DoubleClick += open;
+            }
+        }
+
+        private ExceptionCardDetail BuildPaymentExceptionDetail(string key)
+        {
+            string normalized = key ?? string.Empty;
+            if (normalized == "transactions" || normalized.StartsWith("stat_total_receipts", StringComparison.OrdinalIgnoreCase) || normalized.StartsWith("stat_total_payments", StringComparison.OrdinalIgnoreCase) || normalized.StartsWith("stat_net_cash_flow", StringComparison.OrdinalIgnoreCase))
+            {
+                IEnumerable<PaymentTxn> rows = normalized.StartsWith("stat_total_receipts", StringComparison.OrdinalIgnoreCase)
+                    ? GetFilteredTransactions().Where(t => t.Type == "Receipt")
+                    : normalized.StartsWith("stat_total_payments", StringComparison.OrdinalIgnoreCase)
+                        ? GetFilteredTransactions().Where(t => t.Type == "Payment Made")
+                        : GetFilteredTransactions();
+                var detail = ExceptionCardDetail.Create("Payment Transactions", "Complete transaction rows behind the payment card.", "Date", "Type", "Reference", "Customer / Supplier", "Invoice / Bill", "Mode", "Amount", "Status");
+                foreach (PaymentTxn txn in rows.OrderByDescending(t => t.Date))
+                    detail.AddRow(txn.Date.ToString("dd/MM/yyyy"), txn.Type, txn.ReferenceNo, txn.CustomerVendor, txn.InvoiceBillNo, txn.Mode, IndiaFormatHelper.FormatCurrency(txn.Amount), txn.Status);
+                return detail;
+            }
+            if (normalized == "cash_flow" || normalized.StartsWith("stat_net_cash_flow", StringComparison.OrdinalIgnoreCase))
+            {
+                var detail = ExceptionCardDetail.Create("Cash Flow Trend", "All daily cash-flow points in the selected period.", "Date", "Receipts", "Payments", "Net Cash Flow");
+                foreach (PayTrendPoint point in BuildDailyTrend())
+                    detail.AddRow(point.Date.ToString("dd/MM/yyyy"), IndiaFormatHelper.FormatCurrency(point.Receipts), IndiaFormatHelper.FormatCurrency(point.Payments), IndiaFormatHelper.FormatCurrency(point.Net));
+                return detail;
+            }
+            if (normalized == "receipts_payments")
+            {
+                List<PaymentTxn> rows = GetPeriodTransactions(_overviewStart, _overviewEnd);
+                return ExceptionCardDetail.Create("Receipts vs Payments", "Selected-period totals behind the card.", "Type", "Count", "Amount")
+                    .AddRow("Receipts", rows.Count(t => t.Type == "Receipt"), IndiaFormatHelper.FormatCurrency(rows.Where(t => t.Type == "Receipt").Sum(t => t.Amount)))
+                    .AddRow("Payments Made", rows.Count(t => t.Type == "Payment Made"), IndiaFormatHelper.FormatCurrency(rows.Where(t => t.Type == "Payment Made").Sum(t => t.Amount)))
+                    .AddRow("Refunds", rows.Count(t => t.Type == "Refund"), IndiaFormatHelper.FormatCurrency(rows.Where(t => t.Type == "Refund").Sum(t => t.Amount)));
+            }
+            if (normalized == "aging" || normalized.StartsWith("stat_outstanding", StringComparison.OrdinalIgnoreCase) || normalized.StartsWith("stat_overdue", StringComparison.OrdinalIgnoreCase))
+            {
+                var detail = ExceptionCardDetail.Create("Receivables Aging", "Every receivable invoice behind the aging card.", "Customer", "Invoice", "Due Date", "Age Days", "Invoice Amount", "Paid", "Balance");
+                IEnumerable<ReceivableRow> rows = _overviewReceivables ?? new List<ReceivableRow>();
+                if (normalized.StartsWith("stat_overdue", StringComparison.OrdinalIgnoreCase))
+                    rows = rows.Where(r => r.DueDate.Date < DateTime.Today);
+                foreach (ReceivableRow row in rows.OrderByDescending(r => r.AgingDays))
+                    detail.AddRow(row.CustomerName, row.InvoiceNo, row.DueDate.ToString("dd/MM/yyyy"), row.AgingDays, IndiaFormatHelper.FormatCurrency(row.Amount), IndiaFormatHelper.FormatCurrency(row.PaidAmount), IndiaFormatHelper.FormatCurrency(Math.Max(0m, row.Amount - row.PaidAmount)));
+                return detail;
+            }
+            if (normalized == "methods")
+            {
+                List<PaymentTxn> receipts = GetPeriodTransactions(_overviewStart, _overviewEnd).Where(t => t.Type == "Receipt").ToList();
+                decimal total = Math.Max(1m, receipts.Sum(t => t.Amount));
+                var detail = ExceptionCardDetail.Create("Payment Methods", "All receipt methods represented in the card.", "Mode", "Count", "Amount", "Share");
+                foreach (var group in receipts.GroupBy(t => Safe(t.Mode, "Unspecified")).OrderByDescending(g => g.Sum(t => t.Amount)))
+                {
+                    decimal amount = group.Sum(t => t.Amount);
+                    detail.AddRow(group.Key, group.Count(), IndiaFormatHelper.FormatCurrency(amount), Math.Round(amount * 100m / total, 1) + "%");
+                }
+                return detail;
+            }
+            if (normalized == "settlements")
+            {
+                var detail = ExceptionCardDetail.Create("Upcoming Settlements", "Every open receivable due today or later.", "Customer", "Invoice", "Due Date", "Amount", "Paid", "Balance");
+                foreach (ReceivableRow r in (_overviewReceivables ?? new List<ReceivableRow>()).Where(r => r.DueDate >= DateTime.Today).OrderBy(r => r.DueDate))
+                    detail.AddRow(r.CustomerName, r.InvoiceNo, r.DueDate.ToString("dd/MM/yyyy"), IndiaFormatHelper.FormatCurrency(r.Amount), IndiaFormatHelper.FormatCurrency(r.PaidAmount), IndiaFormatHelper.FormatCurrency(Math.Max(0m, r.Amount - r.PaidAmount)));
+                return detail;
+            }
+            if (normalized == "alerts")
+            {
+                int oldOverdue = _overviewReceivables.Count(r => r.DueDate < DateTime.Today && r.AgingDays > 90);
+                int pending = _overviewTransactions.Count(t => t.Status == "Pending");
+                return ExceptionCardDetail.Create("Payment Alerts", "Full alert summary for the payment dashboard.", "Alert", "Count / Status", "Action")
+                    .AddRow("Invoices overdue more than 90 days", oldOverdue, "Review receivables")
+                    .AddRow("Payments pending approval", pending, "Approve or reject")
+                    .AddRow("Bank statement import", "Successful", "Reconcile bank");
+            }
+            if (normalized == "workflow")
+            {
+                var detail = ExceptionCardDetail.Create("Payment Workflow", "Open invoices and recent receipts behind the workflow card.", "Type", "Reference", "Party", "Amount / Balance");
+                foreach (Invoice invoice in (_invoiceLookup ?? new List<Invoice>()).Where(i => i.TotalAmount - i.PaidAmount > 0.01m).OrderByDescending(i => i.InvoiceDate))
+                    detail.AddRow("Invoice Pending", invoice.InvoiceNumber, invoice.ClientName, IndiaFormatHelper.FormatCurrency(Math.Max(0m, invoice.TotalAmount - invoice.PaidAmount)));
+                foreach (Payment payment in (_allPayments ?? new List<Payment>()).OrderByDescending(p => p.PaymentDate))
+                    detail.AddRow("Receipt", Safe(payment.PaymentNumber, "Receipt"), Safe(payment.ClientName, "Client"), IndiaFormatHelper.FormatCurrency(payment.AmountPaid));
+                return detail;
+            }
+            return ExceptionCardDetail.Create("Payment Details", "No matching payment detail found.", "Message").AddRow("No rows found.");
         }
 
         private void ExportPaymentsCsv()

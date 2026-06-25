@@ -41,11 +41,18 @@ jobs:
         shell: pwsh
         run: |
           $base = (Get-Content VERSION -Raw).Trim()
-          $increment = [int]$env:GITHUB_RUN_NUMBER
-          $line = & .\scripts\Set-ServoVersion.ps1 -Version $base -PatchIncrement $increment
+          $line = & .\scripts\Set-ServoVersion.ps1 -Version $base
           $version = ($line | Select-String '^VERSION=').ToString().Replace('VERSION=', '')
           "version=$version" >> $env:GITHUB_OUTPUT
           "SERVO_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Validate Release Version
+        shell: pwsh
+        run: |
+          .\scripts\Assert-GitHubReleaseVersion.ps1 `
+            -Repository "${{ github.repository }}" `
+            -CandidateVersion "$env:SERVO_VERSION" `
+            -Token "${{ secrets.GITHUB_TOKEN }}"
 
       - name: Restore NuGet Packages
         run: nuget restore $env:SOLUTION_PATH
@@ -145,6 +152,13 @@ jobs:
           --icon "$env:GITHUB_WORKSPACE\SOURCE_CODE\app.ico"
           --runtime win-x64
           --exclude "(?i)(^|[\\/])(HVACPro\.config|.*\.servoerp-license|.*\.sqlite|.*\.mdf|.*\.ldf|logs?|database|updates?)([\\/]|$)"
+
+      - name: Verify Velopack Artifacts
+        shell: pwsh
+        run: |
+          .\scripts\Test-VelopackReleaseArtifacts.ps1 `
+            -OutputDir "$env:GITHUB_WORKSPACE\artifacts\velopack" `
+            -ExpectedVersion "$env:SERVO_VERSION"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v6

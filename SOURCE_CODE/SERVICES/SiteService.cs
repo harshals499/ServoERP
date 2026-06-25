@@ -16,6 +16,8 @@ namespace HVAC_Pro_Desktop.Services
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly SyncMetadataService _syncMetadata = new SyncMetadataService();
+        private readonly SyncOutboxService _syncOutbox = new SyncOutboxService();
 
         public List<ClientSite> GetByClientId(int clientId)
         {
@@ -35,23 +37,62 @@ namespace HVAC_Pro_Desktop.Services
             return null;
         }
 
+        public ClientSite GetBySyncPublicId(Guid syncPublicId)
+        {
+            return _repo.GetBySyncPublicId(syncPublicId);
+        }
+
         public int Create(ClientSite s)
         {
             SessionManager.DemandPermission("Clients", "Create");
+            _syncMetadata.EnsureSiteIdentity(s);
             ValidateSiteForSave(s);
-            int id = _repo.Create(s);
-            AppDataCache.RemovePrefix("sites:");
-            _audit.Record("CREATE", "Sites", id, "Site saved with data-quality validation");
-            return id;
+            try
+            {
+                ClientSite existing = s != null && s.SyncPublicId.HasValue ? _repo.GetBySyncPublicId(s.SyncPublicId.Value) : null;
+                if (existing != null)
+                {
+                    s.SiteID = existing.SiteID;
+                    Update(s);
+                    return existing.SiteID;
+                }
+
+                int id = _repo.Create(s);
+                s.SiteID = id;
+                _syncMetadata.TouchSite(id, s.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Sites", s.SyncPublicId ?? Guid.Empty, "Create", s);
+                AppDataCache.RemovePrefix("sites:");
+                _audit.Record("CREATE", "Sites", id, "Site saved with data-quality validation");
+                return id;
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineQueueResult queued = OfflineSyncService.Queue("Sites", "Create", s, null, false, ex.Message, s == null ? (Guid?)null : s.SyncPublicId);
+                AppDataCache.RemovePrefix("sites:");
+                return queued.LocalId;
+            }
         }
 
         public void Update(ClientSite s)
         {
             SessionManager.DemandPermission("Clients", "Edit");
+            _syncMetadata.EnsureSiteIdentity(s);
             ValidateSiteForSave(s);
-            _repo.Update(s);
-            AppDataCache.RemovePrefix("sites:");
-            _audit.Record("EDIT", "Sites", s.SiteID, "Site saved with data-quality validation");
+            try
+            {
+                _repo.Update(s);
+                _syncMetadata.TouchSite(s.SiteID, s.SyncPublicId ?? Guid.NewGuid());
+                NodeIdentityService.EnsureRegistered();
+                _syncOutbox.Emit("Sites", s.SyncPublicId ?? Guid.Empty, "Update", s);
+                AppDataCache.RemovePrefix("sites:");
+                _audit.Record("EDIT", "Sites", s.SiteID, "Site saved with data-quality validation");
+            }
+            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            {
+                OfflineSyncService.Queue("Sites", "Update", s, s.SiteID, false, ex.Message, s == null ? (Guid?)null : s.SyncPublicId);
+                AppDataCache.RemovePrefix("sites:");
+            }
         }
 
         public void UpdateGeoCoordinates(int siteId, double? latitude, double? longitude, string geocodeAddress, string geocodeStatus)

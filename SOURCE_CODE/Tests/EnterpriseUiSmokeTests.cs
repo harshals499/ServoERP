@@ -33,7 +33,6 @@ namespace HVAC_Pro_Desktop.Tests
 
             Type[] cardMenuPageTypes =
             {
-                typeof(TallyIntegrationForm),
                 typeof(AMCPage),
                 typeof(DashboardForm),
                 typeof(InvoiceForm),

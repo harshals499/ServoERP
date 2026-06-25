@@ -87,7 +87,7 @@ namespace HVAC_Pro_Desktop.UI
                 RowCount = 2,
                 Padding = new Padding(14, 14, 14, 12)
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 84));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 116));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
             root.Controls.Add(BuildHeader(), 0, 0);
@@ -97,67 +97,30 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildHeader()
         {
-            Panel header = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage };
-
-            Label icon = ModernIconSystem.Badge(ModernIconKind.Phone, 42, WhatsAppGreenLight, WhatsAppGreen, 12);
-            icon.Location = new Point(2, 10);
-            header.Controls.Add(icon);
-
-            Label title = new Label
-            {
-                Text = "WhatsApp Hub",
-                AutoSize = true,
-                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
-                ForeColor = DS.Slate950,
-                Location = new Point(56, 7)
-            };
-            header.Controls.Add(title);
-
-            Label subtitle = new Label
-            {
-                Text = "Connected WhatsApp Web workspace for client, supplier, and team message follow-up.",
-                AutoSize = true,
-                Font = DS.Small,
-                ForeColor = DS.Slate600,
-                Location = new Point(57, 38)
-            };
-            header.Controls.Add(subtitle);
-
             Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 38, "WhatsApp settings");
-            settings.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            settings.Location = new Point(header.Width - 44, 12);
             settings.Click += (s, e) => MessageBox.Show("WhatsApp Hub uses embedded WhatsApp Web or browser deep links only. ServoERP does not auto-send messages, scrape chats, or claim live sync without the official API.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            header.Controls.Add(settings);
 
             Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 38, "Refresh WhatsApp contacts");
-            refresh.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            refresh.Location = new Point(header.Width - 94, 12);
             refresh.Click += (s, e) => { LoadHubData(); ReloadWhatsAppHome(); };
-            header.Controls.Add(refresh);
 
             Button newMessage = DS.PrimaryBtn("Open WhatsApp Web", 168, 38);
-            newMessage.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            newMessage.Location = new Point(header.Width - 270, 12);
             ModernIconSystem.AddButtonIcon(newMessage, ModernIconKind.Email);
             newMessage.Click += (s, e) => ReloadWhatsAppHome();
-            header.Controls.Add(newMessage);
-
-            Panel searchHost = SearchBox(_globalSearch, "Search");
-            searchHost.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            searchHost.Size = new Size(340, 40);
-            searchHost.Location = new Point(header.Width - 626, 12);
             _globalSearch.TextChanged += (s, e) => ApplyGlobalSearch();
-            header.Controls.Add(searchHost);
-
-            header.Resize += (s, e) =>
-            {
-                settings.Location = new Point(header.Width - 44, 12);
-                refresh.Location = new Point(header.Width - 94, 12);
-                newMessage.Location = new Point(header.Width - 270, 12);
-                searchHost.Location = new Point(Math.Max(380, header.Width - 626), 12);
-            };
-
-            return header;
+            SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
+                "WhatsAppHubHeader",
+                "WhatsApp Hub",
+                "Connected WhatsApp Web workspace for client, supplier, and team message follow-up.",
+                new List<Control> { newMessage, refresh, settings },
+                SharedPageHeader.CreateSearchInputShell("WhatsAppHeaderSearch", _globalSearch, 340),
+                null,
+                DS.BgPage,
+                new Padding(0, 10, 0, 12));
+            model.Dock = DockStyle.Fill;
+            model.DefaultHeight = 84;
+            model.CompactHeight = 116;
+            model.CompactBreakpoint = 1360;
+            return SharedPageHeader.Build(model).Header;
         }
 
         private Control BuildBody()

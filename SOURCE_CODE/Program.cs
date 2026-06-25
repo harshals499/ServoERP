@@ -262,6 +262,7 @@ namespace HVAC_Pro_Desktop
                 DbHelper.EnsureQuotationSchemaMigration();
                 DbHelper.EnsureAMCSchema();
                 LocalSqliteFallbackStore.RecordSqlAvailable(DatabaseManager.RequireConfiguredConnectionString());
+                NodeIdentityService.EnsureRegistered();
 
                 stageWatch.Restart();
                 if (!DatabaseManager.IsDemoDataEnabled())
@@ -298,6 +299,106 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/dashboardrecentstest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "dashboard-recents-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>();
+                    lines.Add("Dashboard Recent Activity Smoke Test");
+                    lines.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    lines.Add(string.Empty);
+                    try
+                    {
+                        foreach (string result in DashboardRecentActivitySmokeTests.RunAll())
+                            lines.Add(result);
+                    }
+                    catch (Exception dashboardRecentEx)
+                    {
+                        lines.Add("FAIL " + dashboardRecentEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("DashboardRecentActivitySmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/jobrecentstest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "job-recents-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>();
+                    lines.Add("Job Recent Activity Smoke Test");
+                    lines.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    lines.Add(string.Empty);
+                    try
+                    {
+                        foreach (string result in DashboardRecentActivitySmokeTests.RunJobsOnly())
+                            lines.Add(result);
+                    }
+                    catch (Exception jobRecentEx)
+                    {
+                        lines.Add("FAIL " + jobRecentEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("JobRecentActivitySmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/purchaserecentstest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "purchase-recents-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>();
+                    lines.Add("Purchase Recent Activity Smoke Test");
+                    lines.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    lines.Add(string.Empty);
+                    try
+                    {
+                        foreach (string result in DashboardRecentActivitySmokeTests.RunPurchasesOnly())
+                            lines.Add(result);
+                    }
+                    catch (Exception purchaseRecentEx)
+                    {
+                        lines.Add("FAIL " + purchaseRecentEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("PurchaseRecentActivitySmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/poviewbuttontest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "purchase-view-buttons-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>();
+                    lines.Add("Purchase Dashboard View Button Smoke Test");
+                    lines.Add(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+                    lines.Add(string.Empty);
+                    try
+                    {
+                        foreach (string result in PurchaseDashboardViewButtonSmokeTests.RunAll())
+                            lines.Add(result);
+                    }
+                    catch (Exception purchaseViewEx)
+                    {
+                        lines.Add("FAIL " + purchaseViewEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("PurchaseDashboardViewButtonSmokeTests", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/cardmenuaudit"))
                 {
                     string reportPath = GlobalCardContextMenuFormAuditTests.WriteReport();
@@ -328,6 +429,15 @@ namespace HVAC_Pro_Desktop
                     System.IO.File.WriteAllLines(reportPath, lines2);
                     bool anyFail = lines2.Any(l => l.StartsWith("FAIL "));
                     Environment.ExitCode = anyFail ? 1 : 0;
+                    return;
+                }
+
+                if (HasArg(args, "/savebuttontest"))
+                {
+                    string reportPath = SaveButtonSmokeTests.WriteReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
+                    AppRuntime.LogTiming("SaveButtonSmokeTests", 0, reportPath);
                     return;
                 }
 

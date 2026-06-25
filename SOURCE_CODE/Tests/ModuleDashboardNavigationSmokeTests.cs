@@ -62,10 +62,57 @@ namespace HVAC_Pro_Desktop.Tests
 
             using (var invoices = new InvoiceForm())
             {
+                invoices.Size = new System.Drawing.Size(1366, 768);
+                invoices.CreateControl();
                 invoices.PerformLayout();
                 AssertVisibility(invoices, "_invoiceDashboardPanel", true, "Invoice page should open on the invoice dashboard.");
                 AssertVisibility(invoices, "_invoiceWorkspacePanel", false, "Invoice editor should be hidden until New Invoice is clicked.");
-                AssertPrivateMethod(invoices, "BtnNew_Click", "Invoice New handler should exist for the dashboard action.");
+                InvokePrivate(invoices, "BtnNew_Click");
+                Application.DoEvents();
+                AssertVisibility(invoices, "_invoiceWorkspacePanel", true, "Invoice editor should open when New Invoice is clicked.");
+                ComboBox invoiceClient = GetField<ComboBox>(invoices, "_cmbClient");
+                if (invoiceClient == null || invoiceClient.IsDisposed)
+                    throw new InvalidOperationException("Invoice New action should create the client selector.");
+
+                SetValueField(invoices, "_clients", new System.Collections.Generic.List<B2BClient>
+                {
+                    new B2BClient { ClientID = 1, CompanyName = "Alpha Air" },
+                    new B2BClient { ClientID = 2, CompanyName = "Bravo Cooling" }
+                });
+
+                InvokePrivate(invoices, "LoadClientDropdowns");
+                Application.DoEvents();
+                if (invoiceClient.Items.Count < 3)
+                    throw new InvalidOperationException("Invoice client selector should populate available clients.");
+
+                invoiceClient.SelectedIndex = 2;
+                InvokePrivate(invoices, "ShowInvoiceEditor");
+                Application.DoEvents();
+
+                if (invoiceClient.SelectedIndex != 2)
+                    throw new InvalidOperationException("Invoice editor should not reset the selected client when reopened.");
+
+                SetValueField(invoices, "_templates", new System.Collections.Generic.List<InvoiceTemplate>
+                {
+                    new InvoiceTemplate { TemplateID = 1, TemplateName = "AMC Visit", TemplateCode = "AMC_VISIT" }
+                });
+                InvokePrivate(invoices, "BindInvoiceEditorDataToControls");
+                Application.DoEvents();
+
+                ComboBox invoiceTemplate = GetField<ComboBox>(invoices, "_cmbTemplate");
+                if (invoiceTemplate == null || invoiceTemplate.Items.Count < 2)
+                    throw new InvalidOperationException("Invoice template selector should populate available templates after the editor is created.");
+
+                Panel documentHost = GetField<Panel>(invoices, "_documentHost");
+                Control documentPage = GetField<Control>(invoices, "_documentPage");
+                if (documentHost == null || documentPage == null || documentPage.Width > documentHost.ClientSize.Width + 24)
+                    throw new InvalidOperationException("Invoice editor should fit the available workspace width without forcing a horizontal document overflow.");
+
+                InvokePrivate(invoices, "LayoutInvoiceItemsSection");
+                Application.DoEvents();
+                DataGridView invoiceGrid = GetField<DataGridView>(invoices, "_grid");
+                if (invoiceGrid == null || invoiceGrid.Columns["CoverageNote"] == null || invoiceGrid.Columns["CoverageNote"].Visible)
+                    throw new InvalidOperationException("Invoice items grid should collapse lower-priority columns at desktop width to avoid horizontal overflow.");
             }
 
             using (var quotations = new TenderBidForm())

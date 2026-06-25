@@ -409,6 +409,20 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public Job GetBySyncPublicId(Guid syncPublicId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(BaseSelect + " WHERE j.SyncPublicId=@syncPublicId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@syncPublicId", syncPublicId);
+                    using (SqlDataReader r = cmd.ExecuteReader())
+                        return r.Read() ? MapJob(r) : null;
+                }
+            }
+        }
+
         public void UpdatePurchaseDeliveryFeedbackForJob(int jobId, DateTime completionDate)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -816,6 +830,13 @@ namespace HVAC_Pro_Desktop.DAL
             return new Job
             {
                 JobID = GetInt(r, "JobID"),
+                SyncPublicId = GetNullableGuid(r, "SyncPublicId"),
+                OriginNodeId = GetNullableGuid(r, "OriginNodeId"),
+                LastModifiedNodeId = GetNullableGuid(r, "LastModifiedNodeId"),
+                CreatedUtc = GetNullableDateTime(r, "CreatedUtc"),
+                UpdatedUtc = GetNullableDateTime(r, "UpdatedUtc"),
+                DeletedUtc = GetNullableDateTime(r, "DeletedUtc"),
+                SyncVersion = HasColumn(r, "SyncVersion") ? GetLong(r, "SyncVersion") : 0L,
                 JobNumber = GetString(r, "JobNumber"),
                 ClientID = GetInt(r, "ClientID"),
                 SiteID = GetInt(r, "SiteID"),
@@ -992,7 +1013,9 @@ IF COL_LENGTH('dbo.JobPartsUsed', 'LinkedPoId') IS NULL ALTER TABLE dbo.JobParts
 
         private static string GetString(SqlDataReader r, string name) => r[name] == DBNull.Value ? null : Convert.ToString(r[name]);
         private static int GetInt(SqlDataReader r, string name) => r[name] == DBNull.Value ? 0 : Convert.ToInt32(r[name]);
+        private static long GetLong(SqlDataReader r, string name) => r[name] == DBNull.Value ? 0L : Convert.ToInt64(r[name]);
         private static int? GetNullableInt(SqlDataReader r, string name) => r[name] == DBNull.Value ? (int?)null : Convert.ToInt32(r[name]);
+        private static Guid? GetNullableGuid(SqlDataReader r, string name) => !HasColumn(r, name) || r[name] == DBNull.Value ? (Guid?)null : (Guid)r[name];
         private static DateTime GetDateTime(SqlDataReader r, string name) => r[name] == DBNull.Value ? DateTime.Today : Convert.ToDateTime(r[name]);
         private static DateTime? GetNullableDateTime(SqlDataReader r, string name) => r[name] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(r[name]);
         private static decimal GetDecimal(SqlDataReader r, string name) => r[name] == DBNull.Value ? 0m : Convert.ToDecimal(r[name]);

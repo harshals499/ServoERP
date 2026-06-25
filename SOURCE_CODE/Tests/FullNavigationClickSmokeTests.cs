@@ -187,12 +187,11 @@ namespace HVAC_Pro_Desktop.Tests
                 yield return new PageSpec(11, "Inventory", typeof(InventoryForm), false);
                 yield return new PageSpec(12, "Employees", typeof(EmployeeForm), false);
                 yield return new PageSpec(13, "Payroll", typeof(PayrollForm), false);
-                yield return new PageSpec(14, "Dispatch Center", typeof(GeoIntelligenceForm), false);
+                yield return new PageSpec(14, "Site Monitor", typeof(GeoIntelligenceForm), false);
                 yield return new PageSpec(15, "Jobs", typeof(JobManagementForm), false);
                 yield return new PageSpec(16, "Retired Service Desk", typeof(ServiceDeskForm), true);
                 yield return new PageSpec(17, "Master Data", typeof(MasterDataForm), false);
                 yield return new PageSpec(18, "WhatsApp Hub", typeof(WhatsAppHubForm), false);
-                yield return new PageSpec(19, "Tally", typeof(TallyIntegrationForm), false);
                 yield return new PageSpec(20, "AMC", typeof(AMCPage), false);
             }
 

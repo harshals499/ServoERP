@@ -26,8 +26,12 @@ namespace HVAC_Pro_Desktop.UI
             _fitDocumentToPreview = _title.IndexOf("Quotation Preview", StringComparison.OrdinalIgnoreCase) >= 0;
             Width = 1120;
             Height = 780;
+            MinimumSize = new Size(920, 640);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = Color.White;
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+            MinimizeBox = true;
 
             Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Color.White };
             Button print = MakeButton("Print", 10, Color.FromArgb(39, 174, 96));

@@ -26,6 +26,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly InventoryService _inventorySvc = new InventoryService();
         private readonly VendorAdvancePaymentService _vendorAdvanceSvc = new VendorAdvancePaymentService();
         private readonly PayrollService _payrollSvc = new PayrollService();
+        private readonly TenderService _tenderSvc = new TenderService();
+        private readonly ServiceDeskService _serviceDeskSvc = new ServiceDeskService();
 
         private static int? PendingTabIndex;
         private int _currentReportIndex;
@@ -33,27 +35,34 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblStatus;
         private Label _lblRevenue, _lblRevenueSub, _lblReceivable, _lblReceivableSub, _lblSla, _lblSlaSub;
         private Label _lblMargin, _lblMarginSub, _lblPayroll, _lblPayrollSub, _lblInventory, _lblInventorySub;
-        private Chart _revenueChart, _agingChart, _workloadChart;
-        private DataGridView _clientGrid, _detailGrid;
-        private FlowLayoutPanel _actionQueue;
+        private DataGridView _detailGrid;
         private FlowLayoutPanel _reportLibrary;
         private Panel _dashboardFlow;
         private readonly Dictionary<string, ResizableCard> _dashboardCards = new Dictionary<string, ResizableCard>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, TableLayoutPanel> _ownerCardBodies = new Dictionary<string, TableLayoutPanel>(StringComparer.OrdinalIgnoreCase);
         private ResizableCard _dragCard;
 
         private List<AMCContract> _contracts = new List<AMCContract>();
         private List<Invoice> _invoices = new List<Invoice>();
         private List<PurchaseOrder> _purchases = new List<PurchaseOrder>();
         private List<Job> _jobs = new List<Job>();
+        private List<TenderBid> _quotations = new List<TenderBid>();
         private List<Employee> _technicians = new List<Employee>();
         private List<StockItem> _stock = new List<StockItem>();
+        private List<ServiceDeskIncident> _serviceTickets = new List<ServiceDeskIncident>();
         private List<VendorAdvancePayment> _vendorAdvances = new List<VendorAdvancePayment>();
+        private PayrollDashboardSnapshot _payrollSnapshot = new PayrollDashboardSnapshot();
         private Dictionary<int, string> _clientNames = new Dictionary<int, string>();
+        private bool _initialRefreshQueued;
         private bool _refreshing;
 
         private static readonly string[] ReportNames =
         {
             "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites"
+        };
+        private static readonly string[] ReportTileLabels =
+        {
+            "Revenue", "Collect", "AMC", "Jobs", "Techs", "Stock", "POs", "Advances", "Clients"
         };
         private const string PageKey = "ReportsCommandCenter";
         private const string CardOrderPath = @"C:\HVAC_PRO_MSE\CONFIG\reports_card_order.txt";
@@ -73,16 +82,20 @@ namespace HVAC_Pro_Desktop.UI
         {
             Dock = DockStyle.Fill;
             BackColor = PageBg;
+            var ctorWatch = System.Diagnostics.Stopwatch.StartNew();
             BuildLayout();
+            AppRuntime.LogTiming("Reports.BuildLayout", ctorWatch.ElapsedMilliseconds);
             UIHelper.ApplyInputStyles(Controls);
+            RegisterFirstPaintTiming("Reports.FirstPaint", ctorWatch);
             EnableDeferredLoad(
-                () => RefreshAllAsync(),
+                (Func<Task>)(async () => await RefreshAllAsync()),
                 ex =>
                 {
                     AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Loading reports", ex);
                     _lblStatus.Text = "Reports could not load. Refresh and try again.";
                     _lblStatus.ForeColor = Red;
                 });
+            HandleCreated += (s, e) => QueueInitialReportRefresh();
         }
 
         protected override bool EnableAutomaticLayoutScaling => false;
@@ -132,44 +145,6 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildHeader()
         {
-            Panel header = new Panel
-            {
-                Dock = DockStyle.Top,
-                Height = 78,
-                BackColor = PageBg,
-                Padding = new Padding(0, 8, 0, 12)
-            };
-
-            Label title = new Label
-            {
-                Text = "Reports Command Center",
-                Location = new Point(0, 4),
-                Size = new Size(420, 30),
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
-                ForeColor = TextDark,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
-            };
-            Label subtitle = new Label
-            {
-                Text = "Real-time insights and analytics across your business.",
-                Location = new Point(1, 38),
-                Size = new Size(520, 22),
-                Font = DS.Body,
-                ForeColor = TextMid,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
-            };
-
-            FlowLayoutPanel actions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right,
-                Width = 500,
-                FlowDirection = FlowDirection.RightToLeft,
-                WrapContents = false,
-                Padding = new Padding(0, 12, 0, 0),
-                BackColor = header.BackColor
-            };
             Button export = MakeButton("Export CSV", Green, 104);
             Button pnl = MakeButton("Export P&L Excel", Color.White, 138);
             Button refresh = MakeButton("Refresh", Blue, 94);
@@ -182,38 +157,27 @@ namespace HVAC_Pro_Desktop.UI
             pnl.Click += (s, e) => ExportMonthlyProfitLoss();
             refresh.Click += async (s, e) => await RefreshAllAsync();
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Reports", "Reports", null, "service completion report AMC visit report compliance audit job costing sheet export analytics");
-            actions.Controls.Add(export);
-            actions.Controls.Add(pnl);
-            actions.Controls.Add(forms);
-            actions.Controls.Add(refresh);
 
             _lblStatus = new Label
             {
                 Text = "Loading reports...",
-                Dock = DockStyle.Right,
                 Width = 320,
+                Height = 22,
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Green,
                 TextAlign = ContentAlignment.MiddleRight,
-                Padding = new Padding(0, 22, 12, 0),
                 AutoEllipsis = true
             };
 
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(_lblStatus);
-            header.Controls.Add(actions);
-            header.Resize += (s, e) =>
-            {
-                int reservedRight = actions.Width + _lblStatus.Width + 18;
-                int available = Math.Max(220, header.ClientSize.Width - reservedRight);
-                title.Width = available;
-                subtitle.Width = available;
-            };
-            int initialReservedRight = actions.Width + _lblStatus.Width + 18;
-            int initialAvailable = Math.Max(220, header.ClientSize.Width - initialReservedRight);
-            title.Width = initialAvailable;
-            subtitle.Width = initialAvailable;
+            Panel header = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceDashboard(
+                "ReportsPageHeader",
+                "Reports Command Center",
+                "Real-time insights and analytics across your business.",
+                new List<Control> { refresh, forms, pnl, export },
+                SharedPageHeader.CreateSearchCommand("ReportsHeaderSearch", 280, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                _lblStatus,
+                PageBg,
+                new Padding(0, 8, 0, 12))).Header;
             return header;
         }
 
@@ -254,34 +218,20 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardFlow.Resize += (s, e) => LayoutDashboardCards();
             wrapper.Controls.Add(_dashboardFlow);
 
-            _revenueChart = MakeChart("Monthly revenue", SeriesChartType.Line, Green);
-            _agingChart = MakeChart("Collections aging", SeriesChartType.Column, Blue);
-            _workloadChart = MakeChart("Technician workload", SeriesChartType.Bar, Amber);
-            _clientGrid = MakeGrid();
-            _clientGrid.Columns.Add(C("Client", 190));
-            _clientGrid.Columns.Add(C("Revenue", 90));
-            _clientGrid.Columns.Add(C("Cost", 80));
-            _clientGrid.Columns.Add(C("Margin", 75));
-            _clientGrid.Columns[1].MinimumWidth = 105;
-            _clientGrid.Columns[2].MinimumWidth = 95;
-            _clientGrid.Columns[3].MinimumWidth = 85;
-
-            _actionQueue = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                FlowDirection = FlowDirection.TopDown,
-                WrapContents = false,
-                AutoScroll = true,
-                Padding = new Padding(12),
-                BackColor = CardBg
-            };
-
             _dashboardCards.Clear();
-            AddDashboardCard("revenue_trend", "Revenue trend", _revenueChart, 680, 220, "Large");
-            AddDashboardCard("receivables_aging", "Receivables aging", _agingChart, 680, 220, "Large");
-            AddDashboardCard("action_queue", "Owner action queue", _actionQueue, 390, 452, "Medium");
-            AddDashboardCard("service_workload", "Service workload", _workloadChart, 680, 220, "Large");
-            AddDashboardCard("client_profitability", "Top client profitability", _clientGrid, 680, 220, "Large");
+            _ownerCardBodies.Clear();
+            AddDashboardCard("business_health", "Today's Business Health", MakeOwnerCardBody("business_health"), 380, 220, "Medium");
+            AddDashboardCard("receivables", "Receivables / Pending Collection", MakeOwnerCardBody("receivables"), 380, 220, "Medium");
+            AddDashboardCard("sales_pipeline", "Sales Pipeline", MakeOwnerCardBody("sales_pipeline"), 380, 220, "Medium");
+            AddDashboardCard("jobs_workload", "Jobs / Service Workload", MakeOwnerCardBody("jobs_workload"), 380, 220, "Medium");
+            AddDashboardCard("amc_contracts", "AMC / Contract Health", MakeOwnerCardBody("amc_contracts"), 380, 220, "Medium");
+            AddDashboardCard("purchase_payables", "Purchase & Payables", MakeOwnerCardBody("purchase_payables"), 380, 220, "Medium");
+            AddDashboardCard("inventory_risk", "Inventory Risk", MakeOwnerCardBody("inventory_risk"), 380, 220, "Medium");
+            AddDashboardCard("top_clients", "Top Clients", MakeOwnerCardBody("top_clients"), 380, 220, "Medium");
+            AddDashboardCard("top_suppliers", "Top Suppliers", MakeOwnerCardBody("top_suppliers"), 380, 220, "Medium");
+            AddDashboardCard("payroll_snapshot", "Payroll Snapshot", MakeOwnerCardBody("payroll_snapshot"), 380, 220, "Medium");
+            AddDashboardCard("service_desk", "Service Desk / Complaints", MakeOwnerCardBody("service_desk"), 380, 220, "Medium");
+            AddDashboardCard("owner_action_queue", "Owner Action Queue", MakeOwnerCardBody("owner_action_queue"), 380, 452, "Large");
             ApplySavedCardOrder();
             new CardLayoutService().ApplyLayoutToPage(this, PageKey, CardLayoutService.ResolveCurrentUserId());
             LayoutDashboardCards();
@@ -290,7 +240,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildLibrarySection()
         {
-            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 168, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
+            Panel wrapper = new Panel { Dock = DockStyle.Top, Height = 124, BackColor = PageBg, Padding = new Padding(0, 0, 0, 12) };
             Panel card = MakePlainCard("Report Library");
             _reportLibrary = new FlowLayoutPanel
             {
@@ -298,16 +248,17 @@ namespace HVAC_Pro_Desktop.UI
                 FlowDirection = FlowDirection.LeftToRight,
                 WrapContents = false,
                 AutoScroll = true,
-                Padding = new Padding(12, 8, 12, 10),
+                Padding = new Padding(10, 6, 10, 8),
                 BackColor = CardBg
             };
             for (int i = 0; i < ReportNames.Length; i++)
-                _reportLibrary.Controls.Add(MakeReportTile(i, ReportNames[i]));
+                _reportLibrary.Controls.Add(MakeReportTile(i, ReportTileLabels[i]));
+            _reportLibrary.Resize += (s, e) => LayoutReportLibraryTiles();
             Label hint = new Label
             {
                 Text = "Pinned owner views: Revenue, Collections, SLA Risk, Materials, Purchases, Payroll, and Client/Site reports.",
                 Dock = DockStyle.Top,
-                Height = 28,
+                Height = 22,
                 Font = DS.Small,
                 ForeColor = TextMid,
                 TextAlign = ContentAlignment.MiddleLeft
@@ -315,6 +266,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(_reportLibrary);
             card.Controls.Add(hint);
             wrapper.Controls.Add(card);
+            LayoutReportLibraryTiles();
             return wrapper;
         }
 
@@ -339,15 +291,21 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _lblStatus.Text = "Refreshing reports...";
                 _lblStatus.ForeColor = Blue;
+                var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 await Task.Run(() => LoadData());
+                AppRuntime.LogTiming("Reports.FetchData", fetchWatch.ElapsedMilliseconds);
                 if (IsDisposed)
                     return;
+                var bindWatch = System.Diagnostics.Stopwatch.StartNew();
                 BindKpis();
-                BindCharts();
-                BindClientProfitability();
-                BindActionQueue();
+                BindOwnerCommandCards();
                 SelectReport(_currentReportIndex);
-                _lblStatus.Text = "Reports updated " + DateTime.Now.ToString("dd-MMM HH:mm");
+                AppRuntime.LogTiming("Reports.BindData", bindWatch.ElapsedMilliseconds);
+                _lblStatus.Text = string.Format(
+                    "Reports updated {0} | {1} inv, {2} jobs",
+                    DateTime.Now.ToString("dd-MMM HH:mm"),
+                    _invoices.Count,
+                    _jobs.Count);
                 _lblStatus.ForeColor = Green;
             }
             catch (Exception ex)
@@ -360,6 +318,19 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _refreshing = false;
             }
+        }
+
+        private void QueueInitialReportRefresh()
+        {
+            if (_initialRefreshQueued || IsDisposed || !IsHandleCreated)
+                return;
+
+            _initialRefreshQueued = true;
+            BeginInvoke((Action)(async () =>
+            {
+                await RefreshAllAsync();
+                MarkDeferredLoadCompleted();
+            }));
         }
 
         private void LoadData()
@@ -385,6 +356,11 @@ namespace HVAC_Pro_Desktop.UI
                 try { return AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); }
                 catch { return new List<Job>(); }
             });
+            Task<List<TenderBid>> quotationsTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); }
+                catch { return new List<TenderBid>(); }
+            });
             Task<List<Employee>> techniciansTask = Task.Run(() =>
             {
                 try { return AppDataCache.GetOrCreate("employees:technicians-active", ttl, () => _employeeSvc.GetActiveTechnicians() ?? new List<Employee>()).ToList(); }
@@ -400,21 +376,34 @@ namespace HVAC_Pro_Desktop.UI
                 try { return AppDataCache.GetOrCreate("vendors:advances", ttl, () => _vendorAdvanceSvc.GetAll() ?? new List<VendorAdvancePayment>()).ToList(); }
                 catch { return new List<VendorAdvancePayment>(); }
             });
+            Task<List<ServiceDeskIncident>> serviceTicketsTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("service-desk:all", ttl, () => _serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); }
+                catch { return new List<ServiceDeskIncident>(); }
+            });
+            Task<PayrollDashboardSnapshot> payrollTask = Task.Run(() =>
+            {
+                try { return AppDataCache.GetOrCreate("payroll:dashboard", ttl, () => _payrollSvc.GetDashboardSnapshot() ?? new PayrollDashboardSnapshot()); }
+                catch { return new PayrollDashboardSnapshot(); }
+            });
             Task<Dictionary<int, string>> clientNamesTask = Task.Run(() =>
             {
                 try { return AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToDictionary(c => c.ClientID, c => c.CompanyName); }
                 catch { return new Dictionary<int, string>(); }
             });
 
-            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, techniciansTask, stockTask, advancesTask, clientNamesTask);
+            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, quotationsTask, techniciansTask, stockTask, advancesTask, serviceTicketsTask, payrollTask, clientNamesTask);
 
             _contracts = contractsTask.Result;
             _invoices = invoicesTask.Result;
             _purchases = purchasesTask.Result;
             _jobs = jobsTask.Result;
+            _quotations = quotationsTask.Result;
             _technicians = techniciansTask.Result;
             _stock = stockTask.Result;
             _vendorAdvances = advancesTask.Result;
+            _serviceTickets = serviceTicketsTask.Result;
+            _payrollSnapshot = payrollTask.Result;
             _clientNames = clientNamesTask.Result;
         }
 
@@ -447,81 +436,130 @@ namespace HVAC_Pro_Desktop.UI
             _lblInventorySub.Text = "procurement required";
         }
 
-        private void BindCharts()
+        private void BindOwnerCommandCards()
         {
-            _revenueChart.Series[0].Points.Clear();
-            DateTime firstMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-5);
-            for (int i = 0; i < 6; i++)
-            {
-                DateTime month = firstMonth.AddMonths(i);
-                decimal amount = _invoices
-                    .Where(inv => inv.InvoiceDate.Year == month.Year && inv.InvoiceDate.Month == month.Month)
-                    .Sum(inv => inv.TotalAmount);
-                _revenueChart.Series[0].Points.AddXY(month.ToString("MMM"), amount);
-            }
+            DateTime today = DateTime.Today;
+            decimal revenueMtd = _invoices.Where(i => IsThisMonth(i.InvoiceDate)).Sum(i => i.TotalAmount);
+            decimal collectionsMtd = _invoices.Where(i => IsThisMonth(i.InvoiceDate)).Sum(i => i.PaidAmount);
+            decimal purchaseMtd = _purchases.Where(p => IsThisMonth(p.PODate)).Sum(p => p.TotalAmount);
+            decimal netCashFlow = collectionsMtd - _purchases.Where(p => IsThisMonth(p.PODate)).Sum(p => p.PaidAmount);
 
-            int[] aging = new int[4];
-            foreach (Invoice inv in _invoices.Where(i => i.PaymentStatus != "Paid" && i.BalanceDue > 0))
-            {
-                int days = Math.Max(0, (DateTime.Today - inv.DueDate.Date).Days);
-                if (days <= 30) aging[0]++;
-                else if (days <= 60) aging[1]++;
-                else if (days <= 90) aging[2]++;
-                else aging[3]++;
-            }
-            string[] buckets = { "0-30", "31-60", "61-90", "90+" };
-            _agingChart.Series[0].Points.Clear();
-            for (int i = 0; i < buckets.Length; i++)
-                _agingChart.Series[0].Points.AddXY(buckets[i], aging[i]);
+            List<Invoice> openInvoices = _invoices.Where(i => !IsPaid(i.PaymentStatus) && i.BalanceDue > 0m).ToList();
+            List<Invoice> overdueInvoices = openInvoices.Where(i => IsOverdueInvoice(i)).ToList();
+            string topOutstandingClient = openInvoices
+                .GroupBy(i => string.IsNullOrWhiteSpace(i.ClientName) ? "Client #" + i.ClientID : i.ClientName)
+                .OrderByDescending(g => g.Sum(i => i.BalanceDue))
+                .Select(g => ShortText(g.Key, 22))
+                .FirstOrDefault() ?? "-";
 
-            _workloadChart.Series[0].Points.Clear();
-            var loads = _technicians
-                .Select(t => new
-                {
-                    Name = t.Name,
-                    Count = _jobs.Count(j => j.AssignedEmployeeID.HasValue && j.AssignedEmployeeID.Value == t.EmployeeID && !IsComplete(j.Status))
-                })
-                .OrderByDescending(x => x.Count)
-                .Take(8)
-                .ToList();
-            if (loads.Count == 0)
-                _workloadChart.Series[0].Points.AddXY("No load", 0);
-            foreach (var load in loads)
-                _workloadChart.Series[0].Points.AddXY(ShortText(load.Name, 18), load.Count);
-        }
+            List<TenderBid> openQuotes = _quotations.Where(q => IsOpenQuote(q.Status)).ToList();
+            int wonQuotes = _quotations.Count(q => IsAny(q.Status, "Won", "Converted", "Approved"));
+            int lostQuotes = _quotations.Count(q => IsAny(q.Status, "Lost", "Rejected", "Cancelled"));
+            decimal quoteWinRate = wonQuotes + lostQuotes == 0 ? 0m : Math.Round(wonQuotes * 100m / (wonQuotes + lostQuotes), 1);
+            decimal quoteMtdValue = _quotations.Where(q => IsThisMonth(q.SubmittedDate ?? q.ModifiedDate ?? q.DueDate)).Sum(QuoteValue);
 
-        private void BindClientProfitability()
-        {
-            _clientGrid.Rows.Clear();
-            var rows = _jobs
-                .GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName)
-                .Select(g =>
-                {
-                    decimal revenue = g.Sum(j => Math.Max(j.Revenue, Math.Max(j.ActualRevenue, j.QuotedRevenue)));
-                    decimal cost = g.Sum(j => j.EstimatedCost);
-                    decimal margin = revenue <= 0 ? 0 : Math.Round((revenue - cost) / revenue * 100m, 1);
-                    return new { Client = g.Key, Revenue = revenue, Cost = cost, Margin = margin };
-                })
-                .OrderByDescending(x => x.Revenue)
-                .Take(7);
-            foreach (var row in rows)
-                _clientGrid.Rows.Add(ShortText(row.Client, 28), IndiaFormatHelper.FormatCurrency(row.Revenue), IndiaFormatHelper.FormatCurrency(row.Cost), row.Margin.ToString("N1") + "%");
-        }
+            int activeJobs = _jobs.Count(j => !IsComplete(j.Status));
+            int inProgressJobs = _jobs.Count(j => IsAny(j.Status, "In Progress") || IsAny(j.PipelineStatus, "In Progress"));
+            int overdueJobs = _jobs.Count(j => j.IsOverdue || (j.ScheduledDate.Date < today && !IsComplete(j.Status)));
+            int jobsDueWeek = _jobs.Count(j => !IsComplete(j.Status) && j.ScheduledDate.Date >= today && j.ScheduledDate.Date <= today.AddDays(7));
 
-        private void BindActionQueue()
-        {
-            _actionQueue.Controls.Clear();
-            int overdueInvoices = _invoices.Count(i => i.PaymentStatus != "Paid" && (i.PaymentStatus == "Overdue" || i.DueDate < DateTime.Today));
-            int renewals = _contracts.Count(c => (c.EndDate - DateTime.Today).Days <= 30 && (c.EndDate - DateTime.Today).Days >= -365);
-            int unassigned = _jobs.Count(j => !j.AssignedEmployeeID.HasValue && !IsComplete(j.Status));
+            int activeContracts = _contracts.Count(c => IsAny(c.ContractStatus, "Active") && c.EndDate.Date >= today);
+            int expiringSoon = _contracts.Count(c => c.EndDate.Date >= today && c.EndDate.Date <= today.AddDays(30));
+            int expiredContracts = _contracts.Count(c => IsAny(c.ContractStatus, "Expired") || c.EndDate.Date < today);
+            decimal amcAnnualValue = _contracts.Where(c => IsAny(c.ContractStatus, "Active") && c.EndDate.Date >= today).Sum(c => c.AnnualValue);
+
+            int openPos = _purchases.Count(p => IsAny(p.Status, "Draft", "Pending", "Pending Approval", "Approved", "Open", "Partial"));
+            decimal pendingPayables = _purchases.Where(p => p.BalanceDue > 0m).Sum(p => p.BalanceDue);
+            int overduePayables = _purchases.Count(p => p.IsOverdue);
+
+            int lowStock = _stock.Count(s => s.IsLowStock && s.AvailableStock > 0m);
+            int outOfStock = _stock.Count(s => s.AvailableStock <= 0m);
             int procurementRequired = _stock.Count(s => s.AvailableStock <= 0m || s.IsLowStock);
-            int overduePo = _purchases.Count(p => p.IsOverdue);
+            decimal stockValue = _stock.Sum(s => s.StockValue);
 
-            AddAction("Chase overdue invoices", overdueInvoices + " invoices need collection follow-up", Red, 1);
-            AddAction("Renew expiring contracts", renewals + " contracts need owner review", Amber, 2);
-            AddAction("Assign unassigned jobs", unassigned + " jobs need technician assignment", Blue, 3);
-            AddAction("Plan material buying", procurementRequired + " materials need procurement follow-up", Amber, 5);
-            AddAction("Clear vendor payables", overduePo + " purchase payments overdue", Teal, 7);
+            var topClient = _jobs
+                .GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName)
+                .Select(g => new { Name = g.Key, Revenue = g.Sum(JobValue), Open = g.Count(j => !IsComplete(j.Status)) })
+                .OrderByDescending(g => g.Revenue)
+                .FirstOrDefault();
+            int repeatClients = _jobs.GroupBy(j => j.ClientID).Count(g => g.Count() > 1);
+
+            var topSupplier = _purchases
+                .GroupBy(p => string.IsNullOrWhiteSpace(p.VendorName) ? "Supplier #" + p.VendorID : p.VendorName)
+                .Select(g => new { Name = g.Key, Spend = g.Sum(p => p.TotalAmount), Open = g.Count(p => p.BalanceDue > 0m), Overdue = g.Count(p => p.IsOverdue) })
+                .OrderByDescending(g => g.Spend)
+                .FirstOrDefault();
+
+            PayrollRun lastRun = _payrollSnapshot == null ? null : _payrollSnapshot.LastRun;
+            decimal employerLiability = lastRun == null ? 0m : lastRun.TotalEPFEmployer + lastRun.TotalESIEmployer;
+            decimal statutory = lastRun == null ? 0m : lastRun.TotalTDS + lastRun.TotalPT;
+
+            int openTickets = _serviceTickets.Count(t => !IsClosedTicket(t.Status));
+            int highTickets = _serviceTickets.Count(t => !IsClosedTicket(t.Status) && IsAny(t.Priority, "High", "Critical"));
+            int breachedTickets = _serviceTickets.Count(t => !IsClosedTicket(t.Status) && (t.SlaBreached || (t.SlaDueAt != default(DateTime) && t.SlaDueAt < DateTime.Now)));
+            int resolvedToday = _serviceTickets.Count(t => t.ResolvedAt.HasValue && t.ResolvedAt.Value.Date == today);
+
+            SetOwnerCardRows("business_health",
+                Metric("Revenue MTD", Money(revenueMtd), Green),
+                Metric("Collections MTD", Money(collectionsMtd), Blue),
+                Metric("Expenses MTD", Money(purchaseMtd), purchaseMtd > 0 ? Amber : TextMid),
+                Metric("Net cash flow", Money(netCashFlow), netCashFlow < 0 ? Red : Green));
+            SetOwnerCardRows("receivables",
+                Metric("Outstanding", Money(openInvoices.Sum(i => i.BalanceDue)), Red),
+                Metric("Overdue invoices", overdueInvoices.Count.ToString("N0"), overdueInvoices.Count > 0 ? Red : Green),
+                Metric("Overdue amount", Money(overdueInvoices.Sum(i => i.BalanceDue)), overdueInvoices.Count > 0 ? Red : Green),
+                Metric("Top pending client", topOutstandingClient, Blue));
+            SetOwnerCardRows("sales_pipeline",
+                Metric("Open quotations", openQuotes.Count.ToString("N0"), Blue),
+                Metric("Quotation value MTD", Money(quoteMtdValue), Green),
+                Metric("Conversion rate", quoteWinRate.ToString("N1") + "%", quoteWinRate >= 40m ? Green : Amber),
+                Metric("Pending value", Money(openQuotes.Sum(QuoteValue)), Amber));
+            SetOwnerCardRows("jobs_workload",
+                Metric("Active jobs", activeJobs.ToString("N0"), Blue),
+                Metric("In progress", inProgressJobs.ToString("N0"), Amber),
+                Metric("Overdue jobs", overdueJobs.ToString("N0"), overdueJobs > 0 ? Red : Green),
+                Metric("Due next 7 days", jobsDueWeek.ToString("N0"), Teal));
+            SetOwnerCardRows("amc_contracts",
+                Metric("Active AMC", activeContracts.ToString("N0"), Green),
+                Metric("Expiring soon", expiringSoon.ToString("N0"), expiringSoon > 0 ? Amber : Green),
+                Metric("Expired", expiredContracts.ToString("N0"), expiredContracts > 0 ? Red : Green),
+                Metric("Annual AMC value", Money(amcAnnualValue), Blue));
+            SetOwnerCardRows("purchase_payables",
+                Metric("Open purchase orders", openPos.ToString("N0"), Blue),
+                Metric("PO value MTD", Money(purchaseMtd), Green),
+                Metric("Pending payables", Money(pendingPayables), pendingPayables > 0 ? Amber : Green),
+                Metric("Overdue payables", overduePayables.ToString("N0"), overduePayables > 0 ? Red : Green));
+            SetOwnerCardRows("inventory_risk",
+                Metric("Low stock items", lowStock.ToString("N0"), lowStock > 0 ? Amber : Green),
+                Metric("Out of stock", outOfStock.ToString("N0"), outOfStock > 0 ? Red : Green),
+                Metric("Procurement required", procurementRequired.ToString("N0"), procurementRequired > 0 ? Amber : Green),
+                Metric("Stock value", Money(stockValue), Blue));
+            SetOwnerCardRows("top_clients",
+                Metric("Highest revenue client", topClient == null ? "-" : ShortText(topClient.Name, 22), Blue),
+                Metric("Client revenue", topClient == null ? Money(0m) : Money(topClient.Revenue), Green),
+                Metric("Open jobs for client", topClient == null ? "0" : topClient.Open.ToString("N0"), Amber),
+                Metric("Repeat clients", repeatClients.ToString("N0"), Teal));
+            SetOwnerCardRows("top_suppliers",
+                Metric("Highest spend supplier", topSupplier == null ? "-" : ShortText(topSupplier.Name, 22), Blue),
+                Metric("Supplier spend", topSupplier == null ? Money(0m) : Money(topSupplier.Spend), Green),
+                Metric("Suppliers with open dues", _purchases.Where(p => p.BalanceDue > 0m).Select(p => p.VendorID).Distinct().Count().ToString("N0"), Amber),
+                Metric("Overdue supplier POs", topSupplier == null ? "0" : topSupplier.Overdue.ToString("N0"), topSupplier != null && topSupplier.Overdue > 0 ? Red : Green));
+            SetOwnerCardRows("payroll_snapshot",
+                Metric("Active technicians", _technicians.Count.ToString("N0"), Blue),
+                Metric("Last net payroll", lastRun == null ? "-" : Money(lastRun.TotalNetPay), Green),
+                Metric("Employer liability", Money(employerLiability), Amber),
+                Metric("TDS / PT", Money(statutory), Teal));
+            SetOwnerCardRows("service_desk",
+                Metric("Open tickets", openTickets.ToString("N0"), Blue),
+                Metric("High priority", highTickets.ToString("N0"), highTickets > 0 ? Red : Green),
+                Metric("SLA risk", breachedTickets.ToString("N0"), breachedTickets > 0 ? Red : Green),
+                Metric("Resolved today", resolvedToday.ToString("N0"), Green));
+            SetOwnerCardRows("owner_action_queue",
+                Metric("Collect payment", overdueInvoices.Count + " overdue invoices", overdueInvoices.Count > 0 ? Red : Green, 1),
+                Metric("Follow up quotation", openQuotes.Count + " open quotes", openQuotes.Count > 0 ? Amber : Green, 0),
+                Metric("Close overdue jobs", overdueJobs + " overdue jobs", overdueJobs > 0 ? Red : Green, 3),
+                Metric("Reorder material", procurementRequired + " stock risks", procurementRequired > 0 ? Amber : Green, 5),
+                Metric("Renew AMC / pay vendor", expiringSoon + " renewals, " + overduePayables + " overdue POs", expiringSoon + overduePayables > 0 ? Red : Green, 2));
         }
 
         private void SelectReport(int index)
@@ -566,14 +604,14 @@ namespace HVAC_Pro_Desktop.UI
         private void BindCollectionDetail()
         {
             AddColumns("Invoice", "Client", "Due", "Balance", "Status");
-            foreach (Invoice inv in _invoices.Where(i => i.PaymentStatus != "Paid").OrderByDescending(i => i.BalanceDue))
+            foreach (Invoice inv in _invoices.Where(i => i.PaymentStatus != "Paid").OrderByDescending(i => i.BalanceDue).Take(30))
                 _detailGrid.Rows.Add(inv.InvoiceNumber, inv.ClientName ?? "", inv.DueDate.ToString("dd-MMM-yy"), inv.BalanceDue.ToString("N0"), inv.PaymentStatus);
         }
 
         private void BindContractDetail()
         {
             AddColumns("Client", "Type", "Expires", "Days", "Monthly", "Action");
-            foreach (AMCContract c in _contracts.OrderBy(c => c.EndDate).Take(100))
+            foreach (AMCContract c in _contracts.OrderBy(c => c.EndDate).Take(30))
             {
                 int days = (c.EndDate - DateTime.Today).Days;
                 string client = ResolveClientName(c.ClientID);
@@ -592,7 +630,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BindJobDetail()
         {
             AddColumns("Job", "Client", "Type", "Priority", "Technician", "Status");
-            foreach (Job j in _jobs.OrderByDescending(j => j.ScheduledDate).Take(200))
+            foreach (Job j in _jobs.OrderByDescending(j => j.ScheduledDate).Take(30))
                 _detailGrid.Rows.Add(j.JobNumber, j.ClientName ?? "", j.JobType, j.Priority, j.AssignedEmployeeName ?? "", j.Status);
         }
 
@@ -613,21 +651,21 @@ namespace HVAC_Pro_Desktop.UI
         private void BindInventoryDetail()
         {
             AddColumns("Item", "Category", "Buffer Qty", "Reserved", "Typical Buy Qty", "Reference Value");
-            foreach (StockItem item in _stock.OrderByDescending(i => i.AvailableStock <= 0m || i.IsLowStock).ThenBy(i => i.ItemName).Take(200))
+            foreach (StockItem item in _stock.OrderByDescending(i => i.AvailableStock <= 0m || i.IsLowStock).ThenBy(i => i.ItemName).Take(30))
                 _detailGrid.Rows.Add(item.ItemName, item.Category, item.CurrentStock.ToString("N1"), item.ReservedStock.ToString("N1"), item.ReorderLevel.ToString("N1"), item.StockValue.ToString("N0"));
         }
 
         private void BindPurchaseDetail()
         {
             AddColumns("PO", "Supplier", "Date", "Amount", "Balance", "Status");
-            foreach (PurchaseOrder po in _purchases.OrderByDescending(p => p.PODate).Take(200))
+            foreach (PurchaseOrder po in _purchases.OrderByDescending(p => p.PODate).Take(30))
                 _detailGrid.Rows.Add(po.PONumber, po.VendorName ?? "", po.PODate.ToString("dd-MMM-yy"), po.TotalAmount.ToString("N0"), po.BalanceDue.ToString("N0"), po.Status);
         }
 
         private void BindVendorAdvanceDetail()
         {
             AddColumns("Supplier", "Type", "Date", "Amount", "Applied", "Balance", "Reference");
-            foreach (VendorAdvancePayment advance in _vendorAdvances.Take(300))
+            foreach (VendorAdvancePayment advance in _vendorAdvances.Take(30))
                 _detailGrid.Rows.Add(
                     advance.VendorName ?? ("Supplier #" + advance.VendorId),
                     advance.TransactionType,
@@ -641,7 +679,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BindClientSiteDetail()
         {
             AddColumns("Client", "Jobs", "Revenue", "Open Jobs", "Last Update");
-            foreach (var row in _jobs.GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName).OrderByDescending(g => g.Count()).Take(200))
+            foreach (var row in _jobs.GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName).OrderByDescending(g => g.Count()).Take(30))
             {
                 decimal revenue = row.Sum(j => Math.Max(j.Revenue, Math.Max(j.ActualRevenue, j.QuotedRevenue)));
                 int open = row.Count(j => !IsComplete(j.Status));
@@ -768,6 +806,283 @@ namespace HVAC_Pro_Desktop.UI
             return valueLabel;
         }
 
+        private TableLayoutPanel MakeOwnerCardBody(string key)
+        {
+            TableLayoutPanel body = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = CardBg,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(2, 4, 2, 0)
+            };
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            _ownerCardBodies[key] = body;
+            SetOwnerCardRows(key, Metric("Status", "Loading...", TextMid));
+            return body;
+        }
+
+        private void SetOwnerCardRows(string key, params OwnerMetric[] metrics)
+        {
+            TableLayoutPanel body;
+            if (!_ownerCardBodies.TryGetValue(key, out body) || body == null)
+                return;
+            if (metrics == null || metrics.Length == 0)
+                metrics = new[] { Metric("Status", "No data", TextMid) };
+
+            body.SuspendLayout();
+            body.Controls.Clear();
+            body.RowStyles.Clear();
+            body.RowCount = Math.Max(1, metrics.Length);
+
+            for (int i = 0; i < metrics.Length; i++)
+            {
+                OwnerMetric metric = metrics[i];
+                body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f / metrics.Length));
+                Label label = new Label
+                {
+                    Text = metric.Label,
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Regular),
+                    ForeColor = TextMid,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    AutoEllipsis = true,
+                    Cursor = metric.ReportIndex.HasValue ? Cursors.Hand : Cursors.Default
+                };
+                Label value = new Label
+                {
+                    Text = metric.Value,
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                    ForeColor = metric.Color,
+                    TextAlign = ContentAlignment.MiddleRight,
+                    AutoEllipsis = true,
+                    Cursor = metric.ReportIndex.HasValue ? Cursors.Hand : Cursors.Default
+                };
+                if (metric.ReportIndex.HasValue)
+                {
+                    EventHandler openReport = (s, e) =>
+                    {
+                        SelectReport(metric.ReportIndex.Value);
+                        _lblStatus.Text = "Opened " + ReportNames[metric.ReportIndex.Value] + " report from action queue.";
+                        _lblStatus.ForeColor = Blue;
+                    };
+                    label.Click += openReport;
+                    value.Click += openReport;
+                }
+                else
+                {
+                    EventHandler openCardDetail = (s, e) => OpenOwnerCardDetail(key);
+                    label.Cursor = Cursors.Hand;
+                    value.Cursor = Cursors.Hand;
+                    label.Click += openCardDetail;
+                    value.Click += openCardDetail;
+                }
+                body.Controls.Add(label, 0, i);
+                body.Controls.Add(value, 1, i);
+            }
+            body.Visible = true;
+            body.ResumeLayout(true);
+            body.PerformLayout();
+            body.Invalidate();
+        }
+
+        private static OwnerMetric Metric(string label, string value, Color color)
+        {
+            return new OwnerMetric { Label = label, Value = value, Color = color };
+        }
+
+        private static OwnerMetric Metric(string label, string value, Color color, int reportIndex)
+        {
+            return new OwnerMetric { Label = label, Value = value, Color = color, ReportIndex = reportIndex };
+        }
+
+        private void OpenOwnerCardDetail(string key)
+        {
+            try
+            {
+                OwnerCardDetail detail = BuildOwnerCardDetail(key);
+                using (OwnerCardDetailDialog dialog = new OwnerCardDetailDialog(detail))
+                    dialog.ShowDialog(FindForm());
+                _lblStatus.Text = "Opened " + detail.Title + " details.";
+                _lblStatus.ForeColor = Blue;
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Opening report card details", ex);
+                _lblStatus.Text = "Could not open card details.";
+                _lblStatus.ForeColor = Red;
+            }
+        }
+
+        private OwnerCardDetail BuildOwnerCardDetail(string key)
+        {
+            OwnerCardDetail detail = new OwnerCardDetail
+            {
+                Key = key,
+                Title = ResolveOwnerCardTitle(key),
+                Summary = ReadOwnerCardSummary(key)
+            };
+
+            switch ((key ?? string.Empty).ToLowerInvariant())
+            {
+                case "business_health":
+                    detail.Columns.AddRange(new[] { "Type", "Reference", "Party", "Date", "Amount", "Paid", "Balance", "Status" });
+                    foreach (Invoice invoice in _invoices.Where(i => IsThisMonth(i.InvoiceDate)).OrderByDescending(i => i.InvoiceDate))
+                        detail.Rows.Add(Row("Invoice", invoice.InvoiceNumber, invoice.ClientName, DateText(invoice.InvoiceDate), Money(invoice.TotalAmount), Money(invoice.PaidAmount), Money(invoice.BalanceDue), invoice.PaymentStatus));
+                    foreach (PurchaseOrder po in _purchases.Where(p => IsThisMonth(p.PODate)).OrderByDescending(p => p.PODate))
+                        detail.Rows.Add(Row("Purchase", po.PONumber, po.VendorName, DateText(po.PODate), Money(po.TotalAmount), Money(po.PaidAmount), Money(po.BalanceDue), po.Status));
+                    break;
+
+                case "receivables":
+                    detail.Columns.AddRange(new[] { "Invoice", "Client", "Invoice Date", "Due Date", "Total", "Paid", "Balance", "Days Late", "Status" });
+                    foreach (Invoice invoice in _invoices.Where(i => !IsPaid(i.PaymentStatus) && i.BalanceDue > 0m).OrderByDescending(i => i.BalanceDue))
+                    {
+                        int daysLate = Math.Max(0, (DateTime.Today - invoice.DueDate.Date).Days);
+                        detail.Rows.Add(Row(invoice.InvoiceNumber, invoice.ClientName, DateText(invoice.InvoiceDate), DateText(invoice.DueDate), Money(invoice.TotalAmount), Money(invoice.PaidAmount), Money(invoice.BalanceDue), daysLate.ToString("N0"), invoice.PaymentStatus));
+                    }
+                    break;
+
+                case "sales_pipeline":
+                    detail.Columns.AddRange(new[] { "Quotation", "Client", "Submitted", "Due", "Value", "Status", "Owner", "Vendor" });
+                    foreach (TenderBid quote in _quotations.OrderByDescending(q => q.SubmittedDate ?? q.ModifiedDate ?? q.DueDate))
+                        detail.Rows.Add(Row(quote.QuotationNumber, quote.ClientName, DateText(quote.SubmittedDate), DateText(quote.DueDate), Money(QuoteValue(quote)), quote.Status, quote.CreatedByName, quote.RecommendedVendorName));
+                    break;
+
+                case "jobs_workload":
+                    detail.Columns.AddRange(new[] { "Job", "Client", "Site", "Technician", "Scheduled", "Priority", "Revenue", "Cost", "Status" });
+                    foreach (Job job in _jobs.Where(j => !IsComplete(j.Status)).OrderByDescending(j => j.IsOverdue).ThenBy(j => j.ScheduledDate))
+                        detail.Rows.Add(Row(job.JobNumber, job.ClientName, job.SiteName, job.AssignedEmployeeName, DateText(job.ScheduledDate), job.Priority, Money(JobValue(job)), Money(job.EstimatedCost), job.Status));
+                    break;
+
+                case "amc_contracts":
+                    detail.Columns.AddRange(new[] { "Client", "Type", "Start", "End", "Days Left", "Monthly", "Annual", "Status" });
+                    foreach (AMCContract contract in _contracts.OrderBy(c => c.EndDate))
+                    {
+                        int daysLeft = (contract.EndDate.Date - DateTime.Today).Days;
+                        detail.Rows.Add(Row(ResolveClientName(contract.ClientID), contract.ContractType, DateText(contract.StartDate), DateText(contract.EndDate), daysLeft.ToString("N0"), Money(contract.MonthlyValue), Money(contract.AnnualValue), contract.ContractStatus));
+                    }
+                    break;
+
+                case "purchase_payables":
+                    detail.Columns.AddRange(new[] { "PO", "Supplier", "PO Date", "Pay By", "Total", "Paid", "Balance", "Age", "Status" });
+                    foreach (PurchaseOrder po in _purchases.OrderByDescending(p => p.IsOverdue).ThenByDescending(p => p.BalanceDue))
+                        detail.Rows.Add(Row(po.PONumber, po.VendorName, DateText(po.PODate), DateText(po.PayByDate), Money(po.TotalAmount), Money(po.PaidAmount), Money(po.BalanceDue), po.AgeDays.ToString("N0"), po.Status));
+                    break;
+
+                case "inventory_risk":
+                    detail.Columns.AddRange(new[] { "Item", "Category", "Available", "Current", "Reserved", "Reorder", "Rate", "Value", "Supplier" });
+                    foreach (StockItem item in _stock.OrderByDescending(i => i.AvailableStock <= 0m).ThenByDescending(i => i.IsLowStock).ThenBy(i => i.ItemName))
+                        detail.Rows.Add(Row(item.ItemName, item.Category, QuantityText(item.AvailableStock, item.Unit), QuantityText(item.CurrentStock, item.Unit), QuantityText(item.ReservedStock, item.Unit), QuantityText(item.ReorderLevel, item.Unit), Money(item.LastPurchaseRate), Money(item.StockValue), item.VendorName));
+                    break;
+
+                case "top_clients":
+                    detail.Columns.AddRange(new[] { "Client", "Jobs", "Open Jobs", "Completed", "Revenue", "Cost", "Margin", "Last Scheduled" });
+                    foreach (var client in _jobs.GroupBy(j => string.IsNullOrWhiteSpace(j.ClientName) ? "Client #" + j.ClientID : j.ClientName).Select(g => new { Name = g.Key, Jobs = g.ToList() }).OrderByDescending(g => g.Jobs.Sum(JobValue)))
+                    {
+                        decimal revenue = client.Jobs.Sum(JobValue);
+                        decimal cost = client.Jobs.Sum(j => j.EstimatedCost);
+                        detail.Rows.Add(Row(client.Name, client.Jobs.Count.ToString("N0"), client.Jobs.Count(j => !IsComplete(j.Status)).ToString("N0"), client.Jobs.Count(j => IsComplete(j.Status)).ToString("N0"), Money(revenue), Money(cost), Money(revenue - cost), DateText(client.Jobs.Max(j => j.ScheduledDate))));
+                    }
+                    break;
+
+                case "top_suppliers":
+                    detail.Columns.AddRange(new[] { "Supplier", "POs", "Open Dues", "Overdue POs", "Total Spend", "Paid", "Balance", "Last PO" });
+                    foreach (var supplier in _purchases.GroupBy(p => string.IsNullOrWhiteSpace(p.VendorName) ? "Supplier #" + p.VendorID : p.VendorName).Select(g => new { Name = g.Key, Purchases = g.ToList() }).OrderByDescending(g => g.Purchases.Sum(p => p.TotalAmount)))
+                        detail.Rows.Add(Row(supplier.Name, supplier.Purchases.Count.ToString("N0"), supplier.Purchases.Count(p => p.BalanceDue > 0m).ToString("N0"), supplier.Purchases.Count(p => p.IsOverdue).ToString("N0"), Money(supplier.Purchases.Sum(p => p.TotalAmount)), Money(supplier.Purchases.Sum(p => p.PaidAmount)), Money(supplier.Purchases.Sum(p => p.BalanceDue)), DateText(supplier.Purchases.Max(p => p.PODate))));
+                    break;
+
+                case "payroll_snapshot":
+                    detail.Columns.AddRange(new[] { "Employee", "Code", "Designation", "Department", "Client Site", "Gross Salary", "Basic Salary", "Status" });
+                    foreach (Employee employee in _technicians.OrderBy(e => e.Name))
+                        detail.Rows.Add(Row(employee.Name, employee.EmployeeCode, employee.Designation, employee.Department, employee.ClientSite, Money(employee.GrossSalary), Money(employee.BasicSalary), employee.Status));
+                    break;
+
+                case "service_desk":
+                    detail.Columns.AddRange(new[] { "Ticket", "Client", "Site", "Assigned To", "Priority", "Opened", "SLA Due", "Status", "Summary" });
+                    foreach (ServiceDeskIncident ticket in _serviceTickets.OrderBy(t => IsClosedTicket(t.Status)).ThenByDescending(t => t.SlaBreached).ThenBy(t => t.SlaDueAt))
+                        detail.Rows.Add(Row(ticket.IncidentNumber, ticket.ClientName, ticket.SiteName, ticket.AssignedEmployeeName, ticket.Priority, DateTimeText(ticket.OpenedAt), DateTimeText(ticket.SlaDueAt), ticket.Status, ticket.ShortDescription));
+                    break;
+
+                default:
+                    detail.Columns.AddRange(new[] { "Area", "Reference", "Party", "Due / Date", "Amount / Count", "Status", "Action" });
+                    AddOwnerActionRows(detail);
+                    break;
+            }
+
+            if (detail.Rows.Count == 0)
+                detail.Rows.Add(Row("No records", "Nothing currently needs attention for this card."));
+
+            return detail;
+        }
+
+        private void AddOwnerActionRows(OwnerCardDetail detail)
+        {
+            foreach (Invoice invoice in _invoices.Where(IsOverdueInvoice).OrderByDescending(i => i.BalanceDue))
+                detail.Rows.Add(Row("Collection", invoice.InvoiceNumber, invoice.ClientName, DateText(invoice.DueDate), Money(invoice.BalanceDue), invoice.PaymentStatus, "Collect payment"));
+            foreach (TenderBid quote in _quotations.Where(q => IsOpenQuote(q.Status)).OrderBy(q => q.DueDate))
+                detail.Rows.Add(Row("Quotation", quote.QuotationNumber, quote.ClientName, DateText(quote.DueDate), Money(QuoteValue(quote)), quote.Status, "Follow up"));
+            foreach (Job job in _jobs.Where(j => j.IsOverdue || (j.ScheduledDate.Date < DateTime.Today && !IsComplete(j.Status))).OrderBy(j => j.ScheduledDate))
+                detail.Rows.Add(Row("Job", job.JobNumber, job.ClientName, DateText(job.ScheduledDate), Money(JobValue(job)), job.Status, "Close overdue job"));
+            foreach (StockItem item in _stock.Where(i => i.AvailableStock <= 0m || i.IsLowStock).OrderBy(i => i.AvailableStock))
+                detail.Rows.Add(Row("Inventory", item.ItemName, item.VendorName, DateText(item.LastUpdated), QuantityText(item.AvailableStock, item.Unit), item.AvailableStock <= 0m ? "Out of stock" : "Low stock", "Reorder material"));
+            foreach (AMCContract contract in _contracts.Where(c => c.EndDate.Date >= DateTime.Today && c.EndDate.Date <= DateTime.Today.AddDays(30)).OrderBy(c => c.EndDate))
+                detail.Rows.Add(Row("AMC", contract.ContractType, ResolveClientName(contract.ClientID), DateText(contract.EndDate), Money(contract.AnnualValue), contract.ContractStatus, "Renew contract"));
+            foreach (PurchaseOrder po in _purchases.Where(p => p.IsOverdue).OrderByDescending(p => p.BalanceDue))
+                detail.Rows.Add(Row("Payable", po.PONumber, po.VendorName, DateText(po.PayByDate), Money(po.BalanceDue), po.Status, "Pay vendor"));
+        }
+
+        private string ResolveOwnerCardTitle(string key)
+        {
+            ResizableCard card;
+            return _dashboardCards.TryGetValue(key ?? string.Empty, out card) && card != null
+                ? card.CardTitle
+                : "Report Card";
+        }
+
+        private List<OwnerMetric> ReadOwnerCardSummary(string key)
+        {
+            List<OwnerMetric> metrics = new List<OwnerMetric>();
+            TableLayoutPanel body;
+            if (!_ownerCardBodies.TryGetValue(key ?? string.Empty, out body) || body == null)
+                return metrics;
+
+            for (int row = 0; row < body.RowCount; row++)
+            {
+                Label label = body.GetControlFromPosition(0, row) as Label;
+                Label value = body.GetControlFromPosition(1, row) as Label;
+                if (label != null && value != null)
+                    metrics.Add(Metric(label.Text, value.Text, value.ForeColor));
+            }
+            return metrics;
+        }
+
+        private static object[] Row(params object[] values)
+        {
+            return values ?? new object[0];
+        }
+
+        private static string DateText(DateTime date)
+        {
+            return date == default(DateTime) ? "-" : date.ToString("dd-MMM-yyyy");
+        }
+
+        private static string DateText(DateTime? date)
+        {
+            return date.HasValue ? DateText(date.Value) : "-";
+        }
+
+        private static string DateTimeText(DateTime date)
+        {
+            return date == default(DateTime) ? "-" : date.ToString("dd-MMM-yyyy HH:mm");
+        }
+
+        private static string QuantityText(decimal value, string unit)
+        {
+            return value.ToString("N1") + (string.IsNullOrWhiteSpace(unit) ? string.Empty : " " + unit);
+        }
+
         private ResizableCard AddDashboardCard(string key, string title, Control content, int width, int height, string preset)
         {
             ResizableCard card = new ResizableCard
@@ -786,12 +1101,24 @@ namespace HVAC_Pro_Desktop.UI
             card.ContentPanel.Tag = MergeTag(card.ContentPanel.Tag, "NO_CARD_SURFACE");
             content.Tag = MergeTag(content.Tag, "NO_CARD_SURFACE");
             card.ContentPanel.Controls.Add(content);
+            AttachOwnerCardDetailOpen(card.ContentPanel, key);
             card.CardDragRequested += DashboardCard_DragRequested;
             card.CardResizeComplete += (s, e) => LayoutDashboardCards();
             _dashboardCards[key] = card;
             _dashboardFlow.Controls.Add(card);
             CardLayoutService.RegisterDefaultSize(PageKey, key, card.Size, preset);
             return card;
+        }
+
+        private void AttachOwnerCardDetailOpen(Control control, string key)
+        {
+            if (control == null)
+                return;
+
+            control.Cursor = Cursors.Hand;
+            control.Click += (s, e) => OpenOwnerCardDetail(key);
+            foreach (Control child in control.Controls)
+                AttachOwnerCardDetailOpen(child, key);
         }
 
         /// <summary>Adds a metadata token to an existing control tag.</summary>
@@ -901,20 +1228,16 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardFlow.SuspendLayout();
             foreach (ResizableCard card in cards)
             {
-                bool actionQueue = string.Equals(card.CardKey, "action_queue", StringComparison.OrdinalIgnoreCase);
-                card.Width = Math.Max(300, cardWidth);
-                card.Height = actionQueue ? 452 : 220;
+                int span = Math.Min(columns, ResolveDashboardCardColumnSpan(card.CardKey, columns));
+                int column = FindDashboardColumn(columnHeights, span);
+                card.Width = Math.Max(300, (cardWidth * span) + (gap * (span - 1)));
+                card.Height = ResolveDashboardCardHeight(card.CardKey, columns);
                 card.Margin = Padding.Empty;
 
-                int column = 0;
-                for (int i = 1; i < columns; i++)
-                {
-                    if (columnHeights[i] < columnHeights[column])
-                        column = i;
-                }
-
-                card.Location = new Point(column * (card.Width + gap), columnHeights[column]);
-                columnHeights[column] += card.Height + gap;
+                card.Location = new Point(column * (cardWidth + gap), columnHeights[column]);
+                int newHeight = columnHeights[column] + card.Height + gap;
+                for (int i = column; i < column + span; i++)
+                    columnHeights[i] = newHeight;
             }
             _dashboardFlow.ResumeLayout(false);
 
@@ -926,6 +1249,46 @@ namespace HVAC_Pro_Desktop.UI
             Panel wrapper = _dashboardFlow.Parent as Panel;
             if (wrapper != null)
                 wrapper.Height = Math.Max(220, contentHeight + wrapper.Padding.Vertical + 12);
+        }
+
+        private static int FindDashboardColumn(int[] columnHeights, int span)
+        {
+            int bestColumn = 0;
+            int bestHeight = int.MaxValue;
+            for (int column = 0; column <= columnHeights.Length - span; column++)
+            {
+                int height = 0;
+                for (int i = column; i < column + span; i++)
+                    height = Math.Max(height, columnHeights[i]);
+                if (height < bestHeight)
+                {
+                    bestHeight = height;
+                    bestColumn = column;
+                }
+            }
+            return bestColumn;
+        }
+
+        private static int ResolveDashboardCardColumnSpan(string cardKey, int columns)
+        {
+            if (columns < 2)
+                return 1;
+            if (columns >= 3 && IsAny(cardKey, "business_health", "receivables"))
+                return 2;
+            if (columns == 2 && IsAny(cardKey, "business_health", "owner_action_queue"))
+                return 2;
+            return 1;
+        }
+
+        private static int ResolveDashboardCardHeight(string cardKey, int columns)
+        {
+            if (IsAny(cardKey, "owner_action_queue"))
+                return columns == 1 ? 360 : 392;
+            if (IsAny(cardKey, "business_health", "receivables"))
+                return columns == 1 ? 240 : 270;
+            if (IsAny(cardKey, "sales_pipeline", "jobs_workload", "amc_contracts", "purchase_payables", "inventory_risk"))
+                return 230;
+            return 196;
         }
 
         private Panel MakeCard(string title, Control content)
@@ -955,18 +1318,18 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Tag = index,
                 Text = title,
-                Image = ModernIconSystem.IconBitmap(ModernIconSystem.KindForTitle(title), 18, Blue),
+                Image = ModernIconSystem.IconBitmap(ModernIconSystem.KindForTitle(title), 16, Blue),
                 ImageAlign = ContentAlignment.MiddleLeft,
                 TextImageRelation = TextImageRelation.ImageBeforeText,
-                Width = 184,
-                Height = 62,
-                Margin = new Padding(0, 0, 12, 0),
+                Width = 132,
+                Height = 42,
+                Margin = new Padding(0, 0, 8, 0),
                 BackColor = CardBg,
                 ForeColor = TextDark,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Padding = new Padding(10, 0, 8, 0),
+                Padding = new Padding(7, 0, 6, 0),
                 Cursor = Cursors.Hand
             };
             tile.FlatAppearance.BorderColor = DS.InputBorder;
@@ -980,28 +1343,21 @@ namespace HVAC_Pro_Desktop.UI
             return tile;
         }
 
-        private void AddAction(string title, string body, Color accent, int reportIndex)
+        private void LayoutReportLibraryTiles()
         {
-            Panel item = new Panel { Width = 300, Height = 62, BackColor = Color.FromArgb(249, 250, 251), Margin = new Padding(0, 0, 0, 8), Padding = new Padding(10, 8, 8, 6), Cursor = Cursors.Hand };
-            item.Paint += (s, e) => DrawBorder(e.Graphics, item);
-            Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 26, DS.Lighten(accent, 0.82f), accent, 8);
-            icon.Dock = DockStyle.Left;
-            Label titleLabel = new Label { Text = title, Dock = DockStyle.Top, Height = 22, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = TextDark, Cursor = Cursors.Hand, AutoEllipsis = true };
-            Label bodyLabel = new Label { Text = body, Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8.4f), ForeColor = TextMid, Cursor = Cursors.Hand, AutoEllipsis = true };
-            EventHandler openReport = (s, e) =>
+            if (_reportLibrary == null || _reportLibrary.Controls.Count == 0)
+                return;
+
+            int gap = 8;
+            int available = Math.Max(0, _reportLibrary.ClientSize.Width - _reportLibrary.Padding.Horizontal);
+            int count = _reportLibrary.Controls.Count;
+            int width = Math.Max(108, Math.Min(154, (available - (gap * (count - 1))) / Math.Max(1, count)));
+            foreach (Control tile in _reportLibrary.Controls)
             {
-                SelectReport(reportIndex);
-                _lblStatus.Text = "Opened " + ReportNames[reportIndex] + " report from action queue.";
-                _lblStatus.ForeColor = Blue;
-            };
-            item.Click += openReport;
-            titleLabel.Click += openReport;
-            bodyLabel.Click += openReport;
-            icon.Click += openReport;
-            item.Controls.Add(bodyLabel);
-            item.Controls.Add(titleLabel);
-            item.Controls.Add(icon);
-            _actionQueue.Controls.Add(item);
+                tile.Width = width;
+                tile.Height = 42;
+                tile.Margin = new Padding(0, 0, gap, 0);
+            }
         }
 
         private Chart MakeChart(string name, SeriesChartType type, Color color)
@@ -1086,7 +1442,69 @@ namespace HVAC_Pro_Desktop.UI
         private static bool IsComplete(string status)
         {
             return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase);
+                   string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsClosedTicket(string status)
+        {
+            return IsAny(status, "Resolved", "Closed", "Cancelled");
+        }
+
+        private static bool IsPaid(string status)
+        {
+            return IsAny(status, "Paid", "Closed", "Received");
+        }
+
+        private static bool IsOpenQuote(string status)
+        {
+            return IsAny(status, "Draft", "Analysed", "Analyzed", "Sent", "Submitted", "Pending", "Open");
+        }
+
+        private static bool IsOverdueInvoice(Invoice invoice)
+        {
+            if (invoice == null || IsPaid(invoice.PaymentStatus))
+                return false;
+            return IsAny(invoice.PaymentStatus, "Overdue") || invoice.DueDate.Date < DateTime.Today;
+        }
+
+        private static bool IsAny(string value, params string[] candidates)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+            foreach (string candidate in candidates)
+            {
+                if (string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool IsThisMonth(DateTime date)
+        {
+            DateTime today = DateTime.Today;
+            return date.Year == today.Year && date.Month == today.Month;
+        }
+
+        private static decimal QuoteValue(TenderBid quote)
+        {
+            if (quote == null)
+                return 0m;
+            if (quote.TotalWithGST > 0m)
+                return quote.TotalWithGST;
+            if (quote.BidValue > 0m)
+                return quote.BidValue;
+            return quote.TotalTaxableValue + quote.TotalGSTAmount;
+        }
+
+        private static decimal JobValue(Job job)
+        {
+            return job == null ? 0m : Math.Max(job.Revenue, Math.Max(job.ActualRevenue, job.QuotedRevenue));
+        }
+
+        private static string Money(decimal value)
+        {
+            return IndiaFormatHelper.FormatCurrency(value);
         }
 
         private static string ShortText(string text, int max)
@@ -1094,6 +1512,278 @@ namespace HVAC_Pro_Desktop.UI
             if (string.IsNullOrWhiteSpace(text))
                 return "";
             return text.Length <= max ? text : text.Substring(0, max - 3) + "...";
+        }
+
+        private sealed class OwnerCardDetail
+        {
+            public string Key { get; set; }
+            public string Title { get; set; }
+            public List<OwnerMetric> Summary { get; set; } = new List<OwnerMetric>();
+            public List<string> Columns { get; private set; } = new List<string>();
+            public List<object[]> Rows { get; private set; } = new List<object[]>();
+        }
+
+        private sealed class OwnerCardDetailDialog : ServoERP.Infrastructure.ServoFormBase
+        {
+            private readonly OwnerCardDetail _detail;
+            private readonly DataGridView _grid;
+
+            public OwnerCardDetailDialog(OwnerCardDetail detail)
+            {
+                _detail = detail ?? new OwnerCardDetail { Title = "Report Card" };
+                Text = _detail.Title + " Details";
+                StartPosition = FormStartPosition.CenterParent;
+                MinimumSize = new Size(980, 620);
+                Size = new Size(1180, 720);
+                BackColor = PageBg;
+                Padding = new Padding(18);
+
+                Panel footer = BuildFooter();
+                Panel summary = BuildSummaryStrip();
+                Panel header = BuildDialogHeader();
+                _grid = BuildDialogGrid();
+
+                Controls.Add(_grid);
+                Controls.Add(summary);
+                Controls.Add(header);
+                Controls.Add(footer);
+                BindGrid();
+            }
+
+            private Panel BuildDialogHeader()
+            {
+                Panel header = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 72,
+                    BackColor = PageBg,
+                    Padding = new Padding(0, 0, 0, 12)
+                };
+
+                Label title = new Label
+                {
+                    Text = _detail.Title,
+                    Dock = DockStyle.Top,
+                    Height = 34,
+                    Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                    ForeColor = TextDark,
+                    AutoEllipsis = true
+                };
+                Label subtitle = new Label
+                {
+                    Text = _detail.Rows.Count.ToString("N0") + " records from the selected report card",
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 9f),
+                    ForeColor = TextMid,
+                    AutoEllipsis = true
+                };
+
+                header.Controls.Add(subtitle);
+                header.Controls.Add(title);
+                return header;
+            }
+
+            private Panel BuildSummaryStrip()
+            {
+                Panel wrapper = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 76,
+                    BackColor = PageBg,
+                    Padding = new Padding(0, 0, 0, 12)
+                };
+                FlowLayoutPanel strip = new FlowLayoutPanel
+                {
+                    Dock = DockStyle.Fill,
+                    WrapContents = false,
+                    AutoScroll = false,
+                    BackColor = PageBg
+                };
+
+                foreach (OwnerMetric metric in _detail.Summary.Take(8))
+                    strip.Controls.Add(BuildSummaryChip(metric));
+                wrapper.Controls.Add(strip);
+                return wrapper;
+            }
+
+            private Control BuildSummaryChip(OwnerMetric metric)
+            {
+                Panel chip = new Panel
+                {
+                    Width = 204,
+                    Height = 58,
+                    BackColor = CardBg,
+                    Margin = new Padding(0, 0, 10, 0),
+                    Padding = new Padding(12, 6, 12, 6)
+                };
+                chip.Paint += (s, e) => DrawRoundedBorder(e.Graphics, chip.ClientRectangle, Border);
+
+                Label label = new Label
+                {
+                    Text = metric == null ? "" : metric.Label,
+                    Dock = DockStyle.Top,
+                    Height = 20,
+                    Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                    ForeColor = TextMid,
+                    AutoEllipsis = true
+                };
+                Label value = new Label
+                {
+                    Text = metric == null ? "" : metric.Value,
+                    Dock = DockStyle.Fill,
+                    Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                    ForeColor = metric == null ? TextDark : metric.Color,
+                    TextAlign = ContentAlignment.MiddleLeft,
+                    AutoEllipsis = true
+                };
+
+                chip.Controls.Add(value);
+                chip.Controls.Add(label);
+                return chip;
+            }
+
+            private DataGridView BuildDialogGrid()
+            {
+                DataGridView grid = new DataGridView
+                {
+                    Dock = DockStyle.Fill,
+                    AllowUserToAddRows = false,
+                    AllowUserToDeleteRows = false,
+                    ReadOnly = true,
+                    SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                    MultiSelect = false,
+                    RowHeadersVisible = false,
+                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                    BackgroundColor = CardBg,
+                    GridColor = Border,
+                    Font = new Font("Segoe UI", 8.8f),
+                    BorderStyle = BorderStyle.None,
+                    EnableHeadersVisualStyles = false
+                };
+                DS.StyleGrid(grid);
+                return grid;
+            }
+
+            private Panel BuildFooter()
+            {
+                Panel footer = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 54,
+                    BackColor = PageBg,
+                    Padding = new Padding(0, 12, 0, 0)
+                };
+                TableLayoutPanel actions = new TableLayoutPanel
+                {
+                    Dock = DockStyle.Right,
+                    Width = 250,
+                    ColumnCount = 2,
+                    RowCount = 1,
+                    BackColor = PageBg,
+                    Padding = new Padding(0)
+                };
+                actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+                actions.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+                Button close = DialogButton("Close", Blue, 112);
+                close.DialogResult = DialogResult.OK;
+                close.Dock = DockStyle.Fill;
+                Button export = DialogButton("Export CSV", Green, 112);
+                export.Dock = DockStyle.Fill;
+                export.Click += (s, e) => ExportGrid();
+                actions.Controls.Add(export, 0, 0);
+                actions.Controls.Add(close, 1, 0);
+                footer.Controls.Add(actions);
+                return footer;
+            }
+
+            private Button DialogButton(string text, Color color, int width)
+            {
+                Button button = new Button
+                {
+                    Text = text,
+                    Width = width,
+                    Height = 34,
+                    BackColor = color,
+                    ForeColor = Color.White,
+                    Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                    FlatStyle = FlatStyle.Flat,
+                    Cursor = Cursors.Hand,
+                    Margin = new Padding(8, 0, 0, 0)
+                };
+                button.FlatAppearance.BorderSize = 0;
+                return button;
+            }
+
+            private void BindGrid()
+            {
+                _grid.Columns.Clear();
+                _grid.Rows.Clear();
+
+                foreach (string column in _detail.Columns)
+                    _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = column, MinimumWidth = 100, SortMode = DataGridViewColumnSortMode.Automatic });
+
+                foreach (object[] row in _detail.Rows)
+                {
+                    object[] normalized = new object[_detail.Columns.Count];
+                    for (int i = 0; i < normalized.Length; i++)
+                        normalized[i] = row != null && i < row.Length && row[i] != null ? row[i].ToString() : string.Empty;
+                    _grid.Rows.Add(normalized);
+                }
+
+                if (_grid.Columns.Count > 0)
+                    _grid.Columns[0].MinimumWidth = 150;
+            }
+
+            private void ExportGrid()
+            {
+                using (SaveFileDialog dialog = new SaveFileDialog
+                {
+                    FileName = SafeFileName(_detail.Title) + "_" + DateTime.Today.ToString("yyyyMMdd") + ".csv",
+                    Filter = "CSV|*.csv"
+                })
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    StringBuilder sb = new StringBuilder();
+                    sb.AppendLine(string.Join(",", _detail.Columns.Select(Csv)));
+                    foreach (object[] row in _detail.Rows)
+                        sb.AppendLine(string.Join(",", row.Select(v => Csv(v == null ? string.Empty : v.ToString()))));
+                    File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
+                }
+            }
+
+            private static string Csv(string value)
+            {
+                return "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
+            }
+
+            private static string SafeFileName(string value)
+            {
+                string name = string.IsNullOrWhiteSpace(value) ? "ReportCard" : value;
+                foreach (char invalid in Path.GetInvalidFileNameChars())
+                    name = name.Replace(invalid, '_');
+                return name.Replace(' ', '_');
+            }
+
+            private static void DrawRoundedBorder(Graphics graphics, Rectangle bounds, Color color)
+            {
+                using (Pen pen = new Pen(color))
+                {
+                    Rectangle rect = new Rectangle(bounds.X, bounds.Y, Math.Max(1, bounds.Width - 1), Math.Max(1, bounds.Height - 1));
+                    graphics.DrawRectangle(pen, rect);
+                }
+            }
+        }
+
+        private sealed class OwnerMetric
+        {
+            public string Label { get; set; }
+            public string Value { get; set; }
+            public Color Color { get; set; }
+            public int? ReportIndex { get; set; }
         }
     }
 }

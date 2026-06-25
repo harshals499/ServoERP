@@ -42,6 +42,20 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public B2BClient GetBySyncPublicId(Guid syncPublicId)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                B2BClient client = conn.QueryFirstOrDefault<B2BClient>(
+                    "SELECT * FROM B2BClients WHERE SyncPublicId = @syncPublicId",
+                    new { syncPublicId });
+                if (client != null)
+                    client.Contacts = GetContacts(conn, client.ClientID);
+                return client;
+            }
+        }
+
         // ── CREATE ───────────────────────────────────────────
         public int Create(B2BClient c)
         {

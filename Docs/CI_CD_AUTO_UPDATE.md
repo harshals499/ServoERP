@@ -26,13 +26,15 @@ The job:
 
 1. Restores NuGet packages.
 2. Stamps a unique semantic version by adding the GitHub run number to the patch value in `VERSION`.
-3. Builds `SOURCE_CODE/HVAC_Pro_Desktop.sln` in Release mode.
-4. Runs test projects only when separate test projects are present.
-5. Copies the build output to `artifacts/publish`.
-6. Removes client-owned mutable files before packaging.
-7. Builds Velopack installer/update packages.
-8. Uploads the package output as a workflow artifact.
-9. Publishes a GitHub Release tagged as `vMAJOR.MINOR.PATCH`.
+3. Fails immediately if that candidate version is not strictly greater than the latest published GitHub Release.
+4. Builds `SOURCE_CODE/HVAC_Pro_Desktop.sln` in Release mode.
+5. Runs test projects only when separate test projects are present.
+6. Copies the build output to `artifacts/publish`.
+7. Removes client-owned mutable files before packaging.
+8. Builds Velopack installer/update packages.
+9. Verifies the Velopack feed output contains the expected setup executable, `RELEASES` file, and current full package version before publish.
+10. Uploads the package output as a workflow artifact.
+11. Publishes a GitHub Release tagged as `vMAJOR.MINOR.PATCH`.
 
 ## Versioning
 
@@ -51,6 +53,8 @@ Use this command to update the source version intentionally:
 
 In CI, the workflow computes a unique release version from `VERSION` plus `GITHUB_RUN_NUMBER`. Example: if `VERSION` is `1.1.15` and the run number is `42`, the released package version is `1.1.57`.
 
+This CI-stamped version is the release authority for updater packages. A workflow run is rejected if its computed version is not newer than the latest published GitHub Release.
+
 ## Velopack Packaging
 
 The workflow installs Velopack CLI `vpk` version `1.2.0`, matching the app's `Velopack` NuGet reference.
@@ -62,6 +66,14 @@ vpk pack --packId ServoERP.Desktop --packTitle ServoERP --packVersion <version> 
 ```
 
 Velopack creates a setup executable plus update package files. Existing installs use the GitHub Release feed. New users download the latest setup executable from GitHub Releases.
+
+Before publish, CI now validates that the Velopack output folder contains:
+
+- `RELEASES`
+- the setup executable
+- a full `.nupkg` for the exact computed release version
+
+This blocks broken updater packages before they reach clients.
 
 Local/manual release scripts also copy that Velopack setup into:
 
@@ -104,6 +116,8 @@ VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
 ```
 
 After login, ServoERP can check GitHub Releases through `UpdateService`.
+
+GitHub Releases is the only supported automatic update feed. Website files such as `marketing_site/version.txt` are informational only and must not be treated as the desktop updater source of truth.
 
 Settings > About & Updates provides:
 
