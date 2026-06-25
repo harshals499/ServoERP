@@ -1,15 +1,31 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.308.0",
+  "latestVersion": "1.1.312.0",
   "updatedAt": "2026-06-25",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.308/ServoERP.Desktop-1.1.308-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.308.0.exe",
-    "installer": "ServoERP_Setup_1.1.308.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.312/ServoERP.Desktop-1.1.312-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.312.0.exe",
+    "installer": "ServoERP_Setup_1.1.312.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.312.0",
+      "date": "2026-06-25",
+      "title": "ServoERP 1.1.312",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Adds repeatable CI/local smoke gates for logic verification without screen clicks.",
+            "Adds targeted invoice, payment, and job workflow command smoke switches.",
+            "Replaces remaining raw destructive confirmations with ServoConfirmDialog.",
+            "Aligns version/config drift for the client update channel."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.308.0",
       "date": "2026-06-25",

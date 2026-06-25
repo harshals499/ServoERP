@@ -1,4 +1,11 @@
 # Changelog
+## 1.1.312.0 - 2026-06-25
+
+- Added repeatable command-line smoke gates for CI-safe checks, save flows, AMC, Contracts, dashboard recents, purchase view buttons, invoice buttons, payment buttons, and job workflow validation.
+- Replaced remaining raw confirmation prompts outside the shared deletion helper with ServoConfirmDialog for restore, update, runtime download, and job-opening confirmations.
+- Aligned root and source app version configuration for the client update channel.
+- Kept Release builds warning-free by cleaning stale Attendance label declarations.
+
 ## 1.1.311.0 - 2026-06-25
 
 - Added an Employees dashboard status double-click action that toggles employee records between Active and Inactive.
