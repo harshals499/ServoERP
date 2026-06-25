@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.309.0 - 2026-06-25
+
+- Bumped the release candidate version so GitHub Actions can publish a new release after the manually published 1.1.308 build.
+
 ## 1.1.308.0 - 2026-06-25
 
 - Fixed Contracts page recursive sidebar selection that could show a Screen Error while loading contracts or opening New Contract.
