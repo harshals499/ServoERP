@@ -120,7 +120,9 @@ namespace HVAC_Pro_Desktop.UI
             model.DefaultHeight = 84;
             model.CompactHeight = 116;
             model.CompactBreakpoint = 1360;
-            return SharedPageHeader.Build(model).Header;
+            Control header = SharedPageHeader.Build(model).Header;
+            UIHelper.ApplyInputStyles(header.Controls);
+            return header;
         }
 
         private Control BuildBody()

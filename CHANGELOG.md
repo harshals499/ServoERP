@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.306.0 - 2026-06-25
+
+- Added a visible Delete Contract action on the Contracts editor with confirmation, disabled state for unsaved contracts, and safe unlinking of related invoices, jobs, and purchase orders.
+- Fixed the Contracts new/edit flow so opening a new contract no longer hangs during list refresh/selection sync.
+- Fixed Jobs row action clipping and improved shared header search rendering on Jobs and Contracts.
+
 ## 1.1.305.0 - 2026-06-24
 
 - Permanently removed the Tally page from navigation, page creation, QA catalogs, support module lists, language labels, and the desktop project compilation.

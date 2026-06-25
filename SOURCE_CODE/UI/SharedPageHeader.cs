@@ -238,6 +238,7 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				Name = name,
 				Size = new System.Drawing.Size(width, 36),
+				MinimumSize = new System.Drawing.Size(System.Math.Min(width, 180), 36),
 				BackColor = System.Drawing.Color.White,
 				Padding = new System.Windows.Forms.Padding(12, 6, 12, 6)
 			};
@@ -264,10 +265,26 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			System.Windows.Forms.Panel panel = new System.Windows.Forms.Panel
 			{
-				Location = new System.Drawing.Point(38, 6),
-				Size = new System.Drawing.Size(System.Math.Max(80, width - 50), 24),
+				Location = new System.Drawing.Point(54, 6),
+				Size = new System.Drawing.Size(System.Math.Max(96, width - 70), 24),
 				Anchor = (System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right),
 				BackColor = System.Drawing.Color.White
+			};
+			host.Resize += delegate
+			{
+				panel.Width = System.Math.Max(96, host.ClientSize.Width - panel.Left - 12);
+			};
+			input.HandleCreated += delegate
+			{
+				input.BeginInvoke((System.Action)delegate
+				{
+					System.Windows.Forms.TextBoxBase textInput = input as System.Windows.Forms.TextBoxBase;
+					if (textInput != null && !textInput.IsDisposed && !string.IsNullOrEmpty(textInput.Text))
+					{
+						textInput.SelectionStart = 0;
+						textInput.SelectionLength = 0;
+					}
+				});
 			};
 			panel.Controls.Add(input);
 			host.Controls.Add(label);

@@ -814,8 +814,8 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(new Label
             {
                 Text = "Open",
-                Location = new Point(width - 46, 2),
-                Size = new Size(42, 18),
+                Location = new Point(width - 76, 2),
+                Size = new Size(54, 18),
                 Font = new Font("Segoe UI", 7.2f, FontStyle.Bold),
                 ForeColor = TextSecondary,
                 TextAlign = ContentAlignment.MiddleRight,
@@ -878,15 +878,15 @@ namespace HVAC_Pro_Desktop.UI
             if (!IsClosedDashboardStatus(job))
                 meta.ForeColor = GetJobDueColor(job);
 
-            Button open = DashboardButton("Open", Blue, White, 54, false);
-            open.Size = new Size(60, 28);
+            Button open = DashboardButton("Open", Blue, White, 70, false);
+            open.Size = new Size(70, 28);
             open.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             open.Click += async (s, e) => await OpenExistingJobFromDashboardAsync(job.JobId);
 
             row.Controls.AddRange(new Control[] { jobNo, title, client, typePill, statusPill, priorityPill, meta, open });
             Action layoutRow = () =>
             {
-                int openLeft = Math.Max(12, row.ClientSize.Width - open.Width - 12);
+                int openLeft = Math.Max(12, row.ClientSize.Width - open.Width - 28);
                 open.Location = new Point(openLeft, 17);
 
                 int leftBlockWidth = Math.Max(210, (int)(row.ClientSize.Width * 0.30f));

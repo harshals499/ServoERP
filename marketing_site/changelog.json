@@ -1,15 +1,30 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.167.0",
-  "updatedAt": "2026-06-23",
+  "latestVersion": "1.1.306.0",
+  "updatedAt": "2026-06-25",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.167/ServoERP.Desktop-1.1.167-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.167.0.exe",
-    "installer": "ServoERP_Setup_1.1.167.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.306/ServoERP.Desktop-1.1.306-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.306.0.exe",
+    "installer": "ServoERP_Setup_1.1.306.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.306.0",
+      "date": "2026-06-25",
+      "title": "ServoERP 1.1.306",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added visible confirmed contract deletion from the Contracts editor and row actions.",
+            "Fixed Contracts new/edit responsiveness so opening a new contract no longer hangs.",
+            "Fixed Jobs row Open action clipping and improved shared header search rendering."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.167.0",
       "date": "2026-06-23",

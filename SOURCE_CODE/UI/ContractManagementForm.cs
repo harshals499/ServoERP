@@ -77,11 +77,13 @@ namespace HVAC_Pro_Desktop.UI
         private Label _summaryEnd;
         private Label _summaryDuration;
         private Label _contractCountLabel;
+        private Button _deleteContractButton;
 
         private AMCContract _current;
         private int? _siteFilterSiteId;
         private static int? PendingSiteNavigationSiteId;
         private bool _syncingContractSelection;
+        private bool _buildingFormView;
         private bool _showingDashboard = true;
 
         private static readonly Color PageBg = Color.FromArgb(246, 248, 252);
@@ -447,6 +449,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowNewContractPage(AMCContract existing)
         {
+            if (_buildingFormView)
+                return;
+
+            _buildingFormView = true;
+            SuspendLayout();
+            try
+            {
             _showingDashboard = false;
             _current = existing;
             if (existing == null)
@@ -490,6 +499,12 @@ namespace HVAC_Pro_Desktop.UI
                 ClearFormValues();
             RefreshSidebarList();
             UpdateLiveSummary();
+            }
+            finally
+            {
+                ResumeLayout(true);
+                _buildingFormView = false;
+            }
         }
 
         private Control BuildFormTopBar()
@@ -755,7 +770,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel actions = MakeCard(new Padding(16));
             actions.Dock = DockStyle.Top;
-            actions.Height = 178;
+            actions.Height = 220;
             actions.Margin = new Padding(0, 16, 0, 0);
             actions.Controls.Add(new Label { Text = "Actions", Location = new Point(18, 18), Size = new Size(160, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Blue });
             Button saveContract = MakeButton("Save Contract", Green, 220);
@@ -770,10 +785,16 @@ namespace HVAC_Pro_Desktop.UI
             openActions.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             openActions.Click += (s, e) => ShowContractActionsMenu(openActions);
 
+            _deleteContractButton = MakeButton("Delete Contract", Red, 220);
+            _deleteContractButton.Location = new Point(20, 134);
+            _deleteContractButton.Size = new Size(220, 34);
+            _deleteContractButton.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            _deleteContractButton.Click += async (s, e) => await DeleteCurrentContractAsync();
+
             Label hint = new Label
             {
-                Text = "Use this panel for renewal, invoice, SLA log, and reminder actions.",
-                Location = new Point(20, 136),
+                Text = "Delete keeps linked invoices, jobs, and purchases, but unlinks them from this contract.",
+                Location = new Point(20, 176),
                 Size = new Size(220, 28),
                 Font = new Font("Segoe UI", 8f),
                 ForeColor = Muted,
@@ -781,14 +802,17 @@ namespace HVAC_Pro_Desktop.UI
             };
             actions.Controls.Add(saveContract);
             actions.Controls.Add(openActions);
+            actions.Controls.Add(_deleteContractButton);
             actions.Controls.Add(hint);
             actions.Resize += (s, e) =>
             {
                 int width = Math.Max(190, actions.ClientSize.Width - 40);
                 saveContract.Width = width;
                 openActions.Width = width;
+                _deleteContractButton.Width = width;
                 hint.Width = width;
             };
+            UpdateContractDeleteActionState();
             rail.Controls.Add(actions);
             rail.Controls.Add(summary);
             return rail;
@@ -1030,8 +1054,16 @@ namespace HVAC_Pro_Desktop.UI
                 contracts = contracts.Where(c => GetDisplayStatus(c) == _sidebarFilter || IsStatus(c, _sidebarFilter));
 
             List<AMCContract> list = contracts.OrderByDescending(c => c.ContractID).Take(30).ToList();
-            _contractListModule.SetItems(list);
-            SyncContractSelection();
+            _syncingContractSelection = true;
+            try
+            {
+                _contractListModule.SetItems(list);
+                SyncContractSelection();
+            }
+            finally
+            {
+                _syncingContractSelection = false;
+            }
             UpdateContractCount();
         }
 
@@ -1063,7 +1095,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void HandleContractRowSelected(AMCContract contract)
         {
-            if (_syncingContractSelection || contract == null)
+            if (_syncingContractSelection || _buildingFormView || contract == null)
                 return;
 
             ShowNewContractPage(contract);
@@ -1321,6 +1353,20 @@ namespace HVAC_Pro_Desktop.UI
             _summaryEnd.Text = FormatDate(_dtpEnd.Value);
             int months = Math.Max(0, ((_dtpEnd.Value.Year - _dtpStart.Value.Year) * 12) + _dtpEnd.Value.Month - _dtpStart.Value.Month);
             _summaryDuration.Text = months <= 0 ? "-" : months + " months";
+            UpdateContractDeleteActionState();
+        }
+
+        private void UpdateContractDeleteActionState()
+        {
+            if (_deleteContractButton == null)
+                return;
+
+            bool canDelete = _current != null && _current.ContractID > 0;
+            _deleteContractButton.Enabled = canDelete;
+            _deleteContractButton.BackColor = canDelete ? Red : Color.FromArgb(226, 232, 240);
+            _deleteContractButton.ForeColor = canDelete ? Color.White : Color.FromArgb(100, 116, 139);
+            _deleteContractButton.FlatAppearance.MouseOverBackColor = canDelete ? DS.Lighten(Red, 0.07f) : Color.FromArgb(226, 232, 240);
+            _deleteContractButton.FlatAppearance.MouseDownBackColor = canDelete ? DS.Darken(Red, 0.08f) : Color.FromArgb(226, 232, 240);
         }
 
         private void BtnGenerateInvoice_Click(object sender, EventArgs e)
@@ -1596,6 +1642,7 @@ namespace HVAC_Pro_Desktop.UI
                 ListGrid.ColumnHeadersHeight = 32;
                 ListGrid.RowTemplate.Height = 34;
                 ListGrid.BackgroundColor = Color.White;
+                SetPagerVisible(false);
             }
 
             protected override void BuildColumns(DataGridView grid)
