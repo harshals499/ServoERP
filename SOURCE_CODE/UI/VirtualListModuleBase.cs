@@ -16,6 +16,7 @@ namespace HVAC_Pro_Desktop.UI
         private int _page = 1;
         private int _pageSize = PaginationState.DefaultPageSize;
         private int? _selectedRowId;
+        private bool _suppressSelectionChanged;
 
         protected VirtualListModuleBase()
         {
@@ -107,12 +108,20 @@ namespace HVAC_Pro_Desktop.UI
 
         public void SetItems(IEnumerable<T> items)
         {
-            _items.Clear();
-            if (items != null)
-                _items.AddRange(items);
+            _suppressSelectionChanged = true;
+            try
+            {
+                _items.Clear();
+                if (items != null)
+                    _items.AddRange(items);
 
-            _page = PaginationState.NormalizePage(_page, _items.Count, Math.Max(1, _pageSize));
-            RefreshVisibleItems();
+                _page = PaginationState.NormalizePage(_page, _items.Count, Math.Max(1, _pageSize));
+                RefreshVisibleItems();
+            }
+            finally
+            {
+                _suppressSelectionChanged = false;
+            }
         }
 
         public List<T> SnapshotItems()
@@ -141,8 +150,16 @@ namespace HVAC_Pro_Desktop.UI
 
         public void SetSelectedRowId(int? rowId)
         {
-            _selectedRowId = rowId;
-            SyncSelection();
+            _suppressSelectionChanged = true;
+            try
+            {
+                _selectedRowId = rowId;
+                SyncSelection();
+            }
+            finally
+            {
+                _suppressSelectionChanged = false;
+            }
         }
 
         public int GetVerticalScrollValue()
@@ -195,6 +212,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void Grid_SelectionChanged(object sender, EventArgs e)
         {
+            if (_suppressSelectionChanged)
+                return;
+
             if (Grid.CurrentCell == null || Grid.CurrentCell.RowIndex < 0 || Grid.CurrentCell.RowIndex >= _visibleItems.Count)
                 return;
 
@@ -210,33 +230,51 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshVisibleItems()
         {
-            _visibleItems.Clear();
-            int pageSize = Math.Max(1, _pageSize);
-            int page = PaginationState.NormalizePage(_page, _items.Count, pageSize);
-            _page = page;
+            bool previousSuppressSelection = _suppressSelectionChanged;
+            _suppressSelectionChanged = true;
+            try
+            {
+                _visibleItems.Clear();
+                int pageSize = Math.Max(1, _pageSize);
+                int page = PaginationState.NormalizePage(_page, _items.Count, pageSize);
+                _page = page;
 
-            _visibleItems.AddRange(_items.Skip((page - 1) * pageSize).Take(pageSize));
-            Grid.RowCount = _visibleItems.Count;
-            Pager.SetState(page, _items.Count, pageSize);
-            _statusLabel.Text = BuildStatusText(_visibleItems.Count, _items.Count);
-            Grid.ClearSelection();
-            SyncSelection();
-            Grid.Invalidate();
+                _visibleItems.AddRange(_items.Skip((page - 1) * pageSize).Take(pageSize));
+                Grid.RowCount = _visibleItems.Count;
+                Pager.SetState(page, _items.Count, pageSize);
+                _statusLabel.Text = BuildStatusText(_visibleItems.Count, _items.Count);
+                Grid.ClearSelection();
+                SyncSelection();
+                Grid.Invalidate();
+            }
+            finally
+            {
+                _suppressSelectionChanged = previousSuppressSelection;
+            }
         }
 
         private void SyncSelection()
         {
-            if (!_selectedRowId.HasValue || _visibleItems.Count == 0)
-                return;
+            bool previousSuppressSelection = _suppressSelectionChanged;
+            _suppressSelectionChanged = true;
+            try
+            {
+                if (!_selectedRowId.HasValue || _visibleItems.Count == 0)
+                    return;
 
-            int rowIndex = _visibleItems.FindIndex(item => GetRowId(item) == _selectedRowId.Value);
-            if (rowIndex < 0 || rowIndex >= Grid.RowCount)
-                return;
+                int rowIndex = _visibleItems.FindIndex(item => GetRowId(item) == _selectedRowId.Value);
+                if (rowIndex < 0 || rowIndex >= Grid.RowCount)
+                    return;
 
-            Grid.ClearSelection();
-            Grid.CurrentCell = Grid.Rows[rowIndex].Cells.Cast<DataGridViewCell>().FirstOrDefault();
-            if (Grid.CurrentCell != null)
-                Grid.Rows[rowIndex].Selected = true;
+                Grid.ClearSelection();
+                Grid.CurrentCell = Grid.Rows[rowIndex].Cells.Cast<DataGridViewCell>().FirstOrDefault();
+                if (Grid.CurrentCell != null)
+                    Grid.Rows[rowIndex].Selected = true;
+            }
+            finally
+            {
+                _suppressSelectionChanged = previousSuppressSelection;
+            }
         }
     }
 }

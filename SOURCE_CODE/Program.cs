@@ -441,6 +441,15 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/contractstest"))
+                {
+                    string reportPath = ContractPageSmokeTests.WriteReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
+                    AppRuntime.LogTiming("ContractPageSmokeTests", 0, reportPath);
+                    return;
+                }
+
                 if (ShouldShowServerFirstRunSetup())
                 {
                     using (var setup = new ServerFirstRunSetupForm())

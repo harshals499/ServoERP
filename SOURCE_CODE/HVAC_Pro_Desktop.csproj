@@ -412,6 +412,7 @@
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />
+    <Compile Include="Tests\ContractPageSmokeTests.cs" />
     <Compile Include="Tests\InvoiceAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\ModuleDashboardNavigationSmokeTests.cs" />

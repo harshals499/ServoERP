@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.308.0 - 2026-06-25
+
+- Fixed Contracts page recursive sidebar selection that could show a Screen Error while loading contracts or opening New Contract.
+- Added a focused Contracts page smoke test covering dashboard load, New Contract, and existing contract row selection before release.
+
 ## 1.1.307.0 - 2026-06-25
 
 - Fixed Contracts loading on older or empty client databases by self-healing the AMC contract schema before reads, saves, counts, and deletes.
