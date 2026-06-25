@@ -68,12 +68,24 @@ namespace HVAC_Pro_Desktop.Services
             return id;
         }
 
+        public void SetCategoryActive(int categoryId, bool isActive)
+        {
+            _repo.SetCategoryActive(categoryId, isActive);
+            AppDataCache.RemovePrefix("masterlookup:");
+        }
+
         public int SaveValue(MasterLookupValue value)
         {
             ValidateValue(value);
             int id = _repo.SaveValue(value);
             AppDataCache.RemovePrefix("masterlookup:");
             return id;
+        }
+
+        public void SetValueActive(int valueId, bool isActive)
+        {
+            _repo.SetValueActive(valueId, isActive);
+            AppDataCache.RemovePrefix("masterlookup:");
         }
 
         public static string NormalizeKey(string value)

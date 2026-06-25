@@ -1507,10 +1507,10 @@ namespace HVAC_Pro_Desktop.UI
             client.IsActive = value == "Active" || value == "Prospect";
         }
 
-        private async Task DeleteClientAsync(B2BClient client)
+        private async Task<bool> DeleteClientAsync(B2BClient client)
         {
             if (client == null || client.ClientID <= 0)
-                return;
+                return false;
 
             DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
                 FindForm(),
@@ -1518,7 +1518,7 @@ namespace HVAC_Pro_Desktop.UI
                 Safe(client.CompanyName, "selected client"),
                 "The client will be marked inactive. Existing jobs, invoices, payments, contracts, and sites remain preserved.");
             if (confirm != DialogResult.Yes)
-                return;
+                return false;
 
             try
             {
@@ -1528,10 +1528,12 @@ namespace HVAC_Pro_Desktop.UI
                 _clients.RemoveAll(c => c.ClientID == client.ClientID);
                 RenderClientsDashboard();
                 ShowToast("Client deleted from active list.");
+                return true;
             }
             catch (Exception ex)
             {
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Clients"), "Deleting client", ex);
+                return false;
             }
         }
 
@@ -1928,6 +1930,18 @@ namespace HVAC_Pro_Desktop.UI
                     form.Close();
                     ShowDashboardFromNavigation();
                 };
+                Button delete = DS.GhostBtn("Delete Client", 128, 36);
+                delete.Location = new Point(286, 680);
+                delete.Enabled = target.ClientID > 0;
+                delete.ForeColor = Color.FromArgb(220, 38, 38);
+                delete.Click += async (s, e) =>
+                {
+                    if (await DeleteClientAsync(target))
+                    {
+                        form.DialogResult = DialogResult.Cancel;
+                        form.Close();
+                    }
+                };
                 Button save = PrimaryButton("Save", 36);
                 save.Width = 112;
                 save.Location = new Point(420, 680);
@@ -1993,6 +2007,7 @@ namespace HVAC_Pro_Desktop.UI
                 };
                 form.Controls.Add(cancel);
                 form.Controls.Add(dashboard);
+                form.Controls.Add(delete);
                 form.Controls.Add(save);
                 if (form.ShowDialog(this) == DialogResult.OK)
                 {

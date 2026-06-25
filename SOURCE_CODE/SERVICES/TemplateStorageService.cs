@@ -76,6 +76,20 @@ namespace HVAC_Pro_Desktop.Services
             File.WriteAllText(ManifestPath, _serializer.Serialize(templates));
         }
 
+        public void Remove(string templateId)
+        {
+            if (string.IsNullOrWhiteSpace(templateId))
+                return;
+
+            List<CompanyDocumentTemplate> templates = GetAll();
+            int removed = templates.RemoveAll(t => string.Equals(t.TemplateId, templateId, StringComparison.OrdinalIgnoreCase));
+            if (removed <= 0)
+                return;
+
+            Directory.CreateDirectory(RootFolder);
+            File.WriteAllText(ManifestPath, _serializer.Serialize(templates.OrderByDescending(t => t.ModifiedAt).ToList()));
+        }
+
         private static string MakeSafeFileName(string value)
         {
             string safe = string.IsNullOrWhiteSpace(value) ? "template" : value;

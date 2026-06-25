@@ -1670,7 +1670,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnViewPos.Click += (s, e) => ViewPurchaseOrders();
             _btnSave = MakeActionButton("Save", Teal, White, 96, false);
             _btnSave.Click += async (s, e) => await SaveVendorAsync(true);
-            _btnArchive = MakeActionButton("Archive", White, RedDark, 96, true);
+            _btnArchive = MakeActionButton("Archive / Delete", White, RedDark, 124, true);
             _btnArchive.FlatAppearance.BorderColor = DS.Border;
             _btnArchive.Click += async (s, e) => await ArchiveVendorAsync();
 
@@ -1742,7 +1742,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             int height = 30;
             int saveWidth = 64;
-            int archiveWidth = 76;
+            int archiveWidth = 124;
             int raiseWidth = 82;
             int gap = 8;
             int totalWidth = raiseWidth + archiveWidth + saveWidth + (gap * 2);

@@ -91,6 +91,18 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void SetCategoryActive(int categoryId, bool isActive)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Execute(@"
+                    UPDATE MasterLookupCategories
+                       SET IsActive = @isActive,
+                           ModifiedDate = GETDATE()
+                     WHERE CategoryId = @categoryId;", new { categoryId, isActive });
+            }
+        }
+
         public int SaveValue(MasterLookupValue value)
         {
             if (value == null)
@@ -121,6 +133,18 @@ namespace HVAC_Pro_Desktop.DAL
                     VALUES
                         (@CategoryId, @ValueCode, @DisplayText, @Description, @MetadataJson, @IsDefault, 0, @IsActive, @SortOrder);
                     SELECT CAST(SCOPE_IDENTITY() AS INT);", value);
+            }
+        }
+
+        public void SetValueActive(int valueId, bool isActive)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Execute(@"
+                    UPDATE MasterLookupValues
+                       SET IsActive = @isActive,
+                           ModifiedDate = GETDATE()
+                     WHERE ValueId = @valueId;", new { valueId, isActive });
             }
         }
     }

@@ -135,6 +135,23 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void DeactivateSalaryStructure(int structureId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE SalaryStructures
+                    SET IsActive = 0,
+                        EffectiveTo = COALESCE(EffectiveTo, DATEADD(DAY, -1, CONVERT(date, GETDATE())))
+                    WHERE StructureId = @structureId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@structureId", structureId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public PayrollRun GetPayrollRun(int month, int year)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -761,6 +778,22 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void DeactivateEmployeeLoan(int loanId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE EmployeeLoans
+                    SET IsActive = 0
+                    WHERE LoanId = @loanId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@loanId", loanId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public int SaveSalaryAdvance(SalaryAdvance advance)
         {
             using (SqlConnection conn = _db.GetConnection())
@@ -780,6 +813,19 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@recoveryYear", advance.RecoveryYear);
                     cmd.Parameters.AddWithValue("@recovered", advance.Recovered);
                     return Convert.ToInt32(cmd.ExecuteScalar());
+                }
+            }
+        }
+
+        public void MarkAdvanceRecovered(int advanceId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand("UPDATE SalaryAdvances SET Recovered = 1 WHERE AdvanceId = @advanceId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@advanceId", advanceId);
+                    cmd.ExecuteNonQuery();
                 }
             }
         }
@@ -1049,6 +1095,42 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 if (ownsConnection)
                     conn.Dispose();
+            }
+        }
+
+        public int DeleteAttendanceRecordsForEmployeeMonth(int employeeId, int month, int year)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    DELETE FROM AttendanceRecords
+                    WHERE EmployeeId = @employeeId
+                      AND MONTH(AttendanceDate) = @month
+                      AND YEAR(AttendanceDate) = @year", conn))
+                {
+                    cmd.Parameters.AddWithValue("@employeeId", employeeId);
+                    cmd.Parameters.AddWithValue("@month", month);
+                    cmd.Parameters.AddWithValue("@year", year);
+                    return cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public int DeleteAttendanceRecordsForMonth(int month, int year)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    DELETE FROM AttendanceRecords
+                    WHERE MONTH(AttendanceDate) = @month
+                      AND YEAR(AttendanceDate) = @year", conn))
+                {
+                    cmd.Parameters.AddWithValue("@month", month);
+                    cmd.Parameters.AddWithValue("@year", year);
+                    return cmd.ExecuteNonQuery();
+                }
             }
         }
 

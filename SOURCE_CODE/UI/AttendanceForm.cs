@@ -147,9 +147,17 @@ namespace HVAC_Pro_Desktop.UI
 			_btnImport.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
 			System.Windows.Forms.Button button2 = NewButton("Save Attendance", System.Drawing.Point.Empty, 136, System.Drawing.Color.FromArgb(39, 174, 96));
 			System.Windows.Forms.Button button3 = NewButton("Open Payroll", System.Drawing.Point.Empty, 118, System.Drawing.Color.White);
+			System.Windows.Forms.Button resetSelected = NewButton("Reset Selected", System.Drawing.Point.Empty, 124, System.Drawing.Color.White);
+			System.Windows.Forms.Button clearMonth = NewButton("Clear Month", System.Drawing.Point.Empty, 112, System.Drawing.Color.White);
 			button3.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700;
 			button3.FlatAppearance.BorderSize = 1;
 			button3.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
+			resetSelected.ForeColor = HVAC_Pro_Desktop.UI.DS.Red600;
+			resetSelected.FlatAppearance.BorderSize = 1;
+			resetSelected.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
+			clearMonth.ForeColor = HVAC_Pro_Desktop.UI.DS.Red600;
+			clearMonth.FlatAppearance.BorderSize = 1;
+			clearMonth.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
 			button.Click += delegate
 			{
 				MarkAllAttendancePresent();
@@ -166,7 +174,15 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				(FindForm() as HVAC_Pro_Desktop.UI.MainForm)?.NavigateTo("Payroll");
 			};
-			System.Windows.Forms.Button[] array = new System.Windows.Forms.Button[4] { button, _btnImport, button2, button3 };
+			resetSelected.Click += delegate
+			{
+				ResetSelectedEmployeeAttendance();
+			};
+			clearMonth.Click += delegate
+			{
+				ClearCurrentMonthAttendance();
+			};
+			System.Windows.Forms.Button[] array = new System.Windows.Forms.Button[6] { button, _btnImport, button2, resetSelected, clearMonth, button3 };
 			foreach (System.Windows.Forms.Button button4 in array)
 			{
 				button4.Margin = System.Windows.Forms.Padding.Empty;
@@ -1406,6 +1422,44 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			StyleAttendanceGrid(num);
 			SetStatus("Marked visible attendance as present. Review before saving.", HVAC_Pro_Desktop.UI.DS.Primary600);
+		}
+
+		private void ResetSelectedEmployeeAttendance()
+		{
+			if (_gridAttendance == null || _gridAttendance.CurrentRow == null)
+			{
+				SetStatus("Select an employee row before resetting attendance.", HVAC_Pro_Desktop.UI.DS.Red600);
+				return;
+			}
+			HVAC_Pro_Desktop.Models.Employee employee = _gridAttendance.CurrentRow.Tag as HVAC_Pro_Desktop.Models.Employee;
+			if (employee == null || employee.EmployeeID <= 0)
+			{
+				SetStatus("Select an employee row before resetting attendance.", HVAC_Pro_Desktop.UI.DS.Red600);
+				return;
+			}
+			if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Reset attendance for " + employee.Name + "?", "This deletes saved AttendanceRecords for the selected employee in " + new System.DateTime(CurrentYear, CurrentMonth, 1).ToString("MMMM yyyy") + ". Payroll will treat the month as unsaved until attendance is saved again."))
+			{
+				return;
+			}
+			HVAC_Pro_Desktop.Models.ServiceResult<int> result = _attendanceService.ClearEmployeeMonth(employee.EmployeeID, CurrentMonth, CurrentYear);
+			RefreshAttendanceWorkspace();
+			SetStatus(result.Message, result.Success ? HVAC_Pro_Desktop.UI.DS.Primary600 : HVAC_Pro_Desktop.UI.DS.Red600);
+		}
+
+		private void ClearCurrentMonthAttendance()
+		{
+			if (_gridAttendance == null)
+			{
+				return;
+			}
+			string monthName = new System.DateTime(CurrentYear, CurrentMonth, 1).ToString("MMMM yyyy");
+			if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Clear all attendance for " + monthName + "?", "This deletes saved AttendanceRecords for every employee in the selected month. Use this only when the month needs to be rebuilt from import or manual entry."))
+			{
+				return;
+			}
+			HVAC_Pro_Desktop.Models.ServiceResult<int> result = _attendanceService.ClearMonth(CurrentMonth, CurrentYear);
+			RefreshAttendanceWorkspace();
+			SetStatus(result.Message, result.Success ? HVAC_Pro_Desktop.UI.DS.Primary600 : HVAC_Pro_Desktop.UI.DS.Red600);
 		}
 
 		private void SaveAttendanceGrid()

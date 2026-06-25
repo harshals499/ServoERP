@@ -36,6 +36,14 @@ namespace HVAC_Pro_Desktop.Services
             return id;
         }
 
+        public void SetAssetActive(int assetId, bool isActive)
+        {
+            _repo.SetAssetActive(assetId, isActive);
+            AppDataCache.RemovePrefix("masterdata:");
+            SessionManager.LogAction(isActive ? "RESTORE" : "DEACTIVATE", "MasterData", assetId, isActive ? "Client asset restored" : "Client asset deactivated");
+            _audit.Record(isActive ? "RESTORE" : "DEACTIVATE", "Assets", assetId, isActive ? "Asset restored" : "Asset deactivated");
+        }
+
         public int SaveDocument(ClientDocument document, string sourceFilePath)
         {
             if (document == null)
@@ -57,6 +65,14 @@ namespace HVAC_Pro_Desktop.Services
             return id;
         }
 
+        public void DeleteDocumentRegistration(int documentId)
+        {
+            _repo.DeleteDocumentRegistration(documentId);
+            AppDataCache.RemovePrefix("masterdata:");
+            SessionManager.LogAction("DELETE", "MasterData", documentId, "Client document registration removed");
+            _audit.Record("DELETE", "Documents", documentId, "Document registration removed; stored file retained");
+        }
+
         public int SaveRateCard(ServiceRateCard rate)
         {
             if (rate == null || string.IsNullOrWhiteSpace(rate.ServiceName))
@@ -73,6 +89,14 @@ namespace HVAC_Pro_Desktop.Services
             return id;
         }
 
+        public void SetRateActive(int rateId, bool isActive)
+        {
+            _repo.SetRateActive(rateId, isActive);
+            AppDataCache.RemovePrefix("masterdata:");
+            SessionManager.LogAction(isActive ? "RESTORE" : "DEACTIVATE", "MasterData", rateId, isActive ? "Service rate restored" : "Service rate deactivated");
+            _audit.Record(isActive ? "RESTORE" : "DEACTIVATE", "RateCards", rateId, isActive ? "Rate restored" : "Rate deactivated");
+        }
+
         public int SavePrivateServerConnection(PrivateServerConnection connection, string secret)
         {
             if (connection == null || string.IsNullOrWhiteSpace(connection.ConnectionName))
@@ -87,6 +111,13 @@ namespace HVAC_Pro_Desktop.Services
             AppDataCache.RemovePrefix("masterdata:");
             SessionManager.LogAction(connection.ConnectionId > 0 ? "EDIT" : "CREATE", "MasterData", id, "Private server connection saved");
             return id;
+        }
+
+        public void SetPrivateServerConnectionActive(int connectionId, bool isActive)
+        {
+            _repo.SetConnectionActive(connectionId, isActive);
+            AppDataCache.RemovePrefix("masterdata:");
+            SessionManager.LogAction(isActive ? "RESTORE" : "DEACTIVATE", "MasterData", connectionId, isActive ? "Private server connection restored" : "Private server connection deactivated");
         }
 
         public List<MasterDataStatus> GetSetupStatus()

@@ -1,4 +1,12 @@
 # Changelog
+## 1.1.310.0 - 2026-06-25
+
+- Added visible create/delete/deactivate actions across Payroll, Master Data, Service Desk, Attendance, AMC, Client, Vendor, Purchase, and Invoice workflows.
+- Replaced misleading Payroll row action labels with real View/Edit/Deactivate and Stop Recovery behavior.
+- Added guarded reset, cancel, deactivate, and delete confirmations for the new destructive or history-affecting actions.
+- Fixed WhatsApp Hub header button alignment found during the full enterprise UI smoke test.
+- Verified Release build, broad UI smoke, save-button smoke, AMC smoke, contracts smoke, and targeted temporary-row delete/deactivate checks for the client update.
+
 ## 1.1.309.0 - 2026-06-25
 
 - Bumped the release candidate version so GitHub Actions can publish a new release after the manually published 1.1.308 build.

@@ -591,8 +591,13 @@ namespace HVAC_Pro_Desktop.UI
             _btnHeaderPreview.ForeColor = InfoBlue;
             _btnHeaderPreview.FlatAppearance.BorderColor = DS.BorderStrong;
             _btnHeaderPreview.Visible = false;
+            Button btnDeleteInvoice = MakeBtn("Delete", Color.White, 86);
+            Color deleteRed = Color.FromArgb(220, 38, 38);
+            btnDeleteInvoice.ForeColor = deleteRed;
+            btnDeleteInvoice.FlatAppearance.BorderColor = deleteRed;
             _btnNewInvoice.Click += BtnNew_Click;
             _btnHeaderPreview.Click += BtnPreview_Click;
+            btnDeleteInvoice.Click += (s, e) => DeleteCurrentInvoice();
             btnSettings.Click += (s, e) => MessageBox.Show("Invoice settings are available from Settings and Templates.", "Invoice Settings", MessageBoxButtons.OK, MessageBoxIcon.Information);
             btnForms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Invoice Management", "Finance / Payments", null, "invoice payment receipt credit note GST approval customer sign-off");
             btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Invoices, FindForm());
@@ -600,7 +605,7 @@ namespace HVAC_Pro_Desktop.UI
                 "InvoicesHeader",
                 "Invoices",
                 "GST billing, receivables and customer invoice workflow.",
-                new List<Control> { btnImport, btnForms, _btnHeaderPreview, btnSettings, _btnNewInvoice },
+                new List<Control> { btnImport, btnForms, _btnHeaderPreview, btnDeleteInvoice, btnSettings, _btnNewInvoice },
                 centerContent: SharedPageHeader.CreateSearchCommand("InvoicesHeaderSearch", 320, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)));
             headerModel.CompactBreakpoint = 1360;
             headerModel.CompactHeight = 132;

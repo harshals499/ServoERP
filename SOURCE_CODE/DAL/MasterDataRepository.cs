@@ -68,6 +68,24 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void SetAssetActive(int assetId, bool isActive)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE ClientAssets
+                    SET IsActive = @isActive,
+                        ModifiedDate = GETDATE()
+                    WHERE AssetId = @assetId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@assetId", assetId);
+                    cmd.Parameters.AddWithValue("@isActive", isActive);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public List<ClientDocument> GetDocuments()
         {
             var list = new List<ClientDocument>();
@@ -112,6 +130,19 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@notes", Db(doc.Notes));
                     cmd.Parameters.AddWithValue("@uploadedBy", Db(doc.UploadedBy));
                     return (int)(decimal)cmd.ExecuteScalar();
+                }
+            }
+        }
+
+        public void DeleteDocumentRegistration(int documentId)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand("DELETE FROM ClientDocuments WHERE DocumentId = @documentId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@documentId", documentId);
+                    cmd.ExecuteNonQuery();
                 }
             }
         }
@@ -167,6 +198,20 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public void SetRateActive(int rateId, bool isActive)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand("UPDATE ServiceRateCards SET IsActive = @isActive WHERE RateId = @rateId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@rateId", rateId);
+                    cmd.Parameters.AddWithValue("@isActive", isActive);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
         public List<PrivateServerConnection> GetPrivateServerConnections()
         {
             var list = new List<PrivateServerConnection>();
@@ -213,6 +258,24 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     AddConnectionParams(cmd, connection);
                     return (int)(decimal)cmd.ExecuteScalar();
+                }
+            }
+        }
+
+        public void SetConnectionActive(int connectionId, bool isActive)
+        {
+            using (SqlConnection conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (SqlCommand cmd = new SqlCommand(@"
+                    UPDATE PrivateServerConnections
+                    SET IsActive = @isActive,
+                        ModifiedDate = GETDATE()
+                    WHERE ConnectionId = @connectionId", conn))
+                {
+                    cmd.Parameters.AddWithValue("@connectionId", connectionId);
+                    cmd.Parameters.AddWithValue("@isActive", isActive);
+                    cmd.ExecuteNonQuery();
                 }
             }
         }

@@ -59,11 +59,13 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _notesFlow;
         private FlowLayoutPanel _mailAccountsFlow;
         private FlowLayoutPanel _emailsFlow;
+        private Button _btnNewIncident;
         private Button _btnSave;
         private Button _btnCreateJob;
         private Button _btnStart;
         private Button _btnResolve;
         private Button _btnClose;
+        private Button _btnCancelIncident;
         private Panel _emptyIncidentsPanel;
         private Label _lblEmptyIncidentsTitle;
         private Label _lblEmptyIncidentsHint;
@@ -235,23 +237,29 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel pageTop = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = PageBg, Padding = new Padding(0, 0, 0, 6) };
             _lblBreadcrumb = new Label { Text = "Incidents  >  INC000001", Dock = DockStyle.Left, Width = 260, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = Blue, TextAlign = ContentAlignment.MiddleLeft };
-            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 710, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+            FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Right, Width = 860, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+            _btnNewIncident = MakeButton("New Incident", Blue, White, 118);
             _btnSave = MakeButton("Save", Teal, White, 90);
             _btnCreateJob = MakeButton("Create Job", Blue, White, 110);
             _btnStart = MakeButton("Start Work", White, Blue, 100);
             _btnResolve = MakeButton("Resolve", White, Teal, 92);
             _btnClose = MakeButton("Close", White, Red, 82);
+            _btnCancelIncident = MakeButton("Cancel", White, Red, 86);
             Button btnForms = MakeButton("Forms", White, Blue, 88);
             ModernIconSystem.AddButtonIcon(btnForms, ModernIconKind.Document);
             btnForms.Click += (s, e) => OpenIncidentForms();
-            actions.Controls.AddRange(new Control[] { _btnSave, _btnCreateJob, _btnClose, _btnResolve, _btnStart, btnForms });
+            actions.Controls.AddRange(new Control[] { _btnSave, _btnNewIncident, _btnCreateJob, _btnCancelIncident, _btnClose, _btnResolve, _btnStart, btnForms });
+            UIHelper.ApplyActionButton(_btnNewIncident, UiActionVariant.Primary);
             UIHelper.ApplyActionButton(_btnCreateJob, UiActionVariant.Primary);
             UIHelper.ApplyActionButton(_btnClose, UiActionVariant.Danger);
+            UIHelper.ApplyActionButton(_btnCancelIncident, UiActionVariant.Danger);
             _btnSave.Click += (s, e) => SaveIncident();
+            _btnNewIncident.Click += (s, e) => NewIncident();
             _btnCreateJob.Click += (s, e) => CreateJob();
             _btnStart.Click += (s, e) => ChangeStatus("In Progress");
             _btnResolve.Click += (s, e) => ChangeStatus("Resolved");
             _btnClose.Click += (s, e) => ChangeStatus("Closed");
+            _btnCancelIncident.Click += (s, e) => CancelIncident();
             pageTop.Controls.Add(actions);
             pageTop.Controls.Add(_lblBreadcrumb);
 
@@ -432,7 +440,7 @@ namespace HVAC_Pro_Desktop.UI
             _lookupService.BindCombo(_cmbCategory, "ServiceDesk.Category", new[] { "AC Breakdown", "Chiller", "Electrical", "Plumbing", "AMC", "Installation", "Gas Charging", "Customer Complaint", "Emergency", "General" });
             _lookupService.BindCombo(_cmbEquipment, "ServiceDesk.EquipmentType", new[] { "Split AC", "Cassette AC", "Ductable AC", "VRF/VRV", "Chiller", "Cooling Tower", "Pump", "Panel", "Other" });
             _lookupService.BindCombo(_cmbPriority, "Jobs.Priority", new[] { "Low", "Medium", "High", "Critical" });
-            _lookupService.BindCombo(_cmbStatus, "ServiceDesk.Status", new[] { "New", "Assigned", "In Progress", "On Hold", "Resolved", "Closed" });
+            _lookupService.BindCombo(_cmbStatus, "ServiceDesk.Status", new[] { "New", "Assigned", "In Progress", "On Hold", "Resolved", "Closed", "Cancelled" });
 
             Label info = new Label
             {
@@ -770,6 +778,28 @@ namespace HVAC_Pro_Desktop.UI
         {
             SelectComboText(_cmbStatus, status);
             SaveIncident();
+        }
+
+        private void CancelIncident()
+        {
+            if (_current == null || _current.IncidentId <= 0)
+            {
+                SetStatus("Save the incident before cancelling it.", Red);
+                return;
+            }
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Cancel this incident?", "The incident remains in Service Desk history with a cancellation note. No rows are deleted."))
+                return;
+
+            SelectComboText(_cmbStatus, "Cancelled");
+            SaveIncident();
+            _service.AddNote(new ServiceDeskNote
+            {
+                IncidentId = _current.IncidentId,
+                NoteType = "System",
+                NoteText = "Incident cancelled by user."
+            });
+            LoadIncident(_current.IncidentId);
+            SetStatus("Incident cancelled.", Teal);
         }
 
         private void AddNote()
@@ -1294,7 +1324,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ApplyPermissions()
         {
-            PermissionUiHelper.ApplyModulePermissions("ServiceDesk", this, null, _btnSave, null);
+            PermissionUiHelper.ApplyModulePermissions("ServiceDesk", this, _btnNewIncident, _btnSave, _btnCancelIncident);
         }
 
         private void SetStatus(string text, Color color)
@@ -1306,7 +1336,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         private static bool Contains(string value, string search) => (value ?? string.Empty).IndexOf(search ?? string.Empty, StringComparison.OrdinalIgnoreCase) >= 0;
-        private static bool IsClosed(string status) => string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Resolved", StringComparison.OrdinalIgnoreCase);
+        private static bool IsClosed(string status) => string.Equals(status, "Closed", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Resolved", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase);
 
         private static void SelectComboText(ComboBox combo, string text)
         {

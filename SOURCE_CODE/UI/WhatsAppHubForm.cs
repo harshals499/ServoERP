@@ -103,7 +103,13 @@ namespace HVAC_Pro_Desktop.UI
             Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 38, "Refresh WhatsApp contacts");
             refresh.Click += (s, e) => { LoadHubData(); ReloadWhatsAppHome(); };
 
-            Button newMessage = DS.PrimaryBtn("Open WhatsApp Web", 168, 38);
+            Button newMessage = DS.PrimaryBtn("Open WhatsApp Web", 168, 32);
+            newMessage.Size = new Size(168, 32);
+            newMessage.Margin = new Padding(4, 0, 4, 0);
+            refresh.Size = new Size(38, 38);
+            refresh.Margin = new Padding(4, 0, 4, 0);
+            settings.Size = new Size(38, 38);
+            settings.Margin = new Padding(4, 0, 4, 0);
             ModernIconSystem.AddButtonIcon(newMessage, ModernIconKind.Email);
             newMessage.Click += (s, e) => ReloadWhatsAppHome();
             _globalSearch.TextChanged += (s, e) => ApplyGlobalSearch();

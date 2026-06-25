@@ -214,7 +214,8 @@ namespace HVAC_Pro_Desktop.UI
             _assetNotes = AddText(form, "Notes", true);
             form.Controls.Add(ActionRow(
                 MakeButton("New asset", ActionBlue, 100, (s, e) => ClearAssetForm()),
-                MakeButton("Save asset", SaveGreen, 100, (s, e) => SaveAsset())));
+                MakeButton("Save asset", SaveGreen, 100, (s, e) => SaveAsset()),
+                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedAsset())));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -238,7 +239,9 @@ namespace HVAC_Pro_Desktop.UI
             form.Controls.Add(ActionRow(MakeButton("Choose file", ActionBlue, 112, (s, e) => ChooseDocumentFile())));
             _docExpiry = AddDate(form, "Expiry date", out _docExpiryOn);
             _docNotes = AddText(form, "Notes", true);
-            form.Controls.Add(ActionRow(MakeButton("Save document", SaveGreen, 126, (s, e) => SaveDocument())));
+            form.Controls.Add(ActionRow(
+                MakeButton("Save document", SaveGreen, 126, (s, e) => SaveDocument()),
+                MakeButton("Remove registration", Color.White, 166, (s, e) => RemoveSelectedDocument())));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -270,7 +273,8 @@ namespace HVAC_Pro_Desktop.UI
             _rateNotes = AddText(form, "Notes", true);
             form.Controls.Add(ActionRow(
                 MakeButton("New rate", ActionBlue, 92, (s, e) => ClearRateForm()),
-                MakeButton("Save rate", SaveGreen, 92, (s, e) => SaveRate())));
+                MakeButton("Save rate", SaveGreen, 92, (s, e) => SaveRate()),
+                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedRate())));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -298,7 +302,8 @@ namespace HVAC_Pro_Desktop.UI
             categoryForm.Controls.Add(_lookupActive);
             categoryForm.Controls.Add(ActionRow(
                 MakeButton("New category", ActionBlue, 116, (s, e) => ClearLookupCategoryForm()),
-                MakeButton("Save category", SaveGreen, 126, (s, e) => SaveLookupCategory())));
+                MakeButton("Save category", SaveGreen, 126, (s, e) => SaveLookupCategory()),
+                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupCategory())));
             categories.Controls.Add(categoryForm, 1, 0);
 
             TableLayoutPanel values = MakeSplit();
@@ -319,7 +324,8 @@ namespace HVAC_Pro_Desktop.UI
             valueForm.Controls.Add(_lookupValueActive);
             valueForm.Controls.Add(ActionRow(
                 MakeButton("New value", ActionBlue, 96, (s, e) => ClearLookupValueForm()),
-                MakeButton("Save value", SaveGreen, 104, (s, e) => SaveLookupValue())));
+                MakeButton("Save value", SaveGreen, 104, (s, e) => SaveLookupValue()),
+                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupValue())));
             values.Controls.Add(valueForm, 1, 0);
 
             outer.Controls.Add(categories, 0, 0);
@@ -354,6 +360,7 @@ namespace HVAC_Pro_Desktop.UI
             form.Controls.Add(ActionRow(
                 MakeButton("New connection", ActionBlue, 130, (s, e) => ClearConnectionForm()),
                 MakeButton("Save connection", SaveGreen, 140, (s, e) => SaveConnection()),
+                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedConnection()),
                 MakeButton("Test info", ActionBlue, 92, (s, e) => PreviewConnection())));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
@@ -1093,6 +1100,109 @@ namespace HVAC_Pro_Desktop.UI
                 await LoadAllAsync();
             }
             catch (Exception ex) { AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Saving connection", ex); }
+        }
+
+        private async void DeactivateSelectedAsset()
+        {
+            ClientAsset asset = _selectedAsset ?? CurrentRow<ClientAsset>(_assetGrid);
+            if (asset == null || asset.AssetId <= 0)
+            {
+                ShowStatus("Select an asset first.", true);
+                return;
+            }
+            bool makeActive = !asset.IsActive;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, (makeActive ? "Restore" : "Deactivate") + " this asset?", "The asset history stays in ServoERP. Inactive assets stop appearing as active equipment choices."))
+                return;
+            await Task.Run(() => _svc.SetAssetActive(asset.AssetId, makeActive));
+            ClearAssetForm();
+            await LoadAllAsync();
+            ShowStatus(makeActive ? "Asset restored." : "Asset deactivated.", false);
+        }
+
+        private async void RemoveSelectedDocument()
+        {
+            ClientDocument doc = CurrentRow<ClientDocument>(_docGrid);
+            if (doc == null || doc.DocumentId <= 0)
+            {
+                ShowStatus("Select a document first.", true);
+                return;
+            }
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Remove this document registration?", "The uploaded file is retained on disk. This only removes the document from Master Data."))
+                return;
+            await Task.Run(() => _svc.DeleteDocumentRegistration(doc.DocumentId));
+            _docTitle.Clear();
+            _docPath.Clear();
+            _docNotes.Clear();
+            await LoadAllAsync();
+            ShowStatus("Document registration removed.", false);
+        }
+
+        private async void DeactivateSelectedRate()
+        {
+            ServiceRateCard rate = _selectedRate ?? CurrentRow<ServiceRateCard>(_rateGrid);
+            if (rate == null || rate.RateId <= 0)
+            {
+                ShowStatus("Select a service rate first.", true);
+                return;
+            }
+            bool makeActive = !rate.IsActive;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, (makeActive ? "Restore" : "Deactivate") + " this rate?", "Inactive rates stop appearing as active service pricing choices."))
+                return;
+            await Task.Run(() => _svc.SetRateActive(rate.RateId, makeActive));
+            ClearRateForm();
+            await LoadAllAsync();
+            ShowStatus(makeActive ? "Service rate restored." : "Service rate deactivated.", false);
+        }
+
+        private async void DeactivateSelectedConnection()
+        {
+            PrivateServerConnection connection = _selectedConnection ?? CurrentRow<PrivateServerConnection>(_serverGrid);
+            if (connection == null || connection.ConnectionId <= 0)
+            {
+                ShowStatus("Select a connection first.", true);
+                return;
+            }
+            bool makeActive = !connection.IsActive;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, (makeActive ? "Restore" : "Deactivate") + " this connection?", "Inactive connections remain saved but are not treated as active integration targets."))
+                return;
+            await Task.Run(() => _svc.SetPrivateServerConnectionActive(connection.ConnectionId, makeActive));
+            ClearConnectionForm();
+            await LoadAllAsync();
+            ShowStatus(makeActive ? "Connection restored." : "Connection deactivated.", false);
+        }
+
+        private async void DeactivateSelectedLookupCategory()
+        {
+            MasterLookupCategory category = _selectedLookupCategory ?? CurrentRow<MasterLookupCategory>(_lookupCategoryGrid);
+            if (category == null || category.CategoryId <= 0)
+            {
+                ShowStatus("Select a lookup category first.", true);
+                return;
+            }
+            bool makeActive = !category.IsActive;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, (makeActive ? "Restore" : "Deactivate") + " this lookup category?", "Inactive lookup categories stay in the database but stop appearing in active choice lists."))
+                return;
+            await Task.Run(() => _lookupSvc.SetCategoryActive(category.CategoryId, makeActive));
+            ClearLookupCategoryForm();
+            await LoadAllAsync();
+            ShowStatus(makeActive ? "Lookup category restored." : "Lookup category deactivated.", false);
+        }
+
+        private async void DeactivateSelectedLookupValue()
+        {
+            MasterLookupValue value = _selectedLookupValue ?? CurrentRow<MasterLookupValue>(_lookupValueGrid);
+            if (value == null || value.ValueId <= 0)
+            {
+                ShowStatus("Select a lookup value first.", true);
+                return;
+            }
+            bool makeActive = !value.IsActive;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, (makeActive ? "Restore" : "Deactivate") + " this lookup value?", "Inactive values stay available for old records but stop appearing as active choices."))
+                return;
+            await Task.Run(() => _lookupSvc.SetValueActive(value.ValueId, makeActive));
+            ClearLookupValueForm();
+            await LoadAllAsync();
+            ShowStatus(makeActive ? "Lookup value restored." : "Lookup value deactivated.", false);
         }
 
         private void SelectAssetFromGrid()
@@ -2175,6 +2285,7 @@ namespace HVAC_Pro_Desktop.UI
                 actions.Controls.Add(MakeButton("Save mapping", SaveGreen, 120, (s, e) => SaveSelected()));
                 actions.Controls.Add(MakeButton("Set default", DS.Primary600, 110, (s, e) => SetDefault()));
                 actions.Controls.Add(MakeButton("Open file", DS.Slate700, 96, (s, e) => OpenSelected()));
+                actions.Controls.Add(MakeButton("Remove", Color.White, 96, (s, e) => RemoveSelected()));
 
                 _mapping = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), BorderStyle = BorderStyle.FixedSingle };
                 Label mappingTitle = new Label { Text = "Manual mapping (Field=Placeholder per line)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 };
@@ -2305,6 +2416,19 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (_selected != null && File.Exists(_selected.StoredFilePath))
                     Process.Start(new ProcessStartInfo(_selected.StoredFilePath) { UseShellExecute = true });
+            }
+
+            private void RemoveSelected()
+            {
+                if (_selected == null)
+                    return;
+                if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Remove this company template?", "The stored file remains on disk. This removes the template from ServoERP's active template list."))
+                    return;
+
+                _manager.RemoveTemplate(_selected.TemplateId);
+                _selected = null;
+                RefreshTemplates();
+                _status.Text = "Template removed from the active list.";
             }
 
             private static string BuildRecognitionText(CompanyDocumentTemplate template)

@@ -43,6 +43,22 @@ namespace HVAC_Pro_Desktop.Services
             _repo.UpsertAttendanceRecord(record);
         }
 
+        public ServiceResult<int> ClearEmployeeMonth(int employeeId, int month, int year)
+        {
+            if (employeeId <= 0)
+                return ServiceResult<int>.Fail("Select an employee before clearing attendance.");
+            int removed = _repo.DeleteAttendanceRecordsForEmployeeMonth(employeeId, month, year);
+            SessionManager.LogAction("DELETE", "Attendance", employeeId, "Cleared employee attendance for " + month + "/" + year);
+            return ServiceResult<int>.Ok(removed, removed + " attendance record(s) cleared.");
+        }
+
+        public ServiceResult<int> ClearMonth(int month, int year)
+        {
+            int removed = _repo.DeleteAttendanceRecordsForMonth(month, year);
+            SessionManager.LogAction("DELETE", "Attendance", 0, "Cleared attendance month " + month + "/" + year);
+            return ServiceResult<int>.Ok(removed, removed + " attendance record(s) cleared.");
+        }
+
         public AttendanceSourceReconciliation GetSourceReconciliation(int month, int year)
         {
             using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection())

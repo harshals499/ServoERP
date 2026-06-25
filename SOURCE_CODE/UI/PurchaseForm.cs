@@ -281,6 +281,9 @@ namespace HVAC_Pro_Desktop.UI
             _btnPrintPdf = MakeOutlineButton("Print PDF", 88);
             _btnSend = MakeOutlineButton("Send", 70);
             _btnConvertToBill = MakeOutlineButton("Convert to Bill", 112);
+            Button btnDeletePo = MakeOutlineButton("Delete PO", 88);
+            btnDeletePo.ForeColor = DelRed;
+            btnDeletePo.FlatAppearance.BorderColor = DelRed;
             _btnViewReceipt = MakeOutlineButton("View Receipt", 102);
             _btnPayablesToggle = MakeOutlineButton("Supplier Payables", 132);
             _btnBatchPay = MakeBtn("Batch Pay", SaveGreen, 92);
@@ -317,6 +320,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnViewReceipt.Click += (s, e) => ViewReceipt();
             _btnNewPo.Click += (s, e) => NewRecord();
             _btnSavePo.Click += (s, e) => Save();
+            btnDeletePo.Click += (s, e) => DeletePurchaseOrder();
             btnReceived.Click += (s, e) => MarkReceived();
             btnImport.Click += (s, e) => ImportUiHelper.ShowDirectionalImportMenu(btnImport, ExcelImportModule.Purchases, FindForm());
             btnTemplate.Click += (s, e) => ImportUiHelper.DownloadTemplate(ExcelImportModule.Purchases, FindForm());
@@ -331,7 +335,7 @@ namespace HVAC_Pro_Desktop.UI
                     "PurchaseOrdersHeader",
                     "Purchase Orders",
                     "Create, receive, pay, and track supplier purchase orders.",
-                    new List<Control> { btnBackToDashboard, btnRefresh, _btnPayablesToggle, btnImport, btnTemplate, btnForms, _btnPreview, _btnPrintPdf, _btnNewPo, btnSettings },
+                    new List<Control> { btnBackToDashboard, btnRefresh, _btnPayablesToggle, btnImport, btnTemplate, btnForms, _btnPreview, _btnPrintPdf, btnDeletePo, _btnNewPo, btnSettings },
                     "Purchase / Sales / Purchase Orders / New PO",
                     DS.Slate600,
                     _lblHeaderStatus));

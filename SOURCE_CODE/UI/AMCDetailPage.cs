@@ -31,6 +31,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _historyEmpty;
         private Button _markComplete;
         private DetailPayload _payload;
+        private readonly ContractService _contractService = new ContractService();
 
         private static readonly Color PageBg = Color.FromArgb(246, 248, 252);
         private static readonly Color Ink = Color.FromArgb(15, 23, 42);
@@ -88,6 +89,12 @@ namespace HVAC_Pro_Desktop.UI
             _client = new Label { Text = "-", Location = new Point(230, 44), Size = new Size(260, 24), Font = new Font("Segoe UI", 10f), ForeColor = Muted, AutoEllipsis = true };
             _status = MakeBadge("-", Grey, new Point(500, 44), 112);
             _coverage = MakeBadge("-", Blue, new Point(620, 44), 150);
+            Button delete = MakeButton("Delete", Color.White, Red, 84);
+            delete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            delete.FlatAppearance.BorderSize = 1;
+            delete.FlatAppearance.BorderColor = Red;
+            delete.Location = new Point(header.Width - 200, 36);
+            delete.Click += async (s, e) => await DeleteCurrentAmcAsync();
             Button edit = MakeButton("Edit AMC", Blue, Color.White, 104);
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             edit.Location = new Point(header.Width - 104, 36);
@@ -96,14 +103,40 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(_client);
             header.Controls.Add(_status);
             header.Controls.Add(_coverage);
+            header.Controls.Add(delete);
             header.Controls.Add(edit);
             header.Resize += (s, e) =>
             {
                 edit.Location = new Point(Math.Max(0, header.ClientSize.Width - 104), 36);
-                LayoutHeaderBadges(header, edit);
+                delete.Location = new Point(Math.Max(0, edit.Left - 96), 36);
+                LayoutHeaderBadges(header, delete);
             };
-            LayoutHeaderBadges(header, edit);
+            LayoutHeaderBadges(header, delete);
             return header;
+        }
+
+        private async Task DeleteCurrentAmcAsync()
+        {
+            if (_amcId <= 0)
+                return;
+
+            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
+                FindForm(),
+                "AMC contract",
+                "AMC " + _amcId.ToString(CultureInfo.InvariantCulture),
+                "Linked invoices, jobs, and purchase orders will be kept but unlinked. SLA log entries for this contract will be removed.");
+            if (confirm != DialogResult.Yes)
+                return;
+
+            try
+            {
+                await Task.Run(() => _contractService.DeleteContract(_amcId));
+                _backAction?.Invoke();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("AMC"), "Deleting AMC contract", ex);
+            }
         }
 
         /// <summary>Keeps variable AMC header text from clipping into the right-side action.</summary>

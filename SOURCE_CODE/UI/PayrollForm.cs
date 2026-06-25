@@ -488,6 +488,7 @@ namespace HVAC_Pro_Desktop.UI
             formCard.Controls.Add(fieldGrid);
 
             _gridSalaryHistory = NewGrid();
+            _gridSalaryHistory.CellClick += (s, e) => HandleSalaryHistoryAction(_gridSalaryHistory, e.RowIndex, e.ColumnIndex, false);
             ConfigureModernGrid(_gridSalaryHistory);
             Panel historyCard = BuildTableCard("Salary Structure History", _gridSalaryHistory, true);
 
@@ -790,6 +791,7 @@ namespace HVAC_Pro_Desktop.UI
             workspace.Padding = new Padding(16);
             workspace.AutoScroll = true;
             _gridDetailSalaryHistory = NewGrid();
+            _gridDetailSalaryHistory.CellClick += (s, e) => HandleSalaryHistoryAction(_gridDetailSalaryHistory, e.RowIndex, e.ColumnIndex, true);
             _gridPayslipHistory = NewGrid();
             _gridPayslipHistory.CellClick += (s, e) => HandlePayslipHistoryAction(e.RowIndex, e.ColumnIndex);
             _gridPayslipHistory.CellDoubleClick += (s, e) => HandlePayslipHistoryAction(e.RowIndex);
@@ -1689,11 +1691,83 @@ namespace HVAC_Pro_Desktop.UI
         {
             grid.Columns.Clear();
             grid.Rows.Clear();
+            grid.Columns.Add("StructureId", "StructureId");
+            grid.Columns["StructureId"].Visible = false;
             foreach (string col in new[] { "Effective From", "Effective To", "Basic", "DA", "HRA", "Other Allowances", "Gross Salary", "Actions" })
                 grid.Columns.Add(col, col);
             foreach (SalaryStructure row in history)
-                grid.Rows.Add(IndiaFormatHelper.FormatDate(row.EffectiveFrom), IndiaFormatHelper.FormatDate(row.EffectiveTo), IndiaFormatHelper.FormatCurrency(row.BasicSalary), IndiaFormatHelper.FormatCurrency(row.DA), IndiaFormatHelper.FormatCurrency(row.HRA), IndiaFormatHelper.FormatCurrency(row.OtherAllowances), IndiaFormatHelper.FormatCurrency(row.GrossSalary), "View  Edit  Delete");
+                grid.Rows.Add(row.StructureId, IndiaFormatHelper.FormatDate(row.EffectiveFrom), IndiaFormatHelper.FormatDate(row.EffectiveTo), IndiaFormatHelper.FormatCurrency(row.BasicSalary), IndiaFormatHelper.FormatCurrency(row.DA), IndiaFormatHelper.FormatCurrency(row.HRA), IndiaFormatHelper.FormatCurrency(row.OtherAllowances), IndiaFormatHelper.FormatCurrency(row.GrossSalary), row.IsActive ? "View / Edit / Deactivate" : "View");
             PolishPayrollTable(grid, "Actions", new[] { "Basic", "DA", "HRA", "Other Allowances", "Gross Salary" });
+        }
+
+        private void HandleSalaryHistoryAction(DataGridView grid, int rowIndex, int columnIndex, bool detailGrid)
+        {
+            if (grid == null || rowIndex < 0 || rowIndex >= grid.Rows.Count || columnIndex < 0 || grid.Columns[columnIndex].Name != "Actions")
+                return;
+
+            int structureId = Convert.ToInt32(grid.Rows[rowIndex].Cells["StructureId"].Value);
+            Employee employee = detailGrid ? _lstDetailEmployees.SelectedItem as Employee : _lstSalaryEmployees.SelectedItem as Employee;
+            SalaryStructure structure = employee == null ? null : _payrollService.GetSalaryStructures(employee.EmployeeID).FirstOrDefault(s => s.StructureId == structureId);
+            if (structure == null)
+                return;
+
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("View", null, (s, e) => ShowSalaryStructureDetail(structure));
+            menu.Items.Add("Edit", null, (s, e) => LoadSalaryStructureIntoEditor(structure));
+            if (structure.IsActive)
+                menu.Items.Add("Deactivate", null, (s, e) => DeactivateSalaryStructure(structure));
+            menu.Show(grid, grid.GetCellDisplayRectangle(columnIndex, rowIndex, true).Location);
+        }
+
+        private void ShowSalaryStructureDetail(SalaryStructure structure)
+        {
+            string detail = "Effective From: " + IndiaFormatHelper.FormatDate(structure.EffectiveFrom)
+                + Environment.NewLine + "Effective To: " + IndiaFormatHelper.FormatDate(structure.EffectiveTo)
+                + Environment.NewLine + "Basic: " + IndiaFormatHelper.FormatCurrency(structure.BasicSalary)
+                + Environment.NewLine + "DA: " + IndiaFormatHelper.FormatCurrency(structure.DA)
+                + Environment.NewLine + "HRA: " + IndiaFormatHelper.FormatCurrency(structure.HRA)
+                + Environment.NewLine + "Other Allowances: " + IndiaFormatHelper.FormatCurrency(structure.OtherAllowances)
+                + Environment.NewLine + "Gross Salary: " + IndiaFormatHelper.FormatCurrency(structure.GrossSalary)
+                + Environment.NewLine + "Status: " + (structure.IsActive ? "Active" : "Inactive");
+            ShowRosterDetailDialog("Salary Structure", "Employee salary setup", detail, DS.Primary600);
+        }
+
+        private void LoadSalaryStructureIntoEditor(SalaryStructure structure)
+        {
+            if (_dtStructureFrom == null)
+                return;
+
+            _dtStructureFrom.Value = structure.EffectiveFrom;
+            _numBasic.Value = ClampNumeric(_numBasic, structure.BasicSalary);
+            _numDa.Value = ClampNumeric(_numDa, structure.DA);
+            _numHra.Value = ClampNumeric(_numHra, structure.HRA);
+            _numSpecial.Value = ClampNumeric(_numSpecial, structure.SpecialAllowance);
+            _numConveyance.Value = ClampNumeric(_numConveyance, structure.ConveyanceAllowance);
+            _numMedical.Value = ClampNumeric(_numMedical, structure.MedicalAllowance);
+            _numLta.Value = ClampNumeric(_numLta, structure.LTA);
+            _numOther.Value = ClampNumeric(_numOther, structure.OtherAllowances);
+            _lblSalaryValidation.Text = "Loaded salary structure. Review values and click Save Structure.";
+            _lblSalaryValidation.ForeColor = DS.Primary600;
+            if (_tabs != null)
+                _tabs.SelectedIndex = Math.Min(_tabs.TabPages.Count - 1, 2);
+        }
+
+        private static decimal ClampNumeric(NumericUpDown control, decimal value)
+        {
+            return Math.Max(control.Minimum, Math.Min(control.Maximum, value));
+        }
+
+        private void DeactivateSalaryStructure(SalaryStructure structure)
+        {
+            if (structure == null || structure.StructureId <= 0)
+                return;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Deactivate this salary structure?", "Payroll history stays intact. Future payroll runs will ignore this salary setup unless it is saved again."))
+                return;
+
+            _payrollService.DeactivateSalaryStructure(structure.StructureId);
+            LoadSalaryDetails();
+            LoadEmployeeDetails();
+            SetStatus("Salary structure deactivated.", DS.Primary600);
         }
 
         private void BindSalaryComponentGrid(SalaryStructure current)
@@ -1801,12 +1875,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             _gridLoans.Columns.Clear();
             _gridLoans.Rows.Clear();
+            _gridLoans.Columns.Add("RecordId", "RecordId");
+            _gridLoans.Columns["RecordId"].Visible = false;
             foreach (string col in new[] { "Effective From", "Effective To", "Type", "Description", "Monthly Deduction", "Outstanding Balance", "Actions" })
                 _gridLoans.Columns.Add(col, col);
             foreach (EmployeeLoan loan in loans)
-                _gridLoans.Rows.Add(IndiaFormatHelper.FormatDate(loan.LoanDate), "-", "Loan", loan.Purpose, IndiaFormatHelper.FormatCurrency(loan.MonthlyDeduction), IndiaFormatHelper.FormatCurrency(loan.RemainingBalance), "View  Edit  Delete");
+                _gridLoans.Rows.Add(loan.LoanId, IndiaFormatHelper.FormatDate(loan.LoanDate), "-", "Loan", loan.Purpose, IndiaFormatHelper.FormatCurrency(loan.MonthlyDeduction), IndiaFormatHelper.FormatCurrency(loan.RemainingBalance), loan.IsActive ? "View / Edit / Stop" : "View");
             foreach (SalaryAdvance advance in advances)
-                _gridLoans.Rows.Add(IndiaFormatHelper.FormatDate(advance.AdvanceDate), "-", "Advance", "Salary advance", IndiaFormatHelper.FormatCurrency(advance.AdvanceAmount), advance.Recovered ? "Recovered" : IndiaFormatHelper.FormatCurrency(advance.AdvanceAmount), "View  Edit  Delete");
+                _gridLoans.Rows.Add(advance.AdvanceId, IndiaFormatHelper.FormatDate(advance.AdvanceDate), "-", "Advance", "Salary advance", IndiaFormatHelper.FormatCurrency(advance.AdvanceAmount), advance.Recovered ? "Recovered" : IndiaFormatHelper.FormatCurrency(advance.AdvanceAmount), advance.Recovered ? "View" : "View / Edit / Stop");
             PolishPayrollTable(_gridLoans, "Actions", new[] { "Monthly Deduction", "Outstanding Balance" });
         }
 
@@ -1816,12 +1892,43 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             DataGridViewRow row = _gridLoans.Rows[rowIndex];
+            ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("View", null, (s, e) => ShowRecoveryDetail(row));
+            menu.Items.Add("Edit", null, (s, e) => EditRecovery(row));
+            if (!string.Equals(Convert.ToString(row.Cells["Outstanding Balance"].Value), "Recovered", StringComparison.OrdinalIgnoreCase))
+                menu.Items.Add("Stop recovery", null, (s, e) => StopRecovery(row));
+            menu.Show(_gridLoans, _gridLoans.GetCellDisplayRectangle(columnIndex, rowIndex, true).Location);
+        }
+
+        private void ShowRecoveryDetail(DataGridViewRow row)
+        {
             string detail = "Type: " + Convert.ToString(row.Cells["Type"].Value)
                 + Environment.NewLine + "Description: " + Convert.ToString(row.Cells["Description"].Value)
                 + Environment.NewLine + "Effective From: " + Convert.ToString(row.Cells["Effective From"].Value)
                 + Environment.NewLine + "Monthly Deduction: " + Convert.ToString(row.Cells["Monthly Deduction"].Value)
                 + Environment.NewLine + "Outstanding Balance: " + Convert.ToString(row.Cells["Outstanding Balance"].Value);
             ShowRosterDetailDialog("Recovery Report", "Loan / advance detail", detail, DS.Primary600);
+        }
+
+        private void EditRecovery(DataGridViewRow row)
+        {
+            string type = Convert.ToString(row.Cells["Type"].Value);
+            MessageBox.Show(this, type + " editing keeps existing payroll history intact. Use Create Loan / Create Advance for new recovery terms, or Stop recovery for this row.", "Payroll Recovery", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private void StopRecovery(DataGridViewRow row)
+        {
+            int id = Convert.ToInt32(row.Cells["RecordId"].Value);
+            string type = Convert.ToString(row.Cells["Type"].Value);
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Stop " + type.ToLowerInvariant() + " recovery?", "Payroll history remains unchanged. Future payroll runs will not deduct this recovery."))
+                return;
+
+            if (string.Equals(type, "Loan", StringComparison.OrdinalIgnoreCase))
+                _payrollService.DeactivateEmployeeLoan(id);
+            else
+                _payrollService.MarkSalaryAdvanceRecovered(id);
+            LoadEmployeeDetails();
+            SetStatus(type + " recovery stopped.", DS.Primary600);
         }
 
         private void BindForm16Grid(List<TDSCalculation> rows)

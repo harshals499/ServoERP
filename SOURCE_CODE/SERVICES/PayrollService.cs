@@ -269,10 +269,31 @@ namespace HVAC_Pro_Desktop.Services
             return _repo.SaveEmployeeLoan(loan);
         }
 
+        public void DeactivateEmployeeLoan(int loanId)
+        {
+            SessionManager.DemandPermission("Payroll", "Edit");
+            _repo.DeactivateEmployeeLoan(loanId);
+            SessionManager.LogAction("DEACTIVATE", "Payroll", loanId, "Stopped employee loan recovery");
+        }
+
         public int SaveSalaryAdvance(SalaryAdvance advance)
         {
             SessionManager.DemandPermission("Payroll", "Edit");
             return _repo.SaveSalaryAdvance(advance);
+        }
+
+        public void MarkSalaryAdvanceRecovered(int advanceId)
+        {
+            SessionManager.DemandPermission("Payroll", "Edit");
+            _repo.MarkAdvanceRecovered(advanceId);
+            SessionManager.LogAction("RECOVERED", "Payroll", advanceId, "Marked salary advance recovered");
+        }
+
+        public void DeactivateSalaryStructure(int structureId)
+        {
+            SessionManager.DemandPermission("Payroll", "Edit");
+            _repo.DeactivateSalaryStructure(structureId);
+            SessionManager.LogAction("DEACTIVATE", "Payroll", structureId, "Deactivated salary structure");
         }
 
         public PayrollDashboardSnapshot GetDashboardSnapshot()

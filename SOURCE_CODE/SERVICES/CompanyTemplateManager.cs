@@ -28,6 +28,11 @@ namespace HVAC_Pro_Desktop.Services
             _storage.SetDefault(templateId);
         }
 
+        public void RemoveTemplate(string templateId)
+        {
+            _storage.Remove(templateId);
+        }
+
         public CompanyDocumentTemplate GetDefault(CompanyDocumentTemplateType type)
         {
             return _storage.GetDefault(type);
