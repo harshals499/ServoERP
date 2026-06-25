@@ -115,6 +115,8 @@ Act as a senior WinForms frontend engineer for ServoERP in $Root.
 
 Audit every sidebar page, subpage, New form, Detail/Edit form, modal/dialog/popup, ClientDetailPage tabs, and JobDetailPage tabs. Inspect layout, spacing, clipping, alignment, typography, truncation, colors, enabled/disabled states, status badges, buttons, icons, empty/loading states, button behavior, dropdown defaults/placeholders, required field cues, unsaved-change prompts, tab order, and resize behavior.
 
+Move logic and persistence verification behind command-line smoke switches first. Use scripts\Invoke-ServoSmokeTests.ps1 for /cismoketest, /savebuttontest, /amctest, and related suites instead of click-through UI automation. Use screen/UI automation only for final visual proof: one page at a time, wait for Shown/Application.Idle or a known ready control, and prefer scripts\Invoke-ServoPageVisualSmoke.ps1 over coordinate clicks, cursor movement, or SendKeys.
+
 Fix issues directly in source using repository rules. Do not touch MainForm.cs sidebar navigation or JobManagementForm unless explicitly needed and allowed. Do not perform hard-stop business-data or licensing changes. After each page batch, run:
 msbuild SOURCE_CODE\HVAC_Pro_Desktop.sln /p:Configuration=Release
 

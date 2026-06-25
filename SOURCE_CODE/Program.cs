@@ -103,6 +103,36 @@ namespace HVAC_Pro_Desktop
             return args != null && args.Any(arg => string.Equals(arg, expected, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static string WriteCiSmokeReport()
+        {
+            string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+            Directory.CreateDirectory(dir);
+            string reportPath = Path.Combine(dir, "ci-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+            var lines = new System.Collections.Generic.List<string>
+            {
+                "ServoERP CI Smoke Tests",
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                string.Empty
+            };
+
+            try
+            {
+                foreach (string result in UiPolicyTests.RunAll())
+                    lines.Add(result);
+                foreach (string result in UiQaStateCatalogTests.RunAll())
+                    lines.Add(result);
+                lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
+                lines.Add("PASS " + UiErrorHandlingSmokeTests.RunAll());
+            }
+            catch (Exception ex)
+            {
+                lines.Add("FAIL " + ex);
+            }
+
+            File.WriteAllLines(reportPath, lines);
+            return reportPath;
+        }
+
         private static void ShutdownExistingAppInstances()
         {
             try
@@ -219,6 +249,15 @@ namespace HVAC_Pro_Desktop
                 Application.SetCompatibleTextRenderingDefault(false);
                 LayoutAuditService.AttachGlobalFormAuditor();
                 InputOutlineService.InstallGlobalApplicationWatcher();
+
+                if (HasArg(args, "/cismoketest"))
+                {
+                    string reportPath = WriteCiSmokeReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
+                    AppRuntime.LogTiming("CiSmokeTests", 0, reportPath);
+                    return;
+                }
 
                 if (HasArg(args, "/firstrun"))
                 {

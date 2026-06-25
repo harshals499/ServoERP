@@ -90,30 +90,13 @@ jobs:
           /p:Platform="$env:PLATFORM"
           /p:OutDir="$env:GITHUB_WORKSPACE\artifacts\build\"
 
-      - name: Run Tests If Present
+      - name: Run CI Smoke Tests
         shell: pwsh
         run: |
-          $testProjects = Get-ChildItem -Recurse -Filter *.csproj |
-            Where-Object { $_.FullName -match '(?i)(test|tests)' -and $_.FullName -ne (Resolve-Path $env:PROJECT_PATH).Path }
-
-          if (-not $testProjects) {
-            Write-Host "No separate test projects found. ServoERP smoke test classes are compiled into the desktop project and are not run in CI because they need an interactive Windows/SQL Server environment."
-            exit 0
-          }
-
-          foreach ($project in $testProjects) {
-            msbuild $project.FullName /m /t:Rebuild /p:Configuration=$env:BUILD_CONFIGURATION /p:Platform="$env:PLATFORM"
-          }
-
-          $vstest = Get-ChildItem "${env:ProgramFiles}\Microsoft Visual Studio\2022" -Recurse -Filter vstest.console.exe |
-            Select-Object -First 1 -ExpandProperty FullName
-          if (-not $vstest) { throw "vstest.console.exe was not found." }
-
-          $testDlls = Get-ChildItem -Recurse -Path . -Filter *test*.dll |
-            Where-Object { $_.FullName -match "\\bin\\$env:BUILD_CONFIGURATION\\" -and $_.FullName -notmatch "\\obj\\" }
-          if ($testDlls) {
-            & $vstest @($testDlls.FullName)
-          }
+          .\scripts\Invoke-ServoSmokeTests.ps1 `
+            -Suite CiSafe `
+            -SkipBuild `
+            -AppPath "$env:GITHUB_WORKSPACE\artifacts\build\HVAC_Pro_Desktop.exe"
 
       - name: Prepare Publish Folder
         shell: pwsh

@@ -69,7 +69,7 @@ namespace HVAC_Pro_Desktop.Tests
                 Assert(createdPo != null && createdPo.POID > 0, "Purchase order was not created.");
                 Assert(recorder.ContainsModule("Purchases"), "Purchase order save did not raise dashboard refresh.");
                 AssertDashboardContains(createdPo.PONumber, "Purchase");
-                AssertDashboardViewOpens("Purchase", createdPo.POID);
+                AssertDashboardPurchaseViewOpens(createdPo.POID, createdPo.PONumber);
                 results.Add("PASS saved purchase order appears in dashboard recent activity as " + createdPo.PONumber);
 
                 created.InvoiceId = CreateInvoice(invoiceService, baseline, createdJob, createdQuote);
