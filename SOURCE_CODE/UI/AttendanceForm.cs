@@ -18,29 +18,27 @@ namespace HVAC_Pro_Desktop.UI
 
 		private System.Windows.Forms.Label _lblStatus;
 
-		private System.Windows.Forms.Label _lblSummary;
+		private System.Windows.Forms.Label _lblSummary = null;
 
-		private System.Windows.Forms.Label _lblCompleteCount;
+		private System.Windows.Forms.Label _lblCompleteCount = null;
 
-		private System.Windows.Forms.Label _lblReviewCount;
+		private System.Windows.Forms.Label _lblReviewCount = null;
 
-		private System.Windows.Forms.Label _lblCoverage;
+		private System.Windows.Forms.Label _lblCoverage = null;
 
-		private System.Windows.Forms.Label _lblActiveEmployees;
+		private System.Windows.Forms.Label _lblActiveEmployees = null;
 
-		private System.Windows.Forms.Label _lblCoverageInsight;
+		private System.Windows.Forms.Label _lblCoverageInsight = null;
 
-		private System.Windows.Forms.Label _lblReviewInsight;
+		private System.Windows.Forms.Label _lblReviewInsight = null;
 
 		private System.Windows.Forms.Label _lblMonthChip;
 
 		private System.Windows.Forms.Label _lblPeriodStatus;
 
-		private System.Windows.Forms.Label _lblRightHeader;
+		private System.Windows.Forms.Label _lblMonthSignalSummary = null;
 
-		private System.Windows.Forms.Label _lblMonthSignalSummary;
-
-		private System.Windows.Forms.Label _lblMonthSignalDetail;
+		private System.Windows.Forms.Label _lblMonthSignalDetail = null;
 
 		private System.Windows.Forms.Label _lblPayrollTitle;
 
@@ -51,8 +49,6 @@ namespace HVAC_Pro_Desktop.UI
 		private System.Windows.Forms.DataGridView _gridAttendance;
 
 		private System.Windows.Forms.FlowLayoutPanel _reviewQueueBody;
-
-		private System.Windows.Forms.Label _lblGridLegend;
 
 		private System.Windows.Forms.Panel _dailyGridShell;
 
