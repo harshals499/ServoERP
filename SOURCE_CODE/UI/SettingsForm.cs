@@ -3737,13 +3737,11 @@ namespace HVAC_Pro_Desktop.UI
         private async Task RestoreBackupAsync(string backupPath)
         {
             string fileName = Path.GetFileName(backupPath);
-            DialogResult confirm = MessageBox.Show(
-                "Restore database from this backup?\r\n\r\n" + fileName + "\r\n\r\nCurrent data will be replaced. A safety backup will be created first.",
-                "Confirm Restore",
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Warning,
-                MessageBoxDefaultButton.Button2);
-            if (confirm != DialogResult.Yes)
+            bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Restore database from backup?",
+                "Backup file: " + fileName + "\r\n\r\nCurrent data will be replaced. ServoERP will create a safety backup first.");
+            if (!confirm)
                 return;
 
             SetBackupStatus("Restoring database from " + fileName + "...", DS.Slate700);
@@ -4048,12 +4046,11 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (!result.CanApplyUpdate)
                     {
-                        DialogResult openInstaller = MessageBox.Show(
-                            result.StatusMessage + "\r\n\r\nOpen the latest ServoERP installer now?",
-                            "Check for updates",
-                            MessageBoxButtons.OKCancel,
-                            MessageBoxIcon.Information);
-                        if (openInstaller == DialogResult.OK && !string.IsNullOrWhiteSpace(result.DownloadUrl))
+                        bool openInstaller = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                            this,
+                            "Open latest ServoERP installer?",
+                            result.StatusMessage + "\r\n\r\nThis opens the installer download page in your browser.");
+                        if (openInstaller && !string.IsNullOrWhiteSpace(result.DownloadUrl))
                         {
                             Process.Start(new ProcessStartInfo
                             {
@@ -4064,12 +4061,11 @@ namespace HVAC_Pro_Desktop.UI
                         return;
                     }
 
-                    DialogResult install = MessageBox.Show(
-                        "ServoERP v" + result.LatestVersion + " is available from GitHub Releases.\r\nCurrent version: v" + result.CurrentVersion + ".\r\n\r\nServoERP will download the update, back up configuration, restart, and apply it. Save your work before continuing.\r\n\r\nInstall now?",
-                        "Update available",
-                        MessageBoxButtons.OKCancel,
-                        MessageBoxIcon.Information);
-                    if (install == DialogResult.OK)
+                    bool install = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                        this,
+                        "Install ServoERP update?",
+                        "ServoERP v" + result.LatestVersion + " is available from GitHub Releases. Current version: v" + result.CurrentVersion + ".\r\n\r\nServoERP will download the update, back up configuration, restart, and apply it. Save your work before continuing.");
+                    if (install)
                         await InstallUpdateAsync(result);
                 }
                 else

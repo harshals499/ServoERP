@@ -2909,8 +2909,11 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_currentDetail != null && _currentDetail.ChecklistItems.Count > 0)
             {
-                DialogResult confirm = MessageBox.Show("Replace the current checklist with the " + jobType + " template?", "Replace checklist", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (confirm != DialogResult.Yes)
+                bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Replace current checklist",
+                    "This will remove the existing checklist items on the selected job and apply the " + jobType + " template. Continue only if the current checklist can be replaced.");
+                if (!confirm)
                     return;
             }
 
@@ -3248,8 +3251,11 @@ namespace HVAC_Pro_Desktop.UI
 
             if (GetPipelineRank(target) - GetPipelineRank(current) > 1)
             {
-                DialogResult skipConfirm = MessageBox.Show("Move job to " + GetPipelineLabel(target) + "?", "Advance pipeline", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (skipConfirm != DialogResult.Yes)
+                bool skipConfirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Advance job pipeline",
+                    "This moves the job from " + GetPipelineLabel(current) + " to " + GetPipelineLabel(target) + " and skips one or more intermediate pipeline steps. Continue only if this reflects the real job status.");
+                if (!skipConfirm)
                 {
                     ResetStatusComboToCurrent();
                     return;
@@ -3353,8 +3359,11 @@ namespace HVAC_Pro_Desktop.UI
             int remaining = _currentDetail.ChecklistTotalCount - _currentDetail.ChecklistCompletedCount;
             if (remaining > 0)
             {
-                DialogResult warning = MessageBox.Show(remaining + " checklist items are not completed. Close anyway?", "Incomplete checklist", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                if (warning != DialogResult.Yes)
+                bool warning = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    "Close job with incomplete checklist",
+                    remaining + " checklist item(s) are still incomplete. Closing now records the job as finished even though the checklist is not complete.");
+                if (!warning)
                     return;
             }
 

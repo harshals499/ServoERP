@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('CiSafe', 'BusinessSave', 'FullUi', 'Amc', 'Contracts', 'DashboardRecents', 'PurchaseViewButtons')]
+    [ValidateSet('CiSafe', 'BusinessSave', 'FullUi', 'Amc', 'Contracts', 'DashboardRecents', 'PurchaseViewButtons', 'InvoiceButton', 'PaymentButton', 'JobWorkflow')]
     [string[]]$Suite = @('CiSafe'),
     [string]$Root = 'C:\HVAC_PRO_MSE',
     [string]$AppPath,
@@ -70,6 +70,9 @@ try {
             'Contracts' { $switches.Add('/contractstest') }
             'DashboardRecents' { $switches.Add('/dashboardrecentstest') }
             'PurchaseViewButtons' { $switches.Add('/poviewbuttontest') }
+            'InvoiceButton' { $switches.Add('/invoicebuttontest') }
+            'PaymentButton' { $switches.Add('/paymentbuttontest') }
+            'JobWorkflow' { $switches.Add('/jobworkflowtest') }
         }
     }
 

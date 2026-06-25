@@ -19,6 +19,39 @@ namespace HVAC_Pro_Desktop.Tests
 
         public static List<string> RunAll()
         {
+            return RunWithQaSession(results =>
+            {
+                results.Add(Run("Attendance save persists monthly record", TestAttendanceSave));
+                results.Add(Run("Client save persists create and update", TestClientSave));
+                results.Add(Run("Employee save persists create, update, and salary profile", TestEmployeeSave));
+                results.Add(Run("Vendor save persists create and update", TestVendorSave));
+                results.Add(Run("Inventory save persists create and update", TestInventorySave));
+                results.Add(Run("Contract save persists create and update", TestContractSave));
+                results.Add(Run("Job save persists create and update", TestJobSave));
+                results.Add(Run("Purchase save persists create and update", TestPurchaseSave));
+                results.Add(Run("Invoice save persists create and update", TestInvoiceSave));
+                results.Add(Run("Payment save persists record and invoice status refresh", TestPaymentSave));
+            });
+        }
+
+        public static List<string> RunInvoiceOnly()
+        {
+            return RunWithQaSession(results =>
+            {
+                results.Add(Run("Invoice save persists create and update", TestInvoiceSave));
+            });
+        }
+
+        public static List<string> RunPaymentOnly()
+        {
+            return RunWithQaSession(results =>
+            {
+                results.Add(Run("Payment save persists record and invoice status refresh", TestPaymentSave));
+            });
+        }
+
+        private static List<string> RunWithQaSession(Action<List<string>> runTests)
+        {
             AppUserDto previousUser = SessionManager.CurrentUser;
             Guid? previousSessionId = SessionManager.CurrentSessionId;
             DateTime? previousExpiry = SessionManager.ExpiresAt;
@@ -36,16 +69,7 @@ namespace HVAC_Pro_Desktop.Tests
                 }, Guid.NewGuid(), DateTime.Now.AddHours(1));
 
                 var results = new List<string>();
-                results.Add(Run("Attendance save persists monthly record", TestAttendanceSave));
-                results.Add(Run("Client save persists create and update", TestClientSave));
-                results.Add(Run("Employee save persists create, update, and salary profile", TestEmployeeSave));
-                results.Add(Run("Vendor save persists create and update", TestVendorSave));
-                results.Add(Run("Inventory save persists create and update", TestInventorySave));
-                results.Add(Run("Contract save persists create and update", TestContractSave));
-                results.Add(Run("Job save persists create and update", TestJobSave));
-                results.Add(Run("Purchase save persists create and update", TestPurchaseSave));
-                results.Add(Run("Invoice save persists create and update", TestInvoiceSave));
-                results.Add(Run("Payment save persists record and invoice status refresh", TestPaymentSave));
+                runTests(results);
                 return results;
             }
             finally

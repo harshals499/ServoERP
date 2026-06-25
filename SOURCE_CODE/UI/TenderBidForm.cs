@@ -2991,7 +2991,7 @@ namespace HVAC_Pro_Desktop.UI
                 PopulateCurrent(_current);
                 await RefreshListsAsync();
                 SetStatus("Revenue job created: " + job.JobNumber, SaveGreen);
-                if (MessageBox.Show("Revenue job created.\r\n\r\n" + job.JobNumber + "\r\n\r\nOpen Jobs now?", "Create Revenue Job", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                if (ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Open created job?", "Revenue job created: " + job.JobNumber + "\r\n\r\nOpen the Jobs workspace now?"))
                     OnNavigate?.Invoke(15);
             }
             catch (Exception ex)

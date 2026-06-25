@@ -63,14 +63,12 @@ namespace HVAC_Pro_Desktop.Services
             if (IsRuntimeAvailable(out _, out string message))
                 return;
 
-            DialogResult result = MessageBox.Show(
+            bool result = ServoERP.Infrastructure.ServoConfirmDialog.Show(
                 owner,
-                message + "\r\n\r\nOpen the download page now?",
-                BrandingService.WindowTitle("Map Runtime Needed"),
-                MessageBoxButtons.YesNo,
-                MessageBoxIcon.Information);
+                "Open WebView2 download page?",
+                message + "\r\n\r\nServoERP will open the Microsoft WebView2 Runtime download page in your browser.");
 
-            if (result != DialogResult.Yes)
+            if (!result)
                 return;
 
             try

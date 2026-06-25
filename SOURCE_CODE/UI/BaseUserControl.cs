@@ -280,12 +280,11 @@ namespace HVAC_Pro_Desktop.UI
             DateTime savedAt;
             if (_autoSave.HasDraft(key, out savedAt))
             {
-                DialogResult restore = MessageBox.Show(
-                    string.Format(LanguageManager.Get("An autosaved draft exists for this screen from {0}. Restore it?"), savedAt.ToString("dd MMM yyyy hh:mm tt")),
-                    BrandingService.WindowTitle(LanguageManager.Get("Autosave")),
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (restore == DialogResult.Yes)
+                bool restore = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    LanguageManager.Get("Restore autosaved draft?"),
+                    string.Format(LanguageManager.Get("An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values."), savedAt.ToString("dd MMM yyyy hh:mm tt")));
+                if (restore)
                     _autoSave.Restore(this, key);
             }
 

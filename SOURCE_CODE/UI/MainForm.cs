@@ -3080,12 +3080,11 @@ namespace HVAC_Pro_Desktop.UI
             if (_latestUpdateResult == null)
                 return;
 
-            DialogResult confirm = MessageBox.Show(
-                "ServoERP will download version " + _latestUpdateResult.LatestVersion + ", back up local configuration, close the app, apply the update, and reopen automatically.\r\n\r\nSave your work before continuing.",
-                "Install update",
-                MessageBoxButtons.OKCancel,
-                MessageBoxIcon.Information);
-            if (confirm != DialogResult.OK)
+            bool confirm = ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                this,
+                "Install ServoERP update?",
+                "ServoERP will download version " + _latestUpdateResult.LatestVersion + ", back up local configuration, close the app, apply the update, and reopen automatically. Save your work before continuing.");
+            if (!confirm)
                 return;
 
             using (var progressForm = new Form

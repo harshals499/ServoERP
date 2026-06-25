@@ -480,6 +480,89 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/invoicebuttontest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "invoice-button-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>
+                    {
+                        "Invoice Button Smoke Test",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        string.Empty
+                    };
+                    try
+                    {
+                        foreach (string result in SaveButtonSmokeTests.RunInvoiceOnly())
+                            lines.Add(result);
+                        foreach (string result in InvoiceAnalyticsServiceSmokeTests.RunAll())
+                            lines.Add("PASS " + result);
+                    }
+                    catch (Exception invoiceButtonEx)
+                    {
+                        lines.Add("FAIL " + invoiceButtonEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("InvoiceButtonSmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/paymentbuttontest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "payment-button-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>
+                    {
+                        "Payment Button Smoke Test",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        string.Empty
+                    };
+                    try
+                    {
+                        foreach (string result in SaveButtonSmokeTests.RunPaymentOnly())
+                            lines.Add(result);
+                    }
+                    catch (Exception paymentButtonEx)
+                    {
+                        lines.Add("FAIL " + paymentButtonEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("PaymentButtonSmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/jobworkflowtest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "job-workflow-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>
+                    {
+                        "Job Workflow Smoke Test",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        string.Empty
+                    };
+                    try
+                    {
+                        foreach (string result in EndToEndWorkflowSmokeTests.RunAll())
+                            lines.Add(result);
+                    }
+                    catch (Exception jobWorkflowEx)
+                    {
+                        lines.Add("FAIL " + jobWorkflowEx);
+                    }
+
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("JobWorkflowSmokeTests", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/contractstest"))
                 {
                     string reportPath = ContractPageSmokeTests.WriteReport();
