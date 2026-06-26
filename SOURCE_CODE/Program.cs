@@ -288,15 +288,8 @@ namespace HVAC_Pro_Desktop
                 AppRuntime.LogTiming("Startup.PrepareSqlServer", stageWatch.ElapsedMilliseconds, resolvedSqlServer);
                 var dbManager = new DatabaseManager();
                 stageWatch.Restart();
-                if (dbManager.IsNormalStartupReady())
-                {
-                    AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "skipped; database ready");
-                }
-                else
-                {
-                    dbManager.InitializeDatabase();
-                    AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds);
-                }
+                dbManager.InitializeDatabase();
+                AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "schema verified");
                 dbManager.EnsureOperationalSeedData();
                 DbHelper.EnsureQuotationSchemaMigration();
                 DbHelper.EnsureAMCSchema();

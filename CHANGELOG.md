@@ -1,4 +1,17 @@
 # Changelog
+## 1.1.315.0 - 2026-06-26
+
+- Published the client database repair hotfix as an updater-visible release so client PCs run schema repair automatically on startup and can manually run Repair Database from Settings or Help & Support.
+
+## 1.1.314.0 - 2026-06-26
+
+- Fixed client machines entering ServoERP with a partially upgraded SQL schema by running the idempotent database migration at startup, preventing Screen Error popups on Add Supplier, New Purchase Order, New Quotation, and other schema-dependent actions after updates.
+- Added a manual database schema repair action in Settings > System Tools and Help & Support > System Health so support can resolve missing-column and sync-migration issues without SQL commands.
+
+## 1.1.313.0 - 2026-06-25
+
+- Added Attendance trust signals with today/month counts, visible saved/unsaved state, save-and-reload verification, guarded period/site changes, close warning for unsaved edits, and month CSV export.
+
 ## 1.1.312.0 - 2026-06-25
 
 - Added repeatable command-line smoke gates for CI-safe checks, save flows, AMC, Contracts, dashboard recents, purchase view buttons, invoice buttons, payment buttons, and job workflow validation.

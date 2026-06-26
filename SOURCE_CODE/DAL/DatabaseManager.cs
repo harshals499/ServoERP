@@ -2458,6 +2458,12 @@ SELECT CASE WHEN
     AND COL_LENGTH('Jobs', 'ClosedDate') IS NOT NULL
     AND COL_LENGTH('Jobs', 'InvoiceId') IS NOT NULL
     AND COL_LENGTH('ClientSites', 'TravelRateINR') IS NOT NULL
+    AND COL_LENGTH('B2BClients', 'SyncPublicId') IS NOT NULL
+    AND COL_LENGTH('ClientSites', 'SyncPublicId') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'SyncPublicId') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncNodes', 'U') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncOutbox', 'U') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncConflicts', 'U') IS NOT NULL
     AND COL_LENGTH('JobChecklistItems', 'CompletedBy') IS NOT NULL
     AND COL_LENGTH('JobPartsUsed', 'TotalCost') IS NOT NULL
     AND COL_LENGTH('JobActivityLog', 'ActivityType') IS NOT NULL
@@ -2477,6 +2483,12 @@ SELECT CASE WHEN
     AND COL_LENGTH('Jobs', 'ClosedDate') IS NOT NULL
     AND COL_LENGTH('Jobs', 'InvoiceId') IS NOT NULL
     AND COL_LENGTH('ClientSites', 'TravelRateINR') IS NOT NULL
+    AND COL_LENGTH('B2BClients', 'SyncPublicId') IS NOT NULL
+    AND COL_LENGTH('ClientSites', 'SyncPublicId') IS NOT NULL
+    AND COL_LENGTH('Jobs', 'SyncPublicId') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncNodes', 'U') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncOutbox', 'U') IS NOT NULL
+    AND OBJECT_ID('dbo.SyncConflicts', 'U') IS NOT NULL
     AND COL_LENGTH('JobChecklistItems', 'CompletedBy') IS NOT NULL
     AND COL_LENGTH('JobPartsUsed', 'TotalCost') IS NOT NULL
     AND COL_LENGTH('JobActivityLog', 'ActivityType') IS NOT NULL

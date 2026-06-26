@@ -87,6 +87,50 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        public SupportToolResult RepairDatabaseSchema()
+        {
+            try
+            {
+                Stopwatch watch = Stopwatch.StartNew();
+                string sqlServer = DatabaseManager.PrepareSqlServer();
+                DatabaseManager manager = new DatabaseManager();
+
+                manager.InitializeDatabase();
+                manager.EnsureOperationalSeedData();
+                DbHelper.EnsureQuotationSchemaMigration();
+                DbHelper.EnsureAMCSchema();
+                NodeIdentityService.EnsureRegistered();
+                LocalSqliteFallbackStore.RecordSqlAvailable(DatabaseManager.RequireConfiguredConnectionString());
+                DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.CheckNow("SupportCenterService.RepairDatabaseSchema", true);
+
+                SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(DatabaseManager.RequireConfiguredConnectionString());
+                AppDataCache.Clear();
+                AppLogger.LogInfo("Support Center: database schema repair completed in " + watch.ElapsedMilliseconds + " ms.");
+
+                return Ok(
+                    "Database repair complete",
+                    "Database schema was checked and repaired. Reopen the affected page before trying the action again.",
+                    "Server: " + SafeValue(builder.DataSource) + Environment.NewLine +
+                    "Database: " + SafeValue(builder.InitialCatalog) + Environment.NewLine +
+                    "Resolved SQL Server: " + SafeValue(sqlServer) + Environment.NewLine +
+                    "Elapsed: " + watch.ElapsedMilliseconds + " ms" + Environment.NewLine +
+                    "Connection state: " + (state == null ? "Unknown" : state.State.ToString()) + Environment.NewLine +
+                    Environment.NewLine +
+                    DatabaseConnectionStateService.BuildSupportStatusText());
+            }
+            catch (Exception ex)
+            {
+                DatabaseConnectionStateService.RecordOperationFailure("SupportCenterService.RepairDatabaseSchema", ex);
+                AppLogger.LogError("SupportCenterService.RepairDatabaseSchema", ex);
+                return Fail(
+                    "Database repair failed",
+                    "ServoERP could not repair the database schema: " + ex.Message,
+                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
+                    Environment.NewLine +
+                    LocalSqliteFallbackStore.BuildStatusText());
+            }
+        }
+
         public SupportToolResult BackupDatabase()
         {
             BackupResult backup = new BackupService().CreateDatabaseBackup("Support Center database backup");

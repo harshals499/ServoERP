@@ -44,6 +44,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DeviceFingerprintService _deviceFingerprintSvc = new DeviceFingerprintService();
         private readonly CloudBackupIntegrationService _cloudBackupIntegrationSvc = new CloudBackupIntegrationService();
         private readonly CardLayoutService _cardLayoutSvc = new CardLayoutService();
+        private readonly SupportCenterService _supportCenterSvc = new SupportCenterService();
 
         private TextBox _txtCompanyName;
         private TextBox _txtGST;
@@ -684,7 +685,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel unitBody = AddModernSettingsCard(parent, "Unit Management", "Add and review global units used across inventory, quotations, invoices, and jobs.", 560);
             BuildUnitManagementCard(unitBody);
 
-            Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection checks, setup, and saved dashboard-layout recovery tools.", 438);
+            Panel systemBody = AddModernSettingsCard(parent, "System Tools", "Database connection checks, schema repair, setup, and saved dashboard-layout recovery tools.", 438);
             systemBody.Controls.Add(new Label
             {
                 Text = "Database Health",
@@ -703,22 +704,31 @@ namespace HVAC_Pro_Desktop.UI
             btnSetup.Location = new Point(154, 80);
             btnSetup.Click += (s, e) => OpenConnectionSetup();
             systemBody.Controls.Add(btnSetup);
-            systemBody.Controls.Add(new Label
+            Button btnRepair = MakeBtn("Repair Database", Color.White, 150);
+            btnRepair.ForeColor = DS.Primary600;
+            btnRepair.FlatAppearance.BorderSize = 1;
+            btnRepair.FlatAppearance.BorderColor = DS.BorderStrong;
+            btnRepair.Location = new Point(324, 80);
+            btnRepair.Click += async (s, e) => await RepairDatabaseSchemaAsync(btnRepair);
+            systemBody.Controls.Add(btnRepair);
+            Label layoutTitle = new Label
             {
                 Text = "Layout Recovery",
                 Location = new Point(0, 132),
                 Size = new Size(180, 20),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 ForeColor = DS.Slate700
-            });
-            systemBody.Controls.Add(new Label
+            };
+            systemBody.Controls.Add(layoutTitle);
+            Label layoutHelp = new Label
             {
                 Text = "Reset saved card layouts for specific workspaces when dashboards look broken, cramped, or out of place.",
                 Location = new Point(0, 154),
                 Size = new Size(530, 34),
                 Font = new Font("Segoe UI", 8.7f),
                 ForeColor = DS.Slate500
-            });
+            };
+            systemBody.Controls.Add(layoutHelp);
             Panel resetArea = new Panel { Location = new Point(0, 196), Size = new Size(526, 164), BackColor = Color.White, Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom };
             systemBody.Controls.Add(resetArea);
             BuildLayoutResetSection(resetArea);
@@ -726,12 +736,17 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int width = Math.Max(320, systemBody.ClientSize.Width);
                 _lblDbStatus.Width = width;
-                bool stackActions = width < 360;
+                bool stackActions = width < 500;
                 btnTest.Top = 80;
                 btnTest.Left = 0;
                 btnSetup.Top = stackActions ? btnTest.Bottom + 10 : 80;
                 btnSetup.Left = stackActions ? 0 : btnTest.Right + 14;
-                resetArea.Top = stackActions ? btnSetup.Bottom + 28 : 196;
+                btnRepair.Top = stackActions ? btnSetup.Bottom + 10 : 80;
+                btnRepair.Left = stackActions ? 0 : btnSetup.Right + 14;
+                layoutTitle.Top = stackActions ? btnRepair.Bottom + 24 : 132;
+                layoutHelp.Top = layoutTitle.Bottom + 4;
+                layoutHelp.Width = width;
+                resetArea.Top = layoutHelp.Bottom + 8;
                 resetArea.Width = width;
                 resetArea.Height = Math.Max(150, systemBody.ClientSize.Height - resetArea.Top);
             };
@@ -2522,6 +2537,57 @@ namespace HVAC_Pro_Desktop.UI
                 _lblDbStatus.Text = "Database: NOT connected - " + ex.Message;
                 _lblDbStatus.ForeColor = Color.Red;
                 RefreshSettingsWorkspaceSummary();
+            }
+        }
+
+        private async Task RepairDatabaseSchemaAsync(Button sourceButton)
+        {
+            if (_lblDbStatus == null || _lblDbStatus.IsDisposed)
+                return;
+
+            bool wasEnabled = sourceButton == null || sourceButton.Enabled;
+            if (sourceButton != null)
+                sourceButton.Enabled = false;
+
+            _lblDbStatus.Text = "Database: repairing schema and sync metadata...";
+            _lblDbStatus.ForeColor = DS.Slate600;
+            Cursor = Cursors.WaitCursor;
+
+            try
+            {
+                SupportToolResult result = await Task.Run(() => _supportCenterSvc.RepairDatabaseSchema());
+                if (IsDisposed || _lblDbStatus == null || _lblDbStatus.IsDisposed)
+                    return;
+
+                _lblDbStatus.Text = "Database: " + result.Message;
+                _lblDbStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
+                _lblStatus.Text = result.Title;
+                _lblStatus.ForeColor = result.Success ? SaveGreen : Color.Red;
+                RefreshSettingsWorkspaceSummary();
+
+                MessageBox.Show(
+                    FindForm(),
+                    result.Message + (string.IsNullOrWhiteSpace(result.Detail) ? string.Empty : Environment.NewLine + Environment.NewLine + result.Detail),
+                    BrandingService.WindowTitle(result.Title),
+                    MessageBoxButtons.OK,
+                    result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("SettingsForm.RepairDatabaseSchema", ex);
+                if (_lblDbStatus != null && !_lblDbStatus.IsDisposed)
+                {
+                    _lblDbStatus.Text = "Database: repair failed - " + ex.Message;
+                    _lblDbStatus.ForeColor = Color.Red;
+                }
+                RefreshSettingsWorkspaceSummary();
+                ShowError("Failed to repair database schema. Please try again.", ex);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                if (sourceButton != null && wasEnabled && !sourceButton.IsDisposed)
+                    sourceButton.Enabled = true;
             }
         }
 
