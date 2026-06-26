@@ -3,7 +3,7 @@
   "minimumSupportedVersion": "1.0.0.0",
   "versionUrl": "https://servoerp.in/version.txt",
   "notes": "ServoERP release package and installer are available for this version.",
-  "updatedAt": "2026-06-26T10:13:43Z",
+  "updatedAt": "2026-06-26T10:16:51Z",
   "downloadAvailable": true,
   "updateAvailable": true,
   "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.315/ServoERP.Desktop-1.1.315-full.nupkg",
