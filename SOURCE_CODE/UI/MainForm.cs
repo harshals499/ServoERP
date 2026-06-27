@@ -69,7 +69,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int MasterDataPageIndex = 17;
         private const int WhatsAppHubPageIndex = 18;
         private const int RemovedTallyPageIndex = 19;
-        private const int VendorsPageIndex = 20;
+        private const int RemovedVendorsPageIndex = 20;
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
@@ -118,14 +118,14 @@ namespace HVAC_Pro_Desktop.UI
             ("Master Data", "M"),
             ("WhatsApp Hub", "W"),
             ("Removed", "R"),
-            ("Vendors", "V"),
+            ("Removed", "R"),
             ("AMC", "A"),
             ("Attendance", "A"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, VendorsPageIndex, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -1585,7 +1585,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 8: return "\uE713"; // Settings
                 case 9: return "\uE716"; // Suppliers
                 case 10: return "\uE7BF"; // Purchases
-                case VendorsPageIndex: return "\uE716"; // Vendors
                 case 11: return "\uE8F1"; // Inventory
                 case 12: return "\uE77B"; // Employees
                 case AttendancePageIndex: return "\uE787"; // Attendance
@@ -1711,7 +1710,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public void NavigateTo(int index)
         {
-            bool traceNavigation = index == 11 || index == 14 || index == JobsPageIndex || index == VendorsPageIndex || index == 9 || index == ClientsPageIndex;
+            bool traceNavigation = index == 11 || index == 14 || index == JobsPageIndex || index == 9 || index == ClientsPageIndex;
             Stopwatch traceWatch = traceNavigation ? Stopwatch.StartNew() : null;
             EnsureSessionOrClose();
             if (!SessionManager.IsLoggedIn || !CanViewNavItem(index))
@@ -1827,7 +1826,7 @@ namespace HVAC_Pro_Desktop.UI
                 page.BringToFront();
                 if (page is SettingsForm settingsPage)
                     settingsPage.EnsureInitialLoad();
-                if ((index == 9 || index == VendorsPageIndex) && page is VendorForm vendorPage)
+                if (index == 9 && page is VendorForm vendorPage)
                     vendorPage.ShowDashboardFromNavigation();
                 if (index == AMCPageIndex && page is AMCPage amcPage)
                     amcPage.ShowDashboardFromNavigation();
@@ -2193,7 +2192,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 6: page = new TenderBidForm(); break;
                 case 7: page = new ReportForm(); break;
                 case 8: page = new SettingsForm(); break;
-                case 9: page = new VendorForm(VendorPartnerPageMode.Supplier); break;
+                case 9: page = new VendorForm(); break;
                 case 10: page = new PurchaseForm(); break;
                 case 11: page = new InventoryForm(); break;
                 case 12: page = new EmployeeForm(); break;
@@ -2203,7 +2202,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
-                case VendorsPageIndex: page = new VendorForm(VendorPartnerPageMode.ServiceVendor); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
                         _amcPage = new AMCPage();
@@ -2236,7 +2234,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == VendorsPageIndex || index == AMCPageIndex || index == AttendancePageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -2789,7 +2787,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool CanViewNavItem(int index)
         {
-            if (index < 0 || index >= NavItems.Length || index == RetiredServiceDeskPageIndex || index == RemovedTallyPageIndex)
+            if (index < 0 || index >= NavItems.Length || index == RetiredServiceDeskPageIndex || index == RemovedTallyPageIndex || index == RemovedVendorsPageIndex)
                 return false;
 
             string moduleKey = GetModuleKeyForNav(index);
@@ -2824,7 +2822,7 @@ namespace HVAC_Pro_Desktop.UI
                 case "REPORTS": return 7;
                 case "SETTINGS": return 8;
                 case "SUPPLIERS": return 9;
-                case "VENDORS": return VendorsPageIndex;
+                case "VENDORS": return 9;
                 case "PURCHASES": return 10;
                 case "INVENTORY": return 11;
                 case "EMPLOYEES": return 12;
@@ -2874,7 +2872,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "WorkOrders";
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
-                case VendorsPageIndex: return "Vendors";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }

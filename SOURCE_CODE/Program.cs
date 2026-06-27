@@ -259,6 +259,15 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/suppliersearchsmoketest"))
+                {
+                    string reportPath = EnterpriseUiSmokeTests.WriteSupplierSearchReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
+                    AppRuntime.LogTiming("SupplierSearchSmokeTests", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/firstrun"))
                 {
                     try

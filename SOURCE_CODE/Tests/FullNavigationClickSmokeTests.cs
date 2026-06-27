@@ -182,7 +182,7 @@ namespace HVAC_Pro_Desktop.Tests
                 yield return new PageSpec(6, "Quotations", typeof(TenderBidForm), false);
                 yield return new PageSpec(7, "Reports", typeof(ReportForm), false);
                 yield return new PageSpec(8, "Settings", typeof(SettingsForm), false);
-                yield return new PageSpec(9, "Vendors", typeof(VendorForm), false);
+                yield return new PageSpec(9, "Suppliers", typeof(VendorForm), false);
                 yield return new PageSpec(10, "Purchases", typeof(PurchaseForm), false);
                 yield return new PageSpec(11, "Inventory", typeof(InventoryForm), false);
                 yield return new PageSpec(12, "Employees", typeof(EmployeeForm), false);
@@ -192,7 +192,7 @@ namespace HVAC_Pro_Desktop.Tests
                 yield return new PageSpec(16, "Retired Service Desk", typeof(ServiceDeskForm), true);
                 yield return new PageSpec(17, "Master Data", typeof(MasterDataForm), false);
                 yield return new PageSpec(18, "WhatsApp Hub", typeof(WhatsAppHubForm), false);
-                yield return new PageSpec(20, "AMC", typeof(AMCPage), false);
+                yield return new PageSpec(21, "AMC", typeof(AMCPage), false);
             }
 
             public static IEnumerable<PageSpec> DirectDetailPages()

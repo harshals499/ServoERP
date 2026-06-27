@@ -224,7 +224,7 @@ namespace HVAC_Pro_Desktop.UI
             if (normalized == "PAYMENT" || normalized == "PAYMENTS" || normalized == "VENDORADVANCES") return "Payments";
             if (normalized == "PURCHASE" || normalized == "PURCHASES" || normalized == "PURCHASEORDER" || normalized == "PURCHASEORDERS") return "Purchases";
             if (normalized == "QUOTATION" || normalized == "QUOTATIONS" || normalized == "TENDERBID" || normalized == "APPROVALS") return "Quotations";
-            if (normalized == "VENDOR" || normalized == "VENDORS") return "Vendors";
+            if (normalized == "VENDOR" || normalized == "VENDORS" || normalized == "SUPPLIER" || normalized == "SUPPLIERS") return "Suppliers";
             if (normalized == "EMPLOYEE" || normalized == "EMPLOYEES" || normalized == "TECHNICIAN" || normalized == "TECHNICIANS") return "Employees";
             if (normalized == "INVENTORY" || normalized == "STOCK" || normalized == "STOCKITEM") return "Inventory";
             if (normalized == "CONTRACT" || normalized == "CONTRACTS" || normalized == "AMCCONTRACT") return "Contracts";

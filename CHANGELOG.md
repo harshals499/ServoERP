@@ -1,4 +1,24 @@
 # Changelog
+## 1.1.319.0 - 2026-06-27
+
+- Removed remaining stale Vendors navigation helper routing so Vendor/Vendors shortcuts now open Suppliers.
+- Rebuilt the client update after verifying the installed Velopack app and local launcher use the Suppliers-only navigation.
+
+## 1.1.318.0 - 2026-06-26
+
+- Removed the separate Vendors page from navigation and routed legacy Vendors shortcuts to Suppliers.
+- Kept Suppliers as the only supplier management surface, with Recent Suppliers search verified against the full supplier set and without card flicker.
+
+## 1.1.317.0 - 2026-06-26
+
+- Relaxed suspicious save blockers so blank employee code/PAN, supplier bank details, AMC number/site, and contract type/status no longer stop normal saves.
+- Changed duplicate client and supplier names to warnings instead of blocking errors, while keeping duplicate GSTIN as a hard stop.
+
+## 1.1.316.0 - 2026-06-26
+
+- Added the visible Employees Delete action to the page header with the shared confirmation flow, preserving employee history by marking the selected employee inactive.
+- Made supplier bank details optional during supplier creation so users can save new suppliers without account number or IFSC, while still validating IFSC when it is entered.
+
 ## 1.1.315.0 - 2026-06-26
 
 - Published the client database repair hotfix as an updater-visible release so client PCs run schema repair automatically on startup and can manually run Repair Database from Settings or Help & Support.

@@ -19,12 +19,6 @@ using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public enum VendorPartnerPageMode
-    {
-        Supplier,
-        ServiceVendor
-    }
-
     public class VendorForm : DeferredPageControl
     {
         private const int VendorListMinWidth = 300;
@@ -181,6 +175,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _showDashboard = true;
         private Panel _vendorDashboardHost;
         private TextBox _dashboardSearch;
+        private TextBox _dashboardCardSearch;
         private ComboBox _dashboardCategoryFilter;
         private string _dashboardTab = "All Suppliers";
         private string _dashboardCategory = "All Categories";
@@ -192,20 +187,26 @@ namespace HVAC_Pro_Desktop.UI
         private bool _searchPlaceholderActive;
         private bool _renderingDashboard;
         private Timer _dashboardRenderTimer;
+        private Timer _recentVendorsRenderTimer;
         private bool _dashboardRenderPending;
+        private bool _recentVendorsRenderPending;
+        private bool _dashboardSearchShouldRefocus;
+        private bool _syncingDashboardSearchText;
+        private bool _renderingRecentVendorsCard;
         private int _lastDashboardRenderWidth;
-        private readonly VendorPartnerPageMode _pageMode;
-
+        private TableLayoutPanel _recentVendorsLayout;
+        private Panel _recentVendorsCard;
+        private Panel _recentVendorsResultsHost;
+        private Panel _recentVendorsResultsContent;
         protected override bool EnableAutomaticLayoutScaling => false;
         protected override bool EnableMainScrollCanvas => false;
         protected override bool SuppressAutomaticChildPolish => true;
 
-        private bool IsSupplierPage => _pageMode == VendorPartnerPageMode.Supplier;
-        private string PartnerSingular => IsSupplierPage ? "Supplier" : "Vendor";
-        private string PartnerPlural => IsSupplierPage ? "Suppliers" : "Vendors";
-        private string PartnerSingularLower => IsSupplierPage ? "supplier" : "vendor";
-        private string PartnerPluralLower => IsSupplierPage ? "suppliers" : "vendors";
-        private string PartnerWindowTitle => IsSupplierPage ? "Suppliers" : "Vendors";
+        private string PartnerSingular => "Supplier";
+        private string PartnerPlural => "Suppliers";
+        private string PartnerSingularLower => "supplier";
+        private string PartnerPluralLower => "suppliers";
+        private string PartnerWindowTitle => "Suppliers";
         private string DashboardSearchPlaceholder => "Search";
 
         private sealed class ScorecardLoadRequest
@@ -221,15 +222,9 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         public VendorForm()
-            : this(VendorPartnerPageMode.Supplier)
-        {
-        }
-
-        public VendorForm(VendorPartnerPageMode pageMode)
         {
             Stopwatch ctorWatch = Stopwatch.StartNew();
-            _pageMode = pageMode;
-            _dashboardTab = IsSupplierPage ? "All Suppliers" : "All Vendors";
+            _dashboardTab = "All Suppliers";
             ConfigurePartnerTypeOptions();
             Dock = DockStyle.Fill;
             BackColor = PageBg;
@@ -267,10 +262,7 @@ namespace HVAC_Pro_Desktop.UI
         private void ConfigurePartnerTypeOptions()
         {
             _vendorTypes.Clear();
-            if (IsSupplierPage)
-                _vendorTypes.AddRange(new[] { "Distributor", "Supplier", "Trader" });
-            else
-                _vendorTypes.AddRange(new[] { "Vendor", "Subcontractor", "Labour", "Service Provider" });
+            _vendorTypes.AddRange(new[] { "Distributor", "Supplier", "Trader" });
         }
 
         private void BuildLayout()
@@ -314,6 +306,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             BackColor = PageBg;
             _vendorDashboardHost = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, AutoScroll = true, Padding = new Padding(22, 16, 22, 22) };
+            UiPerformanceService.EnableDoubleBuffer(_vendorDashboardHost);
             _vendorDashboardHost.Resize += VendorDashboardHost_Resize;
             Controls.Add(_vendorDashboardHost);
         }
@@ -345,6 +338,7 @@ namespace HVAC_Pro_Desktop.UI
             _lastDashboardRenderWidth = _vendorDashboardHost.ClientSize.Width;
 
             Panel content = new Panel { BackColor = PageBg, Location = new Point(22, 16), Width = Math.Max(960, _vendorDashboardHost.ClientSize.Width - 58), Height = 1180 };
+            UiPerformanceService.EnableDoubleBuffer(content);
             _vendorDashboardHost.AutoScrollMinSize = new Size(0, content.Height + 44);
             _vendorDashboardHost.HorizontalScroll.Enabled = false;
             _vendorDashboardHost.HorizontalScroll.Visible = false;
@@ -375,6 +369,7 @@ namespace HVAC_Pro_Desktop.UI
             mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 78f));
             mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
             mid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            _recentVendorsLayout = mid;
             mid.Controls.Add(BuildRecentVendorsCard(), 0, 0);
             mid.Controls.Add(BuildVendorDashboardSidebar(), 1, 0);
             content.Controls.Add(mid);
@@ -388,6 +383,7 @@ namespace HVAC_Pro_Desktop.UI
             _vendorDashboardHost.ResumeLayout();
             _renderingDashboard = false;
             ApplyPartnerTerminology();
+            RestoreDashboardSearchFocus();
         }
 
         private void QueueVendorDashboardRender(int delayMs)
@@ -401,7 +397,9 @@ namespace HVAC_Pro_Desktop.UI
                 _dashboardRenderTimer.Tick += (s, e) =>
                 {
                     _dashboardRenderTimer.Stop();
-                    if (_dashboardRenderPending && !_renderingDashboard)
+                    bool shouldRender = _dashboardRenderPending;
+                    _dashboardRenderPending = false;
+                    if (shouldRender && !_renderingDashboard)
                         RenderVendorDashboard();
                 };
             }
@@ -412,13 +410,86 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardRenderTimer.Start();
         }
 
+        private void QueueRecentVendorsRender(int delayMs)
+        {
+            if (_recentVendorsLayout == null || _recentVendorsLayout.IsDisposed || _renderingDashboard)
+            {
+                QueueVendorDashboardRender(delayMs);
+                return;
+            }
+
+            if (_recentVendorsRenderTimer == null)
+            {
+                _recentVendorsRenderTimer = new Timer();
+                _recentVendorsRenderTimer.Tick += (s, e) =>
+                {
+                    _recentVendorsRenderTimer.Stop();
+                    bool shouldRender = _recentVendorsRenderPending;
+                    _recentVendorsRenderPending = false;
+                    if (shouldRender && !_renderingDashboard && !_renderingRecentVendorsCard)
+                        RenderRecentVendorsCardOnly();
+                };
+            }
+
+            _recentVendorsRenderPending = true;
+            _recentVendorsRenderTimer.Stop();
+            _recentVendorsRenderTimer.Interval = Math.Max(1, delayMs);
+            _recentVendorsRenderTimer.Start();
+        }
+
+        private void RenderRecentVendorsCardOnly()
+        {
+            if (_recentVendorsCard == null || _recentVendorsCard.IsDisposed || _recentVendorsResultsHost == null || _recentVendorsResultsHost.IsDisposed)
+            {
+                RenderRecentVendorsFullCard();
+                return;
+            }
+
+            _renderingRecentVendorsCard = true;
+            _recentVendorsCard.SuspendLayout();
+            _recentVendorsResultsHost.SuspendLayout();
+
+            try
+            {
+                RenderRecentVendorsResultsOnly();
+            }
+            finally
+            {
+                if (_recentVendorsResultsHost != null && !_recentVendorsResultsHost.IsDisposed)
+                    _recentVendorsResultsHost.ResumeLayout();
+                if (_recentVendorsCard != null && !_recentVendorsCard.IsDisposed)
+                    _recentVendorsCard.ResumeLayout();
+                _renderingRecentVendorsCard = false;
+                RestoreDashboardSearchFocus();
+            }
+        }
+
+        private void RenderRecentVendorsFullCard()
+        {
+            if (_recentVendorsLayout == null || _recentVendorsLayout.IsDisposed)
+                return;
+
+            _recentVendorsLayout.SuspendLayout();
+            try
+            {
+                Control oldCard = _recentVendorsCard;
+                Panel newCard = BuildRecentVendorsCard();
+                _recentVendorsLayout.Controls.Remove(oldCard);
+                if (oldCard != null)
+                    oldCard.Dispose();
+                _recentVendorsLayout.Controls.Add(newCard, 0, 0);
+            }
+            finally
+            {
+                _recentVendorsLayout.ResumeLayout();
+            }
+        }
+
         private Control BuildVendorDashboardHeader(int width)
         {
             NormalizeDashboardSearchState();
-            string titleText = IsSupplierPage ? "Supplier Management" : "Service Vendor Management";
-            string subtitleText = IsSupplierPage
-                ? "Manage suppliers, purchase performance, GST and compliance in one place."
-                : "Manage service vendors, support partners, contacts, and operating readiness in one place.";
+            string titleText = "Supplier Management";
+            string subtitleText = "Manage suppliers, purchase performance, GST and compliance in one place.";
 
             Panel dashboardSearchHost = new Panel
             {
@@ -430,19 +501,12 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardSearch = new TextBox { Name = "DashboardSearchTextBox", BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = TextPrimary, Text = _dashboardSearchText, Dock = DockStyle.Fill };
             ConfigurePlaceholder(_dashboardSearch, DashboardSearchPlaceholder);
             dashboardSearchHost.Controls.Add(_dashboardSearch);
-            _dashboardSearch.TextChanged += (s, e) =>
-            {
-                if (_renderingDashboard)
-                    return;
-                _dashboardSearchText = IsDashboardSearchPlaceholder(_dashboardSearch) ? string.Empty : (_dashboardSearch.Text ?? string.Empty);
-                _dashboardPage = 1;
-                RenderVendorDashboard();
-            };
+            _dashboardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardSearch);
 
-            Button filters = MakeDashboardButton("Filter " + PartnerPlural, White, TextPrimary, IsSupplierPage ? 124 : 136, true);
+            Button filters = MakeDashboardButton("Filter " + PartnerPlural, White, TextPrimary, 124, true);
             filters.Click += (s, e) => { if (_dashboardCategoryFilter != null) _dashboardCategoryFilter.DroppedDown = true; };
 
-            Button addVendor = MakeDashboardButton("+ Add " + PartnerSingular, Blue, White, IsSupplierPage ? 144 : 158, false);
+            Button addVendor = MakeDashboardButton("+ Add " + PartnerSingular, Blue, White, 144, false);
             addVendor.Click += (s, e) =>
             {
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
@@ -498,15 +562,13 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Returns the status buckets visible on the current dashboard mode.</summary>
         private string[] DashboardStatusNames()
         {
-            return IsSupplierPage
-                ? new[] { "Active", "Inactive", "Blocked" }
-                : new[] { "Active", "Pending Approval", "Inactive", "Blocked" };
+            return new[] { "Active", "Inactive", "Blocked" };
         }
 
         /// <summary>Returns the row filter tabs visible on the current dashboard mode.</summary>
         private string[] DashboardFilterTabs()
         {
-            return new[] { IsSupplierPage ? "All Suppliers" : "All Vendors" }
+            return new[] { "All Suppliers" }
                 .Concat(DashboardStatusNames())
                 .ToArray();
         }
@@ -589,20 +651,21 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildRecentVendorsCard()
         {
             Panel card = MakeDashboardCard("Recent Suppliers", null, null);
+            _recentVendorsCard = card;
             card.Size = new Size(860, 420);
             card.Padding = new Padding(0);
             string[] tabs = DashboardFilterTabs();
             FlowLayoutPanel tabBar = new FlowLayoutPanel
             {
                 Location = new Point(16, 38),
-                Size = new Size(500, 64),
+                Size = new Size(330, 64),
                 BackColor = White,
                 WrapContents = true
             };
             foreach (string tab in tabs)
             {
                 Button b = MakeTabButton(tab, string.Equals(_dashboardTab, tab, StringComparison.OrdinalIgnoreCase));
-                b.Click += (s, e) => { _dashboardTab = ((Button)s).Text; _dashboardPage = 1; RenderVendorDashboard(); };
+                b.Click += (s, e) => { _dashboardTab = ((Button)s).Text; _dashboardPage = 1; RenderRecentVendorsCardOnly(); };
                 tabBar.Controls.Add(b);
             }
             card.Controls.Add(tabBar);
@@ -610,7 +673,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel categoryFilterHost = new Panel
             {
                 Name = "DashboardCategoryFilterHost",
-                Location = new Point(card.Width - 382, 38),
+                Location = new Point(card.Width - 486, 38),
                 Size = new Size(156, 32),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = DS.BgInput,
@@ -622,9 +685,24 @@ namespace HVAC_Pro_Desktop.UI
             if (string.IsNullOrWhiteSpace(_dashboardCategory) || !categoryOptions.Contains(_dashboardCategory, StringComparer.OrdinalIgnoreCase))
                 _dashboardCategory = "All Categories";
             _dashboardCategoryFilter.SelectedItem = _dashboardCategory;
-            _dashboardCategoryFilter.SelectedIndexChanged += (s, e) => { _dashboardCategory = Convert.ToString(_dashboardCategoryFilter.SelectedItem); _dashboardPage = 1; RenderVendorDashboard(); };
+            _dashboardCategoryFilter.SelectedIndexChanged += (s, e) => { _dashboardCategory = Convert.ToString(_dashboardCategoryFilter.SelectedItem); _dashboardPage = 1; RenderRecentVendorsCardOnly(); };
             categoryFilterHost.Controls.Add(_dashboardCategoryFilter);
             card.Controls.Add(categoryFilterHost);
+
+            Panel cardSearchHost = new Panel
+            {
+                Name = "DashboardCardSearchHost",
+                Location = new Point(card.Width - 318, 38),
+                Size = new Size(200, 32),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = DS.BgInput,
+                Padding = new Padding(8, 2, 8, 2)
+            };
+            _dashboardCardSearch = new TextBox { Name = "DashboardCardSearchTextBox", BorderStyle = BorderStyle.None, Font = new Font("Segoe UI", 8.5f), ForeColor = TextPrimary, Text = _dashboardSearchText, Dock = DockStyle.Fill };
+            ConfigurePlaceholder(_dashboardCardSearch, DashboardSearchPlaceholder);
+            _dashboardCardSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardCardSearch);
+            cardSearchHost.Controls.Add(_dashboardCardSearch);
+            card.Controls.Add(cardSearchHost);
 
             Button export = MakeDashboardButton("Export", White, TextPrimary, 92, true);
             export.Location = new Point(card.Width - 108, 38);
@@ -632,7 +710,46 @@ namespace HVAC_Pro_Desktop.UI
             export.Click += (s, e) => ExportCsv();
             card.Controls.Add(export);
 
-            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(16, 112), Size = new Size(card.Width - 32, 230), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = White, ColumnCount = 9, RowCount = 1 };
+            _recentVendorsResultsHost = new Panel
+            {
+                Name = "RecentSuppliersResultsHost",
+                Location = new Point(16, 112),
+                Size = new Size(card.Width - 32, card.Height - 124),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom,
+                BackColor = White
+            };
+            card.Controls.Add(_recentVendorsResultsHost);
+            RenderRecentVendorsResultsOnly();
+            return card;
+        }
+
+        private void RenderRecentVendorsResultsOnly()
+        {
+            if (_recentVendorsResultsHost == null || _recentVendorsResultsHost.IsDisposed)
+                return;
+
+            Panel content = BuildRecentVendorsResultsContent(_recentVendorsResultsHost.ClientSize);
+            content.Visible = false;
+            _recentVendorsResultsHost.Controls.Add(content);
+            content.BringToFront();
+            content.Visible = true;
+
+            Panel oldContent = _recentVendorsResultsContent;
+            _recentVendorsResultsContent = content;
+            if (oldContent != null && !oldContent.IsDisposed)
+            {
+                _recentVendorsResultsHost.Controls.Remove(oldContent);
+                oldContent.Dispose();
+            }
+        }
+
+        private Panel BuildRecentVendorsResultsContent(Size hostSize)
+        {
+            int width = Math.Max(1, hostSize.Width);
+            int height = Math.Max(1, hostSize.Height);
+            Panel content = new Panel { Dock = DockStyle.Fill, BackColor = White };
+
+            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(0, 0), Size = new Size(width, Math.Min(230, Math.Max(120, height - 54))), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = White, ColumnCount = 9, RowCount = 1 };
             float[] widths = { 11, 18, 12, 11, 9, 13, 11, 10, 5 };
             foreach (float w in widths) table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, w));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
@@ -650,14 +767,14 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardPage = PaginationState.NormalizePage(_dashboardPage, totalRows, pageSize);
             foreach (VendorSummaryDto v in filtered.Skip((_dashboardPage - 1) * pageSize).Take(pageSize))
                 AddVendorDashboardTableRow(table, v);
-            card.Controls.Add(table);
+            content.Controls.Add(table);
             if (totalRows == 0)
             {
                 Label empty = new Label
                 {
                     Text = "No suppliers found. Click 'Add Supplier' to get started.",
-                    Location = new Point(16, 118),
-                    Size = new Size(card.Width - 32, 64),
+                    Location = new Point(0, 6),
+                    Size = new Size(width, 64),
                     Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                     Font = new Font("Segoe UI", 10f, FontStyle.Bold),
                     ForeColor = TextSecondary,
@@ -665,32 +782,117 @@ namespace HVAC_Pro_Desktop.UI
                     BackColor = White
                 };
                 Button add = MakeDashboardButton("+ Add Supplier", Blue, White, 136, false);
-                add.Location = new Point(card.Width - 222, 38);
+                add.Location = new Point(Math.Max(0, width - add.Width - 96), 0);
                 add.Anchor = AnchorStyles.Top | AnchorStyles.Right;
                 add.Click += async (s, e) => await BeginNewVendorAsync();
-                card.Resize += (s, e) =>
+                content.Resize += (s, e) =>
                 {
-                    empty.Width = card.Width - 32;
-                    add.Left = card.Width - add.Width - 96;
+                    empty.Width = content.Width;
+                    add.Left = Math.Max(0, content.Width - add.Width - 96);
                 };
-                card.Controls.Add(empty);
-                card.Controls.Add(add);
+                content.Controls.Add(empty);
+                content.Controls.Add(add);
                 empty.BringToFront();
                 add.BringToFront();
             }
 
             GlobalPaginationControl pager = new GlobalPaginationControl
             {
-                Location = new Point(card.Width - 616, card.Height - 48),
+                Location = new Point(Math.Max(0, width - 616), Math.Max(0, height - 40)),
                 Size = new Size(600, 38),
                 Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
                 BackColor = White
             };
-            pager.PageChanged += (s, e) => { _dashboardPage = pager.CurrentPage; RenderVendorDashboard(); };
-            pager.PageSizeChanged += (s, e) => { _dashboardPageSize = pager.PageSize; _dashboardPage = 1; RenderVendorDashboard(); };
+            pager.PageChanged += (s, e) => { _dashboardPage = pager.CurrentPage; RenderRecentVendorsCardOnly(); };
+            pager.PageSizeChanged += (s, e) => { _dashboardPageSize = pager.PageSize; _dashboardPage = 1; RenderRecentVendorsCardOnly(); };
             pager.SetState(_dashboardPage, totalRows, pageSize);
-            card.Controls.Add(pager);
-            return card;
+            content.Controls.Add(pager);
+            return content;
+        }
+
+        private void FocusDashboardPartnerSearch()
+        {
+            TextBox target = _dashboardCardSearch != null && !_dashboardCardSearch.IsDisposed ? _dashboardCardSearch : _dashboardSearch;
+            if (target == null || target.IsDisposed || !IsHandleCreated)
+                return;
+
+            target.Focus();
+            target.SelectAll();
+        }
+
+        private void HandleDashboardSearchChanged(TextBox source)
+        {
+            if (_renderingDashboard || _renderingRecentVendorsCard || _syncingDashboardSearchText || source == null)
+                return;
+
+            if (!IsDashboardPlaceholderText(source.Text))
+                source.ForeColor = TextPrimary;
+
+            string nextSearchText = IsDashboardPlaceholderText(source.Text) ? string.Empty : (source.Text ?? string.Empty);
+            bool changed = !string.Equals(_dashboardSearchText ?? string.Empty, nextSearchText, StringComparison.Ordinal);
+            if (!changed)
+            {
+                SyncDashboardSearchBoxes(source);
+                return;
+            }
+
+            _dashboardSearchText = nextSearchText;
+            SyncDashboardSearchBoxes(source);
+            _dashboardPage = 1;
+            _dashboardSearchShouldRefocus = source.Focused;
+            if (ReferenceEquals(source, _dashboardCardSearch))
+            {
+                if (_dashboardRenderTimer != null)
+                    _dashboardRenderTimer.Stop();
+                _dashboardRenderPending = false;
+                QueueRecentVendorsRender(350);
+            }
+            else
+            {
+                QueueVendorDashboardRender(280);
+            }
+        }
+
+        private void SyncDashboardSearchBoxes(TextBox source)
+        {
+            _syncingDashboardSearchText = true;
+            try
+            {
+                foreach (TextBox box in new[] { _dashboardSearch, _dashboardCardSearch })
+                {
+                    if (box == null || box.IsDisposed || ReferenceEquals(box, source))
+                        continue;
+
+                    box.Text = string.IsNullOrWhiteSpace(_dashboardSearchText) ? string.Empty : _dashboardSearchText;
+                    box.ForeColor = TextPrimary;
+                }
+            }
+            finally
+            {
+                _syncingDashboardSearchText = false;
+            }
+        }
+
+        private void RestoreDashboardSearchFocus()
+        {
+            if (!_dashboardSearchShouldRefocus)
+                return;
+
+            _dashboardSearchShouldRefocus = false;
+            if (_dashboardSearch == null || _dashboardSearch.IsDisposed)
+                return;
+
+            BeginInvoke((Action)(() =>
+            {
+                TextBox target = _dashboardCardSearch != null && !_dashboardCardSearch.IsDisposed ? _dashboardCardSearch : _dashboardSearch;
+                if (target == null || target.IsDisposed)
+                    return;
+
+                target.Focus();
+                int length = (target.Text ?? string.Empty).Length;
+                target.SelectionStart = length;
+                target.SelectionLength = 0;
+            }));
         }
 
         private Panel BuildVendorDashboardSidebar()
@@ -788,22 +990,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private IEnumerable<VendorSummaryDto> ActiveDashboardVendors()
         {
-            return _vendorSummaries.Where(v => (IsSupplierPage ? v.IsSupplier : v.IsServiceVendor) && (!v.IsArchived || GetVendorDashboardStatus(v) == "Blocked"));
+            return _vendorSummaries.Where(v => v.IsSupplier && (!v.IsArchived || GetVendorDashboardStatus(v) == "Blocked"));
         }
 
-        /// <summary>Returns partner summaries for the current Supplier or Vendor page mode.</summary>
+        /// <summary>Returns supplier summaries for the supplier page.</summary>
         private IEnumerable<VendorSummaryDto> FilterPartnerSummaries(IEnumerable<VendorSummaryDto> summaries)
         {
             return (summaries ?? Enumerable.Empty<VendorSummaryDto>())
-                .Where(v => IsSupplierPage ? v.IsSupplier : v.IsServiceVendor);
+                .Where(v => v.IsSupplier);
         }
 
         private IEnumerable<VendorSummaryDto> FilterDashboardVendors()
         {
             NormalizeDashboardSearchState();
             IEnumerable<VendorSummaryDto> query = ActiveDashboardVendors();
-            if (!string.Equals(_dashboardTab, "All Suppliers", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(_dashboardTab, "All Vendors", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(_dashboardTab, "All Suppliers", StringComparison.OrdinalIgnoreCase))
                 query = query.Where(v => GetVendorDashboardStatus(v) == _dashboardTab);
             if (!string.IsNullOrWhiteSpace(_dashboardCategory) && !string.Equals(_dashboardCategory, "All Categories", StringComparison.OrdinalIgnoreCase))
                 query = query.Where(v => NormalizeDashboardCategory(v.Category) == _dashboardCategory);
@@ -843,7 +1044,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool ResetInvalidDashboardFilters()
         {
             bool changed = false;
-            string allTab = IsSupplierPage ? "All Suppliers" : "All Vendors";
+            string allTab = "All Suppliers";
             string[] validTabs = DashboardFilterTabs();
             string[] validCategories = BuildDashboardCategoryOptions().ToArray();
 
@@ -868,8 +1069,6 @@ namespace HVAC_Pro_Desktop.UI
         private string GetDashboardSearchText()
         {
             NormalizeDashboardSearchState();
-            if (_dashboardSearch == null || IsDashboardSearchPlaceholder(_dashboardSearch))
-                return string.Empty;
             return _dashboardSearchText ?? string.Empty;
         }
 
@@ -896,13 +1095,16 @@ namespace HVAC_Pro_Desktop.UI
             return box == null || box.ForeColor == TextHint || IsDashboardPlaceholderText(box.Text);
         }
 
+        private bool IsDashboardSearchBox(TextBox box)
+        {
+            return box != null && (ReferenceEquals(box, _dashboardSearch) || ReferenceEquals(box, _dashboardCardSearch));
+        }
+
         private string GetVendorDashboardStatus(VendorSummaryDto vendor)
         {
             if (vendor == null) return "Inactive";
             if (vendor.IsArchived) return "Blocked";
             if (!vendor.IsActive) return "Inactive";
-            if (IsSupplierPage) return "Active";
-            if (string.IsNullOrWhiteSpace(vendor.Phone) && string.IsNullOrWhiteSpace(vendor.Category)) return "Pending Approval";
             return "Active";
         }
 
@@ -1280,8 +1482,7 @@ namespace HVAC_Pro_Desktop.UI
             menu.Items.Add("View", null, async (s, e) => await OpenVendorEditorAsync(vendor.VendorId));
             menu.Items.Add("Edit", null, async (s, e) => await OpenVendorEditorAsync(vendor.VendorId));
             menu.Items.Add("Add Contact", null, (s, e) => ShowVendorDashboardMessage("Add Contact", "Open the " + PartnerSingularLower + " record and update the contact fields."));
-            if (IsSupplierPage)
-                menu.Items.Add("New PO", null, (s, e) => _vendorSvc.RaiseQuickPO(vendor.VendorId));
+            menu.Items.Add("New PO", null, (s, e) => _vendorSvc.RaiseQuickPO(vendor.VendorId));
             menu.Items.Add("Block", null, async (s, e) => await ArchiveVendorFromDashboardAsync(vendor));
             menu.Items.Add("Delete", null, async (s, e) => await ArchiveVendorFromDashboardAsync(vendor));
             menu.Show(anchor, new Point(0, anchor.Height));
@@ -1499,7 +1700,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildRightPanel()
         {
             Panel right = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            _topBar = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = PageBg, Padding = new Padding(36, 14, 24, 10) };
+            _topBar = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = PageBg, Padding = new Padding(36, 14, 24, 10), Tag = "no-global-actions custom-header-actions" };
             BuildTopBar();
 
             _rightScroll = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, AutoScroll = true, Padding = new Padding(36, 12, 24, 20) };
@@ -1519,6 +1720,7 @@ namespace HVAC_Pro_Desktop.UI
             BuildStatsRow();
             BuildWarningStrip();
             BuildCards();
+            RegisterWarningFieldHandlers();
 
             _rightHost.Controls.Add(_cardNotes);
             _rightHost.Controls.Add(_cardScorecard);
@@ -1563,12 +1765,15 @@ namespace HVAC_Pro_Desktop.UI
             badgeFlow.Controls.Add(_lblTopBadge);
             badgeFlow.Controls.Add(_lblDuplicateBadge);
 
-            Panel actions = new Panel
+            FlowLayoutPanel actions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Right,
-                Width = 920,
+                Width = 1040,
                 BackColor = _topBar.BackColor,
-                Padding = new Padding(0, 4, 0, 0)
+                Padding = new Padding(0, 4, 0, 0),
+                FlowDirection = FlowDirection.RightToLeft,
+                WrapContents = false,
+                AutoScroll = false
             };
 
             _btnMerge = MakeActionButton("Merge duplicates", White, RedDark, 118, true);
@@ -1598,32 +1803,16 @@ namespace HVAC_Pro_Desktop.UI
             btnDashboard.Click += async (s, e) => await BackToVendorDashboardAsync();
 
             Button btnNew = MakeActionButton("+ New Supplier", DS.Primary600, White, 122, false);
+            btnNew.Visible = false;
             btnNew.Click += async (s, e) => await BeginNewVendorAsync();
 
-            Button[] topActions = { btnNew, btnDashboard, btnRefresh, btnExport, _btnImport, _btnTemplate, btnForms, _btnWhatsApp, _btnMerge };
-            actions.Controls.AddRange(topActions);
-            Action layoutActions = () =>
+            Button[] topActions = { btnDashboard, btnRefresh, btnExport, _btnImport, _btnTemplate, btnForms, _btnWhatsApp, _btnMerge, btnNew };
+            foreach (Button button in topActions)
             {
-                int x = actions.ClientSize.Width;
-                int y = 4;
-                int gap = SharedUiPrimitives.HeaderActionGap;
-                foreach (Button button in topActions)
-                {
-                    if (!button.Visible)
-                        continue;
-
-                    x -= button.Width;
-                    if (x < 0)
-                    {
-                        y += 38;
-                        x = actions.ClientSize.Width - button.Width;
-                    }
-                    button.SetBounds(Math.Max(0, x), y, button.Width, 32);
-                    x -= gap;
-                }
-            };
-            actions.Resize += (s, e) => layoutActions();
-            layoutActions();
+                button.Height = 32;
+                button.Margin = new Padding(SharedUiPrimitives.HeaderActionGap, 0, 0, 0);
+                actions.Controls.Add(button);
+            }
 
             Label breadcrumb = new Label
             {
@@ -2460,8 +2649,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 await Task.Run(() =>
                 {
-                    if (IsSupplierPage)
-                        _vendorSvc.MovePendingApprovalSuppliersToInactive();
+                    _vendorSvc.MovePendingApprovalSuppliersToInactive();
                     AppDataCache.Remove("vendors:summaries");
                     summaries = AppDataCache.GetOrCreate(
                         "vendors:summaries",
@@ -2798,12 +2986,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             _currentVendor = new VendorDetailDto
             {
-                VendorType = IsSupplierPage ? "Supplier" : "Service Provider",
+                VendorType = "Supplier",
                 DefaultCreditDays = 30,
                 GSTRegistrationType = "Regular",
                 MSMERegistered = "No",
-                IsSupplier = IsSupplierPage,
-                IsServiceVendor = !IsSupplierPage,
+                IsSupplier = true,
+                IsServiceVendor = false,
                 IsActive = true,
                 CreatedDate = DateTime.Now
             };
@@ -2823,7 +3011,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 _txtVendorName.Text = vendor.VendorName ?? string.Empty;
                 _cmbCategory.SelectedItem = !string.IsNullOrWhiteSpace(vendor.Category) ? vendor.Category : "General";
-                _cmbVendorType.SelectedItem = !string.IsNullOrWhiteSpace(vendor.VendorType) ? vendor.VendorType : (IsSupplierPage ? "Supplier" : "Service Provider");
+                _cmbVendorType.SelectedItem = !string.IsNullOrWhiteSpace(vendor.VendorType) ? vendor.VendorType : "Supplier";
                 _cmbMsme.SelectedItem = !string.IsNullOrWhiteSpace(vendor.MSMERegistered) ? vendor.MSMERegistered : "No";
                 _txtMsmeNumber.Text = vendor.MSMENumber ?? string.Empty;
 
@@ -2894,8 +3082,35 @@ namespace HVAC_Pro_Desktop.UI
                 _warningStrip.Visible = false;
                 return;
             }
-            _lblWarningStrip.Text = string.Join(", ", warnings) + " are missing - add them for a complete vendor profile";
+            _lblWarningStrip.Text = string.Join(", ", warnings) + " are missing - add them for a complete " + PartnerSingular.ToLowerInvariant() + " profile";
             _warningStrip.Visible = true;
+        }
+
+        private void RegisterWarningFieldHandlers()
+        {
+            EventHandler refreshWarnings = (s, e) => UpdateWarningsFromEditor();
+            if (_txtCity != null)
+                _txtCity.TextChanged += refreshWarnings;
+            if (_txtPan != null)
+                _txtPan.TextChanged += refreshWarnings;
+            if (_txtPhone != null)
+                _txtPhone.TextChanged += refreshWarnings;
+            if (_txtEmail != null)
+                _txtEmail.TextChanged += refreshWarnings;
+        }
+
+        private void UpdateWarningsFromEditor()
+        {
+            if (_isBinding || _warningStrip == null)
+                return;
+
+            UpdateWarnings(new Vendor
+            {
+                City = _txtCity == null ? string.Empty : _txtCity.Text,
+                PANNumber = _txtPan == null ? string.Empty : _txtPan.Text,
+                Phone = _txtPhone == null ? string.Empty : _txtPhone.Text,
+                Email = _txtEmail == null ? string.Empty : _txtEmail.Text
+            });
         }
 
         private void RenderTags(List<string> tags)
@@ -3260,8 +3475,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (validation.Count > 0)
                 {
                     if (showMessages)
-                        MessageBox.Show("Please fill: " + string.Join(", ", validation), "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
+                        MessageBox.Show("Saved with warnings: " + string.Join(", ", validation), "Validation Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
                 if (_isNewMode)
                 {
@@ -3541,8 +3755,8 @@ namespace HVAC_Pro_Desktop.UI
             vendor.Category = Convert.ToString(_cmbCategory.SelectedItem);
             vendor.SpecialisationTags = GetTagsText();
             vendor.VendorType = Convert.ToString(_cmbVendorType.SelectedItem);
-            vendor.IsSupplier = IsSupplierPage || IsSupplierType(vendor.VendorType);
-            vendor.IsServiceVendor = !IsSupplierPage || IsServiceVendorType(vendor.VendorType);
+            vendor.IsSupplier = true;
+            vendor.IsServiceVendor = false;
             vendor.MSMERegistered = Convert.ToString(_cmbMsme.SelectedItem);
             vendor.MSMENumber = (_txtMsmeNumber.Text ?? string.Empty).Trim();
             vendor.Phone = (_txtPhone.Text ?? string.Empty).Trim();
@@ -3581,16 +3795,6 @@ namespace HVAC_Pro_Desktop.UI
                 || string.Equals(type, "Supplier", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, "Distributor", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, "Trader", StringComparison.OrdinalIgnoreCase);
-        }
-
-        /// <summary>Returns true for partner types that are valid in service and subcontracting flows.</summary>
-        private static bool IsServiceVendorType(string vendorType)
-        {
-            string type = (vendorType ?? string.Empty).Trim();
-            return string.Equals(type, "Vendor", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(type, "Subcontractor", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(type, "Labour", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(type, "Service Provider", StringComparison.OrdinalIgnoreCase);
         }
 
         private List<string> ValidateVendor(Vendor vendor)
@@ -3700,19 +3904,13 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        /// <summary>Applies Supplier or Vendor wording to the shared partner page without duplicating the form.</summary>
+        /// <summary>Applies Supplier wording to the supplier page.</summary>
         private void ApplyPartnerTerminology()
         {
             ApplyPartnerTerminologyRecursive(this);
-            if (!IsSupplierPage)
-            {
-                if (_btnRaisePo != null) _btnRaisePo.Visible = false;
-                if (_btnViewPos != null) _btnViewPos.Visible = false;
-                if (_cardRecentPos != null) _cardRecentPos.Visible = false;
-            }
         }
 
-        /// <summary>Rewrites procurement-facing Supplier captions for the service Vendor page.</summary>
+        /// <summary>Rewrites legacy Vendor captions to Supplier wording.</summary>
         private void ApplyPartnerTerminologyRecursive(Control root)
         {
             foreach (Control child in root.Controls)
@@ -3723,41 +3921,18 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        /// <summary>Rewrites a single control caption from Supplier wording to Vendor wording.</summary>
+        /// <summary>Rewrites a single control caption to Supplier wording.</summary>
         private static void RewritePartnerText(Control control)
         {
             if (control == null || string.IsNullOrEmpty(control.Text))
                 return;
 
-            VendorForm owner = control.FindForm()?.Controls.OfType<VendorForm>().FirstOrDefault()
-                ?? FindAncestorVendorForm(control);
-            bool supplier = owner == null || owner.IsSupplierPage;
-            control.Text = supplier
-                ? control.Text
-                    .Replace("VEN-", "SUP-")
-                    .Replace("Vendors", "Suppliers")
-                    .Replace("Vendor", "Supplier")
-                    .Replace("vendors", "suppliers")
-                    .Replace("vendor", "supplier")
-                : control.Text
-                    .Replace("SUP-", "VEN-")
-                    .Replace("Suppliers", "Vendors")
-                    .Replace("Supplier", "Vendor")
-                    .Replace("suppliers", "vendors")
-                    .Replace("supplier", "vendor");
-        }
-
-        /// <summary>Finds the owning partner form for recursive terminology replacement.</summary>
-        private static VendorForm FindAncestorVendorForm(Control control)
-        {
-            Control current = control;
-            while (current != null)
-            {
-                if (current is VendorForm form)
-                    return form;
-                current = current.Parent;
-            }
-            return null;
+            control.Text = control.Text
+                .Replace("VEN-", "SUP-")
+                .Replace("Vendors", "Suppliers")
+                .Replace("Vendor", "Supplier")
+                .Replace("vendors", "suppliers")
+                .Replace("vendor", "supplier");
         }
 
         private static IEnumerable<Control> AllDescendants(Control root)
@@ -3835,11 +4010,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ConfigurePlaceholder(TextBox box, string placeholder)
         {
+            bool suppressVisibleSearchPlaceholder = IsSearchPlaceholderText(placeholder);
             box.GotFocus += (s, e) =>
             {
-                if (box.ForeColor == TextHint && box.Text == placeholder)
+                if (IsDashboardSearchBox(box))
+                {
+                    box.ForeColor = TextPrimary;
+                    box.SelectAll();
+                    return;
+                }
+
+                if (!suppressVisibleSearchPlaceholder && box.ForeColor == TextHint && box.Text == placeholder)
                 {
                     box.Text = string.Empty;
+                    box.ForeColor = TextPrimary;
+                    if (box == _txtSearch) _searchPlaceholderActive = false;
+                }
+                else if (suppressVisibleSearchPlaceholder)
+                {
                     box.ForeColor = TextPrimary;
                     if (box == _txtSearch) _searchPlaceholderActive = false;
                 }
@@ -3848,17 +4036,64 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(box.Text))
                 {
-                    box.Text = placeholder;
-                    box.ForeColor = TextHint;
-                    if (box == _txtSearch) _searchPlaceholderActive = true;
+                    if (IsDashboardSearchBox(box))
+                    {
+                        _syncingDashboardSearchText = true;
+                        try
+                        {
+                            box.Text = string.Empty;
+                            box.ForeColor = TextPrimary;
+                        }
+                        finally
+                        {
+                            _syncingDashboardSearchText = false;
+                        }
+                    }
+                    else if (suppressVisibleSearchPlaceholder)
+                    {
+                        box.Text = string.Empty;
+                        box.ForeColor = TextPrimary;
+                    }
+                    else
+                    {
+                        box.Text = placeholder;
+                        box.ForeColor = TextHint;
+                    }
+                    if (box == _txtSearch) _searchPlaceholderActive = !suppressVisibleSearchPlaceholder;
                 }
             };
             if (string.IsNullOrWhiteSpace(box.Text))
             {
-                box.Text = placeholder;
-                box.ForeColor = TextHint;
-                if (box == _txtSearch) _searchPlaceholderActive = true;
+                if (IsDashboardSearchBox(box))
+                {
+                    _syncingDashboardSearchText = true;
+                    try
+                    {
+                        box.Text = string.Empty;
+                        box.ForeColor = TextPrimary;
+                    }
+                    finally
+                    {
+                        _syncingDashboardSearchText = false;
+                    }
+                }
+                else if (suppressVisibleSearchPlaceholder)
+                {
+                    box.Text = string.Empty;
+                    box.ForeColor = TextPrimary;
+                }
+                else
+                {
+                    box.Text = placeholder;
+                    box.ForeColor = TextHint;
+                }
+                if (box == _txtSearch) _searchPlaceholderActive = !suppressVisibleSearchPlaceholder;
             }
+        }
+
+        private static bool IsSearchPlaceholderText(string placeholder)
+        {
+            return string.Equals((placeholder ?? string.Empty).Trim(), "Search", StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool IsPlaceholder(TextBox box, string placeholder)

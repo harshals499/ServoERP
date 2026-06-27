@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.UI;
 
 namespace HVAC_Pro_Desktop.Tests
@@ -83,11 +84,14 @@ namespace HVAC_Pro_Desktop.Tests
                     EnsureButtonRoleStyling(control, type.Name);
                     EnsureNoAwkwardActionButtonGrids(control, type.Name);
                     EnsureSharedTextStyleAndContrast(control, type.Name);
+                    EnsureSearchInputsHaveNoInFieldPrompt(control, type.Name);
                     EnsureAlignedButtonGroups(control, type.Name);
                     EnsureNoFloatingResetButtons(control, type.Name);
                     EnsureNoResizeGripsOnEditorFields(control, type.Name);
                     EnsureResizableCardsHaveBothGrips(control, type.Name);
                     EnsureVisibleInputOutlines(control, type.Name);
+                    EnsureVendorDashboardSearchDoesNotRenderPerKey(control, type.Name);
+                    EnsureVendorWarningStripTracksEditor(control, type.Name);
                     EnsureGlobalCardMenus(control, type.Name);
                     control.Size = new Size(1920, 1080);
                     control.PerformLayout();
@@ -101,10 +105,13 @@ namespace HVAC_Pro_Desktop.Tests
                     EnsureButtonRoleStyling(control, type.Name);
                     EnsureNoAwkwardActionButtonGrids(control, type.Name);
                     EnsureSharedTextStyleAndContrast(control, type.Name);
+                    EnsureSearchInputsHaveNoInFieldPrompt(control, type.Name);
                     EnsureNoFloatingResetButtons(control, type.Name);
                     EnsureNoResizeGripsOnEditorFields(control, type.Name);
                     EnsureResizableCardsHaveBothGrips(control, type.Name);
                     EnsureVisibleInputOutlines(control, type.Name);
+                    EnsureVendorDashboardSearchDoesNotRenderPerKey(control, type.Name);
+                    EnsureVendorWarningStripTracksEditor(control, type.Name);
                     results.Add(type.Name + " instantiated, scanned, and card menus verified");
                 }
 
@@ -127,6 +134,7 @@ namespace HVAC_Pro_Desktop.Tests
                     EnsureNoTextButtonOverlap(control, control.GetType().Name);
                     EnsureButtonRoleStyling(control, control.GetType().Name);
                     EnsureSharedTextStyleAndContrast(control, control.GetType().Name);
+                    EnsureSearchInputsHaveNoInFieldPrompt(control, control.GetType().Name);
                     EnsureVisibleInputOutlines(control, control.GetType().Name);
                     results.Add(control.GetType().Name + " instantiated and scanned");
                 }
@@ -221,6 +229,39 @@ namespace HVAC_Pro_Desktop.Tests
             return path;
         }
 
+        public static string WriteSupplierSearchReport()
+        {
+            string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, "supplier-search-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+            var lines = new List<string>
+            {
+                "ServoERP Supplier Search Smoke Test",
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                string.Empty
+            };
+
+            try
+            {
+                using (var control = new VendorForm())
+                {
+                    control.Size = new Size(1366, 768);
+                    control.PerformLayout();
+                    Application.DoEvents();
+                    EnsureVendorDashboardSearchDoesNotRenderPerKey(control, "VendorForm");
+                }
+
+                lines.Add("PASS Recent Suppliers local search queues card-only debounce and finds suppliers beyond the first page.");
+            }
+            catch (Exception ex)
+            {
+                lines.Add("FAIL " + ex);
+            }
+
+            File.WriteAllLines(path, lines);
+            return path;
+        }
+
         private static void CleanupUiResources()
         {
             Application.DoEvents();
@@ -251,6 +292,41 @@ namespace HVAC_Pro_Desktop.Tests
                 if (!HasClickHandler(button))
                     throw new InvalidOperationException(moduleName + " has an enabled Add/Save button without a click handler: " + text);
             }
+        }
+
+        private static void EnsureSearchInputsHaveNoInFieldPrompt(Control root, string moduleName)
+        {
+            foreach (TextBox textBox in EnumerateControls(root).OfType<TextBox>().Where(box => box.Visible))
+            {
+                string text = (textBox.Text ?? string.Empty).Trim();
+                if (text.IndexOf("search", StringComparison.OrdinalIgnoreCase) >= 0)
+                    throw new InvalidOperationException(moduleName + " has search prompt text inside a search input: " + Describe(textBox));
+            }
+
+            foreach (Panel panel in EnumerateControls(root).OfType<Panel>().Where(LooksLikeSearchControl))
+            {
+                foreach (Label label in panel.Controls.OfType<Label>().Where(label => label.Visible))
+                {
+                    string text = (label.Text ?? string.Empty).Trim();
+                    if (string.Equals(text, "Search", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException(moduleName + " has visible Search text inside a search shell: " + Describe(label));
+                }
+            }
+        }
+
+        private static bool LooksLikeSearchControl(Control control)
+        {
+            string haystack = string.Join(" ", new[]
+            {
+                control.Name,
+                control.AccessibleName,
+                Convert.ToString(control.Tag),
+                control.Parent?.Name,
+                control.Parent?.AccessibleName,
+                Convert.ToString(control.Parent?.Tag)
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            return haystack.IndexOf("search", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsAddOrSaveButton(string text)
@@ -744,6 +820,168 @@ namespace HVAC_Pro_Desktop.Tests
                 .GetProperty("Item", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
                 ?.GetValue(events, new[] { eventClick }) as Delegate;
             return handler != null;
+        }
+
+        private static void EnsureVendorWarningStripTracksEditor(Control root, string moduleName)
+        {
+            VendorForm vendorForm = root as VendorForm;
+            if (vendorForm == null)
+                return;
+
+            TextBox city = GetPrivateField<TextBox>(vendorForm, "_txtCity");
+            TextBox phone = GetPrivateField<TextBox>(vendorForm, "_txtPhone");
+            TextBox email = GetPrivateField<TextBox>(vendorForm, "_txtEmail");
+            TextBox pan = GetPrivateField<TextBox>(vendorForm, "_txtPan");
+            Panel strip = GetPrivateField<Panel>(vendorForm, "_warningStrip");
+            Label label = GetPrivateField<Label>(vendorForm, "_lblWarningStrip");
+
+            if (city == null || phone == null || email == null || pan == null || strip == null || label == null)
+            {
+                SetPrivateField(vendorForm, "_showDashboard", false);
+                InvokePrivate(vendorForm, "BuildLayout");
+                GlobalCardContextMenu.ApplyToTree(vendorForm);
+                Application.DoEvents();
+
+                city = GetPrivateField<TextBox>(vendorForm, "_txtCity");
+                phone = GetPrivateField<TextBox>(vendorForm, "_txtPhone");
+                email = GetPrivateField<TextBox>(vendorForm, "_txtEmail");
+                pan = GetPrivateField<TextBox>(vendorForm, "_txtPan");
+                strip = GetPrivateField<Panel>(vendorForm, "_warningStrip");
+                label = GetPrivateField<Label>(vendorForm, "_lblWarningStrip");
+            }
+
+            if (city == null || phone == null || email == null || pan == null || strip == null || label == null)
+                throw new InvalidOperationException(moduleName + " warning strip test could not find expected editor controls.");
+
+            city.Text = "Thane";
+            phone.Text = "9969529636";
+            email.Text = "test@test.com";
+            pan.Text = string.Empty;
+            Application.DoEvents();
+
+            string warning = label.Text ?? string.Empty;
+            if (warning.IndexOf("City", StringComparison.OrdinalIgnoreCase) >= 0
+                || warning.IndexOf("phone number", StringComparison.OrdinalIgnoreCase) >= 0
+                || warning.IndexOf("email", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                throw new InvalidOperationException(moduleName + " warning strip still reports filled city/phone/email fields as missing: " + warning);
+            }
+
+            if (!strip.Visible || warning.IndexOf("PAN number", StringComparison.OrdinalIgnoreCase) < 0)
+                throw new InvalidOperationException(moduleName + " warning strip should keep only PAN warning when PAN is blank.");
+
+            pan.Text = "ABCDE1234F";
+            Application.DoEvents();
+
+            if (strip.Visible)
+                throw new InvalidOperationException(moduleName + " warning strip should hide after city, phone, email, and PAN are filled: " + label.Text);
+
+            SetPrivateField(vendorForm, "_showDashboard", true);
+            InvokePrivate(vendorForm, "BuildLayout");
+            InputOutlineService.ApplyToTree(vendorForm);
+            GlobalDashboardLayoutService.ApplyToTree(vendorForm);
+            GlobalCardContextMenu.ApplyToTree(vendorForm);
+            Application.DoEvents();
+        }
+
+        private static void EnsureVendorDashboardSearchDoesNotRenderPerKey(Control root, string moduleName)
+        {
+            VendorForm vendorForm = root as VendorForm;
+            if (vendorForm == null)
+                return;
+
+            SetPrivateField(vendorForm, "_showDashboard", true);
+            InvokePrivate(vendorForm, "BuildLayout");
+            Application.DoEvents();
+
+            TextBox search = GetPrivateField<TextBox>(vendorForm, "_dashboardSearch");
+            if (search == null)
+                throw new InvalidOperationException(moduleName + " dashboard search box was not created.");
+            TextBox cardSearch = GetPrivateField<TextBox>(vendorForm, "_dashboardCardSearch");
+            if (cardSearch == null)
+                throw new InvalidOperationException(moduleName + " Recent Suppliers card search box was not created.");
+
+            cardSearch.Text = "A";
+            Application.DoEvents();
+
+            Timer recentTimer = GetPrivateField<Timer>(vendorForm, "_recentVendorsRenderTimer");
+            if (recentTimer == null || !recentTimer.Enabled)
+                throw new InvalidOperationException(moduleName + " Recent Suppliers card search did not queue a debounced card-only render after typing.");
+
+            Timer fullDashboardTimer = GetPrivateField<Timer>(vendorForm, "_dashboardRenderTimer");
+            if (fullDashboardTimer != null && fullDashboardTimer.Enabled)
+                throw new InvalidOperationException(moduleName + " Recent Suppliers card search queued a full dashboard render and would flicker the page.");
+
+            recentTimer.Stop();
+            SetPrivateField(vendorForm, "_recentVendorsRenderPending", false);
+
+            search.Text = "AB";
+            Application.DoEvents();
+
+            TextBox currentSearch = GetPrivateField<TextBox>(vendorForm, "_dashboardSearch");
+            if (!ReferenceEquals(search, currentSearch))
+                throw new InvalidOperationException(moduleName + " dashboard search re-rendered immediately while typing, causing flicker and lost input focus.");
+
+            Timer timer = GetPrivateField<Timer>(vendorForm, "_dashboardRenderTimer");
+            if (timer == null || !timer.Enabled)
+                throw new InvalidOperationException(moduleName + " dashboard search did not queue a debounced render after typing.");
+
+            timer.Stop();
+            SetPrivateField(vendorForm, "_dashboardRenderPending", false);
+            InvokePrivate(vendorForm, "FocusDashboardPartnerSearch");
+            Application.DoEvents();
+
+            currentSearch = GetPrivateField<TextBox>(vendorForm, "_dashboardSearch");
+            if (!ReferenceEquals(search, currentSearch))
+                throw new InvalidOperationException(moduleName + " Supplier search focus action re-rendered the dashboard instead of only focusing search.");
+            if (timer.Enabled)
+                throw new InvalidOperationException(moduleName + " Supplier search focus action queued a dashboard render and would flicker the screen.");
+
+            var suppliers = Enumerable.Range(1, 12)
+                .Select(i => new VendorSummaryDto
+                {
+                    VendorId = i,
+                    VendorName = "Supplier " + i.ToString("000"),
+                    Category = "Materials",
+                    Phone = "90000000" + i.ToString("00"),
+                    IsSupplier = true,
+                    IsServiceVendor = false,
+                    IsActive = true,
+                    IsArchived = false
+                })
+                .ToList();
+            SetPrivateField(vendorForm, "_vendorSummaries", suppliers);
+            SetPrivateField(vendorForm, "_dashboardTab", "All Suppliers");
+            SetPrivateField(vendorForm, "_dashboardCategory", "All Categories");
+            SetPrivateField(vendorForm, "_dashboardSearchText", "Supplier 012");
+            SetPrivateField(vendorForm, "_dashboardPage", 1);
+
+            IEnumerable<VendorSummaryDto> filtered = InvokePrivate(vendorForm, "FilterDashboardVendors") as IEnumerable<VendorSummaryDto>;
+            if (filtered == null || !filtered.Any(v => v.VendorId == 12))
+                throw new InvalidOperationException(moduleName + " Recent Suppliers search did not find a supplier outside the first 10-row page.");
+        }
+
+        private static T GetPrivateField<T>(object target, string fieldName) where T : class
+        {
+            return target.GetType()
+                .GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                ?.GetValue(target) as T;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (field == null)
+                throw new InvalidOperationException("Field not found: " + fieldName);
+            field.SetValue(target, value);
+        }
+
+        private static object InvokePrivate(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (method == null)
+                throw new InvalidOperationException("Method not found: " + methodName);
+            return method.Invoke(target, null);
         }
 
         private static bool IsContainerButton(Button button)

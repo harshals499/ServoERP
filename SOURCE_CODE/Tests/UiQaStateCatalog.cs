@@ -52,7 +52,7 @@ namespace HVAC_Pro_Desktop.Tests
             new UiQaModule("Quotations", "HVAC_Pro_Desktop.UI.TenderBidForm", 6, false),
             new UiQaModule("Reports", "HVAC_Pro_Desktop.UI.ReportForm", 7, true),
             new UiQaModule("Settings", "HVAC_Pro_Desktop.UI.SettingsForm", 8, true),
-            new UiQaModule("Vendors", "HVAC_Pro_Desktop.UI.VendorForm", 9, true),
+            new UiQaModule("Suppliers", "HVAC_Pro_Desktop.UI.VendorForm", 9, true),
             new UiQaModule("Purchases", "HVAC_Pro_Desktop.UI.PurchaseForm", 10, true),
             new UiQaModule("Inventory", "HVAC_Pro_Desktop.UI.InventoryForm", 11, true),
             new UiQaModule("Employees", "HVAC_Pro_Desktop.UI.EmployeeForm", 12, false),
