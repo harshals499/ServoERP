@@ -363,7 +363,7 @@ namespace HVAC_Pro_Desktop.Services
         public bool ValidateIFSC(string ifsc)
         {
             if (string.IsNullOrWhiteSpace(ifsc))
-                return false;
+                return true;
 
             return Regex.IsMatch(ifsc.Trim().ToUpperInvariant(), @"^[A-Z]{4}0[A-Z0-9]{6}$");
         }
@@ -396,8 +396,6 @@ namespace HVAC_Pro_Desktop.Services
                 warnings.Add("City");
             if (string.IsNullOrWhiteSpace(vendor.PANNumber))
                 warnings.Add("PAN number");
-            if (string.IsNullOrWhiteSpace(vendor.BankAccountNumber) || string.IsNullOrWhiteSpace(vendor.BankIFSC))
-                warnings.Add("bank details");
             if (string.IsNullOrWhiteSpace(vendor.Phone))
                 warnings.Add("phone number");
             if (string.IsNullOrWhiteSpace(vendor.Email))

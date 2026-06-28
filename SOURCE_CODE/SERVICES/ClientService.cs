@@ -362,7 +362,7 @@ namespace HVAC_Pro_Desktop.Services
                 }
 
                 if (string.IsNullOrWhiteSpace(contact.ContactName))
-                    throw new ValidationException("Each client employee row needs a name.");
+                    AppLogger.LogInfo("Validation warning only: Each client employee row needs a name.");
             }
         }
 

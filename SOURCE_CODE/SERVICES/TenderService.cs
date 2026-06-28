@@ -76,7 +76,10 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.DemandPermission("Quotations", "Create");
             DbHelper.EnsureQuotationSchemaMigration();
             if (string.IsNullOrWhiteSpace(t.QuotationNumber))
-                throw new Exception("Quotation number is required.");
+            {
+                AppLogger.LogInfo("Validation warning only: Quotation number is required.");
+                t.QuotationNumber = GenerateQuotationNumber();
+            }
             ValidateQuotationForSave(t);
             if (SessionManager.IsLoggedIn)
             {

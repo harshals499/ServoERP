@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
 using HVAC_Pro_Desktop.Services.Validation;
+using ServoERP.Validators;
 
 namespace HVAC_Pro_Desktop.Tests
 {
@@ -25,15 +26,35 @@ namespace HVAC_Pro_Desktop.Tests
             ExpectError(rules.ValidateVendor(new Vendor { VendorName = "Bad GST", GSTNumber = "BADGST" }), "invalid vendor GST");
             passed.Add("invalid GST rejected");
 
+            new GlobalValidationEngine().EnsureValid(rules.ValidateVendor(new Vendor { VendorName = "Bad GST", GSTNumber = "BADGST" }), "warning-only validation gate");
+            FluentValidationGuard.EnsureValid(new VendorValidator(), new Vendor { VendorName = string.Empty }, "warning-only fluent validation gate");
+            passed.Add("validation gates warn without blocking save");
+
             ExpectError(duplicates.CheckClient(
                 new B2BClient { ClientID = 2, CompanyName = "Acme New", GSTNumber = "27ABCDE1234F1Z0" },
                 new[] { new B2BClient { ClientID = 1, CompanyName = "Acme Old", GSTNumber = "27ABCDE1234F1Z0" } }), "duplicate client GST");
             passed.Add("duplicate client GST rejected");
 
+            ExpectWarningOnly(duplicates.CheckClient(
+                new B2BClient { ClientID = 2, CompanyName = "Acme Trading" },
+                new[] { new B2BClient { ClientID = 1, CompanyName = "Acme Trading" } }), "duplicate client name");
+            passed.Add("duplicate client name allowed as warning");
+
             ExpectError(duplicates.CheckVendor(
                 new Vendor { VendorID = 2, VendorName = "Vendor New", GSTNumber = "27ABCDE1234F1Z0" },
                 new[] { new Vendor { VendorID = 1, VendorName = "Vendor Old", GSTNumber = "27ABCDE1234F1Z0" } }), "duplicate vendor GST");
             passed.Add("duplicate vendor GST rejected");
+
+            ExpectWarningOnly(duplicates.CheckVendor(
+                new Vendor { VendorID = 2, VendorName = "ABC HVAC Parts" },
+                new[] { new Vendor { VendorID = 1, VendorName = "ABC HVAC Parts" } }), "duplicate vendor name");
+            passed.Add("duplicate vendor name allowed as warning");
+
+            ExpectNoError(rules.ValidateEmployee(new Employee { Name = "Blank Code Employee", EmployeeCode = string.Empty, PANNumber = string.Empty }), "blank employee code and PAN");
+            passed.Add("blank employee code and PAN allowed");
+
+            ExpectNoError(rules.ValidateContract(new AMCContract { ClientID = 1, SiteID = 0, StartDate = DateTime.Today, EndDate = DateTime.Today.AddYears(1), MonthlyValue = 100m }), "blank contract site");
+            passed.Add("blank contract site allowed as warning");
 
             ExpectError(rules.ValidateInventoryItem(new StockItem { ItemName = "Copper Pipe", CurrentStock = -1 }), "negative stock");
             passed.Add("negative stock rejected");
@@ -114,6 +135,19 @@ namespace HVAC_Pro_Desktop.Tests
         {
             if (result == null || !result.HasWarnings)
                 throw new InvalidOperationException("Expected validation warning for " + name + ".");
+        }
+
+        private static void ExpectWarningOnly(ValidationResult result, string name)
+        {
+            ExpectWarning(result, name);
+            if (result.HasErrors)
+                throw new InvalidOperationException("Expected warning without validation error for " + name + ".");
+        }
+
+        private static void ExpectNoError(ValidationResult result, string name)
+        {
+            if (result != null && result.HasErrors)
+                throw new InvalidOperationException("Expected no validation error for " + name + ".");
         }
     }
 }

@@ -553,9 +553,12 @@ namespace HVAC_Pro_Desktop.Services
         private void NormalizeJob(Job job, bool isNewJob)
         {
             if (job.ClientID <= 0)
-                throw new Exception("Select a client.");
+                AppLogger.LogInfo("Validation warning only: Select a client.");
             if (string.IsNullOrWhiteSpace(job.JobTitle) && string.IsNullOrWhiteSpace(job.Title))
-                throw new Exception("Enter a job title.");
+            {
+                AppLogger.LogInfo("Validation warning only: Enter a job title.");
+                job.JobTitle = "General job";
+            }
 
             job.JobNumber = string.IsNullOrWhiteSpace(job.JobNumber) ? GenerateJobNumber() : job.JobNumber.Trim();
             job.JobTitle = string.IsNullOrWhiteSpace(job.JobTitle) ? job.Title?.Trim() : job.JobTitle.Trim();

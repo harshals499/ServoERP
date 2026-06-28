@@ -21,7 +21,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
                 if (!string.IsNullOrWhiteSpace(gst) && string.Equals(gst, Normalize(other.GSTNumber), StringComparison.OrdinalIgnoreCase))
                     result.Add(ValidationSeverity.Error, "Clients", "GSTIN", "Another client already has this GSTIN: " + other.CompanyName, "Open existing client instead of creating a duplicate.");
                 else if (!string.IsNullOrWhiteSpace(name) && string.Equals(name, Normalize(other.CompanyName), StringComparison.OrdinalIgnoreCase))
-                    result.Add(ValidationSeverity.Error, "Clients", "CompanyName", "Duplicate client name already exists: " + other.CompanyName, "Open existing client instead of creating a duplicate.");
+                    result.Add(ValidationSeverity.Warning, "Clients", "CompanyName", "Duplicate client name already exists: " + other.CompanyName, "Confirm this is a separate company before continuing.", true);
             }
             return result;
         }
@@ -38,7 +38,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
                 if (!string.IsNullOrWhiteSpace(gst) && string.Equals(gst, Normalize(other.GSTNumber), StringComparison.OrdinalIgnoreCase))
                     result.Add(ValidationSeverity.Error, "Vendors", "GSTIN", "Another vendor already has this GSTIN: " + other.VendorName, "Merge or open existing vendor.");
                 else if (!string.IsNullOrWhiteSpace(name) && string.Equals(name, Normalize(other.VendorName), StringComparison.OrdinalIgnoreCase))
-                    result.Add(ValidationSeverity.Error, "Vendors", "VendorName", "Duplicate vendor name already exists: " + other.VendorName, "Open existing vendor instead of creating a duplicate.");
+                    result.Add(ValidationSeverity.Warning, "Vendors", "VendorName", "Duplicate vendor name already exists: " + other.VendorName, "Confirm this is a separate supplier/vendor before continuing.", true);
             }
             return result;
         }

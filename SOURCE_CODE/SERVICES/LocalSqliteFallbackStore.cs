@@ -18,132 +18,37 @@ namespace HVAC_Pro_Desktop.Services
             return string.IsNullOrWhiteSpace(configured) ? DefaultFallbackPath : configured.Trim();
         }
 
-        /// <summary>Creates the local SQLite fallback database and schema when missing.</summary>
+        /// <summary>SQLite fallback is intentionally disabled; SQL availability is logged through normal ServoERP logs.</summary>
         public static void EnsureReady()
         {
-            try
-            {
-                lock (Sync)
-                {
-                    string path = GetDatabasePath();
-                    Directory.CreateDirectory(Path.GetDirectoryName(path) ?? @"C:\HVAC_PRO_MSE\DATABASE");
-
-                    if (!File.Exists(path))
-                        SQLiteConnection.CreateFile(path);
-
-                    using (SQLiteConnection conn = OpenConnection())
-                    {
-                        Execute(conn, @"
-CREATE TABLE IF NOT EXISTS FallbackStatus (
-    Id INTEGER NOT NULL PRIMARY KEY CHECK (Id = 1),
-    LastUpdatedUtc TEXT NOT NULL,
-    MachineName TEXT NULL,
-    AppVersion TEXT NULL,
-    ConfiguredSqlServer TEXT NULL,
-    DatabaseName TEXT NULL,
-    LastSqlStatus TEXT NOT NULL,
-    LastSqlError TEXT NULL,
-    LastSuccessfulSqlUtc TEXT NULL
-);");
-
-                        Execute(conn, @"
-CREATE TABLE IF NOT EXISTS FallbackEvents (
-    EventId INTEGER PRIMARY KEY AUTOINCREMENT,
-    CreatedUtc TEXT NOT NULL,
-    EventType TEXT NOT NULL,
-    Message TEXT NULL,
-    ConfiguredSqlServer TEXT NULL,
-    DatabaseName TEXT NULL
-);");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                AppRuntime.LogException("LocalSqliteFallbackStore.EnsureReady", ex);
-            }
+            AppRuntime.LogConnection("SQLite fallback disabled; startup continues without local fallback storage.");
         }
 
         /// <summary>Records that the configured SQL Server database is reachable.</summary>
         public static void RecordSqlAvailable(string connectionString)
         {
-            RecordSqlStatus(connectionString, "Available", string.Empty, true);
+            AppRuntime.LogConnection("SQL available: " + SensitiveDataRedactor.Redact(connectionString));
         }
 
         /// <summary>Records that the configured SQL Server database is unavailable.</summary>
         public static void RecordSqlUnavailable(string connectionString, Exception ex)
         {
-            RecordSqlStatus(connectionString, "Unavailable", ex == null ? string.Empty : SensitiveDataRedactor.Redact(ex.Message), false);
+            string error = ex == null ? string.Empty : SensitiveDataRedactor.Redact(ex.Message);
+            AppRuntime.LogConnection("SQL unavailable: " + SensitiveDataRedactor.Redact(connectionString) + " | " + error);
         }
 
         /// <summary>Returns a plain-text summary of the local SQLite fallback state.</summary>
         public static string BuildStatusText()
         {
-            try
-            {
-                EnsureReady();
-                using (SQLiteConnection conn = OpenConnection())
-                using (SQLiteCommand cmd = new SQLiteCommand(@"
-SELECT LastUpdatedUtc, MachineName, AppVersion, ConfiguredSqlServer, DatabaseName,
-       LastSqlStatus, LastSqlError, LastSuccessfulSqlUtc
-FROM FallbackStatus
-WHERE Id = 1;", conn))
-                using (SQLiteDataReader reader = cmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                        return "SQLite fallback: ready; no SQL status recorded yet." + Environment.NewLine +
-                               "Path: " + GetDatabasePath();
-
-                    StringBuilder builder = new StringBuilder();
-                    builder.AppendLine("SQLite fallback: ready");
-                    builder.AppendLine("Path: " + GetDatabasePath());
-                    builder.AppendLine("Last Updated UTC: " + SafeRead(reader, 0));
-                    builder.AppendLine("Machine: " + SafeRead(reader, 1));
-                    builder.AppendLine("App Version: " + SafeRead(reader, 2));
-                    builder.AppendLine("SQL Server: " + SafeRead(reader, 3));
-                    builder.AppendLine("Database: " + SafeRead(reader, 4));
-                    builder.AppendLine("SQL Status: " + SafeRead(reader, 5));
-                    builder.AppendLine("Last SQL Error: " + SafeRead(reader, 6));
-                    builder.AppendLine("Last Successful SQL UTC: " + SafeRead(reader, 7));
-                    builder.AppendLine("Offline Pending Items: " + OfflineSyncService.GetPendingCount());
-                    builder.AppendLine("Business Writes: local queue enabled; SQL Server remains the source of truth after sync.");
-                    return builder.ToString();
-                }
-            }
-            catch (Exception ex)
-            {
-                AppRuntime.LogException("LocalSqliteFallbackStore.BuildStatusText", ex);
-                return "SQLite fallback unavailable: " + SensitiveDataRedactor.Redact(ex.Message);
-            }
+            return "SQLite fallback: disabled" + Environment.NewLine +
+                   "Offline queue: disabled" + Environment.NewLine +
+                   "Startup: SQL is optional; database screens use SQL when it is reachable.";
         }
 
         /// <summary>Records a recovery note in the local SQLite fallback event log.</summary>
         public static void RecordEvent(string eventType, string message)
         {
-            try
-            {
-                EnsureReady();
-                string server;
-                string database;
-                ParseConnection(DatabaseManager.GetConfiguredConnectionString(), out server, out database);
-
-                using (SQLiteConnection conn = OpenConnection())
-                using (SQLiteCommand cmd = new SQLiteCommand(@"
-INSERT INTO FallbackEvents (CreatedUtc, EventType, Message, ConfiguredSqlServer, DatabaseName)
-VALUES (@createdUtc, @eventType, @message, @server, @database);", conn))
-                {
-                    cmd.Parameters.AddWithValue("@createdUtc", DateTime.UtcNow.ToString("o"));
-                    cmd.Parameters.AddWithValue("@eventType", eventType ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@message", message ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@server", server ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@database", database ?? string.Empty);
-                    cmd.ExecuteNonQuery();
-                }
-            }
-            catch (Exception ex)
-            {
-                AppRuntime.LogException("LocalSqliteFallbackStore.RecordEvent", ex);
-            }
+            AppRuntime.LogConnection("Fallback event ignored because SQLite fallback is disabled: " + (eventType ?? string.Empty) + " | " + (message ?? string.Empty));
         }
 
         /// <summary>Writes the current SQL status into the local SQLite fallback database.</summary>

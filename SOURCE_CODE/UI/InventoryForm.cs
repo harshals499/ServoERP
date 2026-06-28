@@ -58,7 +58,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label         _lblSupplierSnapshotSummary;
         private Label         _lblSupplierSnapshotDetail;
         private Label         _lblSupplierSnapshotRecommendation;
-        private bool _inventorySearchPlaceholderActive = true;
+        private bool _inventorySearchPlaceholderActive = false;
         private List<StockItem> _listSource = new List<StockItem>();
         private List<StockItem> _allItems = new List<StockItem>();
         private bool _inventoryForceWarn;
@@ -301,7 +301,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboCategoryFilter.SelectedIndex = 0;
             _cboCategoryFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
 
-            _txtSearch = new TextBox { Dock = DockStyle.Fill, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = "Search item, category, or supplier", ForeColor = DS.Slate500, Margin = new Padding(0, 4, 12, 4) };
+            _txtSearch = new TextBox { Dock = DockStyle.Fill, Height = 30, Font = new Font("Segoe UI", 9), BorderStyle = BorderStyle.FixedSingle, Text = string.Empty, ForeColor = DS.Slate900, Margin = new Padding(0, 4, 12, 4) };
             _txtSearch.TextChanged += (s, e) => ApplyInventoryFilter();
             _txtSearch.KeyDown += (s, e) =>
             {
@@ -325,9 +325,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_txtSearch.Text))
                 {
-                    _inventorySearchPlaceholderActive = true;
-                    _txtSearch.Text = "Search item, category, or supplier";
-                    _txtSearch.ForeColor = DS.Slate500;
+                    _inventorySearchPlaceholderActive = false;
+                    _txtSearch.Text = string.Empty;
+                    _txtSearch.ForeColor = DS.Slate900;
                 }
             };
             _btnClearFilters = MakeBtn("Clear Filters", Color.White, 116); _btnClearFilters.ForeColor = InfoBlue; _btnClearFilters.FlatAppearance.BorderColor = DS.BorderStrong;
@@ -3120,9 +3120,9 @@ namespace HVAC_Pro_Desktop.UI
             if (_txtSearch == null)
                 return;
 
-            _inventorySearchPlaceholderActive = true;
-            _txtSearch.Text = "Search item, category, or supplier";
-            _txtSearch.ForeColor = DS.Slate500;
+            _inventorySearchPlaceholderActive = false;
+            _txtSearch.Text = string.Empty;
+            _txtSearch.ForeColor = DS.Slate900;
         }
 
         private bool HasActiveInventoryFilters()

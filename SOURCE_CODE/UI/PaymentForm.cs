@@ -538,7 +538,7 @@ namespace HVAC_Pro_Desktop.UI
             _txnTypeFilter.SelectedIndexChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
             txnTypeHost.Controls.Add(_txnTypeFilter);
             Panel txnSearchHost = new Panel { Name = "TxnSearchHost", Size = new Size(210, 32), BackColor = DS.BgInput, Padding = new Padding(8, 2, 8, 2) };
-            _txnSearch = new TextBox { Name = "TxnSearchTextBox", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.None, Text = "Search", ForeColor = DS.Slate400 };
+            _txnSearch = new TextBox { Name = "TxnSearchTextBox", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 8f), BorderStyle = BorderStyle.None, Text = string.Empty, ForeColor = PayText };
             AddDashboardPlaceholder(_txnSearch, "Search");
             _txnSearch.TextChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
             txnSearchHost.Controls.Add(_txnSearch);
@@ -1214,18 +1214,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             textBox.GotFocus += (s, e) =>
             {
-                if (textBox.Text == placeholder)
-                {
-                    textBox.Text = string.Empty;
-                    textBox.ForeColor = PayText;
-                }
+                textBox.ForeColor = PayText;
             };
             textBox.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
-                    textBox.Text = placeholder;
-                    textBox.ForeColor = DS.Slate400;
+                    textBox.Text = string.Empty;
+                    textBox.ForeColor = PayText;
                 }
             };
         }

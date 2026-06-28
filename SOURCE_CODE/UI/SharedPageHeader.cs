@@ -177,7 +177,7 @@ namespace HVAC_Pro_Desktop.UI
 			label.Size = new System.Drawing.Size(20, 20);
 			System.Windows.Forms.Label value = new System.Windows.Forms.Label
 			{
-				Text = placeholder,
+				Text = string.Equals(placeholder, "Search", System.StringComparison.OrdinalIgnoreCase) ? string.Empty : placeholder,
 				Location = new System.Drawing.Point(40, 9),
 				AutoSize = true,
 				Font = new System.Drawing.Font("Segoe UI", 8.7f),

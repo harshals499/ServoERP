@@ -256,8 +256,8 @@ namespace HVAC_Pro_Desktop.UI
                 Name = "ContractDashboardSearchTextBox",
                 Font = new Font("Segoe UI", 10f),
                 BorderStyle = BorderStyle.FixedSingle,
-                Text = "Search",
-                ForeColor = Muted
+                Text = string.Empty,
+                ForeColor = Ink
             };
             AddPlaceholder(_dashboardSearch, "Search");
             _dashboardSearch.TextChanged += (s, e) => { _tablePage = 1; RefreshDashboardTablesOnly(); };
@@ -596,8 +596,8 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(176, 30),
                 Font = new Font("Segoe UI", 9f),
                 BorderStyle = BorderStyle.FixedSingle,
-                Text = "Search",
-                ForeColor = Muted
+                Text = string.Empty,
+                ForeColor = Ink
             };
             AddPlaceholder(_sidebarSearch, "Search");
             _sidebarSearch.TextChanged += (s, e) => RefreshSidebarList();
@@ -1272,10 +1272,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ValidateForm(AMCContract contract)
         {
-            if (contract.ClientID <= 0) throw new Exception("Please select Client.");
-            if (string.IsNullOrWhiteSpace(contract.ContractType)) throw new Exception("Please select Contract Type.");
-            if (string.IsNullOrWhiteSpace(contract.ContractStatus)) throw new Exception("Please select Status.");
-            if (contract.EndDate <= contract.StartDate) throw new Exception("End Date must be after Start Date.");
+            List<string> warnings = new List<string>();
+            if (contract.ClientID <= 0)
+                warnings.Add("Please select Client.");
+            if (contract.EndDate <= contract.StartDate)
+                warnings.Add("End Date must be after Start Date.");
+            if (warnings.Count > 0)
+                MessageBox.Show(string.Join(Environment.NewLine, warnings), "Contract Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private AMCContract CollectForm()
@@ -1286,7 +1289,7 @@ namespace HVAC_Pro_Desktop.UI
                 ClientID = ((_cmbClient.SelectedItem as ComboItem)?.Id).GetValueOrDefault(),
                 SiteID = ((_cmbSite.SelectedItem as ComboItem)?.Id).GetValueOrDefault(),
                 ContractType = NormalizeContractType(Convert.ToString(_cmbType.SelectedItem)),
-                ContractStatus = Convert.ToString(_cmbStatus.SelectedItem) ?? "Active",
+                ContractStatus = string.IsNullOrWhiteSpace(Convert.ToString(_cmbStatus.SelectedItem)) ? "Active" : Convert.ToString(_cmbStatus.SelectedItem),
                 StartDate = _dtpStart.Value.Date,
                 EndDate = _dtpEnd.Value.Date,
                 MonthlyValue = _numMonthly.Value,
@@ -1975,18 +1978,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             box.GotFocus += (s, e) =>
             {
-                if (box.Text == placeholder)
-                {
-                    box.Text = string.Empty;
-                    box.ForeColor = Ink;
-                }
+                box.ForeColor = Ink;
             };
             box.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(box.Text))
                 {
-                    box.Text = placeholder;
-                    box.ForeColor = Muted;
+                    box.Text = string.Empty;
+                    box.ForeColor = Ink;
                 }
             };
         }

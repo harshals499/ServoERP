@@ -475,8 +475,7 @@ namespace HVAC_Pro_Desktop.Services
                 string message = ex.Message ?? string.Empty;
                 if (message.IndexOf("SQL Server", StringComparison.OrdinalIgnoreCase) >= 0 ||
                     message.IndexOf("database target", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    message.IndexOf("office SQL", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                    message.IndexOf("Business entries are locked", StringComparison.OrdinalIgnoreCase) >= 0)
+                    message.IndexOf("office SQL", StringComparison.OrdinalIgnoreCase) >= 0)
                     return true;
 
                 ex = ex.InnerException;

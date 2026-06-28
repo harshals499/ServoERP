@@ -29,7 +29,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _searchBox = new TextBox { Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 11f), Margin = new Padding(12) };
             _searchBox.TextChanged += (s, e) => RunSearch();
-            _searchBox.HandleCreated += (s, e) => SetCueBanner(_searchBox, "Search");
+            _searchBox.HandleCreated += (s, e) => SetCueBanner(_searchBox, string.Empty);
             _searchBox.KeyDown += (s, e) =>
             {
                 if (e.KeyCode == Keys.Enter)
@@ -57,7 +57,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(header);
             Shown += (s, e) =>
             {
-                SetCueBanner(_searchBox, "Search");
+                SetCueBanner(_searchBox, string.Empty);
                 _searchBox.Focus();
             };
         }

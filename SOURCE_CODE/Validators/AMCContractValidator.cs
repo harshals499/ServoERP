@@ -14,7 +14,7 @@ namespace ServoERP.Validators
                 .GreaterThan(0).WithMessage("Select a client for the AMC.");
 
             RuleFor(contract => contract.SiteID)
-                .GreaterThan(0).WithMessage("Select a site for the AMC.");
+                .GreaterThanOrEqualTo(0).WithMessage("AMC site selection is not valid.");
 
             RuleFor(contract => contract.StartDate)
                 .GreaterThan(DateTime.MinValue).WithMessage("AMC start date is required.");

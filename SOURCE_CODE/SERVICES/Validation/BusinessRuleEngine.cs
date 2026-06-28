@@ -165,10 +165,9 @@ namespace HVAC_Pro_Desktop.Services.Validation
             employee.Name = GlobalValidationEngine.CleanText(employee.Name, 255);
             employee.EmployeeCode = GlobalValidationEngine.CleanText(employee.EmployeeCode, 50);
             if (string.IsNullOrWhiteSpace(employee.Name)) r.Add(ValidationSeverity.Error, "Employees", "Name", "Employee name is required.");
-            if (string.IsNullOrWhiteSpace(employee.EmployeeCode)) r.Add(ValidationSeverity.Error, "Employees", "EmployeeCode", "Employee code is required.");
             if (!GlobalValidationEngine.IsValidPhone(employee.Phone)) r.Add(ValidationSeverity.Warning, "Employees", "Phone", "Employee phone format looks invalid.", "Use digits, +, spaces, or dashes.", true);
             string pan = string.IsNullOrWhiteSpace(employee.PANNumber) ? employee.PAN : employee.PANNumber;
-            if (!GlobalValidationEngine.IsValidPAN(pan)) r.Add(ValidationSeverity.Error, "Employees", "PAN", "Employee PAN format is invalid.");
+            if (!string.IsNullOrWhiteSpace(pan) && !GlobalValidationEngine.IsValidPAN(pan)) r.Add(ValidationSeverity.Error, "Employees", "PAN", "Employee PAN format is invalid.");
             if (employee.JoiningDate.HasValue && !GlobalValidationEngine.IsReasonableDate(employee.JoiningDate.Value)) r.Add(ValidationSeverity.Error, "Employees", "JoiningDate", "Joining date is impossible.");
             if (employee.DateOfJoining.HasValue && !GlobalValidationEngine.IsReasonableDate(employee.DateOfJoining.Value)) r.Add(ValidationSeverity.Error, "Employees", "DateOfJoining", "Date of joining is impossible.");
             if (employee.DateOfBirth.HasValue && (employee.DateOfBirth.Value > DateTime.Today || employee.DateOfBirth.Value < DateTime.Today.AddYears(-100))) r.Add(ValidationSeverity.Error, "Employees", "DateOfBirth", "Date of birth is impossible.");

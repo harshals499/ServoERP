@@ -495,7 +495,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildPoDashboardHeader()
         {
-            _poDashSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Size = new Size(300, 32), Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle, Text = "Search", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
+            _poDashSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Size = new Size(300, 32), Font = new Font("Segoe UI", 9f), BorderStyle = BorderStyle.FixedSingle, Text = string.Empty, ForeColor = PoText, Tag = "CUSTOM_INPUT_SHELL" };
             _poDashSearch.BackColor = Color.White;
             AddDashboardPlaceholder(_poDashSearch, "Search");
             _poDashSearch.TextChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
@@ -675,10 +675,10 @@ namespace HVAC_Pro_Desktop.UI
             _poPeriodFilter.SelectedIndexChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
             _poPeriodFilterLabel = MakeFilterPill("This Year");
             _poPeriodFilterLabel.Click += (s, e) => { CycleCombo(_poPeriodFilter, _poPeriodFilterLabel); _poPage = 1; RefreshPoTableOnly(); };
-            _poTableSearch = new TextBox { Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, Size = new Size(170, 28), Text = "Search", ForeColor = DS.Slate400, Tag = "CUSTOM_INPUT_SHELL" };
+            _poTableSearch = new TextBox { Font = new Font("Segoe UI", 8.5f), BorderStyle = BorderStyle.FixedSingle, Size = new Size(170, 28), Text = string.Empty, ForeColor = PoText, Tag = "CUSTOM_INPUT_SHELL" };
             AddDashboardPlaceholder(_poTableSearch, "Search");
             _poTableSearch.TextChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
-            _poTableSearchLabel = MakeSearchVisual("Search");
+            _poTableSearchLabel = MakeSearchVisual(string.Empty);
             _poTableSearchLabel.Size = new Size(170, 28);
             _poTableSearchLabel.Visible = false;
             _poTableSearchLabel.Click += (s, e) => { _poTableSearch.Focus(); _poTableSearchLabel.Visible = false; };
@@ -1512,8 +1512,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ResetPurchaseOrdersDashboardFilters()
         {
-            if (_poDashSearch != null) _poDashSearch.Text = "Search";
-            if (_poTableSearch != null) _poTableSearch.Text = "Search";
+            if (_poDashSearch != null) _poDashSearch.Text = string.Empty;
+            if (_poTableSearch != null) _poTableSearch.Text = string.Empty;
             if (_poStatusFilter != null) _poStatusFilter.SelectedIndex = 0;
             if (_poPeriodFilter != null) _poPeriodFilter.SelectedItem = "This Year";
             if (_poStatusFilterLabel != null) _poStatusFilterLabel.Text = "All Status";
@@ -1831,18 +1831,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             box.GotFocus += (s, e) =>
             {
-                if (box.Text == placeholder)
-                {
-                    box.Text = string.Empty;
-                    box.ForeColor = PoText;
-                }
+                box.ForeColor = PoText;
             };
             box.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(box.Text))
                 {
-                    box.Text = placeholder;
-                    box.ForeColor = DS.Slate400;
+                    box.Text = string.Empty;
+                    box.ForeColor = PoText;
                 }
             };
         }
@@ -1973,8 +1969,8 @@ namespace HVAC_Pro_Desktop.UI
                 BorderStyle = BorderStyle.None,
                 Font = new Font("Segoe UI", 9)
             };
-            _txtSearch.Text = SearchPlaceholder;
-            _txtSearch.ForeColor = DS.Slate400;
+            _txtSearch.Text = string.Empty;
+            _txtSearch.ForeColor = DS.Slate900;
             _txtSearch.GotFocus += (s, e) =>
             {
                 if (IsSearchPlaceholder())
@@ -1987,8 +1983,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_txtSearch.Text))
                 {
-                    _txtSearch.Text = SearchPlaceholder;
-                    _txtSearch.ForeColor = DS.Slate400;
+                    _txtSearch.Text = string.Empty;
+                    _txtSearch.ForeColor = DS.Slate900;
                 }
             };
             _txtSearch.TextChanged += (s, e) => ResetListPageAndRender();
@@ -2841,6 +2837,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool IsSearchPlaceholder()
         {
             return _txtSearch == null ||
+                   string.IsNullOrWhiteSpace(_txtSearch.Text) ||
                    string.Equals((_txtSearch.Text ?? string.Empty).Trim(), SearchPlaceholder, StringComparison.Ordinal);
         }
 

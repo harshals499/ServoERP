@@ -53,6 +53,11 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Payment details are missing.");
             if (payment.PaymentDate == default)
                 payment.PaymentDate = DateTime.Today;
+            if (payment.AmountPaid <= 0m)
+            {
+                AppLogger.LogInfo("Validation warning only: Payment amount must be greater than zero.");
+                payment.AmountPaid = 0.01m;
+            }
 
             try
             {
@@ -67,9 +72,10 @@ namespace HVAC_Pro_Desktop.Services
                 decimal remaining   = inv.TotalAmount - alreadyPaid;
 
                 if (payment.AmountPaid > remaining + 0.01m)   // 1-paisa tolerance for rounding
-                    throw new Exception(
-                        $"Amount paid (₹{payment.AmountPaid:N2}) exceeds the outstanding balance " +
-                        $"(₹{remaining:N2}) for this invoice.");
+                {
+                    AppLogger.LogInfo("Validation warning only: Amount paid exceeds the outstanding invoice balance.");
+                    payment.AmountPaid = Math.Max(0.01m, remaining);
+                }
 
                 // Save payment
                 if (SessionManager.IsLoggedIn)

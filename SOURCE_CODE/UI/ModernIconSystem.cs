@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.UI
         Client,
         Company,
         Contract,
+        Delete,
         Document,
         EmptyBox,
         Email,
@@ -130,6 +131,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ModernIconKind.Client: return "building-2.svg";
                 case ModernIconKind.Company: return "building-2.svg";
                 case ModernIconKind.Contract: return "file-signature.svg";
+                case ModernIconKind.Delete: return "trash-2.svg";
                 case ModernIconKind.Document: return "file-text.svg";
                 case ModernIconKind.EmptyBox: return "package-open.svg";
                 case ModernIconKind.Email: return "mail.svg";
@@ -242,6 +244,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ModernIconKind.Client: return "\uE77B";
                 case ModernIconKind.Company: return "\uE80F";
                 case ModernIconKind.Contract: return "\uE8A5";
+                case ModernIconKind.Delete: return "\uE74D";
                 case ModernIconKind.Document: return "\uE8A5";
                 case ModernIconKind.EmptyBox: return "\uE7B8";
                 case ModernIconKind.Email: return "\uE715";

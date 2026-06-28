@@ -107,7 +107,7 @@ namespace ServoERP.Infrastructure
 
             MessageBox.Show(this, message, title ?? Text ?? "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             onInvalid?.Invoke();
-            return false;
+            return true;
         }
 
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>

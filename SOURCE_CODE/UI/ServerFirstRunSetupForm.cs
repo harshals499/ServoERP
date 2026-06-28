@@ -182,21 +182,20 @@ namespace HVAC_Pro_Desktop.UI
             DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.GetCurrentState();
             string configured = DatabaseManager.GetConfiguredConnectionString();
             bool hasConfig = !string.IsNullOrWhiteSpace(configured);
-            bool fallbackReady = File.Exists(LocalSqliteFallbackStore.GetDatabasePath());
             _sqlReady = hasConfig && state.BusinessWritesAllowed;
             _licenseReady = IsLicenseReady(out string licenseDetail);
             _adminReady = IsAdminReady(out string adminDetail);
             _legalReady = IsLegalReady();
             _terminalPackReady = !string.IsNullOrWhiteSpace(_lastPackagePath) && File.Exists(_lastPackagePath);
 
-            AddRow("1. Server PC", _sqlReady ? "Ready" : "Needs setup", _sqlReady ? "SQL Server is online and business entries are unlocked." : "Click Prepare Server. ServoERP will configure SQL and verify business writes.");
+            AddRow("1. Server PC", _sqlReady ? "Ready" : "Needs setup", _sqlReady ? "SQL Server is online." : "Click Prepare Server. ServoERP will configure SQL and verify the database connection.");
             AddRow("2. SQL target", hasConfig ? "Configured" : "Missing", hasConfig ? configured : "No SQL target is configured for this office server.");
             AddRow("3. License", _licenseReady ? "Active" : "Needs activation", licenseDetail);
             AddRow("4. Owner/Admin login", _adminReady ? "Ready" : "Needs account", adminDetail);
             AddRow("5. Legal approval", _legalReady ? "Accepted" : "Needs acceptance", _legalReady ? "Legal terms already accepted for this workstation." : "Review and accept the ServoERP legal terms before business use.");
             AddRow("6. Terminal setup pack", _terminalPackReady ? "Ready" : "Needs pack", _terminalPackReady ? _lastPackagePath : "Generate this pack and apply it on each office terminal before users start work.");
-            AddRow("7. Business writes", state.BusinessWritesAllowed ? "Unlocked" : "Locked", state.BusinessWritesAllowed ? "SQL Server is reachable." : "Writes stay locked until SQL Server is reachable. Diagnostics fallback is read-only.");
-            AddRow("Diagnostics fallback", fallbackReady ? "Ready" : "Pending", LocalSqliteFallbackStore.GetDatabasePath());
+            AddRow("7. SQL writes", state.BusinessWritesAllowed ? "Available" : "Unavailable", state.BusinessWritesAllowed ? "SQL Server is reachable." : "ServoERP can open; database-backed actions need SQL to complete.");
+            AddRow("Local fallback", "Disabled", "ServoERP does not save business entries into SQLite.");
 
             _btnActivateLicense.Enabled = _sqlReady && !_licenseReady;
             _btnCreateAdmin.Enabled = _sqlReady && !_adminReady;

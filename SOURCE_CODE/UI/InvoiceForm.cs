@@ -1000,6 +1000,8 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < kpis.Length; i++)
                 host.Controls.Add(AttachInvoiceExceptionCard(BuildInvoiceDashKpiCard(kpis[i], accents[i], icons[i], i == 0, "invoiceDashKpi" + i), "kpi_" + i));
 
+            LogInvoiceDashboardChartData(_invoiceDashboardSnapshot);
+
             Panel overview = MakeInvoiceDashCard();
             overview.Name = "invoiceDashOverview";
             overview.Tag = "dash-card";
@@ -1046,6 +1048,33 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Add(side);
 
             host.Controls.Add(BuildInvoiceWorkflowCard());
+        }
+
+        private void LogInvoiceDashboardChartData(InvoiceDashboardSnapshot snapshot)
+        {
+            if (snapshot == null)
+                return;
+
+            try
+            {
+                string overview = string.Join("; ", (snapshot.Overview ?? new List<InvoiceOverviewPoint>())
+                    .Select(p => (p.Period ?? "-") + "=" + p.TotalCount + "/" + p.TotalAmount.ToString("0.##"))
+                    .Take(12));
+                string rawStatuses = string.Join(", ", (snapshot.Statuses ?? new List<InvoiceStatusSlice>())
+                    .Select(s => (s.Status ?? "-") + "=" + s.Count));
+                string donutBuckets = string.Join(", ", InvoiceStatusDonut.BuildBuckets(snapshot)
+                    .Select(b => b.Label + "=" + b.Count));
+                AppLogger.LogInfo(
+                    "Invoice dashboard chart bind | range=" + snapshot.DateFrom.ToString("yyyy-MM-dd") + ".." + snapshot.DateTo.ToString("yyyy-MM-dd") +
+                    " | grouping=" + snapshot.Grouping +
+                    " | overview=" + overview +
+                    " | rawStatuses=" + rawStatuses +
+                    " | donutBuckets=" + donutBuckets);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("InvoiceForm.LogInvoiceDashboardChartData", ex);
+            }
         }
 
         private Panel BuildInvoiceWorkflowCard()

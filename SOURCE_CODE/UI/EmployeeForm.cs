@@ -340,6 +340,7 @@ namespace HVAC_Pro_Desktop.UI
             ModernIconSystem.AddButtonIcon(_btnExport, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(_btnNew, ModernIconKind.User);
             ModernIconSystem.AddButtonIcon(_btnSave, ModernIconKind.Save);
+            ModernIconSystem.AddButtonIcon(_btnDelete, ModernIconKind.Delete);
             _txtDashboardSearch = new TextBox
             {
                 Width = 300,
@@ -367,7 +368,7 @@ namespace HVAC_Pro_Desktop.UI
             searchShell.Controls.Add(searchIcon);
             btnFilters.Click += (s, e) => ShowEmployeeWorkspace();
 
-            Control[] headerButtons = { btnFilters, _btnImport, _btnExport, _btnNew, _btnSave };
+            Control[] headerButtons = { btnFilters, _btnImport, _btnExport, _btnNew, _btnSave, _btnDelete };
             foreach (Control action in headerButtons)
             {
                 Button button = action as Button;
@@ -989,7 +990,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_workspaceSurface != null)
                 _workspaceSurface.Visible = true;
             if (_btnSave != null) _btnSave.Enabled = true;
-            if (_btnDelete != null) _btnDelete.Enabled = true;
+            UpdateDeleteButtonState();
             if (_btnWhatsapp != null) _btnWhatsapp.Enabled = _currentEmployee != null && !string.IsNullOrWhiteSpace(_currentEmployee.WhatsAppNumber);
 
             if (_gridEmployees != null && _gridEmployees.Rows.Count > 0)
@@ -1000,6 +1001,12 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             SetStatus("Employee workspace opened.", TextSecondary);
+        }
+
+        private void UpdateDeleteButtonState()
+        {
+            if (_btnDelete != null)
+                _btnDelete.Enabled = _workspaceSurface != null && _workspaceSurface.Visible && _currentEmployee != null && _currentEmployee.EmployeeID > 0;
         }
 
         private void OpenSelectedDashboardEmployee()
@@ -2444,6 +2451,7 @@ namespace HVAC_Pro_Desktop.UI
                 ClearDeferredTabData();
                 LoadCurrentEmployeeTabData();
                 UpdateSelectedEmployeeReadiness();
+                UpdateDeleteButtonState();
                 SetStatus("Loaded " + (_currentEmployee?.Name ?? string.Empty), TextSecondary);
             }
             catch (Exception ex)
@@ -3147,6 +3155,7 @@ namespace HVAC_Pro_Desktop.UI
                 BindSkills();
                 BindDocuments();
                 BindPayroll();
+                UpdateDeleteButtonState();
                 SetStatus("Loaded " + _currentEmployee.Name, TextSecondary);
             }
             catch (Exception ex)
@@ -3380,6 +3389,7 @@ namespace HVAC_Pro_Desktop.UI
                 _txtCode.Text = _currentEmployee.EmployeeCode;
                 LoadData();
                 SelectEmployeeRow(employee.EmployeeID);
+                UpdateDeleteButtonState();
                 SetStatus("Employee saved successfully.", Teal);
             }
             catch (Exception ex)
@@ -3461,6 +3471,7 @@ namespace HVAC_Pro_Desktop.UI
             BindPayroll();
             _tabs.SelectedIndex = 0;
             UpdateDashboardCurrentSelection();
+            UpdateDeleteButtonState();
             SetStatus("New employee ready.", TextSecondary);
             _txtName.Focus();
         }
@@ -3644,6 +3655,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _employeeService.SoftDelete(_currentEmployee.EmployeeID);
                 LoadData();
+                UpdateDeleteButtonState();
                 SetStatus("Employee marked inactive.", Teal);
             }
             catch (Exception ex)

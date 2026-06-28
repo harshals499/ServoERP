@@ -84,7 +84,7 @@ namespace HVAC_Pro_Desktop.Services
 
                 _monitorCancellation?.Dispose();
                 _monitorCancellation = new CancellationTokenSource();
-                Publish(UpdateSnapshot(DatabaseConnectionStateKind.Reconnecting, "Checking office SQL Server connection...", string.Empty, null, null, false, 0));
+                Publish(UpdateSnapshot(DatabaseConnectionStateKind.Reconnecting, "Checking SQL Server connection...", string.Empty, null, null, false, 0));
                 _monitorTask = Task.Run(() => MonitorLoopAsync(_monitorCancellation.Token), _monitorCancellation.Token);
             }
         }
@@ -116,7 +116,7 @@ namespace HVAC_Pro_Desktop.Services
         public static DatabaseConnectionStateSnapshot CheckNow(string context, bool markReconnecting)
         {
             if (markReconnecting)
-                Publish(UpdateSnapshot(DatabaseConnectionStateKind.Reconnecting, "Checking office SQL Server connection...", string.Empty, null, null, false, 0));
+                Publish(UpdateSnapshot(DatabaseConnectionStateKind.Reconnecting, "Checking SQL Server connection...", string.Empty, null, null, false, 0));
 
             string connectionString = null;
             try
@@ -136,8 +136,8 @@ namespace HVAC_Pro_Desktop.Services
                             ? DatabaseConnectionStateKind.Degraded
                             : DatabaseConnectionStateKind.Online;
                         string message = state == DatabaseConnectionStateKind.Degraded
-                            ? "Office SQL Server is reachable, but response is slow. Work can continue; check server/network if this repeats."
-                            : "Office SQL Server is connected. Business entries are available.";
+                            ? "SQL Server is reachable, but response is slow. Work can continue; check server/network if this repeats."
+                            : "SQL Server is connected.";
                         return Publish(UpdateSnapshot(state, message, string.Empty, connection.DataSource, connection.Database, true, elapsed));
                     }
                 }
@@ -165,7 +165,7 @@ namespace HVAC_Pro_Desktop.Services
                 ParseConnection(connectionString, out server, out database);
                 Publish(UpdateSnapshot(
                     DatabaseConnectionStateKind.Online,
-                    "Office SQL Server is connected. Business entries are available.",
+                    "SQL Server is connected.",
                     string.Empty,
                     server,
                     database,
@@ -209,10 +209,7 @@ namespace HVAC_Pro_Desktop.Services
         /// <summary>Throws a shared user-facing exception if business writes are locked.</summary>
         public static void EnsureBusinessWritesAvailable(string moduleName)
         {
-            if (RequireBusinessWritesAvailable(moduleName))
-                return;
-
-            throw new DatabaseBusinessWriteUnavailableException(BuildBusinessWriteLockMessage());
+            RequireBusinessWritesAvailable(moduleName);
         }
 
         /// <summary>Builds the common operator message for the current terminal SQL state.</summary>
@@ -239,7 +236,7 @@ namespace HVAC_Pro_Desktop.Services
                    "Machine: " + Environment.MachineName + Environment.NewLine +
                    "Server: " + SafeValue(current.Server) + Environment.NewLine +
                    "Database: " + SafeValue(current.DatabaseName) + Environment.NewLine +
-                   "Business Writes: " + (current.BusinessWritesAllowed ? "Available" : "Locked") + Environment.NewLine +
+                   "SQL Writes: " + (current.BusinessWritesAllowed ? "Available" : "Unavailable") + Environment.NewLine +
                    "Last Checked UTC: " + FormatUtc(current.LastCheckedUtc) + Environment.NewLine +
                    "Last Successful SQL UTC: " + FormatUtc(current.LastSuccessfulSqlUtc) + Environment.NewLine +
                    "Consecutive Failures: " + current.ConsecutiveFailures.ToString(CultureInfo.InvariantCulture) + Environment.NewLine +
@@ -327,8 +324,6 @@ namespace HVAC_Pro_Desktop.Services
                 : BuildBusinessWriteLockMessage();
             string error = ex == null ? string.Empty : ex.Message;
 
-            LocalSqliteFallbackStore.RecordSqlUnavailable(connectionString, ex);
-            LocalSqliteFallbackStore.RecordEvent("SQL_STATE_" + state, context + " | " + error);
             return UpdateSnapshot(state, message, error, server, database, false, 0);
         }
 
@@ -376,7 +371,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static string BuildBusinessWriteLockMessage()
         {
-            return "ServoERP cannot reach the office SQL Server. Business entries are locked to protect GST, ledger, inventory, and payroll data. Check the server PC/network, then use Help & Support > Database Check.";
+            return "SQL Server is unavailable. ServoERP will stay open; database-backed screens may fail until the connection is restored.";
         }
 
         private static void ParseConnection(string connectionString, out string server, out string database)

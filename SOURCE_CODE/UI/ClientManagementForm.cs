@@ -161,23 +161,20 @@ namespace HVAC_Pro_Desktop.UI
 
             Panel searchWrap = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.White, Padding = new Padding(12, 10, 12, 0), Margin = new Padding(0, 0, 0, 10) };
             searchWrap.Paint += (s, e) => DrawRoundedBorder(e.Graphics, searchWrap.ClientRectangle, DS.Border, 7);
-            _searchBox = new TextBox { BorderStyle = BorderStyle.None, Dock = DockStyle.Fill, Text = "Search", ForeColor = DS.Slate500, Font = new Font("Segoe UI", 9f), BackColor = Color.White };
+            _searchBox = new TextBox { BorderStyle = BorderStyle.None, Dock = DockStyle.Fill, Text = string.Empty, ForeColor = DS.Slate900, Font = new Font("Segoe UI", 9f), BackColor = Color.White };
+            _searchPlaceholderActive = false;
             _searchBox.GotFocus += (s, e) =>
             {
-                if (_searchPlaceholderActive)
-                {
-                    _searchBox.Text = string.Empty;
-                    _searchBox.ForeColor = DS.Slate900;
-                    _searchPlaceholderActive = false;
-                }
+                _searchBox.ForeColor = DS.Slate900;
+                _searchPlaceholderActive = false;
             };
             _searchBox.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(_searchBox.Text))
                 {
-                    _searchPlaceholderActive = true;
-                    _searchBox.Text = "Search";
-                    _searchBox.ForeColor = DS.Slate500;
+                    _searchPlaceholderActive = false;
+                    _searchBox.Text = string.Empty;
+                    _searchBox.ForeColor = DS.Slate900;
                 }
             };
             _searchBox.TextChanged += (s, e) =>
@@ -899,9 +896,9 @@ namespace HVAC_Pro_Desktop.UI
                 box.Text = string.Empty;
 
             box.ForeColor = DS.Slate900;
-            box.HandleCreated += (s, e) => SetCueBanner(box, placeholder);
+            box.HandleCreated += (s, e) => SetCueBanner(box, string.Empty);
             if (box.IsHandleCreated)
-                SetCueBanner(box, placeholder);
+                SetCueBanner(box, string.Empty);
         }
 
         /// <summary>Applies native placeholder text without inserting it into the editable value.</summary>

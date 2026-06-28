@@ -200,24 +200,20 @@ namespace HVAC_Pro_Desktop.UI
             _searchBox = new TextBox
             {
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Text = "Search",
-                ForeColor = Muted,
+                Text = string.Empty,
+                ForeColor = Ink,
                 Size = new Size(240, 30)
             };
             _searchBox.GotFocus += (s, e) =>
             {
-                if (_searchBox.Text == "Search")
-                {
-                    _searchBox.Text = string.Empty;
-                    _searchBox.ForeColor = Ink;
-                }
+                _searchBox.ForeColor = Ink;
             };
             _searchBox.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(_searchBox.Text))
                 {
-                    _searchBox.Text = "Search";
-                    _searchBox.ForeColor = Muted;
+                    _searchBox.Text = string.Empty;
+                    _searchBox.ForeColor = Ink;
                 }
             };
             _searchBox.TextChanged += (s, e) => ApplyFilters();
@@ -549,7 +545,7 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
             if (_contractGrid == null)
                 return;
 
-            string search = _searchBox == null || _searchBox.Text == "Search" ? string.Empty : _searchBox.Text.Trim();
+            string search = _searchBox == null ? string.Empty : _searchBox.Text.Trim();
             string status = _statusFilter == null || _statusFilter.SelectedIndex <= 0 ? string.Empty : Convert.ToString(_statusFilter.SelectedItem, CultureInfo.InvariantCulture);
             string type = _typeFilter == null || _typeFilter.SelectedIndex <= 0 ? string.Empty : Convert.ToString(_typeFilter.SelectedItem, CultureInfo.InvariantCulture);
 

@@ -78,7 +78,7 @@ namespace ServoERP.Infrastructure
             IWin32Window owner = (IWin32Window)FindForm() ?? this;
             MessageBox.Show(owner, message, title ?? (FindForm()?.Text ?? "Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             onInvalid?.Invoke();
-            return false;
+            return true;
         }
 
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>

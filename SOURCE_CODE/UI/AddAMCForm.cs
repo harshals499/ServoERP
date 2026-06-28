@@ -186,7 +186,7 @@ namespace HVAC_Pro_Desktop.UI
             _cmbAMCType.SelectedIndex = 0;
             _cmbCoverageType.SelectedIndex = 0;
 
-            AddRow(grid, 0, "AMC Number *", _txtAMCNumber);
+            AddRow(grid, 0, "AMC Number", _txtAMCNumber);
             AddRow(grid, 1, "Client *", _cmbClient);
             AddRow(grid, 2, "Site", _cmbSite);
             AddRow(grid, 3, "AMC Type *", _cmbAMCType);
@@ -721,6 +721,24 @@ WHERE ContractID = @ContractID;", connection))
             return "AMC-" + year.ToString(CultureInfo.InvariantCulture) + "-" + next.ToString("000", CultureInfo.InvariantCulture);
         }
 
+        /// <summary>Returns the entered AMC number, or generates one when the user leaves it blank.</summary>
+        private string ResolveAMCNumberForSave()
+        {
+            string entered = (_txtAMCNumber.Text ?? string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(entered))
+                return entered;
+
+            using (SqlConnection connection = DatabaseConnectionFactory.CreateConnection())
+            using (SqlCommand command = new SqlCommand("SELECT TOP 1 AMCNumber FROM AMCContracts WHERE AMCNumber IS NOT NULL AND LTRIM(RTRIM(AMCNumber)) <> '' ORDER BY ContractID DESC;", connection))
+            {
+                command.CommandTimeout = ReferenceCommandTimeoutSeconds;
+                DatabaseConnectionFactory.Open(connection, "AddAMCForm.ResolveAMCNumberForSave");
+                string generated = GenerateNextAMCNumber(command.ExecuteScalar() as string);
+                _txtAMCNumber.Text = generated;
+                return generated;
+            }
+        }
+
         /// <summary>Moves the AMC period forward by one year from the current end date.</summary>
         private void RenewOneYear()
         {
@@ -740,55 +758,59 @@ WHERE ContractID = @ContractID;", connection))
             string validation = ValidateForm();
             if (!string.IsNullOrWhiteSpace(validation))
             {
-                MessageBox.Show(validation, BrandingService.WindowTitle("AMC Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                MessageBox.Show(validation, BrandingService.WindowTitle("AMC Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
             AMCInput input = BuildInput();
-            _btnSave.Enabled = false;
-            _btnRenew.Enabled = false;
-            _btnSave.Text = "Saving...";
             _saveInProgress = true;
             try
             {
-                _lastSavedContractId = null;
-                int savedContractId = await Task.Run(() => SaveInput(input));
-                _lastSavedContractId = savedContractId;
-                DialogResult = DialogResult.OK;
-                Close();
-            }
-            catch (DuplicateAMCNumberException ex)
-            {
-                MessageBox.Show(this, ex.Message, BrandingService.WindowTitle("Duplicate AMC Number"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                _txtAMCNumber.Focus();
-            }
-            catch (AMCNumberLengthException ex)
-            {
-                MessageBox.Show(this, ex.Message, BrandingService.WindowTitle("AMC Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                _txtAMCNumber.Focus();
-            }
-            catch (Exception ex)
-            {
-                ShowError("AMC could not be saved. Please check the details and try again.", ex);
+                await ServoERP.Infrastructure.SaveOperationRunner.RunAsync(
+                    _btnSave,
+                    "Saving...",
+                    _contractId.HasValue ? "Save Changes" : "Save AMC",
+                    async () =>
+                    {
+                        _lastSavedContractId = null;
+                        int savedContractId = await Task.Run(() => SaveInput(input));
+                        _lastSavedContractId = savedContractId;
+                        DialogResult = DialogResult.OK;
+                        Close();
+                    },
+                    HandleSaveException,
+                    _btnRenew);
             }
             finally
             {
-                if (!IsDisposed)
-                {
-                    _btnSave.Enabled = true;
-                    _btnRenew.Enabled = true;
-                    _btnSave.Text = _contractId.HasValue ? "Save Changes" : "Save AMC";
-                }
                 _saveInProgress = false;
             }
+        }
+
+        private void HandleSaveException(Exception ex)
+        {
+            DuplicateAMCNumberException duplicate = ex as DuplicateAMCNumberException;
+            if (duplicate != null)
+            {
+                MessageBox.Show(this, duplicate.Message, BrandingService.WindowTitle("Duplicate AMC Number"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtAMCNumber.Focus();
+                return;
+            }
+
+            AMCNumberLengthException length = ex as AMCNumberLengthException;
+            if (length != null)
+            {
+                MessageBox.Show(this, length.Message, BrandingService.WindowTitle("AMC Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                _txtAMCNumber.Focus();
+                return;
+            }
+
+            ShowError("AMC could not be saved. Please check the details and try again.", ex);
         }
 
         /// <summary>Returns validation text or an empty string when the form is valid.</summary>
         private string ValidateForm()
         {
-            if (string.IsNullOrWhiteSpace(_txtAMCNumber.Text))
-                return "Enter an AMC Number.";
-            if (_txtAMCNumber.Text.Trim().Length > _amcNumberMaxLength)
+            if (!string.IsNullOrWhiteSpace(_txtAMCNumber.Text) && _txtAMCNumber.Text.Trim().Length > _amcNumberMaxLength)
                 return BuildAMCNumberLengthMessage(_amcNumberMaxLength);
             if (GetSelectedClientId() <= 0)
                 return "Select a client.";
@@ -807,7 +829,7 @@ WHERE ContractID = @ContractID;", connection))
             return new AMCInput
             {
                 ContractId = _contractId ?? 0,
-                AMCNumber = _txtAMCNumber.Text.Trim(),
+                AMCNumber = ResolveAMCNumberForSave(),
                 ClientId = GetSelectedClientId(),
                 SiteId = GetSelectedSiteId(),
                 EquipmentDesc = _cmbEquipment.Text.Trim(),

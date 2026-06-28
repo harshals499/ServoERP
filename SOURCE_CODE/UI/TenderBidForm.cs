@@ -1006,7 +1006,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             _txtItemSearch = new TextBox
             {
-                Text = "Search",
+                Text = string.Empty,
                 BorderStyle = BorderStyle.None,
                 Location = new Point(42, 12),
                 Width = panel.Width - 54,
@@ -1018,24 +1018,19 @@ namespace HVAC_Pro_Desktop.UI
             };
             _txtItemSearch.GotFocus += (s, e) =>
             {
-                if (_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search")
-                {
-                    _txtItemSearch.Clear();
-                    _txtItemSearch.ForeColor = QuoteText;
-                }
+                _txtItemSearch.ForeColor = QuoteText;
             };
             _txtItemSearch.LostFocus += (s, e) =>
             {
                 if (string.IsNullOrWhiteSpace(_txtItemSearch.Text))
                 {
-                    _txtItemSearch.Text = "Search";
-                    _txtItemSearch.ForeColor = QuoteMuted;
+                    _txtItemSearch.Text = string.Empty;
+                    _txtItemSearch.ForeColor = QuoteText;
                 }
             };
             _txtItemSearch.TextChanged += (s, e) =>
             {
-                if (!(_txtItemSearch.ForeColor == QuoteMuted && _txtItemSearch.Text == "Search"))
-                    BindInventoryItems();
+                BindInventoryItems();
             };
             panel.Controls.Add(icon);
             panel.Controls.Add(_txtItemSearch);

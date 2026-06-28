@@ -531,7 +531,7 @@ namespace HVAC_Pro_Desktop.Services
                    "Server IP: " + profile.PrimaryIpAddress + Environment.NewLine +
                    "SQL Target: " + profile.ConnectionTarget + Environment.NewLine +
                    "Database: " + profile.DatabaseName + Environment.NewLine +
-                   "SQLite Fallback: " + profile.FallbackSqlitePath + Environment.NewLine +
+                   "Local fallback: Disabled" + Environment.NewLine +
                    Environment.NewLine +
                    "Client PC steps:" + Environment.NewLine +
                    "1. Extract this ZIP on the client PC." + Environment.NewLine +
@@ -542,7 +542,7 @@ namespace HVAC_Pro_Desktop.Services
                    "- Use a dedicated always-on office/server PC, not a personal laptop." + Environment.NewLine +
                    "- SQL Server Express SQLEXPRESS must run automatically after reboot." + Environment.NewLine +
                    "- Allow SQL Server TCP 1433 and SQL Browser UDP 1434 if using named instances." + Environment.NewLine +
-                   "- Keep ServoERP business entries locked to SQL Server; SQLite fallback stores diagnostics only to avoid split GST, ledger, inventory, and payroll records." + Environment.NewLine;
+                   "- ServoERP can open even when SQL Server is unavailable; database-backed actions need SQL to complete." + Environment.NewLine;
         }
 
         private string BuildOfficeHealthText()
@@ -559,7 +559,7 @@ namespace HVAC_Pro_Desktop.Services
                    "Terminal SQL State: " + DatabaseConnectionStateService.GetCurrentState().State + Environment.NewLine +
                    "Backup Root: " + BackupService.BackupRoot + Environment.NewLine +
                    "Last Backup: " + LastFileInfo(BackupService.BackupRoot, "*.bak") + Environment.NewLine +
-                   "SQLite Fallback: " + LocalSqliteFallbackStore.GetDatabasePath() + Environment.NewLine +
+                   "Local Fallback: Disabled" + Environment.NewLine +
                    Environment.NewLine +
                    DatabaseConnectionStateService.BuildSupportStatusText() + Environment.NewLine +
                    Environment.NewLine +
@@ -583,7 +583,7 @@ namespace HVAC_Pro_Desktop.Services
             builder.AppendLine("Machine: " + Environment.MachineName);
             builder.AppendLine("Configured SQL Server: " + SafeValue(connection.DataSource));
             builder.AppendLine("Configured Database: " + SafeValue(connection.InitialCatalog));
-            builder.AppendLine("Local SQLite: " + LocalSqliteFallbackStore.GetDatabasePath());
+            builder.AppendLine("Local Fallback: Disabled");
             builder.AppendLine("Pending Offline Items: " + pending.Count);
             builder.AppendLine("Pending Queue Statuses:");
             foreach (IGrouping<string, OfflineSyncItem> group in pending.GroupBy(item => string.IsNullOrWhiteSpace(item.Status) ? "Unknown" : item.Status))

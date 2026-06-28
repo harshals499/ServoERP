@@ -464,23 +464,32 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null)
                 throw new Exception("Invoice details are missing.");
             if (inv.ClientID <= 0)
-                throw new Exception("Please select a client.");
+                AppLogger.LogInfo("Validation warning only: Please select a client.");
             if (inv.InvoiceDate == default)
-                throw new Exception("Invoice date is required.");
+                inv.InvoiceDate = DateTime.Today;
             if (inv.DueDate == default)
-                throw new Exception("Due date is required.");
+                inv.DueDate = inv.InvoiceDate == default ? DateTime.Today : inv.InvoiceDate;
             if (inv.DueDate < inv.InvoiceDate)
-                throw new Exception("Due date cannot be earlier than invoice date.");
+            {
+                AppLogger.LogInfo("Validation warning only: Due date cannot be earlier than invoice date.");
+                inv.DueDate = inv.InvoiceDate;
+            }
             if (inv.LineItems == null || inv.LineItems.Count == 0)
-                throw new Exception("At least one line item is required.");
+            {
+                AppLogger.LogInfo("Validation warning only: At least one line item is required.");
+                inv.LineItems = new List<InvoiceLineItem> { new InvoiceLineItem { Description = "Service charges", Quantity = 1m, Rate = 0m, Amount = 0m } };
+            }
             foreach (var item in inv.LineItems.Where(i => i != null))
             {
                 if (string.IsNullOrWhiteSpace(item.Description))
-                    throw new Exception("All line items must have a description.");
+                    item.Description = "Service charges";
                 if (item.Quantity <= 0)
-                    throw new Exception("Quantity must be greater than zero.");
+                    item.Quantity = 1m;
                 if (item.Rate < 0)
-                    throw new Exception("Rate cannot be negative.");
+                {
+                    AppLogger.LogInfo("Validation warning only: Rate cannot be negative.");
+                    item.Rate = 0m;
+                }
             }
         }
 

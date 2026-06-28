@@ -1060,13 +1060,20 @@ namespace HVAC_Pro_Desktop.UI
         private void ConfigureDashboardPlaceholder(TextBox box, string placeholder)
         {
             if (box == null) return;
+            bool suppressVisibleSearchPlaceholder = string.Equals((placeholder ?? string.Empty).Trim(), "Search", StringComparison.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(box.Text))
             {
-                box.Text = placeholder;
-                box.ForeColor = TextHint;
+                box.Text = suppressVisibleSearchPlaceholder ? string.Empty : placeholder;
+                box.ForeColor = suppressVisibleSearchPlaceholder ? TextPrimary : TextHint;
             }
             box.GotFocus += (s, e) =>
             {
+                if (suppressVisibleSearchPlaceholder)
+                {
+                    box.ForeColor = TextPrimary;
+                    return;
+                }
+
                 if (box.ForeColor == TextHint && box.Text == placeholder)
                 {
                     box.Text = string.Empty;
@@ -1077,8 +1084,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(box.Text))
                 {
-                    box.Text = placeholder;
-                    box.ForeColor = TextHint;
+                    box.Text = suppressVisibleSearchPlaceholder ? string.Empty : placeholder;
+                    box.ForeColor = suppressVisibleSearchPlaceholder ? TextPrimary : TextHint;
                 }
             };
         }
@@ -4257,9 +4264,16 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ConfigurePlaceholder(TextBox textBox, string placeholder)
         {
+            bool suppressVisibleSearchPlaceholder = string.Equals((placeholder ?? string.Empty).Trim(), "Search", StringComparison.OrdinalIgnoreCase);
             textBox.Enter += (s, e) =>
             {
                 if (_settingPlaceholder) return;
+                if (suppressVisibleSearchPlaceholder)
+                {
+                    textBox.ForeColor = TextPrimary;
+                    return;
+                }
+
                 if (IsPlaceholder(textBox, placeholder))
                 {
                     _settingPlaceholder = true;
@@ -4274,13 +4288,13 @@ namespace HVAC_Pro_Desktop.UI
                 if (string.IsNullOrWhiteSpace(textBox.Text))
                 {
                     _settingPlaceholder = true;
-                    textBox.Text = placeholder;
-                    textBox.ForeColor = TextHint;
+                    textBox.Text = suppressVisibleSearchPlaceholder ? string.Empty : placeholder;
+                    textBox.ForeColor = suppressVisibleSearchPlaceholder ? TextPrimary : TextHint;
                     _settingPlaceholder = false;
                 }
             };
-            textBox.Text = placeholder;
-            textBox.ForeColor = TextHint;
+            textBox.Text = suppressVisibleSearchPlaceholder ? string.Empty : placeholder;
+            textBox.ForeColor = suppressVisibleSearchPlaceholder ? TextPrimary : TextHint;
         }
 
         private static bool IsPlaceholder(TextBox textBox, string placeholder) => textBox.ForeColor == TextHint && string.Equals(textBox.Text, placeholder, StringComparison.Ordinal);

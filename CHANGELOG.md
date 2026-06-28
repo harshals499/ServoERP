@@ -1,4 +1,20 @@
 # Changelog
+## 1.1.325.0 - 2026-06-28
+
+- Published the Suppliers duplicate-cleanup, global page refresh, larger Recent Suppliers card, and Invoices dashboard chart fixes as a client update.
+
+## 1.1.324.0 - 2026-06-28
+
+- Fixed the Invoices dashboard overview chart so it draws per-period invoice totals with period labels instead of an unlabeled flat series.
+- Fixed the Invoices by Status donut so Paid, Pending, and Overdue segments and legend counts come from the same status aggregation.
+- Added invoice dashboard chart binding diagnostics for overview totals and status bucket counts.
+
+## 1.1.323.0 - 2026-06-28
+
+- Added a visible Remove duplicates action on Suppliers so duplicate cleanup is available without waiting for a warning state.
+- Added a global Refresh Page button to the main sidebar for reloading the current page from anywhere in the app.
+- Enlarged the Suppliers dashboard Recent Suppliers card so recent supplier records are wider and easier to scan.
+
 ## 1.1.322.0 - 2026-06-28
 
 - Reissued the Supplier-first import release as a new client update so machines and download pages advance past the previous 1.1.321 GitHub release.

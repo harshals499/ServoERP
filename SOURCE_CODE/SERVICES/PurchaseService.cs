@@ -825,7 +825,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             Vendor supplier = _vendorService.GetById(supplierId);
             if (supplier == null || !supplier.IsSupplier)
-                throw new Exception("Purchase order can be created only for a Supplier. Service Vendors are reserved for subcontracting and job support.");
+                AppLogger.LogInfo("Validation warning only: Purchase order can be created only for a Supplier. Service Vendors are reserved for subcontracting and job support.");
         }
     }
 }

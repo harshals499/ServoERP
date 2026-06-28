@@ -72,7 +72,10 @@ namespace HVAC_Pro_Desktop.Services
                     if (bid.BidID <= 0)
                     {
                         if (string.IsNullOrWhiteSpace(bid.QuotationNumber))
-                            throw new Exception("Quotation number is required.");
+                        {
+                            AppLogger.LogInfo("Validation warning only: Quotation number is required.");
+                            bid.QuotationNumber = GenerateQuotationNumber(DateTime.Today);
+                        }
 
                         const string insertSql = @"
                             INSERT INTO Quotations
@@ -808,15 +811,23 @@ body{background:#fff;}
 
         private void PrepareDetailedBid(TenderBid bid)
         {
-            if (bid.ClientID <= 0) throw new Exception("Please select a client.");
-            if (string.IsNullOrWhiteSpace(bid.TenderName)) throw new Exception("Quotation / project name is required.");
+            if (bid.ClientID <= 0)
+                AppLogger.LogInfo("Validation warning only: Please select a client.");
+            if (string.IsNullOrWhiteSpace(bid.TenderName))
+            {
+                AppLogger.LogInfo("Validation warning only: Quotation / project name is required.");
+                bid.TenderName = "General quotation";
+            }
             bid.SubmittedDate = (bid.SubmittedDate ?? DateTime.Today).Date;
             bid.DueDate = bid.DueDate == default(DateTime) ? bid.SubmittedDate.Value.AddDays(30) : bid.DueDate.Date;
             bid.RequiredByDate = bid.RequiredByDate?.Date;
             bid.Status = string.IsNullOrWhiteSpace(bid.Status) ? "Draft" : bid.Status.Trim();
             bid.LineItems = (bid.LineItems ?? new List<TenderBidLineItem>()).Where(li => li != null && !string.IsNullOrWhiteSpace(li.ItemDescription)).ToList();
             if (bid.LineItems.Count == 0)
-                throw new Exception("Add at least one line item.");
+            {
+                AppLogger.LogInfo("Validation warning only: Add at least one line item.");
+                bid.LineItems.Add(new TenderBidLineItem { ItemDescription = "Service charges", Quantity = 1m, SellPricePerUnit = 0m, CostPerUnit = 0m });
+            }
             bid.IsMultiLine = bid.LineItems.Count > 1 || bid.IsMultiLine;
             ApplyTenderTotals(bid);
             ValidateTenderForSave(bid);

@@ -2232,6 +2232,19 @@ namespace HVAC_Pro_Desktop.UI
             if (user == null)
                 return;
 
+            string accountLabel = string.IsNullOrWhiteSpace(user.DisplayName)
+                ? (string.IsNullOrWhiteSpace(user.Username) ? "this user" : user.Username)
+                : user.DisplayName;
+            string action = isActive ? "Activate" : "Deactivate";
+            string impact = isActive
+                ? "The user will be able to sign in again using their existing credentials."
+                : "The user will no longer be able to sign in. Existing audit history and business records stay unchanged.";
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show(
+                    this,
+                    action + " " + accountLabel + "?",
+                    impact))
+                return;
+
             if (!_authSvc.SetUserActive(user.UserId, isActive))
             {
                 MessageBox.Show("Unable to change active state. You cannot deactivate your own account.", "Deactivate User", MessageBoxButtons.OK, MessageBoxIcon.Warning);

@@ -181,7 +181,7 @@ namespace HVAC_Pro_Desktop.UI
         private string _dashboardCategory = "All Categories";
         private string _dashboardSearchText = string.Empty;
         private int _dashboardPage = 1;
-        private int _dashboardPageSize = 10;
+        private int _dashboardPageSize = 14;
         private string _activeFilter = "All";
         private bool _syncingVendorSelection;
         private bool _searchPlaceholderActive;
@@ -337,7 +337,7 @@ namespace HVAC_Pro_Desktop.UI
             _vendorDashboardHost.Controls.Clear();
             _lastDashboardRenderWidth = _vendorDashboardHost.ClientSize.Width;
 
-            Panel content = new Panel { BackColor = PageBg, Location = new Point(22, 16), Width = Math.Max(960, _vendorDashboardHost.ClientSize.Width - 58), Height = 1180 };
+            Panel content = new Panel { BackColor = PageBg, Location = new Point(22, 16), Width = Math.Max(960, _vendorDashboardHost.ClientSize.Width - 58), Height = 1400 };
             UiPerformanceService.EnableDoubleBuffer(content);
             _vendorDashboardHost.AutoScrollMinSize = new Size(0, content.Height + 44);
             _vendorDashboardHost.HorizontalScroll.Enabled = false;
@@ -348,12 +348,12 @@ namespace HVAC_Pro_Desktop.UI
             header.Location = new Point(0, 0);
             content.Controls.Add(header);
 
-            FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 76), Size = new Size(content.Width, 96), BackColor = PageBg, WrapContents = false, AutoScroll = true };
+            FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 96), Size = new Size(content.Width, 96), BackColor = PageBg, WrapContents = false, AutoScroll = true };
             foreach (Control card in BuildVendorStatCards(Math.Max(205, (content.Width - 48) / 5)))
                 stats.Controls.Add(card);
             content.Controls.Add(stats);
 
-            TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 190), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 4, RowCount = 1 };
+            TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 210), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 4, RowCount = 1 };
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
@@ -365,16 +365,16 @@ namespace HVAC_Pro_Desktop.UI
             top.Controls.Add(BuildPerformanceCard(), 3, 0);
             content.Controls.Add(top);
 
-            TableLayoutPanel mid = new TableLayoutPanel { Location = new Point(0, 438), Size = new Size(content.Width, 430), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
-            mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 78f));
-            mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
+            TableLayoutPanel mid = new TableLayoutPanel { Location = new Point(0, 458), Size = new Size(content.Width, 640), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
+            mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 84f));
+            mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16f));
             mid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             _recentVendorsLayout = mid;
             mid.Controls.Add(BuildRecentVendorsCard(), 0, 0);
             mid.Controls.Add(BuildVendorDashboardSidebar(), 1, 0);
             content.Controls.Add(mid);
 
-            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 886), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 1, RowCount = 1 };
+            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 1116), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 1, RowCount = 1 };
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             bottom.Controls.Add(BuildUpcomingRenewalsCard(), 0, 0);
@@ -506,6 +506,9 @@ namespace HVAC_Pro_Desktop.UI
             Button filters = MakeDashboardButton("Filter " + PartnerPlural, White, TextPrimary, 124, true);
             filters.Click += (s, e) => { if (_dashboardCategoryFilter != null) _dashboardCategoryFilter.DroppedDown = true; };
 
+            Button removeDuplicates = MakeDashboardButton("Remove duplicates", White, RedDark, 142, true);
+            removeDuplicates.Click += (s, e) => ShowMergeDialog();
+
             Button addVendor = MakeDashboardButton("+ Add " + PartnerSingular, Blue, White, 144, false);
             addVendor.Click += (s, e) =>
             {
@@ -516,20 +519,21 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Show(addVendor, new Point(0, addVendor.Height));
             };
 
-            foreach (Control control in new Control[] { filters, addVendor })
+            foreach (Control control in new Control[] { filters, removeDuplicates, addVendor })
                 control.Margin = Padding.Empty;
 
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "VendorDashboardHeader",
                 titleText,
                 subtitleText,
-                new List<Control> { filters, addVendor },
+                new List<Control> { filters, removeDuplicates, addVendor },
                 dashboardSearchHost,
                 null,
                 PageBg,
                 new Padding(0, 0, 0, 8));
             model.Dock = DockStyle.None;
-            model.CompactBreakpoint = 1320;
+            model.DefaultHeight = 96;
+            model.CompactBreakpoint = 1040;
             SharedPageHeaderResult result = SharedPageHeader.Build(model);
             result.Header.Size = new Size(width, result.Header.Height);
             result.Header.Name = "VendorDashboardHeader";
@@ -652,7 +656,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = MakeDashboardCard("Recent Suppliers", null, null);
             _recentVendorsCard = card;
-            card.Size = new Size(860, 420);
+            card.Size = new Size(1080, 628);
+            card.MinimumSize = new Size(940, 600);
             card.Padding = new Padding(0);
             string[] tabs = DashboardFilterTabs();
             FlowLayoutPanel tabBar = new FlowLayoutPanel
@@ -749,7 +754,7 @@ namespace HVAC_Pro_Desktop.UI
             int height = Math.Max(1, hostSize.Height);
             Panel content = new Panel { Dock = DockStyle.Fill, BackColor = White };
 
-            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(0, 0), Size = new Size(width, Math.Min(230, Math.Max(120, height - 54))), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = White, ColumnCount = 9, RowCount = 1 };
+            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(0, 0), Size = new Size(width, Math.Max(180, height - 56)), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = White, ColumnCount = 9, RowCount = 1 };
             float[] widths = { 11, 18, 12, 11, 9, 13, 11, 10, 5 };
             foreach (float w in widths) table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, w));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
@@ -1776,8 +1781,8 @@ namespace HVAC_Pro_Desktop.UI
                 AutoScroll = false
             };
 
-            _btnMerge = MakeActionButton("Merge duplicates", White, RedDark, 118, true);
-            _btnMerge.Visible = false;
+            _btnMerge = MakeActionButton("Remove duplicates", White, RedDark, 142, true);
+            _btnMerge.Visible = true;
             _btnMerge.Click += (s, e) => ShowMergeDialog();
 
             _btnTemplate = MakeActionButton("Excel Template", White, TextPrimary, 118, true);
@@ -2706,7 +2711,10 @@ namespace HVAC_Pro_Desktop.UI
             _lblTopBadge.Text = _vendorSummaries.Count + " suppliers";
             _lblDuplicateBadge.Text = _duplicateGroups.Count + " duplicates detected";
             _lblDuplicateBadge.Visible = _duplicateGroups.Count > 0;
-            _btnMerge.Visible = _duplicateGroups.Count > 0;
+            _btnMerge.Visible = true;
+            _btnMerge.Text = _duplicateGroups.Count > 0
+                ? "Remove duplicates (" + _duplicateGroups.Count + ")"
+                : "Remove duplicates";
         }
 
         private void UpdateDuplicateBanner()
@@ -3555,8 +3563,17 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowMergeDialog()
         {
-            if (_duplicateGroups.Count == 0)
+            if (_duplicateGroups == null || _duplicateGroups.Count == 0)
+            {
+                MessageBox.Show(
+                    this,
+                    "No duplicate suppliers were found in the current supplier list.",
+                    BrandingService.WindowTitle("Remove Duplicates"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 return;
+            }
+
             using (MergeDuplicatesDialog dlg = new MergeDuplicatesDialog(_duplicateGroups))
             {
                 if (dlg.ShowDialog(this) == DialogResult.OK && dlg.MergeSelections.Count > 0)
@@ -4285,7 +4302,7 @@ namespace HVAC_Pro_Desktop.UI
                 Height = 480;
                 BackColor = White;
 
-                Label subtitle = new Label { Dock = DockStyle.Top, Height = 48, Padding = new Padding(16, 12, 16, 8), Text = "Select the master vendor to keep. All POs from duplicates will move to master.", Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
+                Label subtitle = new Label { Dock = DockStyle.Top, Height = 48, Padding = new Padding(16, 12, 16, 8), Text = "Select the master supplier to keep. All POs from duplicates will move to the master supplier.", Font = new Font("Segoe UI", 9f), ForeColor = TextSecondary };
                 FlowLayoutPanel body = new FlowLayoutPanel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = White, FlowDirection = FlowDirection.TopDown, WrapContents = false, Padding = new Padding(16, 8, 16, 16) };
                 foreach (DuplicateGroupDto group in groups)
                     body.Controls.Add(BuildGroup(group));

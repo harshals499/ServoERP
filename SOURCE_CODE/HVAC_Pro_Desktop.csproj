@@ -146,6 +146,7 @@
     <Compile Include="Infrastructure\PDFGenerator.cs" />
     <Compile Include="Infrastructure\RenderHelper.cs" />
     <Compile Include="Infrastructure\SafeBackgroundWorker.cs" />
+    <Compile Include="Infrastructure\SaveOperationRunner.cs" />
     <Compile Include="Infrastructure\ServoConfirmDialog.cs">
       <SubType>Form</SubType>
     </Compile>

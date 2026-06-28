@@ -34,6 +34,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnOpenAgentSimulation;
         private Button _btnSupportCenter;
         private Button _btnResetLayout;
+        private Button _btnGlobalRefresh;
         private SupportCenterDialog _supportCenterDrawer;
         private AgentSimulationPanel _agentSimulationPanel;
         private DevTeamDashboardForm _devTeamDashboard;
@@ -210,6 +211,8 @@ namespace HVAC_Pro_Desktop.UI
                 _btnDownloadUpdate.Text = LanguageManager.Get("Install update");
             if (_btnRenewLicense != null)
                 _btnRenewLicense.Text = LanguageManager.Get("Renew license");
+            if (_btnGlobalRefresh != null)
+                _btnGlobalRefresh.Text = LanguageManager.Get("Refresh Page");
 
             if (_sidebar != null && _sidebarScroll != null)
                 BuildSidebar();
@@ -1236,6 +1239,7 @@ namespace HVAC_Pro_Desktop.UI
             AddNavGroup(LanguageManager.Get("Operations"), OperationsItems, true);
             AddNavGroup(LanguageManager.Get("Sales"), SalesItems, true);
             AddNavGroup(LanguageManager.Get("Dashboard"), DashboardItems, false);
+            _sidebarScroll.Controls.Add(MakeGlobalRefreshButton());
             _sidebarScroll.Controls.Add(MakeSidebarBrandHeader());
             UpdateSidebarScrollRange();
             _sidebarScroll.AutoScrollPosition = new Point(0, 0);
@@ -1308,6 +1312,33 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(logo);
             header.Controls.Add(name);
             return header;
+        }
+
+        private Button MakeGlobalRefreshButton()
+        {
+            _btnGlobalRefresh = new Button
+            {
+                Text = LanguageManager.Get("Refresh Page"),
+                Dock = DockStyle.Top,
+                Height = _compactShell ? 32 : 36,
+                Width = Math.Max(1, GetSidebarWidth() - (_compactShell ? 28 : 36)),
+                Margin = new Padding(_compactShell ? 10 : 14, 0, _compactShell ? 10 : 14, 8),
+                BackColor = Color.FromArgb(34, 255, 255, 255),
+                ForeColor = SbActiveText,
+                Font = new Font("Segoe UI", _compactShell ? 8.1f : 8.7f, FontStyle.Bold),
+                FlatStyle = FlatStyle.Flat,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Cursor = Cursors.Hand,
+                TabStop = false
+            };
+            _btnGlobalRefresh.FlatAppearance.BorderColor = Color.FromArgb(72, 255, 255, 255);
+            _btnGlobalRefresh.FlatAppearance.BorderSize = 1;
+            _btnGlobalRefresh.FlatAppearance.MouseOverBackColor = Color.FromArgb(54, 255, 255, 255);
+            _btnGlobalRefresh.FlatAppearance.MouseDownBackColor = Color.FromArgb(82, 255, 255, 255);
+            ModernIconSystem.AddButtonIcon(_btnGlobalRefresh, ModernIconKind.Refresh);
+            _btnGlobalRefresh.Click += async (s, e) => await RefreshCurrentPageAsync();
+            DS.Rounded(_btnGlobalRefresh, 8);
+            return _btnGlobalRefresh;
         }
 
         private Image LoadSidebarLogoImage()

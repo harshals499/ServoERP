@@ -163,12 +163,13 @@ namespace HVAC_Pro_Desktop.Tests
             string suffix = BuildSuffix("EMP");
             var employee = new Employee
             {
-                EmployeeCode = "QA-" + suffix,
+                EmployeeCode = string.Empty,
                 Name = "QA Employee " + suffix,
                 Designation = "Technician",
                 Department = "Service",
                 ClientSite = "QA Site",
                 Phone = BuildUniquePhone("98"),
+                PANNumber = string.Empty,
                 JoiningDate = DateTime.Today,
                 Status = "Active",
                 BasicSalary = 12000m,
@@ -177,7 +178,8 @@ namespace HVAC_Pro_Desktop.Tests
 
             employee.EmployeeID = employeeService.Create(employee);
             Employee created = employeeService.GetById(employee.EmployeeID);
-            Assert(created != null, "Employee create did not persist.");
+            Assert(created != null, "Employee create did not persist with blank employee code/PAN input.");
+            Assert(string.IsNullOrWhiteSpace(created.PANNumber) && string.IsNullOrWhiteSpace(created.PAN), "Employee PAN should remain optional.");
 
             created.Designation = "Senior Technician";
             employeeService.Update(created);
@@ -215,6 +217,9 @@ namespace HVAC_Pro_Desktop.Tests
                 Category = "HVAC Materials",
                 VendorType = "Supplier",
                 PreferredPaymentMode = "NEFT",
+                BankAccountNumber = string.Empty,
+                BankIFSC = string.Empty,
+                BankAccountName = string.Empty,
                 IsActive = true,
                 Notes = QaKey
             };
@@ -222,6 +227,9 @@ namespace HVAC_Pro_Desktop.Tests
             vendor.VendorID = vendorService.Create(vendor);
             Vendor created = vendorService.GetById(vendor.VendorID);
             Assert(created != null, "Vendor create did not persist.");
+            Assert(string.IsNullOrWhiteSpace(created.BankAccountNumber), "Vendor bank account should remain optional.");
+            Assert(string.IsNullOrWhiteSpace(created.BankIFSC), "Vendor IFSC should remain optional.");
+            Assert(!vendorService.GetMissingFieldWarnings(created).Contains("bank details"), "Optional bank details should not appear as a missing-field warning.");
 
             created.City = "Mumbai";
             vendorService.Update(created);

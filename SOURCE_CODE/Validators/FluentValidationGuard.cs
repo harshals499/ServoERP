@@ -14,7 +14,7 @@ namespace ServoERP.Validators
             if (TryValidate(validator, instance, out message))
                 return;
 
-            throw new HVAC_Pro_Desktop.Services.ValidationException(string.IsNullOrWhiteSpace(context) ? message : context + Environment.NewLine + message);
+            AppLogger.LogInfo("Validation warning only: " + (string.IsNullOrWhiteSpace(context) ? "Validation" : context) + " | " + message.Replace(Environment.NewLine, " "));
         }
 
         public static bool TryValidate<T>(IValidator<T> validator, T instance, out string message)

@@ -290,44 +290,21 @@ namespace HVAC_Pro_Desktop
                 }
 
                 Stopwatch startupWatch = Stopwatch.StartNew();
-                LocalSqliteFallbackStore.EnsureReady();
                 Stopwatch stageWatch = Stopwatch.StartNew();
+                bool sqlStartupReady = TryInitializeSqlStartup(stageWatch);
                 stageWatch.Restart();
-                string resolvedSqlServer = DatabaseManager.PrepareSqlServer();
-                AppRuntime.LogTiming("Startup.PrepareSqlServer", stageWatch.ElapsedMilliseconds, resolvedSqlServer);
-                var dbManager = new DatabaseManager();
-                stageWatch.Restart();
-                dbManager.InitializeDatabase();
-                AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "schema verified");
-                dbManager.EnsureOperationalSeedData();
-                DbHelper.EnsureQuotationSchemaMigration();
-                DbHelper.EnsureAMCSchema();
-                LocalSqliteFallbackStore.RecordSqlAvailable(DatabaseManager.RequireConfiguredConnectionString());
-                NodeIdentityService.EnsureRegistered();
-
-                stageWatch.Restart();
-                if (!DatabaseManager.IsDemoDataEnabled())
+                if (sqlStartupReady)
                 {
-                    AppRuntime.LogTiming(
-                        "Startup.InsertSampleData",
-                        stageWatch.ElapsedMilliseconds,
-                        "skipped; tenant demo data disabled for " + DatabaseManager.GetCurrentTenantCode());
-                }
-                else if (dbManager.IsSampleDataReady())
-                {
-                    AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "skipped; data already ready");
+                    DbSettings.EnsureUserSettingsTable();
+                    LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
+                    new BackupService().EnsureBackupInfrastructure();
+                    AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
                 }
                 else
                 {
-                    dbManager.InsertSampleData();
-                    AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "seed/import completed");
+                    LanguageManager.SetLanguage(LanguageManager.English, false);
+                    AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, "SQL unavailable; default language");
                 }
-
-                stageWatch.Restart();
-                DbSettings.EnsureUserSettingsTable();
-                LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
-                new BackupService().EnsureBackupInfrastructure();
-                AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
 
                 if (HasArg(args, "/smoketest"))
                 {
@@ -640,7 +617,14 @@ namespace HVAC_Pro_Desktop
                 }
 
                 stageWatch.Restart();
-                if (LocalLoginBypassService.TryStartSession(out _))
+                if (!sqlStartupReady)
+                {
+                    StartSqlOptionalOperatorSession();
+                    AppRuntime.LogTiming("Startup.Login", stageWatch.ElapsedMilliseconds, "SQL optional operator session");
+                    AppRuntime.LogTiming("Startup.TotalBeforeMainForm", startupWatch.ElapsedMilliseconds);
+                    Application.Run(new MainForm());
+                }
+                else if (LocalLoginBypassService.TryStartSession(out _))
                 {
                     AppRuntime.LogTiming("Startup.Login", stageWatch.ElapsedMilliseconds, "local bypass");
                     AppRuntime.LogTiming("Startup.TotalBeforeMainForm", startupWatch.ElapsedMilliseconds);
@@ -657,7 +641,6 @@ namespace HVAC_Pro_Desktop
             {
                 Log.Fatal(ex, "ServoERP startup failed");
                 AppRuntime.LogException("Application startup", ex);
-                LocalSqliteFallbackStore.RecordSqlUnavailable(DatabaseManager.GetConfiguredConnectionString(), ex);
 
                 if (HasArg(args, "/smoketest"))
                 {
@@ -666,19 +649,79 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                DialogResult retry = MessageBox.Show(
-                    "Cannot connect to the office SQL Server or complete startup. Please ensure the always-on server PC and SQL Server are running, then click Retry.\r\n\r\nA local SQLite fallback status file has been updated for diagnostics only; business entries remain locked until SQL Server is reachable.",
+                MessageBox.Show(
+                    "ServoERP could not complete startup. " + ex.Message,
                     BrandingService.WindowTitle("Startup Error"),
-                    MessageBoxButtons.RetryCancel,
+                    MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
-                if (retry == DialogResult.Retry)
-                    RunApplication();
             }
             finally
             {
                 Log.Information("ServoERP application loop ended");
                 Log.CloseAndFlush();
             }
+        }
+
+        private static bool TryInitializeSqlStartup(Stopwatch stageWatch)
+        {
+            try
+            {
+                stageWatch.Restart();
+                string resolvedSqlServer = DatabaseManager.PrepareSqlServer();
+                AppRuntime.LogTiming("Startup.PrepareSqlServer", stageWatch.ElapsedMilliseconds, resolvedSqlServer);
+
+                var dbManager = new DatabaseManager();
+                stageWatch.Restart();
+                dbManager.InitializeDatabase();
+                AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "schema verified");
+                dbManager.EnsureOperationalSeedData();
+                DbHelper.EnsureQuotationSchemaMigration();
+                DbHelper.EnsureAMCSchema();
+                NodeIdentityService.EnsureRegistered();
+
+                stageWatch.Restart();
+                if (!DatabaseManager.IsDemoDataEnabled())
+                {
+                    AppRuntime.LogTiming(
+                        "Startup.InsertSampleData",
+                        stageWatch.ElapsedMilliseconds,
+                        "skipped; tenant demo data disabled for " + DatabaseManager.GetCurrentTenantCode());
+                }
+                else if (dbManager.IsSampleDataReady())
+                {
+                    AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "skipped; data already ready");
+                }
+                else
+                {
+                    dbManager.InsertSampleData();
+                    AppRuntime.LogTiming("Startup.InsertSampleData", stageWatch.ElapsedMilliseconds, "seed/import completed");
+                }
+
+                DatabaseConnectionStateService.RecordOperationSuccess("Startup");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "SQL startup skipped; ServoERP will open in SQL optional mode");
+                AppRuntime.LogException("SQL optional startup", ex);
+                DatabaseConnectionStateService.RecordOperationFailure("Startup", ex);
+                AppRuntime.LogTiming("Startup.SqlOptionalMode", stageWatch.ElapsedMilliseconds, SensitiveDataRedactor.Redact(ex.Message));
+                return false;
+            }
+        }
+
+        private static void StartSqlOptionalOperatorSession()
+        {
+            SessionManager.SetSession(new AppUserDto
+            {
+                UserId = 0,
+                Username = Environment.UserName,
+                DisplayName = "Local Operator",
+                RoleId = 0,
+                RoleName = "Local Operator",
+                IsActive = true,
+                LastLoginDate = DateTime.Now
+            });
         }
 
         private static void ConfigureSerilog()

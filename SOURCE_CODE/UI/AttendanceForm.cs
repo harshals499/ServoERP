@@ -40,6 +40,10 @@ namespace HVAC_Pro_Desktop.UI
 
 		private System.Windows.Forms.Label _lblMonthSignalDetail = null;
 
+		private System.Windows.Forms.Label _lblTrustSummary = null;
+
+		private System.Windows.Forms.Label _lblSaveProof = null;
+
 		private System.Windows.Forms.Label _lblPayrollTitle;
 
 		private System.Windows.Forms.Label _lblPayrollBody;
@@ -73,6 +77,20 @@ namespace HVAC_Pro_Desktop.UI
 		private bool _dailyGridResizing;
 
 		private bool _dailyGridUserResized;
+
+		private bool _isLoadingAttendanceGrid;
+
+		private bool _hasUnsavedAttendanceChanges;
+
+		private bool _suppressFilterChange;
+
+		private int _lastMonthIndex = -1;
+
+		private int _lastYearIndex = -1;
+
+		private int _lastSiteIndex = -1;
+
+		private System.Windows.Forms.Form _subscribedForm;
 
 		private Point _dailyGridResizeStartMouse;
 
@@ -130,6 +148,54 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				SetStatus("Attendance load error: " + ex.Message, System.Drawing.Color.Firebrick);
 			});
+		}
+
+		protected override void OnParentChanged(System.EventArgs e)
+		{
+			base.OnParentChanged(e);
+			SubscribeToHostFormClosing();
+		}
+
+		protected override void OnVisibleChanged(System.EventArgs e)
+		{
+			base.OnVisibleChanged(e);
+			if (Visible)
+			{
+				SubscribeToHostFormClosing();
+			}
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && _subscribedForm != null)
+			{
+				_subscribedForm.FormClosing -= AttendanceHostFormClosing;
+				_subscribedForm = null;
+			}
+			base.Dispose(disposing);
+		}
+
+		private void SubscribeToHostFormClosing()
+		{
+			System.Windows.Forms.Form host = FindForm();
+			if (host == null || ReferenceEquals(host, _subscribedForm))
+			{
+				return;
+			}
+			if (_subscribedForm != null)
+			{
+				_subscribedForm.FormClosing -= AttendanceHostFormClosing;
+			}
+			_subscribedForm = host;
+			_subscribedForm.FormClosing += AttendanceHostFormClosing;
+		}
+
+		private void AttendanceHostFormClosing(object sender, System.Windows.Forms.FormClosingEventArgs e)
+		{
+			if (_hasUnsavedAttendanceChanges && !ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Close with unsaved attendance?", "You have unsaved attendance changes for " + CurrentMonthName + " " + CurrentYear + ". Save attendance before closing unless you want to discard those edits."))
+			{
+				e.Cancel = true;
+			}
 		}
 
 		private void BuildLayout()
@@ -266,13 +332,19 @@ namespace HVAC_Pro_Desktop.UI
 				e.ThrowException = false;
 			};
 			panel3.Controls.Add(_gridAttendance);
+			System.Windows.Forms.Panel trustStrip = CreateAttendanceTrustStrip();
+			trustStrip.Dock = System.Windows.Forms.DockStyle.Top;
+			trustStrip.Height = 58;
+			trustStrip.Margin = new System.Windows.Forms.Padding(0, 0, 0, 12);
 			System.Windows.Forms.Panel control3 = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Daily coverage grid", "Each active employee across the selected month. Click any cell to cycle its status.", panel3, BuildStatusLegend(), 560);
 			System.Windows.Forms.Panel dailyGridShell = CreateResizableDailyCoverageShell(control3);
 			panel2.Controls.Add(dailyGridShell);
+			panel2.Controls.Add(trustStrip);
 			panel2.Controls.Add(periodStrip);
 			panel.Controls.Add(panel2);
 			base.Controls.Add(panel);
 			base.Controls.Add(header);
+			CaptureCurrentFilterSelection();
 			_isInitializing = false;
 		}
 
@@ -311,16 +383,66 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			finally
 			{
-				_cmbSiteFilter.SelectedIndexChanged += SiteFilterSelectedIndexChanged;
+				CaptureCurrentFilterSelection();
 			}
 		}
 
 		private void SiteFilterSelectedIndexChanged(object sender, System.EventArgs e)
 		{
-			if (!_isInitializing)
+			HandleAttendanceFilterChanged(sender as System.Windows.Forms.ComboBox);
+		}
+
+		private void HandleAttendanceFilterChanged(System.Windows.Forms.ComboBox changedCombo)
+		{
+			if (_isInitializing || _suppressFilterChange)
 			{
-				RefreshAttendanceWorkspace();
+				return;
 			}
+			if (_hasUnsavedAttendanceChanges && !ConfirmDiscardUnsavedAttendance())
+			{
+				RestorePreviousFilterSelection();
+				return;
+			}
+			SetUnsavedAttendanceChanges(false);
+			RefreshAttendanceWorkspace();
+			CaptureCurrentFilterSelection();
+		}
+
+		private bool ConfirmDiscardUnsavedAttendance()
+		{
+			return ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Discard unsaved attendance changes?", "You have unsaved attendance changes for " + CurrentMonthName + " " + CurrentYear + ". Save attendance before changing the period or site unless you want to discard those edits.");
+		}
+
+		private void CaptureCurrentFilterSelection()
+		{
+			_lastMonthIndex = _cmbMonth == null ? -1 : _cmbMonth.SelectedIndex;
+			_lastYearIndex = _cmbYear == null ? -1 : _cmbYear.SelectedIndex;
+			_lastSiteIndex = _cmbSiteFilter == null ? -1 : _cmbSiteFilter.SelectedIndex;
+		}
+
+		private void RestorePreviousFilterSelection()
+		{
+			_suppressFilterChange = true;
+			try
+			{
+				if (_cmbMonth != null && _lastMonthIndex >= 0 && _lastMonthIndex < _cmbMonth.Items.Count)
+				{
+					_cmbMonth.SelectedIndex = _lastMonthIndex;
+				}
+				if (_cmbYear != null && _lastYearIndex >= 0 && _lastYearIndex < _cmbYear.Items.Count)
+				{
+					_cmbYear.SelectedIndex = _lastYearIndex;
+				}
+				if (_cmbSiteFilter != null && _lastSiteIndex >= 0 && _lastSiteIndex < _cmbSiteFilter.Items.Count)
+				{
+					_cmbSiteFilter.SelectedIndex = _lastSiteIndex;
+				}
+			}
+			finally
+			{
+				_suppressFilterChange = false;
+			}
+			SetStatus("Attendance changes are still unsaved. Save before changing period or site.", HVAC_Pro_Desktop.UI.DS.Amber600);
 		}
 
 		private System.Windows.Forms.FlowLayoutPanel BuildStatusLegend()
@@ -342,6 +464,43 @@ namespace HVAC_Pro_Desktop.UI
 					(System.Windows.Forms.Control)CreateLegendPill("Blank", System.Drawing.Color.FromArgb(243, 243, 243), HVAC_Pro_Desktop.UI.DS.Slate500)
 				}
 			};
+		}
+
+		private System.Windows.Forms.Panel CreateAttendanceTrustStrip()
+		{
+			System.Windows.Forms.Panel panel = MakeCard();
+			panel.Padding = new System.Windows.Forms.Padding(16, 8, 16, 8);
+			_lblTrustSummary = new System.Windows.Forms.Label
+			{
+				Dock = System.Windows.Forms.DockStyle.Fill,
+				Text = "Summary will appear after attendance loads.",
+				Font = new System.Drawing.Font("Segoe UI Semibold", 10f, System.Drawing.FontStyle.Bold),
+				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate800,
+				TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
+				AutoEllipsis = true
+			};
+			_lblSaveProof = new System.Windows.Forms.Label
+			{
+				Dock = System.Windows.Forms.DockStyle.Right,
+				Width = 330,
+				Text = "No unsaved changes",
+				Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Regular),
+				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500,
+				TextAlign = System.Drawing.ContentAlignment.MiddleRight,
+				AutoEllipsis = true
+			};
+			System.Windows.Forms.Button exportButton = NewButton("Export Month", System.Drawing.Point.Empty, 116, System.Drawing.Color.White);
+			exportButton.Dock = System.Windows.Forms.DockStyle.Right;
+			exportButton.Height = 34;
+			exportButton.Margin = new System.Windows.Forms.Padding(12, 4, 0, 4);
+			exportButton.Click += delegate
+			{
+				ExportAttendanceGrid();
+			};
+			panel.Controls.Add(_lblTrustSummary);
+			panel.Controls.Add(_lblSaveProof);
+			panel.Controls.Add(exportButton);
+			return panel;
 		}
 
 		private System.Windows.Forms.Panel CreateReviewQueueCard()
@@ -694,6 +853,7 @@ namespace HVAC_Pro_Desktop.UI
 
 		private void LoadAttendanceGrid()
 		{
+			_isLoadingAttendanceGrid = true;
 			_gridAttendance.SuspendLayout();
 			_gridAttendance.CellFormatting -= AttendanceGridCellFormatting;
 			_gridAttendance.CellPainting -= AttendanceGridCellPainting;
@@ -822,6 +982,9 @@ namespace HVAC_Pro_Desktop.UI
 				}
 			}
 			if (_lblPayrollBody != null) _lblPayrollBody.Text = $"{reviewCount} employee(s)" + GetSelectedSiteSuffix() + $" still need review before you can close {CurrentMonthName} {CurrentYear}.";
+			UpdateTrustSummary(daysInMonth);
+			SetUnsavedAttendanceChanges(false);
+			_isLoadingAttendanceGrid = false;
 			SetStatus(string.IsNullOrWhiteSpace(reconciliationBanner) ? "Attendance workspace ready for " + CurrentMonthName + " " + CurrentYear + "." : reconciliationBanner, (reviewCount == 0 && string.IsNullOrWhiteSpace(reconciliationBanner)) ? HVAC_Pro_Desktop.UI.DS.Green600 : HVAC_Pro_Desktop.UI.DS.Amber600);
 		}
 
@@ -834,6 +997,97 @@ namespace HVAC_Pro_Desktop.UI
 				query = System.Linq.Enumerable.Where(query, (HVAC_Pro_Desktop.Models.Employee employee) => string.Equals((employee.ClientSite ?? string.Empty).Trim(), selectedSite, System.StringComparison.OrdinalIgnoreCase));
 			}
 			return System.Linq.Enumerable.ToList(query);
+		}
+
+		private void UpdateTrustSummary(int daysInMonth)
+		{
+			if (_lblTrustSummary == null || _gridAttendance == null)
+			{
+				return;
+			}
+			int employees = 0;
+			int present = 0;
+			int absent = 0;
+			int leave = 0;
+			int halfDay = 0;
+			int blank = 0;
+			int todayPresent = 0;
+			int todayAbsent = 0;
+			int todayLeave = 0;
+			int todayHalfDay = 0;
+			int todayBlank = 0;
+			bool selectedMonthIsCurrent = CurrentMonth == System.DateTime.Today.Month && CurrentYear == System.DateTime.Today.Year;
+			int todayColumnDay = selectedMonthIsCurrent ? System.Math.Min(System.DateTime.Today.Day, daysInMonth) : 0;
+			foreach (System.Windows.Forms.DataGridViewRow row in (System.Collections.IEnumerable)_gridAttendance.Rows)
+			{
+				if (row.IsNewRow)
+				{
+					continue;
+				}
+				employees++;
+				for (int day = 1; day <= daysInMonth; day++)
+				{
+					string status = NormalizeAttendanceStatus(System.Convert.ToString(row.Cells["D" + day].Value));
+					bool isToday = day == todayColumnDay;
+					if (string.Equals(status, "PRESENT", System.StringComparison.OrdinalIgnoreCase))
+					{
+						present++;
+						if (isToday) todayPresent++;
+					}
+					else if (string.Equals(status, "ABSENT", System.StringComparison.OrdinalIgnoreCase))
+					{
+						absent++;
+						if (isToday) todayAbsent++;
+					}
+					else if (string.Equals(status, "LEAVE", System.StringComparison.OrdinalIgnoreCase))
+					{
+						leave++;
+						if (isToday) todayLeave++;
+					}
+					else if (string.Equals(status, "HALFDAY", System.StringComparison.OrdinalIgnoreCase))
+					{
+						halfDay++;
+						if (isToday) todayHalfDay++;
+					}
+					else
+					{
+						blank++;
+						if (isToday) todayBlank++;
+					}
+				}
+			}
+			string monthSummary = "Month: " + employees + " employee(s) | Present: " + present + " | Absent: " + absent + " | Leave: " + leave + " | Half-day: " + halfDay + " | Blank: " + blank;
+			if (selectedMonthIsCurrent)
+			{
+				_lblTrustSummary.Text = "Today: P " + todayPresent + " | A " + todayAbsent + " | L " + todayLeave + " | HD " + todayHalfDay + " | Blank " + todayBlank + "    " + monthSummary;
+			}
+			else
+			{
+				_lblTrustSummary.Text = monthSummary;
+			}
+		}
+
+		private void SetUnsavedAttendanceChanges(bool hasChanges)
+		{
+			if (_isLoadingAttendanceGrid && hasChanges)
+			{
+				return;
+			}
+			_hasUnsavedAttendanceChanges = hasChanges;
+			if (_lblSaveProof == null)
+			{
+				return;
+			}
+			if (hasChanges)
+			{
+				_lblSaveProof.Text = "Unsaved changes - save before payroll";
+				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Amber600;
+			}
+			else if (string.IsNullOrWhiteSpace(_lblSaveProof.Text) || _lblSaveProof.Text.StartsWith("Unsaved", System.StringComparison.OrdinalIgnoreCase))
+			{
+				_lblSaveProof.Text = "No unsaved changes";
+				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;
+			}
 		}
 
 		private string GetSelectedSiteFilter()
@@ -953,6 +1207,7 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				_lblPayrollBody.Text = $"{num2} employees still need review before you can close {CurrentMonthName} {CurrentYear}.";
 			}
+			UpdateTrustSummary(daysInMonth);
 		}
 
 		private void AttendanceGridCellFormatting(object sender, System.Windows.Forms.DataGridViewCellFormattingEventArgs e)
@@ -1099,6 +1354,7 @@ namespace HVAC_Pro_Desktop.UI
 					string status = (string)(dataGridViewCell.Value = CycleAttendanceStatus(System.Convert.ToString(dataGridViewCell.Value)));
 					ApplyAttendanceCellStyle(dataGridViewCell, status);
 					RefreshAttendanceSummary(System.DateTime.DaysInMonth(CurrentYear, CurrentMonth));
+					SetUnsavedAttendanceChanges(true);
 					dataGridView.InvalidateCell(dataGridViewCell);
 					dataGridView.InvalidateRow(e.RowIndex);
 				}
@@ -1417,6 +1673,8 @@ namespace HVAC_Pro_Desktop.UI
 				}
 			}
 			StyleAttendanceGrid(num);
+			RefreshAttendanceSummary(num);
+			SetUnsavedAttendanceChanges(true);
 			SetStatus("Marked visible attendance as present. Review before saving.", HVAC_Pro_Desktop.UI.DS.Primary600);
 		}
 
@@ -1523,14 +1781,20 @@ namespace HVAC_Pro_Desktop.UI
 					SetStatus("No attendance changes were found to save for the visible month.", HVAC_Pro_Desktop.UI.DS.Amber600);
 					return;
 				}
-				SetStatus($"Attendance saved for {CurrentMonthName} {CurrentYear}. Records touched: {num}.", HVAC_Pro_Desktop.UI.DS.Green600);
 				LoadAttendanceGrid();
+				string savedAt = System.DateTime.Now.ToString("dd/MM/yyyy hh:mm tt", System.Globalization.CultureInfo.GetCultureInfo("en-IN"));
+				if (_lblSaveProof != null)
+				{
+					_lblSaveProof.Text = "Saved and reloaded from database at " + savedAt;
+					_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Green600;
+				}
+				SetStatus($"Attendance saved and verified for {CurrentMonthName} {CurrentYear}. Records touched: {num}.", HVAC_Pro_Desktop.UI.DS.Green600);
 			}
 			catch (System.Exception ex)
 			{
 				HVAC_Pro_Desktop.Services.AppLogger.LogError("AttendanceForm.SaveAttendanceGrid", ex);
-				SetStatus("Attendance could not be saved. Please review the month and try again.", System.Drawing.Color.Firebrick);
-				System.Windows.Forms.MessageBox.Show(this, "Attendance could not be saved. Please review the visible month and try again.", "Attendance Save Failed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+				SetStatus("Attendance could not be saved. No payroll data was changed. Please try again or contact admin.", System.Drawing.Color.Firebrick);
+				System.Windows.Forms.MessageBox.Show(this, "Attendance could not be saved. No payroll data was changed. Please try again or contact admin.", "Attendance Save Failed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
 			}
 		}
 
@@ -1592,10 +1856,7 @@ namespace HVAC_Pro_Desktop.UI
 			obj.Items.AddRange(items);
 			obj.SelectedIndexChanged += delegate
 			{
-				if (!_isInitializing)
-				{
-					RefreshAttendanceWorkspace();
-				}
+				HandleAttendanceFilterChanged(obj);
 			};
 			return obj;
 		}
