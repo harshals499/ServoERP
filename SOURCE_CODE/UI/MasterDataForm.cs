@@ -416,7 +416,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildHeroDropZone()
         {
-            Panel panel = CreateHubCard(120);
+            Panel panel = CreateHubCard(172);
             panel.AllowDrop = true;
             panel.DragEnter += HubDragEnter;
             panel.DragDrop += HubDragDrop;
@@ -427,37 +427,37 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Fill,
                 BackColor = Color.Transparent,
-                Padding = new Padding(20, 14, 20, 14),
+                Padding = new Padding(24, 20, 24, 20),
                 ColumnCount = 4,
                 RowCount = 1
             };
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 112f));
             layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 420f));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 430f));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 170f));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            Panel heroIcon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Backup, 74, DS.Primary50, DS.Primary700);
+            Panel heroIcon = ModernIconSystem.EmptyStateIcon(ModernIconKind.Backup, 86, DS.Primary50, DS.Primary700);
             heroIcon.Anchor = AnchorStyles.Left;
             layout.Controls.Add(heroIcon, 0, 0);
 
-            Panel textBlock = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 6, 0, 0) };
+            Panel textBlock = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 8, 0, 0) };
             textBlock.Controls.Add(new Label
             {
                 Text = "Data Control Center",
                 Location = new Point(0, 0),
-                Size = new Size(520, 34),
+                Size = new Size(560, 40),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                Font = new Font("Segoe UI", 17f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 20f, FontStyle.Bold),
                 ForeColor = DS.Slate900
             });
             textBlock.Controls.Add(new Label
             {
-                Text = "Drop an Excel workbook here.\r\nServoERP detects the data type, cleans messy columns, links master data, and imports safe rows automatically.",
-                Location = new Point(0, 44),
-                Size = new Size(560, 54),
+                Text = "Drop an Excel workbook here.\r\nServoERP detects the data type, cleans messy columns,\r\nlinks master data, and imports safe rows automatically.",
+                Location = new Point(0, 52),
+                Size = new Size(520, 86),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                Font = new Font("Segoe UI", 9.25f),
+                Font = new Font("Segoe UI", 10.5f),
                 ForeColor = DS.Slate600
             });
             layout.Controls.Add(textBlock, 1, 0);
@@ -1667,12 +1667,12 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildHeroVisual()
         {
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = new Padding(6, 0, 0, 0) };
-            Panel doc = new Panel { Size = new Size(104, 86), Location = new Point(66, 8), BackColor = DS.Primary50 };
+            Panel doc = new Panel { Size = new Size(96, 82), Location = new Point(18, 8), BackColor = DS.Primary50 };
             DS.Rounded(doc, 12);
             doc.Controls.Add(new Label { Text = "XLS", Location = new Point(10, 10), Size = new Size(42, 22), BackColor = SaveGreen, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) });
             doc.Controls.Add(new Label { Text = "Data\nSync", Location = new Point(18, 38), Size = new Size(70, 38), ForeColor = DS.Primary700, Font = new Font("Segoe UI", 10f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
-            Panel cloud = ModernIconSystem.EmptyStateIcon(ModernIconKind.Import, 54, DS.Green50, SaveGreen);
-            cloud.Location = new Point(150, 48);
+            Panel cloud = ModernIconSystem.EmptyStateIcon(ModernIconKind.Import, 48, DS.Green50, SaveGreen);
+            cloud.Location = new Point(104, 50);
             panel.Controls.Add(doc);
             panel.Controls.Add(cloud);
             return panel;

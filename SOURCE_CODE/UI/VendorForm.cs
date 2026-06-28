@@ -181,7 +181,7 @@ namespace HVAC_Pro_Desktop.UI
         private string _dashboardCategory = "All Categories";
         private string _dashboardSearchText = string.Empty;
         private int _dashboardPage = 1;
-        private int _dashboardPageSize = 14;
+        private int _dashboardPageSize = 10;
         private string _activeFilter = "All";
         private bool _syncingVendorSelection;
         private bool _searchPlaceholderActive;
@@ -753,8 +753,21 @@ namespace HVAC_Pro_Desktop.UI
             int width = Math.Max(1, hostSize.Width);
             int height = Math.Max(1, hostSize.Height);
             Panel content = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            int pagerHeight = 46;
+            int tableHostHeight = Math.Min(Math.Max(120, height - pagerHeight - 6), 220);
 
-            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(0, 0), Size = new Size(width, Math.Max(180, height - 56)), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = White, ColumnCount = 9, RowCount = 1 };
+            Panel tableHost = new Panel
+            {
+                Location = new Point(0, 0),
+                Size = new Size(width, tableHostHeight),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
+                BackColor = White,
+                AutoScroll = true
+            };
+            tableHost.HorizontalScroll.Enabled = false;
+            tableHost.HorizontalScroll.Visible = false;
+
+            TableLayoutPanel table = new TableLayoutPanel { Location = new Point(0, 0), Size = new Size(Math.Max(1, width - 20), 30), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right, BackColor = White, ColumnCount = 9, RowCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
             float[] widths = { 11, 18, 12, 11, 9, 13, 11, 10, 5 };
             foreach (float w in widths) table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, w));
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
@@ -772,7 +785,9 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardPage = PaginationState.NormalizePage(_dashboardPage, totalRows, pageSize);
             foreach (VendorSummaryDto v in filtered.Skip((_dashboardPage - 1) * pageSize).Take(pageSize))
                 AddVendorDashboardTableRow(table, v);
-            content.Controls.Add(table);
+            tableHost.Controls.Add(table);
+            tableHost.Resize += (s, e) => table.Width = Math.Max(1, tableHost.ClientSize.Width - 20);
+            content.Controls.Add(tableHost);
             if (totalRows == 0)
             {
                 Label empty = new Label
@@ -795,17 +810,17 @@ namespace HVAC_Pro_Desktop.UI
                     empty.Width = content.Width;
                     add.Left = Math.Max(0, content.Width - add.Width - 96);
                 };
-                content.Controls.Add(empty);
-                content.Controls.Add(add);
+                tableHost.Controls.Add(empty);
+                tableHost.Controls.Add(add);
                 empty.BringToFront();
                 add.BringToFront();
             }
 
             GlobalPaginationControl pager = new GlobalPaginationControl
             {
-                Location = new Point(Math.Max(0, width - 616), Math.Max(0, height - 40)),
-                Size = new Size(600, 38),
-                Anchor = AnchorStyles.Right | AnchorStyles.Bottom,
+                Location = new Point(0, tableHost.Bottom + 6),
+                Size = new Size(width, 44),
+                Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right,
                 BackColor = White
             };
             pager.PageChanged += (s, e) => { _dashboardPage = pager.CurrentPage; RenderRecentVendorsCardOnly(); };
@@ -1332,10 +1347,15 @@ namespace HVAC_Pro_Desktop.UI
                 Tag = vendor
             };
 
+            selector.DrawMode = DrawMode.OwnerDrawFixed;
+            selector.DrawItem += (s, e) => DrawVendorStatusDropdownItem((ComboBox)s, e);
+            selector.DropDownClosed += (s, e) => ClearComboTextHighlight((ComboBox)s);
+            selector.Leave += (s, e) => ClearComboTextHighlight((ComboBox)s);
             selector.Items.AddRange(DashboardStatusNames().Cast<object>().ToArray());
             bool loading = true;
             selector.SelectedItem = selector.Items.Contains(currentStatus) ? currentStatus : "Inactive";
             UIHelper.ApplyInputStyle(selector);
+            BeginInvoke((Action)(() => ClearComboTextHighlight(selector)));
             loading = false;
 
             selector.SelectedIndexChanged += async (s, e) =>
@@ -1349,6 +1369,34 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             return selector;
+        }
+
+        private void DrawVendorStatusDropdownItem(ComboBox selector, DrawItemEventArgs e)
+        {
+            if (e.Index < 0)
+                return;
+
+            string status = Convert.ToString(selector.Items[e.Index]);
+            bool selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color backColor = selected && selector.DroppedDown ? DS.BgPage : selector.BackColor;
+            Color textColor = StatusColor(status);
+            using (SolidBrush background = new SolidBrush(backColor))
+                e.Graphics.FillRectangle(background, e.Bounds);
+            TextRenderer.DrawText(
+                e.Graphics,
+                status,
+                selector.Font,
+                new Rectangle(e.Bounds.Left + 4, e.Bounds.Top, Math.Max(1, e.Bounds.Width - 8), e.Bounds.Height),
+                textColor,
+                TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+        }
+
+        private void ClearComboTextHighlight(ComboBox combo)
+        {
+            if (combo == null || combo.IsDisposed || combo.DropDownStyle == ComboBoxStyle.DropDownList)
+                return;
+
+            combo.SelectionLength = 0;
         }
 
         private async Task ChangeVendorStatusFromDashboardAsync(VendorSummaryDto vendor, string selectedStatus, ComboBox selector)

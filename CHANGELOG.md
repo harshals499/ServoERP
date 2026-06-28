@@ -1,8 +1,11 @@
 # Changelog
-## 1.1.326.0 - 2026-06-28
+## 1.1.327.0 - 2026-06-28
 
 - Fixed the GitHub desktop release workflow so reruns for an already-published tagged commit exit cleanly instead of failing as a duplicate release.
 - Kept the release guard strict for new commits that reuse an already-published version, with clearer guidance to bump VERSION before shipping.
+- Fixed Recent Suppliers status dropdowns so closed rows do not show blue selected-text highlights.
+- Added a scrollable Recent Suppliers table area with the paging controls fixed below the card.
+- Enlarged the Master Data Data Control Center hero card for clearer import workflow visibility.
 
 ## 1.1.325.0 - 2026-06-28
 
