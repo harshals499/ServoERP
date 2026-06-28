@@ -14,7 +14,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         private readonly QuotationAnalyticsService _quotationAnalyticsSvc = new QuotationAnalyticsService();
         private const string QuotationDashboardPageKey = "quotation_dashboard";
-        private const string QuotationDashboardOrderPath = @"C:\HVAC_PRO_MSE\CONFIG\quotation_dashboard_order.txt";
+        private static string QuotationDashboardOrderPath => Path.Combine(SharedStorageService.ResolveFolder("Config", @"C:\HVAC_PRO_MSE\CONFIG"), "quotation_dashboard_order.txt");
         private Panel _quotationDashboardPanel;
         private DateTimePicker _quoteDashFrom;
         private DateTimePicker _quoteDashTo;

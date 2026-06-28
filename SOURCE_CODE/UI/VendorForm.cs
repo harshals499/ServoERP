@@ -3686,7 +3686,7 @@ namespace HVAC_Pro_Desktop.UI
                 VendorDetailDto detail = _vendorSvc.GetVendorDetail(_currentVendor.VendorID) ?? _currentVendor;
                 detail.Scorecard = _vendorSvc.GetVendorScorecard(detail.VendorID);
 
-                string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ServoERP Exports", "Vendor Reports");
+                string folder = SharedStorageService.ResolveExportFolder("Supplier Reports");
                 Directory.CreateDirectory(folder);
                 string fileName = SafeVendorReportFileName((detail.VendorName ?? "Supplier") + "_Performance_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".pdf");
                 string outputPath = Path.Combine(folder, fileName);

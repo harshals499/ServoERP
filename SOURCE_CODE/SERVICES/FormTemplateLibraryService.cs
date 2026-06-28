@@ -9,14 +9,14 @@ namespace HVAC_Pro_Desktop.Services
 {
     public sealed class FormTemplateLibraryService
     {
-        public const string DefaultRoot = @"C:\HVAC_PRO_MSE\research_downloads\field_service_forms";
-        public const string DefaultZip = @"C:\HVAC_PRO_MSE\research_downloads\ServoERP_Field_Service_Form_Templates.zip";
+        public static string DefaultRoot => SharedStorageService.ResolveFolder(Path.Combine("Imports", "FieldServiceForms"), @"C:\HVAC_PRO_MSE\research_downloads\field_service_forms");
+        public static string DefaultZip => Path.Combine(SharedStorageService.ImportsPath, "ServoERP_Field_Service_Form_Templates.zip");
 
         private const string MappingFileName = "ServoERP_Form_Template_Mapping.csv";
 
-        public string RootFolder => ConfigService.Get("FieldServiceForms", "RootFolder", DefaultRoot);
+        public string RootFolder => SharedStorageService.ResolveConfiguredPath(ConfigService.Get("FieldServiceForms", "RootFolder", DefaultRoot), DefaultRoot);
 
-        public string ZipPath => ConfigService.Get("FieldServiceForms", "ZipPath", DefaultZip);
+        public string ZipPath => SharedStorageService.ResolveConfiguredPath(ConfigService.Get("FieldServiceForms", "ZipPath", DefaultZip), DefaultZip);
 
         public bool IsAvailable => Directory.Exists(RootFolder) && File.Exists(MappingPath);
 
@@ -76,7 +76,7 @@ namespace HVAC_Pro_Desktop.Services
                 throw new FileNotFoundException("Template file was not found.", template?.FullPath);
 
             if (string.IsNullOrWhiteSpace(targetFolder))
-                targetFolder = Path.Combine(@"C:\HVAC_PRO_MSE", "FORM_TEMPLATE_WORKING_COPIES");
+                targetFolder = SharedStorageService.ResolveDocumentFolder("FormTemplateWorkingCopies");
 
             Directory.CreateDirectory(targetFolder);
             string target = Path.Combine(targetFolder, Path.GetFileName(template.FullPath));

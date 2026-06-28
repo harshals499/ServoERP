@@ -3177,7 +3177,7 @@ namespace HVAC_Pro_Desktop.UI
                 string html = _svc.BuildQuotationDocumentHtml(bid);
                 using (var dlg = new SaveFileDialog())
                 {
-                    dlg.InitialDirectory = Directory.Exists(@"C:\HVAC_PRO_MSE\Invoice") ? @"C:\HVAC_PRO_MSE\Invoice" : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+                    dlg.InitialDirectory = ResolveDocumentOutputFolder();
                     dlg.Filter = "PDF Files (*.pdf)|*.pdf";
                     dlg.DefaultExt = "pdf";
                     dlg.AddExtension = true;
@@ -3259,10 +3259,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static string ResolveDocumentOutputFolder()
         {
-            string folder = @"C:\HVAC_PRO_MSE\Invoice";
-            if (!Directory.Exists(folder))
-                Directory.CreateDirectory(folder);
-            return folder;
+            return SharedStorageService.ResolveDocumentFolder("Quotations");
         }
 
         private static bool IsManualLineEditColumn(string columnName)

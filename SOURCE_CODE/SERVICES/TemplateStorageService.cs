@@ -12,7 +12,7 @@ namespace HVAC_Pro_Desktop.Services
     {
         private readonly JavaScriptSerializer _serializer = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
 
-        public string RootFolder => Path.Combine(GetApplicationBaseDirectory(), "CompanyTemplates");
+        public string RootFolder => SharedStorageService.CompanyTemplatesPath;
         public string ManifestPath => Path.Combine(RootFolder, "templates.json");
 
         public List<CompanyDocumentTemplate> GetAll()

@@ -287,6 +287,7 @@
     <Compile Include="SERVICES\LanguageManager.cs" />
     <Compile Include="SERVICES\LegalTexts.cs" />
     <Compile Include="SERVICES\ConfigService.cs" />
+    <Compile Include="SERVICES\SharedStorageService.cs" />
     <Compile Include="SERVICES\AppLogger.cs" />
     <Compile Include="SERVICES\SensitiveDataRedactor.cs" />
     <Compile Include="SERVICES\Logger.cs" />

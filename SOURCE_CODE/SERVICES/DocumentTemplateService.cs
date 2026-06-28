@@ -15,8 +15,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             get
             {
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                return Path.Combine(baseDir, "Templates");
+                return SharedStorageService.ResolveDocumentFolder("Templates");
             }
         }
 

@@ -34,7 +34,7 @@ namespace HVAC_Pro_Desktop.Services
         private const long MinimumExternalDriveBytes = 500L * 1024L * 1024L;
         private const int CommandTimeoutSeconds = 900;
 
-        public static string BackupRoot => GetSetting("BackupLocalPath", DefaultLocalBackupPath);
+        public static string BackupRoot => GetSetting("BackupLocalPath", SharedStorageService.BackupsPath);
 
         /// <summary>Creates required backup tables and default user settings.</summary>
         public void EnsureBackupInfrastructure()
@@ -65,8 +65,10 @@ namespace HVAC_Pro_Desktop.Services
                     }
                 }
 
-                EnsureSetting("BackupNetworkPath", string.Empty);
-                EnsureSetting("BackupLocalPath", DefaultLocalBackupPath);
+                EnsureSetting("BackupNetworkPath", SharedStorageService.BackupsPath);
+                EnsureSetting("BackupLocalPath", SharedStorageService.BackupsPath);
+                MigrateBackupPathSetting("BackupNetworkPath");
+                MigrateBackupPathSetting("BackupLocalPath");
                 EnsureSetting("BackupScheduledTime", "18:00");
                 EnsureSetting("BackupRetentionDays", "30");
                 EnsureSetting("BackupLastScheduledRun", string.Empty);
@@ -88,7 +90,7 @@ namespace HVAC_Pro_Desktop.Services
                 return Result(false, trigger, string.Empty, string.Empty, "Automatic backups are disabled.", 0);
 
             BackupResult lastFailure = null;
-            string networkPath = GetSetting("BackupNetworkPath", string.Empty).Trim();
+            string networkPath = GetSetting("BackupNetworkPath", SharedStorageService.BackupsPath).Trim();
             if (!string.IsNullOrWhiteSpace(networkPath))
             {
                 BackupResult network = Directory.Exists(networkPath)
@@ -99,7 +101,7 @@ namespace HVAC_Pro_Desktop.Services
                 lastFailure = network;
             }
 
-            string localPath = GetSetting("BackupLocalPath", DefaultLocalBackupPath);
+            string localPath = GetSetting("BackupLocalPath", SharedStorageService.BackupsPath);
             BackupResult local = TryBackupToPath(localPath, "Local", trigger);
             if (local.Success)
                 return CompleteSuccessfulBackup(local, trigger);
@@ -551,6 +553,17 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (string.IsNullOrWhiteSpace(DbSettings.Get(key, null)))
                 DbSettings.Set(key, value);
+        }
+
+        private static void MigrateBackupPathSetting(string key)
+        {
+            string current = DbSettings.Get(key, string.Empty);
+            if (string.IsNullOrWhiteSpace(current) ||
+                string.Equals(current.Trim().TrimEnd('\\'), DefaultLocalBackupPath.Trim().TrimEnd('\\'), StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(current.Trim().TrimEnd('\\'), @"C:\ServoERP\Backups".TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            {
+                DbSettings.Set(key, SharedStorageService.BackupsPath);
+            }
         }
 
         private static string GetDatabaseName()

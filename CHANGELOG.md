@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.328.0 - 2026-06-28
+
+- Added shared storage configuration for office-wide ServoERP files using `\\SERVERPC\ServoERPShared`.
+- Routed backups, company templates, quotation documents, supplier reports, form-template working copies, and dashboard layout files through the shared storage root with local fallback if the network share is unavailable.
+
 ## 1.1.327.0 - 2026-06-28
 
 - Fixed the GitHub desktop release workflow so reruns for an already-published tagged commit exit cleanly instead of failing as a duplicate release.

@@ -29,8 +29,8 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadSettings()
         {
             _backupService.EnsureBackupInfrastructure();
-            _txtNetworkPath.Text = DbSettings.Get("BackupNetworkPath", string.Empty);
-            _txtLocalPath.Text = DbSettings.Get("BackupLocalPath", BackupService.DefaultLocalBackupPath);
+            _txtNetworkPath.Text = DbSettings.Get("BackupNetworkPath", SharedStorageService.BackupsPath);
+            _txtLocalPath.Text = DbSettings.Get("BackupLocalPath", SharedStorageService.BackupsPath);
             _timeSchedule.Value = DateTime.Today.Add(ParseSchedule(DbSettings.Get("BackupScheduledTime", "18:00")));
             _chkRunOnClose.Checked = ParseBool(DbSettings.Get("BackupRunOnClose", "true"), true);
             _chkEnabled.Checked = ParseBool(DbSettings.Get("BackupEnabled", "true"), true);
@@ -46,7 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SaveSettings()
         {
             string localPath = string.IsNullOrWhiteSpace(_txtLocalPath.Text)
-                ? BackupService.DefaultLocalBackupPath
+                ? SharedStorageService.BackupsPath
                 : _txtLocalPath.Text.Trim();
             string networkPath = _txtNetworkPath.Text.Trim();
 

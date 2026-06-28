@@ -261,7 +261,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            string targetRoot = Path.Combine(@"C:\HVAC_PRO_MSE\FORM_TEMPLATE_WORKING_COPIES", SafeFolder(_workflowName), DateTime.Today.ToString("yyyyMMdd"));
+            string targetRoot = Path.Combine(SharedStorageService.ResolveDocumentFolder("FormTemplateWorkingCopies"), SafeFolder(_workflowName), DateTime.Today.ToString("yyyyMMdd"));
             string copied = _library.CopyTemplateToWorkingFolder(template, targetRoot);
             MessageBox.Show(this, "Working copy created:\r\n\r\n" + copied, Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             OpenPath(targetRoot);
