@@ -2022,17 +2022,17 @@ namespace HVAC_Pro_Desktop.UI
             switch (module)
             {
                 case ExcelImportModule.Clients: return "Clients";
-                case ExcelImportModule.Vendors: return "Suppliers";
+                case ExcelImportModule.Vendors: return ExcelImportService.GetDisplayName(module);
                 case ExcelImportModule.Sites: return "Sites";
                 case ExcelImportModule.Inventory: return "Inventory";
-                case ExcelImportModule.SupplierItemPrices: return "Supplier Price Book";
+                case ExcelImportModule.SupplierItemPrices: return ExcelImportService.GetDisplayName(module);
                 case ExcelImportModule.Purchases: return "Purchases";
                 case ExcelImportModule.Invoices: return "Invoices";
                 case ExcelImportModule.Payments: return "Payments";
                 case ExcelImportModule.Quotations: return "Quotations";
                 case ExcelImportModule.Jobs: return "Jobs";
                 case ExcelImportModule.Employees: return "Employees";
-                case ExcelImportModule.AMC: return "AMC Contracts";
+                case ExcelImportModule.AMC: return ExcelImportService.GetDisplayName(module);
                 default: return module.ToString();
             }
         }
@@ -2047,7 +2047,7 @@ namespace HVAC_Pro_Desktop.UI
                 case ExcelImportModule.Sites: return "Client sites, city, service contacts";
                 case ExcelImportModule.Inventory: return "Parts, buying rates, planning quantities";
                 case ExcelImportModule.SupplierItemPrices: return "Supplier links, preferred rates, buying history";
-                case ExcelImportModule.Purchases: return "Vendor bills, items, totals";
+                case ExcelImportModule.Purchases: return "Supplier bills, items, totals";
                 case ExcelImportModule.Invoices: return "Past invoices, due dates, status";
                 case ExcelImportModule.Payments: return "Collections, UTR, modes, notes";
                 case ExcelImportModule.Quotations: return "Quotes, validity, client offers";

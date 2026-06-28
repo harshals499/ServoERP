@@ -49,7 +49,7 @@ namespace HVAC_Pro_Desktop.Services
             SessionManager.DemandPermission(ModuleKey(module), "View");
             using (var package = new ExcelPackage())
             {
-                var sheet = package.Workbook.Worksheets.Add(module.ToString());
+                var sheet = package.Workbook.Worksheets.Add(GetDisplayName(module));
                 string[] headers = GetHeaders(module);
                 string[] sample = GetSampleRow(module);
 
@@ -90,7 +90,7 @@ namespace HVAC_Pro_Desktop.Services
                     return result;
 
                 Dictionary<string, int> map = BuildColumnMap(sheet);
-                ValidationResult headerReview = _importReview.ReviewHeaders(module.ToString(), map.Keys, GetRequiredHeaders(module));
+                ValidationResult headerReview = _importReview.ReviewHeaders(GetDisplayName(module), map.Keys, GetRequiredHeaders(module));
                 _validation.EnsureValid(headerReview, "Import header validation failed");
                 EnsureImportSchema(conn, transaction, module);
 
@@ -322,7 +322,13 @@ END");
 
         private static string GetCell(ExcelWorksheet sheet, int row, Dictionary<string, int> map, string header)
         {
-            return map.ContainsKey(header) ? Convert.ToString(sheet.Cells[row, map[header]].Value)?.Trim() ?? string.Empty : string.Empty;
+            foreach (string candidate in GetAcceptedHeaderNames(header))
+            {
+                if (map.ContainsKey(candidate))
+                    return Convert.ToString(sheet.Cells[row, map[candidate]].Value)?.Trim() ?? string.Empty;
+            }
+
+            return string.Empty;
         }
 
         private static decimal GetDecimal(ExcelWorksheet sheet, int row, Dictionary<string, int> map, string header)
@@ -456,6 +462,34 @@ END");
             }
         }
 
+        public static string GetDisplayName(ExcelImportModule module)
+        {
+            switch (module)
+            {
+                case ExcelImportModule.Vendors: return "Suppliers";
+                case ExcelImportModule.SupplierItemPrices: return "Supplier Price Book";
+                case ExcelImportModule.AMC: return "AMC Contracts";
+                default: return module.ToString();
+            }
+        }
+
+        public static IEnumerable<string> GetAcceptedHeaderNames(string header)
+        {
+            if (string.IsNullOrWhiteSpace(header))
+                yield break;
+
+            yield return header;
+
+            if (string.Equals(header, "SupplierName", StringComparison.OrdinalIgnoreCase))
+                yield return "VendorName";
+            else if (string.Equals(header, "VendorName", StringComparison.OrdinalIgnoreCase))
+                yield return "SupplierName";
+            else if (string.Equals(header, "SupplierID", StringComparison.OrdinalIgnoreCase))
+                yield return "VendorID";
+            else if (string.Equals(header, "VendorID", StringComparison.OrdinalIgnoreCase))
+                yield return "SupplierID";
+        }
+
         private sealed class SupplierItemImportRow
         {
             public int SourceRowNumber { get; set; }
@@ -585,7 +619,7 @@ WHERE ItemID = @itemId AND ISNULL(IsActive, 1) = 1;",
 
             if (string.IsNullOrWhiteSpace(vendorName) && !vendorId.HasValue)
             {
-                AddError(result, row, "Missing required field: VendorName");
+                AddError(result, row, "Missing required field: SupplierName");
                 return null;
             }
 
@@ -792,7 +826,7 @@ WHERE VendorID=@id",
                     new SqlParameter("@notes", (object)notes ?? DBNull.Value),
                     new SqlParameter("@contactPerson", (object)contactPerson ?? DBNull.Value),
                     new SqlParameter("@id", existingId.Value));
-                options.Diagnostics?.DuplicateRefreshes.Add("Vendor: " + vendorName);
+                options.Diagnostics?.DuplicateRefreshes.Add("Supplier: " + vendorName);
                 return existingId.Value;
             }
 
@@ -1236,7 +1270,7 @@ VALUES (@paymentNumber,@invoiceId,@clientId,@amountPaid,@paymentDate,@paymentMod
             DateTime purchaseDate = GetDate(sheet, row, map, "PurchaseDate");
 
             if (string.IsNullOrWhiteSpace(vendorName))
-                return AddError(result, row, "Missing required field: VendorName");
+                return AddError(result, row, "Missing required field: SupplierName");
             if (string.IsNullOrWhiteSpace(itemDescription))
                 return AddError(result, row, "Missing required field: ItemDescription");
             if (quantity <= 0m)
@@ -1525,7 +1559,7 @@ VALUES (@code,@name,@designation,@department,@phone,@whatsapp,@bloodGroup,@aadha
             string notes = GetCell(sheet, row, map, "Notes");
 
             if (string.IsNullOrWhiteSpace(vendorName))
-                return AddError(result, row, "Missing required field: VendorName");
+                return AddError(result, row, "Missing required field: SupplierName");
 
             int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 VendorID FROM Vendors WHERE VendorName=@name", new SqlParameter("@name", vendorName));
             if (!existingId.HasValue && !string.IsNullOrWhiteSpace(gstin))
@@ -1544,7 +1578,7 @@ WHERE VendorID=@id",
                     new SqlParameter("@notes", (object)notes ?? DBNull.Value),
                     new SqlParameter("@contactPerson", (object)contactPerson ?? DBNull.Value),
                     new SqlParameter("@id", existingId.Value));
-                options.Diagnostics?.DuplicateRefreshes.Add("Vendor: " + vendorName);
+                options.Diagnostics?.DuplicateRefreshes.Add("Supplier: " + vendorName);
             }
             else
             {
@@ -1780,7 +1814,7 @@ VALUES
                 case ExcelImportModule.Payments:
                     return new[] { "PaymentDate", "InvoiceNumber", "ClientName", "AmountPaid", "PaymentMode", "ReferenceNumber", "Notes" };
                 case ExcelImportModule.Purchases:
-                    return new[] { "PurchaseDate", "VendorName", "ItemDescription", "Quantity", "UnitPrice", "TotalAmount", "Notes" };
+                    return new[] { "PurchaseDate", "SupplierName", "ItemDescription", "Quantity", "UnitPrice", "TotalAmount", "Notes" };
                 case ExcelImportModule.Jobs:
                     return new[] { "JobDate", "ClientName", "SiteName", "TechnicianName", "JobType", "Description", "Status", "Priority", "ScheduledDate" };
                 case ExcelImportModule.Clients:
@@ -1788,13 +1822,13 @@ VALUES
                 case ExcelImportModule.Employees:
                     return new[] { "EmployeeCode", "EmployeeName", "Designation", "Department", "Phone", "WhatsApp", "BloodGroup", "Aadhaar", "PAN", "JoiningDate", "Status" };
                 case ExcelImportModule.Vendors:
-                    return new[] { "VendorName", "ContactPerson", "Phone", "Email", "Address", "City", "GSTIN", "Notes" };
+                    return new[] { "SupplierName", "ContactPerson", "Phone", "Email", "Address", "City", "GSTIN", "Notes" };
                 case ExcelImportModule.Sites:
                     return new[] { "SiteName", "ClientName", "Address", "City", "ContactPerson", "Phone", "SiteType", "Notes" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName", "Category", "CurrentStock", "Unit", "LastPurchaseRate", "ReorderLevel", "StockValue", "Notes" };
                 case ExcelImportModule.SupplierItemPrices:
-                    return new[] { "ItemID", "ItemName", "Category", "Unit", "VendorID", "VendorName", "Rate", "EffectiveDate", "IsPreferred", "IsActive", "Source", "Notes" };
+                    return new[] { "ItemID", "ItemName", "Category", "Unit", "SupplierID", "SupplierName", "Rate", "EffectiveDate", "IsPreferred", "IsActive", "Source", "Notes" };
                 case ExcelImportModule.AMC:
                     return new[] { "ContractNumber", "ClientName", "SiteName", "ContractStartDate", "ContractEndDate", "ContractValue", "Status", "EquipmentType", "Notes" };
                 default:
@@ -1813,7 +1847,7 @@ VALUES
                 case ExcelImportModule.Payments:
                     return new[] { "PaymentDate", "InvoiceNumber", "AmountPaid" };
                 case ExcelImportModule.Purchases:
-                    return new[] { "VendorName", "ItemDescription", "Quantity", "UnitPrice" };
+                    return new[] { "SupplierName", "ItemDescription", "Quantity", "UnitPrice" };
                 case ExcelImportModule.Jobs:
                     return new[] { "ClientName", "JobType", "Description" };
                 case ExcelImportModule.Clients:
@@ -1821,13 +1855,13 @@ VALUES
                 case ExcelImportModule.Employees:
                     return new[] { "EmployeeCode", "EmployeeName" };
                 case ExcelImportModule.Vendors:
-                    return new[] { "VendorName" };
+                    return new[] { "SupplierName" };
                 case ExcelImportModule.Sites:
                     return new[] { "SiteName", "ClientName" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName" };
                 case ExcelImportModule.SupplierItemPrices:
-                    return new[] { "ItemName", "VendorName", "Rate" };
+                    return new[] { "ItemName", "SupplierName", "Rate" };
                 case ExcelImportModule.AMC:
                     return new[] { "ContractNumber", "ClientName" };
                 default:

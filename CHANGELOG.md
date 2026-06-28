@@ -1,4 +1,15 @@
 # Changelog
+## 1.1.321.0 - 2026-06-28
+
+- Made Master Data uploads Supplier-first by showing Suppliers in import dialogs, previews, generated templates, and upload cards while keeping legacy Vendor Excel columns accepted.
+- Changed procurement import templates to use SupplierName/SupplierID for supplier master, purchase, and supplier price-book uploads without renaming existing database fields.
+
+## 1.1.320.0 - 2026-06-27
+
+- Made ServoERP open even when SQL Server is unavailable by skipping SQL startup failures and entering a local operator shell session instead of blocking on the startup retry dialog.
+- Disabled SQLite fallback status writes and offline business-entry queueing so failed SQL saves no longer get diverted into local SQLite.
+- Updated support/setup wording from locked business entries to SQL availability, with database-backed actions using SQL only when the connection is reachable.
+
 ## 1.1.319.0 - 2026-06-27
 
 - Removed remaining stale Vendors navigation helper routing so Vendor/Vendors shortcuts now open Suppliers.

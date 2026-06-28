@@ -81,7 +81,7 @@ namespace HVAC_Pro_Desktop.Services
                 using (var dialog = new SaveFileDialog())
                 {
                     dialog.Filter = "Excel Workbook (*.xlsx)|*.xlsx";
-                    dialog.FileName = module + "_Template.xlsx";
+                    dialog.FileName = SafeFileName(ExcelImportService.GetDisplayName(module)) + "_Template.xlsx";
                     if (dialog.ShowDialog(owner) != DialogResult.OK)
                         return;
 
@@ -125,7 +125,7 @@ namespace HVAC_Pro_Desktop.Services
                     using (var dialog = new OpenFileDialog())
                     {
                         dialog.Filter = "Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls";
-                        dialog.Title = preferredModule.HasValue ? "Import " + preferredModule.Value : "Import Excel";
+                        dialog.Title = preferredModule.HasValue ? "Import " + ExcelImportService.GetDisplayName(preferredModule.Value) : "Import Excel";
                         if (dialog.ShowDialog(owner) != DialogResult.OK)
                             return;
                         selectedFile = dialog.FileName;
@@ -156,7 +156,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             var builder = new StringBuilder();
             builder.AppendLine(result.SummaryTitle ?? "Import complete.");
-            builder.AppendLine("Detected data type: " + result.DetectedModule);
+            builder.AppendLine("Detected data type: " + ExcelImportService.GetDisplayName(result.DetectedModule));
             builder.AppendLine("Worksheet used: " + result.DetectedSheetName);
             builder.AppendLine("Confidence: " + result.DetectionConfidence + "%");
             if (result.BatchId > 0)
@@ -325,7 +325,7 @@ namespace HVAC_Pro_Desktop.Services
             var lines = new[]
             {
                 "File: " + Path.GetFileName(filePath),
-                "Detected module: " + preview.DetectedModule + " | Worksheet: " + preview.DetectedSheetName + " | Confidence: " + preview.DetectionConfidence + "%",
+                "Detected module: " + ExcelImportService.GetDisplayName(preview.DetectedModule) + " | Worksheet: " + preview.DetectedSheetName + " | Confidence: " + preview.DetectionConfidence + "%",
                 "Source rows: " + preview.SourceRowCount + " | Canonical rows ready: " + preview.CanonicalRowCount + " | Preview sample: " + preview.SampleRows.Count,
                 "Mapped columns: " + preview.ColumnMappings.Count + " of " + ExcelImportService.GetHeaders(preview.DetectedModule).Length
             };
@@ -482,7 +482,7 @@ namespace HVAC_Pro_Desktop.Services
             string[] targetHeaders = ExcelImportService.GetHeaders(module);
             string folder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ImportMap");
             Directory.CreateDirectory(folder);
-            string targetFile = Path.Combine(folder, module + "_Mapped_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
+            string targetFile = Path.Combine(folder, SafeFileName(ExcelImportService.GetDisplayName(module)) + "_Mapped_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".xlsx");
 
             using (var sourcePackage = new ExcelPackage(new FileInfo(sourceFile)))
             using (var targetPackage = new ExcelPackage())
@@ -558,7 +558,7 @@ namespace HVAC_Pro_Desktop.Services
             {
                 Controls.Add(new Label
                 {
-                    Text = "Map client Excel columns to ServoERP " + _module + " fields.",
+                    Text = "Map client Excel columns to ServoERP " + ExcelImportService.GetDisplayName(_module) + " fields.",
                     Dock = DockStyle.Top,
                     Height = 44,
                     Padding = new Padding(18, 10, 18, 0),
@@ -744,6 +744,18 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             return builder.ToString();
+        }
+
+        private static string SafeFileName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "Import";
+
+            var builder = new StringBuilder();
+            foreach (char ch in value)
+                builder.Append(char.IsLetterOrDigit(ch) ? ch : '_');
+
+            return builder.ToString().Trim('_');
         }
     }
 }

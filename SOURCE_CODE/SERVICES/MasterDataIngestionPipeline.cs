@@ -66,7 +66,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             var lines = new List<string>();
             if (CreatedClients.Count > 0) lines.Add("Created clients: " + string.Join(", ", CreatedClients.OrderBy(x => x)));
-            if (CreatedVendors.Count > 0) lines.Add("Created vendors: " + string.Join(", ", CreatedVendors.OrderBy(x => x)));
+            if (CreatedVendors.Count > 0) lines.Add("Created suppliers: " + string.Join(", ", CreatedVendors.OrderBy(x => x)));
             if (CreatedSites.Count > 0) lines.Add("Created sites: " + string.Join(", ", CreatedSites.OrderBy(x => x)));
             if (CreatedEmployees.Count > 0) lines.Add("Created employees: " + string.Join(", ", CreatedEmployees.OrderBy(x => x)));
             if (DuplicateRefreshes.Count > 0) lines.Add("Updated existing records: " + string.Join(", ", DuplicateRefreshes.OrderBy(x => x).Take(30)));
@@ -98,7 +98,7 @@ namespace HVAC_Pro_Desktop.Services
             ExcelWorkbookImportData workbook = _reader.Read(filePath);
             DataTypeDetectionResult detection = _detector.Detect(workbook, preferredModule);
             if (detection == null || detection.Sheet == null)
-                throw new InvalidOperationException("ServoERP could not understand this Excel file. Please use a workbook with clear column headings such as Client Name, Vendor Name, Invoice Number, Job Type, or Item Name.");
+                throw new InvalidOperationException("ServoERP could not understand this Excel file. Please use a workbook with clear column headings such as Client Name, Supplier Name, Invoice Number, Job Type, or Item Name.");
 
             ColumnMappingResult mapping = _mapper.Map(detection.Module, detection.Sheet.Headers);
             List<Dictionary<string, string>> canonicalRows = BuildCanonicalRows(detection.Module, detection.Sheet, mapping);
@@ -156,7 +156,7 @@ namespace HVAC_Pro_Desktop.Services
             ExcelWorkbookImportData workbook = _reader.Read(filePath);
             DataTypeDetectionResult detection = _detector.Detect(workbook, preferredModule);
             if (detection == null || detection.Sheet == null)
-                throw new InvalidOperationException("ServoERP could not understand this Excel file. Please use a workbook with clear column headings such as Client Name, Vendor Name, Invoice Number, Job Type, or Item Name.");
+                throw new InvalidOperationException("ServoERP could not understand this Excel file. Please use a workbook with clear column headings such as Client Name, Supplier Name, Invoice Number, Job Type, or Item Name.");
 
             ColumnMappingResult mapping = _mapper.Map(detection.Module, detection.Sheet.Headers);
             List<Dictionary<string, string>> canonicalRows = BuildCanonicalRows(detection.Module, detection.Sheet, mapping);
@@ -198,7 +198,7 @@ namespace HVAC_Pro_Desktop.Services
                 foreach (string line in diagnostics.BuildSummaryLines())
                     result.CreatedDefaults.Add(line);
 
-                result.UserMessages.Add(import.SuccessCount + " rows imported or refreshed in " + detection.Module + ".");
+                result.UserMessages.Add(import.SuccessCount + " rows imported or refreshed in " + ExcelImportService.GetDisplayName(detection.Module) + ".");
                 if (import.SkippedCount > 0)
                     result.UserMessages.Add(import.SkippedCount + " rows were skipped safely.");
                 if (detection.Confidence < 65)
@@ -492,14 +492,14 @@ namespace HVAC_Pro_Desktop.Services
         private readonly Dictionary<ExcelImportModule, string[]> _signals = new Dictionary<ExcelImportModule, string[]>
         {
             { ExcelImportModule.Clients, new[] { "clientname", "customername", "companyname", "gstin", "phone", "billingaddress" } },
-            { ExcelImportModule.Vendors, new[] { "vendorname", "suppliername", "gstin", "paymentterms", "creditdays", "phone" } },
+            { ExcelImportModule.Vendors, new[] { "suppliername", "vendorname", "gstin", "paymentterms", "creditdays", "phone" } },
             { ExcelImportModule.Inventory, new[] { "itemname", "productname", "materialname", "sku", "itemcode", "unit", "rate", "hsncode" } },
-            { ExcelImportModule.SupplierItemPrices, new[] { "vendorname", "itemname", "rate", "effectivedate", "ispreferred", "vendorid", "itemid" } },
+            { ExcelImportModule.SupplierItemPrices, new[] { "suppliername", "vendorname", "itemname", "rate", "effectivedate", "ispreferred", "supplierid", "vendorid", "itemid" } },
             { ExcelImportModule.Sites, new[] { "sitename", "clientname", "siteaddress", "location", "city" } },
             { ExcelImportModule.Employees, new[] { "employeename", "employeecode", "designation", "department", "salary", "phone" } },
             { ExcelImportModule.Invoices, new[] { "invoicenumber", "invoicedate", "taxamount", "totalamount", "duedate" } },
             { ExcelImportModule.Quotations, new[] { "quotationnumber", "validuntil", "bidvalue", "quotationdate", "description" } },
-            { ExcelImportModule.Purchases, new[] { "vendorname", "itemdescription", "quantity", "unitprice", "purchasedate" } },
+            { ExcelImportModule.Purchases, new[] { "suppliername", "vendorname", "itemdescription", "quantity", "unitprice", "purchasedate" } },
             { ExcelImportModule.Payments, new[] { "paymentdate", "invoice", "amountpaid", "paymentmode", "reference" } },
             { ExcelImportModule.Jobs, new[] { "jobtype", "technician", "scheduleddate", "priority", "description" } },
             { ExcelImportModule.AMC, new[] { "contractnumber", "amcnumber", "contractstartdate", "contractenddate", "contractvalue", "amctype", "equipmenttype" } }
@@ -583,7 +583,7 @@ namespace HVAC_Pro_Desktop.Services
             },
             { ExcelImportModule.Vendors, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
-                    { "VendorName", new[] { "Vendor Name", "Supplier Name", "Party Name", "Supplier", "Vendor" } },
+                    { "SupplierName", new[] { "Supplier Name", "Vendor Name", "Party Name", "Supplier", "Vendor" } },
                     { "ContactPerson", new[] { "Contact Person", "Primary Contact", "Owner" } },
                     { "Phone", new[] { "Mobile", "Phone", "Contact No" } },
                     { "Email", new[] { "Email", "Email ID" } },
@@ -611,8 +611,8 @@ namespace HVAC_Pro_Desktop.Services
                     { "ItemName", new[] { "Item Name", "Material Name", "Product Name", "ItemName_Matched", "ItemName_Source" } },
                     { "Category", new[] { "Category", "Item Category", "Category_Matched" } },
                     { "Unit", new[] { "Unit", "UOM", "Unit_Matched" } },
-                    { "VendorID", new[] { "Vendor ID", "Supplier ID", "VendorID_Matched", "Matched Vendor ID" } },
-                    { "VendorName", new[] { "Vendor Name", "Supplier Name", "VendorName_Matched", "SupplierName_Source", "Vendor" } },
+                    { "SupplierID", new[] { "Supplier ID", "Vendor ID", "VendorID_Matched", "Matched Vendor ID" } },
+                    { "SupplierName", new[] { "Supplier Name", "Vendor Name", "VendorName_Matched", "SupplierName_Source", "Vendor" } },
                     { "Rate", new[] { "Rate", "Unit Price", "SupplierItemPrice_Rate", "LastPurchaseRate_Suggested", "Last Purchase Rate" } },
                     { "EffectiveDate", new[] { "Effective Date", "EffectiveDate", "Price Date" } },
                     { "IsPreferred", new[] { "Preferred", "IsPreferred", "Is Preferred" } },
@@ -677,7 +677,7 @@ namespace HVAC_Pro_Desktop.Services
             { ExcelImportModule.Purchases, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
                     { "PurchaseDate", new[] { "Purchase Date", "PO Date", "Date" } },
-                    { "VendorName", new[] { "Vendor Name", "Supplier Name", "Vendor" } },
+                    { "SupplierName", new[] { "Supplier Name", "Vendor Name", "Vendor" } },
                     { "ItemDescription", new[] { "Item", "Description", "Material Name", "Product Name" } },
                     { "Quantity", new[] { "Qty", "Quantity", "Purchase Qty" } },
                     { "UnitPrice", new[] { "Unit Price", "Rate", "Price" } },

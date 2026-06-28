@@ -11,7 +11,7 @@ namespace HVAC_Pro_Desktop.Services.Validation
             var result = new ValidationResult();
             HashSet<string> actual = new HashSet<string>(actualHeaders ?? Enumerable.Empty<string>(), System.StringComparer.OrdinalIgnoreCase);
             foreach (string required in requiredHeaders ?? Enumerable.Empty<string>())
-                if (!actual.Contains(required))
+                if (!ExcelImportService.GetAcceptedHeaderNames(required).Any(actual.Contains))
                     result.Add(ValidationSeverity.Error, module, required, "Import file is missing required column: " + required, "Download the latest import template.");
             return result;
         }
