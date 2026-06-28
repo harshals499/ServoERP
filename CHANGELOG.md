@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.326.0 - 2026-06-28
+
+- Fixed the GitHub desktop release workflow so reruns for an already-published tagged commit exit cleanly instead of failing as a duplicate release.
+- Kept the release guard strict for new commits that reuse an already-published version, with clearer guidance to bump VERSION before shipping.
+
 ## 1.1.325.0 - 2026-06-28
 
 - Published the Suppliers duplicate-cleanup, global page refresh, larger Recent Suppliers card, and Invoices dashboard chart fixes as a client update.

@@ -52,12 +52,17 @@ jobs:
           .\scripts\Assert-GitHubReleaseVersion.ps1 `
             -Repository "${{ github.repository }}" `
             -CandidateVersion "$env:SERVO_VERSION" `
-            -Token "${{ secrets.GITHUB_TOKEN }}"
+            -Token "${{ secrets.GITHUB_TOKEN }}" `
+            -CurrentCommit "${{ github.sha }}" `
+            -GitHubEnvPath "$env:GITHUB_ENV" `
+            -AllowAlreadyPublishedCurrentCommit
 
       - name: Restore NuGet Packages
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         run: nuget restore $env:SOLUTION_PATH
 
       - name: Verify Restored Packages
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: |
           $expectedStub = "SOURCE_CODE\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118"
@@ -82,6 +87,7 @@ jobs:
           }
 
       - name: Build Release
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         run: >
           msbuild $env:SOLUTION_PATH
           /m
@@ -91,6 +97,7 @@ jobs:
           /p:OutDir="$env:GITHUB_WORKSPACE\artifacts\build\"
 
       - name: Run CI Smoke Tests
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: |
           .\scripts\Invoke-ServoSmokeTests.ps1 `
@@ -99,6 +106,7 @@ jobs:
             -AppPath "$env:GITHUB_WORKSPACE\artifacts\build\HVAC_Pro_Desktop.exe"
 
       - name: Prepare Publish Folder
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: |
           .\scripts\Prepare-VelopackPublish.ps1 `
@@ -110,9 +118,11 @@ jobs:
           }
 
       - name: Install Velopack CLI
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         run: dotnet tool install --global vpk --version $env:VPK_VERSION
 
       - name: Download Previous Velopack Release
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         continue-on-error: true
         run: >
@@ -122,6 +132,7 @@ jobs:
           --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
 
       - name: Pack Installer and Updates
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: >
           vpk pack
@@ -137,6 +148,7 @@ jobs:
           --exclude "(?i)(^|[\\/])(HVACPro\.config|.*\.servoerp-license|.*\.sqlite|.*\.mdf|.*\.ldf|logs?|database|updates?)([\\/]|$)"
 
       - name: Verify Velopack Artifacts
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: |
           .\scripts\Test-VelopackReleaseArtifacts.ps1 `
@@ -144,6 +156,7 @@ jobs:
             -ExpectedVersion "$env:SERVO_VERSION"
 
       - name: Upload Build Artifact
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         uses: actions/upload-artifact@v6
         with:
           name: ServoERP-${{ steps.version.outputs.version }}-win-x64
@@ -152,6 +165,7 @@ jobs:
             artifacts/velopack/**
 
       - name: Publish GitHub Release
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
         shell: pwsh
         run: >
           vpk upload github
