@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.322.0 - 2026-06-28
+
+- Reissued the Supplier-first import release as a new client update so machines and download pages advance past the previous 1.1.321 GitHub release.
+
 ## 1.1.321.0 - 2026-06-28
 
 - Made Master Data uploads Supplier-first by showing Suppliers in import dialogs, previews, generated templates, and upload cards while keeping legacy Vendor Excel columns accepted.

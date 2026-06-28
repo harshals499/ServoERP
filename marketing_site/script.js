@@ -13,14 +13,12 @@ navToggle?.addEventListener("click", () => {
   navToggle.setAttribute("aria-expanded", String(!expanded));
   header.classList.toggle("nav-open", !expanded);
 });
-
 document.querySelectorAll(".site-nav a").forEach((link) => {
   link.addEventListener("click", () => {
     navToggle?.setAttribute("aria-expanded", "false");
     header?.classList.remove("nav-open");
   });
 });
-
 if ("IntersectionObserver" in window) {
   const observer = new IntersectionObserver(
     (entries) => {
