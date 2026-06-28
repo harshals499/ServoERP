@@ -1,13 +1,17 @@
 param(
     [ValidateSet('CiSafe', 'BusinessSave', 'FullUi', 'Amc', 'Contracts', 'DashboardRecents', 'PurchaseViewButtons', 'InvoiceButton', 'PaymentButton', 'JobWorkflow')]
     [string[]]$Suite = @('CiSafe'),
-    [string]$Root = 'C:\HVAC_PRO_MSE',
+    [string]$Root,
     [string]$AppPath,
     [switch]$SkipBuild,
     [int]$TimeoutSeconds = 300
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($Root)) {
+    $Root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+}
 
 Write-Host 'ServoERP smoke tests use command-line switches rather than screen clicks.'
 Write-Host 'Use CiSafe for CI/no-SQL checks; use BusinessSave/Amc/FullUi only where the SQL environment is ready.'
