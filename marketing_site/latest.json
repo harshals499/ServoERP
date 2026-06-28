@@ -1,11 +1,11 @@
 ﻿{
-    "latestVersion":  "1.1.327.0",
+    "latestVersion":  "1.1.328.0",
     "minimumSupportedVersion":  "1.0.0.0",
     "versionUrl":  "https://servoerp.in/version.txt",
     "notes":  "ServoERP release package and installer are available for this version.",
-    "updatedAt":  "2026-06-28T17:22:51Z",
+    "updatedAt":  "2026-06-28T18:11:38Z",
     "downloadAvailable":  true,
     "updateAvailable":  true,
-    "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.327/ServoERP.Desktop-1.1.327-full.nupkg",
-    "installerUrl":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.327.0.exe"
+    "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.328/ServoERP.Desktop-1.1.328-full.nupkg",
+    "installerUrl":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.328.0.exe"
 }
