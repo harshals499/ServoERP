@@ -17,6 +17,7 @@ namespace HVAC_Pro_Desktop.Services
     {
         public DateTime? DateFrom { get; set; }
         public DateTime? DateTo { get; set; }
+        public string CompanyName { get; set; }
         public QuotationAnalyticsGrouping Grouping { get; set; } = QuotationAnalyticsGrouping.Week;
     }
 
@@ -27,6 +28,7 @@ namespace HVAC_Pro_Desktop.Services
         public DateTime DateTo { get; set; }
         public QuotationAnalyticsGrouping Grouping { get; set; }
         public QuotationKpiSet Kpis { get; set; } = new QuotationKpiSet();
+        public List<string> Companies { get; set; } = new List<string>();
         public List<QuotationOverviewPoint> Overview { get; set; } = new List<QuotationOverviewPoint>();
         public List<QuotationStatusSlice> Statuses { get; set; } = new List<QuotationStatusSlice>();
         public List<QuotationFunnelStage> Funnel { get; set; } = new List<QuotationFunnelStage>();
@@ -182,8 +184,10 @@ namespace HVAC_Pro_Desktop.Services
 
             DateTime from = filter.DateFrom.Value.Date;
             DateTime to = filter.DateTo.Value.Date;
+            string company = Clean(filter.CompanyName, string.Empty);
             List<TenderBid> current = allQuotations
                 .Where(q => QuoteDate(q).Date >= from && QuoteDate(q).Date <= to)
+                .Where(q => string.IsNullOrWhiteSpace(company) || string.Equals(Clean(q.ClientName, string.Empty), company, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             int days = Math.Max(1, (to - from).Days + 1);
@@ -200,6 +204,12 @@ namespace HVAC_Pro_Desktop.Services
                 DateTo = to,
                 Grouping = filter.Grouping
             };
+            snapshot.Companies = allQuotations
+                .Select(q => Clean(q.ClientName, string.Empty))
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(c => c)
+                .ToList();
 
             BuildKpis(snapshot, current, previous, today);
             snapshot.Overview = BuildOverview(current, filter.Grouping, from, to);

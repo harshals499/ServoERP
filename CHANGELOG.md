@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.334.0 - 2026-06-29
+
+- Simplified the Quotations dashboard to only show Recent Quotations and the Quotation Value Sent chart.
+- Added dashboard filters for company and 1, 2, 3, or 12 month ranges.
+- Added smoke coverage for the quotation dashboard company filter.
+
 ## 1.1.333.0 - 2026-06-29
 
 - Fixed Zydus-style MSE quotations whose item table uses `Quantity` instead of `Qty`, so all supplied Zydus quotation workbooks are recognized as native quotations.

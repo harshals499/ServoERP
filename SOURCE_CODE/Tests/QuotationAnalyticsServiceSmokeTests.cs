@@ -59,6 +59,16 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Insights should include overdue follow-up counts.");
             passed.Add("quotation charts, tables, funnel, line-item analytics, and alerts are derived from quotation data");
 
+            QuotationDashboardSnapshot companyFiltered = service.BuildSnapshot(
+                quotations,
+                new QuotationAnalyticsFilter { DateFrom = new DateTime(2026, 5, 1), DateTo = new DateTime(2026, 5, 31), CompanyName = "Alpha Cooling", Grouping = QuotationAnalyticsGrouping.Month },
+                today);
+            if (companyFiltered.Kpis.TotalQuotations.Value != 2 || companyFiltered.Kpis.TotalValue.Value != 206500m)
+                throw new InvalidOperationException("Quotation company filter should restrict dashboard totals to the selected company.");
+            if (companyFiltered.RecentQuotations.Any(q => !string.Equals(q.ClientName, "Alpha Cooling", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidOperationException("Quotation company filter should restrict recent quotation rows to the selected company.");
+            passed.Add("quotation dashboard company filter restricts chart totals and recent quotation rows");
+
             QuotationDashboardSnapshot empty = service.BuildSnapshot(
                 new List<TenderBid>(),
                 new QuotationAnalyticsFilter { DateFrom = new DateTime(2026, 5, 1), DateTo = new DateTime(2026, 5, 31) },
