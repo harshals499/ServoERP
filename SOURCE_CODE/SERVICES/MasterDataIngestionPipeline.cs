@@ -458,18 +458,14 @@ namespace HVAC_Pro_Desktop.Services
             if (sheet == null || sheet.Dimension == null)
                 return null;
 
-            int headerRow = FindItemHeaderRow(sheet);
-            if (headerRow <= 0)
+            MseQuotationColumnMap columns = FindItemColumns(sheet);
+            if (columns == null)
                 return null;
 
             string quotationNumber = ExtractAfterLabel(FindCellContaining(sheet, "Quotation No"), "Quotation No");
             string quotationDate = ExtractAfterLabel(FindCellContaining(sheet, "Quotation Date"), "Quotation Date");
             string subject = Clean(FindCellContaining(sheet, "Sub:"));
-            string clientBlock = Clean(Convert.ToString(sheet.Cells[headerRow - 3, 1].Value, CultureInfo.InvariantCulture));
-            if (string.IsNullOrWhiteSpace(clientBlock))
-                clientBlock = Clean(FindCellContaining(sheet, "To,"));
-
-            string clientName = FirstNonEmptyLine(clientBlock);
+            string clientName = ExtractClientName(sheet, columns.HeaderRow);
             if (string.IsNullOrWhiteSpace(quotationNumber) || string.IsNullOrWhiteSpace(clientName) || string.IsNullOrWhiteSpace(subject))
                 return null;
 
@@ -482,7 +478,7 @@ namespace HVAC_Pro_Desktop.Services
                 gstRate = 18m;
             decimal amount = totalWithGst > 0m ? totalWithGst : taxableTotal;
 
-            List<Dictionary<string, string>> rows = BuildLineRows(sheet, headerRow, quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate);
+            List<Dictionary<string, string>> rows = BuildLineRows(sheet, columns, quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate);
             decimal derivedTaxableTotal = rows.Sum(row => ParseDecimal(row, "LineAmount"));
             if (taxableTotal <= 0m && derivedTaxableTotal > 0m)
                 taxableTotal = derivedTaxableTotal;
@@ -502,7 +498,7 @@ namespace HVAC_Pro_Desktop.Services
                 Module = ExcelImportModule.Quotations,
                 SheetName = sheet.Name,
                 Confidence = 96,
-                SourceRowCount = Math.Max(0, sheet.Dimension.End.Row - headerRow),
+                SourceRowCount = Math.Max(0, sheet.Dimension.End.Row - columns.HeaderRow),
                 Message = "Recognized MSE printable quotation layout and extracted quotation header, totals, GST, and item lines."
             };
             data.SourceHeaders.AddRange(new[] { "Quotation No", "Quotation Date", "To", "Sub", "Description", "Unit", "Qty", "Rate", "Amount", "CGST", "SGST", "Total" });
@@ -529,27 +525,29 @@ namespace HVAC_Pro_Desktop.Services
             return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out parsed) ? parsed : 0m;
         }
 
-        private static List<Dictionary<string, string>> BuildLineRows(ExcelWorksheet sheet, int headerRow, string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate)
+        private static List<Dictionary<string, string>> BuildLineRows(ExcelWorksheet sheet, MseQuotationColumnMap columns, string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate)
         {
             var rows = new List<Dictionary<string, string>>();
             string section = string.Empty;
-            for (int row = headerRow + 1; row <= sheet.Dimension.End.Row; row++)
+            for (int row = columns.FirstDataRow; row <= sheet.Dimension.End.Row; row++)
             {
                 string label = Clean(Convert.ToString(sheet.Cells[row, 1].Value, CultureInfo.InvariantCulture));
-                if (label.StartsWith("Total", StringComparison.OrdinalIgnoreCase))
+                if (IsTotalRow(sheet, row))
                     break;
 
-                string description = Clean(Convert.ToString(sheet.Cells[row, 2].Value, CultureInfo.InvariantCulture));
-                string unit = Clean(Convert.ToString(sheet.Cells[row, 3].Value, CultureInfo.InvariantCulture));
-                decimal qty = ToDecimal(sheet.Cells[row, 4].Value);
-                decimal rate = ToDecimal(sheet.Cells[row, 5].Value);
-                decimal lineAmount = ToDecimal(sheet.Cells[row, 6].Value);
-                if (rate <= 0m)
-                    rate = ToDecimal(sheet.Cells[row, 9].Value);
+                string description = Clean(Convert.ToString(sheet.Cells[row, columns.DescriptionColumn].Value, CultureInfo.InvariantCulture));
+                string unit = Clean(Convert.ToString(sheet.Cells[row, columns.UnitColumn].Value, CultureInfo.InvariantCulture));
+                decimal qty = ToDecimal(sheet.Cells[row, columns.QuantityColumn].Value);
+                decimal rate = ToDecimal(sheet.Cells[row, columns.RateColumn].Value);
+                decimal lineAmount = ToDecimal(sheet.Cells[row, columns.AmountColumn].Value);
+                if (columns.SecondaryAmountColumn > 0)
+                    lineAmount += ToDecimal(sheet.Cells[row, columns.SecondaryAmountColumn].Value);
+                if (rate <= 0m && columns.SecondaryRateColumn > 0)
+                    rate = ToDecimal(sheet.Cells[row, columns.SecondaryRateColumn].Value);
                 if (rate <= 0m)
                 {
-                    decimal supplierBaseRate = ToDecimal(sheet.Cells[row, 8].Value);
-                    decimal supplierMultiplier = ToDecimal(sheet.Cells[headerRow, 9].Value);
+                    decimal supplierBaseRate = ToDecimal(sheet.Cells[row, Math.Min(sheet.Dimension.End.Column, Math.Max(columns.AmountColumn + 2, 8))].Value);
+                    decimal supplierMultiplier = ToDecimal(sheet.Cells[columns.HeaderRow, Math.Min(sheet.Dimension.End.Column, Math.Max(columns.AmountColumn + 3, 9))].Value);
                     if (supplierBaseRate > 0m && supplierMultiplier > 0m)
                         rate = supplierBaseRate * supplierMultiplier;
                 }
@@ -601,19 +599,149 @@ namespace HVAC_Pro_Desktop.Services
             };
         }
 
-        private static int FindItemHeaderRow(ExcelWorksheet sheet)
+        private static MseQuotationColumnMap FindItemColumns(ExcelWorksheet sheet)
         {
-            for (int row = 1; row <= Math.Min(sheet.Dimension.End.Row, 30); row++)
+            for (int row = 1; row <= Math.Min(sheet.Dimension.End.Row, 80); row++)
             {
-                if (Contains(sheet.Cells[row, 2].Value, "Description") &&
-                    Contains(sheet.Cells[row, 3].Value, "Unit") &&
-                    Contains(sheet.Cells[row, 4].Value, "Qty") &&
-                    Contains(sheet.Cells[row, 5].Value, "Rate") &&
-                    Contains(sheet.Cells[row, 6].Value, "Amount"))
-                    return row;
+                int descriptionCol = FindColumnContaining(sheet, row, "Description");
+                if (descriptionCol <= 0)
+                    continue;
+
+                int unitCol = FirstPositive(FindColumnContaining(sheet, row, "UOM"), FindColumnContaining(sheet, row, "Unit"));
+                int qtyCol = FindColumnContaining(sheet, row, "Qty");
+                int rateCol = FindColumnContaining(sheet, row, "Rate");
+                int amountCol = FindColumnContaining(sheet, row, "Amount");
+                if (unitCol > 0 && qtyCol > 0 && rateCol > 0 && amountCol > 0)
+                {
+                    return new MseQuotationColumnMap
+                    {
+                        HeaderRow = row,
+                        FirstDataRow = row + 1,
+                        DescriptionColumn = descriptionCol,
+                        UnitColumn = unitCol,
+                        QuantityColumn = qtyCol,
+                        RateColumn = rateCol,
+                        AmountColumn = amountCol
+                    };
+                }
+
+                int supplyCol = FindColumnContaining(sheet, row, "Supply");
+                int installationCol = FindColumnContaining(sheet, row, "Installation");
+                int nextRateCol = FindColumnContaining(sheet, row + 1, "Rate");
+                int nextAmountCol = FindColumnContaining(sheet, row + 1, "Amount");
+                if (unitCol > 0 && qtyCol > 0 && supplyCol > 0 && installationCol > 0 && nextRateCol > 0 && nextAmountCol > 0)
+                {
+                    int secondaryRateCol = FindColumnContaining(sheet, row + 1, "Rate", nextRateCol + 1);
+                    int secondaryAmountCol = FindColumnContaining(sheet, row + 1, "Amount", nextAmountCol + 1);
+                    return new MseQuotationColumnMap
+                    {
+                        HeaderRow = row,
+                        FirstDataRow = row + 2,
+                        DescriptionColumn = descriptionCol,
+                        UnitColumn = unitCol,
+                        QuantityColumn = qtyCol,
+                        RateColumn = nextRateCol,
+                        AmountColumn = nextAmountCol,
+                        SecondaryRateColumn = secondaryRateCol,
+                        SecondaryAmountColumn = secondaryAmountCol
+                    };
+                }
+            }
+
+            return null;
+        }
+
+        private static int FindColumnContaining(ExcelWorksheet sheet, int row, string text, int startColumn = 1)
+        {
+            if (row <= 0 || row > sheet.Dimension.End.Row)
+                return 0;
+
+            for (int col = Math.Max(1, startColumn); col <= sheet.Dimension.End.Column; col++)
+            {
+                if (Contains(sheet.Cells[row, col].Value, text))
+                    return col;
             }
 
             return 0;
+        }
+
+        private static int FirstPositive(params int[] values)
+        {
+            foreach (int value in values)
+                if (value > 0)
+                    return value;
+            return 0;
+        }
+
+        private static string ExtractClientName(ExcelWorksheet sheet, int headerRow)
+        {
+            int toRow = 0;
+            for (int row = 1; row < headerRow; row++)
+            {
+                string value = Clean(Convert.ToString(sheet.Cells[row, 1].Value, CultureInfo.InvariantCulture));
+                if (IsToLabel(value))
+                {
+                    toRow = row;
+                    break;
+                }
+            }
+
+            if (toRow > 0)
+            {
+                for (int row = toRow + 1; row < headerRow; row++)
+                {
+                    string value = Convert.ToString(sheet.Cells[row, 1].Value, CultureInfo.InvariantCulture);
+                    string client = FirstClientLine(value);
+                    if (!string.IsNullOrWhiteSpace(client))
+                        return client;
+                }
+            }
+
+            for (int row = Math.Max(1, headerRow - 6); row < headerRow; row++)
+            {
+                string value = Convert.ToString(sheet.Cells[row, 1].Value, CultureInfo.InvariantCulture);
+                string client = FirstClientLine(value);
+                if (!string.IsNullOrWhiteSpace(client))
+                    return client;
+            }
+
+            return FirstClientLine(FindCellContaining(sheet, "To,"));
+        }
+
+        private static string FirstClientLine(string value)
+        {
+            return (value ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(Clean)
+                .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line) && !IsClientLabelOrHeader(line)) ?? string.Empty;
+        }
+
+        private static bool IsClientLabelOrHeader(string value)
+        {
+            string normalized = NormalizeLabel(value);
+            return normalized == "TO" ||
+                   normalized == "QUOTATION" ||
+                   normalized == "FROM" ||
+                   normalized.StartsWith("QUOTATIONNO", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.StartsWith("QUOTATIONDATE", StringComparison.OrdinalIgnoreCase) ||
+                   normalized.StartsWith("SUB", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsToLabel(string value)
+        {
+            return NormalizeLabel(value) == "TO";
+        }
+
+        private static bool IsTotalRow(ExcelWorksheet sheet, int row)
+        {
+            for (int col = 1; col <= Math.Min(sheet.Dimension.End.Column, 3); col++)
+            {
+                string value = Clean(Convert.ToString(sheet.Cells[row, col].Value, CultureInfo.InvariantCulture));
+                if (value.StartsWith("Total", StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
         }
 
         private static string FindCellContaining(ExcelWorksheet sheet, string text)
@@ -661,14 +789,6 @@ namespace HVAC_Pro_Desktop.Services
             return value.Trim(' ', ':', '-');
         }
 
-        private static string FirstNonEmptyLine(string value)
-        {
-            return (value ?? string.Empty)
-                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(Clean)
-                .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line)) ?? string.Empty;
-        }
-
         private static string Clean(string value)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -676,6 +796,11 @@ namespace HVAC_Pro_Desktop.Services
             string cleaned = Regex.Replace(value, @"[\u0000-\u001F]+", " ");
             cleaned = cleaned.Replace('\u00A0', ' ');
             return Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+        }
+
+        private static string NormalizeLabel(string value)
+        {
+            return new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
         }
 
         private static decimal ToDecimal(object value)
@@ -711,6 +836,19 @@ namespace HVAC_Pro_Desktop.Services
             return DateTime.TryParseExact(dateValue, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed)
                 ? parsed.AddDays(days).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
                 : DateTime.Today.AddDays(days).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+
+        private sealed class MseQuotationColumnMap
+        {
+            public int HeaderRow { get; set; }
+            public int FirstDataRow { get; set; }
+            public int DescriptionColumn { get; set; }
+            public int UnitColumn { get; set; }
+            public int QuantityColumn { get; set; }
+            public int RateColumn { get; set; }
+            public int AmountColumn { get; set; }
+            public int SecondaryRateColumn { get; set; }
+            public int SecondaryAmountColumn { get; set; }
         }
     }
 

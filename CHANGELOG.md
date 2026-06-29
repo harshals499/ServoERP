@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.331.0 - 2026-06-29
+
+- Fixed MSE quotation imports so label-only cells like `To,` are never saved as the client name; the parser now reads the real client block below the label.
+- Added support for MSE quotation variants that include HSN/UOM columns and two-row BOQ supply/installation grids.
+- Hardened the quotation import smoke test to verify the parsed client name and allow real small quotations with fewer item rows.
+
 ## 1.1.330.0 - 2026-06-29
 
 - Published the MSE printable quotation workbook import support as a client update so uploaded quotation files become native ServoERP quotations with item lines and GST totals.

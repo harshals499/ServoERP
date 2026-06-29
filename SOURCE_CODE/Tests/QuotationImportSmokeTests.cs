@@ -55,13 +55,17 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Expected quotation module, detected " + preview.DetectedModule + ".");
             if (preview.DetectionConfidence < 90)
                 throw new InvalidOperationException("Expected high-confidence MSE quotation detection.");
-            if (preview.CanonicalRowCount < 5)
+            if (preview.CanonicalRowCount < 1)
                 throw new InvalidOperationException("Expected item lines from the MSE quotation grid.");
 
             Dictionary<string, string> first = preview.SampleRows.FirstOrDefault();
             string quoteNumber = first != null && first.TryGetValue("QuotationNumber", out string number) ? number : string.Empty;
             if (string.IsNullOrWhiteSpace(quoteNumber))
                 throw new InvalidOperationException("Preview did not expose a quotation number.");
+            string clientName = first != null && first.TryGetValue("ClientName", out string client) ? client : string.Empty;
+            lines.Add("Preview client: " + clientName);
+            if (IsBadClientName(clientName))
+                throw new InvalidOperationException("Preview mapped a label instead of the client name: " + clientName);
 
             AutomatedImportResult result = pipeline.ImportFile(filePath, ExcelImportModule.Quotations, "Sent to Clients");
             lines.Add("Import success rows: " + result.SuccessCount);
@@ -78,6 +82,12 @@ namespace HVAC_Pro_Desktop.Tests
 
             VerifySavedQuotation(quoteNumber, preview.CanonicalRowCount, lines);
             lines.Add("PASS MSE quotation workbook imported and saved with line items.");
+        }
+
+        private static bool IsBadClientName(string value)
+        {
+            string normalized = new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(normalized) || normalized == "TO" || normalized == "QUOTATION" || normalized == "FROM";
         }
 
         private static void VerifySavedQuotation(string quotationNumber, int expectedLineCount, List<string> lines)
