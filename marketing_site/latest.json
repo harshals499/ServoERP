@@ -1,11 +1,11 @@
 {
-  "latestVersion": "1.1.331.0",
+  "latestVersion": "1.1.332.0",
   "minimumSupportedVersion": "1.0.0.0",
   "versionUrl": "https://servoerp.in/version.txt",
-  "notes": "MSE quotation client-name parsing fix is now published for client update.",
-  "updatedAt": "2026-06-29T10:28:08Z",
+  "notes": "Master Data folder import is now published for client update.",
+  "updatedAt": "2026-06-29T10:50:17Z",
   "downloadAvailable": true,
   "updateAvailable": true,
-  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.331/ServoERP.Desktop-1.1.331-full.nupkg",
-  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.331.0.exe"
+  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.332/ServoERP.Desktop-1.1.332-full.nupkg",
+  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.332.0.exe"
 }
