@@ -1,11 +1,11 @@
-﻿{
-    "latestVersion":  "1.1.328.0",
-    "minimumSupportedVersion":  "1.0.0.0",
-    "versionUrl":  "https://servoerp.in/version.txt",
-    "notes":  "ServoERP release package and installer are available for this version.",
-    "updatedAt":  "2026-06-28T18:11:38Z",
-    "downloadAvailable":  true,
-    "updateAvailable":  true,
-    "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.328/ServoERP.Desktop-1.1.328-full.nupkg",
-    "installerUrl":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.328.0.exe"
+{
+  "latestVersion": "1.1.330.0",
+  "minimumSupportedVersion": "1.0.0.0",
+  "versionUrl": "https://servoerp.in/version.txt",
+  "notes": "MSE printable quotation workbook import support is now published for client update.",
+  "updatedAt": "2026-06-29T09:20:54Z",
+  "downloadAvailable": true,
+  "updateAvailable": true,
+  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.330/ServoERP.Desktop-1.1.330-full.nupkg",
+  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.330.0.exe"
 }
