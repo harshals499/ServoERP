@@ -50,6 +50,7 @@ namespace HVAC_Pro_Desktop.Services
         public bool UseTransaction { get; set; } = true;
         public ExcelImportDiagnostics Diagnostics { get; set; }
         public string QuotationImportDirection { get; set; }
+        internal HashSet<string> QuotationLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class ExcelImportDiagnostics
@@ -84,6 +85,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly DataCleaningService _cleaner = new DataCleaningService();
         private readonly ImportAuditLogService _audit = new ImportAuditLogService();
         private readonly ExcelImportService _importService = new ExcelImportService();
+        private readonly MseQuotationLayoutParser _mseQuotationParser = new MseQuotationLayoutParser();
 
         public AutomatedImportResult ImportFile(string filePath, ExcelImportModule? preferredModule = null)
         {
@@ -94,6 +96,10 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 throw new FileNotFoundException("Import file was not found.", filePath);
+
+            SpecializedImportData specialized = TryReadSpecializedQuotation(filePath, preferredModule);
+            if (specialized != null)
+                return BuildSpecializedPreview(specialized);
 
             ExcelWorkbookImportData workbook = _reader.Read(filePath);
             DataTypeDetectionResult detection = _detector.Detect(workbook, preferredModule);
@@ -152,6 +158,10 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 throw new FileNotFoundException("Import file was not found.", filePath);
+
+            SpecializedImportData specialized = TryReadSpecializedQuotation(filePath, preferredModule);
+            if (specialized != null)
+                return ImportSpecialized(filePath, specialized, quotationImportDirection);
 
             ExcelWorkbookImportData workbook = _reader.Read(filePath);
             DataTypeDetectionResult detection = _detector.Detect(workbook, preferredModule);
@@ -234,6 +244,99 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
+        private SpecializedImportData TryReadSpecializedQuotation(string filePath, ExcelImportModule? preferredModule)
+        {
+            if (preferredModule.HasValue && preferredModule.Value != ExcelImportModule.Quotations)
+                return null;
+
+            return _mseQuotationParser.TryParse(filePath);
+        }
+
+        private AutomatedImportPreview BuildSpecializedPreview(SpecializedImportData specialized)
+        {
+            var preview = new AutomatedImportPreview
+            {
+                DetectedModule = specialized.Module,
+                DetectedSheetName = specialized.SheetName,
+                DetectionConfidence = specialized.Confidence,
+                SourceRowCount = specialized.SourceRowCount,
+                CanonicalRowCount = specialized.Rows.Count,
+                RequiresPreflight = false
+            };
+
+            preview.SourceHeaders.AddRange(specialized.SourceHeaders);
+            foreach (string header in ExcelImportService.GetHeaders(specialized.Module))
+                preview.ColumnMappings[header] = header;
+            foreach (Dictionary<string, string> row in specialized.Rows.Take(8))
+                preview.SampleRows.Add(new Dictionary<string, string>(row, StringComparer.OrdinalIgnoreCase));
+            preview.UserMessages.Add(specialized.Message);
+            preview.UserMessages.Add("Missing clients can be created during import from this recognized quotation layout.");
+            return preview;
+        }
+
+        private AutomatedImportResult ImportSpecialized(string filePath, SpecializedImportData specialized, string quotationImportDirection)
+        {
+            int batchId = _audit.StartBatch(specialized.Module.ToString(), filePath, specialized.SheetName, specialized.Confidence, specialized.IdentityMappings());
+            string stagedFile = null;
+            try
+            {
+                stagedFile = WriteCanonicalWorkbook(specialized.Module, specialized.Rows);
+                var diagnostics = new ExcelImportDiagnostics();
+                ExcelImportResult import = _importService.Import(specialized.Module, stagedFile, new ExcelImportExecutionOptions
+                {
+                    SkipPreflight = true,
+                    AutoResolveReferences = true,
+                    UseTransaction = true,
+                    Diagnostics = diagnostics,
+                    QuotationImportDirection = quotationImportDirection
+                });
+
+                var detection = new DataTypeDetectionResult
+                {
+                    Module = specialized.Module,
+                    Sheet = new ExcelSheetImportData { Name = specialized.SheetName },
+                    Confidence = specialized.Confidence
+                };
+                var mapping = new ColumnMappingResult();
+                foreach (string header in ExcelImportService.GetHeaders(specialized.Module))
+                    mapping.MappedColumns[header] = header;
+
+                _audit.LogErrors(batchId, import.Errors);
+                _audit.CompleteBatch(batchId, import.SuccessCount + import.SkippedCount, import.SuccessCount, import.SkippedCount, detection, mapping, diagnostics, specialized.Rows.Count, import.Errors);
+
+                var result = new AutomatedImportResult
+                {
+                    BatchId = batchId,
+                    DetectedModule = specialized.Module,
+                    DetectedSheetName = specialized.SheetName,
+                    DetectionConfidence = specialized.Confidence,
+                    SuccessCount = import.SuccessCount,
+                    SkippedCount = import.SkippedCount,
+                    SummaryTitle = "Import complete"
+                };
+
+                foreach (string header in ExcelImportService.GetHeaders(specialized.Module))
+                    result.ColumnMappings[header] = header;
+                foreach (string line in diagnostics.BuildSummaryLines())
+                    result.CreatedDefaults.Add(line);
+                result.UserMessages.Add(import.SuccessCount + " quotation line(s) imported or refreshed from the MSE quotation format.");
+                result.UserMessages.Add(specialized.Message);
+                if (import.SkippedCount > 0)
+                    result.UserMessages.Add(import.SkippedCount + " rows were skipped safely.");
+                result.Errors.AddRange(import.Errors.Take(20));
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _audit.FailBatch(batchId, ex);
+                throw;
+            }
+            finally
+            {
+                TryDelete(stagedFile);
+            }
+        }
+
         private List<Dictionary<string, string>> BuildCanonicalRows(ExcelImportModule module, ExcelSheetImportData sheet, ColumnMappingResult mapping)
         {
             var rows = new List<Dictionary<string, string>>();
@@ -308,6 +411,307 @@ namespace HVAC_Pro_Desktop.Services
     internal sealed class ExcelWorkbookImportData
     {
         public List<ExcelSheetImportData> Sheets { get; } = new List<ExcelSheetImportData>();
+    }
+
+    internal sealed class SpecializedImportData
+    {
+        public ExcelImportModule Module { get; set; }
+        public string SheetName { get; set; }
+        public int Confidence { get; set; }
+        public int SourceRowCount { get; set; }
+        public string Message { get; set; }
+        public List<string> SourceHeaders { get; } = new List<string>();
+        public List<Dictionary<string, string>> Rows { get; } = new List<Dictionary<string, string>>();
+
+        public Dictionary<string, string> IdentityMappings()
+        {
+            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string header in ExcelImportService.GetHeaders(Module))
+                map[header] = header;
+            return map;
+        }
+    }
+
+    internal sealed class MseQuotationLayoutParser
+    {
+        public SpecializedImportData TryParse(string filePath)
+        {
+            if (!Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            {
+                package.Workbook.Calculate();
+                foreach (ExcelWorksheet sheet in package.Workbook.Worksheets)
+                {
+                    SpecializedImportData parsed = TryParseSheet(sheet);
+                    if (parsed != null)
+                        return parsed;
+                }
+            }
+
+            return null;
+        }
+
+        private static SpecializedImportData TryParseSheet(ExcelWorksheet sheet)
+        {
+            if (sheet == null || sheet.Dimension == null)
+                return null;
+
+            int headerRow = FindItemHeaderRow(sheet);
+            if (headerRow <= 0)
+                return null;
+
+            string quotationNumber = ExtractAfterLabel(FindCellContaining(sheet, "Quotation No"), "Quotation No");
+            string quotationDate = ExtractAfterLabel(FindCellContaining(sheet, "Quotation Date"), "Quotation Date");
+            string subject = Clean(FindCellContaining(sheet, "Sub:"));
+            string clientBlock = Clean(Convert.ToString(sheet.Cells[headerRow - 3, 1].Value, CultureInfo.InvariantCulture));
+            if (string.IsNullOrWhiteSpace(clientBlock))
+                clientBlock = Clean(FindCellContaining(sheet, "To,"));
+
+            string clientName = FirstNonEmptyLine(clientBlock);
+            if (string.IsNullOrWhiteSpace(quotationNumber) || string.IsNullOrWhiteSpace(clientName) || string.IsNullOrWhiteSpace(subject))
+                return null;
+
+            decimal taxableTotal = FindAmountByLabel(sheet, "Total Amount");
+            decimal totalWithGst = FindAmountByLabel(sheet, "Total Rs");
+            decimal cgst = FindAmountByLabel(sheet, "CGST");
+            decimal sgst = FindAmountByLabel(sheet, "SGST");
+            decimal gstRate = taxableTotal > 0m ? Math.Round(((cgst + sgst) / taxableTotal) * 100m, 2) : 18m;
+            if (gstRate <= 0m)
+                gstRate = 18m;
+            decimal amount = totalWithGst > 0m ? totalWithGst : taxableTotal;
+
+            List<Dictionary<string, string>> rows = BuildLineRows(sheet, headerRow, quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate);
+            decimal derivedTaxableTotal = rows.Sum(row => ParseDecimal(row, "LineAmount"));
+            if (taxableTotal <= 0m && derivedTaxableTotal > 0m)
+                taxableTotal = derivedTaxableTotal;
+            if (amount <= 0m && taxableTotal > 0m)
+                amount = Math.Round(taxableTotal * (1m + (gstRate / 100m)), 2);
+            if (rows.Count == 0)
+            {
+                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, subject, 1m, "Nos", taxableTotal > 0m ? taxableTotal : amount));
+            }
+            else
+            {
+                ApplyQuotationTotals(rows, amount, taxableTotal);
+            }
+
+            var data = new SpecializedImportData
+            {
+                Module = ExcelImportModule.Quotations,
+                SheetName = sheet.Name,
+                Confidence = 96,
+                SourceRowCount = Math.Max(0, sheet.Dimension.End.Row - headerRow),
+                Message = "Recognized MSE printable quotation layout and extracted quotation header, totals, GST, and item lines."
+            };
+            data.SourceHeaders.AddRange(new[] { "Quotation No", "Quotation Date", "To", "Sub", "Description", "Unit", "Qty", "Rate", "Amount", "CGST", "SGST", "Total" });
+            data.Rows.AddRange(rows);
+            return data;
+        }
+
+        private static void ApplyQuotationTotals(List<Dictionary<string, string>> rows, decimal amount, decimal taxableTotal)
+        {
+            foreach (Dictionary<string, string> row in rows)
+            {
+                row["Amount"] = amount.ToString("0.##", CultureInfo.InvariantCulture);
+                row["TaxableAmount"] = taxableTotal.ToString("0.##", CultureInfo.InvariantCulture);
+                row["Notes"] = "Imported from MSE quotation workbook | Taxable total: " + taxableTotal.ToString("0.##", CultureInfo.InvariantCulture);
+            }
+        }
+
+        private static decimal ParseDecimal(Dictionary<string, string> row, string key)
+        {
+            if (row == null || !row.TryGetValue(key, out string value))
+                return 0m;
+
+            decimal parsed;
+            return decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out parsed) ? parsed : 0m;
+        }
+
+        private static List<Dictionary<string, string>> BuildLineRows(ExcelWorksheet sheet, int headerRow, string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate)
+        {
+            var rows = new List<Dictionary<string, string>>();
+            string section = string.Empty;
+            for (int row = headerRow + 1; row <= sheet.Dimension.End.Row; row++)
+            {
+                string label = Clean(Convert.ToString(sheet.Cells[row, 1].Value, CultureInfo.InvariantCulture));
+                if (label.StartsWith("Total", StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                string description = Clean(Convert.ToString(sheet.Cells[row, 2].Value, CultureInfo.InvariantCulture));
+                string unit = Clean(Convert.ToString(sheet.Cells[row, 3].Value, CultureInfo.InvariantCulture));
+                decimal qty = ToDecimal(sheet.Cells[row, 4].Value);
+                decimal rate = ToDecimal(sheet.Cells[row, 5].Value);
+                decimal lineAmount = ToDecimal(sheet.Cells[row, 6].Value);
+                if (rate <= 0m)
+                    rate = ToDecimal(sheet.Cells[row, 9].Value);
+                if (rate <= 0m)
+                {
+                    decimal supplierBaseRate = ToDecimal(sheet.Cells[row, 8].Value);
+                    decimal supplierMultiplier = ToDecimal(sheet.Cells[headerRow, 9].Value);
+                    if (supplierBaseRate > 0m && supplierMultiplier > 0m)
+                        rate = supplierBaseRate * supplierMultiplier;
+                }
+                if (lineAmount <= 0m && qty > 0m && rate > 0m)
+                    lineAmount = qty * rate;
+
+                if (!string.IsNullOrWhiteSpace(description) && string.IsNullOrWhiteSpace(unit) && qty <= 0m && rate <= 0m && lineAmount <= 0m)
+                {
+                    section = description;
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(description) || qty <= 0m || (rate <= 0m && lineAmount <= 0m))
+                    continue;
+
+                if (!string.IsNullOrWhiteSpace(section))
+                    description = section + " - " + description;
+
+                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, description, qty, string.IsNullOrWhiteSpace(unit) ? "Nos" : unit, lineAmount > 0m ? lineAmount : qty * rate));
+            }
+
+            return rows;
+        }
+
+        private static Dictionary<string, string> CreateRow(string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate, string lineDescription, decimal qty, string unit, decimal lineAmount)
+        {
+            string notes = "Imported from MSE quotation workbook";
+            if (taxableTotal > 0m)
+                notes += " | Taxable total: " + taxableTotal.ToString("0.##", CultureInfo.InvariantCulture);
+
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "QuotationNumber", quotationNumber },
+                { "QuotationDate", NormalizeDate(quotationDate) },
+                { "ClientName", clientName },
+                { "SiteName", string.Empty },
+                { "Description", subject },
+                { "Amount", amount.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "TaxableAmount", taxableTotal.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "Status", "Draft" },
+                { "ValidUntil", ShiftDate(NormalizeDate(quotationDate), 7) },
+                { "LineDescription", lineDescription },
+                { "LineQuantity", qty.ToString("0.###", CultureInfo.InvariantCulture) },
+                { "LineUnit", unit },
+                { "LineRate", qty > 0m ? (lineAmount / qty).ToString("0.##", CultureInfo.InvariantCulture) : lineAmount.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "LineAmount", lineAmount.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "LineGSTRate", gstRate.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "Notes", notes }
+            };
+        }
+
+        private static int FindItemHeaderRow(ExcelWorksheet sheet)
+        {
+            for (int row = 1; row <= Math.Min(sheet.Dimension.End.Row, 30); row++)
+            {
+                if (Contains(sheet.Cells[row, 2].Value, "Description") &&
+                    Contains(sheet.Cells[row, 3].Value, "Unit") &&
+                    Contains(sheet.Cells[row, 4].Value, "Qty") &&
+                    Contains(sheet.Cells[row, 5].Value, "Rate") &&
+                    Contains(sheet.Cells[row, 6].Value, "Amount"))
+                    return row;
+            }
+
+            return 0;
+        }
+
+        private static string FindCellContaining(ExcelWorksheet sheet, string text)
+        {
+            for (int row = 1; row <= sheet.Dimension.End.Row; row++)
+                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
+                {
+                    string value = Convert.ToString(sheet.Cells[row, col].Value, CultureInfo.InvariantCulture);
+                    if (!string.IsNullOrWhiteSpace(value) && value.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return value;
+                }
+            return string.Empty;
+        }
+
+        private static decimal FindAmountByLabel(ExcelWorksheet sheet, string label)
+        {
+            for (int row = 1; row <= sheet.Dimension.End.Row; row++)
+                for (int col = 1; col <= sheet.Dimension.End.Column; col++)
+                {
+                    string value = Convert.ToString(sheet.Cells[row, col].Value, CultureInfo.InvariantCulture);
+                    if (!string.IsNullOrWhiteSpace(value) && value.IndexOf(label, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        for (int scan = sheet.Dimension.End.Column; scan > col; scan--)
+                        {
+                            decimal amount = ToDecimal(sheet.Cells[row, scan].Value);
+                            if (amount > 0m)
+                                return amount;
+                        }
+                    }
+                }
+            return 0m;
+        }
+
+        private static bool Contains(object value, string text)
+        {
+            return Convert.ToString(value, CultureInfo.InvariantCulture)?.IndexOf(text, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static string ExtractAfterLabel(string value, string label)
+        {
+            value = Clean(value);
+            int index = value.IndexOf(label, StringComparison.OrdinalIgnoreCase);
+            if (index >= 0)
+                value = value.Substring(index + label.Length);
+            return value.Trim(' ', ':', '-');
+        }
+
+        private static string FirstNonEmptyLine(string value)
+        {
+            return (value ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(Clean)
+                .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line)) ?? string.Empty;
+        }
+
+        private static string Clean(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+            string cleaned = Regex.Replace(value, @"[\u0000-\u001F]+", " ");
+            cleaned = cleaned.Replace('\u00A0', ' ');
+            return Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+        }
+
+        private static decimal ToDecimal(object value)
+        {
+            if (value == null)
+                return 0m;
+            if (value is double || value is float || value is decimal || value is int || value is long)
+                return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+
+            decimal parsed;
+            string raw = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+            raw = raw.Replace(",", string.Empty).Replace("Rs.", string.Empty).Replace("Rs", string.Empty).Replace("₹", string.Empty).Trim();
+            return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out parsed) ||
+                   decimal.TryParse(raw, NumberStyles.Any, CultureInfo.GetCultureInfo("en-IN"), out parsed)
+                ? parsed
+                : 0m;
+        }
+
+        private static string NormalizeDate(string value)
+        {
+            DateTime parsed;
+            string[] formats = { "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy", "yyyy-MM-dd", "dd MMM yyyy", "dd MMMM yyyy" };
+            if (DateTime.TryParseExact(value, formats, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out parsed) ||
+                DateTime.TryParse(value, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out parsed) ||
+                DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
+                return parsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            return DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+
+        private static string ShiftDate(string dateValue, int days)
+        {
+            DateTime parsed;
+            return DateTime.TryParseExact(dateValue, "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed)
+                ? parsed.AddDays(days).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                : DateTime.Today.AddDays(days).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
     }
 
     internal sealed class ExcelSheetImportData
@@ -828,7 +1232,7 @@ namespace HVAC_Pro_Desktop.Services
             if (field.IndexOf("Date", StringComparison.OrdinalIgnoreCase) >= 0 || field.Equals("ValidUntil", StringComparison.OrdinalIgnoreCase))
                 return NormalizeDate(value);
 
-            if (field.IndexOf("Amount", StringComparison.OrdinalIgnoreCase) >= 0 || field.IndexOf("Rate", StringComparison.OrdinalIgnoreCase) >= 0 || field.Equals("Quantity", StringComparison.OrdinalIgnoreCase) || field.Equals("CurrentStock", StringComparison.OrdinalIgnoreCase) || field.Equals("ReorderLevel", StringComparison.OrdinalIgnoreCase))
+            if (field.IndexOf("Amount", StringComparison.OrdinalIgnoreCase) >= 0 || field.IndexOf("Rate", StringComparison.OrdinalIgnoreCase) >= 0 || field.IndexOf("Quantity", StringComparison.OrdinalIgnoreCase) >= 0 || field.Equals("CurrentStock", StringComparison.OrdinalIgnoreCase) || field.Equals("ReorderLevel", StringComparison.OrdinalIgnoreCase))
                 return NormalizeDecimal(value);
 
             if (field.Equals("Phone", StringComparison.OrdinalIgnoreCase) || field.Equals("WhatsApp", StringComparison.OrdinalIgnoreCase))

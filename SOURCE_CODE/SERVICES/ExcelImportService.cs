@@ -264,6 +264,9 @@ IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_SupplierItemPrices_Ite
     CREATE INDEX IX_SupplierItemPrices_ItemID ON dbo.SupplierItemPrices(ItemID, IsActive, VendorID);");
             }
 
+            if (module == ExcelImportModule.Quotations)
+                DbHelper.EnsureQuotationSchemaMigration();
+
             if (module != ExcelImportModule.Inventory)
                 return;
 
@@ -429,6 +432,16 @@ END");
                     cmd.Parameters.AddRange(parameters);
                 object value = cmd.ExecuteScalar();
                 return value == null || value == DBNull.Value ? (int?)null : Convert.ToInt32(value);
+            }
+        }
+
+        private static int ExecuteScalarInt(SqlConnection conn, SqlTransaction transaction, string sql, params SqlParameter[] parameters)
+        {
+            using (SqlCommand cmd = new SqlCommand(sql, conn, transaction))
+            {
+                if (parameters != null && parameters.Length > 0)
+                    cmd.Parameters.AddRange(parameters);
+                return Convert.ToInt32(cmd.ExecuteScalar());
             }
         }
 
@@ -1011,7 +1024,10 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
             string clientName = GetCell(sheet, row, map, "ClientName");
             string siteName = GetCell(sheet, row, map, "SiteName");
             string description = GetCell(sheet, row, map, "Description");
+            string notes = NullIfEmpty(GetCell(sheet, row, map, "Notes")) ?? description;
             decimal amount = GetDecimal(sheet, row, map, "Amount");
+            decimal taxableAmount = GetDecimal(sheet, row, map, "TaxableAmount");
+            bool hasLineItems = HasQuotationLineItem(sheet, row, map);
             string status = NormalizeModuleStatus(ExcelImportModule.Quotations, NullIfEmpty(GetCell(sheet, row, map, "Status")) ?? "Draft", options);
             DateTime quotationDate = GetDate(sheet, row, map, "QuotationDate");
             DateTime validUntil = GetDate(sheet, row, map, "ValidUntil");
@@ -1028,12 +1044,16 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
             int? siteId = string.IsNullOrWhiteSpace(siteName) ? (int?)null : EnsureSiteId(conn, transaction, clientId, clientName, siteName, null, null, null, null, null, null, options);
 
             int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 BidID FROM Quotations WHERE QuotationNumber = @number", new SqlParameter("@number", quotationNumber));
+            int quotationId;
             if (existingId.HasValue)
             {
                 Execute(conn, transaction, @"
 UPDATE Quotations SET ClientID=@clientId, SiteID=@siteId, TenderName=@title, BidValue=@value,
 SubmittedDate=@quotationDate, DueDate=@validUntil, Status=@status, Notes=@notes,
-TotalTaxableValue=@value, TotalWithGST=@value,
+IsMultiLine=CASE WHEN @hasLineItems=1 THEN 1 ELSE ISNULL(IsMultiLine,0) END,
+TotalTaxableValue=CASE WHEN @taxableValue > 0 THEN @taxableValue ELSE @value END,
+TotalGSTAmount=CASE WHEN @taxableValue > 0 THEN @value - @taxableValue ELSE ISNULL(TotalGSTAmount,0) END,
+TotalWithGST=@value,
 CommercialFlow=@commercialFlow, CustomerDocumentStatus=@customerDocStatus,
 SupplierDocumentStatus=@supplierDocStatus, FlowNotes=@flowNotes
 WHERE BidID=@id",
@@ -1041,39 +1061,117 @@ WHERE BidID=@id",
                     new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
                     new SqlParameter("@title", (object)description ?? DBNull.Value),
                     new SqlParameter("@value", amount),
+                    new SqlParameter("@taxableValue", taxableAmount),
+                    new SqlParameter("@hasLineItems", hasLineItems ? 1 : 0),
                     new SqlParameter("@quotationDate", quotationDate),
                     new SqlParameter("@validUntil", validUntil),
                     new SqlParameter("@status", status),
-                    new SqlParameter("@notes", (object)description ?? DBNull.Value),
+                    new SqlParameter("@notes", (object)notes ?? DBNull.Value),
                     new SqlParameter("@commercialFlow", workflow.CommercialFlow),
                     new SqlParameter("@customerDocStatus", workflow.CustomerDocumentStatus),
                     new SqlParameter("@supplierDocStatus", workflow.SupplierDocumentStatus),
                     new SqlParameter("@flowNotes", workflow.FlowNotes),
                     new SqlParameter("@id", existingId.Value));
+                quotationId = existingId.Value;
             }
             else
             {
-                Execute(conn, transaction, @"
+                quotationId = ExecuteScalarInt(conn, transaction, @"
 INSERT INTO Quotations (QuotationNumber, ClientID, SiteID, TenderName, BidValue, SubmittedDate, DueDate, Status, Notes, TotalTaxableValue, TotalWithGST,
-CommercialFlow, CustomerDocumentStatus, SupplierDocumentStatus, FlowNotes)
-VALUES (@number,@clientId,@siteId,@title,@value,@quotationDate,@validUntil,@status,@notes,@value,@value,
-@commercialFlow,@customerDocStatus,@supplierDocStatus,@flowNotes)",
+TotalGSTAmount, IsMultiLine, CommercialFlow, CustomerDocumentStatus, SupplierDocumentStatus, FlowNotes)
+VALUES (@number,@clientId,@siteId,@title,@value,@quotationDate,@validUntil,@status,@notes,CASE WHEN @taxableValue > 0 THEN @taxableValue ELSE @value END,@value,
+CASE WHEN @taxableValue > 0 THEN @value - @taxableValue ELSE 0 END,@hasLineItems,
+@commercialFlow,@customerDocStatus,@supplierDocStatus,@flowNotes);
+SELECT CAST(SCOPE_IDENTITY() AS INT);",
                     new SqlParameter("@number", quotationNumber),
                     new SqlParameter("@clientId", clientId),
                     new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
                     new SqlParameter("@title", (object)description ?? DBNull.Value),
                     new SqlParameter("@value", amount),
+                    new SqlParameter("@taxableValue", taxableAmount),
+                    new SqlParameter("@hasLineItems", hasLineItems ? 1 : 0),
                     new SqlParameter("@quotationDate", quotationDate),
                     new SqlParameter("@validUntil", validUntil),
                     new SqlParameter("@status", status),
-                    new SqlParameter("@notes", (object)description ?? DBNull.Value),
+                    new SqlParameter("@notes", (object)notes ?? DBNull.Value),
                     new SqlParameter("@commercialFlow", workflow.CommercialFlow),
                     new SqlParameter("@customerDocStatus", workflow.CustomerDocumentStatus),
                     new SqlParameter("@supplierDocStatus", workflow.SupplierDocumentStatus),
                     new SqlParameter("@flowNotes", workflow.FlowNotes));
             }
 
+            ImportQuotationLineItem(conn, transaction, sheet, map, row, quotationId, options);
             return true;
+        }
+
+        private static bool HasQuotationLineItem(ExcelWorksheet sheet, int row, Dictionary<string, int> map)
+        {
+            return !string.IsNullOrWhiteSpace(GetCell(sheet, row, map, "LineDescription"));
+        }
+
+        private static void ImportQuotationLineItem(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, int quotationId, ExcelImportExecutionOptions options)
+        {
+            string description = GetCell(sheet, row, map, "LineDescription");
+            if (string.IsNullOrWhiteSpace(description))
+                return;
+
+            string resetKey = quotationId.ToString(CultureInfo.InvariantCulture);
+            if (!options.QuotationLineItemsReset.Contains(resetKey))
+            {
+                Execute(conn, transaction, "DELETE FROM QuotationLineItems WHERE TenderBidId=@id", new SqlParameter("@id", quotationId));
+                options.QuotationLineItemsReset.Add(resetKey);
+            }
+
+            decimal quantity = GetDecimal(sheet, row, map, "LineQuantity");
+            if (quantity <= 0m)
+                quantity = 1m;
+            string unit = NullIfEmpty(GetCell(sheet, row, map, "LineUnit")) ?? UnitMeasurementService.DefaultCode;
+            decimal rate = GetDecimal(sheet, row, map, "LineRate");
+            decimal lineAmount = GetDecimal(sheet, row, map, "LineAmount");
+            if (lineAmount <= 0m)
+                lineAmount = Math.Round(quantity * rate, 2);
+            if (rate <= 0m && quantity > 0m)
+                rate = Math.Round(lineAmount / quantity, 2);
+            decimal gstRate = GetDecimal(sheet, row, map, "LineGSTRate");
+            if (gstRate <= 0m)
+                gstRate = 18m;
+            decimal gstAmount = Math.Round(lineAmount * gstRate / 100m, 2);
+            int sortOrder = GetScalarInt(conn, transaction, "SELECT COUNT(1) FROM QuotationLineItems WHERE TenderBidId=@id", new SqlParameter("@id", quotationId)) ?? 0;
+
+            Execute(conn, transaction, @"
+INSERT INTO QuotationLineItems
+(TenderBidId, SortOrder, Category, ItemDescription, Quantity, Unit, HsnSacCode, GSTRatePct,
+ CostPerUnit, SellPricePerUnit, TaxableLineTotal, GSTAmount, MarginPct, StockAvailable, Shortfall,
+ IsInternalLabour, AnalysisStatus, AnalysisNotes, IsSellPriceManual, CreatedDate, ModifiedDate)
+VALUES
+(@TenderBidId, @SortOrder, @Category, @ItemDescription, @Quantity, @Unit, @HsnSacCode, @GSTRatePct,
+ @CostPerUnit, @SellPricePerUnit, @TaxableLineTotal, @GSTAmount, @MarginPct, 0, 0,
+ 0, @AnalysisStatus, @AnalysisNotes, 1, GETDATE(), GETDATE())",
+                new SqlParameter("@TenderBidId", quotationId),
+                new SqlParameter("@SortOrder", sortOrder),
+                new SqlParameter("@Category", "Imported"),
+                new SqlParameter("@ItemDescription", description.Trim()),
+                new SqlParameter("@Quantity", quantity),
+                new SqlParameter("@Unit", unit),
+                new SqlParameter("@HsnSacCode", DBNull.Value),
+                DecimalParameter("@GSTRatePct", gstRate),
+                DecimalParameter("@CostPerUnit", 0m),
+                DecimalParameter("@SellPricePerUnit", rate),
+                DecimalParameter("@TaxableLineTotal", lineAmount),
+                DecimalParameter("@GSTAmount", gstAmount),
+                DecimalParameter("@MarginPct", 0m),
+                new SqlParameter("@AnalysisStatus", "Imported"),
+                new SqlParameter("@AnalysisNotes", "Imported from quotation workbook"));
+        }
+
+        private static SqlParameter DecimalParameter(string name, decimal value)
+        {
+            return new SqlParameter(name, System.Data.SqlDbType.Decimal)
+            {
+                Precision = 18,
+                Scale = 2,
+                Value = value
+            };
         }
 
         private static QuotationImportWorkflow ResolveQuotationImportWorkflow(ExcelImportExecutionOptions options)
@@ -1808,7 +1906,7 @@ VALUES
             switch (module)
             {
                 case ExcelImportModule.Quotations:
-                    return new[] { "QuotationNumber", "QuotationDate", "ClientName", "SiteName", "Description", "Amount", "Status", "ValidUntil" };
+                    return new[] { "QuotationNumber", "QuotationDate", "ClientName", "SiteName", "Description", "Amount", "TaxableAmount", "Status", "ValidUntil", "LineDescription", "LineQuantity", "LineUnit", "LineRate", "LineAmount", "LineGSTRate", "Notes" };
                 case ExcelImportModule.Invoices:
                     return new[] { "InvoiceNumber", "InvoiceDate", "ClientName", "SiteName", "Description", "Amount", "TaxAmount", "TotalAmount", "Status", "DueDate" };
                 case ExcelImportModule.Payments:
@@ -1874,7 +1972,7 @@ VALUES
             switch (module)
             {
                 case ExcelImportModule.Quotations:
-                    return new[] { "QTN-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Quarterly AMC quotation", "25000", "Draft", "30/04/2026" };
+                    return new[] { "QTN-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Quarterly AMC quotation", "29500", "25000", "Draft", "30/04/2026", "Service charges", "1", "Nos", "25000", "25000", "18", "Imported quotation notes" };
                 case ExcelImportModule.Invoices:
                     return new[] { "INV-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Service invoice", "10000", "1800", "11800", "Pending", "02/05/2026" };
                 case ExcelImportModule.Payments:

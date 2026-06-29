@@ -1,4 +1,13 @@
 # Changelog
+## 1.1.330.0 - 2026-06-29
+
+- Published the MSE printable quotation workbook import support as a client update so uploaded quotation files become native ServoERP quotations with item lines and GST totals.
+
+## 1.1.329.0 - 2026-06-29
+
+- Added support for importing MSE printable quotation workbooks as native ServoERP quotations, including quotation number, date, client, subject, taxable total, GST total, total with GST, and item lines.
+- Added a quotation import smoke switch to verify the real MSE quotation workbook format against SQL import/save behavior.
+
 ## 1.1.328.0 - 2026-06-28
 
 - Added shared storage configuration for office-wide ServoERP files using `\\SERVERPC\ServoERPShared`.

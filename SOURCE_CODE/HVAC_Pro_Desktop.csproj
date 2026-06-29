@@ -417,6 +417,7 @@
     <Compile Include="Tests\ContractPageSmokeTests.cs" />
     <Compile Include="Tests\InvoiceAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationAnalyticsServiceSmokeTests.cs" />
+    <Compile Include="Tests\QuotationImportSmokeTests.cs" />
     <Compile Include="Tests\ModuleDashboardNavigationSmokeTests.cs" />
     <Compile Include="Tests\FullNavigationClickSmokeTests.cs" />
     <Compile Include="Tests\FullNavigationTimingTests.cs" />

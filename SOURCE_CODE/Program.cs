@@ -103,6 +103,20 @@ namespace HVAC_Pro_Desktop
             return args != null && args.Any(arg => string.Equals(arg, expected, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static string GetArgValue(string[] args, string expected)
+        {
+            if (args == null)
+                return null;
+
+            for (int i = 0; i < args.Length - 1; i++)
+            {
+                if (string.Equals(args[i], expected, StringComparison.OrdinalIgnoreCase))
+                    return args[i + 1];
+            }
+
+            return null;
+        }
+
         private static string WriteCiSmokeReport()
         {
             string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
@@ -304,6 +318,18 @@ namespace HVAC_Pro_Desktop
                 {
                     LanguageManager.SetLanguage(LanguageManager.English, false);
                     AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, "SQL unavailable; default language");
+                }
+
+                if (HasArg(args, "/quotationimporttest"))
+                {
+                    string sourcePath = GetArgValue(args, "/quotationimporttest");
+                    string reportPath = QuotationImportSmokeTests.WriteReport(sourcePath);
+                    if (File.Exists(reportPath) && File.ReadAllText(reportPath).Contains(Environment.NewLine + "FAIL "))
+                        Environment.ExitCode = 1;
+                    else
+                        Environment.ExitCode = 0;
+                    AppRuntime.LogTiming("QuotationImportSmokeTests", 0, reportPath);
+                    return;
                 }
 
                 if (HasArg(args, "/smoketest"))
