@@ -1,11 +1,11 @@
 {
-  "latestVersion": "1.1.333.0",
+  "latestVersion": "1.1.334.0",
   "minimumSupportedVersion": "1.0.0.0",
   "versionUrl": "https://servoerp.in/version.txt",
-  "notes": "Zydus quotation import and dashboard visibility fixes are now published for client update.",
-  "updatedAt": "2026-06-29T11:20:00Z",
+  "notes": "Simplified Quotations dashboard with company and month filters is now published for client update.",
+  "updatedAt": "2026-06-29T11:50:00Z",
   "downloadAvailable": true,
   "updateAvailable": true,
-  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.333/ServoERP.Desktop-1.1.333-full.nupkg",
-  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.333.0.exe"
+  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.334/ServoERP.Desktop-1.1.334-full.nupkg",
+  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.334.0.exe"
 }
