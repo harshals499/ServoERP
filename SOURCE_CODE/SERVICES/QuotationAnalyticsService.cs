@@ -163,7 +163,7 @@ namespace HVAC_Pro_Desktop.Services
             DateTime today = DateTime.Today;
             return BuildSnapshot(new QuotationAnalyticsFilter
             {
-                DateFrom = new DateTime(today.Year, today.Month, 1),
+                DateFrom = DefaultHistoryStart,
                 DateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
                 Grouping = QuotationAnalyticsGrouping.Week
             });
@@ -250,7 +250,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             filter = filter ?? new QuotationAnalyticsFilter();
             if (!filter.DateFrom.HasValue)
-                filter.DateFrom = new DateTime(today.Year, today.Month, 1);
+                filter.DateFrom = DefaultHistoryStart;
             if (!filter.DateTo.HasValue)
                 filter.DateTo = today.Date;
             if (filter.DateFrom.Value.Date > filter.DateTo.Value.Date)
@@ -261,6 +261,8 @@ namespace HVAC_Pro_Desktop.Services
             }
             return filter;
         }
+
+        private static readonly DateTime DefaultHistoryStart = new DateTime(2000, 1, 1);
 
         private void BuildKpis(QuotationDashboardSnapshot snapshot, List<TenderBid> current, List<TenderBid> previous, DateTime today)
         {

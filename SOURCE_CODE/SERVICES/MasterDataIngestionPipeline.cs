@@ -698,7 +698,7 @@ namespace HVAC_Pro_Desktop.Services
                     continue;
 
                 int unitCol = FirstPositive(FindColumnContaining(sheet, row, "UOM"), FindColumnContaining(sheet, row, "Unit"));
-                int qtyCol = FindColumnContaining(sheet, row, "Qty");
+                int qtyCol = FirstPositive(FindColumnContaining(sheet, row, "Qty"), FindColumnContaining(sheet, row, "Quantity"));
                 int rateCol = FindColumnContaining(sheet, row, "Rate");
                 int amountCol = FindColumnContaining(sheet, row, "Amount");
                 if (unitCol > 0 && qtyCol > 0 && rateCol > 0 && amountCol > 0)

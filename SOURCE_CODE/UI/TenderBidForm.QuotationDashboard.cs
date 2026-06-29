@@ -145,7 +145,7 @@ namespace HVAC_Pro_Desktop.UI
             _quoteDashGroup.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
 
             DateTime today = DateTime.Today;
-            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, 1) };
+            _quoteDashFrom = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(2000, 1, 1) };
             _quoteDashTo = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 112, Height = 30, Value = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)) };
             _quoteDashFrom.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();
             _quoteDashTo.ValueChanged += (s, e) => RefreshQuotationDashboardSafe();

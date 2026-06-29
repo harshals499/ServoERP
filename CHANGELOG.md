@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.333.0 - 2026-06-29
+
+- Fixed Zydus-style MSE quotations whose item table uses `Quantity` instead of `Qty`, so all supplied Zydus quotation workbooks are recognized as native quotations.
+- Widened imported quotation line descriptions to support long technical item specifications without skipped rows.
+- Fixed India-style quotation date parsing and changed the quotation dashboard default range to all quotation history so imported batches appear immediately.
+
 ## 1.1.332.0 - 2026-06-29
 
 - Added Master Data folder import so users can select or drop a folder of Excel workbooks and let ServoERP scan and import each supported file automatically.

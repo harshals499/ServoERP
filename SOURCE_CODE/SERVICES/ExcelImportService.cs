@@ -347,7 +347,10 @@ END");
         {
             var raw = GetCell(sheet, row, map, header);
             DateTime value;
-            if (DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out value) ||
+            string[] indiaFormats = { "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy", "dd.MM.yyyy", "d.M.yyyy", "dd MMM yyyy", "dd MMMM yyyy" };
+            if (DateTime.TryParseExact(raw, indiaFormats, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out value) ||
+                DateTime.TryParse(raw, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out value) ||
+                DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out value) ||
                 DateTime.TryParse(raw, CultureInfo.CurrentCulture, DateTimeStyles.None, out value))
                 return value;
             return DateTime.Today;
@@ -1115,6 +1118,8 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);",
             if (string.IsNullOrWhiteSpace(description))
                 return;
 
+            EnsureQuotationLineItemDescriptionCapacity(conn, transaction);
+
             string resetKey = quotationId.ToString(CultureInfo.InvariantCulture);
             if (!options.QuotationLineItemsReset.Contains(resetKey))
             {
@@ -1162,6 +1167,22 @@ VALUES
                 DecimalParameter("@MarginPct", 0m),
                 new SqlParameter("@AnalysisStatus", "Imported"),
                 new SqlParameter("@AnalysisNotes", "Imported from quotation workbook"));
+        }
+
+        private static void EnsureQuotationLineItemDescriptionCapacity(SqlConnection conn, SqlTransaction transaction)
+        {
+            Execute(conn, transaction, @"
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.QuotationLineItems')
+      AND name = 'ItemDescription'
+      AND max_length > 0
+      AND max_length < 2000
+)
+BEGIN
+    ALTER TABLE dbo.QuotationLineItems ALTER COLUMN ItemDescription NVARCHAR(1000) NOT NULL;
+END");
         }
 
         private static SqlParameter DecimalParameter(string name, decimal value)

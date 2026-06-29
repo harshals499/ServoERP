@@ -86,7 +86,7 @@ BEGIN
         SortOrder INT NOT NULL DEFAULT 0,
         Category NVARCHAR(100) NULL,
         InventoryItemId INT NULL,
-        ItemDescription NVARCHAR(255) NOT NULL,
+        ItemDescription NVARCHAR(1000) NOT NULL,
         Quantity DECIMAL(10,3) NOT NULL DEFAULT 1,
         Unit NVARCHAR(30) NOT NULL DEFAULT 'Nos',
         HsnSacCode NVARCHAR(20) NULL,
@@ -113,6 +113,18 @@ BEGIN
         CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
         ModifiedDate DATETIME NOT NULL DEFAULT GETDATE()
     );
+END;");
+                    Execute(connection, @"
+IF EXISTS (
+    SELECT 1
+    FROM sys.columns
+    WHERE object_id = OBJECT_ID('dbo.QuotationLineItems')
+      AND name = 'ItemDescription'
+      AND max_length > 0
+      AND max_length < 2000
+)
+BEGIN
+    ALTER TABLE dbo.QuotationLineItems ALTER COLUMN ItemDescription NVARCHAR(1000) NOT NULL;
 END;");
                     AddColumn(connection, "QuotationLineItems", "VendorID", "INT NULL");
                 }
