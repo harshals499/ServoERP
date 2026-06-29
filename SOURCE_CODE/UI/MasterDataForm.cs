@@ -112,7 +112,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = DS.BgPage,
                 Padding = new Padding(18, 16, 18, 10),
                 Title = "Master Data",
-                Subtitle = "Import one Excel file and let ServoERP detect, clean, link, and sync the data automatically.",
+                Subtitle = "Import one Excel file or a folder of workbooks and let ServoERP detect, clean, link, and sync the data automatically.",
                 TitleWidth = 460,
                 SubtitleWidth = 620,
                 AllowCompactWrap = true,
@@ -1813,7 +1813,10 @@ namespace HVAC_Pro_Desktop.UI
             string file = files == null ? null : files.FirstOrDefault();
             if (string.IsNullOrWhiteSpace(file))
                 return;
-            ShowDroppedFileRouter(file);
+            if (Directory.Exists(file))
+                ShowDroppedFolderRouter(file);
+            else
+                ShowDroppedFileRouter(file);
         }
 
         private void ShowDroppedFileRouter(string file)
@@ -1831,6 +1834,21 @@ namespace HVAC_Pro_Desktop.UI
                 ShowStatus("Master Data page is refreshing. Please try the import again.", true);
         }
 
+        private void ShowDroppedFolderRouter(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder))
+                return;
+
+            ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add("Auto-detect Excel files in this folder", null, (s, e) => ImportFolderAs(null, folder));
+            menu.Items.Add(new ToolStripSeparator());
+            foreach (ExcelImportModule module in ImportableModules())
+                menu.Items.Add("Import folder as " + GetUploadTitle(module), null, (s, e) => ImportFolderAs(module, folder));
+
+            if (!TryShowMenu(menu, this, PointToClient(Cursor.Position)))
+                ShowStatus("Master Data page is refreshing. Please try the folder import again.", true);
+        }
+
         private void ImportFileAs(ExcelImportModule module, string file)
         {
             try
@@ -1844,6 +1862,19 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void ImportFolderAs(ExcelImportModule? module, string folder)
+        {
+            try
+            {
+                ImportUiHelper.RunImportFolder(module, folder, ResolveDialogOwner());
+                _ = LoadAllAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Importing folder", ex);
+            }
+        }
+
         private void ShowBulkImportMenu(Control owner)
         {
             if (!CanUseControl(owner))
@@ -1854,9 +1885,13 @@ namespace HVAC_Pro_Desktop.UI
 
             ContextMenuStrip menu = new ContextMenuStrip();
             menu.Items.Add("Auto-detect from Excel", null, (s, e) => ImportUiHelper.RunImport(ResolveDialogOwner()));
+            menu.Items.Add("Auto-detect from Folder", null, (s, e) => RunFolderImport(null));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
+            {
                 menu.Items.Add("Upload " + GetUploadTitle(module), null, (s, e) => RunModuleImport(module));
+                menu.Items.Add("Upload " + GetUploadTitle(module) + " Folder", null, (s, e) => RunFolderImport(module));
+            }
 
             if (!TryShowMenu(menu, owner, new Point(12, owner.Height - 8)))
                 ShowStatus("Master Data page is refreshing. Please try again.", true);
@@ -1971,6 +2006,12 @@ namespace HVAC_Pro_Desktop.UI
         private void RunModuleImport(ExcelImportModule module)
         {
             ImportUiHelper.RunImport(module, ResolveDialogOwner());
+            _ = LoadAllAsync();
+        }
+
+        private void RunFolderImport(ExcelImportModule? module)
+        {
+            ImportUiHelper.RunImportFolder(module, ResolveDialogOwner());
             _ = LoadAllAsync();
         }
 

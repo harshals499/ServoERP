@@ -43,6 +43,30 @@ namespace HVAC_Pro_Desktop.Services
         public Dictionary<string, string> ColumnMappings { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 
+    public sealed class AutomatedFolderImportResult
+    {
+        public string FolderPath { get; set; }
+        public ExcelImportModule? PreferredModule { get; set; }
+        public int FilesFound { get; set; }
+        public int ImportedFiles { get; set; }
+        public int FailedFiles { get; set; }
+        public int SuccessCount { get; set; }
+        public int SkippedCount { get; set; }
+        public List<AutomatedFolderImportFileResult> Files { get; } = new List<AutomatedFolderImportFileResult>();
+        public List<string> Errors { get; } = new List<string>();
+    }
+
+    public sealed class AutomatedFolderImportFileResult
+    {
+        public string FilePath { get; set; }
+        public string FileName { get; set; }
+        public bool Success { get; set; }
+        public ExcelImportModule DetectedModule { get; set; }
+        public int SuccessCount { get; set; }
+        public int SkippedCount { get; set; }
+        public string Message { get; set; }
+    }
+
     public sealed class ExcelImportExecutionOptions
     {
         public bool SkipPreflight { get; set; } = true;
@@ -151,6 +175,65 @@ namespace HVAC_Pro_Desktop.Services
                 preview.UserMessages.Add("Reference validation will run before records are committed.");
 
             return preview;
+        }
+
+        public AutomatedFolderImportResult ImportFolder(string folderPath, ExcelImportModule? preferredModule = null, string quotationImportDirection = null)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+                throw new DirectoryNotFoundException("Import folder was not found: " + folderPath);
+
+            var result = new AutomatedFolderImportResult
+            {
+                FolderPath = folderPath,
+                PreferredModule = preferredModule
+            };
+
+            List<string> files = Directory
+                .EnumerateFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
+                .Where(IsSupportedWorkbook)
+                .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            result.FilesFound = files.Count;
+            if (files.Count == 0)
+            {
+                result.Errors.Add("No supported Excel workbooks were found in the selected folder.");
+                return result;
+            }
+
+            foreach (string file in files)
+            {
+                var fileResult = new AutomatedFolderImportFileResult
+                {
+                    FilePath = file,
+                    FileName = Path.GetFileName(file)
+                };
+
+                try
+                {
+                    AutomatedImportResult imported = ImportFile(file, preferredModule, quotationImportDirection);
+                    fileResult.Success = true;
+                    fileResult.DetectedModule = imported.DetectedModule;
+                    fileResult.SuccessCount = imported.SuccessCount;
+                    fileResult.SkippedCount = imported.SkippedCount;
+                    fileResult.Message = imported.SummaryTitle ?? "Imported";
+                    result.ImportedFiles++;
+                    result.SuccessCount += imported.SuccessCount;
+                    result.SkippedCount += imported.SkippedCount;
+                }
+                catch (Exception ex)
+                {
+                    fileResult.Success = false;
+                    fileResult.Message = string.IsNullOrWhiteSpace(ex.Message) ? ex.GetType().Name : ex.Message;
+                    result.FailedFiles++;
+                    result.Errors.Add(fileResult.FileName + ": " + fileResult.Message);
+                    AppLogger.LogError("MasterDataIngestionPipeline.ImportFolder." + fileResult.FileName, ex);
+                }
+
+                result.Files.Add(fileResult);
+            }
+
+            return result;
         }
 
         /// <summary>Imports a workbook and applies optional quotation workflow direction selected by the user.</summary>
@@ -335,6 +418,13 @@ namespace HVAC_Pro_Desktop.Services
             {
                 TryDelete(stagedFile);
             }
+        }
+
+        private static bool IsSupportedWorkbook(string filePath)
+        {
+            string extension = Path.GetExtension(filePath) ?? string.Empty;
+            return extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase);
         }
 
         private List<Dictionary<string, string>> BuildCanonicalRows(ExcelImportModule module, ExcelSheetImportData sheet, ColumnMappingResult mapping)

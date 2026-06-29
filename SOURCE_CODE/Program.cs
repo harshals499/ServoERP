@@ -332,6 +332,18 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/quotationfolderimporttest"))
+                {
+                    string sourcePath = GetArgValue(args, "/quotationfolderimporttest");
+                    string reportPath = QuotationImportSmokeTests.WriteFolderReport(sourcePath);
+                    if (File.Exists(reportPath) && File.ReadAllText(reportPath).Contains(Environment.NewLine + "FAIL "))
+                        Environment.ExitCode = 1;
+                    else
+                        Environment.ExitCode = 0;
+                    AppRuntime.LogTiming("QuotationFolderImportSmokeTests", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/smoketest"))
                 {
                     string reportPath = EnterpriseUiSmokeTests.WriteReport();

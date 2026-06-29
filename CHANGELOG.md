@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.332.0 - 2026-06-29
+
+- Added Master Data folder import so users can select or drop a folder of Excel workbooks and let ServoERP scan and import each supported file automatically.
+- Added quotation folder import smoke coverage that imports multiple MSE quotation workbooks in one batch and verifies every saved quotation in SQL.
+
 ## 1.1.331.0 - 2026-06-29
 
 - Fixed MSE quotation imports so label-only cells like `To,` are never saved as the client name; the parser now reads the real client block below the label.

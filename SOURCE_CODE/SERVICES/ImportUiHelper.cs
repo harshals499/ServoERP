@@ -107,6 +107,69 @@ namespace HVAC_Pro_Desktop.Services
             RunImportInternal(preferredModule, filePath, owner, null, quotationImportDirection);
         }
 
+        public static AutomatedFolderImportResult RunImportFolder(ExcelImportModule? preferredModule = null, IWin32Window owner = null)
+        {
+            return RunImportFolderInternal(preferredModule, null, owner, null);
+        }
+
+        public static AutomatedFolderImportResult RunImportFolder(ExcelImportModule? preferredModule, string folderPath, IWin32Window owner = null)
+        {
+            return RunImportFolderInternal(preferredModule, folderPath, owner, null);
+        }
+
+        public static AutomatedFolderImportResult RunImportFolder(ExcelImportModule? preferredModule, IWin32Window owner, string quotationImportDirection)
+        {
+            return RunImportFolderInternal(preferredModule, null, owner, quotationImportDirection);
+        }
+
+        public static AutomatedFolderImportResult RunImportFolder(ExcelImportModule? preferredModule, string folderPath, IWin32Window owner, string quotationImportDirection)
+        {
+            return RunImportFolderInternal(preferredModule, folderPath, owner, quotationImportDirection);
+        }
+
+        private static AutomatedFolderImportResult RunImportFolderInternal(ExcelImportModule? preferredModule, string folderPath, IWin32Window owner, string quotationImportDirection)
+        {
+            try
+            {
+                bool isQuotationImport = preferredModule.HasValue && preferredModule.Value == ExcelImportModule.Quotations;
+                if (isQuotationImport && string.IsNullOrWhiteSpace(quotationImportDirection))
+                {
+                    quotationImportDirection = ShowQuotationImportDirectionDialog(owner);
+                    if (string.IsNullOrWhiteSpace(quotationImportDirection))
+                        return null;
+                }
+
+                string selectedFolder = folderPath;
+                if (string.IsNullOrWhiteSpace(selectedFolder))
+                {
+                    using (var dialog = new FolderBrowserDialog())
+                    {
+                        dialog.Description = preferredModule.HasValue
+                            ? "Select folder containing " + ExcelImportService.GetDisplayName(preferredModule.Value) + " Excel workbooks"
+                            : "Select folder containing Excel workbooks to import";
+                        dialog.ShowNewFolderButton = false;
+                        if (dialog.ShowDialog(owner) != DialogResult.OK)
+                            return null;
+                        selectedFolder = dialog.SelectedPath;
+                    }
+                }
+
+                AutomatedFolderImportResult result = Pipeline.ImportFolder(selectedFolder, preferredModule, quotationImportDirection);
+                ShowFolderImportResult(owner, result);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("ImportUiHelper.RunImportFolderInternal", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Importing folder", ex);
+                string message = string.IsNullOrWhiteSpace(ex.Message)
+                    ? "Folder import could not complete. Check the folder and try again."
+                    : ex.Message;
+                MessageBox.Show(owner, message, "Folder Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return null;
+            }
+        }
+
         private static void RunImportInternal(ExcelImportModule? preferredModule, string filePath, IWin32Window owner, Action<AutomatedImportResult> afterSuccess, string quotationImportDirection = null)
         {
             try
@@ -188,6 +251,43 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             MessageBox.Show(owner, builder.ToString(), "Import Results", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        private static void ShowFolderImportResult(IWin32Window owner, AutomatedFolderImportResult result)
+        {
+            if (result == null)
+                return;
+
+            var builder = new StringBuilder();
+            builder.AppendLine("Folder import complete.");
+            builder.AppendLine("Folder: " + result.FolderPath);
+            builder.AppendLine("Excel files found: " + result.FilesFound);
+            builder.AppendLine("Files imported: " + result.ImportedFiles);
+            builder.AppendLine("Files failed: " + result.FailedFiles);
+            builder.AppendLine("Rows imported or refreshed: " + result.SuccessCount);
+            builder.AppendLine("Rows skipped safely: " + result.SkippedCount);
+
+            if (result.Files.Any())
+            {
+                builder.AppendLine();
+                foreach (AutomatedFolderImportFileResult file in result.Files.Take(12))
+                {
+                    string status = file.Success ? "Imported" : "Failed";
+                    builder.AppendLine("- " + status + ": " + file.FileName + " (" + file.SuccessCount + " rows)");
+                    if (!file.Success && !string.IsNullOrWhiteSpace(file.Message))
+                        builder.AppendLine("  " + file.Message);
+                }
+            }
+
+            if (result.Errors.Any())
+            {
+                builder.AppendLine();
+                builder.AppendLine("Review needed:");
+                foreach (string error in result.Errors.Take(8))
+                    builder.AppendLine("- " + error);
+            }
+
+            MessageBox.Show(owner, builder.ToString(), "Folder Import Results", MessageBoxButtons.OK, result.FailedFiles > 0 ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
         }
 
         private static bool ShowImportPreview(IWin32Window owner, string filePath, AutomatedImportPreview preview)
