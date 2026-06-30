@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.335.0 - 2026-06-30
+
+- Added PDF import support to the shared sales import flow, starting with text-based quotation PDFs.
+- Extended quotation imports to extract readable PDF quotation numbers, dates, client names, subjects, totals, GST, and line items into native ServoERP quotations.
+- Updated sales import pickers and folder import messaging so Quotations, Invoices, Payments, Purchases, and Jobs can select Excel or PDF files cleanly while unsupported PDFs fail with clear guidance.
+
 ## 1.1.334.0 - 2026-06-29
 
 - Simplified the Quotations dashboard to only show Recent Quotations and the Quotation Value Sent chart.

@@ -145,8 +145,8 @@ namespace HVAC_Pro_Desktop.Services
                     using (var dialog = new FolderBrowserDialog())
                     {
                         dialog.Description = preferredModule.HasValue
-                            ? "Select folder containing " + ExcelImportService.GetDisplayName(preferredModule.Value) + " Excel workbooks"
-                            : "Select folder containing Excel workbooks to import";
+                            ? "Select folder containing " + ExcelImportService.GetDisplayName(preferredModule.Value) + " Excel/PDF files"
+                            : "Select folder containing Excel workbooks or quotation PDFs to import";
                         dialog.ShowNewFolderButton = false;
                         if (dialog.ShowDialog(owner) != DialogResult.OK)
                             return null;
@@ -187,8 +187,10 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     using (var dialog = new OpenFileDialog())
                     {
-                        dialog.Filter = "Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls";
-                        dialog.Title = preferredModule.HasValue ? "Import " + ExcelImportService.GetDisplayName(preferredModule.Value) : "Import Excel";
+                        dialog.Filter = preferredModule.HasValue && IsSalesImport(preferredModule.Value)
+                            ? "Excel Workbook or PDF (*.xlsx;*.xls;*.pdf)|*.xlsx;*.xls;*.pdf|Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls|PDF document (*.pdf)|*.pdf"
+                            : "Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls";
+                        dialog.Title = preferredModule.HasValue ? "Import " + ExcelImportService.GetDisplayName(preferredModule.Value) : "Import Excel or Quotation PDF";
                         if (dialog.ShowDialog(owner) != DialogResult.OK)
                             return;
                         selectedFile = dialog.FileName;
@@ -207,12 +209,21 @@ namespace HVAC_Pro_Desktop.Services
             catch (Exception ex)
             {
                 AppLogger.LogError("ImportUiHelper.RunImportInternal", ex);
-                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Importing Excel", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Master Data"), "Importing file", ex);
                 string message = string.IsNullOrWhiteSpace(ex.Message)
-                    ? "Import could not complete. Check the workbook and try again."
+                    ? "Import could not complete. Check the selected file and try again."
                     : ex.Message;
                 MessageBox.Show(owner, message, "Import Failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
+        }
+
+        private static bool IsSalesImport(ExcelImportModule module)
+        {
+            return module == ExcelImportModule.Quotations
+                || module == ExcelImportModule.Invoices
+                || module == ExcelImportModule.Payments
+                || module == ExcelImportModule.Purchases
+                || module == ExcelImportModule.Jobs;
         }
 
         private static void ShowAutomatedResult(IWin32Window owner, AutomatedImportResult result)

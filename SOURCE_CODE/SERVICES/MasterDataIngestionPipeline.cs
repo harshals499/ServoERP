@@ -11,6 +11,9 @@ using System.Text.RegularExpressions;
 using System.Web.Script.Serialization;
 using HVAC_Pro_Desktop.DAL;
 using OfficeOpenXml;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -197,7 +200,7 @@ namespace HVAC_Pro_Desktop.Services
             result.FilesFound = files.Count;
             if (files.Count == 0)
             {
-                result.Errors.Add("No supported Excel workbooks were found in the selected folder.");
+                result.Errors.Add("No supported Excel workbooks or quotation PDFs were found in the selected folder.");
                 return result;
             }
 
@@ -424,7 +427,8 @@ namespace HVAC_Pro_Desktop.Services
         {
             string extension = Path.GetExtension(filePath) ?? string.Empty;
             return extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
-                || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase);
+                || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
         }
 
         private List<Dictionary<string, string>> BuildCanonicalRows(ExcelImportModule module, ExcelSheetImportData sheet, ColumnMappingResult mapping)
@@ -526,7 +530,10 @@ namespace HVAC_Pro_Desktop.Services
     {
         public SpecializedImportData TryParse(string filePath)
         {
-            if (!Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            string extension = Path.GetExtension(filePath) ?? string.Empty;
+            if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+                return TryParsePdf(filePath);
+            if (!extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
                 return null;
 
             using (var package = new ExcelPackage(new FileInfo(filePath)))
@@ -541,6 +548,193 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             return null;
+        }
+
+        private static SpecializedImportData TryParsePdf(string filePath)
+        {
+            string text = ExtractPdfText(filePath);
+            if (string.IsNullOrWhiteSpace(text))
+                throw new InvalidOperationException("ServoERP could not read text from this PDF. Please import a text-based quotation PDF, not a scanned image-only PDF.");
+
+            string normalized = NormalizeWhitespace(text);
+            if (normalized.IndexOf("quotation", StringComparison.OrdinalIgnoreCase) < 0)
+                return null;
+
+            string quotationNumber = FirstMatch(normalized,
+                @"Quotation\s*(?:No\.?|Number)?\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)",
+                @"Quote\s*(?:No\.?|Number)?\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)");
+            string quotationDate = FirstMatch(normalized,
+                @"Quotation\s*Date\s*[:#-]\s*(?<value>\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
+                @"Date\s*[:#-]\s*(?<value>\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})");
+            string subject = FirstMatch(normalized,
+                @"\bSub(?:ject)?\s*[:#-]\s*(?<value>.*?)(?=\s+(?:Sr\.?\s*No|Description|HSN|Qty|Quantity|Total\s+Amount|Dear\s+Sir|Terms|$))",
+                @"Quotation\s+For\s+(?<value>.*?)(?=\s+(?:Sr\.?\s*No|Description|HSN|Qty|Quantity|Total\s+Amount|Terms|$))");
+            string clientName = ExtractPdfClientName(text);
+
+            if (string.IsNullOrWhiteSpace(quotationNumber) || string.IsNullOrWhiteSpace(clientName))
+                return null;
+            if (string.IsNullOrWhiteSpace(subject))
+                subject = "Imported quotation PDF";
+
+            decimal taxableTotal = FirstAmount(normalized, @"Total\s+Amount(?:\s+Rs\.?)?\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)");
+            decimal totalWithGst = FirstAmount(normalized, @"Total\s+Rs\.?\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)", @"Grand\s+Total\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)");
+            decimal cgst = FirstAmount(normalized, @"CGST[^\d]{0,20}(?<value>[\d,]+(?:\.\d{1,2})?)");
+            decimal sgst = FirstAmount(normalized, @"SGST[^\d]{0,20}(?<value>[\d,]+(?:\.\d{1,2})?)");
+            decimal gstRate = taxableTotal > 0m ? Math.Round(((cgst + sgst) / taxableTotal) * 100m, 2) : 18m;
+            if (gstRate <= 0m)
+                gstRate = 18m;
+            decimal amount = totalWithGst > 0m ? totalWithGst : taxableTotal;
+
+            List<Dictionary<string, string>> rows = BuildPdfLineRows(text, quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate);
+            decimal derivedTaxableTotal = rows.Sum(row => ParseDecimal(row, "LineAmount"));
+            if (taxableTotal <= 0m && derivedTaxableTotal > 0m)
+                taxableTotal = derivedTaxableTotal;
+            if (amount <= 0m && taxableTotal > 0m)
+                amount = Math.Round(taxableTotal * (1m + (gstRate / 100m)), 2);
+            if (rows.Count == 0)
+                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, subject, 1m, "Nos", taxableTotal > 0m ? taxableTotal : amount));
+            else
+                ApplyQuotationTotals(rows, amount, taxableTotal);
+
+            var data = new SpecializedImportData
+            {
+                Module = ExcelImportModule.Quotations,
+                SheetName = Path.GetFileName(filePath),
+                Confidence = rows.Count > 1 ? 92 : 86,
+                SourceRowCount = CountNonEmptyLines(text),
+                Message = "Recognized quotation PDF and extracted quotation header, totals, GST, and readable item lines."
+            };
+            data.SourceHeaders.AddRange(new[] { "Quotation No", "Quotation Date", "To", "Sub", "Description", "Unit", "Qty", "Rate", "Amount", "CGST", "SGST", "Total" });
+            data.Rows.AddRange(rows);
+            return data;
+        }
+
+        private static string ExtractPdfText(string filePath)
+        {
+            var builder = new StringBuilder();
+            using (PdfDocument document = PdfDocument.Open(filePath))
+            {
+                foreach (Page page in document.GetPages())
+                {
+                    string pageText = ContentOrderTextExtractor.GetText(page);
+                    if (string.IsNullOrWhiteSpace(pageText))
+                        pageText = page.Text;
+                    if (!string.IsNullOrWhiteSpace(pageText))
+                        builder.AppendLine(pageText);
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private static List<Dictionary<string, string>> BuildPdfLineRows(string text, string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate)
+        {
+            var rows = new List<Dictionary<string, string>>();
+            foreach (string rawLine in SplitLines(text))
+            {
+                string line = Clean(rawLine);
+                if (string.IsNullOrWhiteSpace(line) || IsPdfNonItemLine(line))
+                    continue;
+
+                Match match = Regex.Match(line, @"^(?:\d+\s*[\.\)]?\s+)?(?<description>.+?)\s+(?<unit>[A-Za-z]{1,12})\s+(?<qty>\d+(?:\.\d+)?)\s+(?<rate>[\d,]+(?:\.\d{1,2})?)\s+(?<amount>[\d,]+(?:\.\d{1,2})?)$", RegexOptions.IgnoreCase);
+                if (!match.Success)
+                    continue;
+
+                string description = Clean(match.Groups["description"].Value);
+                string unit = Clean(match.Groups["unit"].Value);
+                decimal qty = ToDecimal(match.Groups["qty"].Value);
+                decimal rate = ToDecimal(match.Groups["rate"].Value);
+                decimal lineAmount = ToDecimal(match.Groups["amount"].Value);
+                if (string.IsNullOrWhiteSpace(description) || qty <= 0m || (rate <= 0m && lineAmount <= 0m))
+                    continue;
+                if (lineAmount <= 0m)
+                    lineAmount = qty * rate;
+
+                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, description, qty, string.IsNullOrWhiteSpace(unit) ? "Nos" : unit, lineAmount));
+            }
+
+            return rows;
+        }
+
+        private static bool IsPdfNonItemLine(string line)
+        {
+            string normalized = NormalizeLabel(line);
+            return normalized.StartsWith("QUOTATION", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("DESCRIPTION", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("SRNO", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("TOTAL", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("ADD", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("CGST", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("SGST", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("TERMS", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ExtractPdfClientName(string text)
+        {
+            string[] lines = SplitLines(text).Select(Clean).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
+            for (int index = 0; index < lines.Length; index++)
+            {
+                string line = lines[index];
+                if (IsToLabel(line) || NormalizeLabel(line).StartsWith("TO", StringComparison.OrdinalIgnoreCase))
+                {
+                    string inline = Regex.Replace(line, @"^\s*To\s*[:,\-]?\s*", string.Empty, RegexOptions.IgnoreCase).Trim();
+                    string client = FirstClientLine(inline);
+                    if (!string.IsNullOrWhiteSpace(client))
+                        return client;
+
+                    for (int scan = index + 1; scan < Math.Min(lines.Length, index + 5); scan++)
+                    {
+                        client = FirstClientLine(lines[scan]);
+                        if (!string.IsNullOrWhiteSpace(client))
+                            return client;
+                    }
+                }
+            }
+
+            return FirstMatch(NormalizeWhitespace(text), @"(?:Client|Customer|Company)\s*Name\s*[:#-]\s*(?<value>.*?)(?=\s+(?:GSTIN|Sub|Subject|Quotation|Date|$))");
+        }
+
+        private static string[] SplitLines(string text)
+        {
+            return (text ?? string.Empty).Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        private static int CountNonEmptyLines(string text)
+        {
+            return SplitLines(text).Count(line => !string.IsNullOrWhiteSpace(line));
+        }
+
+        private static string NormalizeWhitespace(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+            string cleaned = value.Replace('\u00A0', ' ');
+            return Regex.Replace(cleaned, @"\s+", " ").Trim();
+        }
+
+        private static string FirstMatch(string value, params string[] patterns)
+        {
+            foreach (string pattern in patterns)
+            {
+                Match match = Regex.Match(value ?? string.Empty, pattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                    return Clean(match.Groups["value"].Value);
+            }
+
+            return string.Empty;
+        }
+
+        private static decimal FirstAmount(string value, params string[] patterns)
+        {
+            foreach (string pattern in patterns)
+            {
+                string raw = FirstMatch(value, pattern);
+                decimal amount = ToDecimal(raw);
+                if (amount > 0m)
+                    return amount;
+            }
+
+            return 0m;
         }
 
         private static SpecializedImportData TryParseSheet(ExcelWorksheet sheet)
@@ -959,7 +1153,7 @@ namespace HVAC_Pro_Desktop.Services
             if (extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
                 return ReadXls(filePath);
 
-            throw new InvalidOperationException("ServoERP currently accepts Excel workbooks in .xlsx or .xls format.");
+            throw new InvalidOperationException("ServoERP currently accepts Excel workbooks in .xlsx or .xls format, plus recognized quotation PDFs.");
         }
 
         private ExcelWorkbookImportData ReadXlsx(string filePath)
