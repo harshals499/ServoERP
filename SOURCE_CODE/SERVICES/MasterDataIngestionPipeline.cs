@@ -78,6 +78,7 @@ namespace HVAC_Pro_Desktop.Services
         public ExcelImportDiagnostics Diagnostics { get; set; }
         public string QuotationImportDirection { get; set; }
         internal HashSet<string> QuotationLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        internal HashSet<string> PurchaseLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class ExcelImportDiagnostics
@@ -113,6 +114,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly ImportAuditLogService _audit = new ImportAuditLogService();
         private readonly ExcelImportService _importService = new ExcelImportService();
         private readonly MseQuotationLayoutParser _mseQuotationParser = new MseQuotationLayoutParser();
+        private readonly PurchaseOrderPdfLayoutParser _purchaseOrderPdfParser = new PurchaseOrderPdfLayoutParser();
 
         public AutomatedImportResult ImportFile(string filePath, ExcelImportModule? preferredModule = null)
         {
@@ -124,7 +126,7 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 throw new FileNotFoundException("Import file was not found.", filePath);
 
-            SpecializedImportData specialized = TryReadSpecializedQuotation(filePath, preferredModule);
+            SpecializedImportData specialized = TryReadSpecializedImport(filePath, preferredModule);
             if (specialized != null)
                 return BuildSpecializedPreview(specialized);
 
@@ -193,14 +195,16 @@ namespace HVAC_Pro_Desktop.Services
 
             List<string> files = Directory
                 .EnumerateFiles(folderPath, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(IsSupportedWorkbook)
+                .Where(file => IsSupportedImportFile(file, preferredModule))
                 .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
             result.FilesFound = files.Count;
             if (files.Count == 0)
             {
-                result.Errors.Add("No supported Excel workbooks or quotation PDFs were found in the selected folder.");
+                result.Errors.Add(preferredModule == ExcelImportModule.Purchases
+                    ? "No supported Excel workbooks or purchase order PDFs were found in the selected folder."
+                    : "No supported Excel workbooks were found in the selected folder.");
                 return result;
             }
 
@@ -245,7 +249,7 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 throw new FileNotFoundException("Import file was not found.", filePath);
 
-            SpecializedImportData specialized = TryReadSpecializedQuotation(filePath, preferredModule);
+            SpecializedImportData specialized = TryReadSpecializedImport(filePath, preferredModule);
             if (specialized != null)
                 return ImportSpecialized(filePath, specialized, quotationImportDirection);
 
@@ -330,11 +334,18 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private SpecializedImportData TryReadSpecializedQuotation(string filePath, ExcelImportModule? preferredModule)
+        private SpecializedImportData TryReadSpecializedImport(string filePath, ExcelImportModule? preferredModule)
         {
+            string extension = Path.GetExtension(filePath) ?? string.Empty;
+            if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                if (preferredModule.HasValue && preferredModule.Value != ExcelImportModule.Purchases)
+                    return null;
+                return _purchaseOrderPdfParser.TryParse(filePath);
+            }
+
             if (preferredModule.HasValue && preferredModule.Value != ExcelImportModule.Quotations)
                 return null;
-
             return _mseQuotationParser.TryParse(filePath);
         }
 
@@ -356,7 +367,10 @@ namespace HVAC_Pro_Desktop.Services
             foreach (Dictionary<string, string> row in specialized.Rows.Take(8))
                 preview.SampleRows.Add(new Dictionary<string, string>(row, StringComparer.OrdinalIgnoreCase));
             preview.UserMessages.Add(specialized.Message);
-            preview.UserMessages.Add("Missing clients can be created during import from this recognized quotation layout.");
+            if (specialized.Module == ExcelImportModule.Quotations)
+                preview.UserMessages.Add("Missing clients can be created during import from this recognized quotation layout.");
+            else if (specialized.Module == ExcelImportModule.Purchases)
+                preview.UserMessages.Add("Missing suppliers can be created during import from this recognized purchase order PDF.");
             return preview;
         }
 
@@ -405,7 +419,8 @@ namespace HVAC_Pro_Desktop.Services
                     result.ColumnMappings[header] = header;
                 foreach (string line in diagnostics.BuildSummaryLines())
                     result.CreatedDefaults.Add(line);
-                result.UserMessages.Add(import.SuccessCount + " quotation line(s) imported or refreshed from the MSE quotation format.");
+                string unitName = specialized.Module == ExcelImportModule.Purchases ? "purchase order line(s)" : "quotation line(s)";
+                result.UserMessages.Add(import.SuccessCount + " " + unitName + " imported or refreshed from the recognized document format.");
                 result.UserMessages.Add(specialized.Message);
                 if (import.SkippedCount > 0)
                     result.UserMessages.Add(import.SkippedCount + " rows were skipped safely.");
@@ -423,12 +438,15 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private static bool IsSupportedWorkbook(string filePath)
+        private static bool IsSupportedImportFile(string filePath, ExcelImportModule? preferredModule)
         {
             string extension = Path.GetExtension(filePath) ?? string.Empty;
-            return extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
-                || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase)
-                || extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+            if (extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
+                && (!preferredModule.HasValue || preferredModule.Value == ExcelImportModule.Purchases);
         }
 
         private List<Dictionary<string, string>> BuildCanonicalRows(ExcelImportModule module, ExcelSheetImportData sheet, ColumnMappingResult mapping)
@@ -526,85 +544,54 @@ namespace HVAC_Pro_Desktop.Services
         }
     }
 
-    internal sealed class MseQuotationLayoutParser
+    internal sealed class PurchaseOrderPdfLayoutParser
     {
         public SpecializedImportData TryParse(string filePath)
         {
-            string extension = Path.GetExtension(filePath) ?? string.Empty;
-            if (extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-                return TryParsePdf(filePath);
-            if (!extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+            if (!Path.GetExtension(filePath).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
                 return null;
 
-            using (var package = new ExcelPackage(new FileInfo(filePath)))
-            {
-                package.Workbook.Calculate();
-                foreach (ExcelWorksheet sheet in package.Workbook.Worksheets)
-                {
-                    SpecializedImportData parsed = TryParseSheet(sheet);
-                    if (parsed != null)
-                        return parsed;
-                }
-            }
-
-            return null;
-        }
-
-        private static SpecializedImportData TryParsePdf(string filePath)
-        {
             string text = ExtractPdfText(filePath);
             if (string.IsNullOrWhiteSpace(text))
-                throw new InvalidOperationException("ServoERP could not read text from this PDF. Please import a text-based quotation PDF, not a scanned image-only PDF.");
+                throw new InvalidOperationException("ServoERP could not read text from this PDF. Please import a text-based purchase order PDF, not a scanned image-only PDF.");
 
             string normalized = NormalizeWhitespace(text);
-            if (normalized.IndexOf("quotation", StringComparison.OrdinalIgnoreCase) < 0)
+            if (normalized.IndexOf("purchase order", StringComparison.OrdinalIgnoreCase) < 0
+                && !Regex.IsMatch(normalized, @"\bP\.?\s*O\.?\s*(?:No\.?|Number)?\b", RegexOptions.IgnoreCase))
                 return null;
 
-            string quotationNumber = FirstMatch(normalized,
-                @"Quotation\s*(?:No\.?|Number)?\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)",
-                @"Quote\s*(?:No\.?|Number)?\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)");
-            string quotationDate = FirstMatch(normalized,
-                @"Quotation\s*Date\s*[:#-]\s*(?<value>\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
+            string poNumber = FirstMatch(normalized,
+                @"(?:Purchase\s+Order|P\.?\s*O\.?)\s*(?:No\.?|Number)?\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)",
+                @"\bPO\s*[:#-]\s*(?<value>[A-Z0-9][A-Z0-9\/\-_\.]+)");
+            string poDate = FirstMatch(normalized,
+                @"(?:PO|P\.O\.|Purchase\s+Order)\s*Date\s*[:#-]\s*(?<value>\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})",
                 @"Date\s*[:#-]\s*(?<value>\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})");
-            string subject = FirstMatch(normalized,
-                @"\bSub(?:ject)?\s*[:#-]\s*(?<value>.*?)(?=\s+(?:Sr\.?\s*No|Description|HSN|Qty|Quantity|Total\s+Amount|Dear\s+Sir|Terms|$))",
-                @"Quotation\s+For\s+(?<value>.*?)(?=\s+(?:Sr\.?\s*No|Description|HSN|Qty|Quantity|Total\s+Amount|Terms|$))");
-            string clientName = ExtractPdfClientName(text);
-
-            if (string.IsNullOrWhiteSpace(quotationNumber) || string.IsNullOrWhiteSpace(clientName))
+            string supplierName = ExtractSupplierName(text);
+            if (string.IsNullOrWhiteSpace(supplierName))
                 return null;
-            if (string.IsNullOrWhiteSpace(subject))
-                subject = "Imported quotation PDF";
 
-            decimal taxableTotal = FirstAmount(normalized, @"Total\s+Amount(?:\s+Rs\.?)?\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)");
-            decimal totalWithGst = FirstAmount(normalized, @"Total\s+Rs\.?\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)", @"Grand\s+Total\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)");
-            decimal cgst = FirstAmount(normalized, @"CGST[^\d]{0,20}(?<value>[\d,]+(?:\.\d{1,2})?)");
-            decimal sgst = FirstAmount(normalized, @"SGST[^\d]{0,20}(?<value>[\d,]+(?:\.\d{1,2})?)");
-            decimal gstRate = taxableTotal > 0m ? Math.Round(((cgst + sgst) / taxableTotal) * 100m, 2) : 18m;
-            if (gstRate <= 0m)
-                gstRate = 18m;
-            decimal amount = totalWithGst > 0m ? totalWithGst : taxableTotal;
+            decimal grandTotal = FirstAmount(normalized,
+                @"Grand\s+Total\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)",
+                @"Total\s+Amount\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)",
+                @"Total\s+Rs\.?\s*[:#-]?\s*(?<value>[\d,]+(?:\.\d{1,2})?)");
+            List<Dictionary<string, string>> rows = BuildLineRows(text, poNumber, poDate, supplierName);
+            if (rows.Count == 0 && grandTotal > 0m)
+            {
+                rows.Add(CreateRow(poNumber, poDate, supplierName, "Imported purchase order PDF", 1m, grandTotal, grandTotal));
+            }
 
-            List<Dictionary<string, string>> rows = BuildPdfLineRows(text, quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate);
-            decimal derivedTaxableTotal = rows.Sum(row => ParseDecimal(row, "LineAmount"));
-            if (taxableTotal <= 0m && derivedTaxableTotal > 0m)
-                taxableTotal = derivedTaxableTotal;
-            if (amount <= 0m && taxableTotal > 0m)
-                amount = Math.Round(taxableTotal * (1m + (gstRate / 100m)), 2);
             if (rows.Count == 0)
-                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, subject, 1m, "Nos", taxableTotal > 0m ? taxableTotal : amount));
-            else
-                ApplyQuotationTotals(rows, amount, taxableTotal);
+                return null;
 
             var data = new SpecializedImportData
             {
-                Module = ExcelImportModule.Quotations,
+                Module = ExcelImportModule.Purchases,
                 SheetName = Path.GetFileName(filePath),
-                Confidence = rows.Count > 1 ? 92 : 86,
+                Confidence = rows.Count > 1 ? 92 : 84,
                 SourceRowCount = CountNonEmptyLines(text),
-                Message = "Recognized quotation PDF and extracted quotation header, totals, GST, and readable item lines."
+                Message = "Recognized purchase order PDF and extracted supplier, PO reference, date, totals, and readable item lines."
             };
-            data.SourceHeaders.AddRange(new[] { "Quotation No", "Quotation Date", "To", "Sub", "Description", "Unit", "Qty", "Rate", "Amount", "CGST", "SGST", "Total" });
+            data.SourceHeaders.AddRange(new[] { "PO Number", "PO Date", "Supplier", "Description", "Unit", "Qty", "Rate", "Amount", "Total" });
             data.Rows.AddRange(rows);
             return data;
         }
@@ -627,13 +614,13 @@ namespace HVAC_Pro_Desktop.Services
             return builder.ToString();
         }
 
-        private static List<Dictionary<string, string>> BuildPdfLineRows(string text, string quotationNumber, string quotationDate, string clientName, string subject, decimal amount, decimal taxableTotal, decimal gstRate)
+        private static List<Dictionary<string, string>> BuildLineRows(string text, string poNumber, string poDate, string supplierName)
         {
             var rows = new List<Dictionary<string, string>>();
             foreach (string rawLine in SplitLines(text))
             {
                 string line = Clean(rawLine);
-                if (string.IsNullOrWhiteSpace(line) || IsPdfNonItemLine(line))
+                if (string.IsNullOrWhiteSpace(line) || IsNonItemLine(line))
                     continue;
 
                 Match match = Regex.Match(line, @"^(?:\d+\s*[\.\)]?\s+)?(?<description>.+?)\s+(?<unit>[A-Za-z]{1,12})\s+(?<qty>\d+(?:\.\d+)?)\s+(?<rate>[\d,]+(?:\.\d{1,2})?)\s+(?<amount>[\d,]+(?:\.\d{1,2})?)$", RegexOptions.IgnoreCase);
@@ -647,51 +634,88 @@ namespace HVAC_Pro_Desktop.Services
                 decimal lineAmount = ToDecimal(match.Groups["amount"].Value);
                 if (string.IsNullOrWhiteSpace(description) || qty <= 0m || (rate <= 0m && lineAmount <= 0m))
                     continue;
+                if (rate <= 0m && qty > 0m)
+                    rate = lineAmount / qty;
                 if (lineAmount <= 0m)
                     lineAmount = qty * rate;
 
-                rows.Add(CreateRow(quotationNumber, quotationDate, clientName, subject, amount, taxableTotal, gstRate, description, qty, string.IsNullOrWhiteSpace(unit) ? "Nos" : unit, lineAmount));
+                rows.Add(CreateRow(poNumber, poDate, supplierName, description, qty, rate, lineAmount, unit));
             }
 
             return rows;
         }
 
-        private static bool IsPdfNonItemLine(string line)
+        private static Dictionary<string, string> CreateRow(string poNumber, string poDate, string supplierName, string description, decimal qty, decimal unitPrice, decimal totalAmount, string unit = "Nos")
         {
-            string normalized = NormalizeLabel(line);
-            return normalized.StartsWith("QUOTATION", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("DESCRIPTION", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("SRNO", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("TOTAL", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("ADD", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("CGST", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("SGST", StringComparison.OrdinalIgnoreCase)
-                || normalized.StartsWith("TERMS", StringComparison.OrdinalIgnoreCase);
+            string notes = "Imported from purchase order PDF";
+            if (!string.IsNullOrWhiteSpace(poNumber))
+                notes += " | PO: " + poNumber;
+            if (!string.IsNullOrWhiteSpace(unit))
+                notes += " | Unit: " + unit;
+
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "PurchaseDate", NormalizeDate(poDate) },
+                { "PONumber", poNumber },
+                { "SupplierName", supplierName },
+                { "ItemDescription", description },
+                { "Quantity", qty.ToString("0.###", CultureInfo.InvariantCulture) },
+                { "Unit", string.IsNullOrWhiteSpace(unit) ? "Nos" : unit },
+                { "UnitPrice", unitPrice.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "TotalAmount", totalAmount.ToString("0.##", CultureInfo.InvariantCulture) },
+                { "Notes", notes }
+            };
         }
 
-        private static string ExtractPdfClientName(string text)
+        private static string ExtractSupplierName(string text)
         {
             string[] lines = SplitLines(text).Select(Clean).Where(line => !string.IsNullOrWhiteSpace(line)).ToArray();
             for (int index = 0; index < lines.Length; index++)
             {
                 string line = lines[index];
-                if (IsToLabel(line) || NormalizeLabel(line).StartsWith("TO", StringComparison.OrdinalIgnoreCase))
+                if (Regex.IsMatch(line, @"^(Supplier|Vendor|To)\b", RegexOptions.IgnoreCase))
                 {
-                    string inline = Regex.Replace(line, @"^\s*To\s*[:,\-]?\s*", string.Empty, RegexOptions.IgnoreCase).Trim();
-                    string client = FirstClientLine(inline);
-                    if (!string.IsNullOrWhiteSpace(client))
-                        return client;
+                    string inline = Regex.Replace(line, @"^\s*(Supplier|Vendor|To)\s*(Name)?\s*[:,\-]?\s*", string.Empty, RegexOptions.IgnoreCase).Trim();
+                    if (IsGoodSupplierLine(inline))
+                        return inline;
 
                     for (int scan = index + 1; scan < Math.Min(lines.Length, index + 5); scan++)
                     {
-                        client = FirstClientLine(lines[scan]);
-                        if (!string.IsNullOrWhiteSpace(client))
-                            return client;
+                        if (IsGoodSupplierLine(lines[scan]))
+                            return lines[scan];
                     }
                 }
             }
 
-            return FirstMatch(NormalizeWhitespace(text), @"(?:Client|Customer|Company)\s*Name\s*[:#-]\s*(?<value>.*?)(?=\s+(?:GSTIN|Sub|Subject|Quotation|Date|$))");
+            return FirstMatch(NormalizeWhitespace(text), @"(?:Supplier|Vendor)\s*Name\s*[:#-]\s*(?<value>.*?)(?=\s+(?:GSTIN|GST|PO|Purchase\s+Order|Date|$))");
+        }
+
+        private static bool IsGoodSupplierLine(string value)
+        {
+            string cleaned = Clean(value);
+            string normalized = NormalizeLabel(cleaned);
+            return !string.IsNullOrWhiteSpace(cleaned)
+                && normalized != "SUPPLIER"
+                && normalized != "VENDOR"
+                && normalized != "TO"
+                && !normalized.StartsWith("PURCHASEORDER", StringComparison.OrdinalIgnoreCase)
+                && !normalized.StartsWith("PONO", StringComparison.OrdinalIgnoreCase)
+                && !normalized.StartsWith("DATE", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsNonItemLine(string line)
+        {
+            string normalized = NormalizeLabel(line);
+            return normalized.StartsWith("PURCHASEORDER", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("DESCRIPTION", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("ITEMDESCRIPTION", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("SRNO", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("TOTAL", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("GRANDTOTAL", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("CGST", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("SGST", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("IGST", StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith("TERMS", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string[] SplitLines(string text)
@@ -728,13 +752,75 @@ namespace HVAC_Pro_Desktop.Services
         {
             foreach (string pattern in patterns)
             {
-                string raw = FirstMatch(value, pattern);
-                decimal amount = ToDecimal(raw);
+                decimal amount = ToDecimal(FirstMatch(value, pattern));
                 if (amount > 0m)
                     return amount;
             }
 
             return 0m;
+        }
+
+        private static string Clean(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+            string cleaned = Regex.Replace(value, @"[\u0000-\u001F]+", " ");
+            cleaned = cleaned.Replace('\u00A0', ' ');
+            return Regex.Replace(cleaned, @"\s{2,}", " ").Trim();
+        }
+
+        private static string NormalizeLabel(string value)
+        {
+            return new string((value ?? string.Empty).Where(char.IsLetterOrDigit).ToArray()).ToUpperInvariant();
+        }
+
+        private static decimal ToDecimal(object value)
+        {
+            if (value == null)
+                return 0m;
+            if (value is double || value is float || value is decimal || value is int || value is long)
+                return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+
+            decimal parsed;
+            string raw = Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+            raw = raw.Replace(",", string.Empty).Replace("Rs.", string.Empty).Replace("Rs", string.Empty).Replace("INR", string.Empty).Trim();
+            return decimal.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out parsed) ||
+                   decimal.TryParse(raw, NumberStyles.Any, CultureInfo.GetCultureInfo("en-IN"), out parsed)
+                ? parsed
+                : 0m;
+        }
+
+        private static string NormalizeDate(string value)
+        {
+            DateTime parsed;
+            string[] formats = { "dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy", "yyyy-MM-dd", "dd MMM yyyy", "dd MMMM yyyy" };
+            if (DateTime.TryParseExact(value, formats, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out parsed) ||
+                DateTime.TryParse(value, CultureInfo.GetCultureInfo("en-IN"), DateTimeStyles.None, out parsed) ||
+                DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out parsed))
+                return parsed.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+            return DateTime.Today.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
+        }
+    }
+
+    internal sealed class MseQuotationLayoutParser
+    {
+        public SpecializedImportData TryParse(string filePath)
+        {
+            if (!Path.GetExtension(filePath).Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            using (var package = new ExcelPackage(new FileInfo(filePath)))
+            {
+                package.Workbook.Calculate();
+                foreach (ExcelWorksheet sheet in package.Workbook.Worksheets)
+                {
+                    SpecializedImportData parsed = TryParseSheet(sheet);
+                    if (parsed != null)
+                        return parsed;
+                }
+            }
+
+            return null;
         }
 
         private static SpecializedImportData TryParseSheet(ExcelWorksheet sheet)
@@ -1153,7 +1239,7 @@ namespace HVAC_Pro_Desktop.Services
             if (extension.Equals(".xls", StringComparison.OrdinalIgnoreCase))
                 return ReadXls(filePath);
 
-            throw new InvalidOperationException("ServoERP currently accepts Excel workbooks in .xlsx or .xls format, plus recognized quotation PDFs.");
+            throw new InvalidOperationException("ServoERP currently accepts Excel workbooks in .xlsx or .xls format, plus recognized purchase order PDFs.");
         }
 
         private ExcelWorkbookImportData ReadXlsx(string filePath)
@@ -1503,9 +1589,11 @@ namespace HVAC_Pro_Desktop.Services
             { ExcelImportModule.Purchases, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
                 {
                     { "PurchaseDate", new[] { "Purchase Date", "PO Date", "Date" } },
+                    { "PONumber", new[] { "PO Number", "PO No", "PONumber", "Purchase Order Number" } },
                     { "SupplierName", new[] { "Supplier Name", "Vendor Name", "Vendor" } },
                     { "ItemDescription", new[] { "Item", "Description", "Material Name", "Product Name" } },
                     { "Quantity", new[] { "Qty", "Quantity", "Purchase Qty" } },
+                    { "Unit", new[] { "Unit", "UOM" } },
                     { "UnitPrice", new[] { "Unit Price", "Rate", "Price" } },
                     { "TotalAmount", new[] { "Total Amount", "Line Amount", "Amount" } },
                     { "Notes", new[] { "Notes", "Remarks", "Comments" } }

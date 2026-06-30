@@ -145,8 +145,8 @@ namespace HVAC_Pro_Desktop.Services
                     using (var dialog = new FolderBrowserDialog())
                     {
                         dialog.Description = preferredModule.HasValue
-                            ? "Select folder containing " + ExcelImportService.GetDisplayName(preferredModule.Value) + " Excel/PDF files"
-                            : "Select folder containing Excel workbooks or quotation PDFs to import";
+                            ? "Select folder containing " + ExcelImportService.GetDisplayName(preferredModule.Value) + (SupportsPdfImport(preferredModule.Value) ? " Excel/PDF files" : " Excel workbooks")
+                            : "Select folder containing Excel workbooks to import";
                         dialog.ShowNewFolderButton = false;
                         if (dialog.ShowDialog(owner) != DialogResult.OK)
                             return null;
@@ -187,10 +187,10 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     using (var dialog = new OpenFileDialog())
                     {
-                        dialog.Filter = preferredModule.HasValue && IsSalesImport(preferredModule.Value)
+                        dialog.Filter = preferredModule.HasValue && SupportsPdfImport(preferredModule.Value)
                             ? "Excel Workbook or PDF (*.xlsx;*.xls;*.pdf)|*.xlsx;*.xls;*.pdf|Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls|PDF document (*.pdf)|*.pdf"
                             : "Excel Workbook (*.xlsx;*.xls)|*.xlsx;*.xls";
-                        dialog.Title = preferredModule.HasValue ? "Import " + ExcelImportService.GetDisplayName(preferredModule.Value) : "Import Excel or Quotation PDF";
+                        dialog.Title = preferredModule.HasValue ? "Import " + ExcelImportService.GetDisplayName(preferredModule.Value) : "Import Excel";
                         if (dialog.ShowDialog(owner) != DialogResult.OK)
                             return;
                         selectedFile = dialog.FileName;
@@ -217,13 +217,9 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private static bool IsSalesImport(ExcelImportModule module)
+        private static bool SupportsPdfImport(ExcelImportModule module)
         {
-            return module == ExcelImportModule.Quotations
-                || module == ExcelImportModule.Invoices
-                || module == ExcelImportModule.Payments
-                || module == ExcelImportModule.Purchases
-                || module == ExcelImportModule.Jobs;
+            return module == ExcelImportModule.Purchases;
         }
 
         private static void ShowAutomatedResult(IWin32Window owner, AutomatedImportResult result)

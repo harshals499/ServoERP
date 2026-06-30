@@ -1380,11 +1380,13 @@ VALUES (@paymentNumber,@invoiceId,@clientId,@amountPaid,@paymentDate,@paymentMod
 
         private bool ImportPurchaseRow(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result, ExcelImportExecutionOptions options)
         {
+            string poNumber = GetCell(sheet, row, map, "PONumber");
             string vendorName = GetCell(sheet, row, map, "VendorName");
             string itemDescription = GetCell(sheet, row, map, "ItemDescription");
             decimal quantity = GetDecimal(sheet, row, map, "Quantity");
             decimal unitPrice = GetDecimal(sheet, row, map, "UnitPrice");
             decimal totalAmount = GetDecimal(sheet, row, map, "TotalAmount");
+            string unit = NormalizeUnit(NullIfEmpty(GetCell(sheet, row, map, "Unit")) ?? "Nos", options);
             string notes = GetCell(sheet, row, map, "Notes");
             DateTime purchaseDate = GetDate(sheet, row, map, "PurchaseDate");
 
@@ -1399,7 +1401,9 @@ VALUES (@paymentNumber,@invoiceId,@clientId,@amountPaid,@paymentDate,@paymentMod
 
             int vendorId = EnsureVendorId(conn, transaction, vendorName, null, null, null, null, null, null, notes, options);
 
-            int? existingPoId = GetScalarInt(conn, transaction, @"
+            int? existingPoId = !string.IsNullOrWhiteSpace(poNumber)
+                ? GetScalarInt(conn, transaction, "SELECT TOP 1 POID FROM PurchaseOrders WHERE PONumber=@poNumber ORDER BY POID DESC", new SqlParameter("@poNumber", poNumber))
+                : GetScalarInt(conn, transaction, @"
 SELECT TOP 1 po.POID
 FROM PurchaseOrders po
 LEFT JOIN PurchaseLineItems li ON li.POID = po.POID
@@ -1410,6 +1414,63 @@ ORDER BY po.POID DESC",
                 new SqlParameter("@poDate", purchaseDate.Date),
                 new SqlParameter("@item", itemDescription ?? string.Empty));
 
+            if (!string.IsNullOrWhiteSpace(poNumber))
+            {
+                int poId = existingPoId.GetValueOrDefault();
+                if (poId <= 0)
+                {
+                    using (SqlCommand cmd = new SqlCommand(@"
+INSERT INTO PurchaseOrders (VendorID, PONumber, PODate, PayByDate, TotalAmount, Status, Notes)
+VALUES (@vendorId,@poNumber,@poDate,DATEADD(day,30,@poDate),0,'Pending',@notes);
+SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
+                    {
+                        cmd.Parameters.AddWithValue("@vendorId", vendorId);
+                        cmd.Parameters.AddWithValue("@poNumber", poNumber);
+                        cmd.Parameters.AddWithValue("@poDate", purchaseDate);
+                        cmd.Parameters.AddWithValue("@notes", (object)notes ?? DBNull.Value);
+                        poId = Convert.ToInt32(cmd.ExecuteScalar());
+                    }
+                }
+                else
+                {
+                    Execute(conn, transaction, @"
+UPDATE PurchaseOrders
+SET VendorID=@vendorId, PODate=@poDate, PayByDate=COALESCE(PayByDate, DATEADD(day,30,@poDate)),
+    Notes=COALESCE(NULLIF(@notes,''), Notes)
+WHERE POID=@id",
+                        new SqlParameter("@vendorId", vendorId),
+                        new SqlParameter("@poDate", purchaseDate),
+                        new SqlParameter("@notes", (object)notes ?? DBNull.Value),
+                        new SqlParameter("@id", poId));
+                }
+
+                string resetKey = poNumber.Trim();
+                if (!options.PurchaseLineItemsReset.Contains(resetKey))
+                {
+                    Execute(conn, transaction, "DELETE FROM PurchaseLineItems WHERE POID=@id", new SqlParameter("@id", poId));
+                    options.PurchaseLineItemsReset.Add(resetKey);
+                }
+
+                Execute(conn, transaction, @"
+INSERT INTO PurchaseLineItems (POID, Description, Quantity, UOM, Rate, Amount)
+VALUES (@poId,@description,@qty,@unit,@rate,@amount)",
+                    new SqlParameter("@poId", poId),
+                    new SqlParameter("@description", (object)itemDescription ?? DBNull.Value),
+                    new SqlParameter("@qty", quantity),
+                    new SqlParameter("@unit", unit),
+                    new SqlParameter("@rate", unitPrice),
+                    new SqlParameter("@amount", totalAmount));
+
+                Execute(conn, transaction, @"
+UPDATE PurchaseOrders
+SET TotalAmount = COALESCE((SELECT SUM(Amount) FROM PurchaseLineItems WHERE POID=@id), @total)
+WHERE POID=@id",
+                    new SqlParameter("@id", poId),
+                    new SqlParameter("@total", totalAmount));
+
+                return true;
+            }
+
             if (existingPoId.HasValue)
             {
                 Execute(conn, transaction, "UPDATE PurchaseOrders SET TotalAmount=@total, Notes=COALESCE(NULLIF(@notes,''), Notes) WHERE POID=@id",
@@ -1419,17 +1480,18 @@ ORDER BY po.POID DESC",
 
                 Execute(conn, transaction, @"
 UPDATE TOP (1) PurchaseLineItems
-SET Description=@description, Quantity=@qty, Rate=@rate, Amount=@amount
+SET Description=@description, Quantity=@qty, UOM=@unit, Rate=@rate, Amount=@amount
 WHERE POID=@id",
                     new SqlParameter("@description", (object)itemDescription ?? DBNull.Value),
                     new SqlParameter("@qty", quantity),
+                    new SqlParameter("@unit", unit),
                     new SqlParameter("@rate", unitPrice),
                     new SqlParameter("@amount", totalAmount),
                     new SqlParameter("@id", existingPoId.Value));
             }
             else
             {
-                string poNumber = "PO-IMP-" + DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + "-" + row.ToString(CultureInfo.InvariantCulture);
+                poNumber = "PO-IMP-" + DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture) + "-" + row.ToString(CultureInfo.InvariantCulture);
                 int poId;
                 using (SqlCommand cmd = new SqlCommand(@"
 INSERT INTO PurchaseOrders (VendorID, PONumber, PODate, PayByDate, TotalAmount, Status, Notes)
@@ -1446,10 +1508,11 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
 
                 Execute(conn, transaction, @"
 INSERT INTO PurchaseLineItems (POID, Description, Quantity, UOM, Rate, Amount)
-VALUES (@poId,@description,@qty,'Nos',@rate,@amount)",
+VALUES (@poId,@description,@qty,@unit,@rate,@amount)",
                     new SqlParameter("@poId", poId),
                     new SqlParameter("@description", (object)itemDescription ?? DBNull.Value),
                     new SqlParameter("@qty", quantity),
+                    new SqlParameter("@unit", unit),
                     new SqlParameter("@rate", unitPrice),
                     new SqlParameter("@amount", totalAmount));
             }
@@ -1933,7 +1996,7 @@ VALUES
                 case ExcelImportModule.Payments:
                     return new[] { "PaymentDate", "InvoiceNumber", "ClientName", "AmountPaid", "PaymentMode", "ReferenceNumber", "Notes" };
                 case ExcelImportModule.Purchases:
-                    return new[] { "PurchaseDate", "SupplierName", "ItemDescription", "Quantity", "UnitPrice", "TotalAmount", "Notes" };
+                    return new[] { "PurchaseDate", "PONumber", "SupplierName", "ItemDescription", "Quantity", "Unit", "UnitPrice", "TotalAmount", "Notes" };
                 case ExcelImportModule.Jobs:
                     return new[] { "JobDate", "ClientName", "SiteName", "TechnicianName", "JobType", "Description", "Status", "Priority", "ScheduledDate" };
                 case ExcelImportModule.Clients:

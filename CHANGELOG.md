@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.336.0 - 2026-06-30
+
+- Moved PDF import support from Quotations to Purchase Orders.
+- Purchase Order imports now accept text-based PDF files, preserve PO numbers when present, and attach multiple parsed line items to the same purchase order.
+- Removed PDF selection from other sales import pickers so Quotations return to Excel workbook import only.
+
 ## 1.1.335.0 - 2026-06-30
 
 - Added PDF import support to the shared sales import flow, starting with text-based quotation PDFs.
