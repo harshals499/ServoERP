@@ -1,11 +1,11 @@
-{
-  "latestVersion": "1.1.334.0",
-  "minimumSupportedVersion": "1.0.0.0",
-  "versionUrl": "https://servoerp.in/version.txt",
-  "notes": "Simplified Quotations dashboard with company and month filters is now published for client update.",
-  "updatedAt": "2026-06-29T11:50:00Z",
-  "downloadAvailable": true,
-  "updateAvailable": true,
-  "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.334/ServoERP.Desktop-1.1.334-full.nupkg",
-  "installerUrl": "https://downloads.servoerp.in/ServoERP_Setup_1.1.334.0.exe"
+﻿{
+    "latestVersion":  "1.1.335.0",
+    "minimumSupportedVersion":  "1.0.0.0",
+    "versionUrl":  "https://servoerp.in/version.txt",
+    "notes":  "ServoERP release package and installer are available for this version.",
+    "updatedAt":  "2026-06-30T10:49:00Z",
+    "downloadAvailable":  true,
+    "updateAvailable":  true,
+    "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.335/ServoERP.Desktop-1.1.335-full.nupkg",
+    "installerUrl":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.335.0.exe"
 }
