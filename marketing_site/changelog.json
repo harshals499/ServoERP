@@ -1,15 +1,30 @@
 ﻿{
     "product":  "ServoERP",
-    "latestVersion":  "1.1.335.0",
+    "latestVersion":  "1.1.336.0",
     "updatedAt":  "2026-06-30",
     "download":  {
                      "available":  true,
                      "message":  "Public installer and update packages are available for this release.",
-                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.335/ServoERP.Desktop-1.1.335-full.nupkg",
-                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.335.0.exe",
-                     "installer":  "ServoERP_Setup_1.1.335.0.exe"
+                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.336/ServoERP.Desktop-1.1.336-full.nupkg",
+                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.336.0.exe",
+                     "installer":  "ServoERP_Setup_1.1.336.0.exe"
                  },
     "versions":  [
+                     {
+                         "version":  "1.1.336.0",
+                         "date":  "2026-06-30",
+                         "title":  "ServoERP update 1.1.336.0",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Moved PDF import support from Quotations to Purchase Orders.",
+                                                           "Purchase Order imports now accept text-based PDF files, preserve PO numbers when present, and attach multiple parsed line items to the same purchase order.",
+                                                           "Removed PDF selection from other sales import pickers so Quotations return to Excel workbook import only."
+                                                       ]
+                                         }
+                                     ]
+                     },
                      {
                          "version":  "1.1.335.0",
                          "date":  "2026-06-30",
