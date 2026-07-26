@@ -1,4 +1,11 @@
 # Changelog
+## 1.1.337.0 - 2026-07-26
+
+- Fixed Supplier dashboard totals so they match the visible active supplier list.
+- Made Invoice Checklist / Tasks vertically scrollable for longer service checklists.
+- Normalized pasted TAN values before validation, including spaces and hyphens.
+- Prevented duplicate HSN/SAC master codes and improved quotation duration wording for days and weeks.
+
 ## 1.1.336.0 - 2026-06-30
 
 - Moved PDF import support from Quotations to Purchase Orders.

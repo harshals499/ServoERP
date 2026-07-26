@@ -11,7 +11,9 @@ namespace HVAC_Pro_Desktop.Services
 
         public static string NormalizeTaxId(string value)
         {
-            return string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim().ToUpperInvariant();
+            return string.IsNullOrWhiteSpace(value)
+                ? string.Empty
+                : Regex.Replace(value, @"[\s\-]", string.Empty).ToUpperInvariant();
         }
 
         public static bool IsValidGSTIN(string gstin)

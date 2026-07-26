@@ -44,6 +44,14 @@ namespace HVAC_Pro_Desktop.Services
                 cleaned.Add(normalized);
             }
 
+            HsnSacMasterEntry duplicate = cleaned
+                .GroupBy(entry => entry.CodeType + ":" + entry.Code, StringComparer.OrdinalIgnoreCase)
+                .Where(group => group.Count() > 1)
+                .Select(group => group.First())
+                .FirstOrDefault();
+            if (duplicate != null)
+                throw new Exception("HSN/SAC code " + duplicate.Code + " is listed more than once. Keep one reusable master entry for each code.");
+
             _repo.SaveAll(cleaned);
             AppDataCache.RemovePrefix("hsnsac:");
             IndiaComplianceLogger.Log("HSN/SAC Master", "Saved " + cleaned.Count + " HSN/SAC entries.");

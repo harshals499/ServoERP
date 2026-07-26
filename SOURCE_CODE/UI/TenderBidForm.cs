@@ -633,6 +633,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpDate.ValueChanged += (s, e) => UpdateDueDate();
             _dtpDue = MakeDatePicker();
             _dtpDue.Value = DateTime.Today.AddDays(30);
+            _dtpDue.ValueChanged += (s, e) => RefreshSummary();
             _dtpRequiredBy = MakeDatePicker();
             _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
 
@@ -2622,7 +2623,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             int days = Math.Max(0, (_dtpDue?.Value.Date ?? DateTime.Today).Subtract(_dtpDate?.Value.Date ?? DateTime.Today).Days);
             if (_lblKpiValidity != null)
-                _lblKpiValidity.Text = days + " Days";
+                _lblKpiValidity.Text = FormatQuotationDuration(days);
             if (_lblKpiValiditySub != null)
                 _lblKpiValiditySub.Text = "Expires on " + (_dtpDue?.Value.Date ?? DateTime.Today).ToString("dd/MM/yyyy", CultureInfo.InvariantCulture);
             if (_lblKpiSaved != null)
@@ -3369,6 +3370,18 @@ namespace HVAC_Pro_Desktop.UI
             if (_cboValidity.SelectedItem != null)
                 int.TryParse(_cboValidity.SelectedItem.ToString().Split(' ')[0], out days);
             _dtpDue.Value = _dtpDate.Value.Date.AddDays(days <= 0 ? 30 : days);
+            RefreshSummary();
+        }
+
+        private static string FormatQuotationDuration(int days)
+        {
+            if (days >= 7 && days % 7 == 0)
+            {
+                int weeks = days / 7;
+                return weeks + (weeks == 1 ? " week" : " weeks");
+            }
+
+            return days + (days == 1 ? " day" : " days");
         }
 
         private void SelectCombo(ComboBox combo, int id)

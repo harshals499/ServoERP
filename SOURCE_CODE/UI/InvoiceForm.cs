@@ -2340,7 +2340,8 @@ namespace HVAC_Pro_Desktop.UI
                 SelectionMode = DataGridViewSelectionMode.CellSelect,
                 Font = new Font("Segoe UI", 8.25f),
                 ColumnHeadersHeight = 22,
-                RowTemplate = { Height = 24 }
+                RowTemplate = { Height = 24 },
+                ScrollBars = ScrollBars.Vertical
             };
             grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Text", HeaderText = textHeader, FillWeight = 84, FlatStyle = FlatStyle.Flat, DisplayStyle = DataGridViewComboBoxDisplayStyle.ComboBox });
             grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "X", UseColumnTextForButtonValue = true, FillWeight = 16 });

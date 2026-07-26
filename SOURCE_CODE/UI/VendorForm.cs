@@ -1010,7 +1010,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private IEnumerable<VendorSummaryDto> ActiveDashboardVendors()
         {
-            return _vendorSummaries.Where(v => v.IsSupplier && (!v.IsArchived || GetVendorDashboardStatus(v) == "Blocked"));
+            return _vendorSummaries.Where(v => v.IsSupplier && v.IsActive && !v.IsArchived);
         }
 
         /// <summary>Returns supplier summaries for the supplier page.</summary>
@@ -2654,9 +2654,9 @@ namespace HVAC_Pro_Desktop.UI
         private List<VendorSummaryDto> BuildLightweightDashboardSummaries()
         {
             List<Vendor> vendors = AppDataCache.GetOrCreate(
-                "vendors:all-including-archived",
+                "vendors:dashboard-active",
                 TimeSpan.FromMinutes(2),
-                () => _vendorSvc.GetAllIncludingArchived() ?? new List<Vendor>());
+                () => _vendorSvc.GetAll() ?? new List<Vendor>());
 
             return (vendors ?? new List<Vendor>())
                 .Select(v => new VendorSummaryDto
