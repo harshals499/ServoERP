@@ -1,5 +1,5 @@
 # Changelog
-## 1.1.337.0 - 2026-07-26
+## 1.1.345.0 - 2026-07-26
 
 - Fixed Supplier dashboard totals so they match the visible active supplier list.
 - Made Invoice Checklist / Tasks vertically scrollable for longer service checklists.
