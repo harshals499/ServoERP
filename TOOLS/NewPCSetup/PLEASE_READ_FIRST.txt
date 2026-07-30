@@ -1,0 +1,54 @@
+SERVOERP - EASY NEW COMPUTER INSTALLATION
+===========================================
+
+This ZIP helps you install ServoERP on a new Windows computer.
+
+IMPORTANT: You need internet access. Keep this ZIP in one folder and do not
+delete any files inside it.
+
+FOR A NORMAL USER (ONLY INSTALL SERVOERP)
+-----------------------------------------
+1. Open the folder after extracting the ZIP.
+2. Hold SHIFT, right-click in an empty area of the folder, and choose
+   "Open PowerShell window here" or "Open in Terminal".
+3. Copy and paste this command, then press ENTER:
+
+   .\ServoERP-NewPCSetup.ps1 -Mode Client
+
+4. Wait for the ServoERP installer to open.
+5. Keep clicking Next, then Finish.
+6. Open ServoERP from the Start menu.
+
+FOR A DEVELOPER (DOWNLOAD THE SOURCE CODE AND BUILD IT)
+-------------------------------------------------------
+1. Open the folder after extracting the ZIP.
+2. Double-click: Start-ServoERP-NewPCSetup.cmd
+3. If Windows asks for permission, choose Yes.
+4. The wizard will download the ServoERP source code from GitHub and build it.
+5. If it asks to install Git or Visual Studio, choose Yes.
+6. If Visual Studio opens, select ".NET desktop development", let it finish,
+   and then double-click Start-ServoERP-NewPCSetup.cmd again.
+7. When the wizard says "Developer setup is complete", ServoERP is ready to
+   open from C:\HVAC_PRO_MSE\SOURCE_CODE\bin\Release.
+
+DATABASE - PLEASE READ
+----------------------
+ServoERP needs the company's SQL Server database to show real customers,
+invoices, jobs, and accounts. This ZIP does NOT contain company data or
+passwords. An authorised administrator must either:
+
+- connect this computer to the existing office SQL Server, OR
+- restore the authorised HVAC_PRO database backup onto this computer.
+
+Do not enter live business data until the database connection is confirmed.
+
+CHATGPT / CODEX
+---------------
+Install the ChatGPT desktop app and sign in yourself with Harshal's existing
+ChatGPT account. Then open C:\HVAC_PRO_MSE as a local Codex project. The same
+project rules will be loaded automatically from the repository.
+
+IF SOMETHING STOPS
+------------------
+Take a screenshot of the error message and send it to the ServoERP developer.
+Do not delete the C:\HVAC_PRO_MSE folder; it contains the downloaded project.

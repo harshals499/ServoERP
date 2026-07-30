@@ -11,7 +11,7 @@ Use this package on a new Windows computer to install ServoERP as either a clien
 
 ## Developer setup
 
-1. Copy this folder to the new PC.
+1. Copy this folder to the new PC. For non-technical users, start with `PLEASE_READ_FIRST.txt`.
 2. Double-click `Start-ServoERP-NewPCSetup.cmd`.
 3. Accept installation of missing prerequisites when asked.
 4. The wizard clones `https://github.com/harshals499/ServoERP.git` into `C:\HVAC_PRO_MSE`, restores NuGet packages, and creates a Release build.
