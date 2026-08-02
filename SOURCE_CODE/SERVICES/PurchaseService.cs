@@ -640,7 +640,7 @@ namespace HVAC_Pro_Desktop.Services
 .po-meta-value{font-weight:700;color:#0f172a;text-align:right;}
 .po-party-grid{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;}
 .po-party-grid td{vertical-align:top;width:50%;}
-.po-card{border:1px solid #dbe4f0;border-radius:10px;padding:12px 14px;min-height:118px;background:#fff;}
+.po-card{border:1px solid #dbe4f0;border-radius:10px;padding:10px 12px;background:#fff;}
 .po-card-label{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;}
 .po-card-title{font-family:'Segoe UI',sans-serif;font-size:18px;font-weight:700;color:#0f172a;line-height:1.25;margin-bottom:6px;}
 .po-card-body{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.55;color:#334155;}
@@ -654,7 +654,6 @@ namespace HVAC_Pro_Desktop.Services
 .po-items .center{text-align:center;}
 .po-items .num{text-align:right;}
 .po-items .desc{color:#0f172a;}
-.po-items .empty-row td{height:18px;color:#94a3b8;}
 .po-summary-wrap{display:flex;justify-content:flex-end;margin-top:14px;}
 .po-summary{width:320px;border:1px solid #dbe4f0;border-radius:12px;background:#fff;overflow:hidden;}
 .po-summary table{width:100%;border-collapse:collapse;}
@@ -665,9 +664,9 @@ namespace HVAC_Pro_Desktop.Services
 .po-summary .grand td{background:#f8fafc;font-weight:800;font-size:12px;}
 .po-words{margin-top:10px;border:1px solid #fde68a;border-radius:10px;background:#fffbeb;padding:10px 12px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;color:#92400e;}
 .po-words strong{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#b45309;margin-bottom:4px;}
-.po-footer-grid{width:100%;border-collapse:separate;border-spacing:0 12px;margin-top:14px;}
+.po-footer-grid{width:100%;border-collapse:separate;border-spacing:0 8px;margin-top:12px;}
 .po-footer-grid td{vertical-align:top;}
-.po-footer-card{border:1px solid #dbe4f0;border-radius:12px;padding:12px 14px;background:#fff;min-height:150px;}
+.po-footer-card{border:1px solid #dbe4f0;border-radius:12px;padding:10px 12px;background:#fff;}
 .po-footer-title{font-family:'Segoe UI',sans-serif;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#64748b;margin-bottom:8px;}
 .po-footer-copy{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.6;color:#334155;}
 .po-footer-copy strong{color:#0f172a;}
@@ -704,7 +703,6 @@ namespace HVAC_Pro_Desktop.Services
             + "<div class='po-inline-note'><strong>Instruction:</strong> Please supply goods / services as per the approved purchase order and agreed commercial terms.</div>"
             + "<table class='po-items'><thead><tr><th style='width:52px' class='center'>Sr.</th><th>Description</th><th style='width:90px' class='center'>HSN Code</th><th style='width:62px' class='center'>Unit</th><th style='width:62px' class='center'>Qty</th><th style='width:118px' class='num'>Rate (Rs.)</th><th style='width:132px' class='num'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows.ToString()
-            + "<tr class='empty-row'><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td class='num'>-</td></tr>"
             + "</tbody></table>"
             + "<div class='po-summary-wrap'><div class='po-summary'><table>"
             + "<tr><td class='label'>Taxable Total</td><td class='value'>" + taxableTotal.ToString("N2") + "</td></tr>"

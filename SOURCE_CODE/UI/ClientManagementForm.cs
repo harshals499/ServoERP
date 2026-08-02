@@ -1409,6 +1409,8 @@ namespace HVAC_Pro_Desktop.UI
             ToolStripMenuItem quoteItem = new ToolStripMenuItem("New Quote", null, (s, e) => OnNavigate?.Invoke(6)) { Enabled = client.IsActive };
             menu.Items.Add(contractItem);
             menu.Items.Add(quoteItem);
+            if (string.Equals(GetClientStatus(client), "Prospect", StringComparison.OrdinalIgnoreCase))
+                menu.Items.Add("Convert Prospect to Active", null, (s, e) => SetClientLifecycleStatus(client, "Active"));
             ToolStripMenuItem statusMenu = new ToolStripMenuItem("Change Status");
             foreach (string status in ClientStatusOptions())
             {
@@ -1430,6 +1432,8 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            if (string.Equals(GetClientStatus(client), "Prospect", StringComparison.OrdinalIgnoreCase))
+                menu.Items.Add("Convert Prospect to Active", null, (s, e) => SetClientLifecycleStatus(client, "Active"));
             foreach (string status in ClientStatusOptions())
             {
                 ToolStripMenuItem item = new ToolStripMenuItem(status, null, (s, e) => SetClientLifecycleStatus(client, ((ToolStripMenuItem)s).Text));

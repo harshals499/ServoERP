@@ -1,4 +1,9 @@
 # Changelog
+## 1.1.402.0 - 2026-08-02
+
+- Added an explicit Convert Prospect to Active action in client menus, backed by the existing persisted lifecycle update.
+- Removed fixed-height filler space from generated Purchase Orders so short supplier, dispatch, and footer sections stay compact.
+
 ## 1.1.401.0 - 2026-08-02
 
 - Removed duplicate company compliance identifiers from quotation PDF footers; registration details now appear once in the supplier information block.
