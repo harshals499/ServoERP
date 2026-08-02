@@ -98,7 +98,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _enabled.Checked = SharedStorageService.IsEnabled;
             _rootPath.Text = SharedStorageService.RootPath;
-            SetStatus(_enabled.Checked ? "Shared storage is enabled. Test the path before relying on it." : "Shared storage is disabled. This PC uses local folders.", DS.Slate600);
+            SetStatus(_enabled.Checked ? SharedStorageService.ConnectionStatus : "Shared storage is disabled. This PC uses local folders.", DS.Slate600);
         }
 
         private void TestConnection(bool createFolders)
@@ -147,6 +147,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 ConfigService.Set("SharedStorage", "Enabled", _enabled.Checked ? "true" : "false");
                 ConfigService.Set("SharedStorage", "RootPath", root);
+                SharedStorageService.StartAutomaticConnection();
                 SetStatus(_enabled.Checked ? "Shared office storage saved. Use Create Folders once on the server share." : "Shared storage disabled. Local fallback folders will be used.", DS.Green600);
             }
             catch (Exception ex)

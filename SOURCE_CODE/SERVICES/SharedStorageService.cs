@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -8,10 +10,61 @@ namespace HVAC_Pro_Desktop.Services
         public const string DefaultSharedRoot = @"\\SERVERPC\ServoERPShared";
         private const string Section = "SharedStorage";
         public static readonly string[] RequiredFolderNames = { "Backups", "CompanyTemplates", "Documents", "Exports", "Imports", "Logs", "Updates" };
+        private static readonly object ConnectionSync = new object();
+        private static Timer _reconnectTimer;
+        private static string _connectionStatus = "Shared storage has not been checked.";
+
+        /// <summary>Provides the latest non-sensitive shared-storage connection result for Settings diagnostics.</summary>
+        public static string ConnectionStatus => _connectionStatus;
 
         public static string RootPath => ResolveServerPlaceholder(NormalizeRoot(ConfigService.Get(Section, "RootPath", DefaultSharedRoot)));
 
         public static bool IsEnabled => string.Equals(ConfigService.Get(Section, "Enabled", "true"), "true", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Starts background SMB connection attempts so users never need to map a drive before shared folders become available.</summary>
+        public static void StartAutomaticConnection()
+        {
+            lock (ConnectionSync)
+            {
+                if (_reconnectTimer != null)
+                    return;
+
+                _reconnectTimer = new Timer(_ => TryConnectAndPrepareFolders(), null, TimeSpan.Zero, TimeSpan.FromMinutes(1));
+            }
+        }
+
+        /// <summary>Attempts to connect through the current Windows session and prepares the standard customer-owned folders.</summary>
+        public static bool TryConnectAndPrepareFolders()
+        {
+            if (!IsEnabled)
+            {
+                _connectionStatus = "Shared storage is disabled; this PC is using local folders.";
+                return false;
+            }
+
+            string root = RootPath;
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                _connectionStatus = "Shared storage path is not configured.";
+                return false;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(root);
+                foreach (string folder in RequiredFolderNames)
+                    Directory.CreateDirectory(Path.Combine(root, folder));
+
+                _connectionStatus = "Connected to private shared storage: " + root;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _connectionStatus = "Private shared storage is unavailable; local folders remain active.";
+                AppRuntime.LogException("SharedStorageService.AutomaticConnection", ex);
+                return false;
+            }
+        }
 
         public static string BackupsPath => ResolveFolder("Backups", LocalFolder("Backups"));
 
@@ -36,10 +89,12 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     string shared = Path.Combine(root, childFolder ?? string.Empty);
                     Directory.CreateDirectory(shared);
+                    _connectionStatus = "Connected to private shared storage: " + root;
                     return shared;
                 }
                 catch (Exception ex)
                 {
+                    _connectionStatus = "Private shared storage is unavailable; local folders remain active.";
                     AppRuntime.LogException("SharedStorageService.ResolveFolder." + childFolder, ex);
                 }
             }

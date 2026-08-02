@@ -312,6 +312,7 @@ namespace HVAC_Pro_Desktop
                     DbSettings.EnsureUserSettingsTable();
                     LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
                     new BackupService().EnsureBackupInfrastructure();
+                    SharedStorageService.StartAutomaticConnection();
                     AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
                 }
                 else

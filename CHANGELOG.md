@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.405.0 - 2026-08-02
+
+- Shared Office Storage now automatically connects to the configured private server share at startup, prepares standard folders, retries every minute, and keeps local fallback folders active while the server is unavailable.
+
 ## 1.1.404.0 - 2026-08-02
 
 - Added Shared Office Storage setup in Settings so an administrator can connect a private Windows server share, test access, create standard ServoERP folders, and choose safe local fallback when the share is unavailable.
