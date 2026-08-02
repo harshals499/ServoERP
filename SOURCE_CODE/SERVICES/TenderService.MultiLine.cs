@@ -698,12 +698,10 @@ namespace HVAC_Pro_Desktop.Services
             + taxRows
             + "<tr><td class='total-label grand' colspan='6'><div class='total-summary'><span>Total Amount : </span><span class='words-inline'>" + HtmlTender(amountWords.EndsWith(".") ? amountWords : amountWords + ".") + "</span></div></td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr></tbody></table>"
             + "<table class='quote-grid terms'><tr><td class='quote-footer-left'>"
-            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false)
-            + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
-            + "<tr><td class='terms-left'>"
+            + "<div><strong>Terms &amp; Conditions</strong></div>"
             + "<div>&#8226; Quotation is Valid Upto " + validityDays + " days.</div>"
             + "<div>&#8226; If any Extra Work Required Charge We be Extra at<br/>Actual</div>"
-            + "</td><td class='terms-right'></td></tr>"
+            + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
             + "<tr><td class='comments'>Comments &amp; Special Instructions, if any.</td>"
             + "<td class='contact'>For any querries about this Quotation, please contact Mr. Santosh<br/>Sonawane on 9967604066 or at <strong>msentp.info@gmail.com</strong></td></tr>"
             + "</table></div></div></body></html>";

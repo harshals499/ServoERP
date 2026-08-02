@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.401.0 - 2026-08-02
+
+- Removed duplicate company compliance identifiers from quotation PDF footers; registration details now appear once in the supplier information block.
+
 ## 1.1.400.0 - 2026-07-26
 
 - Fixed Supplier dashboard totals so they match the visible active supplier list.
