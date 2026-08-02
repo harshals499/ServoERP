@@ -187,7 +187,34 @@ namespace HVAC_Pro_Desktop.UI
                 DatabaseConnectionStateService.StartBackgroundMonitor();
                 StartBackupScheduler();
                 BeginInvoke((Action)TryStartFirstLaunchTour);
+                BeginInvoke((Action)ShowSharedStorageUpdatePrompt);
             };
+        }
+
+        /// <summary>Invites users of the storage-feature update to connect their private office server once.</summary>
+        private void ShowSharedStorageUpdatePrompt()
+        {
+            if (!SharedStorageOnboardingService.ShouldShow())
+                return;
+
+            try
+            {
+                DialogResult result = MessageBox.Show(
+                    "This update can automatically connect ServoERP to your private office server for shared documents, templates, exports, and backups.\r\n\r\nConfigure the private server share now?",
+                    BrandingService.WindowTitle("Shared Office Storage"),
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Information);
+                SharedStorageOnboardingService.MarkShown();
+                if (result == DialogResult.Yes)
+                {
+                    using (var form = new SharedStorageSettingsForm())
+                        form.ShowDialog(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("MainForm.ShowSharedStorageUpdatePrompt", ex);
+            }
         }
 
         protected override void OnResize(EventArgs e)

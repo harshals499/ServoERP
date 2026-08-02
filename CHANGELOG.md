@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.406.0 - 2026-08-02
+
+- Added a one-time Shared Office Storage prompt after users open this update, with a direct Configure Now path to their private server share setup.
+
 ## 1.1.405.0 - 2026-08-02
 
 - Shared Office Storage now automatically connects to the configured private server share at startup, prepares standard folders, retries every minute, and keeps local fallback folders active while the server is unavailable.
