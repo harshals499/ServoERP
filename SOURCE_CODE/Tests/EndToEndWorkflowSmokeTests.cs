@@ -641,6 +641,7 @@ namespace HVAC_Pro_Desktop.Tests
             string html = service.BuildInvoiceHtml(invoice);
             Assert(invoice.CGSTAmount > 0m && invoice.SGSTAmount > 0m && invoice.IGSTAmount == 0m, "CGST/SGST split was not calculated correctly.");
             Assert(html.Contains(client.CompanyName) && html.Contains("TAX INVOICE"), "Invoice preview did not render expected client/invoice content.");
+            Assert(html.Contains("Recipient GSTIN") && html.Contains("Place of Supply") && html.Contains("Reverse Charge"), "Invoice preview did not render required GST compliance details.");
             if (!job.InvoiceId.HasValue || job.InvoiceId.Value != invoice.InvoiceID)
             {
                 job.InvoiceId = invoice.InvoiceID;

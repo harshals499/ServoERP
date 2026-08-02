@@ -579,6 +579,10 @@ namespace HVAC_Pro_Desktop.Services
             string subject = FirstNonEmpty(inv.Subject, "Supply / service invoice.");
             string invoiceNo = FirstNonEmpty(inv.InvoiceNumber, "DRAFT-PREVIEW");
             string words = IndiaFormatHelper.ToRupeesOnlyWords(inv.TotalAmount);
+            string placeOfSupply = FirstNonEmpty(inv.PlaceOfSupply, "Maharashtra");
+            string recipientGstin = FirstNonEmpty(client?.GSTNumber, "Unregistered recipient");
+            string deliveryAddress = FirstNonEmpty(site?.Address, client?.BillingAddress, "Same as billing address");
+            const string invoiceComplianceCss = ".invoice-compliance{margin:0 0 12px;border-collapse:separate;border-spacing:0;table-layout:fixed}.invoice-compliance td{width:25%;padding:7px 9px;border:1px solid #dbe4f0;border-left:0;font-family:'Segoe UI',sans-serif;font-size:10px;line-height:1.4;color:#334155;vertical-align:top}.invoice-compliance td:first-child{border-left:1px solid #dbe4f0}.invoice-compliance .label{display:block;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#64748b;margin-bottom:2px}.invoice-compliance .value{font-weight:700;color:#0f172a;word-break:break-word}";
 
             var rows = new StringBuilder();
             int sr = 1;
@@ -609,6 +613,7 @@ namespace HVAC_Pro_Desktop.Services
             + DocumentBranding.BuildOfficialHeaderCss()
             + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + DocumentBranding.BuildOfficialPrintCss()
+            + invoiceComplianceCss
             + "</style></head><body><div class='page'>"
             + DocumentBranding.BuildOfficialHeaderHtml()
             + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.Invoice)
@@ -618,7 +623,13 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td></td><td class='meta-cell'>Invoice No. " + Html(invoiceNo) + "</td></tr>"
             + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
             + "<tr class='po-row'><td colspan='2'>PO No : " + Html(inv.PONumber) + (inv.PODate.HasValue ? ", Dtd: " + inv.PODate.Value.ToString("dd/MM/yyyy") + "." : "") + "</td></tr>"
-            + "<tr class='blank-row'><td colspan='2'></td></tr></table>"
+            + "</table>"
+            + "<table class='doc-grid invoice-compliance'><tr>"
+            + "<td><span class='label'>Recipient GSTIN</span><span class='value'>" + Html(recipientGstin) + "</span></td>"
+            + "<td><span class='label'>Place of Supply</span><span class='value'>" + Html(placeOfSupply) + "</span></td>"
+            + "<td><span class='label'>Delivery Address</span><span class='value'>" + Html(deliveryAddress).Replace("\n", "<br/>") + "</span></td>"
+            + "<td><span class='label'>Reverse Charge</span><span class='value'>No</span></td>"
+            + "</tr></table>"
             + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN Code</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows
             + "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td class='total-value'>-</td></tr>"

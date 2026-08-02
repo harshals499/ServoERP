@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.403.0 - 2026-08-02
+
+- Updated the invoice body with a compact GST compliance summary for recipient GSTIN, place of supply, delivery address, and reverse-charge status while retaining the approved document header.
+
 ## 1.1.402.0 - 2026-08-02
 
 - Added an explicit Convert Prospect to Active action in client menus, backed by the existing persisted lifecycle update.
