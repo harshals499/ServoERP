@@ -3548,23 +3548,29 @@ namespace HVAC_Pro_Desktop.UI
             btnBackupSettings.Click += (s, e) => OpenBackupSettings();
             parent.Controls.Add(btnBackupSettings);
 
+            Button btnSharedStorage = MakeBtn("Shared Storage", InfoBlue, 142);
+            btnSharedStorage.Location = new Point(298, 78);
+            btnSharedStorage.Click += (s, e) => OpenSharedStorageSettings();
+            parent.Controls.Add(btnSharedStorage);
+
             Button btnRestoreFile = MakeBtn("Restore File", Color.FromArgb(220, 38, 38), 124);
-            btnRestoreFile.Location = new Point(298, 78);
+            btnRestoreFile.Location = new Point(456, 78);
             btnRestoreFile.Click += async (s, e) => await RestoreFromFileAsync();
             parent.Controls.Add(btnRestoreFile);
 
             Button btnOpenFolder = MakeBtn("Open Folder", InfoBlue, 124);
-            btnOpenFolder.Location = new Point(438, 78);
+            btnOpenFolder.Location = new Point(596, 78);
             btnOpenFolder.Click += (s, e) => OpenBackupFolder();
             parent.Controls.Add(btnOpenFolder);
 
             parent.Resize += (s, e) =>
             {
                 int gap = 10;
-                int buttonWidth = Math.Max(92, (parent.ClientSize.Width - (gap * 3)) / 4);
+                int buttonWidth = Math.Max(92, (parent.ClientSize.Width - (gap * 4)) / 5);
                 btnBackupNow.SetBounds(0, 78, buttonWidth, 34);
                 btnBackupSettings.SetBounds(btnBackupNow.Right + gap, 78, buttonWidth, 34);
-                btnRestoreFile.SetBounds(btnBackupSettings.Right + gap, 78, buttonWidth, 34);
+                btnSharedStorage.SetBounds(btnBackupSettings.Right + gap, 78, buttonWidth, 34);
+                btnRestoreFile.SetBounds(btnSharedStorage.Right + gap, 78, buttonWidth, 34);
                 btnOpenFolder.SetBounds(btnRestoreFile.Right + gap, 78, buttonWidth, 34);
             };
 
@@ -3737,6 +3743,16 @@ namespace HVAC_Pro_Desktop.UI
         private void OpenBackupSettings()
         {
             using (var form = new BackupSettingsForm())
+                form.ShowDialog(FindForm());
+
+            if (_lblBackupStatus != null)
+                _lblBackupStatus.Text = BuildBackupSummary();
+            RefreshSettingsWorkspaceSummary();
+        }
+
+        private void OpenSharedStorageSettings()
+        {
+            using (var form = new SharedStorageSettingsForm())
                 form.ShowDialog(FindForm());
 
             if (_lblBackupStatus != null)

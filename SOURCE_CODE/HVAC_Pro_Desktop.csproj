@@ -593,6 +593,9 @@
     <Compile Include="UI\BackupSettingsForm.Designer.cs">
       <DependentUpon>BackupSettingsForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\SharedStorageSettingsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\OpenSourceLicenseForm.cs">
       <SubType>Form</SubType>
     </Compile>

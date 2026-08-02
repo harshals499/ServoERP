@@ -7,6 +7,7 @@ namespace HVAC_Pro_Desktop.Services
     {
         public const string DefaultSharedRoot = @"\\SERVERPC\ServoERPShared";
         private const string Section = "SharedStorage";
+        public static readonly string[] RequiredFolderNames = { "Backups", "CompanyTemplates", "Documents", "Exports", "Imports", "Logs", "Updates" };
 
         public static string RootPath => ResolveServerPlaceholder(NormalizeRoot(ConfigService.Get(Section, "RootPath", DefaultSharedRoot)));
 

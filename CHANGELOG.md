@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.404.0 - 2026-08-02
+
+- Added Shared Office Storage setup in Settings so an administrator can connect a private Windows server share, test access, create standard ServoERP folders, and choose safe local fallback when the share is unavailable.
+
 ## 1.1.403.0 - 2026-08-02
 
 - Updated the invoice body with a compact GST compliance summary for recipient GSTIN, place of supply, delivery address, and reverse-charge status while retaining the approved document header.
