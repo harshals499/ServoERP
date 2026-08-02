@@ -1,15 +1,28 @@
 ﻿{
     "product":  "ServoERP",
-    "latestVersion":  "1.1.403.0",
+    "latestVersion":  "1.1.404.0",
     "updatedAt":  "2026-08-02",
     "download":  {
                      "available":  true,
                      "message":  "Public installer and update packages are available for this release.",
-                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.403/ServoERP.Desktop-1.1.403-full.nupkg",
-                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.403.0.exe",
-                     "installer":  "ServoERP_Setup_1.1.403.0.exe"
+                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.404/ServoERP.Desktop-1.1.404-full.nupkg",
+                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.404.0.exe",
+                     "installer":  "ServoERP_Setup_1.1.404.0.exe"
                  },
     "versions":  [
+                     {
+                         "version":  "1.1.404.0",
+                         "date":  "2026-08-02",
+                         "title":  "ServoERP update 1.1.404.0",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Added Shared Office Storage setup in Settings so an administrator can connect a private Windows server share, test access, create standard ServoERP folders, and choose safe local fallback when the share is unavailable."
+                                                       ]
+                                         }
+                                     ]
+                     },
                      {
                          "version":  "1.1.403.0",
                          "date":  "2026-08-02",
