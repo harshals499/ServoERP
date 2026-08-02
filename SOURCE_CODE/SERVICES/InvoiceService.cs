@@ -568,6 +568,8 @@ namespace HVAC_Pro_Desktop.Services
             var settings = _settingsSvc.GetAll();
 
             string companyGst = GetSetting(settings, "CompanyGST", "");
+            string companyName = GetSetting(settings, "CompanyName", DocumentBranding.DefaultCompanyName);
+            string authorisedSignatory = GetSetting(settings, "CompanyAuthorizedSignatory", "");
             string companyPan = GetSetting(settings, "CompanyPAN", "");
             string shopLicense = GetSetting(settings, "CompanyShopLicense", "");
             string pfNumber = GetSetting(settings, "CompanyPFNumber", "");
@@ -622,7 +624,9 @@ namespace HVAC_Pro_Desktop.Services
             + "<td class='meta-cell'>Date : " + inv.InvoiceDate.ToString("dd/MM/yyyy") + "</td></tr>"
             + "<tr><td></td><td class='meta-cell'>Invoice No. " + Html(invoiceNo) + "</td></tr>"
             + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
-            + "<tr class='po-row'><td colspan='2'>PO No : " + Html(inv.PONumber) + (inv.PODate.HasValue ? ", Dtd: " + inv.PODate.Value.ToString("dd/MM/yyyy") + "." : "") + "</td></tr>"
+            + (string.IsNullOrWhiteSpace(inv.PONumber) && !inv.PODate.HasValue
+                ? string.Empty
+                : "<tr class='po-row'><td colspan='2'>PO No : " + Html(inv.PONumber) + (inv.PODate.HasValue ? ", Dtd: " + inv.PODate.Value.ToString("dd/MM/yyyy") + "." : "") + "</td></tr>")
             + "</table>"
             + "<table class='doc-grid invoice-compliance'><tr>"
             + "<td><span class='label'>Recipient GSTIN</span><span class='value'>" + Html(recipientGstin) + "</span></td>"
@@ -630,9 +634,8 @@ namespace HVAC_Pro_Desktop.Services
             + "<td><span class='label'>Delivery Address</span><span class='value'>" + Html(deliveryAddress).Replace("\n", "<br/>") + "</span></td>"
             + "<td><span class='label'>Reverse Charge</span><span class='value'>No</span></td>"
             + "</tr></table>"
-            + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN Code</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
+            + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN / SAC</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows
-            + "<tr><td></td><td></td><td></td><td></td><td></td><td></td><td class='total-value'>-</td></tr>"
             + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + inv.SubTotal.ToString("N2") + "</td></tr>"
             + taxRows
             + roundOffRow
@@ -640,7 +643,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
             + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGst, msmeNumber, false)
             + "</td>"
-            + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(DocumentBranding.DefaultCompanyName) + "</td></tr>"
+            + "<td class='signature'>" + DocumentBranding.BuildSignatureHtml(companyName, authorisedSignatory) + "</td></tr>"
             + "<tr><td class='certification'>" + Html(inv.CertificationNote) + "</td>"
             + "<td class='footer-right'><span class='send-title'>Send Invoice To : </span><br/>" + Html(inv.SendInvoiceTo).Replace("\n", "<br/>") + "</td></tr>"
             + "</table></div></div></body></html>";

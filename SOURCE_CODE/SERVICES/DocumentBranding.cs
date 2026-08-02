@@ -179,15 +179,19 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             return "I/We,hereby certify that my/our registration certificate under the Maharashtra Value Added Tax Act,2002 is in force on the date on which sale of goods specified in this tax invoice is made by me/us and that the transaction of sale covered by this tax invoice has been effected by me/us and it shall be accounted for in the turnover of sales while filing of return and the due tax, if any, payable on the sale has been paid or shall be paid.";
         }
 
-        public static string BuildSignatureHtml(string companyName)
+        public static string BuildSignatureHtml(string companyName, string authorisedSignatoryName = null)
         {
             string imageDataUri = TryBuildImageDataUri(AuthorizedSignaturePath);
             string signatureBody = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Authorised signature' />"
                 : "<span class='blank-space'></span>";
 
+            string signatoryLabel = string.IsNullOrWhiteSpace(authorisedSignatoryName)
+                ? "Authorised Signatory"
+                : "Authorised Signatory: " + Html(authorisedSignatoryName.Trim());
+
             return "<div class='signature-body'>" + signatureBody + "</div>"
-                + "<span class='small'>Authorised Signatory</span>"
+                + "<span class='small'>" + signatoryLabel + "</span>"
                 + "<span class='signature-company'>From " + Html(FirstNonEmpty(companyName, DefaultCompanyName)) + "</span>"
                 + "<span class='signature-signed-by'>Signed by :</span>";
         }

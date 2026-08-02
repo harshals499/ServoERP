@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.407.0 - 2026-08-02
+
+- Corrected invoice PDF tax-code heading to HSN / SAC, removed the blank totals row, and hide the PO line when no PO reference is supplied.
+- Invoice and quotation PDFs now use the configured company and authorised signatory name where available.
+- Polished quotation wording and amount-in-words styling for a clearer customer-facing document.
+
 ## 1.1.406.0 - 2026-08-02
 
 - Added a one-time Shared Office Storage prompt after users open this update, with a direct Configure Now path to their private server share setup.

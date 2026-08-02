@@ -5,6 +5,7 @@ namespace HVAC_Pro_Desktop.Models
     public class IndiaCompanySettings
     {
         public string CompanyName { get; set; } = string.Empty;
+        public string AuthorisedSignatoryName { get; set; } = string.Empty;
         public string GSTIN { get; set; } = string.Empty;
         public string PAN { get; set; } = string.Empty;
         public string TAN { get; set; } = string.Empty;

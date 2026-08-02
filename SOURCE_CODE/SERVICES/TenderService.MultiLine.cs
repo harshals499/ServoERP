@@ -625,6 +625,7 @@ namespace HVAC_Pro_Desktop.Services
             Dictionary<string, string> settings = _settingsSvc.GetAll();
             string companyState = GetTenderSetting(settings, "CompanyState", "Maharashtra");
             string companyName = NormalizeMseSetting(GetTenderSetting(settings, "CompanyName", DocumentBranding.DefaultCompanyName), DocumentBranding.DefaultCompanyName);
+            string authorisedSignatory = GetTenderSetting(settings, "CompanyAuthorizedSignatory", "");
             string companyGstin = GetTenderSetting(settings, "CompanyGSTIN", GetTenderSetting(settings, "CompanyGST", DocumentBranding.DefaultGstNumber));
             string companyPan = GetTenderSetting(settings, "CompanyPAN", DocumentBranding.DefaultPanNumber);
             string shopLicense = GetTenderSetting(settings, "CompanyShopLicense", DocumentBranding.DefaultShopLicense);
@@ -699,9 +700,9 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td class='total-label grand' colspan='6'><div class='total-summary'><span>Total Amount : </span><span class='words-inline'>" + HtmlTender(amountWords.EndsWith(".") ? amountWords : amountWords + ".") + "</span></div></td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr></tbody></table>"
             + "<table class='quote-grid terms'><tr><td class='quote-footer-left'>"
             + "<div><strong>Terms &amp; Conditions</strong></div>"
-            + "<div>&#8226; Quotation is Valid Upto " + validityDays + " days.</div>"
-            + "<div>&#8226; If any Extra Work Required Charge We be Extra at<br/>Actual</div>"
-            + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName) + "</td></tr>"
+            + "<div>&#8226; This quotation is valid for " + validityDays + " days.</div>"
+            + "<div>&#8226; Any additional work requested outside this quotation will be charged at actual cost.</div>"
+            + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName, authorisedSignatory) + "</td></tr>"
             + "<tr><td class='comments'>Comments &amp; Special Instructions, if any.</td>"
             + "<td class='contact'>For any querries about this Quotation, please contact Mr. Santosh<br/>Sonawane on 9967604066 or at <strong>msentp.info@gmail.com</strong></td></tr>"
             + "</table></div></div></body></html>";
@@ -744,7 +745,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .grand{font-size:15px;}
 .words{font-weight:700;font-size:14px;line-height:1.25;height:24px;}
 .total-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;}
-.words-inline{font-weight:700;font-size:14px;line-height:1.25;color:#f00;text-align:right;white-space:nowrap;}
+.words-inline{font-weight:700;font-size:14px;line-height:1.25;color:#000;text-align:right;white-space:nowrap;}
 .terms td{height:58px;font-size:13px;line-height:1.22;}
 .terms tr:first-child td{border-top:0;}
 .terms-left{width:47%;}

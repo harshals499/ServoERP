@@ -47,6 +47,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly SupportCenterService _supportCenterSvc = new SupportCenterService();
 
         private TextBox _txtCompanyName;
+        private TextBox _txtAuthorisedSignatory;
         private TextBox _txtGST;
         private TextBox _txtPAN;
         private TextBox _txtTAN;
@@ -481,7 +482,7 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Settings.BuildForm.Guides.Complete", 0);
 
             AppRuntime.LogTiming("Settings.BuildForm.Company.Start", 0);
-            Panel companyBody = AddModernSettingsCard(parent, "Company Information", "Profile, compliance, and office location details used across the platform.", 430);
+            Panel companyBody = AddModernSettingsCard(parent, "Company Information", "Profile, compliance, and office location details used across the platform.", 482);
             _txtCompanyName = new TextBox();
             PlaceLabeledControl(companyBody, "Company Name *", _txtCompanyName, 0, 0, 210);
             _txtGST = new TextBox { CharacterCasing = CharacterCasing.Upper };
@@ -513,6 +514,8 @@ namespace HVAC_Pro_Desktop.UI
             _cmbGstRegistrationType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbGstRegistrationType.Items.AddRange(new object[] { "Regular", "Composition", "Unregistered" });
             PlaceLabeledControl(companyBody, "GST Registration Type", _cmbGstRegistrationType, 0, 256, 220);
+            _txtAuthorisedSignatory = new TextBox();
+            PlaceLabeledControl(companyBody, "Authorised Signatory (PDF)", _txtAuthorisedSignatory, 0, 320, 340);
             companyBody.Resize += (s, e) => LayoutCompanyInformationCard(companyBody, btnLocateOffice);
             LayoutCompanyInformationCard(companyBody, btnLocateOffice);
             AppRuntime.LogTiming("Settings.BuildForm.Company.Complete", 0);
@@ -1648,6 +1651,7 @@ namespace HVAC_Pro_Desktop.UI
                 IndiaCompanySettings settings = _svc.GetIndiaCompanySettings();
                 AppRuntime.LogTiming("Settings.LoadSettings.CompanyLoaded", watch.ElapsedMilliseconds);
                 _txtCompanyName.Text = settings.CompanyName;
+                _txtAuthorisedSignatory.Text = settings.AuthorisedSignatoryName;
                 _txtGST.Text = settings.GSTIN;
                 _txtPAN.Text = settings.PAN;
                 _txtTAN.Text = settings.TAN;
@@ -2328,6 +2332,7 @@ namespace HVAC_Pro_Desktop.UI
                 var settings = new IndiaCompanySettings
                 {
                     CompanyName = _txtCompanyName.Text.Trim(),
+                    AuthorisedSignatoryName = _txtAuthorisedSignatory.Text.Trim(),
                     GSTIN = _txtGST.Text,
                     PAN = _txtPAN.Text,
                     TAN = _txtTAN.Text,
@@ -3214,6 +3219,7 @@ namespace HVAC_Pro_Desktop.UI
             SetLabeledControlBounds(parent, "Office Longitude", _txtOfficeLongitude, rightX, 208, col);
             SetLabeledControlBounds(parent, "State / UT", _cmbState, 0, 260, col);
             SetLabeledControlBounds(parent, "GST Registration Type", _cmbGstRegistrationType, rightX, 260, col);
+            SetLabeledControlBounds(parent, "Authorised Signatory (PDF)", _txtAuthorisedSignatory, 0, 312, Math.Max(170, full));
         }
 
         private void LayoutIndiaDefaultsCard(Panel parent)

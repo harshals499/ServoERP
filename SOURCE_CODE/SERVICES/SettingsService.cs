@@ -29,6 +29,7 @@ namespace HVAC_Pro_Desktop.Services
             var snapshot = new IndiaCompanySettings
             {
                 CompanyName = NormalizeCompanyName(GetValue(settings, "CompanyName", DocumentBranding.DefaultCompanyName)),
+                AuthorisedSignatoryName = GetValue(settings, "CompanyAuthorizedSignatory", "").Trim(),
                 GSTIN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyGSTIN", GetValue(settings, "CompanyGST", ""))),
                 PAN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyPAN", "")),
                 TAN = IndiaTaxValidationHelper.NormalizeTaxId(GetValue(settings, "CompanyTAN", "")),
@@ -82,6 +83,7 @@ namespace HVAC_Pro_Desktop.Services
             IndiaTaxValidationHelper.EnsureValidTAN(settings.TAN, "Company TAN");
 
             Set("CompanyName", NormalizeCompanyName(settings.CompanyName));
+            Set("CompanyAuthorizedSignatory", settings.AuthorisedSignatoryName?.Trim() ?? string.Empty);
             Set("CompanyGST", settings.GSTIN);
             Set("CompanyGSTIN", settings.GSTIN);
             Set("CompanyPAN", settings.PAN);
