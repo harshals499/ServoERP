@@ -1,15 +1,28 @@
 ﻿{
     "product":  "ServoERP",
-    "latestVersion":  "1.1.407.0",
-    "updatedAt":  "2026-08-02",
+    "latestVersion":  "1.1.408.0",
+    "updatedAt":  "2026-08-03",
     "download":  {
                      "available":  true,
                      "message":  "Public installer and update packages are available for this release.",
-                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.407/ServoERP.Desktop-1.1.407-full.nupkg",
-                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.407.0.exe",
-                     "installer":  "ServoERP_Setup_1.1.407.0.exe"
+                     "packageUrl":  "https://github.com/harshals499/ServoERP/releases/download/v1.1.408/ServoERP.Desktop-1.1.408-full.nupkg",
+                     "url":  "https://downloads.servoerp.in/ServoERP_Setup_1.1.408.0.exe",
+                     "installer":  "ServoERP_Setup_1.1.408.0.exe"
                  },
     "versions":  [
+                     {
+                         "version":  "1.1.408.0",
+                         "date":  "2026-08-03",
+                         "title":  "ServoERP update 1.1.408.0",
+                         "changes":  [
+                                         {
+                                             "type":  "release",
+                                             "items":  [
+                                                           "Changed the private-server storage invitation to a one-time optional prompt with Yes, No, and Cancel choices. No and Cancel immediately continue normal work, and setup remains available later from Settings."
+                                                       ]
+                                         }
+                                     ]
+                     },
                      {
                          "version":  "1.1.407.0",
                          "date":  "2026-08-02",
