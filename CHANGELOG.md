@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.410.0 - 2026-08-03
+
+- Fixed the quotation Client selector so it initializes after the page becomes visible, always provides a selectable client placeholder, and reloads the related Site list correctly.
+
 ## 1.1.409.0 - 2026-08-03
 
 - Hardened quotation, invoice, and purchase-order PDF metadata layouts so document numbers and dates keep separate protected rows under long values and print scaling.

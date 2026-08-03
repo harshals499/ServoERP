@@ -134,6 +134,11 @@ namespace HVAC_Pro_Desktop.UI
             }));
             HandleCreated += (s, e) => QueueInitialize();
             ParentChanged += (s, e) => QueueInitialize();
+            VisibleChanged += (s, e) =>
+            {
+                if (Visible)
+                    QueueInitialize();
+            };
             Load += (s, e) =>
             {
                 BeginInvoke((Action)(() =>
@@ -1782,9 +1787,26 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindClients()
         {
+            int selectedClientId = (_cboClient?.SelectedItem as ComboItem)?.Id ?? 0;
             _cboClient.Items.Clear();
-            foreach (B2BClient client in _clients)
+            _cboClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select client --" });
+            foreach (B2BClient client in _clients
+                .Where(c => c != null && c.ClientID > 0 && !string.IsNullOrWhiteSpace(c.CompanyName))
+                .OrderBy(c => c.CompanyName))
                 _cboClient.Items.Add(new ComboItem { Id = client.ClientID, Text = client.CompanyName, Tag = client });
+            _cboClient.Enabled = true;
+
+            int selectedIndex = -1;
+            for (int i = 0; i < _cboClient.Items.Count; i++)
+            {
+                ComboItem item = _cboClient.Items[i] as ComboItem;
+                if (item != null && item.Id == selectedClientId)
+                {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            _cboClient.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
             UIHelper.ShowEmptyClientsMessageIfNeeded(FindForm(), _clients, "TenderBidForm.BindClients");
         }
 
@@ -1793,7 +1815,7 @@ namespace HVAC_Pro_Desktop.UI
             _cboSite.Items.Clear();
             _cboSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
             ComboItem client = _cboClient.SelectedItem as ComboItem;
-            if (client == null)
+            if (client == null || client.Id <= 0)
             {
                 _cboSite.SelectedIndex = 0;
                 return;

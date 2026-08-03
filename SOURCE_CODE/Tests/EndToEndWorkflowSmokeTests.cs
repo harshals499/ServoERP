@@ -437,6 +437,7 @@ namespace HVAC_Pro_Desktop.Tests
             TenderBid detailed = service.GetByIdDetailed(quote.BidID);
             string html = service.BuildQuotationHtml(detailed);
             Assert(detailed.LineItems != null && detailed.LineItems.Count >= 3, "Quotation line items were not saved.");
+            Assert(client.ClientID > 0 && !string.IsNullOrWhiteSpace(client.CompanyName), "Quotation client selector smoke data is unavailable.");
             Assert(html.Contains(client.CompanyName) || html.Contains(detailed.QuotationNumber), "Quotation preview did not render expected content.");
             Assert(html.Contains("quote-meta-line") && html.Contains("quote-meta-label") && html.Contains("quote-meta-value"), "Quotation metadata rows are not protected from date/value layout collapse.");
             Assert(html.Contains("This quotation is valid for") && html.Contains("additional work requested outside this quotation"), "Quotation preview did not render the corrected customer-facing terms.");
