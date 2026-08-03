@@ -635,9 +635,10 @@ namespace HVAC_Pro_Desktop.Services
 .po-title{font-family:'Segoe UI',sans-serif;font-size:24px;font-weight:800;letter-spacing:.02em;color:#0f172a;line-height:1.05;}
 .po-subject{font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.45;color:#475569;margin-top:6px;max-width:470px;}
 .po-meta-box{min-width:220px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;padding:8px 10px;}
-.po-meta-line{display:flex;justify-content:space-between;gap:12px;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:2px 0;}
-.po-meta-label{font-weight:700;color:#475569;white-space:nowrap;}
-.po-meta-value{font-weight:700;color:#0f172a;text-align:right;}
+.po-meta-line{display:table;width:100%;table-layout:fixed;font-family:'Segoe UI',sans-serif;font-size:11px;line-height:1.5;padding:2px 0;}
+.po-meta-label,.po-meta-value{display:table-cell;vertical-align:top;padding:2px 0;}
+.po-meta-label{width:46%;font-weight:700;color:#475569;white-space:nowrap;}
+.po-meta-value{width:54%;padding-left:8px;font-weight:700;color:#0f172a;text-align:right;word-break:break-word;}
 .po-party-grid{width:100%;border-collapse:separate;border-spacing:0;margin-top:12px;}
 .po-party-grid td{vertical-align:top;width:50%;}
 .po-card{border:1px solid #dbe4f0;border-radius:10px;padding:10px 12px;background:#fff;}

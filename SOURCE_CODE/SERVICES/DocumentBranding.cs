@@ -50,7 +50,11 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .doc-grid td,.doc-grid th{border:1px solid #000;padding:3px 4px;vertical-align:top;font-size:15px;line-height:1.18;}
 .doc-grid th{font-weight:700;text-align:center;}
 .client-cell{width:47%;font-size:17px;font-weight:700;line-height:1.28;}
-.meta-cell{text-align:center;vertical-align:middle;font-size:20px;font-weight:700;color:#f00;}
+.meta-cell{vertical-align:middle;font-size:20px;font-weight:700;color:#000;}
+.invoice-meta-line{display:table;width:100%;table-layout:fixed;}
+.invoice-meta-label,.invoice-meta-value{display:table-cell;vertical-align:middle;padding:2px 0;}
+.invoice-meta-label{width:42%;white-space:nowrap;text-align:left;}
+.invoice-meta-value{width:58%;padding-left:8px;text-align:right;word-break:break-word;}
 .subject-row td,.po-row td{font-size:17px;font-weight:700;}
 .items td,.items th{font-size:14px;}
 .items .num{text-align:right;}

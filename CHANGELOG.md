@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.409.0 - 2026-08-03
+
+- Hardened quotation, invoice, and purchase-order PDF metadata layouts so document numbers and dates keep separate protected rows under long values and print scaling.
+
 ## 1.1.408.0 - 2026-08-03
 
 - Changed the private-server storage invitation to a one-time optional prompt with Yes, No, and Cancel choices. No and Cancel immediately continue normal work, and setup remains available later from Settings.

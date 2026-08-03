@@ -621,8 +621,8 @@ namespace HVAC_Pro_Desktop.Services
             + new DocumentTemplateRenderer().BuildTemplateBannerHtml(CompanyDocumentTemplateType.Invoice)
             + "<div class='print-frame'><div class='doc-title'>" + Html(inv.InvoiceTitle) + "</div>"
             + "<table class='doc-grid'><tr><td class='client-cell'>To,<br/>" + customerBlockHtml + "</td>"
-            + "<td class='meta-cell'>Date : " + inv.InvoiceDate.ToString("dd/MM/yyyy") + "</td></tr>"
-            + "<tr><td></td><td class='meta-cell'>Invoice No. " + Html(invoiceNo) + "</td></tr>"
+            + "<td class='meta-cell'><div class='invoice-meta-line'><span class='invoice-meta-label'>Date</span><span class='invoice-meta-value'>" + inv.InvoiceDate.ToString("dd/MM/yyyy") + "</span></div></td></tr>"
+            + "<tr><td></td><td class='meta-cell'><div class='invoice-meta-line'><span class='invoice-meta-label'>Invoice No.</span><span class='invoice-meta-value'>" + Html(invoiceNo) + "</span></div></td></tr>"
             + "<tr class='subject-row'><td colspan='2'>Sub : " + Html(subject) + "</td></tr>"
             + (string.IsNullOrWhiteSpace(inv.PONumber) && !inv.PODate.HasValue
                 ? string.Empty

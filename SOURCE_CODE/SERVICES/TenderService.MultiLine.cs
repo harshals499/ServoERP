@@ -686,8 +686,8 @@ namespace HVAC_Pro_Desktop.Services
             + "<td class='to-cell' rowspan='3'><div class='cell-title'>To,</div><div class='client-lines'>"
             + customerBlockHtml
             + "</div></td>"
-            + "<td class='meta-row'><span>Quotation No</span><span>: " + HtmlTender(bid.QuotationNumber) + "</span></td></tr>"
-            + "<tr><td class='meta-row'><span>Quotation Date</span><span>: " + HtmlTender(submittedDate) + "</span></td></tr>"
+            + "<td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation No.</span><span class='quote-meta-value'>" + HtmlTender(bid.QuotationNumber) + "</span></div></td></tr>"
+            + "<tr><td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation Date</span><span class='quote-meta-value'>" + HtmlTender(submittedDate) + "</span></div></td></tr>"
             + "<tr><td class='from-cell'>"
             + DocumentBranding.BuildFromBlockHtml(companyName, shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false)
             + "</td></tr>"
@@ -727,8 +727,11 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .to-cell{width:47%;height:142px;font-size:15px;}
 .cell-title{font-weight:700;margin-bottom:8px;}
 .client-lines{font-size:14px;line-height:1.25;min-height:108px;}
-.meta-row{height:23px;font-weight:700;}
-.meta-row span:first-child{display:inline-block;width:112px;}
+.meta-row{height:auto;min-height:28px;font-weight:700;}
+.quote-meta-line{display:table;width:100%;table-layout:fixed;}
+.quote-meta-label,.quote-meta-value{display:table-cell;vertical-align:top;padding:1px 0;}
+.quote-meta-label{width:43%;white-space:nowrap;}
+.quote-meta-value{width:57%;padding-left:8px;word-break:break-word;}
 .from-label{height:20px;font-weight:700;}
 .from-cell{height:86px;font-size:13px;line-height:1.15;}
 .subject-line{border-top:0;border-bottom:1px solid #000;padding:4px 6px;font-size:14px;line-height:1.2;min-height:20px;}
@@ -764,7 +767,7 @@ body{background:#fff;}
 .quote-grid td,.quote-grid th{font-size:12px;line-height:1.1;padding:2px 4px;}
 .to-cell{height:118px;font-size:13px;}
 .client-lines{font-size:12px;min-height:82px;}
-.meta-row{height:20px;}
+.meta-row{min-height:24px;}
 .from-label{height:18px;}
 .from-cell{height:76px;font-size:12px;line-height:1.08;}
 .subject-line{font-size:12px;padding:3px 5px;min-height:16px;}

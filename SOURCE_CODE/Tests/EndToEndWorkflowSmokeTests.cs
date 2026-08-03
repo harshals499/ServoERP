@@ -438,6 +438,7 @@ namespace HVAC_Pro_Desktop.Tests
             string html = service.BuildQuotationHtml(detailed);
             Assert(detailed.LineItems != null && detailed.LineItems.Count >= 3, "Quotation line items were not saved.");
             Assert(html.Contains(client.CompanyName) || html.Contains(detailed.QuotationNumber), "Quotation preview did not render expected content.");
+            Assert(html.Contains("quote-meta-line") && html.Contains("quote-meta-label") && html.Contains("quote-meta-value"), "Quotation metadata rows are not protected from date/value layout collapse.");
             Assert(html.Contains("This quotation is valid for") && html.Contains("additional work requested outside this quotation"), "Quotation preview did not render the corrected customer-facing terms.");
             Assert(!html.Contains("color:#f00"), "Quotation amount-in-words styling still renders as red.");
             Assert((detailed.FlowNotes ?? string.Empty).Contains("JobID=" + job.JobID), "Quotation does not link back to the job in flow notes.");
@@ -563,6 +564,8 @@ namespace HVAC_Pro_Desktop.Tests
             PurchaseOrder loaded = service.GetById(po.POID);
             Assert(loaded != null && PurchaseOrder.IsPaymentCompletedStatus(loaded.Status), "Purchase order was not marked received.");
             Assert(loaded.LineItems.Any(li => li.InventoryItemId == item.ItemID), "Purchase order material line is not linked to inventory.");
+            string purchaseHtml = service.BuildPurchaseOrderHtml(loaded);
+            Assert(purchaseHtml.Contains("po-meta-line") && purchaseHtml.Contains("po-meta-label") && purchaseHtml.Contains("po-meta-value"), "Purchase-order metadata rows are not protected from date/value layout collapse.");
             return loaded;
         }
 
@@ -644,6 +647,7 @@ namespace HVAC_Pro_Desktop.Tests
             Assert(invoice.CGSTAmount > 0m && invoice.SGSTAmount > 0m && invoice.IGSTAmount == 0m, "CGST/SGST split was not calculated correctly.");
             Assert(html.Contains(client.CompanyName) && html.Contains("TAX INVOICE"), "Invoice preview did not render expected client/invoice content.");
             Assert(html.Contains("Recipient GSTIN") && html.Contains("Place of Supply") && html.Contains("Reverse Charge"), "Invoice preview did not render required GST compliance details.");
+            Assert(html.Contains("invoice-meta-line") && html.Contains("invoice-meta-label") && html.Contains("invoice-meta-value"), "Invoice metadata rows are not protected from date/value layout collapse.");
             Assert(html.Contains("HSN / SAC"), "Invoice preview did not label tax codes as HSN / SAC.");
             Assert(!html.Contains("<td></td><td></td><td></td><td></td><td></td><td></td><td class='total-value'>-</td>"), "Invoice preview still renders the blank row before totals.");
             Invoice invoiceWithoutPo = service.GetInvoiceById(invoice.InvoiceID);
