@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.408.0 - 2026-08-03
+
+- Changed the private-server storage invitation to a one-time optional prompt with Yes, No, and Cancel choices. No and Cancel immediately continue normal work, and setup remains available later from Settings.
+
 ## 1.1.407.0 - 2026-08-02
 
 - Corrected invoice PDF tax-code heading to HSN / SAC, removed the blank totals row, and hide the PO line when no PO reference is supplied.

@@ -5,7 +5,7 @@ namespace HVAC_Pro_Desktop.Services
     /// <summary>Shows the private-server storage invitation once after the feature update is first opened.</summary>
     public static class SharedStorageOnboardingService
     {
-        public const string FeatureVersion = "1.1.406.0";
+        public const string FeatureVersion = "1.1.408.0";
 
         public static bool ShouldShow()
         {

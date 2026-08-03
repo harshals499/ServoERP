@@ -191,7 +191,7 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
-        /// <summary>Invites users of the storage-feature update to connect their private office server once.</summary>
+        /// <summary>Offers the optional private-server storage setup once without blocking normal work.</summary>
         private void ShowSharedStorageUpdatePrompt()
         {
             if (!SharedStorageOnboardingService.ShouldShow())
@@ -200,9 +200,9 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 DialogResult result = MessageBox.Show(
-                    "This update can automatically connect ServoERP to your private office server for shared documents, templates, exports, and backups.\r\n\r\nConfigure the private server share now?",
+                    "Optional: connect ServoERP to a private office server for shared documents, templates, exports, and backups.\r\n\r\nChoose Yes to configure it now. Choose No or Cancel to continue working normally without shared storage. You can configure it later from Settings > Backup & Recovery > Shared Storage.",
                     BrandingService.WindowTitle("Shared Office Storage"),
-                    MessageBoxButtons.YesNo,
+                    MessageBoxButtons.YesNoCancel,
                     MessageBoxIcon.Information);
                 SharedStorageOnboardingService.MarkShown();
                 if (result == DialogResult.Yes)
