@@ -2,6 +2,7 @@ using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 
@@ -13,6 +14,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TextBox _rootPath = new TextBox();
         private readonly CheckBox _enabled = new CheckBox();
         private readonly Label _status = new Label();
+        private Button _detectServer;
 
         public SharedStorageSettingsForm()
         {
@@ -67,8 +69,12 @@ namespace HVAC_Pro_Desktop.UI
             Button test = MakeButton("Test Connection", DS.Primary600);
             test.Location = new Point(24, 282);
             test.Click += (s, e) => TestConnection(false);
+            _detectServer = MakeButton("Auto Detect Server", DS.Slate700);
+            _detectServer.Location = new Point(164, 282);
+            _detectServer.Size = new Size(132, 34);
+            _detectServer.Click += async (s, e) => await DetectPrivateServerAsync();
             Button create = MakeButton("Create Folders", DS.Slate700);
-            create.Location = new Point(168, 282);
+            create.Location = new Point(304, 282);
             create.Click += (s, e) => TestConnection(true);
             Button save = MakeButton("Save", DS.Green600);
             save.Location = new Point(480, 282);
@@ -84,7 +90,7 @@ namespace HVAC_Pro_Desktop.UI
             _status.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             _status.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
 
-            Controls.AddRange(new Control[] { heading, help, _enabled, pathLabel, _rootPath, folders, test, create, save, close, _status });
+            Controls.AddRange(new Control[] { heading, help, _enabled, pathLabel, _rootPath, folders, test, _detectServer, create, save, close, _status });
         }
 
         private static Button MakeButton(string text, Color color)
@@ -98,7 +104,35 @@ namespace HVAC_Pro_Desktop.UI
         {
             _enabled.Checked = SharedStorageService.IsEnabled;
             _rootPath.Text = SharedStorageService.RootPath;
-            SetStatus(_enabled.Checked ? SharedStorageService.ConnectionStatus : "Shared storage is disabled. This PC uses local folders.", DS.Slate600);
+            SetStatus(_enabled.Checked
+                ? SharedStorageService.ConnectionStatus
+                : "Shared storage is disabled. Use Auto Detect Server to prepare this PC.", DS.Slate600);
+        }
+
+        private async Task DetectPrivateServerAsync()
+        {
+            _detectServer.Enabled = false;
+            SetStatus("Looking for the private server configured for SQL Server...", DS.Slate600);
+            try
+            {
+                PrivateServerDetectionResult result = await Task.Run(() => SharedStorageService.DetectPrivateServer());
+                if (!string.IsNullOrWhiteSpace(result.SuggestedRootPath))
+                {
+                    _rootPath.Text = result.SuggestedRootPath;
+                    _enabled.Checked = true;
+                }
+
+                SetStatus(result.Message, result.IsReachable ? DS.Green600 : DS.Primary600);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SharedStorageSettingsForm.DetectPrivateServer", ex);
+                SetStatus("Unable to detect the private server. You can still enter its UNC share path manually.", DS.Red600);
+            }
+            finally
+            {
+                _detectServer.Enabled = true;
+            }
         }
 
         private void TestConnection(bool createFolders)

@@ -1,4 +1,8 @@
 # Changelog
+## 1.1.414.0 - 2026-08-04
+
+- Shared Office Storage can now automatically detect the configured office SQL Server and propose its standard `\\SERVER\ServoERPShared` folder. The connection check runs in the background, with manual UNC entry still available for non-standard shares.
+
 ## 1.1.413.0 - 2026-08-04
 
 - अपडेट इन्स्टॉल झाल्यानंतर नवीन बदल दाखवणारी “नवीन काय आहे” विंडो आता मराठीत दिसेल.

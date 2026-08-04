@@ -21,6 +21,44 @@ namespace HVAC_Pro_Desktop.Services
 
         public static bool IsEnabled => string.Equals(ConfigService.Get(Section, "Enabled", "true"), "true", StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// Finds the office file-server candidate from the authoritative SQL Server setting.
+        /// ServoERP never scans arbitrary network machines or stores credentials: it proposes
+        /// the standard share on the same private server that holds the business database.
+        /// </summary>
+        public static PrivateServerDetectionResult DetectPrivateServer()
+        {
+            string configuredRoot = NormalizeRoot(ConfigService.Get(Section, "RootPath", string.Empty));
+            string databaseHost = GetDatabaseServerHost();
+            string suggestedRoot = configuredRoot;
+
+            if (string.IsNullOrWhiteSpace(suggestedRoot) || IsServerPlaceholder(suggestedRoot))
+            {
+                if (string.IsNullOrWhiteSpace(databaseHost))
+                {
+                    return PrivateServerDetectionResult.NotFound(
+                        "No office SQL Server is configured yet. Enter the server once in Connection Setup, then ServoERP can detect its shared folder.");
+                }
+
+                suggestedRoot = @"\\" + databaseHost + @"\ServoERPShared";
+            }
+
+            try
+            {
+                bool reachable = Directory.Exists(suggestedRoot);
+                string message = reachable
+                    ? "Private server found: " + suggestedRoot
+                    : "Office SQL Server found at " + databaseHost + ". Suggested shared folder: " + suggestedRoot + ". Create or share this folder on the server if it is not ready yet.";
+                return new PrivateServerDetectionResult(databaseHost, suggestedRoot, reachable, message);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("SharedStorageService.DetectPrivateServer", ex);
+                return new PrivateServerDetectionResult(databaseHost, suggestedRoot, false,
+                    "Office SQL Server found at " + databaseHost + ", but its shared folder could not be checked from this PC.");
+            }
+        }
+
         /// <summary>Starts background SMB connection attempts so users never need to map a drive before shared folders become available.</summary>
         public static void StartAutomaticConnection()
         {
@@ -148,10 +186,64 @@ namespace HVAC_Pro_Desktop.Services
             return @"\\" + server + root.Substring(@"\\SERVERPC".Length);
         }
 
+        private static bool IsServerPlaceholder(string root)
+        {
+            return string.IsNullOrWhiteSpace(root) || root.StartsWith(@"\\SERVERPC\", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetDatabaseServerHost()
+        {
+            string server = ConfigService.Get("Database", "Server", string.Empty);
+            if (string.IsNullOrWhiteSpace(server))
+                return string.Empty;
+
+            server = server.Trim();
+            if (server.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase))
+                server = server.Substring(4);
+
+            int instanceSeparator = server.IndexOf('\\');
+            if (instanceSeparator > 0)
+                server = server.Substring(0, instanceSeparator);
+
+            int portSeparator = server.IndexOf(',');
+            if (portSeparator > 0)
+                server = server.Substring(0, portSeparator);
+
+            if (string.Equals(server, ".", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(server, "(local)", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(server, "localhost", StringComparison.OrdinalIgnoreCase))
+            {
+                return Environment.MachineName;
+            }
+
+            return server.Trim();
+        }
+
         private static string LocalFolder(string childFolder)
         {
             string root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ServoERP");
             return string.IsNullOrWhiteSpace(childFolder) ? root : Path.Combine(root, childFolder);
+        }
+    }
+
+    public sealed class PrivateServerDetectionResult
+    {
+        public string ServerName { get; private set; }
+        public string SuggestedRootPath { get; private set; }
+        public bool IsReachable { get; private set; }
+        public string Message { get; private set; }
+
+        public PrivateServerDetectionResult(string serverName, string suggestedRootPath, bool isReachable, string message)
+        {
+            ServerName = serverName ?? string.Empty;
+            SuggestedRootPath = suggestedRootPath ?? string.Empty;
+            IsReachable = isReachable;
+            Message = message ?? string.Empty;
+        }
+
+        public static PrivateServerDetectionResult NotFound(string message)
+        {
+            return new PrivateServerDetectionResult(string.Empty, string.Empty, false, message);
         }
     }
 }
