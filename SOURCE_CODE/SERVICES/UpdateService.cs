@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Threading;
@@ -45,6 +46,8 @@ namespace HVAC_Pro_Desktop.Services
         public const string DefaultGitHubRepositoryUrl = "https://github.com/harshals499/ServoERP";
         private const string UpdatesFolder = @"C:\HVAC_PRO_MSE\UPDATES";
         private const string LogContext = "Velopack update";
+        private const string PendingWhatsNewVersionKey = "PendingWhatsNewVersion";
+        private const string PendingWhatsNewTextKey = "PendingWhatsNewTextMr";
         private static readonly object SilentUpdateSync = new object();
         private static bool _silentUpdateWorkerRunning;
         private static UpdateCheckResult _downloadedSilentUpdate;
@@ -296,11 +299,26 @@ namespace HVAC_Pro_Desktop.Services
             EnsureSafeToApplyUpdate();
 
             BackupConfigurationFiles(update.LatestVersion);
+            StagePostUpdateNotice(update.LatestVersion, BuildChangelogText(update.VelopackUpdateInfo));
             SaveLastStatus("Applying update v" + update.LatestVersion + " and restarting ServoERP...");
             AppLogger.LogInfo(LogContext + " apply requested. latest=" + update.LatestVersion);
 
             UpdateManager manager = CreateManager(GetGitHubRepositoryUrl());
             manager.ApplyUpdatesAndRestart(update.VelopackUpdateInfo.TargetFullRelease, null);
+        }
+
+        /// <summary>Returns the Marathi What's New notice once after a successful Velopack restart.</summary>
+        public static bool TryConsumePostUpdateNotice(out string version, out string text)
+        {
+            version = ConfigService.Get("App", PendingWhatsNewVersionKey, string.Empty).Trim();
+            text = ConfigService.Get("App", PendingWhatsNewTextKey, string.Empty).Trim();
+            string current = GetCurrentAssemblyVersion();
+            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(text) || !string.Equals(version, current, StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            ConfigService.Set("App", PendingWhatsNewVersionKey, string.Empty);
+            ConfigService.Set("App", PendingWhatsNewTextKey, string.Empty);
+            return true;
         }
 
         public static void StartPackageUpdater(string packagePath)
@@ -447,6 +465,46 @@ namespace HVAC_Pro_Desktop.Services
             return string.IsNullOrWhiteSpace(notes)
                 ? "No release notes were provided for this version."
                 : notes.Trim();
+        }
+
+        private static void StagePostUpdateNotice(string version, string releaseNotes)
+        {
+            try
+            {
+                ConfigService.Set("App", PendingWhatsNewVersionKey, version ?? string.Empty);
+                ConfigService.Set("App", PendingWhatsNewTextKey, BuildMarathiWhatsNewText(version, releaseNotes));
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("UpdateService.StagePostUpdateNotice", ex);
+            }
+        }
+
+        private static string BuildMarathiWhatsNewText(string version, string releaseNotes)
+        {
+            string notes = (releaseNotes ?? string.Empty).Trim();
+            int marker = notes.IndexOf("[मराठी]", StringComparison.OrdinalIgnoreCase);
+            if (marker >= 0)
+                notes = notes.Substring(marker + "[मराठी]".Length).Trim();
+
+            if (string.IsNullOrWhiteSpace(notes))
+                notes = "- कार्यक्षमता, स्थिरता आणि सुरक्षितता सुधारली आहे.";
+
+            notes = notes
+                .Replace("Added the requested reusable valve-supply, valve-service, and general-installation catalogue entries to invoice item selection.", "इनव्हॉइसमध्ये निवडीसाठी व्हॉल्व्ह सप्लाय, व्हॉल्व्ह सर्व्हिस आणि जनरल इंस्टॉलेशनचे नवीन पर्याय जोडले आहेत.")
+                .Replace("Corrected prospect-to-active lifecycle persistence so prospects no longer remain counted as active after conversion.", "प्रॉस्पेक्टला Active केल्यानंतर त्याची स्थिती आणि मोजणी आता योग्यरीत्या अपडेट होते.")
+                .Replace("Quotation validity now follows either date selection and displays the exact duration using days or whole weeks; removed the unwanted Customer Follow-up panel.", "कोटेशनची वैधता आता दोन्ही तारखांनुसार दिवस किंवा आठवड्यांत अचूक दिसते; अनावश्यक Customer Follow-up भाग काढला आहे.")
+                .Replace("Restored durable reconnect replay for Clients, Sites, and Jobs only. Invoice, payment, stock, and payroll writes remain online-only.", "Clients, Sites आणि Jobs साठी नेटवर्क परत आल्यावर सुरक्षित री-कनेक्ट सुविधा सुधारली आहे. इनव्हॉइस, पेमेंट, स्टॉक आणि पेरोलसाठी ऑनलाइन कनेक्शन आवश्यक आहे.");
+
+            if (!ContainsDevanagari(notes))
+                notes = "- या आवृत्तीमध्ये कार्यक्षमता, स्थिरता आणि सुरक्षितता सुधारली आहे.";
+
+            return "ServoERP आवृत्ती " + (version ?? string.Empty) + " यशस्वीपणे अपडेट झाली आहे.\r\n\r\nनवीन काय आहे:\r\n" + notes;
+        }
+
+        private static bool ContainsDevanagari(string value)
+        {
+            return !string.IsNullOrWhiteSpace(value) && value.Any(character => character >= '\u0900' && character <= '\u097F');
         }
 
         private static void SaveLastStatus(string status)

@@ -1,4 +1,18 @@
 # Changelog
+## 1.1.413.0 - 2026-08-04
+
+- अपडेट इन्स्टॉल झाल्यानंतर नवीन बदल दाखवणारी “नवीन काय आहे” विंडो आता मराठीत दिसेल.
+
+## 1.1.412.0 - 2026-08-04
+
+- इनव्हॉइसमध्ये निवडीसाठी व्हॉल्व्ह सप्लाय, व्हॉल्व्ह सर्व्हिस आणि जनरल इंस्टॉलेशनचे नवीन पर्याय जोडले आहेत.
+
+## 1.1.411.0 - 2026-08-04
+
+- Corrected prospect-to-active lifecycle persistence so prospects no longer remain counted as active after conversion.
+- Quotation validity now follows either date selection and displays the exact duration using days or whole weeks; removed the unwanted Customer Follow-up panel.
+- Restored durable reconnect replay for Clients, Sites, and Jobs only. Invoice, payment, stock, and payroll writes remain online-only.
+
 ## 1.1.410.0 - 2026-08-03
 
 - Fixed the quotation Client selector so it initializes after the page becomes visible, always provides a selectable client placeholder, and reloads the related Site list correctly.

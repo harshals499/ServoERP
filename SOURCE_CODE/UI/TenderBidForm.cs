@@ -68,6 +68,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblKpiValiditySub;
         private Label _lblKpiSaved;
         private Label _lblKpiSavedSub;
+        private bool _updatingQuotationDuration;
         private Label _quoteDetailsStatusPill;
         private Panel _workflowPanel;
 
@@ -534,7 +535,6 @@ namespace HVAC_Pro_Desktop.UI
             flow.Controls.Add(BuildQuotationWorkflowCard());
             flow.Controls.Add(BuildQuoteDetailsCard());
             flow.Controls.Add(BuildModernLineItemsCard());
-            flow.Controls.Add(BuildFollowUpCard());
             flow.Resize += (s, e) =>
             {
                 int width = Math.Max(520, flow.ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 24);
@@ -638,7 +638,7 @@ namespace HVAC_Pro_Desktop.UI
             _dtpDate.ValueChanged += (s, e) => UpdateDueDate();
             _dtpDue = MakeDatePicker();
             _dtpDue.Value = DateTime.Today.AddDays(30);
-            _dtpDue.ValueChanged += (s, e) => RefreshSummary();
+            _dtpDue.ValueChanged += (s, e) => UpdateValidityFromDates();
             _dtpRequiredBy = MakeDatePicker();
             _dtpRequiredBy.Value = DateTime.Today.AddDays(7);
 
@@ -1047,24 +1047,6 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_grid != null && _grid.Columns.Contains(columnName))
                 _grid.Columns[columnName].FillWeight = weight;
-        }
-
-        private Panel BuildFollowUpCard()
-        {
-            Panel card = MakeCard(900, 150);
-            card.Margin = new Padding(0, 0, 0, 20);
-            card.Controls.Add(new Label { Text = "Customer Follow-up", Location = new Point(18, 16), AutoSize = true, Font = new Font("Segoe UI", 11, FontStyle.Bold), ForeColor = QuoteText });
-            TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(18, 50), Width = card.Width - 36, Height = 80, ColumnCount = 5, RowCount = 1, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
-            for (int i = 0; i < 5; i++)
-                grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, i == 4 ? 32 : 17));
-            AddReadonlyField(grid, 0, "Follow-up Date", "20/05/2026");
-            AddReadonlyField(grid, 1, "Last Contacted", "15/05/2026");
-            AddReadonlyField(grid, 2, "Next Action", "Send Technical Drawings");
-            AddReadonlyField(grid, 3, "Status", "Sent");
-            AddReadonlyField(grid, 4, "Notes", "Customer requested revised layout. Awaiting confirmation.");
-            card.Controls.Add(grid);
-            card.Resize += (s, e) => grid.Width = card.Width - 36;
-            return card;
         }
 
         private Panel BuildRightSummaryPanel()
@@ -3388,11 +3370,51 @@ namespace HVAC_Pro_Desktop.UI
 
         private void UpdateDueDate()
         {
+            if (_updatingQuotationDuration)
+                return;
+
             int days = 30;
             if (_cboValidity.SelectedItem != null)
                 int.TryParse(_cboValidity.SelectedItem.ToString().Split(' ')[0], out days);
-            _dtpDue.Value = _dtpDate.Value.Date.AddDays(days <= 0 ? 30 : days);
-            RefreshSummary();
+            try
+            {
+                _updatingQuotationDuration = true;
+                _dtpDue.Value = _dtpDate.Value.Date.AddDays(days <= 0 ? 30 : days);
+                RefreshSummary();
+            }
+            finally
+            {
+                _updatingQuotationDuration = false;
+            }
+        }
+
+        /// <summary>Keeps the validity selector in sync when users directly edit either date.</summary>
+        private void UpdateValidityFromDates()
+        {
+            if (_updatingQuotationDuration || _dtpDate == null || _dtpDue == null || _cboValidity == null)
+            {
+                RefreshSummary();
+                return;
+            }
+
+            int days = Math.Max(0, (_dtpDue.Value.Date - _dtpDate.Value.Date).Days);
+            string display = FormatQuotationDuration(days);
+            try
+            {
+                _updatingQuotationDuration = true;
+                int index = _cboValidity.Items.IndexOf(display);
+                if (index < 0)
+                {
+                    _cboValidity.Items.Add(display);
+                    index = _cboValidity.Items.Count - 1;
+                }
+                _cboValidity.SelectedIndex = index;
+                RefreshSummary();
+            }
+            finally
+            {
+                _updatingQuotationDuration = false;
+            }
         }
 
         private static string FormatQuotationDuration(int days)

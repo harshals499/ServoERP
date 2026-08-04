@@ -240,8 +240,9 @@ namespace HVAC_Pro_Desktop.Services
                 return;
 
             string normalized = NormalizeLifecycleStatus(status);
-            bool active = string.Equals(normalized, "Active", StringComparison.OrdinalIgnoreCase)
-                          || string.Equals(normalized, "Prospect", StringComparison.OrdinalIgnoreCase);
+            // A prospect is a lead, not an active customer.  Keeping this false makes the
+            // lifecycle conversion visible in both the client list and dashboard totals.
+            bool active = string.Equals(normalized, "Active", StringComparison.OrdinalIgnoreCase);
 
             _clientRepo.SetLifecycleStatus(clientId, normalized, active);
             AppDataCache.RemovePrefix("clients:");

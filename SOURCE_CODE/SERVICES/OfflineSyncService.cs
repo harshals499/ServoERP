@@ -46,7 +46,38 @@ namespace HVAC_Pro_Desktop.Services
 
         public static void EnsureReady()
         {
-            AppRuntime.LogConnection("Offline SQLite queue disabled.");
+            LocalSqliteFallbackStore.EnsureReady();
+            lock (Sync)
+            {
+                using (SQLiteConnection conn = OpenConnection())
+                {
+                    Execute(conn, @"
+CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
+    QueueId INTEGER PRIMARY KEY AUTOINCREMENT,
+    CreatedUtc TEXT NOT NULL,
+    UpdatedUtc TEXT NOT NULL,
+    MachineName TEXT NOT NULL,
+    NodePublicId TEXT NULL,
+    Module TEXT NOT NULL,
+    Operation TEXT NOT NULL,
+    LocalReference TEXT NOT NULL,
+    ServerRecordId INTEGER NULL,
+    EntitySyncPublicId TEXT NULL,
+    IdempotencyKey TEXT NULL,
+    PayloadJson TEXT NOT NULL,
+    Status TEXT NOT NULL,
+    Attempts INTEGER NOT NULL DEFAULT 0,
+    LastError TEXT NULL,
+    RequiresReview INTEGER NOT NULL DEFAULT 0,
+    SyncedUtc TEXT NULL
+);");
+                    EnsureColumn(conn, "OfflineSyncQueue", "NodePublicId", "TEXT NULL");
+                    EnsureColumn(conn, "OfflineSyncQueue", "EntitySyncPublicId", "TEXT NULL");
+                    EnsureColumn(conn, "OfflineSyncQueue", "IdempotencyKey", "TEXT NULL");
+                    Execute(conn, "CREATE INDEX IF NOT EXISTS IX_OfflineSyncQueue_Status ON OfflineSyncQueue(Status, QueueId);");
+                    Execute(conn, "CREATE INDEX IF NOT EXISTS IX_OfflineSyncQueue_Module ON OfflineSyncQueue(Module, Operation);");
+                }
+            }
         }
 
         public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason)
@@ -56,27 +87,99 @@ namespace HVAC_Pro_Desktop.Services
 
         public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason, Guid? entitySyncPublicId)
         {
-            throw new InvalidOperationException("Offline SQLite queue is disabled. ServoERP will not save business entries locally when SQL Server is unavailable.");
+            if (!IsOfflineSafeModule(module, operation))
+                throw new InvalidOperationException("Offline saving is available only for Clients, Sites, and Jobs. Financial, stock, and payroll entries require the SQL Server connection.");
+
+            EnsureReady();
+            string localReference = BuildLocalReference(module, operation);
+            string payloadJson = JsonConvert.SerializeObject(payload);
+            string nodePublicId = NodeIdentityService.GetOrCreateNodePublicId().ToString("D");
+            string entitySyncPublicIdText = entitySyncPublicId.HasValue && entitySyncPublicId.Value != Guid.Empty ? entitySyncPublicId.Value.ToString("D") : string.Empty;
+            string idempotencyKey = SyncOutboxService.BuildIdempotencyKey(module, entitySyncPublicId ?? Guid.Empty, operation, payloadJson);
+            long queueId;
+            lock (Sync)
+            {
+                using (SQLiteConnection conn = OpenConnection())
+                using (SQLiteCommand cmd = new SQLiteCommand(@"
+INSERT INTO OfflineSyncQueue
+    (CreatedUtc, UpdatedUtc, MachineName, NodePublicId, Module, Operation, LocalReference, ServerRecordId, EntitySyncPublicId, IdempotencyKey, PayloadJson, Status, Attempts, LastError, RequiresReview)
+VALUES
+    (@created, @updated, @machine, @nodePublicId, @module, @operation, @localRef, @serverId, @entitySyncPublicId, @idempotencyKey, @payload, @status, 0, @reason, @review);
+SELECT last_insert_rowid();", conn))
+                {
+                    string now = DateTime.UtcNow.ToString("o");
+                    cmd.Parameters.AddWithValue("@created", now);
+                    cmd.Parameters.AddWithValue("@updated", now);
+                    cmd.Parameters.AddWithValue("@machine", Environment.MachineName);
+                    cmd.Parameters.AddWithValue("@nodePublicId", nodePublicId);
+                    cmd.Parameters.AddWithValue("@module", module ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@operation", operation ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@localRef", localReference);
+                    cmd.Parameters.AddWithValue("@serverId", serverRecordId.HasValue ? (object)serverRecordId.Value : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@entitySyncPublicId", string.IsNullOrWhiteSpace(entitySyncPublicIdText) ? (object)DBNull.Value : entitySyncPublicIdText);
+                    cmd.Parameters.AddWithValue("@idempotencyKey", string.IsNullOrWhiteSpace(idempotencyKey) ? (object)DBNull.Value : idempotencyKey);
+                    cmd.Parameters.AddWithValue("@payload", payloadJson ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@status", StatusPending);
+                    cmd.Parameters.AddWithValue("@reason", reason ?? string.Empty);
+                    cmd.Parameters.AddWithValue("@review", requiresReview ? 1 : 0);
+                    queueId = Convert.ToInt64(cmd.ExecuteScalar());
+                }
+            }
+
+            LocalSqliteFallbackStore.RecordEvent("OFFLINE_QUEUED", module + " " + operation + " " + localReference);
+            RaisePendingChanged();
+            return new OfflineQueueResult { QueueId = queueId, LocalId = BuildLocalId(queueId), Message = "Saved locally. Pending sync #" + queueId.ToString("0000") + "." };
         }
 
         public static int GetPendingCount()
         {
-            return 0;
+            EnsureReady();
+            using (SQLiteConnection conn = OpenConnection())
+            using (SQLiteCommand cmd = new SQLiteCommand("SELECT COUNT(1) FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict');", conn))
+                return Convert.ToInt32(cmd.ExecuteScalar());
         }
 
         public static List<OfflineSyncItem> GetPendingItems(int max = 100)
         {
-            return new List<OfflineSyncItem>();
+            EnsureReady();
+            var items = new List<OfflineSyncItem>();
+            using (SQLiteConnection conn = OpenConnection())
+            using (SQLiteCommand cmd = new SQLiteCommand(@"
+SELECT QueueId, Module, Operation, LocalReference, PayloadJson, Status, Attempts, LastError, RequiresReview, NodePublicId, EntitySyncPublicId, IdempotencyKey
+FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict') ORDER BY QueueId LIMIT @max;", conn))
+            {
+                cmd.Parameters.AddWithValue("@max", Math.Max(1, max));
+                using (SQLiteDataReader reader = cmd.ExecuteReader())
+                    while (reader.Read()) items.Add(new OfflineSyncItem { QueueId = reader.GetInt64(0), Module = Read(reader, 1), Operation = Read(reader, 2), LocalReference = Read(reader, 3), PayloadJson = Read(reader, 4), Status = Read(reader, 5), Attempts = reader.GetInt32(6), LastError = Read(reader, 7), RequiresReview = !reader.IsDBNull(8) && reader.GetInt32(8) == 1, NodePublicId = Read(reader, 9), EntitySyncPublicId = Read(reader, 10), IdempotencyKey = Read(reader, 11) });
+            }
+            return items;
         }
 
         public static int TryReplayPending()
         {
-            return 0;
+            if (IsReplaying)
+                return 0;
+            DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.CheckNow("OfflineSyncService.TryReplayPending", false);
+            if (!state.BusinessWritesAllowed)
+                return 0;
+            int synced = 0;
+            IsReplaying = true;
+            try
+            {
+                foreach (OfflineSyncItem item in GetPendingItems(100))
+                {
+                    try { ReplayItem(item); MarkSynced(item.QueueId); synced++; }
+                    catch (Exception ex) { MarkFailed(item.QueueId, ex); }
+                }
+            }
+            finally { IsReplaying = false; }
+            if (synced > 0) { LocalSqliteFallbackStore.RecordEvent("OFFLINE_SYNCED", synced + " pending operation(s) synced."); RaisePendingChanged(); }
+            return synced;
         }
 
         public static bool ShouldQueue(Exception ex)
         {
-            return false;
+            return !IsReplaying && ex != null && IsSqlConnectivityFailure(ex);
         }
 
         private static bool IsSqlConnectivityFailure(Exception ex)
@@ -135,26 +238,16 @@ namespace HVAC_Pro_Desktop.Services
                 new JobService().AddPartUsed(payload.JobId, payload.InventoryItemId, payload.Quantity, payload.ItemDescription, payload.UnitCostOverride);
                 return;
             }
-            if (module == "Invoices" && operation == "CreateDraft")
-            {
-                Invoice invoice = JsonConvert.DeserializeObject<Invoice>(item.PayloadJson);
-                invoice.PaymentStatus = string.IsNullOrWhiteSpace(invoice.PaymentStatus) ? "Draft" : invoice.PaymentStatus;
-                new InvoiceService().CreateInvoiceWithLineItems(invoice);
-                return;
-            }
-            if (module == "Invoices" && operation == "UpdateDraft")
-            {
-                Invoice invoice = JsonConvert.DeserializeObject<Invoice>(item.PayloadJson);
-                new InvoiceService().UpdateInvoiceWithLineItems(invoice);
-                return;
-            }
-            if (module == "Payments" && operation == "RecordDraft")
-            {
-                new PaymentService().RecordPayment(JsonConvert.DeserializeObject<Payment>(item.PayloadJson));
-                return;
-            }
-
             throw new NotSupportedException("Offline sync handler missing for " + module + "." + operation);
+        }
+
+        private static bool IsOfflineSafeModule(string module, string operation)
+        {
+            string normalizedModule = (module ?? string.Empty).Trim();
+            string normalizedOperation = (operation ?? string.Empty).Trim();
+            return (normalizedModule == "Clients" && (normalizedOperation == "Create" || normalizedOperation == "Update"))
+                || (normalizedModule == "Sites" && (normalizedOperation == "Create" || normalizedOperation == "Update"))
+                || (normalizedModule == "Jobs" && (normalizedOperation == "Create" || normalizedOperation == "Update" || normalizedOperation == "AddPart"));
         }
 
         private static void MarkSynced(long queueId)

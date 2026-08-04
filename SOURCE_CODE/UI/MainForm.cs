@@ -188,7 +188,72 @@ namespace HVAC_Pro_Desktop.UI
                 StartBackupScheduler();
                 BeginInvoke((Action)TryStartFirstLaunchTour);
                 BeginInvoke((Action)ShowSharedStorageUpdatePrompt);
+                BeginInvoke((Action)ShowPostUpdateWhatsNew);
             };
+        }
+
+        /// <summary>Shows Marathi release notes once after the installed updater restarts ServoERP.</summary>
+        private void ShowPostUpdateWhatsNew()
+        {
+            if (!UpdateService.TryConsumePostUpdateNotice(out string version, out string text))
+                return;
+
+            using (var dialog = new MarathiWhatsNewDialog())
+            {
+                dialog.Text = BrandingService.WindowTitle("नवीन काय आहे");
+                dialog.StartPosition = FormStartPosition.CenterParent;
+                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
+                dialog.MaximizeBox = false;
+                dialog.MinimizeBox = false;
+                dialog.ClientSize = new Size(570, 360);
+                dialog.BackColor = DS.BgPage;
+
+                Label title = new Label
+                {
+                    Text = "ServoERP अपडेट यशस्वी झाले",
+                    Dock = DockStyle.Top,
+                    Height = 48,
+                    Padding = new Padding(22, 16, 22, 0),
+                    Font = new Font("Nirmala UI", 15f, FontStyle.Bold),
+                    ForeColor = DS.Slate900
+                };
+                Label subtitle = new Label
+                {
+                    Text = "आवृत्ती " + version,
+                    Dock = DockStyle.Top,
+                    Height = 28,
+                    Padding = new Padding(24, 0, 24, 0),
+                    Font = new Font("Nirmala UI", 9f),
+                    ForeColor = DS.Slate600
+                };
+                TextBox notes = new TextBox
+                {
+                    Dock = DockStyle.Fill,
+                    Margin = new Padding(22),
+                    Multiline = true,
+                    ReadOnly = true,
+                    ScrollBars = ScrollBars.Vertical,
+                    BorderStyle = BorderStyle.FixedSingle,
+                    BackColor = Color.White,
+                    ForeColor = DS.Slate800,
+                    Font = new Font("Nirmala UI", 10f),
+                    Text = text
+                };
+                Button close = DS.PrimaryBtn("ठीक आहे", 112, 34);
+                close.Font = new Font("Nirmala UI", 9f, FontStyle.Bold);
+                close.DialogResult = DialogResult.OK;
+                FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 22, 10), BackColor = DS.BgPage };
+                footer.Controls.Add(close);
+
+                Panel body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(22, 8, 22, 8), BackColor = DS.BgPage };
+                body.Controls.Add(notes);
+                dialog.Controls.Add(body);
+                dialog.Controls.Add(footer);
+                dialog.Controls.Add(subtitle);
+                dialog.Controls.Add(title);
+                dialog.AcceptButton = close;
+                dialog.ShowDialog(this);
+            }
         }
 
         /// <summary>Offers the optional private-server storage setup once without blocking normal work.</summary>
@@ -3210,6 +3275,13 @@ namespace HVAC_Pro_Desktop.UI
                 };
 
                 progressForm.ShowDialog(this);
+            }
+        }
+
+        private sealed class MarathiWhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
+        {
+            public MarathiWhatsNewDialog()
+            {
             }
         }
 

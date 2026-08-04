@@ -494,6 +494,13 @@ namespace HVAC_Pro_Desktop.UI
             AddFallbackCatalogItem(items, "Services", "Service charge", "Service", "998719", "VISIT", 0m, 18m);
             AddFallbackCatalogItem(items, "Services", "Gas refill / charging", "Service", "998719", "LOT", 0m, 18m);
             AddFallbackCatalogItem(items, "Labour", "Installation labour", "Labour", "998519", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "Butterfly valve supply", "Material", "8481", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Materials", "NRV valve supply", "Material", "8481", UnitMeasurementService.DefaultCode, 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Valve insulation dismantling", "Service", "998719", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Labour", "Valve installation", "Labour", "998519", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "General service", "Service", "998719", "VISIT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "General service and installation", "Service", "998719", "LOT", 0m, 18m);
+            AddFallbackCatalogItem(items, "Services", "Service installation job", "Service", "998719", "LOT", 0m, 18m);
             AddFallbackCatalogItem(items, "AMC / Contract", "AMC preventive visit", "AMC", "998719", "VISIT", 0m, 18m);
         }
 
