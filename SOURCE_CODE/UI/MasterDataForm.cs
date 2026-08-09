@@ -62,7 +62,24 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
+            DashboardRefreshService.RefreshRequested += DashboardRefreshService_RefreshRequested;
             EnableDeferredLoad(LoadAllAsync, ex => ShowStatus("Master data could not be loaded. Refresh setup checks and try again.", true));
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+                DashboardRefreshService.RefreshRequested -= DashboardRefreshService_RefreshRequested;
+
+            base.Dispose(disposing);
+        }
+
+        private void DashboardRefreshService_RefreshRequested(object sender, DashboardRefreshEventArgs e)
+        {
+            if (IsDisposed || !IsHandleCreated || !Visible)
+                return;
+
+            BeginInvoke((Action)QueueMasterDataLoad);
         }
 
         private void BuildLayout()
@@ -759,8 +776,8 @@ namespace HVAC_Pro_Desktop.UI
                     TimeSpan ttl = TimeSpan.FromMinutes(2);
                     return new MasterDataSnapshot
                     {
-                        Clients = AppDataCache.GetOrCreate("clients:all-including-inactive", ttl, () => _clientSvc.GetAllClientsIncludingInactive() ?? new List<B2BClient>()).ToList(),
-                        Sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteSvc.GetAll() ?? new List<ClientSite>()).ToList(),
+                        Clients = _clientSvc.GetAllClientsIncludingInactive().ToList(),
+                        Sites = _siteSvc.GetAll().ToList(),
                         SetupStatus = AppDataCache.GetOrCreate("masterdata:setup-status", ttl, () => _svc.GetSetupStatus() ?? new List<MasterDataStatus>()).ToList(),
                         Assets = AppDataCache.GetOrCreate("masterdata:assets", ttl, () => _svc.GetAssets() ?? new List<ClientAsset>()).ToList(),
                         Documents = AppDataCache.GetOrCreate("masterdata:documents", ttl, () => _svc.GetDocuments() ?? new List<ClientDocument>()).ToList(),

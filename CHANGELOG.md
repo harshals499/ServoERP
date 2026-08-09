@@ -1,4 +1,10 @@
 # Changelog
+## 1.1.416.0 - 2026-08-09
+
+- Moved the dashboard department summary cards above Recent Activity for a quicker at-a-glance business overview.
+- Changed quotation Validity to a calendar date, synchronized with the quotation due date.
+- Centralized shared data refreshes so Dashboard, Master Data, Clients, and Reports use the same service-backed records after updates.
+
 ## 1.1.414.0 - 2026-08-04
 
 - Shared Office Storage can now automatically detect the configured office SQL Server and propose its standard `\\SERVER\ServoERPShared` folder. The connection check runs in the background, with manual UNC entry still available for non-standard shares.

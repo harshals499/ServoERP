@@ -46,8 +46,8 @@ namespace HVAC_Pro_Desktop.Services
 
         public static void Remove(string key)
         {
-            if (!string.IsNullOrWhiteSpace(key))
-                Entries.TryRemove(key, out _);
+            if (!string.IsNullOrWhiteSpace(key) && Entries.TryRemove(key, out _))
+                DashboardRefreshService.NotifyChanged(GetModuleKey(key));
         }
 
         public static void RemovePrefix(string prefix)
@@ -55,17 +55,40 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrWhiteSpace(prefix))
                 return;
 
+            bool removed = false;
             foreach (var key in Entries.Keys)
             {
                 if (key.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                    Entries.TryRemove(key, out _);
+                    removed |= Entries.TryRemove(key, out _);
             }
+
+            if (removed)
+                DashboardRefreshService.NotifyChanged(GetModuleKey(prefix));
         }
 
         public static void Clear()
         {
+            bool hadEntries = !Entries.IsEmpty;
             Entries.Clear();
             KeyLocks.Clear();
+            if (hadEntries)
+                DashboardRefreshService.NotifyChanged("All");
+        }
+
+        private static string GetModuleKey(string cacheKey)
+        {
+            string key = (cacheKey ?? string.Empty).Trim().ToLowerInvariant();
+            if (key.StartsWith("clients:") || key.StartsWith("sites:")) return "Clients";
+            if (key.StartsWith("vendors:")) return "Suppliers";
+            if (key.StartsWith("inventory:")) return "Inventory";
+            if (key.StartsWith("invoices:")) return "Invoices";
+            if (key.StartsWith("payments:")) return "Payments";
+            if (key.StartsWith("purchases:")) return "Purchases";
+            if (key.StartsWith("tenders:") || key.StartsWith("quotations:")) return "Quotations";
+            if (key.StartsWith("jobs:")) return "Jobs";
+            if (key.StartsWith("employees:")) return "Employees";
+            if (key.StartsWith("servicedesk:")) return "Service Operations";
+            return "Master Data";
         }
     }
 }

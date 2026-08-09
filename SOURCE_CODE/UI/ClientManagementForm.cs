@@ -321,9 +321,9 @@ namespace HVAC_Pro_Desktop.UI
                     if (_showDashboard)
                     {
                         try { contracts = AppDataCache.GetOrCreate("contracts:all", ttl, () => _contractService.GetAllContracts() ?? new List<AMCContract>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Contracts", ex); contracts = new List<AMCContract>(); }
-                        try { invoices = AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceService.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Invoices", ex); invoices = new List<Invoice>(); }
-                        try { quotes = AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderService.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Quotes", ex); quotes = new List<TenderBid>(); }
-                        try { sites = AppDataCache.GetOrCreate("sites:all", ttl, () => _siteService.GetAll() ?? new List<ClientSite>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Sites", ex); sites = new List<ClientSite>(); }
+                        try { invoices = (_invoiceService.GetAllInvoices() ?? new List<Invoice>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Invoices", ex); invoices = new List<Invoice>(); }
+                        try { quotes = (_tenderService.GetAll() ?? new List<TenderBid>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Quotes", ex); quotes = new List<TenderBid>(); }
+                        try { sites = (_siteService.GetAll() ?? new List<ClientSite>()).ToList(); } catch (Exception ex) { AppLogger.LogError("ClientManagementForm.LoadDashboard.Sites", ex); sites = new List<ClientSite>(); }
                     }
                 });
             }

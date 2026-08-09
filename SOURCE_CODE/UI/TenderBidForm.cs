@@ -29,7 +29,7 @@ namespace HVAC_Pro_Desktop.UI
         private TextBox _txtTitle;
         private ComboBox _cboClient;
         private ComboBox _cboSite;
-        private ComboBox _cboValidity;
+        private DateTimePicker _dtpValidity;
         private ComboBox _cboStatus;
         private ComboBox _cboCommercialFlow;
         private ComboBox _cboCustomerDocStatus;
@@ -616,10 +616,9 @@ namespace HVAC_Pro_Desktop.UI
             _cboSite = MakeCombo(true);
             _txtTitle = MakeTextBox(false);
             _txtTitle.Text = string.Empty;
-            _cboValidity = MakeCombo(true);
-            _cboValidity.Items.AddRange(new object[] { "15 Days", "30 Days", "45 Days", "60 Days", "90 Days" });
-            _cboValidity.SelectedIndex = 1;
-            _cboValidity.SelectedIndexChanged += (s, e) => UpdateDueDate();
+            _dtpValidity = MakeDatePicker();
+            _dtpValidity.Value = DateTime.Today.AddDays(30);
+            _dtpValidity.ValueChanged += (s, e) => UpdateDueDate();
             _cboStatus = MakeCombo(true);
             _cboStatus.Items.AddRange(new object[] { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" });
             _cboStatus.SelectedIndex = 0;
@@ -648,7 +647,7 @@ namespace HVAC_Pro_Desktop.UI
             AddQuoteDetailField(detailGrid, 3, "Project / Quote Title", _txtTitle, "E70F", 210, 0);
             AddQuoteDetailField(detailGrid, 0, "Date", _dtpDate, "E787", 130, 1);
             AddQuoteDetailField(detailGrid, 1, "Due Date", _dtpDue, "E787", 130, 1);
-            AddQuoteDetailField(detailGrid, 2, "Validity", _cboValidity, "E121", 122, 1);
+            AddQuoteDetailField(detailGrid, 2, "Validity", _dtpValidity, "E121", 122, 1);
             AddQuoteDetailField(detailGrid, 3, "Required By", _dtpRequiredBy, "E787", 152, 1);
             AddQuoteDetailField(detailGrid, 0, "Status", _cboStatus, "E916", 145, 2);
             AddQuoteDetailField(detailGrid, 1, "Commercial Flow", _cboCommercialFlow, "E9D9", 210, 2);
@@ -1361,10 +1360,9 @@ namespace HVAC_Pro_Desktop.UI
             _cboClient.SelectedIndexChanged += (s, e) => LoadSites();
             _cboSite = MakeCombo(true);
             _txtTitle = MakeTextBox(false);
-            _cboValidity = MakeCombo(true);
-            _cboValidity.Items.AddRange(new object[] { "10 Days", "30 Days", "60 Days", "90 Days" });
-            _cboValidity.SelectedIndex = 1;
-            _cboValidity.SelectedIndexChanged += (s, e) => UpdateDueDate();
+            _dtpValidity = MakeDatePicker();
+            _dtpValidity.Value = DateTime.Today.AddDays(30);
+            _dtpValidity.ValueChanged += (s, e) => UpdateDueDate();
             _cboStatus = MakeCombo(true);
             _lookupSvc.BindCombo(_cboStatus, "Sales.QuotationStatus", new[] { "Draft", "Analysed", "Sent", "Won", "Lost" }, "Draft");
             _dtpDate = MakeDatePicker();
@@ -1376,7 +1374,7 @@ namespace HVAC_Pro_Desktop.UI
             AddLabeledControl(grid, 1, 0, "Client", _cboClient);
             AddLabeledControl(grid, 2, 0, "Site", _cboSite);
             AddLabeledControl(grid, 0, 1, "Project / Quote", _txtTitle);
-            AddLabeledControl(grid, 1, 1, "Validity", _cboValidity);
+            AddLabeledControl(grid, 1, 1, "Validity", _dtpValidity);
             AddLabeledControl(grid, 2, 1, "Status", _cboStatus);
             AddLabeledControl(grid, 0, 2, "Date", _dtpDate);
             AddLabeledControl(grid, 1, 2, "Due Date", _dtpDue);
@@ -1988,12 +1986,12 @@ namespace HVAC_Pro_Desktop.UI
                 SelectComboByText(_cboCustomerDocStatus, string.IsNullOrWhiteSpace(bid.CustomerDocumentStatus) ? "Quote Draft" : bid.CustomerDocumentStatus);
             if (_cboSupplierDocStatus != null)
                 SelectComboByText(_cboSupplierDocStatus, string.IsNullOrWhiteSpace(bid.SupplierDocumentStatus) ? "Not Required" : bid.SupplierDocumentStatus);
-            if (_cboValidity != null)
-                SelectComboByText(_cboValidity, Math.Max(1, (bid.DueDate.Date - (bid.SubmittedDate ?? DateTime.Today).Date).Days) + " Days");
             if (_dtpDate != null)
                 _dtpDate.Value = bid.SubmittedDate ?? DateTime.Today;
             if (_dtpDue != null)
                 _dtpDue.Value = bid.DueDate == default(DateTime) ? DateTime.Today.AddDays(30) : bid.DueDate;
+            if (_dtpValidity != null)
+                _dtpValidity.Value = _dtpDue.Value;
             if (_dtpRequiredBy != null)
                 _dtpRequiredBy.Value = bid.RequiredByDate ?? DateTime.Today.AddDays(7);
             if (_txtNotes != null)
@@ -2026,8 +2024,8 @@ namespace HVAC_Pro_Desktop.UI
                 if (_cboSite.Items.Count > 0)
                     _cboSite.SelectedIndex = 0;
             }
-            if (_cboValidity != null)
-                _cboValidity.SelectedIndex = Math.Min(1, _cboValidity.Items.Count - 1);
+            if (_dtpValidity != null)
+                _dtpValidity.Value = DateTime.Today.AddDays(30);
             if (_cboStatus != null && _cboStatus.Items.Count > 0)
                 _cboStatus.SelectedIndex = 0;
             if (_cboCommercialFlow != null && _cboCommercialFlow.Items.Count > 0) _cboCommercialFlow.SelectedIndex = 0;
@@ -3373,13 +3371,12 @@ namespace HVAC_Pro_Desktop.UI
             if (_updatingQuotationDuration)
                 return;
 
-            int days = 30;
-            if (_cboValidity.SelectedItem != null)
-                int.TryParse(_cboValidity.SelectedItem.ToString().Split(' ')[0], out days);
+            if (_dtpDate == null || _dtpDue == null || _dtpValidity == null)
+                return;
             try
             {
                 _updatingQuotationDuration = true;
-                _dtpDue.Value = _dtpDate.Value.Date.AddDays(days <= 0 ? 30 : days);
+                _dtpDue.Value = _dtpValidity.Value.Date;
                 RefreshSummary();
             }
             finally
@@ -3388,27 +3385,19 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        /// <summary>Keeps the validity selector in sync when users directly edit either date.</summary>
+        /// <summary>Keeps the validity calendar and quotation due date in sync.</summary>
         private void UpdateValidityFromDates()
         {
-            if (_updatingQuotationDuration || _dtpDate == null || _dtpDue == null || _cboValidity == null)
+            if (_updatingQuotationDuration || _dtpDue == null || _dtpValidity == null)
             {
                 RefreshSummary();
                 return;
             }
 
-            int days = Math.Max(0, (_dtpDue.Value.Date - _dtpDate.Value.Date).Days);
-            string display = FormatQuotationDuration(days);
             try
             {
                 _updatingQuotationDuration = true;
-                int index = _cboValidity.Items.IndexOf(display);
-                if (index < 0)
-                {
-                    _cboValidity.Items.Add(display);
-                    index = _cboValidity.Items.Count - 1;
-                }
-                _cboValidity.SelectedIndex = index;
+                _dtpValidity.Value = _dtpDue.Value.Date;
                 RefreshSummary();
             }
             finally
@@ -4078,7 +4067,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             SetQuoteDetailFieldSize(_dtpDate);
             SetQuoteDetailFieldSize(_dtpDue);
-            SetQuoteDetailFieldSize(_cboValidity);
+            SetQuoteDetailFieldSize(_dtpValidity);
             SetQuoteDetailFieldSize(_dtpRequiredBy);
             SetQuoteDetailFieldSize(_cboStatus);
             SetQuoteDetailFieldSize(_txtQuoteNo);

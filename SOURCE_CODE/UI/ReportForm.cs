@@ -343,7 +343,7 @@ namespace HVAC_Pro_Desktop.UI
             });
             Task<List<Invoice>> invoicesTask = Task.Run(() =>
             {
-                try { return AppDataCache.GetOrCreate("invoices:all", ttl, () => _invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); }
+                try { return (_invoiceSvc.GetAllInvoices() ?? new List<Invoice>()).ToList(); }
                 catch { return new List<Invoice>(); }
             });
             Task<List<PurchaseOrder>> purchasesTask = Task.Run(() =>
@@ -353,12 +353,12 @@ namespace HVAC_Pro_Desktop.UI
             });
             Task<List<Job>> jobsTask = Task.Run(() =>
             {
-                try { return AppDataCache.GetOrCreate("jobs:all", ttl, () => _jobSvc.GetAll() ?? new List<Job>()).ToList(); }
+                try { return (_jobSvc.GetAll() ?? new List<Job>()).ToList(); }
                 catch { return new List<Job>(); }
             });
             Task<List<TenderBid>> quotationsTask = Task.Run(() =>
             {
-                try { return AppDataCache.GetOrCreate("quotations:all", ttl, () => _tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); }
+                try { return (_tenderSvc.GetAll() ?? new List<TenderBid>()).ToList(); }
                 catch { return new List<TenderBid>(); }
             });
             Task<List<Employee>> techniciansTask = Task.Run(() =>
@@ -368,7 +368,7 @@ namespace HVAC_Pro_Desktop.UI
             });
             Task<List<StockItem>> stockTask = Task.Run(() =>
             {
-                try { return AppDataCache.GetOrCreate("inventory:all", ttl, () => _inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); }
+                try { return (_inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); }
                 catch { return new List<StockItem>(); }
             });
             Task<List<VendorAdvancePayment>> advancesTask = Task.Run(() =>

@@ -175,8 +175,8 @@ namespace HVAC_Pro_Desktop.UI
             AddGreetingBanner();
             AddAlertsBar();
             AddShortcutActionsRow();
-            AddRecentActivityRow();
             AddDepartmentRows();
+            AddRecentActivityRow();
             AddFinancialOverviewRow();
 
             _clockTimer = new Timer { Interval = 60000 };
