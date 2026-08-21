@@ -25,24 +25,27 @@ namespace HVAC_Pro_Desktop.UI
         private readonly NumericUpDown _numMaxPoolSize = new NumericUpDown();
         private readonly Label _lblModeHint = new Label();
         private readonly Label _lblStatus = new Label();
+        private readonly Label _lblUsername = new Label();
+        private readonly Label _lblPassword = new Label();
         private bool _lastTestSucceeded;
         private string _lastTestedConnectionString;
 
         public ConnectionSetupForm()
         {
             AutoScaleMode = AutoScaleMode.Dpi;
-            Text = "Database Connection Setup";
+            Text = "Connect to office server";
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
-            ClientSize = new Size(560, 560);
+            ClientSize = new Size(820, 612);
             Font = new Font("Segoe UI", 9F);
             BackColor = DS.BgPage;
 
             BuildLayout();
             UIHelper.ApplyInputStyles(Controls);
             DS.ApplyTheme(this);
+            ApplyConnectionTheme();
             LoadCurrentConnection();
             UpdateServerMode();
             UpdateAuthFields();
@@ -50,99 +53,156 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
+            var header = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 108,
+                BackColor = DS.BgPage
+            };
+            var icon = ModernIconSystem.Badge(ModernIconKind.Security, 46, DS.Primary50, DS.Primary600, 12);
+            icon.Location = new Point(28, 26);
             var title = new Label
             {
-                Text = "ServoERP Database Connection",
-                Font = new Font("Segoe UI", 15F, FontStyle.Bold),
-                Location = new Point(24, 18),
-                Size = new Size(500, 32)
+                Text = "Connect to your office server",
+                Font = DS.H1,
+                ForeColor = DS.Slate900,
+                Location = new Point(88, 23),
+                Size = new Size(560, 28)
             };
-
             var hint = new Label
             {
-                Text = "Choose local setup or connect this client to the always-on office SQL Server.",
-                ForeColor = Color.DimGray,
-                Location = new Point(26, 54),
-                Size = new Size(500, 24)
+                Text = "Set up the secure SQL Server connection used by every ServoERP PC in your office.",
+                Font = DS.Body,
+                ForeColor = DS.Slate600,
+                Location = new Point(90, 54),
+                Size = new Size(660, 34)
+            };
+            header.Controls.AddRange(new Control[] { icon, title, hint });
+
+            var setupCard = BuildCard(new Rectangle(28, 122, 500, 406));
+            var serverTitle = new Label
+            {
+                Text = "1. Choose where your data is stored",
+                Font = DS.H3,
+                ForeColor = DS.Slate900,
+                Location = new Point(22, 18),
+                Size = new Size(410, 22)
+            };
+            var serverHint = new Label
+            {
+                Text = "Use the office server for client PCs so everyone works with the same live data.",
+                Font = DS.Small,
+                ForeColor = DS.Slate500,
+                Location = new Point(22, 40),
+                Size = new Size(445, 30)
             };
 
-            _rbLocalServer.Text = "This computer / local SQL Server";
-            _rbLocalServer.Location = new Point(180, 88);
-            _rbLocalServer.Size = new Size(250, 24);
+            _rbLocalServer.Text = "This server PC";
+            _rbLocalServer.Location = new Point(24, 77);
+            _rbLocalServer.Size = new Size(170, 24);
             _rbLocalServer.Checked = true;
             _rbLocalServer.CheckedChanged += (s, e) => UpdateServerMode();
 
-            _rbPrivateServer.Text = "Always-on office server";
-            _rbPrivateServer.Location = new Point(180, 116);
+            _rbPrivateServer.Text = "Another PC in this office";
+            _rbPrivateServer.Location = new Point(226, 77);
             _rbPrivateServer.Size = new Size(220, 24);
             _rbPrivateServer.CheckedChanged += (s, e) => UpdateServerMode();
 
-            _lblModeHint.Location = new Point(180, 144);
-            _lblModeHint.Size = new Size(330, 42);
-            _lblModeHint.ForeColor = Color.DimGray;
+            _lblModeHint.Location = new Point(24, 105);
+            _lblModeHint.Size = new Size(448, 34);
+            _lblModeHint.Font = DS.Small;
+            _lblModeHint.ForeColor = DS.Slate600;
 
-            AddLabel("Setup Type", 92);
+            AddLabel(setupCard, "Server address", 150);
+            _txtServerIP.Location = new Point(24, 174);
+            _txtServerIP.Size = new Size(285, 28);
+            _txtServerIP.Tag = "Example: 192.168.1.10 or OFFICE-SERVER";
 
-            AddLabel("Server IP / Name", 198);
-            _txtServerIP.Location = new Point(180, 194);
-            _txtServerIP.Size = new Size(330, 24);
+            AddLabel(setupCard, "SQL instance", 150, 326);
+            _txtInstance.Location = new Point(326, 174);
+            _txtInstance.Size = new Size(148, 28);
+            _txtInstance.Tag = "SQLEXPRESS";
 
-            AddLabel("Instance", 236);
-            _txtInstance.Location = new Point(180, 232);
-            _txtInstance.Size = new Size(330, 24);
+            AddLabel(setupCard, "Database", 218);
+            _txtDatabase.Location = new Point(24, 242);
+            _txtDatabase.Size = new Size(450, 28);
 
-            AddLabel("Database", 274);
-            _txtDatabase.Location = new Point(180, 270);
-            _txtDatabase.Size = new Size(330, 24);
+            var authTitle = new Label { Text = "2. Sign in to SQL Server", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(22, 289), Size = new Size(300, 22) };
+            var authModePanel = new Panel { Location = new Point(0, 312), Size = new Size(480, 34), BackColor = Color.Transparent };
 
             _rbWindowsAuth.Text = "Windows Authentication";
-            _rbWindowsAuth.Location = new Point(180, 311);
+            _rbWindowsAuth.Location = new Point(24, 2);
             _rbWindowsAuth.Size = new Size(190, 24);
             _rbWindowsAuth.Checked = true;
             _rbWindowsAuth.CheckedChanged += (s, e) => UpdateAuthFields();
 
             _rbSqlAuth.Text = "SQL Authentication";
-            _rbSqlAuth.Location = new Point(180, 338);
+            _rbSqlAuth.Location = new Point(230, 2);
             _rbSqlAuth.Size = new Size(170, 24);
             _rbSqlAuth.CheckedChanged += (s, e) => UpdateAuthFields();
 
-            AddLabel("Username", 378);
-            _txtUsername.Location = new Point(180, 374);
-            _txtUsername.Size = new Size(330, 24);
+            _lblUsername.Text = "SQL username";
+            _lblUsername.Location = new Point(24, 351);
+            _lblUsername.Size = new Size(190, 20);
+            _lblUsername.Font = DS.SmallBold;
+            _txtUsername.Location = new Point(24, 373);
+            _txtUsername.Size = new Size(215, 28);
 
-            AddLabel("Password", 416);
-            _txtPassword.Location = new Point(180, 412);
-            _txtPassword.Size = new Size(330, 24);
+            _lblPassword.Text = "Password";
+            _lblPassword.Location = new Point(258, 351);
+            _lblPassword.Size = new Size(190, 20);
+            _lblPassword.Font = DS.SmallBold;
+            _txtPassword.Location = new Point(258, 373);
+            _txtPassword.Size = new Size(216, 28);
             _txtPassword.UseSystemPasswordChar = true;
 
-            AddLabel("Max Pool Size", 454);
-            _numMaxPoolSize.Location = new Point(180, 450);
-            _numMaxPoolSize.Size = new Size(120, 24);
+            var advanced = new Label { Text = "Connection pool", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(24, 421), Size = new Size(140, 20) };
+            _numMaxPoolSize.Location = new Point(155, 417);
+            _numMaxPoolSize.Size = new Size(88, 28);
             _numMaxPoolSize.Minimum = 20;
             _numMaxPoolSize.Maximum = 500;
             _numMaxPoolSize.Value = DatabaseConnectionFactory.DefaultMaxPoolSize;
 
+            var guideCard = BuildCard(new Rectangle(546, 122, 246, 406));
+            var guideIcon = ModernIconSystem.Badge(ModernIconKind.Status, 38, DS.Green50, DS.Green600, 10);
+            guideIcon.Location = new Point(20, 20);
+            var guideTitle = new Label { Text = "Before you save", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(68, 24), Size = new Size(156, 22) };
+            var guideText = new Label
+            {
+                Text = "1. Enter the office server name or IP.\r\n\r\n2. Select the SQL sign-in provided by your administrator.\r\n\r\n3. Test first, then save the verified connection.\r\n\r\nYour server details stay on this PC.",
+                Font = DS.Body,
+                ForeColor = DS.Slate600,
+                Location = new Point(20, 78),
+                Size = new Size(205, 224)
+            };
+            var statusCaption = new Label { Text = "Connection check", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(20, 324), Size = new Size(160, 18) };
+            _lblStatus.Location = new Point(20, 347);
+            _lblStatus.Size = new Size(205, 42);
+            _lblStatus.Font = DS.Small;
+            _lblStatus.ForeColor = DS.Slate500;
+
+            var footer = new Panel { Dock = DockStyle.Bottom, Height = 68, BackColor = DS.White, Padding = new Padding(28, 16, 28, 16) };
             var btnTestConnection = new Button
             {
-                Text = "Test Connection",
-                Location = new Point(180, 492),
-                Size = new Size(130, 32)
+                Text = "Test connection",
+                Location = new Point(326, 17),
+                Size = new Size(130, 34)
             };
             btnTestConnection.Click += (s, e) => TestConnection();
 
             var btnSave = new Button
             {
-                Text = "Save",
-                Location = new Point(320, 492),
-                Size = new Size(68, 32)
+                Text = "Save connection",
+                Location = new Point(466, 17),
+                Size = new Size(132, 34)
             };
             btnSave.Click += (s, e) => SaveConnection();
 
             var btnCancel = new Button
             {
                 Text = "Cancel",
-                Location = new Point(396, 492),
-                Size = new Size(64, 32)
+                Location = new Point(610, 17),
+                Size = new Size(82, 34)
             };
             btnCancel.Click += (s, e) =>
             {
@@ -150,28 +210,35 @@ namespace HVAC_Pro_Desktop.UI
                 Close();
             };
 
-            _lblStatus.Location = new Point(24, 532);
-            _lblStatus.Size = new Size(500, 24);
-            _lblStatus.ForeColor = Color.DimGray;
-
-            Controls.AddRange(new Control[]
-            {
-                title, hint, _rbLocalServer, _rbPrivateServer, _lblModeHint,
-                _txtServerIP, _txtInstance, _txtDatabase,
-                _rbWindowsAuth, _rbSqlAuth, _txtUsername, _txtPassword, _numMaxPoolSize,
-                btnTestConnection, btnSave, btnCancel, _lblStatus
-            });
+            authModePanel.Controls.AddRange(new Control[] { _rbWindowsAuth, _rbSqlAuth });
+            setupCard.Controls.AddRange(new Control[] { serverTitle, serverHint, _rbLocalServer, _rbPrivateServer, _lblModeHint, _txtServerIP, _txtInstance, _txtDatabase, authTitle, authModePanel, _lblUsername, _txtUsername, _lblPassword, _txtPassword, advanced, _numMaxPoolSize });
+            guideCard.Controls.AddRange(new Control[] { guideIcon, guideTitle, guideText, statusCaption, _lblStatus });
+            footer.Controls.AddRange(new Control[] { btnTestConnection, btnSave, btnCancel });
+            Controls.AddRange(new Control[] { header, setupCard, guideCard, footer });
         }
 
-        private void AddLabel(string text, int y)
+        private static Panel BuildCard(Rectangle bounds)
         {
-            Controls.Add(new Label
+            var card = new Panel
             {
-                Text = text,
-                Location = new Point(28, y),
-                Size = new Size(140, 24),
-                TextAlign = ContentAlignment.MiddleLeft
-            });
+                Location = bounds.Location,
+                Size = bounds.Size,
+                BackColor = DS.BgCard,
+                BorderStyle = BorderStyle.FixedSingle
+            };
+            DS.Rounded(card, DS.RadiusLg);
+            return card;
+        }
+
+        private static void AddLabel(Control parent, string text, int y, int x = 24)
+        {
+            parent.Controls.Add(new Label { Text = text, Location = new Point(x, y), Size = new Size(190, 20), Font = DS.SmallBold, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleLeft });
+        }
+
+        private void ApplyConnectionTheme()
+        {
+            foreach (Control control in Controls)
+                UIHelper.ApplyInputStyles(control.Controls);
         }
 
         private void LoadCurrentConnection()
@@ -227,7 +294,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (IsLocalServer(_txtServerIP.Text))
                     _txtServerIP.Text = string.Empty;
 
-                _lblModeHint.Text = "Use this when the office has a dedicated server PC that stays on for all ServoERP users.";
+                _lblModeHint.Text = "Use this on every client PC. The shared office SQL Server is the live source of truth for all users.";
                 _txtServerIP.Focus();
             }
             else
@@ -252,11 +319,8 @@ namespace HVAC_Pro_Desktop.UI
             bool sqlAuth = _rbSqlAuth.Checked;
             _txtUsername.Visible = sqlAuth;
             _txtPassword.Visible = sqlAuth;
-            foreach (Control control in Controls)
-            {
-                if (control is Label label && (label.Text == "Username" || label.Text == "Password"))
-                    label.Visible = sqlAuth;
-            }
+            _lblUsername.Visible = sqlAuth;
+            _lblPassword.Visible = sqlAuth;
 
             _lastTestSucceeded = false;
         }
@@ -332,6 +396,8 @@ namespace HVAC_Pro_Desktop.UI
                 config.Save(ConfigurationSaveMode.Modified);
                 ConfigurationManager.RefreshSection("connectionStrings");
                 SaveInstallerDatabaseConfig(connectionString);
+                ConfigService.Set("Database", "ServerRole", _rbPrivateServer.Checked ? "ClientPC" : "LocalSqlServer");
+                NodeIdentityService.EnsureRegistered();
                 AppRuntime.LogConnection("Connection string saved.");
                 DialogResult = DialogResult.OK;
                 Close();
@@ -418,7 +484,7 @@ namespace HVAC_Pro_Desktop.UI
             ConfigService.Set("Database", "DatabaseName", builder.InitialCatalog ?? string.Empty);
             ConfigService.Set("Database", "UseWindowsAuth", builder.IntegratedSecurity ? "true" : "false");
             ConfigService.Set("Database", "Username", builder.IntegratedSecurity ? string.Empty : builder.UserID ?? string.Empty);
-            ConfigService.Set("Database", "Password", builder.IntegratedSecurity ? string.Empty : builder.Password ?? string.Empty);
+            ConfigService.Set("Database", "Password", builder.IntegratedSecurity ? string.Empty : HVAC_Pro_Desktop.Helpers.SecureStorageHelper.ProtectMachineText(builder.Password ?? string.Empty));
             DatabaseConnectionFactory.SetConfiguredMaxPoolSize(builder.MaxPoolSize);
             ConfigService.Set("Database", "ServerRole", "AlwaysOnOfficeServer");
             ConfigService.Set("Fallback", "Mode", "LocalSQLiteDiagnostics");

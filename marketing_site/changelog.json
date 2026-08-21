@@ -1,15 +1,302 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.416.0",
-  "updatedAt": "2026-08-09",
+  "latestVersion": "1.1.441.0",
+  "updatedAt": "2026-08-21",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.416/ServoERP.Desktop-1.1.416-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.416.0.exe",
-    "installer": "ServoERP_Setup_1.1.416.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.441/ServoERP.Desktop-1.1.441-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.441.0.exe",
+    "installer": "ServoERP_Setup_1.1.441.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.441.0",
+      "date": "2026-08-21",
+      "title": "Startup recovery and verified SQL client setup",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Replaced fatal SQL login startup errors with guided database connection recovery and verified retry.",
+            "Fixed generated client setup packs to verify credentials before saving and protect SQL passwords with Windows machine-level DPAPI.",
+            "Stopped database-dependent startup safely when the authoritative office SQL database is unavailable.",
+            "Removed developer-machine SQL targets from packaged defaults and added a guarded terminal SQL login repair utility."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.440.0",
+      "date": "2026-08-18",
+      "title": "LAN Control and managed terminal deployment",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Redesigned LAN Control dashboard with fleet status, filters, readiness details and live deployment progress.",
+            "Added subnet-aware terminal discovery, saved terminals, authenticated preflight checks and WinRM preparation.",
+            "Added staged terminal deployment with SHA-256 verification, pilot rollout, retry and cancellation.",
+            "Added the ServoERP Terminal Agent Windows service for health, diagnostics, updates and approved LAN commands.",
+            "Added a SQL-free terminal installer embedded in the enterprise installer and protected connection credentials with Windows DPAPI."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.439.0",
+      "date": "2026-08-18",
+      "title": "ServoERP 1.1.439 - Quotation follow-up actions",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Replaced the low-information quotation value graph with an actionable follow-up board for overdue contacts, quotations expiring within seven days, and the highest-value open opportunities.",
+            "Added one-click quotation opening from every action row, company-aware action filtering, clear empty states, and regression coverage for action prioritisation and dashboard replacement."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.438.0",
+      "date": "2026-08-18",
+      "title": "ServoERP 1.1.438 - LAN deployment",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "LAN Control now attempts to enable the built-in Windows WinRM service automatically on reachable terminals through credentialed WMI/DCOM, waits for WinRM readiness, and continues deployment without a separate manual preparation step when Windows policy permits it.",
+            "LAN deployment now defaults to a self-contained current ServoERP application payload generated from the files already embedded in the Enterprise installation, removing the requirement to browse for or download a second installer.",
+            "Kept a local administrator bootstrap script and clear per-PC failure reporting for terminals whose firewall, Remote UAC, or domain policy blocks automatic WinRM preparation."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.437.0",
+      "date": "2026-08-18",
+      "title": "ServoERP 1.1.437 - Office LAN Control",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Expanded LAN Control Center with private-network PC discovery, WinRM readiness, enrolled-terminal status, and selectable remote deployment.",
+            "Added credential-on-demand Enterprise installer orchestration that configures the shared office SQL connection, installs ServoERP per machine, creates the public desktop shortcut, and records per-PC results without storing deployment credentials.",
+            "Added a one-time WinRM bootstrap script for unmanaged workgroup terminals and scoped TrustedHosts setup to selected PCs only."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.435.0",
+      "date": "2026-08-16",
+      "title": "ServoERP update 1.1.435.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added the private Office API pilot client integration for guarded payments, inventory movements, and purchase receiving.",
+            "Added authorized-company discovery, active-company visibility, Office Server status, HTTPS deployment scripts, and retry-safe operation identifiers."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.433.0",
+      "date": "2026-08-16",
+      "title": "ServoERP update 1.1.433.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Prepared a clean Release package for multi-PC office-server visibility validation, with aligned installer and update metadata."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.431.0",
+      "date": "2026-08-16",
+      "title": "ServoERP update 1.1.431.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added LAN Control Center for office-server administrators: enrolled ServoERP PCs now send a one-minute SQL-backed heartbeat with app version, SQL target, and health status.",
+            "Added safe server-to-client commands to request a health check or verified background update check. Clients never accept remote execution, credentials, or forced software installation."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.430.0",
+      "date": "2026-08-16",
+      "title": "ServoERP update 1.1.430.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Consolidated end-user reliability fixes: supplier list totals, prospect lifecycle conversion, valid TAN entry, quotation duration and print layout, HSN/SAC reuse, invoice inventory selection, and purchase-order GST/document details.",
+            "Hardened shared-office data behavior: live SQL-backed updates remain authoritative, with unsafe offline business-data replay disabled until conflict-safe multi-device support is approved.",
+            "Added and passed focused supplier-search, PDF-template, guardrail, UI-policy, and offline-sync regression coverage for this release candidate."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.428.0",
+      "date": "2026-08-13",
+      "title": "Interactive User Guide and Multi-PC Setup",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added User Guide to the sidebar with an interactive per-PC setup checklist for office server preparation, terminal-PC SQL connection, shared storage, verification, client setup packages, and daily safety checks.",
+            "Connected the guide directly to the in-app server setup, connection setup, shared storage, database check, and client-package actions."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.427.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.427.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Reissued the public client release after completed executable and SQL end-to-end guardrail verification."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.426.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.426.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added an executable end-to-end guardrail regression test that creates isolated QA records, verifies duplicate payment reference, overpayment, negative-stock, and duplicate PO-receipt blocks through the real application services, then proves cleanup completed."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.425.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.425.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added service-level transaction guardrails: duplicate UTR/reference blocking, overpayment blocking, duplicate PO-receipt protection, and negative-stock prevention.",
+            "Added Manager/Admin-only audited guardrail override policy, additive guardrail health/audit tables, and SQL uniqueness rails for invoice numbers, PO numbers, and payment references when existing data is clean.",
+            "Added safe multi-PC guardrail schema foundations for edit presence and idempotent operations; all financial and stock protections remain enforced against the shared SQL Server."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.424.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.424.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a silent post-update backend maintenance runner. After a Velopack-installed update first opens, it applies safe schema guards and client-PC registration once per version; if the office SQL Server is unavailable, it logs the result and retries on the next launch."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.423.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.423.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Quotation printouts now derive the displayed validity from the selected calendar dates and no longer repeat statutory registration details already present on the letterhead.",
+            "Purchase orders now print supplier phone/email, configured supplier bank details, required-delivery date, payment terms, and the configured authorised signatory.",
+            "Hardened the rendered PDF regression gate so every check waits for and verifies a freshly generated report."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.422.0",
+      "date": "2026-08-10",
+      "title": "Multi-PC client setup and regression safeguards",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added clear Multi-PC Setup for client PCs connecting directly to the shared office SQL Server, with per-PC node registration for traceability.",
+            "Changed shared-SQL change records from misleading permanent Pending status to Recorded, including safe normalization of legacy audit rows.",
+            "Added rendered PDF/template regression checks and a guarded offline-sync policy test; offline business-data replay remains disabled until conflict-safe multi-device behavior is approved."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.421.0",
+      "date": "2026-08-10",
+      "title": "Supplier list and quotation calendar reliability",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Supplier Management now clears both list caches when opened, so active suppliers appear immediately and opening the page never changes supplier status.",
+            "Quotation validity is selected with a calendar date and continues to calculate the exact customer-facing duration in days or whole weeks.",
+            "Removed the input-selection event burst that caused blue focus and selection flicker during page navigation."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.420.0",
+      "date": "2026-08-10",
+      "title": "ServoERP update 1.1.420.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Purchase orders now automatically apply CGST and SGST for intra-state suppliers and IGST for inter-state suppliers."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.419.0",
+      "date": "2026-08-09",
+      "title": "ServoERP update 1.1.419.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Published the silent background-update workflow: verified Velopack packages now download without interrupting work and install safely when ServoERP closes.",
+            "Included recent editable-field and invoice entry refinements for a cleaner day-to-day desktop experience."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.417.0",
+      "date": "2026-08-09",
+      "title": "ServoERP update 1.1.417.0",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Enabled ServoERP's Velopack update channel by default: releases now download silently in the background and install automatically when the user closes ServoERP.",
+            "Kept update installation data-safe by applying only fully downloaded packages and backing up local configuration before the updater restarts the app."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.416.0",
       "date": "2026-08-09",
@@ -46,7 +333,7 @@
         {
           "type": "release",
           "items": [
-            "अपडेट इन्स्टॉल झाल्यानंतर नवीन बदल दाखवणारी “नवीन काय आहे” विंडो आता मराठीत दिसेल."
+            "ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂªÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â² ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â²ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂµÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â² ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂµÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂµÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¨ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂµÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¹ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â®ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¾ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¿ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¤ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â²."
           ]
         }
       ]

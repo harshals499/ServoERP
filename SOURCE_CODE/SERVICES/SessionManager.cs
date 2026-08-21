@@ -37,13 +37,24 @@ namespace HVAC_Pro_Desktop.Services
 
         public static bool HasPermission(string moduleKey, string action)
         {
-            if (_currentUser == null || string.IsNullOrWhiteSpace(moduleKey) || string.IsNullOrWhiteSpace(action))
+            if (!HasRoleAccessForLicensedModule(moduleKey, action))
                 return false;
 
             if (!new LicenseService().CanPerform(moduleKey, action))
                 return false;
 
             return true;
+        }
+
+        /// <summary>
+        /// Evaluates the authenticated-user portion of permission policy without performing
+        /// license or database I/O. Module entitlement remains enforced by HasPermission.
+        /// </summary>
+        internal static bool HasRoleAccessForLicensedModule(string moduleKey, string action)
+        {
+            return _currentUser != null
+                && !string.IsNullOrWhiteSpace(moduleKey)
+                && !string.IsNullOrWhiteSpace(action);
         }
 
         public static void DemandPermission(string moduleKey, string action)

@@ -3968,7 +3968,10 @@ namespace HVAC_Pro_Desktop.UI
                 if (_cmbClient == null || _cmbClient.IsDisposed || !_cmbClient.Enabled)
                     return;
 
-                _cmbClient.SelectAll();
+                // Keep the selected client text readable at rest; global input policy clears
+                // stale selections across the application without blocking normal editing.
+                _cmbClient.SelectionStart = (_cmbClient.Text ?? string.Empty).Length;
+                _cmbClient.SelectionLength = 0;
             }));
         }
 

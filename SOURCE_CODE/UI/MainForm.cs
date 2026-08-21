@@ -73,6 +73,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int RemovedVendorsPageIndex = 20;
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
+        private const int UserGuidePageIndex = 23;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -122,6 +123,7 @@ namespace HVAC_Pro_Desktop.UI
             ("Removed", "R"),
             ("AMC", "A"),
             ("Attendance", "A"),
+            ("User Guide", "U"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
@@ -130,7 +132,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
-        private static readonly int[] SettingsSupportItems = { 8, 18 };
+        private static readonly int[] SettingsSupportItems = { UserGuidePageIndex, 8, 18 };
 
         public MainForm()
         {
@@ -186,6 +188,7 @@ namespace HVAC_Pro_Desktop.UI
                 RefreshLicenseBanner();
                 DatabaseConnectionStateService.StartBackgroundMonitor();
                 StartBackupScheduler();
+                PostUpdateMaintenanceService.StartIfRequired();
                 BeginInvoke((Action)TryStartFirstLaunchTour);
                 BeginInvoke((Action)ShowSharedStorageUpdatePrompt);
                 BeginInvoke((Action)ShowPostUpdateWhatsNew);
@@ -1717,6 +1720,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "\uE90F"; // Retired
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
+                case UserGuidePageIndex: return "\uE8A5"; // User Guide
                 default: return "\uE10F";
             }
         }
@@ -1838,6 +1842,14 @@ namespace HVAC_Pro_Desktop.UI
             EnsureSessionOrClose();
             if (!SessionManager.IsLoggedIn || !CanViewNavItem(index))
                 return;
+
+            if (index == UserGuidePageIndex)
+            {
+                CloseSupportCenterDrawer();
+                using (var guide = new UserGuideForm())
+                    guide.ShowDialog(this);
+                return;
+            }
 
             if (index != SettingsPageIndex && IsSupportDrawerOpen())
                 CloseSupportCenterDrawer();
@@ -2687,7 +2699,7 @@ namespace HVAC_Pro_Desktop.UI
             var wrap = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = _compactShell ? 108 : 118,
+                Height = _compactShell ? 138 : 148,
                 BackColor = Color.Transparent,
                 Padding = new Padding(14, _compactShell ? 10 : 14, 14, 8),
                 TabStop = false
@@ -2744,7 +2756,7 @@ namespace HVAC_Pro_Desktop.UI
             var linkChange = new LinkLabel
             {
                 Text = LanguageManager.Get("Change Password"),
-                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 82 : 92),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 108 : 118),
                 Size = new Size(_compactShell ? 110 : 124, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(219, 234, 254),
@@ -2763,7 +2775,7 @@ namespace HVAC_Pro_Desktop.UI
             var linkSearch = new LinkLabel
             {
                 Text = LanguageManager.Get("Search"),
-                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 60 : 70),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 86 : 94),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = Color.FromArgb(219, 234, 254),
@@ -2779,7 +2791,7 @@ namespace HVAC_Pro_Desktop.UI
             var linkAlerts = new LinkLabel
             {
                 Text = LanguageManager.Get("Alerts"),
-                Location = new Point(_compactShell ? 66 : 78, _compactShell ? 60 : 70),
+                Location = new Point(_compactShell ? 66 : 78, _compactShell ? 86 : 94),
                 Size = new Size(48, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = DS.Amber600,
@@ -2795,7 +2807,7 @@ namespace HVAC_Pro_Desktop.UI
             var linkLogout = new LinkLabel
             {
                 Text = LanguageManager.Get("Logout"),
-                Location = new Point(_compactShell ? 110 : 148, _compactShell ? 60 : 70),
+                Location = new Point(_compactShell ? 110 : 148, _compactShell ? 86 : 94),
                 Size = new Size(_compactShell ? 42 : 44, 18),
                 Font = new Font("Segoe UI", _compactShell ? 7.5f : 8.25f),
                 LinkColor = DS.Red600,
@@ -2819,6 +2831,32 @@ namespace HVAC_Pro_Desktop.UI
             wrap.Controls.Add(avatar);
             wrap.Controls.Add(lblName);
             wrap.Controls.Add(lblRole);
+            var officeStatus = new Label
+            {
+                Text = OfficeApiClient.IsEnabled ? "Office Server: Checking..." : "Office Server: Local mode",
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 58 : 64),
+                Size = new Size(_compactShell ? 160 : 166, 18),
+                Font = new Font("Segoe UI", _compactShell ? 7.5f : 8f),
+                ForeColor = OfficeApiClient.IsEnabled ? Color.FromArgb(187, 247, 208) : SbMutedText,
+                AutoEllipsis = true
+            };
+            var activeCompany = new Label
+            {
+                Text = "Company: " + (OfficeApiClient.IsEnabled ? ConfigService.Get("OfficeApi", "ActiveCompanyName", "Selected company") : "Local database"),
+                Location = new Point(_compactShell ? 14 : 20, _compactShell ? 74 : 80),
+                Size = new Size(_compactShell ? 160 : 166, 18),
+                Font = new Font("Segoe UI", _compactShell ? 7.5f : 8f),
+                ForeColor = SbMutedText,
+                AutoEllipsis = true
+            };
+            if (OfficeApiClient.IsEnabled)
+                Task.Run(() =>
+                {
+                    try { var health = OfficeApiClient.CheckHealth(); if (!IsDisposed && officeStatus.IsHandleCreated) officeStatus.BeginInvoke((Action)(() => { officeStatus.Text = "Office Server: Connected"; officeStatus.ForeColor = Color.FromArgb(187, 247, 208); })); }
+                    catch { if (!IsDisposed && officeStatus.IsHandleCreated) officeStatus.BeginInvoke((Action)(() => { officeStatus.Text = "Office Server: Offline"; officeStatus.ForeColor = Color.FromArgb(254, 202, 202); })); }
+                });
+            wrap.Controls.Add(officeStatus);
+            wrap.Controls.Add(activeCompany);
             wrap.Controls.Add(linkSearch);
             wrap.Controls.Add(linkAlerts);
             wrap.Controls.Add(linkChange);
@@ -2995,6 +3033,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 16: return "WorkOrders";
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
+                case UserGuidePageIndex: return "Dashboard";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }
@@ -3034,10 +3073,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 UpdateService.StartSilentBackgroundUpdateCheck(
                     this,
-                    result => ToastNotification.Show(
-                        this,
-                        "ServoERP update v" + result.LatestVersion + " is downloaded. Open Settings to install.",
-                        DS.Primary600));
+                    null);
                 return;
             }
 

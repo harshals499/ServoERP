@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <Bundle
+      Name="ServoERP Terminal Setup"
+      Manufacturer="ServoERP"
+      Version="$(var.AppVersion)"
+      UpgradeCode="{BE6CB8B7-20EB-4449-A18F-3A7734083B02}"
+      IconSourceFile="$(var.AppSource)\app.ico"
+      AboutUrl="https://servoerp.in"
+      HelpUrl="https://servoerp.in"
+      Compressed="yes">
+
+    <BootstrapperApplication>
+      <bal:WixStandardBootstrapperApplication
+          Theme="rtfLicense"
+          LicenseFile="$(var.LicenseRtf)"
+          LogoFile="$(var.AppSource)\app.ico"
+          SuppressOptionsUI="yes"
+          SuppressDowngradeFailure="no" />
+    </BootstrapperApplication>
+
+    <Variable Name="InstallFolder" Type="string" Value="C:\HVAC_PRO_MSE" bal:Overridable="yes" />
+
+    <util:RegistrySearch
+        Id="NetFx472Search"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full"
+        Value="Release"
+        Variable="NetFxRelease"
+        Result="value" />
+
+    <util:RegistrySearch
+        Id="WebView2Search"
+        Root="HKLM"
+        Key="SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        Value="pv"
+        Variable="WebView2Version"
+        Result="value" />
+
+    <Chain>
+      <ExePackage
+          Id="NetFx472"
+          DisplayName="Microsoft .NET Framework 4.7.2"
+          SourceFile="$(var.PrereqDir)\NDP472-KB4054530-x86-x64-AllOS-ENU.exe"
+          Cache="force"
+          DetectCondition="NetFxRelease &gt;= 461808 OR VersionNT64 &gt;= v10.0"
+          InstallCondition="NOT (VersionNT64 &gt;= v10.0)"
+          InstallArguments="/q /norestart"
+          RepairArguments="/q /norestart"
+          UninstallArguments="/q /norestart"
+          Permanent="yes"
+          Vital="yes" />
+
+      <ExePackage
+          Id="WebView2Runtime"
+          DisplayName="Microsoft Edge WebView2 Runtime"
+          SourceFile="$(var.PrereqDir)\MicrosoftEdgeWebView2RuntimeInstallerX64.exe"
+          Cache="force"
+          DetectCondition="WebView2Version"
+          InstallArguments="/silent /install"
+          RepairArguments="/silent /install"
+          Permanent="yes"
+          Vital="yes">
+        <ExitCode Value="-2147219187" Behavior="success" />
+      </ExePackage>
+
+      <MsiPackage
+          Id="ServoERPTerminalMsi"
+          SourceFile="$(var.TerminalMsiPath)"
+          Cache="force"
+          Vital="yes"
+          ForcePerMachine="yes">
+        <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
+        <MsiProperty Name="MSIFASTINSTALL" Value="7" />
+      </MsiPackage>
+    </Chain>
+  </Bundle>
+</Wix>

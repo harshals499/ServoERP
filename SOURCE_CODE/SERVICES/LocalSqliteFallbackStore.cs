@@ -11,6 +11,12 @@ namespace HVAC_Pro_Desktop.Services
         private const string DefaultFallbackPath = @"C:\HVAC_PRO_MSE\DATABASE\ServoERP_Fallback.sqlite";
         private static readonly object Sync = new object();
 
+        /// <summary>
+        /// Offline business-data persistence is intentionally not enabled until its conflict and
+        /// server-replay design is approved. Do not use SQLite as an ungoverned second database.
+        /// </summary>
+        public static bool IsOfflineQueueEnabled => false;
+
         /// <summary>Returns the configured local SQLite fallback database path.</summary>
         public static string GetDatabasePath()
         {
@@ -40,9 +46,9 @@ namespace HVAC_Pro_Desktop.Services
         /// <summary>Returns a plain-text summary of the local SQLite fallback state.</summary>
         public static string BuildStatusText()
         {
-            return "SQLite fallback: disabled" + Environment.NewLine +
-                   "Offline queue: disabled" + Environment.NewLine +
-                   "Startup: SQL is optional; database screens use SQL when it is reachable.";
+            return "Multi-PC sync: shared SQL Server is authoritative" + Environment.NewLine +
+                   "Client PC: connects directly to the office SQL Server" + Environment.NewLine +
+                   "Offline queue: disabled until conflict-safe offline replay is approved.";
         }
 
         /// <summary>Records a recovery note in the local SQLite fallback event log.</summary>

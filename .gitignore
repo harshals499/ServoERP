@@ -95,6 +95,11 @@
 
 # Local workspace scratch / recovered data
 /.wrangler/
+/.codex-doc-review/
+/.codex-remote-attachments/
+/.codex_tmp_*/
+/_review_*/
+/build_user_end_problem_report.py
 /DATABASE/
 /DADS_PC_CLIENT_SYNC/
 /RECOVERED_CLIENT_SYNC/

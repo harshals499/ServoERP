@@ -35,7 +35,9 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _quoteAttachedWork;
         private FlowLayoutPanel _quoteTopClients;
         private FlowLayoutPanel _quoteBusinessCards;
-        private QuotationValueTrendChart _quoteValueTrend;
+        private FlowLayoutPanel _quoteOverdueActions;
+        private FlowLayoutPanel _quoteExpiringActions;
+        private FlowLayoutPanel _quoteHighValueActions;
         private FlowLayoutPanel _quoteTopItems;
         private FlowLayoutPanel _quoteFollowUps;
         private FlowLayoutPanel _quoteInsights;
@@ -65,6 +67,8 @@ namespace HVAC_Pro_Desktop.UI
             _quotationDashboardPanel.Controls.Add(root);
             _quotationDashboardPanel.HandleCreated += (s, e) =>
             {
+                if (_visualTestMode)
+                    return;
                 ApplySavedQuotationDashboardLayout();
                 BeginInvoke((Action)RefreshQuotationDashboardSafe);
             };
@@ -97,12 +101,70 @@ namespace HVAC_Pro_Desktop.UI
             _quoteFollowUps = new FlowLayoutPanel();
             _quoteInsights = new FlowLayoutPanel();
 
-            _quoteValueTrend = new QuotationValueTrendChart { Name = "QuotationDashboardValueChart", Dock = DockStyle.Fill };
             _quoteRecentGrid = CreateRecentQuotationGrid();
 
-            content.Controls.Add(Card("Quotation Value Sent", _quoteValueTrend), 0, 0);
+            content.Controls.Add(Card("Quotation Follow-up Actions", BuildQuotationActionBoard()), 0, 0);
             content.Controls.Add(Card("Recent Quotations (Uploaded / Created)", _quoteRecentGrid), 0, 1);
             return content;
+        }
+
+        private Control BuildQuotationActionBoard()
+        {
+            var board = new TableLayoutPanel
+            {
+                Name = "QuotationFollowUpActionBoard",
+                Dock = DockStyle.Fill,
+                BackColor = QuoteSurface,
+                ColumnCount = 3,
+                RowCount = 1,
+                Padding = new Padding(0, 2, 0, 0)
+            };
+            board.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            board.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            board.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
+            board.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            _quoteOverdueActions = CreateQuotationActionFlow();
+            _quoteExpiringActions = CreateQuotationActionFlow();
+            _quoteHighValueActions = CreateQuotationActionFlow();
+            board.Controls.Add(BuildQuotationActionColumn("Overdue follow-ups", "Contact these customers now", Color.FromArgb(220, 38, 38), _quoteOverdueActions), 0, 0);
+            board.Controls.Add(BuildQuotationActionColumn("Expiring in 7 days", "Protect quotation validity", WarnOrange, _quoteExpiringActions), 1, 0);
+            board.Controls.Add(BuildQuotationActionColumn("High-value pending", "Largest open opportunities", InfoBlue, _quoteHighValueActions), 2, 0);
+            return board;
+        }
+
+        private static FlowLayoutPanel CreateQuotationActionFlow()
+        {
+            return new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                BackColor = QuoteSurface,
+                Padding = new Padding(0, 4, 4, 4),
+                Margin = Padding.Empty
+            };
+        }
+
+        private Control BuildQuotationActionColumn(string title, string subtitle, Color accent, FlowLayoutPanel flow)
+        {
+            var column = new Panel { Dock = DockStyle.Fill, BackColor = QuoteSurface, Margin = new Padding(4, 0, 4, 0), Padding = new Padding(10, 50, 10, 4) };
+            var accentBar = new Panel { Location = new Point(10, 9), Size = new Size(4, 31), BackColor = accent };
+            var titleLabel = new Label { Text = title, Location = new Point(23, 6), Height = 21, AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = QuoteText };
+            var subtitleLabel = new Label { Text = subtitle, Location = new Point(23, 27), Height = 17, AutoSize = true, Font = new Font("Segoe UI", 7.7f), ForeColor = QuoteMuted };
+            flow.Dock = DockStyle.Fill;
+            column.Controls.Add(flow);
+            column.Controls.Add(accentBar);
+            column.Controls.Add(titleLabel);
+            column.Controls.Add(subtitleLabel);
+            column.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, column.Width - 1, column.Height - 1);
+            };
+            flow.Resize += (s, e) => ResizeQuotationActionRows(flow);
+            return column;
         }
 
         private Control BuildQuoteDashboardFilterBar()
@@ -298,8 +360,112 @@ namespace HVAC_Pro_Desktop.UI
             _quoteDashStatus.Text = snapshot.UsesDemoData ? "No live quotation data" : "Live quotation data";
             _quoteDashStatus.ForeColor = snapshot.UsesDemoData ? WarnOrange : SaveGreen;
             SyncQuotationDashboardCompanies(snapshot.Companies);
-            _quoteValueTrend.SetData(snapshot.ValueTrend);
+            BindQuotationActionBoard(snapshot.ActionItems);
             BindRecentQuotations(snapshot.RecentQuotations);
+        }
+
+        public void LoadActionBoardPreviewForVisualTest()
+        {
+            _visualTestMode = true;
+            DateTime today = DateTime.Today;
+            BindQuotationDashboard(new QuotationDashboardSnapshot
+            {
+                UsesDemoData = false,
+                Companies = new List<string> { "Allied Cooling", "Metro Hospital", "Skyline Builders" },
+                ActionItems = new List<QuotationActionItem>
+                {
+                    new QuotationActionItem { BidId = 101, Category = "Overdue", QuotationNumber = "QUO-2026-0142", ClientName = "Metro Hospital", Value = 485000m, ActionDate = today.AddDays(-4), Detail = "4 day(s) overdue", Status = "Follow Up" },
+                    new QuotationActionItem { BidId = 102, Category = "Overdue", QuotationNumber = "QUO-2026-0138", ClientName = "Allied Cooling", Value = 128500m, ActionDate = today.AddDays(-2), Detail = "2 day(s) overdue", Status = "Sent" },
+                    new QuotationActionItem { BidId = 103, Category = "Expiring", QuotationNumber = "QUO-2026-0151", ClientName = "Skyline Builders", Value = 760000m, ActionDate = today, Detail = "Expires today", Status = "Negotiation" },
+                    new QuotationActionItem { BidId = 104, Category = "Expiring", QuotationNumber = "QUO-2026-0149", ClientName = "Prime Pharma", Value = 214000m, ActionDate = today.AddDays(3), Detail = "Expires in 3 day(s)", Status = "Sent" },
+                    new QuotationActionItem { BidId = 105, Category = "HighValue", QuotationNumber = "QUO-2026-0154", ClientName = "Orchid Hotels", Value = 1250000m, ActionDate = today.AddDays(5), Detail = "Negotiation · priority value", Status = "Negotiation" },
+                    new QuotationActionItem { BidId = 106, Category = "HighValue", QuotationNumber = "QUO-2026-0147", ClientName = "Nova Engineering", Value = 825000m, ActionDate = today.AddDays(7), Detail = "Sent · priority value", Status = "Sent" }
+                },
+                RecentQuotations = new List<QuotationRecentRow>
+                {
+                    new QuotationRecentRow { BidId = 106, QuotationNumber = "QUO-2026-0147", ClientName = "Nova Engineering", SiteName = "Pune Plant", QuotationDate = today.AddDays(-1), ValidTill = today.AddDays(7), Value = 825000m, Status = "Sent", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Pending" },
+                    new QuotationRecentRow { BidId = 105, QuotationNumber = "QUO-2026-0154", ClientName = "Orchid Hotels", SiteName = "Mumbai Hotel", QuotationDate = today.AddDays(-2), ValidTill = today.AddDays(12), Value = 1250000m, Status = "Negotiation", CommercialFlow = "Mixed", CustomerDocumentStatus = "Follow Up", SupplierDocumentStatus = "Received" },
+                    new QuotationRecentRow { BidId = 103, QuotationNumber = "QUO-2026-0151", ClientName = "Skyline Builders", SiteName = "Tower A", QuotationDate = today.AddDays(-3), ValidTill = today, Value = 760000m, Status = "Negotiation", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Received" }
+                }
+            });
+            if (_quoteDashStatus != null)
+            {
+                _quoteDashStatus.Text = "Visual preview";
+                _quoteDashStatus.ForeColor = InfoBlue;
+            }
+        }
+
+        private void BindQuotationActionBoard(List<QuotationActionItem> items)
+        {
+            List<QuotationActionItem> safe = items ?? new List<QuotationActionItem>();
+            BindQuotationActionColumn(_quoteOverdueActions, safe.Where(i => string.Equals(i.Category, "Overdue", StringComparison.OrdinalIgnoreCase)).Take(8).ToList(), Color.FromArgb(220, 38, 38), "No overdue follow-ups.");
+            BindQuotationActionColumn(_quoteExpiringActions, safe.Where(i => string.Equals(i.Category, "Expiring", StringComparison.OrdinalIgnoreCase)).Take(8).ToList(), WarnOrange, "No quotations expiring soon.");
+            BindQuotationActionColumn(_quoteHighValueActions, safe.Where(i => string.Equals(i.Category, "HighValue", StringComparison.OrdinalIgnoreCase)).Take(8).ToList(), InfoBlue, "No open quotations.");
+        }
+
+        private void BindQuotationActionColumn(FlowLayoutPanel flow, List<QuotationActionItem> items, Color accent, string emptyText)
+        {
+            if (flow == null)
+                return;
+            flow.SuspendLayout();
+            flow.Controls.Clear();
+            if (items == null || items.Count == 0)
+            {
+                flow.Controls.Add(new Label { Text = emptyText, Height = 42, Width = Math.Max(160, flow.ClientSize.Width - 12), Font = new Font("Segoe UI", 8.3f), ForeColor = QuoteMuted, TextAlign = ContentAlignment.MiddleCenter, Margin = new Padding(0, 8, 0, 0) });
+            }
+            else
+            {
+                foreach (QuotationActionItem item in items)
+                    flow.Controls.Add(BuildQuotationActionRow(item, accent));
+            }
+            flow.ResumeLayout(true);
+            ResizeQuotationActionRows(flow);
+        }
+
+        private Control BuildQuotationActionRow(QuotationActionItem item, Color accent)
+        {
+            var row = new Panel { Height = 86, MinimumSize = new Size(210, 86), BackColor = Color.FromArgb(248, 250, 252), Margin = new Padding(0, 0, 0, 6), Cursor = Cursors.Hand };
+            var stripe = new Panel { Dock = DockStyle.Left, Width = 3, BackColor = accent };
+            var quote = new Label { Text = item.QuotationNumber + "  ·  " + item.ClientName, Location = new Point(12, 7), Height = 18, Font = new Font("Segoe UI", 8.3f, FontStyle.Bold), ForeColor = QuoteText, AutoEllipsis = true };
+            var detail = new Label { Text = item.Detail + "  ·  " + IndiaFormatHelper.FormatCurrency(item.Value), Location = new Point(12, 30), Height = 18, Font = new Font("Segoe UI", 7.7f), ForeColor = QuoteMuted, AutoEllipsis = true };
+            Button followUp = MakeDashButton("WhatsApp", 76, QuoteSurface, SaveGreen);
+            followUp.Height = 26;
+            followUp.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            followUp.Click += async (s, e) =>
+            {
+                await LoadQuotationFromDashboardAsync(item.BidId);
+                ShowQuotationWhatsAppAction();
+            };
+            Button open = MakeDashButton("Open", 64, QuoteSurface, InfoBlue);
+            open.Height = 26;
+            open.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            open.Click += async (s, e) => await LoadQuotationFromDashboardAsync(item.BidId);
+            row.Controls.Add(stripe);
+            row.Controls.Add(quote);
+            row.Controls.Add(detail);
+            row.Controls.Add(followUp);
+            row.Controls.Add(open);
+            row.Resize += (s, e) =>
+            {
+                open.Location = new Point(Math.Max(150, row.ClientSize.Width - 72), 54);
+                followUp.Location = new Point(Math.Max(70, open.Left - 82), 54);
+                quote.Width = Math.Max(100, row.ClientSize.Width - quote.Left - 12);
+                detail.Width = Math.Max(100, row.ClientSize.Width - detail.Left - 12);
+            };
+            EventHandler openRow = async (s, e) => await LoadQuotationFromDashboardAsync(item.BidId);
+            row.Click += openRow;
+            quote.Click += openRow;
+            detail.Click += openRow;
+            return row;
+        }
+
+        private static void ResizeQuotationActionRows(FlowLayoutPanel flow)
+        {
+            if (flow == null)
+                return;
+            int width = Math.Max(210, flow.ClientSize.Width - flow.Padding.Horizontal - (flow.VerticalScroll.Visible ? SystemInformation.VerticalScrollBarWidth : 0) - 2);
+            foreach (Control row in flow.Controls)
+                row.Width = width;
         }
 
         private DateTime ResolveQuotationDashboardFromDate(DateTime today)

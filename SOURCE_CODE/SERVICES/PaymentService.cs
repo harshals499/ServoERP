@@ -54,9 +54,16 @@ namespace HVAC_Pro_Desktop.Services
             if (payment.PaymentDate == default)
                 payment.PaymentDate = DateTime.Today;
             if (payment.AmountPaid <= 0m)
+                GuardrailService.Block("Payments", payment.InvoiceID, "Payment amount must be greater than zero.");
+
+            if (OfficeApiClient.IsEnabled)
             {
-                AppLogger.LogInfo("Validation warning only: Payment amount must be greater than zero.");
-                payment.AmountPaid = 0.01m;
+                int apiPaymentId = OfficeApiClient.RecordPayment(payment);
+                AppDataCache.RemovePrefix("payments:");
+                AppDataCache.RemovePrefix("invoices:");
+                SessionManager.LogAction("CREATE", "Payments", apiPaymentId, "Payment recorded through office API");
+                _audit.Record("CREATE", "Payments", apiPaymentId, "Payment recorded through the private office API against invoice #" + payment.InvoiceID + ".");
+                return apiPaymentId;
             }
 
             try
@@ -65,17 +72,19 @@ namespace HVAC_Pro_Desktop.Services
                 Invoice inv = _invoiceRepo.GetById(payment.InvoiceID);
                 if (inv == null)
                     throw new Exception("Invoice not found.");
+                if (string.Equals(inv.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase) || inv.BalanceDue <= 0.01m)
+                    GuardrailService.Block("Payments", payment.InvoiceID, "This invoice is already fully paid. A second payment cannot be recorded.");
                 payment.ClientID = inv.ClientID;
                 ValidatePaymentForSave(payment);
+
+                if (!string.IsNullOrWhiteSpace(payment.ReferenceNumber) && _paymentRepo.ReferenceExists(payment.ReferenceNumber))
+                    GuardrailService.Block("Payments", payment.InvoiceID, "This payment reference or UTR has already been recorded.");
 
                 decimal alreadyPaid = _paymentRepo.GetTotalPaidForInvoice(payment.InvoiceID);
                 decimal remaining   = inv.TotalAmount - alreadyPaid;
 
-                if (payment.AmountPaid > remaining + 0.01m)   // 1-paisa tolerance for rounding
-                {
-                    AppLogger.LogInfo("Validation warning only: Amount paid exceeds the outstanding invoice balance.");
-                    payment.AmountPaid = Math.Max(0.01m, remaining);
-                }
+                if (payment.AmountPaid > remaining + 0.01m)
+                    GuardrailService.Block("Payments", payment.InvoiceID, "Payment amount exceeds the outstanding invoice balance of " + remaining.ToString("N2") + ".");
 
                 // Save payment
                 if (SessionManager.IsLoggedIn)

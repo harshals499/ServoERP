@@ -48,6 +48,9 @@ namespace HVAC_Pro_Desktop.Services
         private const string LogContext = "Velopack update";
         private const string PendingWhatsNewVersionKey = "PendingWhatsNewVersion";
         private const string PendingWhatsNewTextKey = "PendingWhatsNewTextMr";
+        private const string SilentAutoUpdateModeKey = "SilentAutoUpdateMode";
+        private const string SilentAutoUpdateAutomaticMode = "Automatic";
+        private const string SilentAutoUpdateDisabledMode = "Disabled";
         private static readonly object SilentUpdateSync = new object();
         private static bool _silentUpdateWorkerRunning;
         private static UpdateCheckResult _downloadedSilentUpdate;
@@ -83,9 +86,11 @@ namespace HVAC_Pro_Desktop.Services
             return status + Environment.NewLine + "Last checked: Never";
         }
 
-        /// <summary>Starts a best-effort background update check and silent download. Restart still requires user confirmation.</summary>
+        /// <summary>Starts a best-effort background update check and silent download. A verified package is applied when ServoERP closes.</summary>
         public static void StartSilentBackgroundUpdateCheck(Control owner = null, Action<UpdateCheckResult> downloadedNotification = null)
         {
+            EnsureSilentAutoUpdateDefaults();
+
             if (!ConfigService.IsVersionCheckEnabled() || !ConfigService.IsSilentAutoUpdateEnabled())
             {
                 AppLogger.LogInfo(LogContext + " silent check skipped: disabled.");
@@ -114,7 +119,7 @@ namespace HVAC_Pro_Desktop.Services
                     result = RunSilentUpdateCheckAndDownload();
                     if (result != null && result.IsUpdateAvailable && result.CanApplyUpdate)
                     {
-                        SaveLastStatus("Update v" + result.LatestVersion + " is downloaded. Open Settings > About & Updates to install and restart.");
+                        SaveLastStatus("Update v" + result.LatestVersion + " downloaded in the background and will install when ServoERP closes.");
                         ServoERP.Infrastructure.UIThread.Post(owner, () => downloadedNotification?.Invoke(result));
                         await Task.CompletedTask.ConfigureAwait(false);
                     }
@@ -134,11 +139,73 @@ namespace HVAC_Pro_Desktop.Services
             });
         }
 
-        /// <summary>Applies a downloaded silent update when ServoERP is closing.</summary>
+        /// <summary>Applies a successfully downloaded silent update when ServoERP is closing.</summary>
         public static bool TryApplySilentUpdateOnExit()
         {
-            AppLogger.LogInfo(LogContext + " apply-on-exit skipped: ServoERP requires user confirmation before restart.");
-            return false;
+            if (!ConfigService.IsSilentAutoUpdateEnabled() || !ConfigService.ShouldApplySilentUpdateOnExit())
+            {
+                AppLogger.LogInfo(LogContext + " apply-on-exit skipped: silent apply is disabled.");
+                return false;
+            }
+
+            UpdateCheckResult downloadedUpdate;
+            lock (SilentUpdateSync)
+            {
+                downloadedUpdate = _downloadedSilentUpdate;
+            }
+
+            if (downloadedUpdate == null || !downloadedUpdate.CanApplyUpdate || downloadedUpdate.VelopackUpdateInfo == null)
+            {
+                AppLogger.LogInfo(LogContext + " apply-on-exit skipped: no downloaded package is ready.");
+                return false;
+            }
+
+            try
+            {
+                BackupConfigurationFiles(downloadedUpdate.LatestVersion);
+                StagePostUpdateNotice(downloadedUpdate.LatestVersion, BuildChangelogText(downloadedUpdate.VelopackUpdateInfo));
+                SaveLastStatus("Installing downloaded update v" + downloadedUpdate.LatestVersion + " as ServoERP closes.");
+                AppLogger.LogInfo(LogContext + " apply-on-exit requested. latest=" + downloadedUpdate.LatestVersion);
+
+                UpdateManager manager = CreateManager(GetGitHubRepositoryUrl());
+                manager.ApplyUpdatesAndRestart(downloadedUpdate.VelopackUpdateInfo.TargetFullRelease, null);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                SaveLastStatus("Downloaded update v" + downloadedUpdate.LatestVersion + " will be retried later. ServoERP closed normally.");
+                AppLogger.LogError("UpdateService.TryApplySilentUpdateOnExit", ex);
+                return false;
+            }
+        }
+
+        /// <summary>Upgrades legacy client settings to the automatic update default once without overriding a later user choice.</summary>
+        public static void EnsureSilentAutoUpdateDefaults()
+        {
+            string mode = ConfigService.Get("App", SilentAutoUpdateModeKey, string.Empty).Trim();
+            if (!string.IsNullOrWhiteSpace(mode))
+                return;
+
+            try
+            {
+                ConfigService.Set("App", "SilentAutoUpdateEnabled", "true");
+                ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
+                ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "true");
+                ConfigService.Set("App", SilentAutoUpdateModeKey, SilentAutoUpdateAutomaticMode);
+                AppLogger.LogInfo(LogContext + " migrated legacy settings to automatic download and apply-on-exit.");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("UpdateService.EnsureSilentAutoUpdateDefaults", ex);
+            }
+        }
+
+        public static void SetSilentAutoUpdatePreference(bool enabled)
+        {
+            ConfigService.Set("App", "SilentAutoUpdateEnabled", enabled ? "true" : "false");
+            ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
+            ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", enabled ? "true" : "false");
+            ConfigService.Set("App", SilentAutoUpdateModeKey, enabled ? SilentAutoUpdateAutomaticMode : SilentAutoUpdateDisabledMode);
         }
 
         public static Task<UpdateCheckResult> CheckForUpdatesAsync()
@@ -242,7 +309,7 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             ConfigService.Set("App", "PendingSilentUpdateVersion", result.LatestVersion ?? string.Empty);
-            SaveLastStatus("ServoERP v" + result.LatestVersion + " downloaded silently. Open Settings > About & Updates to install and restart.");
+            SaveLastStatus("ServoERP v" + result.LatestVersion + " downloaded silently and will install when ServoERP closes.");
             AppLogger.LogInfo(LogContext + " silent download ready. latest=" + result.LatestVersion);
             return result;
         }

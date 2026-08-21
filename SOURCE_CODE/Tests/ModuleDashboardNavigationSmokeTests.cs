@@ -123,6 +123,10 @@ namespace HVAC_Pro_Desktop.Tests
                 AssertVisibility(quotations, "_btnBackToQuoteDashboard", false, "Back to Dashboard should be hidden while the quotation dashboard is visible.");
                 AssertPrivateMethod(quotations, "NewRecord", "Quotation New handler should exist for the dashboard action.");
                 AssertQuotationEditorLayout(quotations);
+                if (quotations.Controls.Find("QuotationFollowUpActionBoard", true).Length != 1)
+                    throw new InvalidOperationException("Quotation dashboard should show the follow-up action board.");
+                if (quotations.Controls.Find("QuotationDashboardValueChart", true).Length != 0)
+                    throw new InvalidOperationException("Quotation dashboard should not retain the replaced value graph.");
                 AssertPrivateMethod(quotations, "ShowQuotationDashboard", "Quotation dashboard return handler should exist.");
             }
 

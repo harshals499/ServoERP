@@ -57,7 +57,14 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Lost reason analysis should infer competitor losses.");
             if (!snapshot.Insights.Any(i => i.Text.IndexOf("overdue follow-up", StringComparison.OrdinalIgnoreCase) >= 0))
                 throw new InvalidOperationException("Insights should include overdue follow-up counts.");
-            passed.Add("quotation charts, tables, funnel, line-item analytics, and alerts are derived from quotation data");
+            if (!snapshot.ActionItems.Any(i => i.Category == "Overdue" && i.QuotationNumber == "QUO-003"))
+                throw new InvalidOperationException("Action board should identify overdue quotation follow-ups.");
+            if (!snapshot.ActionItems.Any(i => i.Category == "Expiring" && i.QuotationNumber == "QUO-001"))
+                throw new InvalidOperationException("Action board should identify quotations expiring within seven days.");
+            QuotationActionItem highestValue = snapshot.ActionItems.FirstOrDefault(i => i.Category == "HighValue");
+            if (highestValue == null || highestValue.QuotationNumber != "QUO-004")
+                throw new InvalidOperationException("Action board should rank the largest open quotation first.");
+            passed.Add("quotation tables, funnel, line-item analytics, and follow-up action board are derived from quotation data");
 
             QuotationDashboardSnapshot companyFiltered = service.BuildSnapshot(
                 quotations,
@@ -75,7 +82,7 @@ namespace HVAC_Pro_Desktop.Tests
                 today);
             if (!empty.UsesDemoData)
                 throw new InvalidOperationException("Empty quotation dashboard should still report empty-source state.");
-            if (empty.Kpis.TotalQuotations.Value != 0m || empty.Kpis.TotalValue.Value != 0m || empty.RecentQuotations.Any() || empty.TopClients.Any())
+            if (empty.Kpis.TotalQuotations.Value != 0m || empty.Kpis.TotalValue.Value != 0m || empty.RecentQuotations.Any() || empty.TopClients.Any() || empty.ActionItems.Any())
                 throw new InvalidOperationException("Empty quotation dashboard must not show seeded amounts, clients, dates, or quotation numbers.");
             passed.Add("empty quotation dashboard stays empty without seeded business data");
 

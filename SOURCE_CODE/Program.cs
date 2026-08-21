@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.ServiceProcess;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +77,18 @@ namespace HVAC_Pro_Desktop
         [STAThread]
         static void Main()
         {
+            string[] startupArgs = Environment.GetCommandLineArgs();
+            if (HasArg(startupArgs, "/terminalagentservice"))
+            {
+                ServiceBase.Run(new TerminalAgentWindowsService());
+                return;
+            }
+            if (HasArg(startupArgs, "/terminalagentonce"))
+            {
+                TerminalAgentWindowsService.RunOnce();
+                return;
+            }
+
             ServoERP.Infrastructure.AppExceptionHandler.Register();
             VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
             SetProcessDPIAware();
@@ -133,6 +146,8 @@ namespace HVAC_Pro_Desktop
             {
                 foreach (string result in UiPolicyTests.RunAll())
                     lines.Add(result);
+                lines.Add("PASS " + LanControlManagementSmokeTests.RunAll());
+                lines.Add("PASS " + OfflineSyncPolicyTests.RunAll());
                 foreach (string result in UiQaStateCatalogTests.RunAll())
                     lines.Add(result);
                 lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
@@ -273,6 +288,23 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/pdfregressiontest"))
+                {
+                    string reportPath = PdfTemplateRegressionTests.WriteReport();
+                    Environment.ExitCode = File.ReadAllText(reportPath).StartsWith("FAIL ", StringComparison.Ordinal) ? 1 : 0;
+                    AppRuntime.LogTiming("PdfTemplateRegressionTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/guardrailsmoketest"))
+                {
+                    string reportPath = GuardrailEndToEndTests.WriteReport();
+                    string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
+                    AppRuntime.LogTiming("GuardrailEndToEndTests", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/suppliersearchsmoketest"))
                 {
                     string reportPath = EnterpriseUiSmokeTests.WriteSupplierSearchReport();
@@ -303,23 +335,97 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/connectionsetup"))
+                {
+                    Application.Run(new ConnectionSetupForm());
+                    return;
+                }
+
+                if (HasArg(args, "/connectionsetupvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "connection-setup-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    using (var form = new ConnectionSetupForm())
+                    {
+                        form.Show();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                        {
+                            form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        form.Close();
+                    }
+                    AppRuntime.LogTiming("ConnectionSetupVisualTest", 0, outputPath);
+                    return;
+                }
+
+                if (HasArg(args, "/officeapiconfig"))
+                {
+                    Application.Run(new OfficeApiSettingsForm());
+                    return;
+                }
+
+                if (HasArg(args, "/lancontrolvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "lan-control-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    using (var form = new OfficeLanControlForm(false))
+                    {
+                        form.LoadPreviewDataForVisualTest();
+                        form.Show();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                        {
+                            form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        form.Close();
+                    }
+                    AppRuntime.LogTiming("LanControlVisualTest", 0, outputPath);
+                    return;
+                }
+
+                if (HasArg(args, "/quotationdashboardvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "quotation-action-board-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    using (var page = new TenderBidForm { Size = new System.Drawing.Size(1440, 900) })
+                    {
+                        page.LoadActionBoardPreviewForVisualTest();
+                        page.CreateControl();
+                        page.PerformLayout();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(page.Width, page.Height))
+                        {
+                            page.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    AppRuntime.LogTiming("QuotationDashboardVisualTest", 0, outputPath);
+                    return;
+                }
+
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 Stopwatch stageWatch = Stopwatch.StartNew();
-                bool sqlStartupReady = TryInitializeSqlStartup(stageWatch);
+                Exception sqlStartupError;
+                bool sqlStartupReady = TryInitializeSqlStartup(stageWatch, out sqlStartupError);
+                if (!sqlStartupReady)
+                {
+                    sqlStartupReady = TryRecoverDatabaseStartup(stageWatch, sqlStartupError);
+                    if (!sqlStartupReady)
+                        return;
+                }
+
                 stageWatch.Restart();
-                if (sqlStartupReady)
-                {
-                    DbSettings.EnsureUserSettingsTable();
-                    LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
-                    new BackupService().EnsureBackupInfrastructure();
-                    SharedStorageService.StartAutomaticConnection();
-                    AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
-                }
-                else
-                {
-                    LanguageManager.SetLanguage(LanguageManager.English, false);
-                    AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, "SQL unavailable; default language");
-                }
+                DbSettings.EnsureUserSettingsTable();
+                LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
+                new BackupService().EnsureBackupInfrastructure();
+                SharedStorageService.StartAutomaticConnection();
+                AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);
 
                 if (HasArg(args, "/quotationimporttest"))
                 {
@@ -656,14 +762,7 @@ namespace HVAC_Pro_Desktop
                 }
 
                 stageWatch.Restart();
-                if (!sqlStartupReady)
-                {
-                    StartSqlOptionalOperatorSession();
-                    AppRuntime.LogTiming("Startup.Login", stageWatch.ElapsedMilliseconds, "SQL optional operator session");
-                    AppRuntime.LogTiming("Startup.TotalBeforeMainForm", startupWatch.ElapsedMilliseconds);
-                    Application.Run(new MainForm());
-                }
-                else if (LocalLoginBypassService.TryStartSession(out _))
+                if (LocalLoginBypassService.TryStartSession(out _))
                 {
                     AppRuntime.LogTiming("Startup.Login", stageWatch.ElapsedMilliseconds, "local bypass");
                     AppRuntime.LogTiming("Startup.TotalBeforeMainForm", startupWatch.ElapsedMilliseconds);
@@ -688,11 +787,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                MessageBox.Show(
-                    "ServoERP could not complete startup. " + ex.Message,
-                    BrandingService.WindowTitle("Startup Error"),
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                ShowFriendlyStartupFailure(ex);
             }
             finally
             {
@@ -701,8 +796,9 @@ namespace HVAC_Pro_Desktop
             }
         }
 
-        private static bool TryInitializeSqlStartup(Stopwatch stageWatch)
+        private static bool TryInitializeSqlStartup(Stopwatch stageWatch, out Exception startupError)
         {
+            startupError = null;
             try
             {
                 stageWatch.Restart();
@@ -717,6 +813,7 @@ namespace HVAC_Pro_Desktop
                 DbHelper.EnsureQuotationSchemaMigration();
                 DbHelper.EnsureAMCSchema();
                 NodeIdentityService.EnsureRegistered();
+                NodeIdentityService.StartHeartbeat();
 
                 stageWatch.Restart();
                 if (!DatabaseManager.IsDemoDataEnabled())
@@ -741,12 +838,84 @@ namespace HVAC_Pro_Desktop
             }
             catch (Exception ex)
             {
-                Log.Warning(ex, "SQL startup skipped; ServoERP will open in SQL optional mode");
-                AppRuntime.LogException("SQL optional startup", ex);
+                startupError = ex;
+                Log.Warning(ex, "SQL startup failed; database recovery is required before ServoERP opens");
+                AppRuntime.LogException("SQL startup recovery required", ex);
                 DatabaseConnectionStateService.RecordOperationFailure("Startup", ex);
-                AppRuntime.LogTiming("Startup.SqlOptionalMode", stageWatch.ElapsedMilliseconds, SensitiveDataRedactor.Redact(ex.Message));
+                AppRuntime.LogTiming("Startup.DatabaseRecoveryRequired", stageWatch.ElapsedMilliseconds, SensitiveDataRedactor.Redact(ex.Message));
                 return false;
             }
+        }
+
+        private static bool TryRecoverDatabaseStartup(Stopwatch stageWatch, Exception startupError)
+        {
+            bool authenticationFailure = IsSqlAuthenticationFailure(startupError);
+            string message = authenticationFailure
+                ? "ServoERP cannot sign in to the office database because the saved SQL username or password is no longer accepted.\r\n\r\n" +
+                  "Select Yes to open Database Connection Setup. Enter the SQL details supplied by your ServoERP administrator, test the connection, and save it. ServoERP will then retry startup."
+                : "ServoERP cannot reach the office database.\r\n\r\n" +
+                  "Check that the office server and network are available. Select Yes to open Database Connection Setup, test the saved connection, and retry startup.";
+
+            DialogResult openSetup = MessageBox.Show(
+                message,
+                BrandingService.WindowTitle(authenticationFailure ? "Database Sign-in Required" : "Database Connection Required"),
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+            if (openSetup != DialogResult.Yes)
+                return false;
+
+            using (var setup = new ConnectionSetupForm())
+            {
+                if (setup.ShowDialog() != DialogResult.OK)
+                    return false;
+            }
+
+            Exception retryError;
+            if (TryInitializeSqlStartup(stageWatch, out retryError))
+                return true;
+
+            ShowFriendlyStartupFailure(retryError);
+            return false;
+        }
+
+        internal static bool IsSqlAuthenticationFailure(Exception ex)
+        {
+            for (Exception current = ex; current != null; current = current.InnerException)
+            {
+                var sqlException = current as System.Data.SqlClient.SqlException;
+                if (sqlException != null)
+                {
+                    foreach (System.Data.SqlClient.SqlError error in sqlException.Errors)
+                    {
+                        if (error.Number == 18456)
+                            return true;
+                    }
+                }
+
+                string message = current.Message ?? string.Empty;
+                if (message.IndexOf("Login failed for user", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    message.IndexOf("SQL authentication", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    message.IndexOf("failed", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static void ShowFriendlyStartupFailure(Exception ex)
+        {
+            bool authenticationFailure = IsSqlAuthenticationFailure(ex);
+            string message = authenticationFailure
+                ? "ServoERP could not sign in to the office database. The saved SQL credentials were rejected.\r\n\r\n" +
+                  "Ask your ServoERP administrator for the current database username and password, then run ServoERP with /connectionsetup to verify and save them. No business data was changed."
+                : "ServoERP could not connect to the office database. Check the office server and network, then try again.\r\n\r\n" +
+                  "If the problem continues, run ServoERP with /connectionsetup or send the ServoERP support logs to your administrator. No business data was changed.";
+
+            MessageBox.Show(
+                message,
+                BrandingService.WindowTitle(authenticationFailure ? "Database Sign-in Failed" : "Database Connection Failed"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
         }
 
         private static void StartSqlOptionalOperatorSession()

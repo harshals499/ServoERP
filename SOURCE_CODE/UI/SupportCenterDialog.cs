@@ -176,13 +176,16 @@ namespace HVAC_Pro_Desktop.UI
             };
             nav.Controls.Add(navFlow);
             AddNav(navFlow, "Dashboard", ModernIconKind.Analytics, ShowDashboard);
+            AddNav(navFlow, "Setup Guide", ModernIconKind.Checklist, ShowSetupGuide);
             AddNav(navFlow, "Knowledge Base", ModernIconKind.Document, ShowKnowledgeBase);
             AddNav(navFlow, "System Health", ModernIconKind.Security, ShowSystemHealth);
             AddNav(navFlow, "App Information", ModernIconKind.Settings, ShowAppInformation);
             Action layoutNav = () =>
             {
                 bool narrow = nav.ClientSize.Width < 760;
-                nav.Height = narrow ? 104 : 58;
+                int columns = narrow ? Math.Max(1, Math.Min(2, nav.ClientSize.Width / 150)) : _nav.Count;
+                int rows = narrow ? (int)Math.Ceiling(_nav.Count / (double)columns) : 1;
+                nav.Height = narrow ? 14 + (rows * 44) : 58;
                 navFlow.WrapContents = narrow;
                 navFlow.AutoScroll = narrow;
                 foreach (Control control in navFlow.Controls)
@@ -191,7 +194,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (button == null)
                         continue;
 
-                    button.Width = narrow ? Math.Max(132, (navFlow.ClientSize.Width - 24) / 2) : GetNavButtonWidth(button.Text);
+                    button.Width = narrow ? Math.Max(132, (navFlow.ClientSize.Width - 24) / columns) : GetNavButtonWidth(button.Text);
                     button.Margin = new Padding(0, 0, narrow ? 8 : 10, narrow ? 8 : 0);
                 }
             };
@@ -246,6 +249,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.Equals(_activeSection, "Knowledge Base", StringComparison.OrdinalIgnoreCase))
                     ShowKnowledgeBase();
+                else if (string.Equals(_activeSection, "Setup Guide", StringComparison.OrdinalIgnoreCase))
+                    ShowSetupGuide();
                 else if (string.Equals(_activeSection, "System Health", StringComparison.OrdinalIgnoreCase))
                     ShowSystemHealth();
                 else if (string.Equals(_activeSection, "App Information", StringComparison.OrdinalIgnoreCase))
@@ -271,7 +276,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static int GetNavButtonWidth(string text)
         {
-            return text == "Knowledge Base" ? 164 : (text == "System Health" ? 154 : (text == "App Information" ? 166 : 126));
+            return text == "Knowledge Base" ? 164 : (text == "Setup Guide" ? 142 : (text == "System Health" ? 154 : (text == "App Information" ? 166 : 126)));
         }
 
         private void SetActive(string section)
@@ -286,7 +291,7 @@ namespace HVAC_Pro_Desktop.UI
                 pair.Value.FlatAppearance.BorderSize = active ? 0 : 1;
                 pair.Value.FlatAppearance.MouseOverBackColor = active ? DS.Primary600 : DS.BgCardHov;
                 pair.Value.FlatAppearance.MouseDownBackColor = active ? DS.Primary700 : DS.Slate100;
-                ModernIconSystem.AddButtonIcon(pair.Value, pair.Key == "Dashboard" ? ModernIconKind.Analytics : pair.Key == "Knowledge Base" ? ModernIconKind.Document : pair.Key == "System Health" ? ModernIconKind.Security : ModernIconKind.Settings);
+                ModernIconSystem.AddButtonIcon(pair.Value, pair.Key == "Dashboard" ? ModernIconKind.Analytics : pair.Key == "Setup Guide" ? ModernIconKind.Checklist : pair.Key == "Knowledge Base" ? ModernIconKind.Document : pair.Key == "System Health" ? ModernIconKind.Security : ModernIconKind.Settings);
                 pair.Value.Invalidate();
             }
         }
@@ -321,6 +326,152 @@ namespace HVAC_Pro_Desktop.UI
             AddGridCard(grid, compact, DashboardCard("Recent Errors", "Review recent application errors from local logs.", ModernIconKind.Activity, DS.Red600, () => MessageBox.Show(this, RecentErrorsText(), "Recent Errors", MessageBoxButtons.OK, MessageBoxIcon.Information)), 7, 1, 3);
             _content.Controls.Add(grid);
             EndContent();
+        }
+
+        /// <summary>
+        /// Presents the office deployment journey as actions that open the real setup screens.
+        /// Each PC keeps its own completion checks; the shared SQL Server remains the live data source.
+        /// </summary>
+        public void ShowSetupGuide()
+        {
+            ClearContent("Setup Guide");
+            bool compact = IsCompactSupportLayout();
+            TableLayoutPanel grid = ContentGrid(compact ? 1 : 2, compact ? 7 : 4);
+            for (int i = 0; i < (compact ? 7 : 4); i++)
+                grid.RowStyles.Add(new RowStyle(SizeType.Absolute, compact ? 178 : 178));
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "1. Understand the office setup",
+                "One office SQL Server is the authoritative source. Every connected PC sees the same live business data.",
+                "Read overview",
+                "SetupOverview",
+                () => ShowSetupMessage("How ServoERP works", "Set up one Windows PC as the office server. It hosts SQL Server and the HVAC_PRO database. Each terminal PC connects directly to that SQL Server. This is live shared data, not PC-to-PC file copying. Keep the server and local network available while users work.")), 0, 0, 0);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "2. Prepare the office server",
+                "Run this once on the PC that will host the company SQL Server, database, license, and administrator account.",
+                "Open server setup",
+                "OfficeServer",
+                OpenServerSetup), 1, 1, 0);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "3. Connect this terminal PC",
+                "Use the configured server name or IP address to connect this PC directly to the shared HVAC_PRO database.",
+                "Open connection setup",
+                "TerminalConnection",
+                OpenConnectionSetup), 2, 0, 1);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "4. Connect shared office storage",
+                "Optionally share documents, templates, exports, and backups from \\SERVER\\ServoERPShared. Auto Detect Server proposes the correct location.",
+                "Open shared storage",
+                "SharedStorage",
+                OpenSharedStorageSetup), 3, 1, 1);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "5. Verify this PC",
+                "Check SQL connectivity before entering business data. The result confirms whether this PC can use the office database.",
+                "Run database check",
+                "VerifyConnection",
+                RunSetupDatabaseCheck), 4, 0, 2);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "6. Prepare the remaining PCs",
+                "On the server, generate a connection package for each terminal. Apply it, then complete steps 3 through 5 on that PC.",
+                "Generate client package",
+                "ClientPackage",
+                GenerateClientPackage), 5, 1, 2);
+
+            AddGridCard(grid, compact, SetupGuideCard(
+                "7. Daily safety checks",
+                "Keep the server powered on, take regular backups, and use Help & Support > System Health if connection or update issues occur.",
+                "Open system health",
+                "DailySafety",
+                ShowSystemHealth), 6, 0, 3);
+
+            _content.Controls.Add(grid);
+            EndContent();
+        }
+
+        private Panel SetupGuideCard(string title, string summary, string actionText, string completionKey, Action action)
+        {
+            Panel card = CardPanel();
+            card.Padding = new Padding(18);
+            card.Margin = new Padding(8);
+
+            CheckBox complete = new CheckBox
+            {
+                Text = "Completed on this PC",
+                AutoSize = true,
+                Font = DS.Small,
+                ForeColor = DS.Slate600,
+                Checked = string.Equals(ConfigService.Get("InteractiveGuide", completionKey, "false"), "true", StringComparison.OrdinalIgnoreCase),
+                Location = new Point(18, 16)
+            };
+            complete.CheckedChanged += (s, e) => ConfigService.Set("InteractiveGuide", completionKey, complete.Checked ? "true" : "false");
+            card.Controls.Add(complete);
+
+            Label heading = LabelText(title, DS.H3, DS.Slate900);
+            heading.SetBounds(18, 44, 390, 26);
+            card.Controls.Add(heading);
+
+            Label body = LabelText(summary, DS.Body, DS.Slate600);
+            body.SetBounds(18, 74, 430, 52);
+            body.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
+            card.Controls.Add(body);
+
+            Button actionButton = DS.PrimaryBtn(actionText, 180, 34);
+            actionButton.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
+            actionButton.Click += (s, e) => action();
+            card.Controls.Add(actionButton);
+
+            Action layout = () =>
+            {
+                int width = Math.Max(160, card.ClientSize.Width - 36);
+                heading.Width = width;
+                body.Width = width;
+                actionButton.Left = Math.Max(18, card.ClientSize.Width - actionButton.Width - 18);
+                actionButton.Top = Math.Max(132, card.ClientSize.Height - actionButton.Height - 16);
+            };
+            card.Resize += (s, e) => layout();
+            layout();
+            return card;
+        }
+
+        private void OpenServerSetup()
+        {
+            if (MessageBox.Show(this, "Open the office-server setup now? Use this only on the PC that hosts SQL Server for the company.", "Office Server Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                using (var form = new ServerFirstRunSetupForm())
+                    form.ShowDialog(this);
+        }
+
+        private void OpenConnectionSetup()
+        {
+            using (var form = new ConnectionSetupForm())
+                form.ShowDialog(this);
+        }
+
+        private void OpenSharedStorageSetup()
+        {
+            using (var form = new SharedStorageSettingsForm())
+                form.ShowDialog(this);
+        }
+
+        private void RunSetupDatabaseCheck()
+        {
+            SupportToolResult result = _service.CheckDatabase();
+            MessageBox.Show(this, result.Message + (string.IsNullOrWhiteSpace(result.Detail) ? string.Empty : Environment.NewLine + Environment.NewLine + result.Detail), result.Title, MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        }
+
+        private void GenerateClientPackage()
+        {
+            SupportToolResult result = _service.GenerateClientServerSetupPackage();
+            MessageBox.Show(this, result.Message + (string.IsNullOrWhiteSpace(result.OutputPath) ? string.Empty : Environment.NewLine + Environment.NewLine + result.OutputPath), result.Title, MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+        }
+
+        private void ShowSetupMessage(string title, string message)
+        {
+            MessageBox.Show(this, message, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ShowKnowledgeBase()
@@ -406,8 +557,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             ClearContent("System Health");
             bool compact = IsCompactSupportLayout();
-            TableLayoutPanel grid = ContentGrid(compact ? 1 : 2, compact ? 17 : 9);
-            for (int i = 0; i < (compact ? 17 : 9); i++)
+            TableLayoutPanel grid = ContentGrid(compact ? 1 : 2, compact ? 18 : 9);
+            for (int i = 0; i < (compact ? 18 : 9); i++)
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
 
             AddGridCard(grid, compact, ToolCard("Check Database", "Validate SQL Server connection without changing data.", ModernIconKind.Security, () => _service.CheckDatabase()), 0, 0, 0);
@@ -420,6 +571,7 @@ namespace HVAC_Pro_Desktop.UI
             AddGridCard(grid, compact, ToolCard("Export Diagnostics Package", "Export safe logs, version, health, and layout summaries.", ModernIconKind.Export, () => _service.ExportDiagnosticsPackage()), 7, 1, 3);
             AddGridCard(grid, compact, ToolCard("Client Server Setup Wizard", "Detect server IP, SQL target, and generate client connection ZIP.", ModernIconKind.Settings, () => _service.GenerateClientServerSetupPackage()), 8, 0, 4);
             AddGridCard(grid, compact, ToolCard("Office Sync Health Monitor", "Show this PC, configured server, SQL reachability, version, backup, and row counts.", ModernIconKind.Activity, () => _service.CreateOfficeHealthReport()), 9, 1, 4);
+            AddGridCard(grid, compact, DashboardCard("LAN Control Center", "Detect office PCs, deploy the Enterprise installer, and monitor enrolled-terminal health and updates.", ModernIconKind.Activity, DS.Teal600, OpenLanControlCenter), 16, 0, 8);
             AddGridCard(grid, compact, ToolCard("Synchronization Health", "Export node identity, local replay queue, and SQL sync outbox status.", ModernIconKind.Refresh, () => _service.CreateSynchronizationReport()), 10, 0, 5);
             AddGridCard(grid, compact, ToolCard("Operations Command Center", "Create COO report for sales, jobs, AMC, vendors, inventory, technicians, and quotations.", ModernIconKind.Analytics, () => _service.CreateOperationsCommandCenterReport()), 11, 1, 5);
             AddGridCard(grid, compact, ToolCard("Material Price Intelligence", "Summarize supplier rates, price variance, quotation margins, and best supplier readiness.", ModernIconKind.Inventory, () => _service.CreateMaterialPriceIntelligenceReport()), 12, 0, 6);
@@ -615,6 +767,12 @@ namespace HVAC_Pro_Desktop.UI
             summary.SetBounds(70, 44, textWidth, 42);
             result.SetBounds(18, 102, Math.Max(120, card.ClientSize.Width - button.Width - 48), 34);
             button.Location = new Point(Math.Max(18, card.ClientSize.Width - button.Width - 18), Math.Max(96, card.ClientSize.Height - button.Height - 18));
+        }
+
+        private void OpenLanControlCenter()
+        {
+            using (var form = new OfficeLanControlForm())
+                form.ShowDialog(this);
         }
 
         private async Task RunTool(Func<SupportToolResult> action, Label status, Button button)

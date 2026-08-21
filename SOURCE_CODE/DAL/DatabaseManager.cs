@@ -11,6 +11,7 @@ using System.ServiceProcess;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Xml;
+using HVAC_Pro_Desktop.Helpers;
 using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -354,7 +355,7 @@ namespace HVAC_Pro_Desktop.DAL
                             "false",
                             StringComparison.OrdinalIgnoreCase),
                         Username = ReadConfigValue(document, "/HVACProConfig/Database/Username"),
-                        Password = ReadConfigValue(document, "/HVACProConfig/Database/Password")
+                        Password = SecureStorageHelper.UnprotectMachineText(ReadConfigValue(document, "/HVACProConfig/Database/Password"))
                     };
                 }
                 catch (Exception ex)
@@ -688,6 +689,59 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = GetConnection())
             {
                 DatabaseConnectionFactory.Open(conn, "DatabaseManager.MigrateSchema");
+
+                // Additive safety/audit tables. These carry no business records and support
+                // multi-PC guardrails, override accountability, and backup/update health.
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='GuardrailOverrides')
+                CREATE TABLE GuardrailOverrides (
+                    OverrideId INT IDENTITY(1,1) PRIMARY KEY,
+                    ModuleKey NVARCHAR(80) NOT NULL,
+                    RecordId INT NULL,
+                    ActionName NVARCHAR(100) NOT NULL,
+                    Reason NVARCHAR(1000) NOT NULL,
+                    UserId INT NULL,
+                    CreatedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                );");
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='RecordEditPresence')
+                CREATE TABLE RecordEditPresence (
+                    PresenceId INT IDENTITY(1,1) PRIMARY KEY,
+                    ModuleKey NVARCHAR(80) NOT NULL,
+                    RecordId INT NOT NULL,
+                    NodePublicId NVARCHAR(128) NULL,
+                    UserId INT NULL,
+                    UserName NVARCHAR(150) NULL,
+                    LastSeenUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                    CONSTRAINT UQ_RecordEditPresence UNIQUE(ModuleKey, RecordId, NodePublicId)
+                );");
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='OperationIdempotency')
+                CREATE TABLE OperationIdempotency (
+                    OperationKey NVARCHAR(160) NOT NULL PRIMARY KEY,
+                    ModuleKey NVARCHAR(80) NOT NULL,
+                    RecordId INT NULL,
+                    CompletedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                );");
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='BackupHealthChecks')
+                CREATE TABLE BackupHealthChecks (
+                    CheckId INT IDENTITY(1,1) PRIMARY KEY,
+                    BackupPath NVARCHAR(1000) NULL,
+                    BackupSizeBytes BIGINT NULL,
+                    Checksum NVARCHAR(128) NULL,
+                    IsSuccess BIT NOT NULL,
+                    Detail NVARCHAR(2000) NULL,
+                    CheckedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                );");
+                Exec(conn, @"IF OBJECT_ID('dbo.Payments', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Payments_ReferenceNumber' AND object_id=OBJECT_ID('dbo.Payments'))
+                    AND NOT EXISTS (SELECT ReferenceNumber FROM dbo.Payments WHERE NULLIF(LTRIM(RTRIM(ReferenceNumber)), '') IS NOT NULL GROUP BY ReferenceNumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_Payments_ReferenceNumber ON dbo.Payments(ReferenceNumber) WHERE ReferenceNumber IS NOT NULL AND ReferenceNumber <> '';");
+                Exec(conn, @"IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Invoices_InvoiceNumber' AND object_id=OBJECT_ID('dbo.Invoices'))
+                    AND NOT EXISTS (SELECT InvoiceNumber FROM dbo.Invoices WHERE NULLIF(LTRIM(RTRIM(InvoiceNumber)), '') IS NOT NULL GROUP BY InvoiceNumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_Invoices_InvoiceNumber ON dbo.Invoices(InvoiceNumber) WHERE InvoiceNumber IS NOT NULL AND InvoiceNumber <> '';");
+                Exec(conn, @"IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_PurchaseOrders_PONumber' AND object_id=OBJECT_ID('dbo.PurchaseOrders'))
+                    AND NOT EXISTS (SELECT PONumber FROM dbo.PurchaseOrders WHERE NULLIF(LTRIM(RTRIM(PONumber)), '') IS NOT NULL GROUP BY PONumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_PurchaseOrders_PONumber ON dbo.PurchaseOrders(PONumber) WHERE PONumber IS NOT NULL AND PONumber <> '';");
 
                 // B2BClients
                 AddColumn(conn, "B2BClients", "Email",            "NVARCHAR(255) NULL");
@@ -4764,6 +4818,123 @@ THEN 1 ELSE 0 END";
                     );
                 END;
 
+                IF COL_LENGTH('dbo.SyncNodes', 'AppVersion') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD AppVersion NVARCHAR(32) NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'DatabaseServer') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD DatabaseServer NVARCHAR(200) NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'DatabaseName') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD DatabaseName NVARCHAR(128) NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'LastHealthStatus') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD LastHealthStatus NVARCHAR(30) NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'LastHealthDetail') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD LastHealthDetail NVARCHAR(500) NULL;
+
+                IF OBJECT_ID('dbo.OfficeNodeCommands', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.OfficeNodeCommands (
+                        OfficeNodeCommandId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        CommandPublicId UNIQUEIDENTIFIER NOT NULL UNIQUE DEFAULT NEWID(),
+                        TargetNodePublicId UNIQUEIDENTIFIER NOT NULL,
+                        CommandType NVARCHAR(50) NOT NULL,
+                        RequestedBy NVARCHAR(100) NOT NULL,
+                        RequestedUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                        ClaimedUtc DATETIME NULL,
+                        CompletedUtc DATETIME NULL,
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Queued',
+                        ResultDetail NVARCHAR(1000) NULL
+                    );
+                    CREATE INDEX IX_OfficeNodeCommands_TargetStatus
+                        ON dbo.OfficeNodeCommands(TargetNodePublicId, Status, RequestedUtc);
+                END;
+
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'ScheduledUtc') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD ScheduledUtc DATETIME NULL;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'ExpiresUtc') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD ExpiresUtc DATETIME NULL;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'IdempotencyKey') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD IdempotencyKey UNIQUEIDENTIFIER NULL;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'AttemptCount') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD AttemptCount INT NOT NULL CONSTRAINT DF_OfficeNodeCommands_AttemptCount DEFAULT 0;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'ErrorCode') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD ErrorCode NVARCHAR(80) NULL;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'RolloutGroup') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD RolloutGroup UNIQUEIDENTIFIER NULL;
+                IF COL_LENGTH('dbo.OfficeNodeCommands', 'DependsOnCommandPublicId') IS NULL
+                    ALTER TABLE dbo.OfficeNodeCommands ADD DependsOnCommandPublicId UNIQUEIDENTIFIER NULL;
+
+                IF OBJECT_ID('dbo.LanDeploymentJobs', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.LanDeploymentJobs (
+                        LanDeploymentJobId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        JobPublicId UNIQUEIDENTIFIER NOT NULL UNIQUE,
+                        RequestedBy NVARCHAR(100) NOT NULL,
+                        RequestedUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                        StartedUtc DATETIME NULL,
+                        CompletedUtc DATETIME NULL,
+                        TargetVersion NVARCHAR(32) NOT NULL,
+                        InstallerKind NVARCHAR(40) NOT NULL,
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Prepared',
+                        TotalTargets INT NOT NULL DEFAULT 0,
+                        SuccessfulTargets INT NOT NULL DEFAULT 0,
+                        FailedTargets INT NOT NULL DEFAULT 0,
+                        PackagePath NVARCHAR(500) NULL
+                    );
+                END;
+
+                IF OBJECT_ID('dbo.LanDeploymentTargets', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.LanDeploymentTargets (
+                        LanDeploymentTargetId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        JobPublicId UNIQUEIDENTIFIER NOT NULL,
+                        NodePublicId UNIQUEIDENTIFIER NULL,
+                        HostName NVARCHAR(128) NOT NULL,
+                        IpAddress NVARCHAR(64) NULL,
+                        Stage NVARCHAR(60) NOT NULL DEFAULT 'Prepared',
+                        ProgressPercent INT NOT NULL DEFAULT 0,
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Queued',
+                        Detail NVARCHAR(1000) NULL,
+                        AttemptCount INT NOT NULL DEFAULT 0,
+                        StartedUtc DATETIME NULL,
+                        CompletedUtc DATETIME NULL,
+                        LastUpdatedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE UNIQUE INDEX UX_LanDeploymentTargets_JobHost
+                        ON dbo.LanDeploymentTargets(JobPublicId, HostName);
+                    CREATE INDEX IX_LanDeploymentTargets_Status
+                        ON dbo.LanDeploymentTargets(Status, LastUpdatedUtc);
+                END;
+
+                IF OBJECT_ID('dbo.LanDeploymentEvents', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.LanDeploymentEvents (
+                        LanDeploymentEventId BIGINT IDENTITY(1,1) PRIMARY KEY,
+                        JobPublicId UNIQUEIDENTIFIER NOT NULL,
+                        HostName NVARCHAR(128) NOT NULL,
+                        Stage NVARCHAR(60) NOT NULL,
+                        ProgressPercent INT NOT NULL,
+                        Status NVARCHAR(30) NOT NULL,
+                        Detail NVARCHAR(1000) NULL,
+                        RecordedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
+                    );
+                    CREATE INDEX IX_LanDeploymentEvents_JobRecorded
+                        ON dbo.LanDeploymentEvents(JobPublicId, RecordedUtc);
+                END;
+
+                IF OBJECT_ID('dbo.OfficeSavedTerminals', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.OfficeSavedTerminals (
+                        OfficeSavedTerminalId INT IDENTITY(1,1) PRIMARY KEY,
+                        HostName NVARCHAR(128) NOT NULL,
+                        IpAddress NVARCHAR(64) NULL,
+                        IsActive BIT NOT NULL DEFAULT 1,
+                        AddedBy NVARCHAR(100) NOT NULL,
+                        AddedUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                        LastDiscoveredUtc DATETIME NULL
+                    );
+                    CREATE UNIQUE INDEX UX_OfficeSavedTerminals_HostName
+                        ON dbo.OfficeSavedTerminals(HostName);
+                END;
+
                 IF OBJECT_ID('dbo.SyncOutbox', 'U') IS NULL
                 BEGIN
                     CREATE TABLE dbo.SyncOutbox (
@@ -4775,7 +4946,7 @@ THEN 1 ELSE 0 END";
                         SourceNodeId UNIQUEIDENTIFIER NOT NULL,
                         OccurredUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
                         DispatchedUtc DATETIME NULL,
-                        Status NVARCHAR(30) NOT NULL DEFAULT 'Pending',
+                        Status NVARCHAR(30) NOT NULL DEFAULT 'Recorded',
                         ErrorMessage NVARCHAR(1000) NULL,
                         IdempotencyKey NVARCHAR(100) NOT NULL
                     );
@@ -4786,6 +4957,13 @@ THEN 1 ELSE 0 END";
                     WHERE name = 'UX_SyncOutbox_IdempotencyKey'
                       AND object_id = OBJECT_ID('dbo.SyncOutbox'))
                 CREATE UNIQUE INDEX UX_SyncOutbox_IdempotencyKey ON dbo.SyncOutbox(IdempotencyKey);
+
+                -- All office PCs write to this same SQL database. SyncOutbox is therefore an
+                -- idempotent audit trail, not a transport queue; prevent legacy rows looking
+                -- permanently stuck when no dispatcher is required.
+                UPDATE dbo.SyncOutbox
+                SET Status = 'Recorded', DispatchedUtc = COALESCE(DispatchedUtc, GETUTCDATE())
+                WHERE Status = 'Pending';
 
                 IF OBJECT_ID('dbo.SyncConflicts', 'U') IS NULL
                 BEGIN

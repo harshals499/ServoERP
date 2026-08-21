@@ -21,6 +21,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
             EnsureSoftBorderDesignTokens();
+            EnsureInactiveInputsDoNotKeepBlueSelection();
             EnsureDispatchTechnicianClassification();
             EnsureGlobalPaginationControlNavigatesSafely();
             EnsureGlobalPaginationControlKeepsControlsInsideBounds();
@@ -29,7 +30,51 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureLockedCardKeepsUserSizeDuringPacking();
             EnsureAllLoggedInUsersHaveFullRoleAccess();
             EnsureForgotPasswordUsesSelfServiceDialog();
+            EnsureLanControlDeploymentWorkflowIsVisible();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureLanControlDeploymentWorkflowIsVisible()
+        {
+            using (var form = new OfficeLanControlForm(false))
+            {
+                form.LoadPreviewDataForVisualTest();
+                DataGridView grid = FindControl<DataGridView>(form);
+                if (grid == null || grid.Rows.Count < 6)
+                    throw new InvalidOperationException("LAN Control preview must show server, ready, install, update, installing, and failed terminal states.");
+
+                string[] requiredActions = { "Scan network", "Add terminal", "Run readiness", "Pilot rollout", "Collect diagnostics", "Repair database", "Retry failed", "Cancel deployment", "Installer override", "Deploy selected" };
+                List<string> buttonLabels = FindControls<Button>(form).Select(button => button.Text).ToList();
+                foreach (string action in requiredActions)
+                    if (!buttonLabels.Contains(action))
+                        throw new InvalidOperationException("LAN Control is missing required action: " + action + ".");
+
+                TextBox installerBox = FindControls<TextBox>(form).FirstOrDefault(box => box.ReadOnly);
+                if (installerBox == null || installerBox.Text.IndexOf("Terminal.Setup", StringComparison.OrdinalIgnoreCase) < 0)
+                    throw new InvalidOperationException("LAN Control must default to the built-in terminal installer with prerequisites.");
+
+                MethodInfo bootstrapBuilder = typeof(OfficeLanControlService).GetMethod("BuildRemoteManagementBootstrapScript", BindingFlags.Static | BindingFlags.NonPublic);
+                string bootstrap = bootstrapBuilder == null ? string.Empty : bootstrapBuilder.Invoke(null, null) as string;
+                if (string.IsNullOrWhiteSpace(bootstrap) || bootstrap.IndexOf("Enable-PSRemoting", StringComparison.OrdinalIgnoreCase) < 0)
+                    throw new InvalidOperationException("LAN Control must include the automatic WinRM preparation command.");
+            }
+        }
+
+        private static T FindControl<T>(Control root) where T : Control
+        {
+            return FindControls<T>(root).FirstOrDefault();
+        }
+
+        private static IEnumerable<T> FindControls<T>(Control root) where T : Control
+        {
+            foreach (Control child in root.Controls)
+            {
+                T match = child as T;
+                if (match != null)
+                    yield return match;
+                foreach (T nested in FindControls<T>(child))
+                    yield return nested;
+            }
         }
 
         private static void EnsureGridColumnPolicyHonorsMinimumWidth()
@@ -131,6 +176,24 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Grid outer border token must remain #D1D5DB.");
             if (GridTheme.GridLine.ToArgb() != expected.ToArgb())
                 throw new InvalidOperationException("Grid line token must remain #D1D5DB.");
+        }
+
+        private static void EnsureInactiveInputsDoNotKeepBlueSelection()
+        {
+            using (var textBox = new TextBox { Text = "Invoice reference" })
+            using (var comboBox = new ComboBox { Text = "Pending", DropDownStyle = ComboBoxStyle.DropDown })
+            {
+                textBox.SelectAll();
+                comboBox.SelectAll();
+
+                InputOutlineService.InputSelectionPolicy.Apply(textBox);
+                InputOutlineService.InputSelectionPolicy.Apply(comboBox);
+
+                if (!textBox.HideSelection || textBox.SelectionLength != 0)
+                    throw new InvalidOperationException("Inactive text inputs must not retain a visible selection.");
+                if (comboBox.SelectionLength != 0)
+                    throw new InvalidOperationException("Inactive combo inputs must not retain a visible selection.");
+            }
         }
 
         private static void EnsureDispatchTechnicianClassification()
@@ -346,10 +409,10 @@ namespace HVAC_Pro_Desktop.Tests
                     Permissions = new Dictionary<string, RolePermissionDto>(StringComparer.OrdinalIgnoreCase)
                 });
 
-                if (!SessionManager.HasPermission("Settings", "View")
-                    || !SessionManager.HasPermission("Settings", "Create")
-                    || !SessionManager.HasPermission("Settings", "Edit")
-                    || !SessionManager.HasPermission("Settings", "Delete"))
+                if (!SessionManager.HasRoleAccessForLicensedModule("Settings", "View")
+                    || !SessionManager.HasRoleAccessForLicensedModule("Settings", "Create")
+                    || !SessionManager.HasRoleAccessForLicensedModule("Settings", "Edit")
+                    || !SessionManager.HasRoleAccessForLicensedModule("Settings", "Delete"))
                 {
                     throw new InvalidOperationException("All logged-in users must receive full role access inside licensed modules.");
                 }

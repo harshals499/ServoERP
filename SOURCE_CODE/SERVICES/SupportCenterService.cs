@@ -461,17 +461,17 @@ namespace HVAC_Pro_Desktop.Services
             };
         }
 
-        private static string BuildClientConfigXml(ServerSetupProfile profile)
+        internal static string BuildClientConfigXml(ServerSetupProfile profile)
         {
             return "<?xml version=\"1.0\" encoding=\"utf-8\"?>" + Environment.NewLine +
                    "<HVACProConfig>" + Environment.NewLine +
                    "  <Database>" + Environment.NewLine +
                    "    <Server>" + EscapeXml(profile.ConnectionTarget) + "</Server>" + Environment.NewLine +
                    "    <DatabaseName>" + EscapeXml(profile.DatabaseName) + "</DatabaseName>" + Environment.NewLine +
-                   "    <UseWindowsAuth>true</UseWindowsAuth>" + Environment.NewLine +
+                   "    <UseWindowsAuth>false</UseWindowsAuth>" + Environment.NewLine +
                    "    <Username></Username>" + Environment.NewLine +
                    "    <Password></Password>" + Environment.NewLine +
-                   "    <ServerRole>AlwaysOnOfficeServer</ServerRole>" + Environment.NewLine +
+                   "    <ServerRole>ClientPC</ServerRole>" + Environment.NewLine +
                    "  </Database>" + Environment.NewLine +
                    "  <Fallback>" + Environment.NewLine +
                    "    <Mode>LocalSQLiteDiagnostics</Mode>" + Environment.NewLine +
@@ -484,29 +484,58 @@ namespace HVAC_Pro_Desktop.Services
                    "</HVACProConfig>" + Environment.NewLine;
         }
 
-        private static string BuildClientConnectionScript(ServerSetupProfile profile)
+        internal static string BuildClientConnectionScript(ServerSetupProfile profile)
         {
             return "param(" + Environment.NewLine +
                    "    [string]$SqlServer = '" + EscapePowerShell(profile.ConnectionTarget) + "'," + Environment.NewLine +
                    "    [string]$Database = '" + EscapePowerShell(profile.DatabaseName) + "'," + Environment.NewLine +
-                   "    [string]$InstallRoot = 'C:\\HVAC_PRO_MSE'" + Environment.NewLine +
+                   "    [string]$InstallRoot = 'C:\\HVAC_PRO_MSE'," + Environment.NewLine +
+                   "    [switch]$UseWindowsAuthentication" + Environment.NewLine +
                    ")" + Environment.NewLine +
                    Environment.NewLine +
                    "$ErrorActionPreference = 'Stop'" + Environment.NewLine +
+                   "$builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder" + Environment.NewLine +
+                   "$builder['Data Source'] = $SqlServer" + Environment.NewLine +
+                   "$builder['Initial Catalog'] = $Database" + Environment.NewLine +
+                   "$builder['Integrated Security'] = [bool]$UseWindowsAuthentication" + Environment.NewLine +
+                   "$builder['Connect Timeout'] = 15" + Environment.NewLine +
+                   "$builder['Pooling'] = $true" + Environment.NewLine +
+                   "$builder['Max Pool Size'] = 100" + Environment.NewLine +
+                   "$builder['TrustServerCertificate'] = $true" + Environment.NewLine +
+                   "$sqlCredential = $null" + Environment.NewLine +
+                   "if (-not $UseWindowsAuthentication) {" + Environment.NewLine +
+                   "    $sqlCredential = Get-Credential -UserName 'servoerp_app' -Message 'Enter the ServoERP SQL login supplied by the office administrator.'" + Environment.NewLine +
+                   "    if ($null -eq $sqlCredential) { throw 'SQL sign-in was cancelled. No configuration was changed.' }" + Environment.NewLine +
+                   "    $builder['User ID'] = $sqlCredential.UserName" + Environment.NewLine +
+                   "    $builder['Password'] = $sqlCredential.GetNetworkCredential().Password" + Environment.NewLine +
+                   "}" + Environment.NewLine +
+                   "$test = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString" + Environment.NewLine +
+                   "try { $test.Open(); $command = $test.CreateCommand(); $command.CommandText = 'SELECT 1'; [void]$command.ExecuteScalar() } finally { $test.Close() }" + Environment.NewLine +
+                   "Write-Host 'SQL connection verified from this PC.' -ForegroundColor Green" + Environment.NewLine +
                    "$source = Join-Path $PSScriptRoot 'HVACPro.config'" + Environment.NewLine +
                    "if (!(Test-Path -LiteralPath $source)) { throw 'HVACPro.config not found beside this script.' }" + Environment.NewLine +
                    "New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null" + Environment.NewLine +
                    "New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot 'DATABASE') | Out-Null" + Environment.NewLine +
                    "$target = Join-Path $InstallRoot 'HVACPro.config'" + Environment.NewLine +
+                   "if (Test-Path -LiteralPath $target) { Copy-Item -LiteralPath $target -Destination ($target + '.pre-client-connection.bak') -Force }" + Environment.NewLine +
                    "[xml]$config = Get-Content -LiteralPath $source" + Environment.NewLine +
                    "$config.HVACProConfig.Database.Server = $SqlServer" + Environment.NewLine +
                    "$config.HVACProConfig.Database.DatabaseName = $Database" + Environment.NewLine +
-                   "$config.HVACProConfig.Database.UseWindowsAuth = 'true'" + Environment.NewLine +
-                   "$config.HVACProConfig.Database.Username = ''" + Environment.NewLine +
-                   "$config.HVACProConfig.Database.Password = ''" + Environment.NewLine +
-                   "$config.HVACProConfig.Database.ServerRole = 'AlwaysOnOfficeServer'" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.UseWindowsAuth = $(if ($UseWindowsAuthentication) { 'true' } else { 'false' })" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.Username = $(if ($UseWindowsAuthentication) { '' } else { $sqlCredential.UserName })" + Environment.NewLine +
+                   "if ($UseWindowsAuthentication) {" + Environment.NewLine +
+                   "    $config.HVACProConfig.Database.Password = ''" + Environment.NewLine +
+                   "} else {" + Environment.NewLine +
+                   "    $entropy = [Text.Encoding]::UTF8.GetBytes('ServoERP.SqlConfig.v1')" + Environment.NewLine +
+                   "    $plainBytes = [Text.Encoding]::UTF8.GetBytes($sqlCredential.GetNetworkCredential().Password)" + Environment.NewLine +
+                   "    try {" + Environment.NewLine +
+                   "        $protected = [Security.Cryptography.ProtectedData]::Protect($plainBytes, $entropy, [Security.Cryptography.DataProtectionScope]::LocalMachine)" + Environment.NewLine +
+                   "        $config.HVACProConfig.Database.Password = 'dpapi-machine:' + [Convert]::ToBase64String($protected)" + Environment.NewLine +
+                   "    } finally { [Array]::Clear($plainBytes, 0, $plainBytes.Length) }" + Environment.NewLine +
+                   "}" + Environment.NewLine +
+                   "$config.HVACProConfig.Database.ServerRole = 'ClientPC'" + Environment.NewLine +
                    "$config.Save($target)" + Environment.NewLine +
-                   "$connectionString = \"Server=$SqlServer;Database=$Database;Integrated Security=True;\"" + Environment.NewLine +
+                   "$connectionString = $builder.ConnectionString" + Environment.NewLine +
                    "$exeConfigs = Get-ChildItem -LiteralPath $InstallRoot -Filter 'HVAC_Pro_Desktop.exe.config' -Recurse -ErrorAction SilentlyContinue" + Environment.NewLine +
                    "foreach ($exeConfig in $exeConfigs) {" + Environment.NewLine +
                    "    [xml]$appConfig = Get-Content -LiteralPath $exeConfig.FullName" + Environment.NewLine +
@@ -521,7 +550,7 @@ namespace HVAC_Pro_Desktop.Services
                    "Write-Host 'Always-on SQL target:' $SqlServer -ForegroundColor Cyan" + Environment.NewLine +
                    "Write-Host 'Database:' $Database -ForegroundColor Cyan" + Environment.NewLine +
                    "Write-Host 'Updated exe configs:' ($exeConfigs.Count) -ForegroundColor DarkCyan" + Environment.NewLine +
-                   "Write-Host 'Restart ServoERP, then open Help & Support > System Health > Check Database.' -ForegroundColor Yellow" + Environment.NewLine;
+                   "Write-Host 'Verified client configuration saved. Start ServoERP normally.' -ForegroundColor Yellow" + Environment.NewLine;
         }
 
         private static string BuildClientServerGuide(ServerSetupProfile profile)
@@ -536,13 +565,14 @@ namespace HVAC_Pro_Desktop.Services
                    "Client PC steps:" + Environment.NewLine +
                    "1. Extract this ZIP on the client PC." + Environment.NewLine +
                    "2. Right-click Apply-ServoERP-ClientConnection.ps1 and run with PowerShell as Administrator." + Environment.NewLine +
-                   "3. Open ServoERP and use Help & Support > System Health > Check Database." + Environment.NewLine +
+                   "3. Enter the dedicated ServoERP SQL login supplied by the office administrator. The script tests it before changing this PC." + Environment.NewLine +
+                   "4. Open ServoERP. The verified password is protected for this Windows PC and is not stored as plaintext." + Environment.NewLine +
                    Environment.NewLine +
                    "Server PC requirements:" + Environment.NewLine +
                    "- Use a dedicated always-on office/server PC, not a personal laptop." + Environment.NewLine +
                    "- SQL Server Express SQLEXPRESS must run automatically after reboot." + Environment.NewLine +
                    "- Allow SQL Server TCP 1433 and SQL Browser UDP 1434 if using named instances." + Environment.NewLine +
-                   "- ServoERP can open even when SQL Server is unavailable; database-backed actions need SQL to complete." + Environment.NewLine;
+                   "- Create and verify the dedicated terminal SQL login before applying this pack. Do not reuse the SQL sa account." + Environment.NewLine;
         }
 
         private string BuildOfficeHealthText()
@@ -583,13 +613,13 @@ namespace HVAC_Pro_Desktop.Services
             builder.AppendLine("Machine: " + Environment.MachineName);
             builder.AppendLine("Configured SQL Server: " + SafeValue(connection.DataSource));
             builder.AppendLine("Configured Database: " + SafeValue(connection.InitialCatalog));
-            builder.AppendLine("Local Fallback: Disabled");
-            builder.AppendLine("Pending Offline Items: " + pending.Count);
-            builder.AppendLine("Pending Queue Statuses:");
+            builder.AppendLine("Multi-PC mode: Shared SQL Server");
+            builder.AppendLine("Offline queue items: " + pending.Count);
+            builder.AppendLine("Offline queue statuses:");
             foreach (IGrouping<string, OfflineSyncItem> group in pending.GroupBy(item => string.IsNullOrWhiteSpace(item.Status) ? "Unknown" : item.Status))
                 builder.AppendLine("  " + group.Key + ": " + group.Count());
 
-            builder.AppendLine("Outbox Statuses:");
+            builder.AppendLine("Shared SQL change-audit statuses:");
             if (outbox.Count == 0)
             {
                 builder.AppendLine("  none");
