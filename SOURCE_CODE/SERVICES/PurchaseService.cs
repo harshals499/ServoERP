@@ -36,6 +36,51 @@ namespace HVAC_Pro_Desktop.Services
         public List<PurchaseOrder> GetAllFresh() => _repo.GetAll();
         public PurchaseOrder GetById(int id) => _repo.GetById(id);
         public List<PurchaseOrder> GetByVendorId(int vendorId) => GetAll().FindAll(p => p.VendorID == vendorId);
+
+        /// <summary>
+        /// Applies the Indian GST destination rule to all purchase lines before the order is saved.
+        /// A supplier in the company's state is charged equally as CGST and SGST; a supplier in
+        /// another state is charged as IGST.  This keeps saved totals and printed PO totals aligned.
+        /// </summary>
+        public void ApplyTaxJurisdiction(PurchaseOrder purchaseOrder, Vendor vendor)
+        {
+            if (purchaseOrder == null)
+                return;
+
+            IndiaCompanySettings settings = _settingsService.GetIndiaCompanySettings();
+            string companyStateCode = ResolveStateCode(settings?.GSTIN, settings?.CompanyState);
+            string vendorStateCode = ResolveStateCode(vendor?.GSTNumber ?? purchaseOrder.VendorGSTIN, vendor?.StateCode);
+            bool isIntraState = !string.IsNullOrWhiteSpace(companyStateCode)
+                && string.Equals(companyStateCode, vendorStateCode, StringComparison.OrdinalIgnoreCase);
+
+            foreach (PurchaseLineItem line in purchaseOrder.LineItems ?? new List<PurchaseLineItem>())
+            {
+                decimal gstRate = line.GSTRate > 0m
+                    ? line.GSTRate
+                    : line.CGSTRate + line.SGSTRate + line.IGSTRate;
+                gstRate = Math.Max(0m, gstRate);
+                line.GSTRate = gstRate;
+                line.CGSTRate = isIntraState ? gstRate / 2m : 0m;
+                line.SGSTRate = isIntraState ? gstRate / 2m : 0m;
+                line.IGSTRate = isIntraState ? 0m : gstRate;
+
+                decimal taxable = Math.Round(line.Quantity * line.Rate, 2);
+                decimal tax = Math.Round(taxable * gstRate / 100m, 2);
+                line.Amount = taxable + tax;
+            }
+        }
+
+        private static string ResolveStateCode(string gstin, string fallbackState)
+        {
+            string taxId = IndiaTaxValidationHelper.NormalizeTaxId(gstin);
+            if (taxId.Length >= 2 && IndiaStateCatalog.IsValidStateCode(taxId.Substring(0, 2)))
+                return taxId.Substring(0, 2);
+
+            string fallback = (fallbackState ?? string.Empty).Trim();
+            return IndiaStateCatalog.IsValidStateCode(fallback)
+                ? fallback
+                : IndiaStateCatalog.GetCodeByName(fallback);
+        }
         public int Create(PurchaseOrder po)
         {
             SessionManager.DemandPermission("Purchases", "Create");
@@ -256,9 +301,28 @@ namespace HVAC_Pro_Desktop.Services
         public void MarkReceived(int poId)
         {
             SessionManager.DemandPermission("Purchases", "Edit");
+            if (OfficeApiClient.IsEnabled)
+            {
+                OfficeApiClient.ReceivePurchaseOrder(poId);
+                AppDataCache.RemovePrefix("purchases:");
+                SessionManager.LogAction("EDIT", "Purchases", poId, "Purchase order received through office API");
+                _audit.Record("RECEIVE", "Purchases", poId, "Purchase order received through the private office API.");
+                return;
+            }
+            PurchaseOrder purchaseOrder = _repo.GetById(poId);
+            if (purchaseOrder == null)
+                throw new Exception("Purchase order not found.");
+            if (PurchaseOrder.IsPaymentCompletedStatus(purchaseOrder.Status))
+            {
+                _audit.Record("BLOCK", "Purchases", poId, "Duplicate receive attempt blocked for already received purchase order.");
+                return;
+            }
+            if (string.Equals(purchaseOrder.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                GuardrailService.Block("Purchases", poId, "A cancelled purchase order cannot be marked received.");
             _repo.MarkReceived(poId);
             AppDataCache.RemovePrefix("purchases:");
             SessionManager.LogAction("EDIT", "Purchases", poId, "Purchase order marked received");
+            _audit.Record("RECEIVE", "Purchases", poId, "Purchase order received once with duplicate-receipt protection.");
         }
         public void UpdateContractLink(int poId, int contractId)
         {
@@ -624,6 +688,10 @@ namespace HVAC_Pro_Desktop.Services
             string orderNumber = Html(po.PONumber);
             string supplierInvoiceNumber = Html(po.VendorInvoiceNumber);
             string amountWordsLine = Html(amountWords.EndsWith(".") ? amountWords : amountWords + ".");
+            string authorisedSignatory = settings.AuthorisedSignatoryName ?? string.Empty;
+            string supplierContact = BuildSupplierContact(vendor);
+            string supplierBank = BuildSupplierBankDetails(vendor);
+            int paymentDays = Math.Max(0, settings.DefaultPaymentTermsDays);
             string purchaseCss = @"
 .mse-official-header{margin:0 0 8px 0 !important;}
 .mse-official-header-logo img{max-width:640px !important;}
@@ -698,7 +766,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<div class='po-meta-line'><span class='po-meta-label'>Supplier Invoice No</span><span class='po-meta-value'>" + (string.IsNullOrWhiteSpace(po.VendorInvoiceNumber) ? "-" : supplierInvoiceNumber) + "</span></div>"
             + "</div></div>"
             + "<table class='po-party-grid'><tr>"
-            + "<td style='padding-right:8px;'><div class='po-card'><div class='po-card-label'>Supplier</div><div class='po-card-title'>" + Html(vendor?.VendorName ?? po.VendorName) + "</div><div class='po-card-body'>" + (string.IsNullOrWhiteSpace(vendorAddress) ? "<span class='muted'>Address not available</span>" : vendorAddress) + "<br/><span class='muted'>GST No.</span> " + Html(vendor?.GSTNumber ?? po.VendorGSTIN) + "</div></div></td>"
+            + "<td style='padding-right:8px;'><div class='po-card'><div class='po-card-label'>Supplier</div><div class='po-card-title'>" + Html(vendor?.VendorName ?? po.VendorName) + "</div><div class='po-card-body'>" + (string.IsNullOrWhiteSpace(vendorAddress) ? "<span class='muted'>Address not available</span>" : vendorAddress) + "<br/><span class='muted'>GST No.</span> " + Html(vendor?.GSTNumber ?? po.VendorGSTIN) + supplierContact + "</div></div></td>"
             + "<td style='padding-left:8px;'><div class='po-card'><div class='po-card-label'>Bill / Dispatch To</div><div class='po-card-title'>" + Html(companyName) + "</div><div class='po-card-body'>" + (string.IsNullOrWhiteSpace(companyAddress) ? "<span class='muted'>Address not available</span>" : companyAddress) + "<br/><span class='muted'>GST No.</span> " + Html(settings.GSTIN) + "</div></div></td>"
             + "</tr></table>"
             + "<div class='po-inline-note'><strong>Instruction:</strong> Please supply goods / services as per the approved purchase order and agreed commercial terms.</div>"
@@ -715,11 +783,9 @@ namespace HVAC_Pro_Desktop.Services
             + "</table></div></div>"
             + "<div class='po-words'><strong>Amount in Words</strong>" + amountWordsLine + "</div>"
             + "<table class='po-footer-grid'><tr>"
-            + "<td style='width:52%;padding-right:8px;'><div class='po-footer-card'><div class='po-footer-title'>Compliance Details</div><div class='po-footer-copy compliance'>"
-            + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, settings.PAN, settings.GSTIN, msmeNumber, false)
-            + "</div><div class='po-terms'><strong>Terms</strong><br/>Please supply goods / services as per the above purchase order and agreed terms.</div></div></td>"
+            + "<td style='width:52%;padding-right:8px;'><div class='po-footer-card'><div class='po-footer-title'>Commercial Details</div><div class='po-footer-copy'><strong>Required delivery:</strong> " + payByDate.ToString("dd/MM/yyyy") + "<br/><strong>Payment terms:</strong> " + paymentDays + " days from invoice date." + supplierBank + "</div><div class='po-terms'><strong>Terms</strong><br/>Please supply goods / services as per the above purchase order and agreed terms.</div></div></td>"
             + "<td style='width:48%;padding-left:8px;'><div class='po-footer-card'><div class='po-footer-title'>Authorisation</div><div class='po-footer-copy'>"
-            + DocumentBranding.BuildSignatureHtml(companyName)
+            + DocumentBranding.BuildSignatureHtml(companyName, authorisedSignatory)
             + "</div></div></td>"
             + "</tr></table>"
             + "</div></div></body></html>";
@@ -729,6 +795,30 @@ namespace HVAC_Pro_Desktop.Services
         {
             StockItem item = _inventoryService.GetByName(description);
             return string.IsNullOrWhiteSpace(item?.Unit) ? "Nos" : item.Unit;
+        }
+
+        private static string BuildSupplierContact(Vendor vendor)
+        {
+            if (vendor == null)
+                return string.Empty;
+
+            var details = new List<string>();
+            if (!string.IsNullOrWhiteSpace(vendor.Phone)) details.Add("Phone: " + Html(vendor.Phone));
+            if (!string.IsNullOrWhiteSpace(vendor.Email)) details.Add("Email: " + Html(vendor.Email));
+            return details.Count == 0 ? string.Empty : "<br/><span class='muted'>" + string.Join(" | ", details) + "</span>";
+        }
+
+        private static string BuildSupplierBankDetails(Vendor vendor)
+        {
+            if (vendor == null)
+                return string.Empty;
+
+            var details = new List<string>();
+            if (!string.IsNullOrWhiteSpace(vendor.BankName)) details.Add(Html(vendor.BankName));
+            if (!string.IsNullOrWhiteSpace(vendor.BankAccountName)) details.Add("A/C: " + Html(vendor.BankAccountName));
+            if (!string.IsNullOrWhiteSpace(vendor.BankAccountNumber)) details.Add("No. " + Html(vendor.BankAccountNumber));
+            if (!string.IsNullOrWhiteSpace(vendor.BankIFSC)) details.Add("IFSC: " + Html(vendor.BankIFSC));
+            return details.Count == 0 ? string.Empty : "<br/><strong>Supplier bank:</strong> " + string.Join(" | ", details);
         }
 
         private string BuildSiteAddress(ClientSite site)

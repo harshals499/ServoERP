@@ -221,6 +221,7 @@
     <Compile Include="AI\Plugins\VendorAiPlugin.cs" />
     <!-- Models -->
     <Compile Include="MODELS\B2BClient.cs" />
+    <Compile Include="MODELS\OfficeLanNodeStatus.cs" />
     <Compile Include="MODELS\ClientContact.cs" />
     <Compile Include="MODELS\ClientSite.cs" />
     <Compile Include="MODELS\ClientTeamMember.cs" />
@@ -229,6 +230,7 @@
     <Compile Include="MODELS\Invoice.cs" />
     <Compile Include="MODELS\InvoiceLineItem.cs" />
     <Compile Include="MODELS\Payment.cs" />
+    <Compile Include="MODELS\GuardrailModels.cs" />
     <Compile Include="MODELS\Technician.cs" />
     <Compile Include="MODELS\SLALog.cs" />
     <Compile Include="MODELS\TenderBid.cs" />
@@ -302,6 +304,7 @@
     <Compile Include="SERVICES\ContractService.cs" />
     <Compile Include="SERVICES\InvoiceService.cs" />
     <Compile Include="SERVICES\PaymentService.cs" />
+    <Compile Include="SERVICES\GuardrailService.cs" />
     <Compile Include="SERVICES\SLAService.cs" />
     <Compile Include="SERVICES\ReportService.cs" />
     <Compile Include="SERVICES\AppDataCache.cs" />
@@ -319,6 +322,7 @@
     <Compile Include="SERVICES\LanguageManager.cs" />
     <Compile Include="SERVICES\LegalTexts.cs" />
     <Compile Include="SERVICES\ConfigService.cs" />
+    <Compile Include="SERVICES\OfficeApiClient.cs" />
     <Compile Include="SERVICES\SharedStorageService.cs" />
     <Compile Include="SERVICES\SharedStorageOnboardingService.cs" />
     <Compile Include="SERVICES\AppLogger.cs" />
@@ -406,9 +410,13 @@
     <Compile Include="Helpers\SecureStorageHelper.cs" />
     <Compile Include="SERVICES\CardLayoutService.cs" />
     <Compile Include="SERVICES\AppStartupService.cs" />
+    <Compile Include="SERVICES\PostUpdateMaintenanceService.cs" />
     <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
     <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
     <Compile Include="SERVICES\NodeIdentityService.cs" />
+    <Compile Include="SERVICES\OfficeLanControlService.cs" />
+    <Compile Include="SERVICES\OfficeLanReadinessService.cs" />
+    <Compile Include="SERVICES\TerminalAgentWindowsService.cs" />
     <Compile Include="SERVICES\OfflineSyncService.cs" />
     <Compile Include="SERVICES\SyncMetadataService.cs" />
     <Compile Include="SERVICES\SyncOutboxService.cs" />
@@ -463,6 +471,10 @@
     <Compile Include="Tests\UiQaStateCatalog.cs" />
     <Compile Include="Tests\UiQaStateCatalogTests.cs" />
     <Compile Include="Tests\UiPolicyTests.cs" />
+    <Compile Include="Tests\LanControlManagementSmokeTests.cs" />
+    <Compile Include="Tests\PdfTemplateRegressionTests.cs" />
+    <Compile Include="Tests\OfflineSyncPolicyTests.cs" />
+    <Compile Include="Tests\GuardrailEndToEndTests.cs" />
       <!-- UI -->
     <Compile Include="UI\BaseForm.cs">
       <SubType>Form</SubType>
@@ -528,6 +540,11 @@
     <Compile Include="UI\SupportCenterDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\OfficeApiSettingsForm.cs" />
+    <Compile Include="UI\OfficeLanControlForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\UserGuideForm.cs" />
     <Compile Include="UI\ErrorLogViewerForm.cs">
       <SubType>Form</SubType>
     </Compile>

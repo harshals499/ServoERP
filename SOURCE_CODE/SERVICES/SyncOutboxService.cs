@@ -31,7 +31,7 @@ END", conn))
                 cmd.Parameters.AddWithValue("@operation", operation ?? string.Empty);
                 cmd.Parameters.AddWithValue("@payloadJson", json ?? string.Empty);
                 cmd.Parameters.AddWithValue("@sourceNodeId", NodeIdentityService.GetOrCreateNodePublicId());
-                cmd.Parameters.AddWithValue("@status", "Pending");
+                cmd.Parameters.AddWithValue("@status", "Recorded");
                 cmd.Parameters.AddWithValue("@idempotencyKey", idempotencyKey);
                 cmd.ExecuteNonQuery();
             }

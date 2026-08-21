@@ -626,19 +626,14 @@ namespace HVAC_Pro_Desktop.Services
             string companyState = GetTenderSetting(settings, "CompanyState", "Maharashtra");
             string companyName = NormalizeMseSetting(GetTenderSetting(settings, "CompanyName", DocumentBranding.DefaultCompanyName), DocumentBranding.DefaultCompanyName);
             string authorisedSignatory = GetTenderSetting(settings, "CompanyAuthorizedSignatory", "");
-            string companyGstin = GetTenderSetting(settings, "CompanyGSTIN", GetTenderSetting(settings, "CompanyGST", DocumentBranding.DefaultGstNumber));
-            string companyPan = GetTenderSetting(settings, "CompanyPAN", DocumentBranding.DefaultPanNumber);
-            string shopLicense = GetTenderSetting(settings, "CompanyShopLicense", DocumentBranding.DefaultShopLicense);
-            string pfNumber = GetTenderSetting(settings, "CompanyPFNumber", DocumentBranding.DefaultPfNumber);
-            string esicNumber = GetTenderSetting(settings, "CompanyESICNumber", DocumentBranding.DefaultEsicNumber);
-            string profTax = GetTenderSetting(settings, "CompanyProfTax", GetTenderSetting(settings, "CompanyProfessionalTax", DocumentBranding.DefaultProfTaxNumber));
-            string msmeNumber = GetTenderSetting(settings, "CompanyMSMENumber", DocumentBranding.DefaultMsmeNumber);
             string placeOfSupply = ResolveTenderClientState(client, site);
             bool intraState = string.Equals(NormalizeStateName(companyState), NormalizeStateName(placeOfSupply), StringComparison.OrdinalIgnoreCase);
             decimal cgst = intraState ? Math.Round(bid.TotalGSTAmount / 2m, 2) : 0m;
             decimal sgst = intraState ? bid.TotalGSTAmount - cgst : 0m;
             decimal igst = intraState ? 0m : bid.TotalGSTAmount;
-            int validityDays = 5;
+            DateTime quotationDate = bid.SubmittedDate ?? DateTime.Today;
+            int validityDays = Math.Max(1, (bid.DueDate.Date - quotationDate.Date).Days);
+            string validityText = validityDays == 1 ? "1 day" : validityDays + " days";
 
             var rows = new StringBuilder();
             int sr = 1;
@@ -688,8 +683,7 @@ namespace HVAC_Pro_Desktop.Services
             + "</div></td>"
             + "<td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation No.</span><span class='quote-meta-value'>" + HtmlTender(bid.QuotationNumber) + "</span></div></td></tr>"
             + "<tr><td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation Date</span><span class='quote-meta-value'>" + HtmlTender(submittedDate) + "</span></div></td></tr>"
-            + "<tr><td class='from-cell'>"
-            + DocumentBranding.BuildFromBlockHtml(companyName, shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGstin, msmeNumber, false)
+            + "<tr><td class='from-cell'><div class='mse-from-block'><div class='mse-from-title'>From:</div><div class='mse-from-company'>" + HtmlTender(companyName) + "</div></div>"
             + "</td></tr>"
             + "</table>"
             + "<div class='subject-line'><strong>Sub:</strong> " + HtmlTender(subject) + "</div>"
@@ -700,7 +694,7 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td class='total-label grand' colspan='6'><div class='total-summary'><span>Total Amount : </span><span class='words-inline'>" + HtmlTender(amountWords.EndsWith(".") ? amountWords : amountWords + ".") + "</span></div></td><td class='total-value grand'>" + FormatTenderAmount(bid.TotalWithGST) + "</td></tr></tbody></table>"
             + "<table class='quote-grid terms'><tr><td class='quote-footer-left'>"
             + "<div><strong>Terms &amp; Conditions</strong></div>"
-            + "<div>&#8226; This quotation is valid for " + validityDays + " days.</div>"
+            + "<div>&#8226; This quotation is valid for " + validityText + ".</div>"
             + "<div>&#8226; Any additional work requested outside this quotation will be charged at actual cost.</div>"
             + "</td><td class='quote-footer-right signature'>" + DocumentBranding.BuildSignatureHtml(companyName, authorisedSignatory) + "</td></tr>"
             + "<tr><td class='comments'>Comments &amp; Special Instructions, if any.</td>"

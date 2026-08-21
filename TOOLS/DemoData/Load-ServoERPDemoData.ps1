@@ -15,6 +15,7 @@ function New-Connection {
 
 function Invoke-Scalar($Conn, [string]$Sql, [hashtable]$Params = @{}) {
     $cmd = $Conn.CreateCommand()
+    $cmd.CommandTimeout = 120
     $cmd.CommandText = $Sql
     foreach ($key in $Params.Keys) {
         [void]$cmd.Parameters.AddWithValue("@$key", $(if ($null -eq $Params[$key]) { [DBNull]::Value } else { $Params[$key] }))
@@ -24,6 +25,7 @@ function Invoke-Scalar($Conn, [string]$Sql, [hashtable]$Params = @{}) {
 
 function Invoke-Sql($Conn, [string]$Sql, [hashtable]$Params = @{}) {
     $cmd = $Conn.CreateCommand()
+    $cmd.CommandTimeout = 120
     $cmd.CommandText = $Sql
     foreach ($key in $Params.Keys) {
         [void]$cmd.Parameters.AddWithValue("@$key", $(if ($null -eq $Params[$key]) { [DBNull]::Value } else { $Params[$key] }))
@@ -51,6 +53,7 @@ function Insert-Row($Conn, [string]$Table, [hashtable]$Values) {
     $colSql = ($columns | ForEach-Object { "[$_]" }) -join ', '
     $paramSql = ($columns | ForEach-Object { "@$_" }) -join ', '
     $cmd = $Conn.CreateCommand()
+    $cmd.CommandTimeout = 120
     $cmd.CommandText = "INSERT INTO [$Table] ($colSql) VALUES ($paramSql); SELECT CAST(SCOPE_IDENTITY() AS INT);"
     foreach ($col in $columns) {
         [void]$cmd.Parameters.AddWithValue("@$col", $(if ($null -eq $Values[$col]) { [DBNull]::Value } else { $Values[$col] }))
@@ -75,8 +78,8 @@ DELETE FROM Jobs WHERE JobNumber LIKE 'SD-JOB-%';
 DELETE FROM Payments WHERE PaymentNumber LIKE 'SD-PAY-%' OR ReferenceNumber LIKE 'SDUTR%';
 DELETE FROM InvoiceLineItems WHERE InvoiceID IN (SELECT InvoiceID FROM Invoices WHERE InvoiceNumber LIKE 'SD-INV-%');
 DELETE FROM Invoices WHERE InvoiceNumber LIKE 'SD-INV-%';
-IF OBJECT_ID('TenderBidLineItems','U') IS NOT NULL DELETE FROM TenderBidLineItems WHERE TenderBidId IN (SELECT BidID FROM TenderBids WHERE QuotationNumber LIKE 'SD-QTN-%');
-DELETE FROM TenderBids WHERE QuotationNumber LIKE 'SD-QTN-%';
+IF OBJECT_ID('QuotationLineItems','U') IS NOT NULL DELETE FROM QuotationLineItems WHERE TenderBidId IN (SELECT BidID FROM Quotations WHERE QuotationNumber LIKE 'SD-QTN-%');
+DELETE FROM Quotations WHERE QuotationNumber LIKE 'SD-QTN-%';
 DELETE FROM SLALogs WHERE Notes LIKE 'ServoERP demo:%';
 IF OBJECT_ID('PurchaseLineItems','U') IS NOT NULL DELETE FROM PurchaseLineItems WHERE POID IN (SELECT POID FROM PurchaseOrders WHERE PONumber LIKE 'SD-PO-%');
 IF OBJECT_ID('PendingCharges','U') IS NOT NULL DELETE FROM PendingCharges WHERE SourcePoId IN (SELECT POID FROM PurchaseOrders WHERE PONumber LIKE 'SD-PO-%');
@@ -163,10 +166,17 @@ try {
         [void](Insert-Row $conn 'Technicians' @{ Name=$techNames[$i]; Phone=('98{0:D6}77' -f (550000 + $i * 173)); HourlyRate=(450 + $i * 20); Designation='Demo Field Technician'; YearsExperience=(3 + ($i % 12)) })
     }
 
-    $payrollMonth = 5
-    $payrollYear = 2026
+    $payrollPeriod = (Get-Date).Date.AddMonths(-1)
+    while ((Invoke-Scalar $conn "SELECT COUNT(*) FROM PayrollRuns WHERE PayrollMonth=@month AND PayrollYear=@year" @{ month=$payrollPeriod.Month; year=$payrollPeriod.Year }) -gt 0) {
+        $payrollPeriod = $payrollPeriod.AddMonths(-1)
+    }
+    $payrollMonth = $payrollPeriod.Month
+    $payrollYear = $payrollPeriod.Year
+    $payrollPeriodStart = [datetime]::new($payrollYear, $payrollMonth, 1)
+    $payrollPeriodEnd = $payrollPeriodStart.AddMonths(1).AddDays(-1)
+    $payrollReferencePeriod = $payrollPeriodStart.ToString('MMMyy', [Globalization.CultureInfo]::InvariantCulture).ToUpperInvariant()
     $payrollRunId = Insert-Row $conn 'PayrollRuns' @{
-        PayrollMonth=$payrollMonth; PayrollYear=$payrollYear; RunDate=([datetime]'2026-05-31T18:30:00'); Status='Completed'; ProcessedBy='Administrator';
+        PayrollMonth=$payrollMonth; PayrollYear=$payrollYear; RunDate=$payrollPeriodEnd.AddHours(18).AddMinutes(30); Status='Completed'; ProcessedBy='Administrator';
         TotalGross=0; TotalNetPay=0; TotalEPFEmployee=0; TotalEPFEmployer=0; TotalESIEmployee=0; TotalESIEmployer=0; TotalTDS=0; TotalPT=0;
         Notes='ServoERP demo payroll run for screenshot-ready data.'
     }
@@ -199,7 +209,7 @@ try {
         $leaveDays = if (@(2,7,12) -contains $rn) { 1 } elseif (@(4,9,14) -contains $rn) { 0.5 } else { 0 }
 
         [void](Insert-Row $conn 'SalaryStructures' @{
-            EmployeeId=$employeeIds[$i]; EffectiveFrom=([datetime]'2026-04-01'); EffectiveTo=$null; BasicSalary=$basic; DA=$da; HRA=$hra;
+            EmployeeId=$employeeIds[$i]; EffectiveFrom=$payrollPeriodStart.AddMonths(-1); EffectiveTo=$null; BasicSalary=$basic; DA=$da; HRA=$hra;
             SpecialAllowance=$special; ConveyanceAllowance=$conveyance; MedicalAllowance=$medical; LTA=$lta; OtherAllowances=$other; IsActive=1; CreatedDate=(Get-Date)
         })
         [void](Insert-Row $conn 'PayrollEntries' @{
@@ -210,8 +220,8 @@ try {
             EPFEmployer=$epfEmployer; EPSEmployer=$epsEmployer; ESIEmployer=$esiEmployer; NetSalary=$net; TaxRegime='New Regime';
             UAN=('10000000{0:D3}' -f $rn); ESICNumber=('31{0:D8}' -f (26040000 + $rn)); BankAccount=('508000{0:D6}' -f (260400 + $rn)); BankIFSC='HDFC0001234'; PayslipGenerated=0; PayslipPath=$null
         })
-        for ($d = 1; $d -le 31; $d++) {
-            $date = [datetime]::new(2026, 5, $d)
+        for ($d = 1; $d -le [datetime]::DaysInMonth($payrollYear, $payrollMonth); $d++) {
+            $date = [datetime]::new($payrollYear, $payrollMonth, $d)
             $status = if ($date.DayOfWeek -eq [DayOfWeek]::Sunday) { 'WeekOff' } elseif ($d -eq (6 + ($rn % 5)) -or $d -eq (18 + ($rn % 7))) { 'Leave' } else { 'Present' }
             [void](Insert-Row $conn 'AttendanceRecords' @{ EmployeeId=$employeeIds[$i]; AttendanceDate=$date; Status=$status; OvertimeHours=$(if (@(9,16,23) -contains $d -and @(3,8,13) -contains $rn) { 2 } else { 0 }); Notes='ServoERP demo attendance' })
         }
@@ -220,10 +230,11 @@ try {
     Invoke-Sql $conn "UPDATE PayrollRuns SET TotalGross=@gross, TotalNetPay=@net, TotalEPFEmployee=@epfEmp, TotalEPFEmployer=@epfEr, TotalESIEmployee=@esiEmp, TotalESIEmployer=@esiEr, TotalTDS=@tds, TotalPT=@pt WHERE PayrollRunId=@id" @{
         gross=$payTotals.Gross; net=$payTotals.Net; epfEmp=$payTotals.EpfEmployee; epfEr=$payTotals.EpfEmployer; esiEmp=$payTotals.EsiEmployee; esiEr=$payTotals.EsiEmployer; tds=$payTotals.Tds; pt=$payTotals.Pt; id=$payrollRunId
     }
-    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='EPF'; Amount=($payTotals.EpfEmployee + $payTotals.EpfEmployer); DueDate=([datetime]'2026-06-15'); PaidDate=$null; ReferenceNumber='PF-MAY26-DEMO'; Status='Pending'; Notes='Demo EPF challan' })
-    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='ESI'; Amount=($payTotals.EsiEmployee + $payTotals.EsiEmployer); DueDate=([datetime]'2026-06-15'); PaidDate=$null; ReferenceNumber='ESI-MAY26-DEMO'; Status='Pending'; Notes='Demo ESI challan' })
-    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='Professional Tax'; Amount=$payTotals.Pt; DueDate=([datetime]'2026-06-30'); PaidDate=$null; ReferenceNumber='PT-MAY26-DEMO'; Status='Pending'; Notes='Demo PT payable' })
-    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='TDS'; Amount=$payTotals.Tds; DueDate=([datetime]'2026-06-07'); PaidDate=$null; ReferenceNumber='TDS-MAY26-DEMO'; Status='Pending'; Notes='Demo TDS payable' })
+    $statutoryDueMonth = $payrollPeriodStart.AddMonths(1)
+    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='EPF'; Amount=($payTotals.EpfEmployee + $payTotals.EpfEmployer); DueDate=$statutoryDueMonth.AddDays(14); PaidDate=$null; ReferenceNumber=("PF-$payrollReferencePeriod-DEMO"); Status='Pending'; Notes='Demo EPF challan' })
+    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='ESI'; Amount=($payTotals.EsiEmployee + $payTotals.EsiEmployer); DueDate=$statutoryDueMonth.AddDays(14); PaidDate=$null; ReferenceNumber=("ESI-$payrollReferencePeriod-DEMO"); Status='Pending'; Notes='Demo ESI challan' })
+    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='Professional Tax'; Amount=$payTotals.Pt; DueDate=$statutoryDueMonth.AddMonths(1).AddDays(-1); PaidDate=$null; ReferenceNumber=("PT-$payrollReferencePeriod-DEMO"); Status='Pending'; Notes='Demo PT payable' })
+    [void](Insert-Row $conn 'StatutoryPayments' @{ PayrollRunId=$payrollRunId; PaymentType='TDS'; Amount=$payTotals.Tds; DueDate=$statutoryDueMonth.AddDays(6); PaidDate=$null; ReferenceNumber=("TDS-$payrollReferencePeriod-DEMO"); Status='Pending'; Notes='Demo TDS payable' })
 
     $vendorIds = @()
     $vendorNames = @(
@@ -319,7 +330,7 @@ try {
     for ($i = 0; $i -lt 30; $i++) {
         $clientIndex = $i % $clientIds.Count
         $amount = 45000 + ($i * 12500)
-        $quotationIds += Insert-Row $conn 'TenderBids' @{
+        $quotationIds += Insert-Row $conn 'Quotations' @{
             QuotationNumber=('SD-QTN-2026-{0:D4}' -f ($i + 1)); ClientID=$clientIds[$clientIndex]; SiteID=$siteIds[$clientIndex]; TenderName=('{0} proposal for {1}' -f $serviceTypes[$i % $serviceTypes.Count], $clientNames[$clientIndex].Replace('SD ',''));
             SystemCount=(1 + ($i % 8)); BidValue=$amount; TotalTaxableValue=$amount; TotalGST=($amount * 0.18); TotalWithGST=($amount * 1.18);
             DueDate=(New-Date (-120 + $i * 8)); SubmittedDate=(New-Date (-135 + $i * 8)); Status=(@('Draft','Pending','Approved','Submitted','Won')[$i % 5]);
@@ -407,7 +418,7 @@ try {
     }
 
     New-Item -ItemType Directory -Force -Path $ExportFolder | Out-Null
-    $summary = foreach ($table in 'B2BClients','ClientSites','AMCContracts','Jobs','TenderBids','Invoices','Payments','Vendors','PurchaseOrders','StockItems','Employees','ServiceDeskIncidents') {
+    $summary = foreach ($table in 'B2BClients','ClientSites','AMCContracts','Jobs','Quotations','Invoices','Payments','Vendors','PurchaseOrders','StockItems','Employees','ServiceDeskIncidents') {
         [pscustomobject]@{ Table=$table; Count=(Invoke-Scalar $conn "SELECT COUNT(*) FROM [$table]") }
     }
     $summary | Export-Csv -NoTypeInformation -Path (Join-Path $ExportFolder 'demo-data-counts.csv')

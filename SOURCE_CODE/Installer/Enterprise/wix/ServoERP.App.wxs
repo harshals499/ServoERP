@@ -56,6 +56,7 @@
       <ComponentGroupRef Id="DataDirectories" />
       <ComponentRef Id="ApplicationShortcuts" />
       <ComponentRef Id="InstallRegistry" />
+      <ComponentRef Id="TerminalAgentService" />
     </Feature>
 
     <CustomAction
@@ -82,11 +83,34 @@
 
   <Fragment>
     <ComponentGroup Id="ApplicationPayload" Directory="INSTALLFOLDER">
-      <Files Include="$(var.AppSource)\**" />
+      <Files Include="$(var.AppSource)\**">
+        <Exclude Files="$(var.AppSource)\ServoERP.TerminalAgent.exe" />
+      </Files>
       <Component Id="DefaultTenantConfig" Guid="{6772508D-EDBD-4B1D-B7C5-48DFADAD4E2F}" NeverOverwrite="yes">
         <File Id="DefaultTenantConfigFile" Source="$(var.DefaultConfig)" KeyPath="yes" />
       </Component>
     </ComponentGroup>
+
+    <Component Id="TerminalAgentService" Directory="INSTALLFOLDER" Guid="{5A21E6E9-36CB-48A1-9F0B-63D041F03A67}">
+      <File Id="TerminalAgentExecutable" Source="$(var.AppSource)\ServoERP.TerminalAgent.exe" KeyPath="yes" />
+      <ServiceInstall
+          Id="InstallTerminalAgent"
+          Name="ServoERPTerminalAgent"
+          DisplayName="ServoERP Terminal Agent"
+          Description="Reports terminal health and processes administrator-approved ServoERP LAN commands."
+          Type="ownProcess"
+          Start="auto"
+          ErrorControl="normal"
+          Arguments="/terminalagentservice"
+          Account="LocalSystem" />
+      <ServiceControl
+          Id="ControlTerminalAgent"
+          Name="ServoERPTerminalAgent"
+          Start="install"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+    </Component>
 
     <ComponentGroup Id="DataDirectories">
       <Component Id="ConfigDirectoryPermissions" Directory="CONFIGDIR" Guid="{BAEE0607-F0BF-41CC-8B2B-34091CC4DB60}" Permanent="yes">
@@ -150,7 +174,7 @@
                 WorkingDirectory="INSTALLFOLDER"
                 Icon="ServoERPIcon" />
       <RemoveFolder Id="RemoveProgramMenuServoERP" Directory="ProgramMenuServoERP" On="uninstall" />
-      <RegistryValue Root="HKLM" Key="SOFTWARE\ServoERP\Installer" Name="ShortcutsInstalled" Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="SOFTWARE\ServoERP\Installer" Name="ShortcutsInstalled" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <Component Id="InstallRegistry" Directory="INSTALLFOLDER" Guid="{34AB42EF-1D64-4A19-A18C-BD58E0587D98}">

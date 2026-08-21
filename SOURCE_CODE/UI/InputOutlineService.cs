@@ -75,6 +75,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             ConfigureInput(control);
+            InputSelectionPolicy.Apply(control);
             ConfigureCheckableInput(control as CheckBox);
             AttachNativeFocusFrame(control);
             AttachVisibleInputFrame(control);
@@ -181,6 +182,66 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             EnsureFieldRowCanShowInput(control);
+        }
+
+        /// <summary>
+        /// Keeps native input selection from being left visible after navigation, data binding,
+        /// or a programmatic focus change. A selection remains available while the user is
+        /// actively editing, so normal copy, paste, and keyboard selection still work.
+        /// </summary>
+        internal static class InputSelectionPolicy
+        {
+            private static readonly HashSet<Control> ConfiguredControls = new HashSet<Control>();
+
+            internal static void Apply(Control control)
+            {
+                if (control == null || control.IsDisposed || !IsSelectionInput(control))
+                    return;
+
+                TextBoxBase textBox = control as TextBoxBase;
+                if (textBox != null)
+                    textBox.HideSelection = true;
+
+                if (ConfiguredControls.Add(control))
+                {
+                    // Visibility and binding changes happen in bursts while WinForms lays out
+                    // pages. Queuing a selection update for every input on each burst caused
+                    // the blue selection/focus flash seen during navigation.
+                    control.Leave += (s, e) => ClearWhenInactive(control);
+                    control.Disposed += (s, e) => ConfiguredControls.Remove(control);
+                }
+
+                ClearWhenInactive(control);
+            }
+
+            private static bool IsSelectionInput(Control control)
+            {
+                return control is TextBoxBase || control is ComboBox;
+            }
+
+            private static void ClearWhenInactive(Control control)
+            {
+                if (control == null || control.IsDisposed || control.Focused || control.ContainsFocus)
+                    return;
+
+                ComboBox combo = control as ComboBox;
+                if (combo != null)
+                {
+                    if (!combo.DroppedDown && combo.SelectionLength > 0)
+                    {
+                        combo.SelectionStart = (combo.Text ?? string.Empty).Length;
+                        combo.SelectionLength = 0;
+                    }
+                    return;
+                }
+
+                TextBoxBase textBox = control as TextBoxBase;
+                if (textBox != null && textBox.SelectionLength > 0)
+                {
+                    textBox.SelectionStart = textBox.TextLength;
+                    textBox.SelectionLength = 0;
+                }
+            }
         }
 
         private static void AttachVisibleInputFrame(Control control)

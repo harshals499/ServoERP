@@ -84,6 +84,22 @@ namespace HVAC_Pro_Desktop.Services
         public void AddStock(int itemId, decimal qty)
         {
             SessionManager.DemandPermission("Inventory", "Edit");
+            if (qty == 0m)
+                return;
+            if (OfficeApiClient.IsEnabled)
+            {
+                OfficeApiClient.RecordStockMovement(new StockMovement
+                {
+                    ItemID = itemId,
+                    MovementType = qty < 0m ? "Decrease" : "Increase",
+                    Quantity = Math.Abs(qty),
+                    Notes = "Stock movement through office API.",
+                    CreatedByName = ResolveActorName()
+                });
+                AppDataCache.RemovePrefix("inventory:");
+                _audit.Record("STOCK", "Inventory", itemId, "Stock movement routed through the private office API.");
+                return;
+            }
             StockItem item = _repo.GetById(itemId);
             if (item == null)
                 throw new Exception("Material item not found.");
@@ -122,7 +138,7 @@ namespace HVAC_Pro_Desktop.Services
                 CreatedByName = ResolveActorName()
             };
 
-            int id = _repo.RecordMovement(movement);
+            int id = OfficeApiClient.IsEnabled ? OfficeApiClient.RecordStockMovement(movement) : _repo.RecordMovement(movement);
             AppDataCache.RemovePrefix("inventory:");
             SessionManager.LogAction("TRANSFER", "Inventory", itemId, "Stock transferred");
             _audit.Record("TRANSFER", "Inventory", itemId, "Stock transferred from " + movement.FromLocation + " to " + movement.ToLocation + ": " + qty.ToString("0.###"));
@@ -136,6 +152,26 @@ namespace HVAC_Pro_Desktop.Services
                 throw new InvalidOperationException("Material item is required.");
             if (signedQty == 0)
                 throw new InvalidOperationException("Adjustment quantity cannot be zero.");
+            if (OfficeApiClient.IsEnabled)
+            {
+                int apiId = OfficeApiClient.RecordStockMovement(new StockMovement
+                {
+                    ItemID = itemId,
+                    MovementType = signedQty < 0m ? "Decrease" : "Increase",
+                    Quantity = Math.Abs(signedQty),
+                    ReferenceNo = GlobalValidationEngine.CleanText(referenceNo, 80),
+                    Notes = GlobalValidationEngine.CleanText(notes, 1000),
+                    CreatedByName = ResolveActorName()
+                });
+                AppDataCache.RemovePrefix("inventory:");
+                SessionManager.LogAction("ADJUST", "Inventory", itemId, "Stock adjusted through office API");
+                return apiId;
+            }
+            StockItem current = _repo.GetById(itemId);
+            if (current == null)
+                throw new InvalidOperationException("Material item not found.");
+            if (current.CurrentStock + signedQty < 0m)
+                GuardrailService.Block("Inventory", itemId, "This adjustment would make stock negative for " + current.ItemName + ". Current stock: " + current.CurrentStock.ToString("0.###") + ".");
 
             StockMovement movement = new StockMovement
             {
@@ -148,7 +184,7 @@ namespace HVAC_Pro_Desktop.Services
                 CreatedByName = ResolveActorName()
             };
 
-            int id = _repo.RecordMovement(movement);
+            int id = OfficeApiClient.IsEnabled ? OfficeApiClient.RecordStockMovement(movement) : _repo.RecordMovement(movement);
             AppDataCache.RemovePrefix("inventory:");
             SessionManager.LogAction("ADJUST", "Inventory", itemId, "Stock adjusted");
             _audit.Record("ADJUST", "Inventory", itemId, "Stock adjusted by " + signedQty.ToString("0.###"));

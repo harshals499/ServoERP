@@ -20,6 +20,7 @@ $configStageDir = Join-Path $outputRoot 'stage\config'
 $wixDir = Join-Path $enterpriseRoot 'wix'
 $appWxs = Join-Path $wixDir 'ServoERP.App.wxs'
 $bundleWxs = Join-Path $wixDir 'ServoERP.Bundle.wxs'
+$terminalBundleWxs = Join-Path $wixDir 'ServoERP.Terminal.Bundle.wxs'
 $toolsDir = Join-Path $enterpriseRoot 'tools'
 $sqlPrereqHelperSource = Join-Path $toolsDir 'SqlExpressPrereqInstaller.cs'
 $licenseRtf = Join-Path $installerRoot 'ServoERP-Terms.rtf'
@@ -97,6 +98,7 @@ New-Item -ItemType Directory -Force -Path $configStageDir | Out-Null
 
 Write-Host "Staging application payload..."
 Copy-Item -Path (Join-Path $releaseDir '*') -Destination $stageDir -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $releaseDir 'HVAC_Pro_Desktop.exe') -Destination (Join-Path $stageDir 'ServoERP.TerminalAgent.exe') -Force
 Remove-Item -LiteralPath (Join-Path $stageDir 'HVACPro.config') -Force -ErrorAction SilentlyContinue
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'HVACPro.config') -Destination (Join-Path $configStageDir 'HVACPro.config') -Force
 Copy-Item -LiteralPath (Join-Path $sourceRoot 'app.ico') -Destination (Join-Path $stageDir 'app.ico') -Force
@@ -104,6 +106,8 @@ Copy-Item -LiteralPath (Join-Path $sourceRoot 'app.ico') -Destination (Join-Path
 New-Item -ItemType Directory -Force -Path $outputRoot | Out-Null
 $msiPath = Join-Path $outputRoot "ServoERP.App.$version.msi"
 $bundlePath = Join-Path $outputRoot "ServoERP.Setup.$version.exe"
+$terminalMsiPath = Join-Path $outputRoot "ServoERP.Terminal.App.$version.msi"
+$terminalBundlePath = Join-Path $outputRoot "ServoERP.Terminal.Setup.$version.exe"
 $defaultConfigPath = Join-Path $configStageDir 'HVACPro.config'
 $sqlPrereqHelperPath = Join-Path $outputRoot 'SqlExpressPrereqInstaller.exe'
 
@@ -113,7 +117,40 @@ Add-Type `
     -OutputAssembly $sqlPrereqHelperPath `
     -OutputType ConsoleApplication
 
-Write-Host "Compiling MSI: $msiPath"
+Write-Host "Compiling terminal MSI: $terminalMsiPath"
+dotnet wix build $appWxs `
+    -ext WixToolset.UI.wixext `
+    -ext WixToolset.Util.wixext `
+    -d AppVersion=$version `
+    -d AppSource=$stageDir `
+    -d DefaultConfig=$defaultConfigPath `
+    -d LicenseRtf=$licenseRtf `
+    -out $terminalMsiPath
+if ($LASTEXITCODE -ne 0) {
+    throw "Terminal MSI build failed."
+}
+
+if (-not $MsiOnly) {
+    Write-Host "Compiling terminal bootstrapper without SQL Server Express: $terminalBundlePath"
+    dotnet wix build $terminalBundleWxs `
+        -ext WixToolset.BootstrapperApplications.wixext `
+        -ext WixToolset.Util.wixext `
+        -d AppVersion=$version `
+        -d AppSource=$stageDir `
+        -d PrereqDir=$prereqDir `
+        -d TerminalMsiPath=$terminalMsiPath `
+        -d LicenseRtf=$licenseRtf `
+        -out $terminalBundlePath
+    if ($LASTEXITCODE -ne 0) {
+        throw "Terminal bootstrapper build failed."
+    }
+
+    $embeddedInstallerDir = Join-Path $stageDir 'Installers'
+    New-Item -ItemType Directory -Force -Path $embeddedInstallerDir | Out-Null
+    Copy-Item -LiteralPath $terminalBundlePath -Destination (Join-Path $embeddedInstallerDir (Split-Path $terminalBundlePath -Leaf)) -Force
+}
+
+Write-Host "Compiling enterprise MSI with the current terminal installer embedded: $msiPath"
 dotnet wix build $appWxs `
     -ext WixToolset.UI.wixext `
     -ext WixToolset.Util.wixext `
@@ -123,7 +160,7 @@ dotnet wix build $appWxs `
     -d LicenseRtf=$licenseRtf `
     -out $msiPath
 if ($LASTEXITCODE -ne 0) {
-    throw "MSI build failed."
+    throw "Enterprise MSI build failed."
 }
 
 if (-not $MsiOnly) {

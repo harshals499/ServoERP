@@ -46,6 +46,9 @@ namespace HVAC_Pro_Desktop.Services
 
         public static void EnsureReady()
         {
+            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
+                return;
+
             LocalSqliteFallbackStore.EnsureReady();
             lock (Sync)
             {
@@ -87,6 +90,9 @@ CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
 
         public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason, Guid? entitySyncPublicId)
         {
+            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
+                throw new InvalidOperationException("Offline saving is not enabled for this ServoERP installation. Connect to SQL Server before saving business records.");
+
             if (!IsOfflineSafeModule(module, operation))
                 throw new InvalidOperationException("Offline saving is available only for Clients, Sites, and Jobs. Financial, stock, and payroll entries require the SQL Server connection.");
 
@@ -133,6 +139,9 @@ SELECT last_insert_rowid();", conn))
 
         public static int GetPendingCount()
         {
+            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
+                return 0;
+
             EnsureReady();
             using (SQLiteConnection conn = OpenConnection())
             using (SQLiteCommand cmd = new SQLiteCommand("SELECT COUNT(1) FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict');", conn))
@@ -141,6 +150,9 @@ SELECT last_insert_rowid();", conn))
 
         public static List<OfflineSyncItem> GetPendingItems(int max = 100)
         {
+            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
+                return new List<OfflineSyncItem>();
+
             EnsureReady();
             var items = new List<OfflineSyncItem>();
             using (SQLiteConnection conn = OpenConnection())
@@ -157,6 +169,9 @@ FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict') ORDER BY Q
 
         public static int TryReplayPending()
         {
+            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
+                return 0;
+
             if (IsReplaying)
                 return 0;
             DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.CheckNow("OfflineSyncService.TryReplayPending", false);
@@ -179,7 +194,7 @@ FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict') ORDER BY Q
 
         public static bool ShouldQueue(Exception ex)
         {
-            return !IsReplaying && ex != null && IsSqlConnectivityFailure(ex);
+            return LocalSqliteFallbackStore.IsOfflineQueueEnabled && !IsReplaying && ex != null && IsSqlConnectivityFailure(ex);
         }
 
         private static bool IsSqlConnectivityFailure(Exception ex)

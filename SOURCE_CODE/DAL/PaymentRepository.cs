@@ -117,6 +117,22 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        public bool ReferenceExists(string referenceNumber)
+        {
+            if (string.IsNullOrWhiteSpace(referenceNumber))
+                return false;
+
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand("SELECT TOP 1 1 FROM Payments WHERE ReferenceNumber = @reference", conn))
+                {
+                    cmd.Parameters.AddWithValue("@reference", referenceNumber.Trim());
+                    return cmd.ExecuteScalar() != null;
+                }
+            }
+        }
+
         // ── CREATE ───────────────────────────────────────────
         public int Create(Payment p)
         {

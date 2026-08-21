@@ -1,4 +1,132 @@
 # Changelog
+
+## 1.1.441.0 - 2026-08-21
+
+- Replaced the fatal raw SQL login startup error with guided Database Connection Setup, verified retry, and clear no-data-changed messaging.
+- Stopped startup safely when the authoritative SQL database is unavailable instead of opening a database-dependent main window that immediately crashes.
+- Fixed generated client setup packs to request and verify the dedicated terminal SQL credential before changing configuration, back up the prior config, protect the password with Windows machine-level DPAPI, and save the correct `ClientPC` role.
+- Removed the developer-machine SQL hostname from packaged defaults so fresh and portable installations start with a local generic target and enter connection recovery when office-server setup is required.
+
+## 1.1.440.0 - 2026-08-18
+
+- Rebuilt LAN Control as a terminal management center with fleet summary cards, filtering, saved/manual terminals, readiness details, batch health/update/diagnostics/repair commands, and live per-PC deployment stages.
+- Added safe readiness checks for network reachability, WinRM preparation, shared SQL credentials, Windows/prerequisite verification stages, and clear remediation guidance before deployment.
+- Added persistent LAN deployment jobs, targets, event history, command scheduling/expiry, retry metadata, and failure details through additive guarded SQL schema.
+- Added a SQL-free ServoERP Terminal installer containing the application, .NET Framework and WebView2 prerequisites, while the office-server Enterprise installer embeds the current terminal installer for LAN deployment.
+- Added the ServoERP Terminal Agent Windows service so enrolled PCs heartbeat and process approved commands when the desktop app is closed.
+- Improved network discovery to respect real IPv4 subnet masks with a safe scan cap, retain offline enrolled/saved terminals, support manual hostname/IP entry, and verify copied installers with SHA-256 before execution.
+- Added authenticated remote preflight for supported Windows, free disk space, .NET, WebView2, and SQL login/database access before copying an installer.
+- Added scheduled pilot-first update rollout, safe cancellation between terminals, retry-failed deployment, command expiry/dependencies, and Windows machine-level DPAPI protection for newly saved SQL configuration passwords.
+
+## 1.1.439.0 - 2026-08-18
+
+- Replaced the low-information quotation value graph with an actionable follow-up board for overdue contacts, quotations expiring within seven days, and the highest-value open opportunities.
+- Added one-click quotation opening from every action row, company-aware action filtering, clear empty states, and regression coverage for action prioritisation and dashboard replacement.
+
+## 1.1.438.0 - 2026-08-18
+
+- LAN Control now attempts to enable the built-in Windows WinRM service automatically on reachable terminals through credentialed WMI/DCOM, waits for WinRM readiness, and continues deployment without a separate manual preparation step when Windows policy permits it.
+- LAN deployment now defaults to a self-contained current ServoERP application payload generated from the files already embedded in the Enterprise installation, removing the requirement to browse for or download a second installer.
+- Kept a local administrator bootstrap script and clear per-PC failure reporting for terminals whose firewall, Remote UAC, or domain policy blocks automatic WinRM preparation.
+
+## 1.1.437.0 - 2026-08-18
+
+- Expanded LAN Control Center with private-network PC discovery, WinRM readiness, enrolled-terminal status, and selectable remote deployment.
+- Added credential-on-demand Enterprise installer orchestration that configures the shared office SQL connection, installs ServoERP per machine, creates the public desktop shortcut, and records per-PC results without storing deployment credentials.
+- Added a one-time WinRM bootstrap script for unmanaged workgroup terminals and scoped TrustedHosts setup to selected PCs only.
+
+## 1.1.436.0 - 2026-08-16
+
+- Made CI-safe role-policy smoke verification independent of live SQL connectivity while preserving production license entitlement enforcement.
+
+## 1.1.435.0 - 2026-08-16
+
+- Added the private Office API pilot client integration for guarded payments, inventory movements, and purchase receiving.
+- Added authorized-company discovery, active-company visibility, Office Server status, HTTPS deployment scripts, and retry-safe operation identifiers.
+## ServoERP.Api 1.1.434.0 - 2026-08-16
+
+- Added the first private-office API migration slice: authenticated health verification plus transactional payment, inventory-movement, and guarded purchase-receipt endpoints.
+- Added a Windows Service deployment script that stores the server database/API secrets in a protected production configuration file; the desktop SQL path remains supported during phased client migration.
+- Added secure desktop Office API setup (`/officeapiconfig`) and fail-closed routing for payments, stock movements, and PO receiving. Removed duplicate inventory posting after PO receipt.
+
+## 1.1.433.0 - 2026-08-16
+
+- Prepared a clean Release package for multi-PC office-server visibility validation, with aligned installer and update metadata.
+
+## 1.1.432.0 - 2026-08-16
+
+- Redesigned the office-server connection screen with a clear Fluent-inspired setup flow: server role, SQL address, authentication, verification guidance, and a single save action.
+- Fixed the connection screen radio grouping so selecting a client PC no longer clears the chosen SQL authentication method.
+
+## 1.1.431.0 - 2026-08-16
+
+- Added LAN Control Center for office-server administrators: enrolled ServoERP PCs now send a one-minute SQL-backed heartbeat with app version, SQL target, and health status.
+- Added safe server-to-client commands to request a health check or verified background update check. Clients never accept remote execution, credentials, or forced software installation.
+
+## 1.1.430.0 - 2026-08-16
+
+- Consolidated end-user reliability fixes: supplier list totals, prospect lifecycle conversion, valid TAN entry, quotation duration and print layout, HSN/SAC reuse, invoice inventory selection, and purchase-order GST/document details.
+- Hardened shared-office data behavior: live SQL-backed updates remain authoritative, with unsafe offline business-data replay disabled until conflict-safe multi-device support is approved.
+- Added and passed focused supplier-search, PDF-template, guardrail, UI-policy, and offline-sync regression coverage for this release candidate.
+
+## 1.1.429.0 - 2026-08-13
+
+- Changed User Guide into a dedicated full-window guided workflow with one clear recommended action at a time, visible completion conditions, progress, and next-step guidance for office server and terminal-PC setup.
+
+## 1.1.428.0 - 2026-08-13
+
+- Added User Guide to the sidebar with an interactive, per-PC setup checklist for office server preparation, terminal-PC SQL connection, shared storage, verification, client setup packages, and daily safety checks.
+- Connected the guide directly to the in-app server setup, connection setup, shared storage, database check, and client-package actions.
+
+## 1.1.427.0 - 2026-08-10
+
+- Reissued the public client release after completed executable and SQL end-to-end guardrail verification.
+
+## 1.1.426.0 - 2026-08-10
+
+- Added an executable end-to-end guardrail regression test that creates isolated QA records, verifies duplicate payment reference, overpayment, negative-stock, and duplicate PO-receipt blocks through the real application services, then proves cleanup completed.
+
+## 1.1.425.0 - 2026-08-10
+
+- Added service-level transaction guardrails: duplicate UTR/reference blocking, overpayment blocking, duplicate PO-receipt protection, and negative-stock prevention.
+- Added Manager/Admin-only audited guardrail override policy, additive guardrail health/audit tables, and SQL uniqueness rails for invoice numbers, PO numbers, and payment references when existing data is clean.
+- Added safe multi-PC guardrail schema foundations for edit presence and idempotent operations; all financial and stock protections remain enforced against the shared SQL Server.
+
+## 1.1.424.0 - 2026-08-10
+
+- Added a silent post-update backend maintenance runner. After a Velopack-installed update first opens, it applies safe schema guards and client-PC registration once per version; if the office SQL Server is unavailable, it logs the result and retries on the next launch.
+
+## 1.1.423.0 - 2026-08-10
+
+- Quotation printouts now derive the displayed validity from the selected calendar dates and no longer repeat statutory registration details already present on the letterhead.
+- Purchase orders now print supplier phone/email, configured supplier bank details, required-delivery date, payment terms, and the configured authorised signatory.
+- Hardened the rendered PDF regression gate so every check waits for and verifies a freshly generated report.
+
+## 1.1.422.0 - 2026-08-10
+
+- Added clear Multi-PC Setup for client PCs connecting directly to the shared office SQL Server, with per-PC node registration for traceability.
+- Changed shared-SQL change records from misleading permanent Pending status to Recorded, including safe normalization of legacy audit rows.
+- Added rendered PDF/template regression checks and a guarded offline-sync policy test; offline business-data replay remains disabled until conflict-safe multi-device behavior is approved.
+
+## 1.1.420.0 - 2026-08-10
+
+- Purchase orders now automatically use CGST and SGST for intra-state suppliers, or IGST for inter-state suppliers, with saved, displayed, and printed totals kept in sync.
+
+## 1.1.419.0 - 2026-08-09
+
+- Published the silent background-update workflow: verified Velopack packages now download without interrupting work and install safely when ServoERP closes.
+- Included recent editable-field and invoice entry refinements for a cleaner day-to-day desktop experience.
+
+## 1.1.418.0 - 2026-08-09
+
+- Standardized editable fields across ServoERP so inactive values no longer retain distracting blue text-selection bands; input text is kept readable and aligned while active editing, copy, and paste continue to work normally.
+- Removed the invoice editor's automatic Client text selection when starting a new invoice.
+
+## 1.1.417.0 - 2026-08-09
+
+- Enabled ServoERP's Velopack update channel by default: releases now download silently in the background and install automatically when the user closes ServoERP.
+- Kept update installation data-safe by applying only fully downloaded packages and backing up local configuration before the updater restarts the app.
+
 ## 1.1.416.0 - 2026-08-09
 
 - Moved the dashboard department summary cards above Recent Activity for a quicker at-a-glance business overview.

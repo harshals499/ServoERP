@@ -2702,8 +2702,11 @@ namespace HVAC_Pro_Desktop.UI
 
                 await Task.Run(() =>
                 {
-                    _vendorSvc.MovePendingApprovalSuppliersToInactive();
+                    // Opening the supplier screen must be read-only.  The old path changed
+                    // supplier status while loading and cleared a cache key that was never
+                    // used by VendorService, leaving a stale/empty list visible until expiry.
                     AppDataCache.Remove("vendors:summaries");
+                    AppDataCache.Remove("vendors:summary:all");
                     summaries = AppDataCache.GetOrCreate(
                         "vendors:summaries",
                         TimeSpan.FromMinutes(2),

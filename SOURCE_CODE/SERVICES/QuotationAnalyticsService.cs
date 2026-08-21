@@ -37,6 +37,7 @@ namespace HVAC_Pro_Desktop.Services
         public List<QuotationTrendPoint> ValueTrend { get; set; } = new List<QuotationTrendPoint>();
         public List<QuotationTopItemRow> TopItems { get; set; } = new List<QuotationTopItemRow>();
         public List<QuotationFollowUpRow> UpcomingFollowUps { get; set; } = new List<QuotationFollowUpRow>();
+        public List<QuotationActionItem> ActionItems { get; set; } = new List<QuotationActionItem>();
         public List<QuotationLostReasonSlice> LostReasons { get; set; } = new List<QuotationLostReasonSlice>();
         public List<QuotationInsight> Insights { get; set; } = new List<QuotationInsight>();
     }
@@ -135,6 +136,18 @@ namespace HVAC_Pro_Desktop.Services
         public decimal Value { get; set; }
     }
 
+    public class QuotationActionItem
+    {
+        public int BidId { get; set; }
+        public string Category { get; set; }
+        public string QuotationNumber { get; set; }
+        public string ClientName { get; set; }
+        public decimal Value { get; set; }
+        public DateTime ActionDate { get; set; }
+        public string Status { get; set; }
+        public string Detail { get; set; }
+    }
+
     public class QuotationLostReasonSlice
     {
         public string Reason { get; set; }
@@ -231,6 +244,10 @@ namespace HVAC_Pro_Desktop.Services
             snapshot.ValueTrend = BuildTrend(current, filter.Grouping, from, to);
             snapshot.TopItems = BuildTopItems(current);
             snapshot.UpcomingFollowUps = BuildUpcomingFollowUps(allQuotations, today);
+            List<TenderBid> actionSource = allQuotations
+                .Where(q => string.IsNullOrWhiteSpace(company) || string.Equals(Clean(q.ClientName, string.Empty), company, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            snapshot.ActionItems = BuildActionItems(actionSource, today);
             snapshot.LostReasons = BuildLostReasons(current);
             snapshot.Insights = BuildInsights(allQuotations, current, previous, today);
 
@@ -466,6 +483,66 @@ namespace HVAC_Pro_Desktop.Services
                     Value = QuoteValue(x.Quote)
                 })
                 .ToList();
+        }
+
+        private List<QuotationActionItem> BuildActionItems(List<TenderBid> quotations, DateTime today)
+        {
+            var items = new List<QuotationActionItem>();
+            List<TenderBid> open = (quotations ?? new List<TenderBid>()).Where(q => !IsClosed(q)).ToList();
+
+            items.AddRange(open
+                .Select(q => new { Quote = q, FollowUp = FollowUpDate(q, today) })
+                .Where(x => x.FollowUp.Date < today.Date)
+                .OrderBy(x => x.FollowUp)
+                .ThenByDescending(x => QuoteValue(x.Quote))
+                .Select(x => ToActionItem(
+                    x.Quote,
+                    "Overdue",
+                    x.FollowUp,
+                    Math.Max(1, (today.Date - x.FollowUp.Date).Days) + " day(s) overdue")));
+
+            items.AddRange(open
+                .Where(q => q.DueDate != default(DateTime) && q.DueDate.Date >= today.Date && q.DueDate.Date <= today.Date.AddDays(7))
+                .OrderBy(q => q.DueDate)
+                .ThenByDescending(QuoteValue)
+                .Select(q => ToActionItem(
+                    q,
+                    "Expiring",
+                    q.DueDate.Date,
+                    q.DueDate.Date == today.Date ? "Expires today" : "Expires in " + (q.DueDate.Date - today.Date).Days + " day(s)")));
+
+            items.AddRange(open
+                .Where(IsPendingPipeline)
+                .OrderByDescending(QuoteValue)
+                .ThenBy(FollowUpDateSelector(today))
+                .Take(8)
+                .Select(q => ToActionItem(
+                    q,
+                    "HighValue",
+                    FollowUpDate(q, today),
+                    NormalizeStatus(q.Status) + " · priority value")));
+
+            return items;
+        }
+
+        private static Func<TenderBid, DateTime> FollowUpDateSelector(DateTime today)
+        {
+            return q => FollowUpDate(q, today);
+        }
+
+        private static QuotationActionItem ToActionItem(TenderBid quote, string category, DateTime actionDate, string detail)
+        {
+            return new QuotationActionItem
+            {
+                BidId = quote == null ? 0 : quote.BidID,
+                Category = category,
+                QuotationNumber = Clean(quote == null ? null : quote.QuotationNumber, "QUO-DRAFT"),
+                ClientName = Clean(quote == null ? null : quote.ClientName, "Unassigned Client"),
+                Value = QuoteValue(quote),
+                ActionDate = actionDate.Date,
+                Status = NormalizeStatus(quote == null ? null : quote.Status),
+                Detail = detail
+            };
         }
 
         private List<QuotationLostReasonSlice> BuildLostReasons(List<TenderBid> quotations)

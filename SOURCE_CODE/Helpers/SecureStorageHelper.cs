@@ -8,6 +8,8 @@ namespace HVAC_Pro_Desktop.Helpers
     public static class SecureStorageHelper
     {
         private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("ServoERP.AuthToken.v2");
+        private static readonly byte[] MachineEntropy = Encoding.UTF8.GetBytes("ServoERP.SqlConfig.v1");
+        private const string MachinePrefix = "dpapi-machine:";
 
         public static string StoreDirectory => Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -51,6 +53,39 @@ namespace HVAC_Pro_Desktop.Helpers
             }
             catch
             {
+            }
+        }
+
+        public static string ProtectMachineText(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return string.Empty;
+            byte[] raw = Encoding.UTF8.GetBytes(value);
+            try
+            {
+                byte[] protectedBytes = ProtectedData.Protect(raw, MachineEntropy, DataProtectionScope.LocalMachine);
+                return MachinePrefix + Convert.ToBase64String(protectedBytes);
+            }
+            finally
+            {
+                Array.Clear(raw, 0, raw.Length);
+            }
+        }
+
+        public static string UnprotectMachineText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !value.StartsWith(MachinePrefix, StringComparison.OrdinalIgnoreCase))
+                return value ?? string.Empty; // Backward compatibility for existing plaintext configurations.
+            byte[] protectedBytes = Convert.FromBase64String(value.Substring(MachinePrefix.Length));
+            byte[] raw = ProtectedData.Unprotect(protectedBytes, MachineEntropy, DataProtectionScope.LocalMachine);
+            try
+            {
+                return Encoding.UTF8.GetString(raw);
+            }
+            finally
+            {
+                Array.Clear(raw, 0, raw.Length);
+                Array.Clear(protectedBytes, 0, protectedBytes.Length);
             }
         }
     }

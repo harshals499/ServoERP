@@ -1216,7 +1216,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _chkSilentAutoUpdateEnabled = new CheckBox
             {
-                Text = "Download updates automatically",
+                Text = "Download and install updates automatically when ServoERP closes",
                 Location = new Point(0, 106),
                 Width = 300,
                 Height = 26,
@@ -2364,9 +2364,7 @@ namespace HVAC_Pro_Desktop.UI
                     ConfigService.Set("App", "VersionCheckUrl", ConfigService.ProductionVersionCheckUrl);
                     _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                     ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled != null && _chkVersionCheckEnabled.Checked ? "true" : "false");
-                    ConfigService.Set("App", "SilentAutoUpdateEnabled", _chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked ? "true" : "false");
-                    ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
-                    ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "false");
+                    UpdateService.SetSilentAutoUpdatePreference(_chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked);
                     ConfigService.Set("App", "VersionCheckIntervalHours", ConfigService.GetVersionCheckIntervalHours().ToString());
                 }
                 RefreshIndiaDefaultsPreview();
@@ -4123,9 +4121,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (_txtVersionCheckUrl != null)
                     _txtVersionCheckUrl.Text = UpdateService.GetGitHubRepositoryUrl();
                 ConfigService.Set("App", "VersionCheckEnabled", _chkVersionCheckEnabled == null || _chkVersionCheckEnabled.Checked ? "true" : "false");
-                ConfigService.Set("App", "SilentAutoUpdateEnabled", _chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked ? "true" : "false");
-                ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
-                ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "false");
+                UpdateService.SetSilentAutoUpdatePreference(_chkSilentAutoUpdateEnabled != null && _chkSilentAutoUpdateEnabled.Checked);
 
                 if (_chkVersionCheckEnabled != null && !_chkVersionCheckEnabled.Checked)
                 {

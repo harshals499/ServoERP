@@ -4,8 +4,22 @@ ServoERP now has a WiX Toolset enterprise installer path:
 
 - `ServoERP.App.<version>.msi` installs the application payload.
 - `ServoERP.Setup.<version>.exe` is the Burn bootstrapper that installs prerequisites and chains the MSI.
+- `ServoERP.Terminal.Setup.<version>.exe` installs terminal prerequisites and ServoERP without installing SQL Server Express.
+- `ServoERP.Terminal.App.<version>.msi` is the managed-deployment MSI used by the terminal bootstrapper.
 
 The old Inno Setup installer is left in place only as a fallback. Enterprise deployments should use the Burn bootstrapper.
+
+## Built-in LAN terminal deployment payload
+
+The Enterprise installer already carries the complete current ServoERP application payload inside its compressed MSI. After installation on the office server, LAN Control can package those installed files directly for terminal deployment, so the administrator does not need to download or browse to a second installer.
+
+The Enterprise MSI also installs the matching `ServoERP.Terminal.Setup.<version>.exe` under the application `Installers` folder. LAN Control uses it by default, so new terminals receive .NET Framework and WebView2 checks without installing an unnecessary local SQL Server instance.
+
+The MSI registers `ServoERPTerminalAgent`, an automatic Windows service that sends the enrolled-terminal heartbeat and processes administrator-approved health, update, diagnostics, and safe database-repair commands while the desktop window is closed.
+
+Before copying the terminal installer, LAN Control opens the authenticated WinRM session and verifies the Windows version, free disk space, installed prerequisite state, and the configured SQL login from the terminal itself. Installer transfers are accepted only after SHA-256 verification. Newly deployed SQL passwords are protected with Windows LocalMachine DPAPI so the service and desktop can use them without leaving plaintext in `HVACPro.config`.
+
+LAN Control also attempts to prepare Windows WinRM automatically on selected terminals by using the supplied administrator credential over Windows Management (WMI/DCOM). If the target firewall or Remote UAC policy blocks that bootstrap channel, the generated deployment folder contains `Enable-ServoERP-RemoteManagement.ps1` as a one-time local or Group Policy fallback.
 
 ## Build
 
@@ -20,6 +34,8 @@ Outputs:
 ```text
 C:\HVAC_PRO_MSE\installer_output\enterprise\ServoERP.App.<version>.msi
 C:\HVAC_PRO_MSE\installer_output\enterprise\ServoERP.Setup.<version>.exe
+C:\HVAC_PRO_MSE\installer_output\enterprise\ServoERP.Terminal.App.<version>.msi
+C:\HVAC_PRO_MSE\installer_output\enterprise\ServoERP.Terminal.Setup.<version>.exe
 ```
 
 The build script restores WiX as a repo-local .NET tool and compiles both packages.

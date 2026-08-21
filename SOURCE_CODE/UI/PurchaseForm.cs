@@ -3684,6 +3684,10 @@ namespace HVAC_Pro_Desktop.UI
                 total += amt;
             }
 
+            // GST must follow the supplier/company state combination.  Do this before persistence
+            // so the form totals, accounting records, and generated PO use the same tax split.
+            _svc.ApplyTaxJurisdiction(po, vendor);
+            total = po.LineItems.Sum(line => line.Amount);
             po.TotalAmount = total + _otherCharges;
             po.PriceVarianceFlag = hasVariance;
             if (_current != null)
@@ -3718,15 +3722,6 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _svc.MarkReceived(_current.POID);
-                foreach (PurchaseLineItem li in _current.LineItems)
-                {
-                    if (string.IsNullOrWhiteSpace(li.Description))
-                        continue;
-                    StockItem stockItem = _invSvc.GetByName(li.Description);
-                    if (stockItem != null)
-                        _invSvc.AddStock(stockItem.ItemID, li.Quantity);
-                }
-
                 _current = _svc.GetById(_current.POID);
                 PopulateDetail(_current);
                 LoadList();

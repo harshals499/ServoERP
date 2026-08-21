@@ -85,6 +85,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _selectedCard;
         private bool _loading;
         private bool _initialized;
+        private bool _visualTestMode;
         private int? _pendingNavigationBidId;
         private Timer _initializeTimer;
         private bool _updatingGrid;
@@ -154,7 +155,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void QueueInitialize()
         {
-            if (_initialized || _loading || IsDisposed)
+            if (_visualTestMode || _initialized || _loading || IsDisposed)
                 return;
 
             if (_initializeTimer != null)
@@ -647,7 +648,7 @@ namespace HVAC_Pro_Desktop.UI
             AddQuoteDetailField(detailGrid, 3, "Project / Quote Title", _txtTitle, "E70F", 210, 0);
             AddQuoteDetailField(detailGrid, 0, "Date", _dtpDate, "E787", 130, 1);
             AddQuoteDetailField(detailGrid, 1, "Due Date", _dtpDue, "E787", 130, 1);
-            AddQuoteDetailField(detailGrid, 2, "Validity", _dtpValidity, "E121", 122, 1);
+            AddQuoteDetailField(detailGrid, 2, "Valid Until", _dtpValidity, "E121", 122, 1);
             AddQuoteDetailField(detailGrid, 3, "Required By", _dtpRequiredBy, "E787", 152, 1);
             AddQuoteDetailField(detailGrid, 0, "Status", _cboStatus, "E916", 145, 2);
             AddQuoteDetailField(detailGrid, 1, "Commercial Flow", _cboCommercialFlow, "E9D9", 210, 2);
@@ -4005,7 +4006,16 @@ namespace HVAC_Pro_Desktop.UI
 
         private static DateTimePicker MakeDatePicker()
         {
-            return new DateTimePicker { Width = 250, Height = QuoteEditorFieldHeight, Font = new Font("Segoe UI", 10.2f), Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", CalendarMonthBackground = InputFill };
+            return new DateTimePicker
+            {
+                Width = 250,
+                Height = QuoteEditorFieldHeight,
+                Font = new Font("Segoe UI", 10.2f),
+                Format = DateTimePickerFormat.Custom,
+                CustomFormat = "dd/MM/yyyy",
+                ShowUpDown = false,
+                CalendarMonthBackground = InputFill
+            };
         }
 
         private static void ApplyQuotationComboSizing(ComboBox combo)
