@@ -1,6 +1,8 @@
 using System;
+using System.Data.SqlClient;
 using System.IO;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 
@@ -15,6 +17,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureSafeLoadShowsInlineError();
             EnsureSqlAuthenticationFailuresAreRecognised();
             EnsureClientSetupVerifiesCredentialsBeforeSaving();
+            EnsureRemoteTerminalStartupUsesConfiguredSqlAuthentication();
             return "UI error handling safety net and verified SQL startup/client recovery checks passed";
         }
 
@@ -89,6 +92,30 @@ namespace HVAC_Pro_Desktop.Tests
                 !script.Contains("pre-client-connection.bak") ||
                 !script.Contains("ServerRole = 'ClientPC'"))
                 throw new InvalidOperationException("The client setup script can save an unverified or unprotected SQL configuration.");
+        }
+
+        private static void EnsureRemoteTerminalStartupUsesConfiguredSqlAuthentication()
+        {
+            if (DatabaseManager.IsLocalServerTarget(@"OFFICE-SERVER\SQLEXPRESS"))
+                throw new InvalidOperationException("A remote office SQL target was classified as a local SQL service.");
+            if (!DatabaseManager.IsLocalServerTarget(@"localhost\SQLEXPRESS") ||
+                !DatabaseManager.IsLocalServerTarget(Environment.MachineName + @"\SQLEXPRESS"))
+                throw new InvalidOperationException("A local SQL target was classified as a remote terminal target.");
+
+            const string configured =
+                "Server=OLD-SERVER\\SQLEXPRESS;Database=HVAC_PRO;User ID=servoerp_app;Password=TerminalSecret;Integrated Security=False;";
+            string probe = DatabaseManager.BuildServerProbeConnectionString(
+                configured,
+                @"OFFICE-SERVER\SQLEXPRESS",
+                false);
+            var builder = new SqlConnectionStringBuilder(probe);
+
+            if (builder.IntegratedSecurity ||
+                !string.Equals(builder.UserID, "servoerp_app", StringComparison.Ordinal) ||
+                !string.Equals(builder.Password, "TerminalSecret", StringComparison.Ordinal) ||
+                !string.Equals(builder.DataSource, @"OFFICE-SERVER\SQLEXPRESS", StringComparison.Ordinal) ||
+                !string.Equals(builder.InitialCatalog, "HVAC_PRO", StringComparison.Ordinal))
+                throw new InvalidOperationException("The remote SQL reachability probe discarded the terminal's configured SQL login or database.");
         }
     }
 }

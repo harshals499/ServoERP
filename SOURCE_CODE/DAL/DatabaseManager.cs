@@ -100,10 +100,19 @@ namespace HVAC_Pro_Desktop.DAL
 
         public static string PrepareSqlServer()
         {
-            string sqlServiceName = GetPrimarySqlServiceName();
-
-            EnsureServiceRunning(sqlServiceName, 25000);
-            EnsureServiceRunning(SqlBrowserServiceName, 10000, false);
+            string configuredServer = GetConfiguredServer();
+            if (IsLocalServerTarget(configuredServer))
+            {
+                string sqlServiceName = GetPrimarySqlServiceName();
+                EnsureServiceRunning(sqlServiceName, 25000);
+                EnsureServiceRunning(SqlBrowserServiceName, 10000, false);
+            }
+            else
+            {
+                AppLogger.LogInfo(
+                    "DatabaseManager detected remote SQL target " + configuredServer +
+                    "; local SQL service startup was skipped for this terminal.");
+            }
 
             string server = FindWorkingServer(30000);
             if (string.IsNullOrWhiteSpace(server))
@@ -176,6 +185,23 @@ namespace HVAC_Pro_Desktop.DAL
                 AppRuntime.LogException("DatabaseManager.GetConfiguredServer", ex);
                 return null;
             }
+        }
+
+        internal static bool IsLocalServerTarget(string server)
+        {
+            if (string.IsNullOrWhiteSpace(server))
+                return true;
+
+            string value = server.Trim();
+            int slashIndex = value.IndexOf('\\');
+            string host = slashIndex < 0 ? value : value.Substring(0, slashIndex).Trim();
+
+            return string.Equals(host, ".", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "(local)", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, "::1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(host, Environment.MachineName, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ExtractInstanceName(string server)
@@ -253,6 +279,11 @@ namespace HVAC_Pro_Desktop.DAL
 
             string configuredServer = GetConfiguredServer();
             AddCandidate(configuredServer);
+
+            // A client PC must never drift to an unrelated local SQL instance. Its configured
+            // office server is authoritative and the terminal installer intentionally omits SQL.
+            if (!IsLocalServerTarget(configuredServer))
+                return candidates.ToArray();
 
             try
             {
@@ -438,8 +469,9 @@ namespace HVAC_Pro_Desktop.DAL
         {
             try
             {
+                string configuredConnectionString = RequireConfiguredConnectionString();
                 using (var conn = DatabaseConnectionFactory.CreateConnection(
-                    $@"Server={serverName};Database=master;Integrated Security=true;Connection Timeout=5;"))
+                    BuildServerProbeConnectionString(configuredConnectionString, serverName, false)))
                 {
                     DatabaseConnectionFactory.Open(conn, "DatabaseManager.CanOpenServer");
                     return true;
@@ -447,8 +479,45 @@ namespace HVAC_Pro_Desktop.DAL
             }
             catch
             {
-                return false;
+                try
+                {
+                    string configuredConnectionString = RequireConfiguredConnectionString();
+                    var configuredBuilder = new SqlConnectionStringBuilder(configuredConnectionString);
+                    if (!configuredBuilder.IntegratedSecurity)
+                        return false;
+
+                    using (var conn = DatabaseConnectionFactory.CreateConnection(
+                        BuildServerProbeConnectionString(configuredConnectionString, serverName, true)))
+                    {
+                        DatabaseConnectionFactory.Open(conn, "DatabaseManager.CanOpenServer.MasterFallback");
+                        return true;
+                    }
+                }
+                catch
+                {
+                    return false;
+                }
             }
+        }
+
+        internal static string BuildServerProbeConnectionString(
+            string configuredConnectionString,
+            string serverName,
+            bool useMasterDatabase)
+        {
+            if (string.IsNullOrWhiteSpace(serverName))
+                throw new ArgumentException("A SQL Server target is required.", nameof(serverName));
+
+            var builder = new SqlConnectionStringBuilder(configuredConnectionString)
+            {
+                DataSource = serverName.Trim(),
+                ConnectTimeout = 5
+            };
+
+            if (useMasterDatabase)
+                builder.InitialCatalog = "master";
+
+            return DatabaseConnectionFactory.NormalizeConnectionString(builder.ConnectionString);
         }
 
         private static void EnsureServiceRunning(string serviceName, int waitMs, bool required = true)

@@ -1,15 +1,30 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.441.0",
-  "updatedAt": "2026-08-21",
+  "latestVersion": "1.1.442.0",
+  "updatedAt": "2026-08-22",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.441/ServoERP.Desktop-1.1.441-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.441.0.exe",
-    "installer": "ServoERP_Setup_1.1.441.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.442/ServoERP.Desktop-1.1.442-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.442.0.exe",
+    "installer": "ServoERP_Setup_1.1.442.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.442.0",
+      "date": "2026-08-22",
+      "title": "Permanent terminal SQL connection",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed SQL-free terminal PCs aborting while trying to start a nonexistent local SQL Server service.",
+            "Made each terminal keep its one-time saved office server, database, and encrypted SQL login permanently.",
+            "Prevented terminal startup from discarding SQL Authentication credentials or drifting to a local database."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.441.0",
       "date": "2026-08-21",

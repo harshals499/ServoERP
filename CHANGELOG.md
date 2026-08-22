@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.442.0 - 2026-08-22
+
+- Fixed SQL-free terminal PCs aborting at startup while trying to start a nonexistent local `SQLEXPRESS` service.
+- Kept remote terminals pinned to their configured office SQL Server and prevented fallback to an unrelated local database instance.
+- Fixed SQL Server reachability checks to preserve the terminal's configured SQL Authentication credentials and business database.
+
 ## 1.1.441.0 - 2026-08-21
 
 - Replaced the fatal raw SQL login startup error with guided Database Connection Setup, verified retry, and clear no-data-changed messaging.
