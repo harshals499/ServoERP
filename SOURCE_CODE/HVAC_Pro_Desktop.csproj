@@ -412,6 +412,7 @@
     <Compile Include="SERVICES\AppStartupService.cs" />
     <Compile Include="SERVICES\PostUpdateMaintenanceService.cs" />
     <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
+    <Compile Include="SERVICES\OfficeDatabaseHandshakeService.cs" />
     <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
     <Compile Include="SERVICES\NodeIdentityService.cs" />
     <Compile Include="SERVICES\OfficeLanControlService.cs" />
@@ -474,6 +475,7 @@
     <Compile Include="Tests\LanControlManagementSmokeTests.cs" />
     <Compile Include="Tests\PdfTemplateRegressionTests.cs" />
     <Compile Include="Tests\OfflineSyncPolicyTests.cs" />
+    <Compile Include="Tests\OfficeDatabaseHandshakeTests.cs" />
     <Compile Include="Tests\GuardrailEndToEndTests.cs" />
       <!-- UI -->
     <Compile Include="UI\BaseForm.cs">

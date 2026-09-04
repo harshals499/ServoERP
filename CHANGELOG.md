@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.1.444.0 - 2026-09-04
+
+- Fixed LAN deployment remaining indefinitely at `Waiting for credentials` when the elevated PowerShell credential prompt was hidden or never completed.
+- Added server-side administrator access setup protected with Windows current-user DPAPI, allowing approved credentials to be reused for unattended terminal installation without placing passwords in scripts or command-line arguments.
+- Reused the server's verified SQL configuration automatically, preserved Windows Authentication when configured, deleted the one-time deployment credential envelope immediately after launch, and added bounded WinRM connection timeouts with actionable per-PC authentication failures.
+
+## 1.1.443.0 - 2026-08-25
+
+- Added a permanent office-database identity handshake so every enrolled terminal verifies the same authoritative SQL Server database before business screens or writes are enabled.
+- Blocked startup and connection changes when a terminal reaches an unrelated or uninitialised database, preventing split-office records and accidental data loss while preserving the existing SQL configuration.
+- Added terminal handshake health metadata and kept offline business-data writes disabled; all terminals continue working directly against the shared office SQL database with the existing per-device ServoERP license activation flow.
+- Fixed Enterprise installer packaging under PowerShell 7 so office-server and SQL-free terminal installers can be produced reliably from the same release.
+
 ## 1.1.442.0 - 2026-08-22
 
 - Fixed SQL-free terminal PCs aborting at startup while trying to start a nonexistent local `SQLEXPRESS` service.

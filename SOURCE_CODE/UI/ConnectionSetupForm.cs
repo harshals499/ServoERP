@@ -397,6 +397,7 @@ namespace HVAC_Pro_Desktop.UI
                 ConfigurationManager.RefreshSection("connectionStrings");
                 SaveInstallerDatabaseConfig(connectionString);
                 ConfigService.Set("Database", "ServerRole", _rbPrivateServer.Checked ? "ClientPC" : "LocalSqlServer");
+                OfficeDatabaseHandshakeService.VerifyAndPin(connectionString);
                 NodeIdentityService.EnsureRegistered();
                 AppRuntime.LogConnection("Connection string saved.");
                 DialogResult = DialogResult.OK;

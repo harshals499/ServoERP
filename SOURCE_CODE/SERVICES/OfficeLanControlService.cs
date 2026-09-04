@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -29,6 +30,9 @@ namespace HVAC_Pro_Desktop.Services
         private const int DiscoveryParallelism = 32;
         private const int MaximumAutomaticDiscoveryAddresses = 1024;
         private static readonly string DeploymentRoot = Path.Combine(@"C:\HVAC_PRO_MSE", "DIAGNOSTICS", "LAN_DEPLOYMENT");
+        private static readonly byte[] DeploymentCredentialEntropy = Encoding.UTF8.GetBytes("ServoERP.LanDeployment.v1");
+        private static readonly string SavedDeploymentCredentialPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ServoERP", "lan-deployment-credential.dat");
 
         public async Task<IList<OfficeLanComputer>> DiscoverComputersAsync(CancellationToken cancellationToken)
         {
@@ -128,6 +132,16 @@ namespace HVAC_Pro_Desktop.Services
 
         public OfficeLanDeploymentPackage CreateDeploymentPackage(IEnumerable<OfficeLanComputer> selectedComputers, string installerPath)
         {
+            OfficeLanDeploymentCredential savedCredential;
+            if (!TryLoadSavedDeploymentCredential(out savedCredential))
+                throw new InvalidOperationException("Configure LAN deployment Admin access before preparing an unattended deployment.");
+            try { return CreateDeploymentPackage(selectedComputers, installerPath, savedCredential); }
+            finally { savedCredential.Password = string.Empty; }
+        }
+
+        public OfficeLanDeploymentPackage CreateDeploymentPackage(IEnumerable<OfficeLanComputer> selectedComputers, string installerPath,
+            OfficeLanDeploymentCredential deploymentCredential)
+        {
             List<OfficeLanComputer> targets = (selectedComputers ?? Enumerable.Empty<OfficeLanComputer>())
                 .Where(item => item != null && item.Selected && item.IsReachable && !item.IsLocalComputer)
                 .GroupBy(item => item.HostName ?? item.IpAddress, StringComparer.OrdinalIgnoreCase)
@@ -148,6 +162,8 @@ namespace HVAC_Pro_Desktop.Services
                  Path.GetFileName(resolvedInstallerPath).StartsWith("ServoERP.Terminal.Setup.", StringComparison.OrdinalIgnoreCase));
             if (!useBuiltInPayload && !isMsi && !isEnterpriseExe)
                 throw new InvalidOperationException("The optional installer override must be ServoERP.App.<version>.msi or ServoERP.Setup.<version>.exe.");
+            if (deploymentCredential == null || string.IsNullOrWhiteSpace(deploymentCredential.UserName) || string.IsNullOrEmpty(deploymentCredential.Password))
+                throw new InvalidOperationException("Configure LAN deployment Admin access before preparing an unattended deployment.");
 
             SqlConnectionStringBuilder sql = new SqlConnectionStringBuilder(DatabaseManager.RequireConfiguredConnectionString());
             string remoteSqlTarget = NormalizeRemoteSqlTarget(sql.DataSource);
@@ -176,10 +192,12 @@ namespace HVAC_Pro_Desktop.Services
             string progressPath = Path.Combine(folder, "deployment-progress.jsonl");
             string scriptPath = Path.Combine(folder, "Deploy-ServoERP-LAN.ps1");
             string bootstrapPath = Path.Combine(folder, "Enable-ServoERP-RemoteManagement.ps1");
+            string credentialEnvelopePath = Path.Combine(folder, "deployment-credentials.dat");
             File.WriteAllText(scriptPath, BuildDeploymentScript(
                 Path.GetFileName(packagedInstaller), installerKind, remoteSqlTarget, sql.InitialCatalog, jobPublicId), Encoding.UTF8);
             File.WriteAllText(bootstrapPath, BuildRemoteManagementBootstrapScript(), Encoding.UTF8);
             File.WriteAllText(Path.Combine(folder, "README.txt"), BuildDeploymentGuide(), Encoding.UTF8);
+            WriteCredentialEnvelope(credentialEnvelopePath, deploymentCredential, sql);
             TryCreateDeploymentJob(jobPublicId, targets, installerKind, folder);
 
             return new OfficeLanDeploymentPackage
@@ -189,8 +207,105 @@ namespace HVAC_Pro_Desktop.Services
                 BootstrapScriptPath = bootstrapPath,
                 TargetCount = targets.Count,
                 JobPublicId = jobPublicId,
-                ProgressPath = progressPath
+                ProgressPath = progressPath,
+                CredentialEnvelopePath = credentialEnvelopePath
             };
+        }
+
+        public bool TryLoadSavedDeploymentCredential(out OfficeLanDeploymentCredential credential)
+        {
+            credential = null;
+            try
+            {
+                if (!File.Exists(SavedDeploymentCredentialPath))
+                    return false;
+                byte[] protectedBytes = File.ReadAllBytes(SavedDeploymentCredentialPath);
+                byte[] raw = ProtectedData.Unprotect(protectedBytes, DeploymentCredentialEntropy, DataProtectionScope.CurrentUser);
+                try
+                {
+                    credential = JsonConvert.DeserializeObject<OfficeLanDeploymentCredential>(Encoding.UTF8.GetString(raw));
+                    if (credential == null || string.IsNullOrWhiteSpace(credential.UserName) || string.IsNullOrEmpty(credential.Password))
+                    {
+                        credential = null;
+                        return false;
+                    }
+                    credential.RememberOnServer = true;
+                    return true;
+                }
+                finally
+                {
+                    Array.Clear(raw, 0, raw.Length);
+                    Array.Clear(protectedBytes, 0, protectedBytes.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("OfficeLanControlService.LoadSavedCredential", ex);
+                return false;
+            }
+        }
+
+        public void SaveDeploymentCredential(OfficeLanDeploymentCredential credential)
+        {
+            if (credential == null || string.IsNullOrWhiteSpace(credential.UserName) || string.IsNullOrEmpty(credential.Password))
+                throw new InvalidOperationException("Enter a Windows administrator account and password.");
+            Directory.CreateDirectory(Path.GetDirectoryName(SavedDeploymentCredentialPath));
+            byte[] raw = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(new OfficeLanDeploymentCredential
+            {
+                UserName = credential.UserName.Trim(),
+                Password = credential.Password,
+                RememberOnServer = true
+            }));
+            try
+            {
+                byte[] protectedBytes = ProtectedData.Protect(raw, DeploymentCredentialEntropy, DataProtectionScope.CurrentUser);
+                try { File.WriteAllBytes(SavedDeploymentCredentialPath, protectedBytes); }
+                finally { Array.Clear(protectedBytes, 0, protectedBytes.Length); }
+            }
+            finally
+            {
+                Array.Clear(raw, 0, raw.Length);
+            }
+        }
+
+        public void ForgetSavedDeploymentCredential()
+        {
+            try
+            {
+                if (File.Exists(SavedDeploymentCredentialPath))
+                    File.Delete(SavedDeploymentCredentialPath);
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("OfficeLanControlService.ForgetSavedCredential", ex);
+            }
+        }
+
+        private static void WriteCredentialEnvelope(string path, OfficeLanDeploymentCredential windowsCredential,
+            SqlConnectionStringBuilder sql)
+        {
+            if (windowsCredential == null || string.IsNullOrWhiteSpace(windowsCredential.UserName) || string.IsNullOrEmpty(windowsCredential.Password))
+                throw new InvalidOperationException("A Windows administrator credential is required for unattended LAN deployment.");
+
+            var envelope = new
+            {
+                WindowsUserName = windowsCredential.UserName.Trim(),
+                WindowsPassword = windowsCredential.Password,
+                SqlIntegratedSecurity = sql.IntegratedSecurity,
+                SqlUserName = sql.IntegratedSecurity ? string.Empty : sql.UserID,
+                SqlPassword = sql.IntegratedSecurity ? string.Empty : sql.Password
+            };
+            byte[] raw = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(envelope));
+            try
+            {
+                byte[] protectedBytes = ProtectedData.Protect(raw, DeploymentCredentialEntropy, DataProtectionScope.CurrentUser);
+                try { File.WriteAllBytes(path, protectedBytes); }
+                finally { Array.Clear(protectedBytes, 0, protectedBytes.Length); }
+            }
+            finally
+            {
+                Array.Clear(raw, 0, raw.Length);
+            }
         }
 
         private static string FindBuiltInTerminalInstaller()
@@ -257,14 +372,30 @@ namespace HVAC_Pro_Desktop.Services
             if (package == null || string.IsNullOrWhiteSpace(package.ScriptPath) || !File.Exists(package.ScriptPath))
                 throw new InvalidOperationException("The LAN deployment package is not available.");
 
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + package.ScriptPath + "\"",
-                WorkingDirectory = package.FolderPath,
-                UseShellExecute = true,
-                Verb = "runas"
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + package.ScriptPath + "\"",
+                    WorkingDirectory = package.FolderPath,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                });
+            }
+            catch
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(package.CredentialEnvelopePath) && File.Exists(package.CredentialEnvelopePath))
+                        File.Delete(package.CredentialEnvelopePath);
+                }
+                catch (Exception cleanupException)
+                {
+                    AppRuntime.LogException("OfficeLanControlService.LaunchDeployment.CredentialCleanup", cleanupException);
+                }
+                throw;
+            }
         }
 
         public IList<OfficeLanDeploymentProgress> ReadDeploymentProgress(OfficeLanDeploymentPackage package)
@@ -694,19 +825,46 @@ function Write-DeploymentProgress([string]$computer, [string]$stage, [int]$perce
 }
 
 Write-Host ('ServoERP LAN deployment targets: ' + ($targets -join ', ')) -ForegroundColor Cyan
-$adminCredential = Get-Credential -Message 'Enter a Windows administrator account valid on the selected terminal PCs.'
-$sqlCredential = Get-Credential -UserName 'servoerp_app' -Message 'Enter the ServoERP SQL login used by terminal PCs.'
+
+$credentialEnvelopePath = Join-Path $packageRoot 'deployment-credentials.dat'
+try {
+    if (!(Test-Path -LiteralPath $credentialEnvelopePath)) { throw 'The protected deployment credential envelope is missing.' }
+    $protectedCredentialBytes = [IO.File]::ReadAllBytes($credentialEnvelopePath)
+    $credentialEntropy = [Text.Encoding]::UTF8.GetBytes('ServoERP.LanDeployment.v1')
+    $credentialBytes = [Security.Cryptography.ProtectedData]::Unprotect(
+        $protectedCredentialBytes, $credentialEntropy, [Security.Cryptography.DataProtectionScope]::CurrentUser)
+    $credentialData = [Text.Encoding]::UTF8.GetString($credentialBytes) | ConvertFrom-Json
+    $adminSecurePassword = ConvertTo-SecureString ([string]$credentialData.WindowsPassword) -AsPlainText -Force
+    $adminCredential = New-Object Management.Automation.PSCredential ([string]$credentialData.WindowsUserName, $adminSecurePassword)
+    $sqlIntegratedSecurity = [bool]$credentialData.SqlIntegratedSecurity
+    if (-not $sqlIntegratedSecurity) {
+        $sqlSecurePassword = ConvertTo-SecureString ([string]$credentialData.SqlPassword) -AsPlainText -Force
+        $sqlCredential = New-Object Management.Automation.PSCredential ([string]$credentialData.SqlUserName, $sqlSecurePassword)
+    }
+}
+catch {
+    $credentialError = 'Could not unlock the approved LAN deployment credential: ' + $_.Exception.Message
+    foreach ($target in $targets) { Write-DeploymentProgress $target 'Authentication setup' 100 'Failed' $credentialError }
+    throw $credentialError
+}
+finally {
+    Remove-Item -LiteralPath $credentialEnvelopePath -Force -ErrorAction SilentlyContinue
+    if ($credentialBytes) { [Array]::Clear($credentialBytes, 0, $credentialBytes.Length) }
+    if ($protectedCredentialBytes) { [Array]::Clear($protectedCredentialBytes, 0, $protectedCredentialBytes.Length) }
+}
 
 $sqlBuilder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
 $sqlBuilder['Data Source'] = $sqlServer
 $sqlBuilder['Initial Catalog'] = $databaseName
-$sqlBuilder['User ID'] = $sqlCredential.UserName
-$sqlBuilder['Password'] = $sqlCredential.GetNetworkCredential().Password
-$sqlBuilder['Integrated Security'] = $false
+$sqlBuilder['Integrated Security'] = $sqlIntegratedSecurity
+if (-not $sqlIntegratedSecurity) {
+    $sqlBuilder['User ID'] = $sqlCredential.UserName
+    $sqlBuilder['Password'] = $sqlCredential.GetNetworkCredential().Password
+}
 $sqlBuilder['Connect Timeout'] = 15
 $sqlBuilder['TrustServerCertificate'] = $true
 $sqlTest = New-Object System.Data.SqlClient.SqlConnection $sqlBuilder.ConnectionString
-try { $sqlTest.Open(); Write-Host 'SQL credential verified.' -ForegroundColor Green } finally { $sqlTest.Close() }
+try { $sqlTest.Open(); Write-Host 'Configured office SQL connection verified.' -ForegroundColor Green } finally { $sqlTest.Close() }
 
 $computerSystem = Get-CimInstance Win32_ComputerSystem
 if (-not $computerSystem.PartOfDomain) {
@@ -755,6 +913,7 @@ if ($publicRule) { Set-NetFirewallRule -Name 'WINRM-HTTP-In-TCP-PUBLIC' -RemoteA
     throw 'Windows accepted the WinRM bootstrap, but WinRM did not become reachable within 45 seconds.'
 }
 
+$sessionOption = New-PSSessionOption -OpenTimeout 20000 -OperationTimeout 120000
 $results = foreach ($target in $targets) {
     $session = $null
     if (Test-Path -LiteralPath (Join-Path $packageRoot 'cancel.requested')) {
@@ -767,34 +926,45 @@ $results = foreach ($target in $targets) {
         Write-Host (""Connecting to {0}..."" -f $target) -ForegroundColor Cyan
         $winRmResult = Enable-RemoteManagementIfNeeded $target $adminCredential
         Write-DeploymentProgress $target 'Remote management' 20 'Running' $winRmResult
-        $session = New-PSSession -ComputerName $target -Credential $adminCredential -ErrorAction Stop
-        $preflight = Invoke-Command -Session $session -ArgumentList $sqlServer, $databaseName, $sqlCredential -ScriptBlock {
-            param($server, $database, $sqlCred)
+        try {
+            $session = New-PSSession -ComputerName $target -Credential $adminCredential -SessionOption $sessionOption -ErrorAction Stop
+        }
+        catch {
+            throw (""Windows rejected or could not use the approved administrator access for {0}: {1}. Verify the account as DOMAIN\User or TARGET-PC\User. On workgroup PCs, Remote UAC/WinRM must be enabled once locally or by policy."" -f $target, $_.Exception.Message)
+        }
+        $preflight = Invoke-Command -Session $session -ArgumentList $sqlServer, $databaseName, $sqlIntegratedSecurity, $sqlCredential -ScriptBlock {
+            param($server, $database, $useWindowsAuth, $sqlCred)
             $os = Get-CimInstance Win32_OperatingSystem
             $disk = Get-CimInstance Win32_LogicalDisk -Filter ""DeviceID='C:'""
             if ([double]$disk.FreeSpace -lt 1.5GB) { throw ('Insufficient free disk space. Available: ' + [math]::Round($disk.FreeSpace / 1GB, 2) + ' GB; required: 1.5 GB.') }
             if ([version]$os.Version -lt [version]'10.0') { throw ('Unsupported Windows version: ' + $os.Caption + ' ' + $os.Version) }
             $netRelease = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full' -Name Release -ErrorAction SilentlyContinue).Release
             $webView = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -Name pv -ErrorAction SilentlyContinue).pv
-            $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
-            $builder['Data Source'] = $server
-            $builder['Initial Catalog'] = $database
-            $builder['User ID'] = $sqlCred.UserName
-            $builder['Password'] = $sqlCred.GetNetworkCredential().Password
-            $builder['Integrated Security'] = $false
-            $builder['Connect Timeout'] = 7
-            $builder['TrustServerCertificate'] = $true
-            $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
-            try { $connection.Open() } finally { $connection.Close() }
+            $sqlValidation = 'SQL Authentication verified from terminal'
+            if ($useWindowsAuth) {
+                $sqlValidation = 'Windows Authentication configuration copied; the signed-in terminal user is verified at ServoERP startup'
+            } else {
+                $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
+                $builder['Data Source'] = $server
+                $builder['Initial Catalog'] = $database
+                $builder['User ID'] = $sqlCred.UserName
+                $builder['Password'] = $sqlCred.GetNetworkCredential().Password
+                $builder['Integrated Security'] = $false
+                $builder['Connect Timeout'] = 7
+                $builder['TrustServerCertificate'] = $true
+                $connection = New-Object System.Data.SqlClient.SqlConnection $builder.ConnectionString
+                try { $connection.Open() } finally { $connection.Close() }
+            }
             [pscustomobject]@{
                 OperatingSystem = ($os.Caption + ' ' + $os.Version)
                 FreeDiskGb = [math]::Round($disk.FreeSpace / 1GB, 2)
                 DotNetReady = [bool]($netRelease -ge 461808)
                 WebViewReady = [bool]$webView
                 SqlReady = $true
+                SqlValidation = $sqlValidation
             }
         }
-        Write-DeploymentProgress $target 'Authenticated preflight' 30 'Running' ('OS: ' + $preflight.OperatingSystem + '; free disk: ' + $preflight.FreeDiskGb + ' GB; SQL login verified from terminal; .NET ready: ' + $preflight.DotNetReady + '; WebView2 ready: ' + $preflight.WebViewReady)
+        Write-DeploymentProgress $target 'Authenticated preflight' 30 'Running' ('OS: ' + $preflight.OperatingSystem + '; free disk: ' + $preflight.FreeDiskGb + ' GB; ' + $preflight.SqlValidation + '; .NET ready: ' + $preflight.DotNetReady + '; WebView2 ready: ' + $preflight.WebViewReady)
         $remoteInstaller = Invoke-Command -Session $session -ScriptBlock {
             $folder = 'C:\ProgramData\ServoERP\Deployment'
             New-Item -ItemType Directory -Path $folder -Force | Out-Null
@@ -806,8 +976,8 @@ $results = foreach ($target in $targets) {
         Write-DeploymentProgress $target 'Installer copied' 45 'Running' ('Installer copied and SHA-256 verified: ' + $installerHash)
 
         Write-DeploymentProgress $target 'Installing' 60 'Running' 'Installing prerequisites and ServoERP. This may take several minutes.'
-        $detail = Invoke-Command -Session $session -ArgumentList $remoteInstaller, $installerKind, $sqlServer, $databaseName, $sqlCredential, $winRmResult -ScriptBlock {
-            param($installerPath, $packageKind, $server, $database, $sqlCred, $remoteReadiness)
+        $detail = Invoke-Command -Session $session -ArgumentList $remoteInstaller, $installerKind, $sqlServer, $databaseName, $sqlIntegratedSecurity, $sqlCredential, $winRmResult -ScriptBlock {
+            param($installerPath, $packageKind, $server, $database, $useWindowsAuth, $sqlCred, $remoteReadiness)
             $ErrorActionPreference = 'Stop'
             $installRoot = 'C:\HVAC_PRO_MSE'
             $configPath = Join-Path $installRoot 'HVACPro.config'
@@ -825,14 +995,19 @@ $results = foreach ($target in $targets) {
             if (Test-Path -LiteralPath $configPath) { Copy-Item $configPath ($configPath + '.pre-lan-deployment.bak') -Force }
             Set-Value $config 'Database' 'Server' $server
             Set-Value $config 'Database' 'DatabaseName' $database
-            Set-Value $config 'Database' 'UseWindowsAuth' 'false'
-            Set-Value $config 'Database' 'Username' $sqlCred.UserName
-            $plainSqlPassword = $sqlCred.GetNetworkCredential().Password
-            $entropy = [Text.Encoding]::UTF8.GetBytes('ServoERP.SqlConfig.v1')
-            $protectedPassword = [Security.Cryptography.ProtectedData]::Protect(
-                [Text.Encoding]::UTF8.GetBytes($plainSqlPassword), $entropy,
-                [Security.Cryptography.DataProtectionScope]::LocalMachine)
-            Set-Value $config 'Database' 'Password' ('dpapi-machine:' + [Convert]::ToBase64String($protectedPassword))
+            Set-Value $config 'Database' 'UseWindowsAuth' ($useWindowsAuth.ToString().ToLowerInvariant())
+            if ($useWindowsAuth) {
+                Set-Value $config 'Database' 'Username' ''
+                Set-Value $config 'Database' 'Password' ''
+            } else {
+                Set-Value $config 'Database' 'Username' $sqlCred.UserName
+                $plainSqlPassword = $sqlCred.GetNetworkCredential().Password
+                $entropy = [Text.Encoding]::UTF8.GetBytes('ServoERP.SqlConfig.v1')
+                $protectedPassword = [Security.Cryptography.ProtectedData]::Protect(
+                    [Text.Encoding]::UTF8.GetBytes($plainSqlPassword), $entropy,
+                    [Security.Cryptography.DataProtectionScope]::LocalMachine)
+                Set-Value $config 'Database' 'Password' ('dpapi-machine:' + [Convert]::ToBase64String($protectedPassword))
+            }
             Set-Value $config 'Database' 'MaxPoolSize' '100'
             Set-Value $config 'Database' 'ServerRole' 'ClientPC'
             Set-Value $config 'Fallback' 'Mode' 'LocalSQLiteDiagnostics'
@@ -883,7 +1058,6 @@ $report = Join-Path $packageRoot ('deployment-result-' + (Get-Date -Format 'yyyy
 $results | Export-Csv -LiteralPath $report -NoTypeInformation
 $results | Format-Table -AutoSize
 Write-Host ('Deployment report: ' + $report) -ForegroundColor Cyan
-Read-Host 'Press Enter to close'
 ";
 
             return template
@@ -916,8 +1090,8 @@ Read-Host 'Press Enter to close'
                    "3. If WinRM is unavailable, LAN Control first attempts to enable the built-in Windows WinRM service through credentialed Windows Management (WMI/DCOM)." + Environment.NewLine +
                    "4. If Windows blocks that bootstrap channel, run Enable-ServoERP-RemoteManagement.ps1 once on the terminal as Administrator or deploy the equivalent domain Group Policy." + Environment.NewLine +
                    "5. The default package is generated from the current ServoERP application payload already embedded in the Enterprise installation; a separate installer download is not required." + Environment.NewLine +
-                   "6. Deploy-ServoERP-LAN.ps1 prompts for Windows and SQL credentials; neither credential is written into the package." + Environment.NewLine +
-                   "7. The SQL credential is saved only in each terminal's existing ServoERP configuration because the desktop app requires it for startup." + Environment.NewLine +
+                   "6. LAN Control supplies the approved Windows administrator credential through a current-user DPAPI envelope and deletes that one-time envelope as soon as deployment starts." + Environment.NewLine +
+                   "7. The existing office SQL configuration is reused automatically. SQL Authentication passwords are protected with machine-level DPAPI on each terminal; Windows Authentication remains Windows Authentication." + Environment.NewLine +
                    "8. Each deployment result is written to a CSV beside the script." + Environment.NewLine;
         }
 

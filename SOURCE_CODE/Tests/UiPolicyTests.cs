@@ -43,7 +43,7 @@ namespace HVAC_Pro_Desktop.Tests
                 if (grid == null || grid.Rows.Count < 6)
                     throw new InvalidOperationException("LAN Control preview must show server, ready, install, update, installing, and failed terminal states.");
 
-                string[] requiredActions = { "Scan network", "Add terminal", "Run readiness", "Pilot rollout", "Collect diagnostics", "Repair database", "Retry failed", "Cancel deployment", "Installer override", "Deploy selected" };
+                string[] requiredActions = { "Scan network", "Add terminal", "Run readiness", "Pilot rollout", "Collect diagnostics", "Repair database", "Retry failed", "Cancel deployment", "Installer override", "Admin access", "Deploy selected" };
                 List<string> buttonLabels = FindControls<Button>(form).Select(button => button.Text).ToList();
                 foreach (string action in requiredActions)
                     if (!buttonLabels.Contains(action))

@@ -131,6 +131,7 @@ namespace HVAC_Pro_Desktop.DAL
                     bool ok = Convert.ToInt32(result, CultureInfo.InvariantCulture) == 1;
                     if (ok)
                     {
+                        OfficeDatabaseHandshakeService.VerifyCandidateDatabase(normalized);
                         LocalSqliteFallbackStore.RecordSqlAvailable(normalized);
                         return DatabaseConnectionTestResult.Ok(BuildSuccessMessage(normalized), normalized);
                     }

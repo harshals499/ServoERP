@@ -148,6 +148,7 @@ namespace HVAC_Pro_Desktop
                     lines.Add(result);
                 lines.Add("PASS " + LanControlManagementSmokeTests.RunAll());
                 lines.Add("PASS " + OfflineSyncPolicyTests.RunAll());
+                lines.Add("PASS " + OfficeDatabaseHandshakeTests.RunAll());
                 foreach (string result in UiQaStateCatalogTests.RunAll())
                     lines.Add(result);
                 lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
@@ -372,6 +373,7 @@ namespace HVAC_Pro_Desktop
                     string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
                     Directory.CreateDirectory(outputDirectory);
                     string outputPath = Path.Combine(outputDirectory, "lan-control-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    string accessOutputPath = Path.Combine(outputDirectory, "lan-deployment-access-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
                     using (var form = new OfficeLanControlForm(false))
                     {
                         form.LoadPreviewDataForVisualTest();
@@ -382,6 +384,7 @@ namespace HVAC_Pro_Desktop
                             form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
                             bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
                         }
+                        form.CaptureDeploymentAccessDialogForVisualTest(accessOutputPath);
                         form.Close();
                     }
                     AppRuntime.LogTiming("LanControlVisualTest", 0, outputPath);
@@ -805,10 +808,14 @@ namespace HVAC_Pro_Desktop
                 string resolvedSqlServer = DatabaseManager.PrepareSqlServer();
                 AppRuntime.LogTiming("Startup.PrepareSqlServer", stageWatch.ElapsedMilliseconds, resolvedSqlServer);
 
+                OfficeDatabaseHandshakeService.VerifyBeforeSchemaUpgrade(DatabaseManager.RequireConfiguredConnectionString());
+
                 var dbManager = new DatabaseManager();
                 stageWatch.Restart();
                 dbManager.InitializeDatabase();
+                Guid officeDatabaseId = OfficeDatabaseHandshakeService.VerifyAndPinConfiguredDatabase();
                 AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "schema verified");
+                AppRuntime.LogConnection("Office database handshake verified: " + officeDatabaseId.ToString("D"));
                 dbManager.EnsureOperationalSeedData();
                 DbHelper.EnsureQuotationSchemaMigration();
                 DbHelper.EnsureAMCSchema();
@@ -850,7 +857,11 @@ namespace HVAC_Pro_Desktop
         private static bool TryRecoverDatabaseStartup(Stopwatch stageWatch, Exception startupError)
         {
             bool authenticationFailure = IsSqlAuthenticationFailure(startupError);
-            string message = authenticationFailure
+            bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(startupError);
+            string message = handshakeFailure
+                ? "ServoERP reached a SQL database that does not match this terminal's enrolled office database.\r\n\r\n" +
+                  "Startup and business writes were blocked before data changed. Check the saved office-server address. Select Yes to review Database Connection Setup."
+                : authenticationFailure
                 ? "ServoERP cannot sign in to the office database because the saved SQL username or password is no longer accepted.\r\n\r\n" +
                   "Select Yes to open Database Connection Setup. Enter the SQL details supplied by your ServoERP administrator, test the connection, and save it. ServoERP will then retry startup."
                 : "ServoERP cannot reach the office database.\r\n\r\n" +
@@ -858,7 +869,7 @@ namespace HVAC_Pro_Desktop
 
             DialogResult openSetup = MessageBox.Show(
                 message,
-                BrandingService.WindowTitle(authenticationFailure ? "Database Sign-in Required" : "Database Connection Required"),
+                BrandingService.WindowTitle(handshakeFailure ? "Office Database Mismatch" : authenticationFailure ? "Database Sign-in Required" : "Database Connection Required"),
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning);
             if (openSetup != DialogResult.Yes)
@@ -902,10 +913,23 @@ namespace HVAC_Pro_Desktop
             return false;
         }
 
+        internal static bool IsOfficeDatabaseHandshakeFailure(Exception ex)
+        {
+            for (Exception current = ex; current != null; current = current.InnerException)
+                if (current is OfficeDatabaseIdentityMismatchException)
+                    return true;
+
+            return false;
+        }
+
         private static void ShowFriendlyStartupFailure(Exception ex)
         {
             bool authenticationFailure = IsSqlAuthenticationFailure(ex);
-            string message = authenticationFailure
+            bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(ex);
+            string message = handshakeFailure
+                ? "ServoERP blocked this database because its office identity does not match the identity enrolled on this terminal.\r\n\r\n" +
+                  "Restore the original office-server connection or contact your ServoERP administrator. No business data was changed."
+                : authenticationFailure
                 ? "ServoERP could not sign in to the office database. The saved SQL credentials were rejected.\r\n\r\n" +
                   "Ask your ServoERP administrator for the current database username and password, then run ServoERP with /connectionsetup to verify and save them. No business data was changed."
                 : "ServoERP could not connect to the office database. Check the office server and network, then try again.\r\n\r\n" +
@@ -913,7 +937,7 @@ namespace HVAC_Pro_Desktop
 
             MessageBox.Show(
                 message,
-                BrandingService.WindowTitle(authenticationFailure ? "Database Sign-in Failed" : "Database Connection Failed"),
+                BrandingService.WindowTitle(handshakeFailure ? "Office Database Mismatch" : authenticationFailure ? "Database Sign-in Failed" : "Database Connection Failed"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Error);
         }

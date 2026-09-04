@@ -2,6 +2,7 @@ using System;
 using System.Data.SqlClient;
 using System.Reflection;
 using System.Threading;
+using Dapper;
 using HVAC_Pro_Desktop.DAL;
 
 namespace HVAC_Pro_Desktop.Services
@@ -54,7 +55,12 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 using (SqlConnection conn = DatabaseConnectionFactory.CreateConnection(connectionString))
-                using (SqlCommand cmd = new SqlCommand(@"
+                {
+                    DatabaseConnectionFactory.Open(conn, "NodeIdentityService.EnsureRegistered");
+                    SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(connectionString);
+                    Version version = Assembly.GetExecutingAssembly().GetName().Version;
+                    Guid? officeDatabaseId = OfficeDatabaseHandshakeService.GetPinnedOfficeDatabaseId();
+                    conn.Execute(@"
 IF EXISTS (SELECT 1 FROM dbo.SyncNodes WHERE NodePublicId = @nodePublicId)
 BEGIN
                     UPDATE dbo.SyncNodes
@@ -66,29 +72,31 @@ BEGIN
                         DatabaseServer = @databaseServer,
                         DatabaseName = @databaseName,
                         LastHealthStatus = 'Healthy',
-                        LastHealthDetail = 'Connected to the shared office SQL Server.',
+                        LastHealthDetail = 'Office database handshake verified.',
+                        PinnedOfficeDatabaseId = @officeDatabaseId,
+                        LastHandshakeUtc = GETUTCDATE(),
+                        LastHandshakeStatus = 'Verified',
                         LastSeenUtc = GETUTCDATE()
     WHERE NodePublicId = @nodePublicId;
 END
 ELSE
 BEGIN
     INSERT INTO dbo.SyncNodes
-        (NodePublicId, NodeName, MachineName, ServerRole, IsActive, AppVersion, DatabaseServer, DatabaseName, LastHealthStatus, LastHealthDetail, LastSeenUtc, CreatedUtc)
+        (NodePublicId, NodeName, MachineName, ServerRole, IsActive, AppVersion, DatabaseServer, DatabaseName, LastHealthStatus, LastHealthDetail, PinnedOfficeDatabaseId, LastHandshakeUtc, LastHandshakeStatus, LastSeenUtc, CreatedUtc)
     VALUES
-        (@nodePublicId, @nodeName, @machineName, @serverRole, 1, @appVersion, @databaseServer, @databaseName, 'Healthy', 'Connected to the shared office SQL Server.', GETUTCDATE(), GETUTCDATE());
-END", conn))
-                {
-                    DatabaseConnectionFactory.Open(conn, "NodeIdentityService.EnsureRegistered");
-                    cmd.Parameters.AddWithValue("@nodePublicId", nodeId);
-                    cmd.Parameters.AddWithValue("@nodeName", GetNodeName());
-                    cmd.Parameters.AddWithValue("@machineName", Environment.MachineName);
-                    cmd.Parameters.AddWithValue("@serverRole", ConfigService.Get("Database", "ServerRole", "AlwaysOnOfficeServer"));
-                    SqlConnectionStringBuilder builder = new SqlConnectionStringBuilder(connectionString);
-                    Version version = Assembly.GetExecutingAssembly().GetName().Version;
-                    cmd.Parameters.AddWithValue("@appVersion", version == null ? "Unknown" : version.ToString());
-                    cmd.Parameters.AddWithValue("@databaseServer", builder.DataSource ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@databaseName", builder.InitialCatalog ?? string.Empty);
-                    cmd.ExecuteNonQuery();
+        (@nodePublicId, @nodeName, @machineName, @serverRole, 1, @appVersion, @databaseServer, @databaseName, 'Healthy', 'Office database handshake verified.', @officeDatabaseId, GETUTCDATE(), 'Verified', GETUTCDATE(), GETUTCDATE());
+END",
+                        new
+                        {
+                            nodePublicId = nodeId,
+                            nodeName = GetNodeName(),
+                            machineName = Environment.MachineName,
+                            serverRole = ConfigService.Get("Database", "ServerRole", "AlwaysOnOfficeServer"),
+                            appVersion = version == null ? "Unknown" : version.ToString(),
+                            databaseServer = builder.DataSource ?? string.Empty,
+                            databaseName = builder.InitialCatalog ?? string.Empty,
+                            officeDatabaseId
+                        });
                 }
 
                 OfficeLanControlService.ProcessPendingCommandsForCurrentNode();

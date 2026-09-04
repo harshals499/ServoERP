@@ -4897,6 +4897,27 @@ THEN 1 ELSE 0 END";
                     ALTER TABLE dbo.SyncNodes ADD LastHealthStatus NVARCHAR(30) NULL;
                 IF COL_LENGTH('dbo.SyncNodes', 'LastHealthDetail') IS NULL
                     ALTER TABLE dbo.SyncNodes ADD LastHealthDetail NVARCHAR(500) NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'PinnedOfficeDatabaseId') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD PinnedOfficeDatabaseId UNIQUEIDENTIFIER NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'LastHandshakeUtc') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD LastHandshakeUtc DATETIME NULL;
+                IF COL_LENGTH('dbo.SyncNodes', 'LastHandshakeStatus') IS NULL
+                    ALTER TABLE dbo.SyncNodes ADD LastHandshakeStatus NVARCHAR(30) NULL;
+
+                IF OBJECT_ID('dbo.OfficeDatabaseIdentity', 'U') IS NULL
+                BEGIN
+                    CREATE TABLE dbo.OfficeDatabaseIdentity (
+                        IdentityKey TINYINT NOT NULL CONSTRAINT PK_OfficeDatabaseIdentity PRIMARY KEY,
+                        OfficeDatabaseId UNIQUEIDENTIFIER NOT NULL,
+                        DatabaseName NVARCHAR(128) NOT NULL,
+                        CreatedUtc DATETIME NOT NULL CONSTRAINT DF_OfficeDatabaseIdentity_CreatedUtc DEFAULT GETUTCDATE(),
+                        CONSTRAINT CK_OfficeDatabaseIdentity_SingleRow CHECK (IdentityKey = 1)
+                    );
+                END;
+
+                IF NOT EXISTS (SELECT 1 FROM dbo.OfficeDatabaseIdentity WHERE IdentityKey = 1)
+                    INSERT INTO dbo.OfficeDatabaseIdentity (IdentityKey, OfficeDatabaseId, DatabaseName)
+                    VALUES (1, NEWID(), DB_NAME());
 
                 IF OBJECT_ID('dbo.OfficeNodeCommands', 'U') IS NULL
                 BEGIN

@@ -112,10 +112,12 @@ $defaultConfigPath = Join-Path $configStageDir 'HVACPro.config'
 $sqlPrereqHelperPath = Join-Path $outputRoot 'SqlExpressPrereqInstaller.exe'
 
 Write-Host "Compiling SQL Server Express prerequisite helper: $sqlPrereqHelperPath"
-Add-Type `
-    -Path $sqlPrereqHelperSource `
-    -OutputAssembly $sqlPrereqHelperPath `
-    -OutputType ConsoleApplication
+$frameworkCsc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+Assert-File $frameworkCsc '.NET Framework C# compiler'
+& $frameworkCsc /nologo /target:exe "/out:$sqlPrereqHelperPath" $sqlPrereqHelperSource
+if ($LASTEXITCODE -ne 0) {
+    throw "SQL Server Express prerequisite helper compilation failed."
+}
 
 Write-Host "Compiling terminal MSI: $terminalMsiPath"
 dotnet wix build $appWxs `

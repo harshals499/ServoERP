@@ -82,5 +82,13 @@ namespace HVAC_Pro_Desktop.Models
         public int TargetCount { get; set; }
         public Guid JobPublicId { get; set; }
         public string ProgressPath { get; set; }
+        public string CredentialEnvelopePath { get; set; }
+    }
+
+    public sealed class OfficeLanDeploymentCredential
+    {
+        public string UserName { get; set; }
+        public string Password { get; set; }
+        public bool RememberOnServer { get; set; }
     }
 }
