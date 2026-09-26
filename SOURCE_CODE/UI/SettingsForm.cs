@@ -136,7 +136,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color SectionBg = DS.Slate50;
         private static readonly Color SaveGreen = DS.Teal600;
         private static readonly Color InfoBlue = DS.Primary600;
-        private const int GeneralCanvasWidth = 1720;
+        private const int GeneralCanvasWidth = 1180;
 
         private sealed class SectionCardState
         {
@@ -1323,6 +1323,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(0, 302),
                 Size = new Size(520, 156),
                 BackColor = Color.White,
+                BorderStyle = BorderStyle.FixedSingle,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom
             };
             parent.Controls.Add(gridHost);
@@ -2996,34 +2997,42 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel AddModernSettingsCard(Panel parent, string title, string subtitle, int height)
         {
-            Panel body;
-            Panel wrapper = DS.MakeCard(out body, 14, new Padding(22, 22, 22, 18));
+            Panel wrapper = new Panel
+            {
+                BackColor = Color.White,
+                Padding = new Padding(22, 18, 22, 14)
+            };
+            Panel body = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
             wrapper.AutoScroll = false;
             wrapper.Size = new Size(560, height);
-            wrapper.Margin = new Padding(0, 0, 14, 14);
+            wrapper.Margin = Padding.Empty;
             wrapper.Tag = "settings-card";
+            wrapper.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.BorderStrong))
+                    e.Graphics.DrawRectangle(pen, 0, 0, Math.Max(0, wrapper.Width - 1), Math.Max(0, wrapper.Height - 1));
+            };
             body.AutoScroll = false;
             body.Controls.Add(new Label
             {
                 Text = title,
-                Location = new Point(60, 2),
-                Size = new Size(410, 24),
+                Location = new Point(0, 0),
+                Size = new Size(500, 24),
                 Font = new Font("Segoe UI", 12f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
+                BackColor = Color.White,
                 UseMnemonic = false
             });
             body.Controls.Add(new Label
             {
                 Text = subtitle,
-                Location = new Point(60, 29),
-                Size = new Size(420, 38),
+                Location = new Point(0, 27),
+                Size = new Size(500, 38),
                 Font = new Font("Segoe UI", 8.7f),
                 ForeColor = DS.Slate500,
+                BackColor = Color.White,
                 UseMnemonic = false
             });
-            Panel icon = ModernIconSystem.EmptyStateIcon(ModernIconSystem.KindForTitle(title), 44, DS.Indigo50, DS.Primary600);
-            icon.Location = new Point(0, 2);
-            body.Controls.Add(icon);
             Panel content = new Panel
             {
                 Location = new Point(0, 76),
@@ -3031,6 +3040,11 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.White,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left,
                 AutoScroll = false
+            };
+            content.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Border))
+                    e.Graphics.DrawRectangle(pen, 0, 0, Math.Max(0, content.ClientSize.Width - 1), Math.Max(0, content.ClientSize.Height - 1));
             };
             body.Resize += (s, e) =>
             {
@@ -3040,11 +3054,11 @@ namespace HVAC_Pro_Desktop.UI
                 content.Height = Math.Max(90, body.ClientSize.Height - content.Top);
                 foreach (Label label in body.Controls.OfType<Label>())
                 {
-                    if (label.Left >= 60)
-                        label.Width = Math.Max(220, availableWidth - label.Left - 8);
+                    label.Width = Math.Max(220, availableWidth - label.Left - 8);
                 }
             };
             body.Controls.Add(content);
+            wrapper.Controls.Add(body);
             parent.Controls.Add(wrapper);
             return content;
         }
@@ -3129,7 +3143,7 @@ namespace HVAC_Pro_Desktop.UI
                     _generalCanvas.Width = canvasWidth;
                 if (_generalFlow.Width != canvasWidth)
                     _generalFlow.Width = canvasWidth;
-                int columns = canvasWidth >= 1560 ? 3 : (canvasWidth >= 980 ? 2 : 1);
+                int columns = canvasWidth >= 920 ? 2 : 1;
                 int gap = 14;
                 int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
                 int[] columnHeights = new int[columns];
@@ -3445,28 +3459,48 @@ namespace HVAC_Pro_Desktop.UI
                 "PurchaseAnalysis"
             };
 
-            FlowLayoutPanel actions = new FlowLayoutPanel
+            parent.Controls.Add(new Label
             {
+                Text = "WORKSPACE LAYOUTS",
                 Location = new Point(0, 0),
-                Size = new Size(Math.Max(320, parent.ClientSize.Width), 108),
+                Size = new Size(360, 20),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                ForeColor = DS.Primary700,
                 BackColor = Color.White,
-                WrapContents = true,
-                AutoScroll = false,
-                Margin = Padding.Empty,
-                Padding = Padding.Empty
-            };
-            parent.Controls.Add(actions);
-
-            foreach (string pageKey in pageKeys)
+            });
+            parent.Controls.Add(new Label
             {
-                Button button = MakeBtn("Reset " + pageKey.Replace("Analysis", " Analysis"), InfoBlue, 174);
-                button.Margin = new Padding(0, 0, 14, 12);
-                button.Click += (s, e) => ResetLayout(pageKey);
-                actions.Controls.Add(button);
-            }
+                Text = "Restore a dashboard or analysis page to its original arrangement.",
+                Location = new Point(0, 28),
+                Size = new Size(480, 22),
+                Font = new Font("Segoe UI", 8.8f),
+                ForeColor = DS.Slate600,
+                BackColor = Color.White,
+                AutoEllipsis = true
+            });
+            ComboBox pageSelector = new ComboBox
+            {
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Location = new Point(0, 58),
+                Size = new Size(248, 28),
+                Font = new Font("Segoe UI", 9f)
+            };
+            pageSelector.Items.AddRange(pageKeys.Select(key => (object)key.Replace("Analysis", " Analysis")).ToArray());
+            pageSelector.SelectedIndex = 0;
+            parent.Controls.Add(pageSelector);
 
-            Button resetAll = MakeBtn("Reset all layouts", SaveGreen, 180);
-            resetAll.Location = new Point(0, actions.Bottom + 6);
+            Button resetSelected = MakeBtn("Reset Selected", InfoBlue, 142);
+            resetSelected.Location = new Point(260, 56);
+            resetSelected.Click += (s, e) =>
+            {
+                int index = pageSelector.SelectedIndex;
+                if (index >= 0 && index < pageKeys.Length)
+                    ResetLayout(pageKeys[index]);
+            };
+            parent.Controls.Add(resetSelected);
+
+            Button resetAll = MakeBtn("Reset All Layouts", DS.Slate600, 160);
+            resetAll.Location = new Point(0, 106);
             resetAll.Click += (s, e) =>
             {
                 foreach (string pageKey in pageKeys)
@@ -3474,28 +3508,13 @@ namespace HVAC_Pro_Desktop.UI
                 _lblStatus.Text = "All card layouts reset to default.";
             };
             parent.Controls.Add(resetAll);
-            Action layout = () =>
+            parent.Resize += (s, e) =>
             {
-                actions.Width = Math.Max(320, parent.ClientSize.Width);
-                int rows = 1;
-                int runningWidth = 0;
-                foreach (Control control in actions.Controls)
-                {
-                    int nextWidth = control.Width + control.Margin.Horizontal;
-                    if (runningWidth > 0 && runningWidth + nextWidth > actions.Width)
-                    {
-                        rows++;
-                        runningWidth = 0;
-                    }
-                    runningWidth += nextWidth;
-                }
-
-                actions.Height = Math.Max(46, rows * 46);
-                resetAll.Top = actions.Bottom + 6;
-                parent.Height = resetAll.Bottom + 4;
+                int width = Math.Max(300, parent.ClientSize.Width);
+                resetSelected.Left = Math.Max(0, width - resetSelected.Width);
+                pageSelector.Width = Math.Max(150, resetSelected.Left - 12);
             };
-            parent.Resize += (s, e) => layout();
-            layout();
+            parent.Height = 154;
         }
 
         private void BuildFreshStartSection(Panel parent)
@@ -4004,18 +4023,18 @@ namespace HVAC_Pro_Desktop.UI
 
             if (control is TextBox textBox)
             {
-                textBox.BorderStyle = BorderStyle.None;
+                textBox.BorderStyle = BorderStyle.FixedSingle;
                 textBox.BackColor = textBox.ReadOnly ? DS.Slate100 : Color.White;
             }
             else if (control is ComboBox comboBox)
             {
-                comboBox.FlatStyle = FlatStyle.Flat;
+                comboBox.FlatStyle = FlatStyle.Standard;
                 comboBox.BackColor = Color.White;
             }
             else if (control is NumericUpDown numeric)
             {
                 numeric.BackColor = Color.White;
-                numeric.BorderStyle = BorderStyle.None;
+                numeric.BorderStyle = BorderStyle.FixedSingle;
                 numeric.ThousandsSeparator = true;
             }
         }

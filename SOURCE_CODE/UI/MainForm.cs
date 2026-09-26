@@ -166,6 +166,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch { }
             BuildLayout();
+            ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             AgentSimulationService.Instance.ProgressChanged += AgentSimulationProgressChanged;
             DatabaseConnectionStateService.StateChanged += DatabaseConnectionStateChanged;
             Disposed += (s, e) =>

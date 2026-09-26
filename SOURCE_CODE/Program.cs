@@ -276,6 +276,7 @@ namespace HVAC_Pro_Desktop
             {
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
+                ServoERP.Infrastructure.ServoTheme.Initialize();
                 LayoutAuditService.AttachGlobalFormAuditor();
                 InputOutlineService.InstallGlobalApplicationWatcher();
 

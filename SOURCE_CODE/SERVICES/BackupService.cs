@@ -74,6 +74,8 @@ namespace HVAC_Pro_Desktop.Services
                 EnsureSetting("BackupLastScheduledRun", string.Empty);
                 EnsureSetting("BackupEnabled", "true");
                 EnsureSetting("BackupRunOnClose", "true");
+                EnsureSetting("BackupOneDriveEnabled", "false");
+                EnsureSetting("BackupOneDrivePath", string.Empty);
             }
             catch (Exception ex)
             {
@@ -464,10 +466,77 @@ namespace HVAC_Pro_Desktop.Services
 
         private BackupResult CompleteSuccessfulBackup(BackupResult result, BackupTrigger trigger)
         {
+            MirrorSuccessfulBackupToOneDrive(result, trigger);
+
             if (trigger == BackupTrigger.Scheduled)
                 DbSettings.Set("BackupLastScheduledRun", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
             return result;
+        }
+
+        /// <summary>Returns the OneDrive root configured by the Windows sync client, preferring business accounts.</summary>
+        public static string DetectOneDriveRoot()
+        {
+            string[] candidates =
+            {
+                Environment.GetEnvironmentVariable("OneDriveCommercial"),
+                Environment.GetEnvironmentVariable("OneDriveConsumer"),
+                Environment.GetEnvironmentVariable("OneDrive")
+            };
+
+            return candidates.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path)) ?? string.Empty;
+        }
+
+        /// <summary>Builds a tenant-isolated ServoERP backup folder beneath a OneDrive root.</summary>
+        public static string BuildOneDriveCompanyBackupPath(string oneDriveRoot)
+        {
+            if (string.IsNullOrWhiteSpace(oneDriveRoot))
+                return string.Empty;
+
+            string tenant = DatabaseManager.GetCurrentTenantCode();
+            if (string.IsNullOrWhiteSpace(tenant) || string.Equals(tenant, "default", StringComparison.OrdinalIgnoreCase))
+                tenant = GetDatabaseName();
+
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+                tenant = tenant.Replace(invalid, '_');
+
+            return Path.Combine(oneDriveRoot.Trim(), "ServoERP Backups", tenant.Trim());
+        }
+
+        private void MirrorSuccessfulBackupToOneDrive(BackupResult source, BackupTrigger trigger)
+        {
+            if (!GetBoolSetting("BackupOneDriveEnabled", false) || source == null || !source.Success)
+                return;
+
+            string sourcePath = source.FilePath ?? source.BackupPath;
+            string configuredRoot = GetSetting("BackupOneDrivePath", string.Empty).Trim();
+            string oneDriveRoot = string.IsNullOrWhiteSpace(configuredRoot) ? DetectOneDriveRoot() : configuredRoot;
+            string companyFolder = BuildOneDriveCompanyBackupPath(oneDriveRoot);
+            string targetPath = string.Empty;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(oneDriveRoot) || !Directory.Exists(oneDriveRoot))
+                    throw new DirectoryNotFoundException("A synced OneDrive folder was not found. Sign in to OneDrive or choose its local folder in Backup Settings.");
+                if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+                    throw new FileNotFoundException("The completed SQL backup could not be found for OneDrive copying.", sourcePath);
+
+                Directory.CreateDirectory(companyFolder);
+                CleanOldBackups(companyFolder, GetRetentionDays());
+                targetPath = Path.Combine(companyFolder, Path.GetFileName(sourcePath));
+                File.Copy(sourcePath, targetPath, true);
+
+                BackupResult mirror = Result(true, trigger, "OneDrive", targetPath, "Backup copied to the company OneDrive folder.", FileSizeKb(targetPath));
+                LogBackupResult(mirror);
+                source.Message = "Backup completed and copied to OneDrive.";
+                AppLogger.LogInfo("Backup copied to OneDrive: " + targetPath);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BackupService.MirrorSuccessfulBackupToOneDrive", ex);
+                LogBackupResult(Result(false, trigger, "OneDrive", targetPath, ex.Message, 0));
+                source.Message = "Primary backup completed, but the OneDrive copy failed: " + ex.Message;
+            }
         }
 
         private BackupResult LogSkipped(BackupTrigger trigger, string destination, string path, string message)

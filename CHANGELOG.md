@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.445.0 - 2026-09-26
+
+- Standardized the desktop application on the Microsoft365Blue visual system with shared typography, controls, grids, dashboards, dialogs, and form styling.
+- Redesigned Settings into a compact responsive two-column workspace with bordered modules, visible input boundaries, masonry packing, and rebuilt Unit and System Tools sections.
+- Added opt-in company-isolated OneDrive backup mirroring through the Windows OneDrive sync client, including detection, retention cleanup, and independent success/failure logging.
+- Added a general-purpose Book Porter Delivery action to Dispatch Center.
+- Simplified the Dashboard action rail to retain Refresh while removing Backup Now and Preview.
+- Added required runtime bindings and completed Release UI navigation verification across the core ERP modules.
+
 ## 1.1.442.0 - 2026-08-22
 
 - Fixed SQL-free terminal PCs aborting at startup while trying to start a nonexistent local `SQLEXPRESS` service.

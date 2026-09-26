@@ -806,6 +806,8 @@ namespace HVAC_Pro_Desktop.UI
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Site Monitor", "Dispatch", null, "dispatch assignment technician attendance leave request work order service schedule job card");
             Button newJob = MakePrimaryButton("+ New Job", 116);
             newJob.Click += (s, e) => OnNavigate?.Invoke(15);
+            Button porterDelivery = MakeToolbarButton("Book Porter Delivery", 168);
+            porterDelivery.Click += btnPorterDelivery_Click;
             SharedPageHeaderResult result = SharedPageHeader.Build(new SharedPageHeaderModel
             {
                 Name = "DispatchCenterHeader",
@@ -818,10 +820,19 @@ namespace HVAC_Pro_Desktop.UI
                 StatusColor = Muted,
                 TitleWidth = 460,
                 SubtitleWidth = 640,
-                RightActions = new List<Control> { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob }
+                RightActions = new List<Control> { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, porterDelivery, newJob }
             });
             _lblStatus = result.StatusLabel;
             return result.Header;
+        }
+
+        private void btnPorterDelivery_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://porter.in/enterprise",
+                UseShellExecute = true
+            });
         }
 
         private Control BuildKpiRow()

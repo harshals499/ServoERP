@@ -86,6 +86,7 @@ namespace HVAC_Pro_Desktop.UI
 
             SuspendLayout();
             BuildLayout();
+            ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             LayoutScaler.ApplyGlobalScale(this);
             ResumeLayout(true);
             WireEvents();

@@ -8,7 +8,10 @@ namespace HVAC_Pro_Desktop.UI
     {
         private TextBox _txtNetworkPath;
         private TextBox _txtLocalPath;
+        private TextBox _txtOneDrivePath;
         private Label _lblNetworkStatus;
+        private Label _lblOneDriveStatus;
+        private CheckBox _chkOneDriveEnabled;
         private DateTimePicker _timeSchedule;
         private CheckBox _chkRunOnClose;
         private CheckBox _chkEnabled;
@@ -52,31 +55,49 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate600
             };
 
-            Panel network = Section(T("Network Server Connection"), 24, 96, 444, 146);
+            Panel network = Section(T("Network Server"), 24, 96, 288, 146);
             Label networkLabel = Label(T("Network Server Path (UNC)"), 16, 18, 250);
-            _txtNetworkPath = Input(16, 42, 296);
+            _txtNetworkPath = Input(16, 42, 178);
             _txtNetworkPath.Text = @"\\SERVERNAME\SharedFolder\ServoERP_Backups";
-            Button test = Button(T("Test Connection"), DS.Primary600, Color.White, 128);
-            test.Location = new Point(324, 41);
+            Button test = Button(T("Test"), DS.Primary600, Color.White, 70);
+            test.Location = new Point(202, 41);
             test.Click += TestNetworkConnection;
             _lblNetworkStatus = new Label
             {
                 Text = T("Leave blank to skip network backup"),
                 Location = new Point(16, 86),
-                Size = new Size(390, 38),
+                Size = new Size(250, 38),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
             };
             network.Controls.AddRange(new Control[] { networkLabel, _txtNetworkPath, test, _lblNetworkStatus });
 
-            Panel local = Section(T("Local Backup Folder"), 492, 96, 444, 146);
-            _txtLocalPath = Input(16, 42, 296);
-            Button browse = Button(T("Browse"), DS.Primary600, Color.White, 96);
-            browse.Location = new Point(324, 41);
+            Panel local = Section(T("Local Backup"), 322, 96, 288, 146);
+            _txtLocalPath = Input(16, 42, 178);
+            Button browse = Button(T("Browse"), DS.Primary600, Color.White, 70);
+            browse.Location = new Point(202, 41);
             browse.Click += BrowseLocalFolder;
             local.Controls.Add(Label(T("Local Backup Folder"), 16, 18, 250));
             local.Controls.Add(_txtLocalPath);
             local.Controls.Add(browse);
+
+            Panel oneDrive = Section(T("Company OneDrive"), 620, 96, 316, 146);
+            _chkOneDriveEnabled = Check(T("Copy every successful backup to OneDrive"), 16, 20, 278);
+            _chkOneDriveEnabled.CheckedChanged += (s, e) => RefreshOneDriveStatus();
+            _txtOneDrivePath = Input(16, 52, 190);
+            _txtOneDrivePath.TextChanged += (s, e) => RefreshOneDriveStatus();
+            Button detectOneDrive = Button(T("Detect"), DS.Primary600, Color.White, 76);
+            detectOneDrive.Location = new Point(214, 51);
+            detectOneDrive.Click += DetectOneDriveFolder;
+            _lblOneDriveStatus = new Label
+            {
+                Text = T("OneDrive backup is optional"),
+                Location = new Point(16, 90),
+                Size = new Size(278, 38),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            oneDrive.Controls.AddRange(new Control[] { _chkOneDriveEnabled, _txtOneDrivePath, detectOneDrive, _lblOneDriveStatus });
 
             Panel schedule = Section(T("Schedule"), 24, 260, 444, 164);
             _timeSchedule = new DateTimePicker
@@ -159,7 +180,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnClose.Location = new Point(824, 774);
             _btnClose.Click += CloseClicked;
 
-            Controls.AddRange(new Control[] { title, subtitle, network, local, schedule, retention, manual, logPanel, _btnSave, _btnClose });
+            Controls.AddRange(new Control[] { title, subtitle, network, local, oneDrive, schedule, retention, manual, logPanel, _btnSave, _btnClose });
             ResumeLayout(false);
         }
 

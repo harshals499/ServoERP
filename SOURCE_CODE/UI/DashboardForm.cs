@@ -64,7 +64,6 @@ namespace HVAC_Pro_Desktop.UI
         private Label _clockLabel;
         private ComboBox _languageCombo;
         private bool _languageSelectionChanging;
-        private bool _backupNowRunning;
         private bool _buildingShell;
         private Timer _clockTimer;
         private string _notificationCountText = string.Empty;
@@ -222,18 +221,11 @@ namespace HVAC_Pro_Desktop.UI
 
             Button notifications = BuildNotificationButton(0, 0, 38, GetNotificationCountText());
             Button customize = SecondaryButton(T("Customize"), 0, 0, 110, 34);
-            Button backupNow = SecondaryButton("Backup Now", 0, 0, 138, 34);
-            ModernIconSystem.AddButtonIcon(backupNow, ModernIconKind.Backup);
-            backupNow.TextAlign = ContentAlignment.MiddleRight;
-            backupNow.Padding = new Padding(10, 0, 14, 0);
-            backupNow.Name = "btnDashboardBackupNow";
-            backupNow.Click += (s, e) => RunDashboardBackupNow(backupNow);
-
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "DashboardTopHeader",
                 "Dashboard",
                 "Business overview for today",
-                new List<Control> { notifications, customize, backupNow },
+                new List<Control> { notifications, customize },
                 SharedPageHeader.CreateSearchCommand("DashboardGlobalSearch", 300, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
                 BuildDashboardHeaderMetaPanel(),
                 Color.White,
@@ -394,66 +386,6 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Notifications"), "Opening alerts and notifications", ex);
             }
-        }
-
-        /// <summary>Runs a manual backup from the dashboard shortcut without blocking the UI.</summary>
-        private async void RunDashboardBackupNow(Button sourceButton)
-        {
-            if (_backupNowRunning)
-                return;
-
-            _backupNowRunning = true;
-            if (sourceButton != null)
-            {
-                sourceButton.Enabled = false;
-                sourceButton.Text = "Backing up...";
-            }
-
-            try
-            {
-                BackupResult result = await Task.Run(() => new BackupService().RunBackup(BackupTrigger.Manual));
-
-                RunOnUI(() =>
-                {
-                    _backupNowRunning = false;
-                    if (sourceButton != null && !sourceButton.IsDisposed)
-                    {
-                        sourceButton.Enabled = true;
-                        sourceButton.Text = "Backup Now";
-                    }
-
-                    if (result != null && result.Success)
-                        ToastNotification.ShowToast("Backup completed - saved to " + FriendlyBackupDestination(result.DestinationUsed), DS.Green600);
-                    else
-                        ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
-                });
-            }
-            catch (Exception ex)
-            {
-                RunOnUI(() =>
-                {
-                    _backupNowRunning = false;
-                    if (sourceButton != null && !sourceButton.IsDisposed)
-                    {
-                        sourceButton.Enabled = true;
-                        sourceButton.Text = "Backup Now";
-                    }
-                    ToastNotification.ShowToast("Backup failed - please check settings", DS.Red600);
-                });
-                ShowError("Manual backup failed. Please check backup settings.", ex);
-            }
-        }
-
-        /// <summary>Returns display text for backup destinations.</summary>
-        private static string FriendlyBackupDestination(string destination)
-        {
-            if (string.Equals(destination, "Network", StringComparison.OrdinalIgnoreCase))
-                return "Network Server";
-            if (string.Equals(destination, "Local", StringComparison.OrdinalIgnoreCase))
-                return "Local Folder";
-            if (string.Equals(destination, "ExternalDrive", StringComparison.OrdinalIgnoreCase))
-                return "External Drive";
-            return "backup destination";
         }
 
         private Panel BuildLanguageSelector(int x, int y, int width, int height)
