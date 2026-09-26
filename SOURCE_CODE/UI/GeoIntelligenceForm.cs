@@ -219,8 +219,8 @@ namespace HVAC_Pro_Desktop.UI
                 ColumnCount = 2,
                 RowCount = 1
             };
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38f));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62f));
 
             Panel copy = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
             Label title = new Label
@@ -271,9 +271,12 @@ namespace HVAC_Pro_Desktop.UI
             _chkAutoRefresh.FlatAppearance.BorderColor = Border;
             _chkAutoRefresh.CheckedChanged += (s, e) => UpdateAutoRefreshState();
             Button date = MakeSiteToolbarButton(DateTime.Today.AddDays(-6).ToString("MMM d") + " - " + DateTime.Today.ToString("MMM d, yyyy"), ModernIconKind.Calendar, 206);
+            Button porterDelivery = MakeSiteToolbarButton("Book Porter Delivery", ModernIconKind.Location, 196);
+            porterDelivery.Click += btnPorterDelivery_Click;
             actions.Controls.Add(filters);
             actions.Controls.Add(_chkAutoRefresh);
             actions.Controls.Add(date);
+            actions.Controls.Add(porterDelivery);
 
             _lblStatus = new Label
             {
@@ -806,8 +809,6 @@ namespace HVAC_Pro_Desktop.UI
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Site Monitor", "Dispatch", null, "dispatch assignment technician attendance leave request work order service schedule job card");
             Button newJob = MakePrimaryButton("+ New Job", 116);
             newJob.Click += (s, e) => OnNavigate?.Invoke(15);
-            Button porterDelivery = MakeToolbarButton("Book Porter Delivery", 168);
-            porterDelivery.Click += btnPorterDelivery_Click;
             SharedPageHeaderResult result = SharedPageHeader.Build(new SharedPageHeaderModel
             {
                 Name = "DispatchCenterHeader",
@@ -820,7 +821,7 @@ namespace HVAC_Pro_Desktop.UI
                 StatusColor = Muted,
                 TitleWidth = 460,
                 SubtitleWidth = 640,
-                RightActions = new List<Control> { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, porterDelivery, newJob }
+                RightActions = new List<Control> { locationHost, _chkAutoRefresh, _autoRefreshPulse, _btnRefresh, forms, newJob }
             });
             _lblStatus = result.StatusLabel;
             return result.Header;
