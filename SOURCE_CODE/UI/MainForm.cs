@@ -153,20 +153,7 @@ namespace HVAC_Pro_Desktop.UI
             WindowState = FormWindowState.Maximized;
             BackColor = DS.BgPage;
             Font = new Font("Segoe UI", _compactShell ? 8.25f : 9f);
-            try
-            {
-                var embeddedIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-                if (embeddedIcon != null)
-                    this.Icon = embeddedIcon;
-                else
-                {
-                    string iconPath = System.IO.Path.Combine(
-                        System.IO.Path.GetDirectoryName(Application.ExecutablePath), "app.ico");
-                    if (System.IO.File.Exists(iconPath))
-                        this.Icon = new System.Drawing.Icon(iconPath);
-                }
-            }
-            catch { }
+            ServoERP.Infrastructure.AppIconService.Apply(this);
             BuildLayout();
             ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             AgentSimulationService.Instance.ProgressChanged += AgentSimulationProgressChanged;

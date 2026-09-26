@@ -90,6 +90,7 @@ namespace HVAC_Pro_Desktop
             }
 
             ServoERP.Infrastructure.AppExceptionHandler.Register();
+            ServoERP.Infrastructure.AppIconService.InitializeProcessIdentity();
             VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
             SetProcessDPIAware();
             ShutdownExistingAppInstances();

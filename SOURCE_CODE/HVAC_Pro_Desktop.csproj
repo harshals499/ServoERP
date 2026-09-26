@@ -197,6 +197,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Infrastructure\AppExceptionHandler.cs" />
+    <Compile Include="Infrastructure\AppIconService.cs" />
     <Compile Include="Infrastructure\ExceptionLogger.cs" />
     <Compile Include="Infrastructure\IRefreshable.cs" />
     <Compile Include="Infrastructure\PDFGenerator.cs" />

@@ -17,6 +17,7 @@ namespace ServoERP.Infrastructure
         protected ServoFormBase()
         {
             AutoScaleMode = AutoScaleMode.Dpi;
+            AppIconService.Apply(this);
             RenderHelper.EnableDoubleBuffer(this);
             KeyPreview = true;
         }
