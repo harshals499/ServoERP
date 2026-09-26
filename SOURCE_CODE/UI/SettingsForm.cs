@@ -4162,18 +4162,11 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (!result.CanApplyUpdate)
                     {
-                        bool openInstaller = ServoERP.Infrastructure.ServoConfirmDialog.Show(
-                            this,
-                            "Open latest ServoERP installer?",
-                            result.StatusMessage + "\r\n\r\nThis opens the installer download page in your browser.");
-                        if (openInstaller && !string.IsNullOrWhiteSpace(result.DownloadUrl))
-                        {
-                            Process.Start(new ProcessStartInfo
-                            {
-                                FileName = result.DownloadUrl,
-                                UseShellExecute = true
-                            });
-                        }
+                        MessageBox.Show(
+                            result.StatusMessage + "\r\n\r\nServoERP did not open a browser or start an external download.",
+                            "Update unavailable",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
                         return;
                     }
 

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -24,7 +25,9 @@ namespace HVAC_Pro_Desktop.Services
         public string StatusMessage { get; set; }
         public bool IsUpdateAvailable { get; set; }
         public bool CanApplyUpdate { get; set; }
+        public bool RequiresLegacyInstallerMigration { get; set; }
         internal UpdateInfo VelopackUpdateInfo { get; set; }
+        internal string LegacyInstallerPath { get; set; }
     }
 
     internal sealed class GitHubReleaseAssetInfo
@@ -154,7 +157,7 @@ namespace HVAC_Pro_Desktop.Services
                 downloadedUpdate = _downloadedSilentUpdate;
             }
 
-            if (downloadedUpdate == null || !downloadedUpdate.CanApplyUpdate || downloadedUpdate.VelopackUpdateInfo == null)
+            if (downloadedUpdate == null || !downloadedUpdate.CanApplyUpdate)
             {
                 AppLogger.LogInfo(LogContext + " apply-on-exit skipped: no downloaded package is ready.");
                 return false;
@@ -167,8 +170,14 @@ namespace HVAC_Pro_Desktop.Services
                 SaveLastStatus("Installing downloaded update v" + downloadedUpdate.LatestVersion + " as ServoERP closes.");
                 AppLogger.LogInfo(LogContext + " apply-on-exit requested. latest=" + downloadedUpdate.LatestVersion);
 
+                if (downloadedUpdate.RequiresLegacyInstallerMigration)
+                {
+                    ScheduleLegacyInstallerAfterExit(downloadedUpdate);
+                    return true;
+                }
+
                 UpdateManager manager = CreateManager(GetGitHubRepositoryUrl());
-                manager.ApplyUpdatesAndRestart(downloadedUpdate.VelopackUpdateInfo.TargetFullRelease, null);
+                manager.WaitExitThenApplyUpdates(downloadedUpdate.VelopackUpdateInfo.TargetFullRelease, true, true, null);
                 return true;
             }
             catch (Exception ex)
@@ -336,6 +345,8 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
+            if (update.RequiresLegacyInstallerMigration)
+                return await DownloadLegacyInstallerAsync(update, progress, cancellationToken).ConfigureAwait(false);
             if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
                 throw new InvalidOperationException("No Velopack update package is available to download.");
 
@@ -361,6 +372,15 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
+            if (update.RequiresLegacyInstallerMigration)
+            {
+                EnsureSafeToApplyUpdate();
+                BackupConfigurationFiles(update.LatestVersion);
+                ScheduleLegacyInstallerAfterExit(update);
+                SaveLastStatus("Installing ServoERP v" + update.LatestVersion + " silently after ServoERP closes...");
+                Application.Exit();
+                return;
+            }
             if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
                 throw new InvalidOperationException("No downloaded Velopack update is ready to apply.");
             EnsureSafeToApplyUpdate();
@@ -442,10 +462,15 @@ namespace HVAC_Pro_Desktop.Services
                     }
 
                     result.IsUpdateAvailable = true;
-                    result.CanApplyUpdate = false;
-                    result.StatusMessage = "Update available: v" + result.LatestVersion + ". This copy was not installed through the Desktop installer, so open the latest installer to update.";
+                    result.RequiresLegacyInstallerMigration = Uri.TryCreate(result.DownloadUrl, UriKind.Absolute, out Uri installerUri) &&
+                                                                      installerUri.Scheme == Uri.UriSchemeHttps &&
+                                                                      installerUri.AbsolutePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+                    result.CanApplyUpdate = result.RequiresLegacyInstallerMigration;
+                    result.StatusMessage = result.CanApplyUpdate
+                        ? "Update available: v" + result.LatestVersion + ". ServoERP will migrate this older installation to silent automatic updates."
+                        : "Update available: v" + result.LatestVersion + ", but no compatible Desktop installer was found.";
                     SaveLastStatus(result.StatusMessage);
-                    AppLogger.LogInfo(LogContext + " manual-install update available. latest=" + result.LatestVersion + " url=" + result.DownloadUrl);
+                    AppLogger.LogInfo(LogContext + " legacy-install migration available. latest=" + result.LatestVersion + " url=" + result.DownloadUrl);
                     return result;
                 }
             }
@@ -456,6 +481,76 @@ namespace HVAC_Pro_Desktop.Services
                 AppLogger.LogInfo(LogContext + " manual fallback failed: " + manualEx.Message);
                 return result;
             }
+        }
+
+        private static async Task<string> DownloadLegacyInstallerAsync(UpdateCheckResult update, IProgress<int> progress, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(update.DownloadUrl) ||
+                !Uri.TryCreate(update.DownloadUrl, UriKind.Absolute, out Uri installerUri) ||
+                installerUri.Scheme != Uri.UriSchemeHttps)
+                throw new InvalidOperationException("A secure ServoERP installer download was not available.");
+
+            Directory.CreateDirectory(UpdatesFolder);
+            string targetPath = Path.Combine(UpdatesFolder, "ServoERP-Setup-" + NormalizeReleaseVersion(update.LatestVersion) + ".exe");
+            string temporaryPath = targetPath + ".download";
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+
+            SaveLastStatus("Downloading ServoERP v" + update.LatestVersion + " silently...");
+            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) })
+            using (HttpResponseMessage response = await client.GetAsync(installerUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+                long total = response.Content.Headers.ContentLength ?? -1L;
+                using (Stream input = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                using (var output = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                {
+                    byte[] buffer = new byte[81920];
+                    long received = 0;
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                    {
+                        await output.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
+                        received += read;
+                        if (progress != null && total > 0)
+                            progress.Report((int)Math.Min(100L, received * 100L / total));
+                    }
+                }
+            }
+
+            if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length < 1024 * 1024)
+                throw new InvalidDataException("The downloaded ServoERP installer was incomplete.");
+
+            if (File.Exists(targetPath))
+                File.Delete(targetPath);
+            File.Move(temporaryPath, targetPath);
+            update.LegacyInstallerPath = targetPath;
+            SaveLastStatus("ServoERP v" + update.LatestVersion + " downloaded and will install silently when ServoERP closes.");
+            return targetPath;
+        }
+
+        private static void ScheduleLegacyInstallerAfterExit(UpdateCheckResult update)
+        {
+            string installerPath = update == null ? null : update.LegacyInstallerPath;
+            if (string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath))
+                throw new FileNotFoundException("The downloaded ServoERP installer could not be found.", installerPath);
+
+            int processId = Process.GetCurrentProcess().Id;
+            string escapedInstaller = installerPath.Replace("'", "''");
+            string command = "$p=Get-Process -Id " + processId.ToString(CultureInfo.InvariantCulture) + " -ErrorAction SilentlyContinue; " +
+                             "if($p){$p.WaitForExit()}; Start-Sleep -Milliseconds 750; " +
+                             "Start-Process -FilePath '" + escapedInstaller + "' -ArgumentList '--silent' -WindowStyle Hidden";
+            string encodedCommand = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(command));
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            AppLogger.LogInfo(LogContext + " scheduled silent legacy migration. latest=" + update.LatestVersion);
         }
 
         private static void EnsureSafeToApplyUpdate()

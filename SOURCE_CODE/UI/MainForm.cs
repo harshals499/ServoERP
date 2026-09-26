@@ -3210,28 +3210,6 @@ namespace HVAC_Pro_Desktop.UI
             return dialog;
         }
 
-        private void OpenUpdateDownload()
-        {
-            try
-            {
-                string url = _latestUpdateResult == null ? null : _latestUpdateResult.DownloadUrl;
-                if (string.IsNullOrWhiteSpace(url))
-                    return;
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("UpdateBanner.Download", ex);
-                MessageBox.Show("Unable to open the update download link.\r\n" + ex.Message,
-                    "Download update", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
         private void DownloadAndInstallUpdate()
         {
             if (_latestUpdateResult == null)
@@ -3303,11 +3281,10 @@ namespace HVAC_Pro_Desktop.UI
                         progressForm.Close();
                         AppLogger.LogError("UpdateDownload.Install", ex);
                         MessageBox.Show(
-                            "Automatic update could not complete.\r\n\r\n" + ex.Message + "\r\n\r\nThe download page will open now.",
+                            "Automatic update could not complete.\r\n\r\n" + ex.Message + "\r\n\r\nServoERP did not open a browser. It will retry during the next update check.",
                             "Install update",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);
-                        OpenUpdateDownload();
                     }
                 };
 
