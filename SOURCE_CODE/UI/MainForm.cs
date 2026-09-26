@@ -74,6 +74,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
         private const int UserGuidePageIndex = 23;
+        private const int PorterDeliveriesPageIndex = 24;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -124,11 +125,12 @@ namespace HVAC_Pro_Desktop.UI
             ("AMC", "A"),
             ("Attendance", "A"),
             ("User Guide", "U"),
+            ("Porter Deliveries", "P"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, PorterDeliveriesPageIndex, 11, 1, 9, 15, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -1722,6 +1724,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
                 case UserGuidePageIndex: return "\uE8A5"; // User Guide
+                case PorterDeliveriesPageIndex: return "\uE7C3"; // Delivery truck
                 default: return "\uE10F";
             }
         }
@@ -2338,6 +2341,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
+                case PorterDeliveriesPageIndex: page = new PorterDeliveriesForm(); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
                         _amcPage = new AMCPage();
@@ -2370,7 +2374,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex || index == PorterDeliveriesPageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -2387,6 +2391,7 @@ namespace HVAC_Pro_Desktop.UI
                 || page is WhatsAppHubForm
                 || page is JobManagementForm
                 || page is AMCPage;
+
         }
 
         private void TouchPage(int index)
@@ -3006,6 +3011,9 @@ namespace HVAC_Pro_Desktop.UI
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
+                case "PORTER":
+                case "PORTERDELIVERIES":
+                case "PORTER DELIVERIES": return PorterDeliveriesPageIndex;
                 default: return 0;
             }
         }
@@ -3035,6 +3043,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
                 case UserGuidePageIndex: return "Dashboard";
+                case PorterDeliveriesPageIndex: return "WorkOrders";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }

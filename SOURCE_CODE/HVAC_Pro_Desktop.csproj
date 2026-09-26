@@ -278,6 +278,7 @@
     <Compile Include="MODELS\ModuleState.cs" />
     <Compile Include="MODELS\PaginationState.cs" />
     <Compile Include="MODELS\ServiceDeskModels.cs" />
+    <Compile Include="MODELS\PorterDelivery.cs" />
     <Compile Include="MODELS\MailIntegrationModels.cs" />
     <Compile Include="MODELS\MasterDataModels.cs" />
     <Compile Include="MODELS\MasterLookupModels.cs" />
@@ -319,6 +320,7 @@
     <Compile Include="DAL\AuthRepository.cs" />
     <Compile Include="DAL\PayrollRepository.cs" />
     <Compile Include="DAL\ServiceDeskRepository.cs" />
+    <Compile Include="DAL\PorterDeliveryRepository.cs" />
     <Compile Include="DAL\MailIntegrationRepository.cs" />
     <Compile Include="DAL\MasterDataRepository.cs" />
     <Compile Include="DAL\MasterLookupRepository.cs" />
@@ -326,6 +328,7 @@
     <Compile Include="DAL\UnitMeasurementRepository.cs" />
     <!-- Services -->
     <Compile Include="SERVICES\ClientService.cs" />
+    <Compile Include="SERVICES\PorterDeliveryService.cs" />
     <Compile Include="SERVICES\ContractService.cs" />
     <Compile Include="SERVICES\InvoiceService.cs" />
     <Compile Include="SERVICES\PaymentService.cs" />
@@ -659,6 +662,9 @@
     </Compile>
     <Compile Include="UI\MainForm.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\PorterDeliveriesForm.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\DashboardForm.cs">
       <SubType>UserControl</SubType>

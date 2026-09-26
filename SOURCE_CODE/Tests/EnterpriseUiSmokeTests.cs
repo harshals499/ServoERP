@@ -29,7 +29,8 @@ namespace HVAC_Pro_Desktop.Tests
                 typeof(PayrollForm),
                 typeof(ReportForm),
                 typeof(SettingsForm),
-                typeof(MasterDataForm)
+                typeof(MasterDataForm),
+                typeof(PorterDeliveriesForm)
             };
 
             Type[] cardMenuPageTypes =
@@ -56,6 +57,7 @@ namespace HVAC_Pro_Desktop.Tests
                 typeof(SLADashboardForm),
                 typeof(TenderBidForm),
                 typeof(WhatsAppHubForm),
+                typeof(PorterDeliveriesForm),
                 typeof(BackupSettingsForm),
                 typeof(OpenSourceLicenseForm),
                 typeof(ModuleCatalogForm),
