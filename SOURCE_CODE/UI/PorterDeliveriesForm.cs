@@ -41,23 +41,27 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildUi()
         {
             var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(22, 18, 22, 22), ColumnCount = 1, RowCount = 4, BackColor = DS.BgPage };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 62));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 88));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 54));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 76));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 106));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
             var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
             header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 404));
             var titles = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
             titles.Controls.Add(new Label { Text = "Porter Deliveries", AutoSize = true, Font = new Font("Segoe UI Semibold", 18f), ForeColor = DS.Slate900 });
             titles.Controls.Add(new Label { Text = "Book with Porter, then record and track the delivery in ServoERP.", AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate600 });
             header.Controls.Add(titles, 0, 0);
-            var actions = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, Padding = new Padding(0, 6, 0, 0) };
-            actions.Controls.Add(ActionButton("Book on Porter", true, BookOnPorter));
-            actions.Controls.Add(ActionButton("New Delivery", false, (s, e) => ClearEditor()));
-            actions.Controls.Add(ActionButton("Refresh", false, (s, e) => LoadData()));
+            var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Padding = new Padding(0, 8, 0, 20) };
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
+            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
+            var bookButton = ActionButton("Book on Porter", true, BookOnPorter); bookButton.Dock = DockStyle.Fill;
+            var newButton = ActionButton("New Delivery", false, (s, e) => ClearEditor()); newButton.Dock = DockStyle.Fill;
+            var refreshButton = ActionButton("Refresh", false, (s, e) => LoadData()); refreshButton.Dock = DockStyle.Fill;
+            actions.Controls.Add(bookButton, 0, 0); actions.Controls.Add(newButton, 1, 0); actions.Controls.Add(refreshButton, 2, 0);
             header.Controls.Add(actions, 1, 0);
             root.Controls.Add(header, 0, 0);
 
@@ -69,17 +73,15 @@ namespace HVAC_Pro_Desktop.UI
             _spendKpi = Kpi(kpis, 3, "TOTAL SPEND");
             root.Controls.Add(kpis, 0, 1);
 
-            var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Padding = new Padding(0, 8, 0, 8) };
+            var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(0, 8, 0, 8) };
             filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
-            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120));
             _search = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10f) };
             _search.TextChanged += (s, e) => BindGrid();
             _filterStatus = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             _filterStatus.Items.AddRange(new object[] { "All statuses", "Booked", "Assigned", "Picked Up", "In Transit", "Delivered", "Cancelled" });
             _filterStatus.SelectedIndex = 0; _filterStatus.SelectedIndexChanged += (s, e) => BindGrid();
             filters.Controls.Add(_search, 0, 0); filters.Controls.Add(_filterStatus, 1, 0);
-            filters.Controls.Add(new Label { Text = "Search booking, client, route", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = DS.Slate600 }, 2, 0);
             root.Controls.Add(filters, 0, 2);
 
             var body = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel2, BackColor = DS.Border };
@@ -96,7 +98,7 @@ namespace HVAC_Pro_Desktop.UI
             if (body == null || body.Width < 700)
                 return;
 
-            int editorWidth = Math.Min(430, Math.Max(340, body.Width / 3));
+            int editorWidth = Math.Min(400, Math.Max(360, body.Width / 3));
             int distance = Math.Max(360, body.Width - editorWidth - body.SplitterWidth);
             int maximum = body.Width - body.SplitterWidth - 260;
             if (maximum >= 360)
@@ -210,8 +212,8 @@ namespace HVAC_Pro_Desktop.UI
         private void BindSites(int? clientId) { var data = _sites.GetAll().Where(x => !clientId.HasValue || x.ClientID == clientId.Value).OrderBy(x => x.SiteName).ToList(); _site.DataSource = data; _site.DisplayMember = "DisplayName"; _site.ValueMember = "SiteID"; _site.SelectedIndex = -1; }
         private void ShowLoadError(Exception ex) { MessageBox.Show("Porter Deliveries could not be loaded. " + ex.Message, "ServoERP", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
 
-        private static Button ActionButton(string text, bool primary, EventHandler click) { var b = new Button { Text = text, AutoSize = true, Height = 36, MinimumSize = new Size(112, 36), FlatStyle = FlatStyle.Flat, BackColor = primary ? DS.Primary600 : Color.White, ForeColor = primary ? Color.White : DS.Slate900, Font = new Font("Segoe UI Semibold", 9f), Margin = new Padding(6, 0, 0, 0), Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = primary ? DS.Primary600 : DS.Border; b.Click += click; return b; }
-        private static Label Kpi(TableLayoutPanel host, int column, string caption) { var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(column == 0 ? 0 : 6, 0, column == 3 ? 0 : 6, 0), Padding = new Padding(14, 9, 14, 8) }; var value = new Label { Text = "0", Dock = DockStyle.Top, Height = 30, Font = new Font("Segoe UI Semibold", 17f), ForeColor = DS.Slate900 }; panel.Controls.Add(new Label { Text = caption, Dock = DockStyle.Bottom, Height = 20, Font = new Font("Segoe UI Semibold", 8f), ForeColor = DS.Slate600 }); panel.Controls.Add(value); host.Controls.Add(panel, column, 0); return value; }
+        private static Button ActionButton(string text, bool primary, EventHandler click) { var b = new Button { Text = text, Height = 38, MinimumSize = new Size(90, 38), FlatStyle = FlatStyle.Flat, BackColor = primary ? DS.Primary600 : Color.White, ForeColor = primary ? Color.White : DS.Slate900, Font = new Font("Segoe UI Semibold", 9f), Margin = new Padding(6, 0, 0, 0), Cursor = Cursors.Hand }; b.FlatAppearance.BorderColor = primary ? DS.Primary600 : DS.Border; b.Click += click; return b; }
+        private static Label Kpi(TableLayoutPanel host, int column, string caption) { var panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle, Margin = new Padding(column == 0 ? 0 : 6, 0, column == 3 ? 0 : 6, 0), Padding = new Padding(14, 10, 14, 10) }; var value = new Label { Text = "0", Dock = DockStyle.Top, Height = 36, Font = new Font("Segoe UI Semibold", 17f), ForeColor = DS.Slate900 }; panel.Controls.Add(new Label { Text = caption, Dock = DockStyle.Bottom, Height = 24, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI Semibold", 8f), ForeColor = DS.Slate600 }); panel.Controls.Add(value); host.Controls.Add(panel, column, 0); return value; }
         private static void AddLabel(TableLayoutPanel p, string text, int row, int col) { p.Controls.Add(new Label { Text = text, AutoSize = true, ForeColor = DS.Slate600, Font = new Font("Segoe UI Semibold", 8.5f), Margin = new Padding(0, 2, 0, 3) }, col, row); }
         private static TextBox AddField(TableLayoutPanel p, string label, int row, int col) { var host = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, RowCount = 2, Margin = new Padding(0, 0, col == 0 ? 8 : 0, 8) }; host.RowStyles.Add(new RowStyle(SizeType.AutoSize)); host.RowStyles.Add(new RowStyle(SizeType.Absolute, 31)); host.Controls.Add(new Label { Text = label, AutoSize = true, ForeColor = DS.Slate600, Font = new Font("Segoe UI Semibold", 8.5f) }, 0, 0); var box = new TextBox { Dock = DockStyle.Fill }; host.Controls.Add(box, 0, 1); p.Controls.Add(host, col, row); return box; }
         private static ComboBox AddCombo(TableLayoutPanel p, string label, int row, int col, string[] values) { var host = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, RowCount = 2, Margin = new Padding(0, 0, col == 0 ? 8 : 0, 8) }; host.Controls.Add(new Label { Text = label, AutoSize = true, ForeColor = DS.Slate600, Font = new Font("Segoe UI Semibold", 8.5f) }, 0, 0); var combo = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList }; if (values != null) combo.Items.AddRange(values); if (combo.Items.Count > 0) combo.SelectedIndex = 0; host.Controls.Add(combo, 0, 1); p.Controls.Add(host, col, row); return combo; }
