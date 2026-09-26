@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.446.0 - 2026-09-26
+
+- Added a dedicated Porter Deliveries module under Operations with local ServoERP booking records, client and site linking, pickup/drop details, delivery status, scheduling, driver information, costs, search, filters, and KPI summaries.
+- Added Book on Porter workflow that opens Porter Enterprise and lets the user record the returned Porter booking ID in ServoERP.
+- Added guarded local SQL storage and audit logging for Porter delivery records without requiring a Porter API connection.
+- Refined the Porter Deliveries screen into a responsive list-and-editor layout with bounded actions, readable KPI cards, and corrected screen-edge clipping.
+- Fixed every ServoERP window and dialog to use the official application icon and a stable Windows taskbar identity across installed, updated, and development launch paths.
+- Improved saved SQL credential recovery and silent background update installation behavior for client terminals.
+
 ## 1.1.445.0 - 2026-09-26
 
 - Standardized the desktop application on the Microsoft365Blue visual system with shared typography, controls, grids, dashboards, dialogs, and form styling.

@@ -1,15 +1,32 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.445.0",
+  "latestVersion": "1.1.446.0",
   "updatedAt": "2026-09-26",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.445/ServoERP.Desktop-1.1.445-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.445.0.exe",
-    "installer": "ServoERP_Setup_1.1.445.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.446/ServoERP.Desktop-1.1.446-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.446.0.exe",
+    "installer": "ServoERP_Setup_1.1.446.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.446.0",
+      "date": "2026-09-26",
+      "title": "Porter delivery operations and desktop polish",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a dedicated Porter Deliveries operations module with local booking tracking, client/site links, delivery status, scheduling, costs, driver details, search, filters, and KPI summaries.",
+            "Added Book on Porter workflow for opening Porter Enterprise and recording the returned booking ID in ServoERP.",
+            "Fixed the Porter Deliveries responsive layout and eliminated clipping and divider errors.",
+            "Applied the official ServoERP icon and stable Windows taskbar identity to every application window.",
+            "Improved saved SQL credential recovery and silent background update installation for client terminals."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.445.0",
       "date": "2026-09-26",
