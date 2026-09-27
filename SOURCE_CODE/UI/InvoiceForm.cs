@@ -3988,6 +3988,59 @@ namespace HVAC_Pro_Desktop.UI
             BtnNew_Click(this, EventArgs.Empty);
         }
 
+        /// <summary>Starts a new invoice with safe context copied from a completed work order.</summary>
+        public void OpenNewInvoiceFromJob(int jobId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action<int>)OpenNewInvoiceFromJob, jobId);
+                return;
+            }
+            if (jobId <= 0)
+                return;
+
+            Job job = _jobSvc.GetById(jobId);
+            if (job == null)
+                return;
+
+            OpenNewInvoiceFromShortcut();
+            Action apply = () =>
+            {
+                if (_cmbClient == null || _grid == null || IsDisposed)
+                    return;
+
+                RestoreComboSelection(_cmbClient, job.ClientID, null, job.ClientName);
+                _txtSubject.Text = "HVAC service against " + FirstNonEmpty(job.JobNumber, "Job #" + job.JobID)
+                    + " - " + FirstNonEmpty(job.JobTitle, job.Title, job.JobType, "Service work");
+                _txtNotes.Text = "Prepared from " + FirstNonEmpty(job.JobNumber, "Job #" + job.JobID)
+                    + ". Verify scope, GST and supporting documents before saving.";
+
+                if (_grid.Rows.Count == 0)
+                    AddLineRow();
+                DataGridViewRow row = _grid.Rows[0];
+                string description = FirstNonEmpty(job.JobTitle, job.Title, job.Description, "HVAC service charges");
+                EnsureComboValue("Description", description);
+                row.Cells["Description"].Value = description;
+                row.Cells["Category"].Value = "Service";
+                row.Cells["Unit"].Value = "Job";
+                row.Cells["Quantity"].Value = "1";
+                decimal amount = Math.Max(job.ActualRevenue, Math.Max(job.QuotedRevenue, job.Revenue));
+                if (amount > 0m)
+                    row.Cells["Rate"].Value = amount.ToString("0.00");
+                RecalculateLineRow(row);
+                RecalculateSummary();
+
+                BeginInvoke((Action)(() => RestoreComboSelection(_cmbSite, job.SiteID, null, job.SiteName)));
+                ShowStatus("New invoice prepared from " + FirstNonEmpty(job.JobNumber, "the selected job") + ". Review before saving.", InfoBlue);
+            };
+            BeginInvoke(apply);
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            return (values ?? new string[0]).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
+        }
+
         public void OpenInvoiceFromNavigation(int invoiceId)
         {
             if (InvokeRequired)

@@ -195,6 +195,9 @@ namespace HVAC_Pro_Desktop.Tests
                 foreach (string result in DashboardCommandCenterSmokeTests.RunAll())
                     record("PASS " + result);
                 CleanupUiResources();
+                foreach (string result in ActionCenterSmokeTests.RunAll())
+                    record("PASS " + result);
+                CleanupUiResources();
                 foreach (string result in InvoiceAnalyticsServiceSmokeTests.RunAll())
                     record("PASS " + result);
                 CleanupUiResources();

@@ -18,7 +18,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = @"
                     SELECT u.UserId, u.Username, u.DisplayName, u.RoleId, r.RoleName, u.IsActive,
                            u.LastLoginDate, u.ForcePasswordChange, u.PasswordHash, u.PasswordSalt,
-                           u.FailedAttempts, u.LockoutUntil
+                           u.FailedAttempts, u.LockoutUntil, u.EmployeeID
                     FROM AppUsers u
                     INNER JOIN AppRoles r ON u.RoleId = r.RoleId
                     WHERE u.Username = @username OR u.Email = @username";
@@ -33,6 +33,7 @@ namespace HVAC_Pro_Desktop.DAL
                         return new AppUserDto
                         {
                             UserId = Convert.ToInt32(r["UserId"]),
+                            EmployeeId = r["EmployeeID"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["EmployeeID"]),
                             Username = Convert.ToString(r["Username"]),
                             DisplayName = Convert.ToString(r["DisplayName"]),
                             RoleId = Convert.ToInt32(r["RoleId"]),
@@ -229,9 +230,11 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 const string sql = @"
                     SELECT u.UserId, u.Username, u.DisplayName, u.RoleId, r.RoleName, u.IsActive,
-                           u.ForcePasswordChange, u.LastLoginDate, u.CreatedDate
+                           u.ForcePasswordChange, u.LastLoginDate, u.CreatedDate, u.EmployeeID,
+                           e.Name AS EmployeeName
                     FROM AppUsers u
                     INNER JOIN AppRoles r ON u.RoleId = r.RoleId
+                    LEFT JOIN Employees e ON u.EmployeeID = e.EmployeeID
                     ORDER BY u.DisplayName, u.Username";
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 using (SqlDataReader r = cmd.ExecuteReader())
@@ -241,6 +244,8 @@ namespace HVAC_Pro_Desktop.DAL
                         users.Add(new ManagedUserDto
                         {
                             UserId = Convert.ToInt32(r["UserId"]),
+                            EmployeeId = r["EmployeeID"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["EmployeeID"]),
+                            EmployeeName = r["EmployeeName"] == DBNull.Value ? null : Convert.ToString(r["EmployeeName"]),
                             Username = Convert.ToString(r["Username"]),
                             DisplayName = Convert.ToString(r["DisplayName"]),
                             RoleId = Convert.ToInt32(r["RoleId"]),
@@ -256,16 +261,16 @@ namespace HVAC_Pro_Desktop.DAL
             return users;
         }
 
-        public int CreateUser(string username, string displayName, int roleId, string passwordHash, string passwordSalt, bool isActive, bool forcePasswordChange)
+        public int CreateUser(string username, string displayName, int roleId, string passwordHash, string passwordSalt, bool isActive, bool forcePasswordChange, int? employeeId = null)
         {
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
                 const string sql = @"
                     INSERT INTO AppUsers
-                        (Username, DisplayName, PasswordHash, PasswordSalt, RoleId, IsActive, ForcePasswordChange)
+                        (Username, DisplayName, PasswordHash, PasswordSalt, RoleId, IsActive, ForcePasswordChange, EmployeeID)
                     VALUES
-                        (@username, @displayName, @passwordHash, @passwordSalt, @roleId, @isActive, @forcePasswordChange);
+                        (@username, @displayName, @passwordHash, @passwordSalt, @roleId, @isActive, @forcePasswordChange, @employeeId);
                     SELECT SCOPE_IDENTITY();";
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
@@ -276,12 +281,13 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@roleId", roleId);
                     cmd.Parameters.AddWithValue("@isActive", isActive ? 1 : 0);
                     cmd.Parameters.AddWithValue("@forcePasswordChange", forcePasswordChange ? 1 : 0);
+                    cmd.Parameters.AddWithValue("@employeeId", employeeId.HasValue ? (object)employeeId.Value : DBNull.Value);
                     return Convert.ToInt32(cmd.ExecuteScalar());
                 }
             }
         }
 
-        public void UpdateUser(int userId, string username, string displayName, int roleId, bool isActive)
+        public void UpdateUser(int userId, string username, string displayName, int roleId, bool isActive, int? employeeId = null)
         {
             using (SqlConnection conn = _db.GetConnection())
             {
@@ -291,7 +297,8 @@ namespace HVAC_Pro_Desktop.DAL
                     SET Username = @username,
                         DisplayName = @displayName,
                         RoleId = @roleId,
-                        IsActive = @isActive
+                        IsActive = @isActive,
+                        EmployeeID = @employeeId
                     WHERE UserId = @id";
                 using (SqlCommand cmd = new SqlCommand(sql, conn))
                 {
@@ -300,6 +307,7 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@displayName", displayName ?? string.Empty);
                     cmd.Parameters.AddWithValue("@roleId", roleId);
                     cmd.Parameters.AddWithValue("@isActive", isActive ? 1 : 0);
+                    cmd.Parameters.AddWithValue("@employeeId", employeeId.HasValue ? (object)employeeId.Value : DBNull.Value);
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -395,7 +403,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 const string sql = @"
                     SELECT u.UserId, u.Username, u.DisplayName, u.RoleId, r.RoleName, u.IsActive,
-                           u.LastLoginDate, u.ForcePasswordChange, u.FailedAttempts, u.LockoutUntil
+                           u.LastLoginDate, u.ForcePasswordChange, u.FailedAttempts, u.LockoutUntil, u.EmployeeID
                     FROM UserSessions s
                     INNER JOIN AppUsers u ON s.UserId = u.UserId
                     INNER JOIN AppRoles r ON u.RoleId = r.RoleId
@@ -416,6 +424,7 @@ namespace HVAC_Pro_Desktop.DAL
                         return new AppUserDto
                         {
                             UserId = Convert.ToInt32(r["UserId"]),
+                            EmployeeId = r["EmployeeID"] == DBNull.Value ? (int?)null : Convert.ToInt32(r["EmployeeID"]),
                             Username = Convert.ToString(r["Username"]),
                             DisplayName = Convert.ToString(r["DisplayName"]),
                             RoleId = Convert.ToInt32(r["RoleId"]),

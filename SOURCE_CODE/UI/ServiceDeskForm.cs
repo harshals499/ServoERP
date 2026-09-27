@@ -80,6 +80,7 @@ namespace HVAC_Pro_Desktop.UI
         private ServiceDeskSnapshot _snapshot;
         private ServiceDeskIncident _current;
         private bool _binding;
+        private int _pendingNavigationIncidentId;
 
         public ServiceDeskForm()
         {
@@ -560,11 +561,35 @@ namespace HVAC_Pro_Desktop.UI
             _snapshot = snapshot;
             BindSnapshot();
             BindGrid();
-            if (_incidents.Count > 0)
+            if (_pendingNavigationIncidentId > 0)
+            {
+                int pending = _pendingNavigationIncidentId;
+                _pendingNavigationIncidentId = 0;
+                LoadIncident(pending);
+            }
+            else if (_incidents.Count > 0)
                 LoadIncident(_incidents[0].IncidentId);
             else
                 NewIncident();
             SetStatus("Service Desk ready.", Teal);
+        }
+
+        public void OpenIncidentFromNavigation(int incidentId)
+        {
+            if (InvokeRequired)
+            {
+                BeginInvoke((Action<int>)OpenIncidentFromNavigation, incidentId);
+                return;
+            }
+            if (incidentId <= 0)
+                return;
+
+            _pendingNavigationIncidentId = incidentId;
+            if (_incidents.Any(incident => incident.IncidentId == incidentId))
+            {
+                _pendingNavigationIncidentId = 0;
+                LoadIncident(incidentId);
+            }
         }
 
         private void BindLookups()

@@ -36,6 +36,29 @@ namespace HVAC_Pro_Desktop.Services
             return _paymentRepo.GetByClientId(clientId);
         }
 
+        public Payment GetPayment(int paymentId)
+        {
+            return _paymentRepo.GetById(paymentId);
+        }
+
+        public void ReconcilePayment(int paymentId, byte[] expectedRowVersion, string notes)
+        {
+            SessionManager.DemandPermission("Payments", "Edit");
+            AppUserDto user = SessionManager.CurrentUser;
+            bool updated = _paymentRepo.TryReconcile(paymentId, expectedRowVersion,
+                user == null ? (int?)null : user.UserId,
+                user == null ? "ServoERP User" : user.DisplayName,
+                string.IsNullOrWhiteSpace(notes) ? null : notes.Trim());
+            if (!updated)
+                throw new InvalidOperationException("This payment changed or was already reconciled on another PC. Refresh My Work before trying again.");
+
+            AppDataCache.RemovePrefix("payments:");
+            SessionManager.LogAction("RECONCILE", "Payments", paymentId, "Payment reconciled");
+            _audit.Record("RECONCILE", "Payments", paymentId, "Payment reconciled against the bank record." +
+                (string.IsNullOrWhiteSpace(notes) ? string.Empty : " Notes: " + notes.Trim()));
+            DashboardRefreshService.NotifyChanged("Payments");
+        }
+
         public decimal GetTotalCollectedThisMonth()
         {
             return _paymentRepo.GetTotalCollectedThisMonth();

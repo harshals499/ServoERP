@@ -614,7 +614,7 @@ namespace HVAC_Pro_Desktop.UI
                     InvoiceBillNo = Safe(payment.InvoiceNumber, "INV-" + payment.InvoiceID.ToString("0000")),
                     Mode = NormalizePaymentMode(payment.PaymentMode),
                     Amount = payment.AmountPaid,
-                    Status = "Paid"
+                    Status = FirstText(payment.ReconciliationStatus, "Unreconciled")
                 });
                 index++;
             }
@@ -745,10 +745,10 @@ namespace HVAC_Pro_Desktop.UI
 
             _alertsList.Controls.Clear();
             int oldOverdue = _overviewReceivables.Count(r => r.DueDate < DateTime.Today && r.AgingDays > 90);
-            int pending = _overviewTransactions.Count(t => t.Status == "Pending");
+            int pending = _overviewTransactions.Count(t => !string.Equals(t.Status, "Reconciled", StringComparison.OrdinalIgnoreCase));
             _alertsList.Controls.Add(MakeAlertRow("●", oldOverdue + " invoices are overdue for more than 90 days", PayRed));
-            _alertsList.Controls.Add(MakeAlertRow("●", pending + " payments are pending approval", OrangeCol));
-            _alertsList.Controls.Add(MakeAlertRow("●", "Bank statement imported successfully", SaveGreen));
+            _alertsList.Controls.Add(MakeAlertRow("●", pending + " customer payments require reconciliation", pending > 0 ? OrangeCol : SaveGreen));
+            _alertsList.Controls.Add(MakeAlertRow("●", "Reconciliation updates are concurrency protected", InfoBlue));
         }
 
         private List<PaymentTxn> GetFilteredTransactions()
@@ -942,7 +942,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control MakeStatusBadge(string status)
         {
-            Color color = status == "Paid" ? SaveGreen : status == "Refunded" ? PayPurple : status == "Overdue" ? PayRed : OrangeCol;
+            Color color = status == "Paid" || status == "Reconciled" ? SaveGreen : status == "Refunded" ? PayPurple : status == "Overdue" ? PayRed : OrangeCol;
             return MakePill(status, color);
         }
 
@@ -1015,9 +1015,106 @@ namespace HVAC_Pro_Desktop.UI
             else if (text.IndexOf("Link", StringComparison.OrdinalIgnoreCase) >= 0)
                 MessageBox.Show("Create Payment Link uses the connected payment gateway. Configure gateway credentials in Settings before generating live links.", "Create Payment Link", MessageBoxButtons.OK, MessageBoxIcon.Information);
             else if (text.IndexOf("Reconcile", StringComparison.OrdinalIgnoreCase) >= 0)
-                MessageBox.Show("Bank reconciliation opens after a bank statement is imported.", "Reconcile Bank", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            {
+                List<Payment> reconciliationSource = _allPayments;
+                if (reconciliationSource == null || reconciliationSource.Count == 0)
+                    reconciliationSource = _paySvc.GetAllPayments() ?? new List<Payment>();
+                Payment next = reconciliationSource
+                    .Where(p => !string.Equals(p.ReconciliationStatus, "Reconciled", StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(p => p.PaymentDate)
+                    .FirstOrDefault();
+                if (next == null)
+                {
+                    MessageBox.Show("There are no unreconciled customer payments.", "Reconcile Payments", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                OpenPaymentReconciliationFromNavigation(next.PaymentID);
+            }
             else if (text.IndexOf("Reports", StringComparison.OrdinalIgnoreCase) >= 0)
                 ExportPaymentsCsv();
+        }
+
+        public void OpenPaymentReconciliationFromNavigation(int paymentId)
+        {
+            if (paymentId <= 0)
+                return;
+
+            Payment payment;
+            try
+            {
+                payment = _paySvc.GetPayment(paymentId);
+            }
+            catch (Exception ex)
+            {
+                ShowError("The payment could not be loaded. Refresh and try again.", ex);
+                return;
+            }
+
+            if (payment == null)
+            {
+                MessageBox.Show("The payment no longer exists.", "Reconcile Payment", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (string.Equals(payment.ReconciliationStatus, "Reconciled", StringComparison.OrdinalIgnoreCase))
+            {
+                MessageBox.Show("This payment was already reconciled" +
+                    (payment.ReconciledAt.HasValue ? " on " + payment.ReconciledAt.Value.ToString("dd/MM/yyyy HH:mm") : string.Empty) + ".",
+                    "Reconcile Payment", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            using (Form dialog = ServoModalForm.Create("Reconcile Payment", 480, 315))
+            {
+                Label summary = new Label
+                {
+                    Location = new Point(24, 20), Size = new Size(420, 72), AutoEllipsis = true,
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = PayText,
+                    Text = FirstText(payment.PaymentNumber, "Payment #" + payment.PaymentID) + "\r\n" +
+                           FirstText(payment.ClientName, "Customer") + "  •  " + IndiaFormatHelper.FormatCurrency(payment.AmountPaid) +
+                           "\r\nReceived " + payment.PaymentDate.ToString("dd/MM/yyyy") +
+                           (string.IsNullOrWhiteSpace(payment.ReferenceNumber) ? string.Empty : "  •  Ref: " + payment.ReferenceNumber)
+                };
+                Label instruction = new Label
+                {
+                    Location = new Point(24, 102), Size = new Size(420, 34), ForeColor = PayMuted,
+                    Text = "Confirm only after matching this receipt to the bank record. The latest server version will be checked before saving."
+                };
+                TextBox notes = new TextBox { Location = new Point(24, 158), Size = new Size(420, 58), Multiline = true, MaxLength = 500 };
+                Button reconcile = MakePayButton("Mark Reconciled", SaveGreen, 140);
+                reconcile.Location = new Point(304, 238);
+                reconcile.Click += (s, e) =>
+                {
+                    try
+                    {
+                        reconcile.Enabled = false;
+                        _paySvc.ReconcilePayment(payment.PaymentID, payment.RowVersion, notes.Text);
+                        dialog.DialogResult = DialogResult.OK;
+                        dialog.Close();
+                    }
+                    catch (Exception ex)
+                    {
+                        reconcile.Enabled = true;
+                        MessageBox.Show(ex.Message, "Reconcile Payment", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                };
+                dialog.Controls.AddRange(new Control[]
+                {
+                    summary, instruction,
+                    new Label { Text = "Reconciliation notes (optional)", Location = new Point(24, 139), AutoSize = true },
+                    notes, reconcile
+                });
+                if (dialog.ShowDialog(FindForm()) == DialogResult.OK)
+                {
+                    ShowStatus("Payment reconciled. My Work has been refreshed.", SaveGreen);
+                    if (_showOverview)
+                        StartPaymentsOverviewLoad();
+                }
+            }
+        }
+
+        private static string FirstText(string value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         }
 
         private async Task OpenNewPaymentFormAsync()

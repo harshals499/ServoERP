@@ -20,6 +20,12 @@ namespace HVAC_Pro_Desktop.Models
         public int? ModifiedByUserId { get; set; }
         public string ModifiedByName { get; set; }
         public DateTime? ModifiedDate { get; set; }
+        public string ReconciliationStatus { get; set; } = "Unreconciled";
+        public DateTime? ReconciledAt { get; set; }
+        public int? ReconciledByUserId { get; set; }
+        public string ReconciledByName { get; set; }
+        public string ReconciliationNotes { get; set; }
+        public byte[] RowVersion { get; set; }
 
         // Joined display fields (not stored)
         public string InvoiceNumber { get; set; }

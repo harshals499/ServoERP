@@ -243,7 +243,7 @@ namespace HVAC_Pro_Desktop.Services
             return _repo.GetAuditLog(fromDate, toDate, username);
         }
 
-        public (bool Success, string TempPassword, string ErrorMessage, int UserId) CreateUser(string username, string displayName, int roleId, bool isActive)
+        public (bool Success, string TempPassword, string ErrorMessage, int UserId) CreateUser(string username, string displayName, int roleId, bool isActive, int? employeeId = null)
         {
             try
             {
@@ -256,7 +256,7 @@ namespace HVAC_Pro_Desktop.Services
                 string tempPassword = "Temp@" + new Random().Next(1000, 9999).ToString();
                 string salt = "bcrypt";
                 string hash = SecurityHelpers.HashPasswordWithBcrypt(tempPassword);
-                int userId = _repo.CreateUser(username.Trim(), displayName.Trim(), roleId, hash, salt, isActive, true);
+                int userId = _repo.CreateUser(username.Trim(), displayName.Trim(), roleId, hash, salt, isActive, true, employeeId);
                 SessionManager.LogAction("CREATE", "Settings", userId, "User created: " + username.Trim());
                 return (true, tempPassword, null, userId);
             }
@@ -331,7 +331,7 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        public bool UpdateUser(int userId, string username, string displayName, int roleId, bool isActive)
+        public bool UpdateUser(int userId, string username, string displayName, int roleId, bool isActive, int? employeeId = null)
         {
             try
             {
@@ -339,7 +339,7 @@ namespace HVAC_Pro_Desktop.Services
                 if (existing != null && existing.UserId != userId)
                     return false;
 
-                _repo.UpdateUser(userId, username?.Trim(), displayName?.Trim(), roleId, isActive);
+                _repo.UpdateUser(userId, username?.Trim(), displayName?.Trim(), roleId, isActive, employeeId);
                 SessionManager.LogAction("EDIT", "Settings", userId, "User updated: " + (username ?? string.Empty).Trim());
                 return true;
             }
