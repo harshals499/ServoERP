@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.454.0 - 2026-09-27
+
+- Refined My Work with ServoERP theme tokens, shared ModernIconSystem imagery, stronger workspace hierarchy, and clearer semantic priority colours.
+- Replaced the low-visibility Action Center filter ComboBox with visible themed filter chips and a persistent active state.
+- Tightened the recommended-action layout, promoted its next step to the primary action, and improved queue headers, item counts, row scanability, and hover/action affordances.
+- Added a bounded, one-round-trip SQL projection for My Work so actionable records load before the legacy analytics dashboard and no longer depend on full module collections.
+- Added explicit App User to Employee linking in Settings and exact employee-ID assignment filtering, retaining name matching only as an upgrade fallback for unlinked users.
+- Added direct AMC visit obligations and job-specific part-shortage actions with exact source-child identities and safe deep links to the owning job or contract.
+- Added a dedicated payment reconciliation lifecycle with visible unreconciled/reconciled state, exact-payment deep links, role permission checks, optimistic row-version concurrency, audit history, and automatic My Work refresh.
+- Added guarded indexes for user assignment, reconciliation, AMC schedules, and job parts; verified the additive migration against SQL Server Express and extended role/action smoke coverage.
+- Added My Work / Action Center as the post-login operational home, with critical, overdue, today, waiting, upcoming, and recommended-next-action queues.
+- Added deterministic, explainable priority scoring and role-focused workspaces for technicians, service coordination, sales, accounts/procurement, and management.
+- Derived actions from authoritative jobs, service incidents, AMC contracts, quotations, invoices, purchase orders, and inventory without duplicating business state.
+- Added stale-action revalidation for multi-PC use plus exact-record deep links, including completed-job invoice drafts prefilled with job, client, site, description, and value context.
+- Added action filters, permission-aware empty-state shortcuts, refresh behavior, audit entries for action launches, visual preview coverage, and business-scenario smoke tests.
+
 ## 1.1.452.0 - 2026-09-27
 
 - Rebuilt the Invoices dashboard as a receivables operations cockpit while preserving the existing application sidebar and navigation.

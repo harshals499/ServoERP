@@ -274,6 +274,7 @@
     <Compile Include="MODELS\HsnSacMasterEntry.cs" />
     <Compile Include="MODELS\PendingCharge.cs" />
     <Compile Include="MODELS\AuthModels.cs" />
+    <Compile Include="MODELS\ActionCenterModels.cs" />
     <Compile Include="MODELS\PayrollModels.cs" />
     <Compile Include="MODELS\CardLayoutDto.cs" />
     <Compile Include="MODELS\ModuleState.cs" />
@@ -301,6 +302,7 @@
     <Compile Include="DAL\DatabaseManager.cs" />
     <Compile Include="DAL\DatabaseConnectionFactory.cs" />
     <Compile Include="DAL\DapperDatabase.cs" />
+    <Compile Include="DAL\ActionCenterRepository.cs" />
     <Compile Include="DAL\DbHelper.cs" />
     <Compile Include="DAL\DbExecutor.cs" />
     <Compile Include="DAL\ClientRepository.cs" />
@@ -379,6 +381,7 @@
     <Compile Include="SERVICES\SmartImportDuplicateDetector.cs" />
     <Compile Include="SERVICES\SmartImportDuplicateCleanupService.cs" />
     <Compile Include="SERVICES\DashboardCommandCenterService.cs" />
+    <Compile Include="SERVICES\ActionCenterService.cs" />
     <Compile Include="SERVICES\DashboardRefreshService.cs" />
     <Compile Include="SERVICES\InvoiceAnalyticsService.cs" />
     <Compile Include="SERVICES\QuotationAnalyticsService.cs" />
@@ -489,6 +492,7 @@
     <Compile Include="Tests\ImportPreflightSmokeTests.cs" />
     <Compile Include="Tests\SmartImportDuplicateDetectorSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
+    <Compile Include="Tests\ActionCenterSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />
@@ -679,6 +683,9 @@
     </Compile>
     <Compile Include="UI\DashboardForm.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\DashboardForm.ActionCenter.cs">
+      <DependentUpon>DashboardForm.cs</DependentUpon>
     </Compile>
     <Compile Include="UI\DashboardDeptCard.cs">
       <SubType>UserControl</SubType>

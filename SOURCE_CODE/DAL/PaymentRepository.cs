@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using Dapper;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -101,6 +102,22 @@ namespace HVAC_Pro_Desktop.DAL
                         return r.Read() ? Map(r) : null;
                 }
             }
+        }
+
+        public bool TryReconcile(int paymentId, byte[] expectedRowVersion, int? userId, string userName, string notes)
+        {
+            if (paymentId <= 0 || expectedRowVersion == null || expectedRowVersion.Length == 0)
+                return false;
+
+            const string sql = @"
+UPDATE dbo.Payments
+SET ReconciliationStatus='Reconciled', ReconciledAt=GETDATE(), ReconciledByUserId=@userId,
+    ReconciledByName=@userName, ReconciliationNotes=@notes,
+    ModifiedByUserId=@userId, ModifiedByName=@userName, ModifiedDate=GETDATE()
+WHERE PaymentID=@paymentId AND RowVersion=@expectedRowVersion
+  AND ISNULL(ReconciliationStatus,'Unreconciled')<>'Reconciled';";
+            using (SqlConnection connection = DapperDatabase.CreateConnection())
+                return connection.Execute(sql, new { paymentId, expectedRowVersion, userId, userName, notes }) == 1;
         }
 
         public decimal GetTotalPaidForInvoice(int invoiceId)
@@ -228,6 +245,12 @@ namespace HVAC_Pro_Desktop.DAL
             ModifiedByUserId = r["ModifiedByUserId"] == DBNull.Value ? (int?)null : (int)r["ModifiedByUserId"],
             ModifiedByName = r["ModifiedByName"] == DBNull.Value ? null : r["ModifiedByName"].ToString(),
             ModifiedDate = r["ModifiedDate"] == DBNull.Value ? (DateTime?)null : (DateTime)r["ModifiedDate"],
+            ReconciliationStatus = r["ReconciliationStatus"] == DBNull.Value ? "Unreconciled" : r["ReconciliationStatus"].ToString(),
+            ReconciledAt = r["ReconciledAt"] == DBNull.Value ? (DateTime?)null : (DateTime)r["ReconciledAt"],
+            ReconciledByUserId = r["ReconciledByUserId"] == DBNull.Value ? (int?)null : (int)r["ReconciledByUserId"],
+            ReconciledByName = r["ReconciledByName"] == DBNull.Value ? null : r["ReconciledByName"].ToString(),
+            ReconciliationNotes = r["ReconciliationNotes"] == DBNull.Value ? null : r["ReconciliationNotes"].ToString(),
+            RowVersion = r["RowVersion"] == DBNull.Value ? null : (byte[])r["RowVersion"],
             InvoiceNumber   = r["InvoiceNumber"].ToString(),
             ClientName      = r["ClientName"].ToString()
         };
