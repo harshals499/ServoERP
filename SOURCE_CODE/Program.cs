@@ -414,6 +414,37 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/invoicedashboardvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    string outputPath = Path.Combine(outputDirectory, "invoice-receivables-dashboard-" + stamp + ".png");
+                    string compactOutputPath = Path.Combine(outputDirectory, "invoice-receivables-dashboard-compact-" + stamp + ".png");
+                    using (var page = new InvoiceForm { Size = new System.Drawing.Size(1520, 1378) })
+                    {
+                        page.LoadReceivablesPreviewForVisualTest();
+                        page.CreateControl();
+                        page.PerformLayout();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(page.Width, page.Height))
+                        {
+                            page.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        page.Size = new System.Drawing.Size(1280, 900);
+                        page.PerformLayout();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(page.Width, page.Height))
+                        {
+                            page.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(compactOutputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    AppRuntime.LogTiming("InvoiceDashboardVisualTest", 0, outputPath + " | " + compactOutputPath);
+                    return;
+                }
+
                 if (HasArg(args, "/profitabilityvisualtest"))
                 {
                     string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");

@@ -35,6 +35,13 @@ namespace HVAC_Pro_Desktop.Services
         public List<InvoiceAgingBucket> AgingBuckets { get; set; } = new List<InvoiceAgingBucket>();
         public List<InvoiceWorkflowSummaryRow> Workflow { get; set; } = new List<InvoiceWorkflowSummaryRow>();
         public List<string> Reminders { get; set; } = new List<string>();
+        public decimal CashExpectedAmount { get; set; }
+        public decimal OutstandingAmount { get; set; }
+        public decimal AtRiskAmount { get; set; }
+        public decimal OverdueAmount { get; set; }
+        public decimal DaysSalesOutstanding { get; set; }
+        public List<InvoiceCollectionForecastPoint> CollectionForecast { get; set; } = new List<InvoiceCollectionForecastPoint>();
+        public List<InvoiceClientExposureRow> ClientExposure { get; set; } = new List<InvoiceClientExposureRow>();
     }
 
     public class InvoiceKpiSet
@@ -86,7 +93,30 @@ namespace HVAC_Pro_Desktop.Services
         public DateTime InvoiceDate { get; set; }
         public DateTime DueDate { get; set; }
         public decimal Amount { get; set; }
+        public decimal PaidAmount { get; set; }
+        public decimal BalanceDue { get; set; }
+        public int DaysOverdue { get; set; }
+        public string Risk { get; set; }
+        public string NextAction { get; set; }
         public string Status { get; set; }
+    }
+
+    public class InvoiceCollectionForecastPoint
+    {
+        public DateTime WeekStart { get; set; }
+        public DateTime WeekEnd { get; set; }
+        public string Period { get; set; }
+        public decimal OnTimeAmount { get; set; }
+        public decimal DueSoonAmount { get; set; }
+        public decimal OverdueAmount { get; set; }
+        public decimal TotalAmount { get { return OnTimeAmount + DueSoonAmount + OverdueAmount; } }
+    }
+
+    public class InvoiceClientExposureRow
+    {
+        public string ClientName { get; set; }
+        public decimal OutstandingAmount { get; set; }
+        public decimal SharePercent { get; set; }
     }
 
     public class InvoiceAgingBucket
@@ -184,12 +214,18 @@ namespace HVAC_Pro_Desktop.Services
                     InvoiceDate = i.InvoiceDate,
                     DueDate = i.DueDate,
                     Amount = i.TotalAmount,
+                    PaidAmount = i.PaidAmount,
+                    BalanceDue = Math.Max(0m, i.BalanceDue),
+                    DaysOverdue = i.BalanceDue > 0m && i.DueDate.Date < today.Date ? (today.Date - i.DueDate.Date).Days : 0,
+                    Risk = ResolveRisk(i, today),
+                    NextAction = ResolveNextAction(i, today),
                     Status = ResolveStatus(i, today)
                 })
                 .ToList();
             snapshot.AgingBuckets = BuildAging(allInvoices, today);
             snapshot.Workflow = BuildWorkflow(current, today);
             snapshot.Reminders = BuildReminders(allInvoices, allContracts, today);
+            BuildReceivables(snapshot, allInvoices, today);
 
             return snapshot;
         }
@@ -292,17 +328,127 @@ namespace HVAC_Pro_Desktop.Services
 
         private List<InvoiceAgingBucket> BuildAging(List<Invoice> invoices, DateTime today)
         {
-            string[] buckets = { "0-30 Days", "31-60 Days", "61-90 Days", "90+ Days" };
+            string[] buckets = { "Not due", "1-30 Days", "31-60 Days", "61-90 Days", "90+ Days" };
             var rows = buckets.Select(b => new InvoiceAgingBucket { Bucket = b }).ToList();
-            foreach (Invoice invoice in invoices.Where(i => i.BalanceDue > 0m && !IsPaid(i) && i.DueDate.Date < today.Date))
+            foreach (Invoice invoice in invoices.Where(i => i.BalanceDue > 0m && !IsPaid(i)))
             {
-                int age = Math.Max(0, (today.Date - invoice.DueDate.Date).Days);
-                string bucket = age <= 30 ? "0-30 Days" : age <= 60 ? "31-60 Days" : age <= 90 ? "61-90 Days" : "90+ Days";
+                int age = (today.Date - invoice.DueDate.Date).Days;
+                string bucket = age <= 0 ? "Not due" : age <= 30 ? "1-30 Days" : age <= 60 ? "31-60 Days" : age <= 90 ? "61-90 Days" : "90+ Days";
                 InvoiceAgingBucket row = rows.First(r => r.Bucket == bucket);
                 row.Count++;
                 row.Amount += invoice.BalanceDue;
             }
             return rows;
+        }
+
+        private void BuildReceivables(InvoiceDashboardSnapshot snapshot, List<Invoice> invoices, DateTime today)
+        {
+            List<Invoice> open = invoices
+                .Where(i => i != null && i.BalanceDue > 0m && !IsPaid(i))
+                .ToList();
+
+            snapshot.OutstandingAmount = open.Sum(i => i.BalanceDue);
+            snapshot.CashExpectedAmount = open
+                .Where(i => i.DueDate.Date <= today.Date.AddDays(30))
+                .Sum(i => i.BalanceDue);
+            snapshot.OverdueAmount = open
+                .Where(i => i.DueDate.Date < today.Date)
+                .Sum(i => i.BalanceDue);
+            snapshot.AtRiskAmount = open
+                .Where(i => ResolveRisk(i, today) == "High")
+                .Sum(i => i.BalanceDue);
+
+            List<int> collectionDays = invoices
+                .Where(i => i != null && i.InvoiceDate != default(DateTime))
+                .Select(i => Math.Max(0, (((i.PaymentDate ?? (IsPaid(i) ? i.DueDate : today)).Date) - i.InvoiceDate.Date).Days))
+                .ToList();
+            snapshot.DaysSalesOutstanding = collectionDays.Count == 0 ? 0m : Convert.ToDecimal(Math.Round(collectionDays.Average(), 0));
+
+            DateTime weekStart = today.Date.AddDays(-((int)today.DayOfWeek + 6) % 7);
+            for (int week = 0; week < 8; week++)
+            {
+                DateTime start = weekStart.AddDays(week * 7);
+                DateTime end = start.AddDays(6);
+                var point = new InvoiceCollectionForecastPoint
+                {
+                    WeekStart = start,
+                    WeekEnd = end,
+                    Period = start.ToString("dd MMM") + "-" + end.ToString("dd MMM")
+                };
+
+                IEnumerable<Invoice> due = week == 0
+                    ? open.Where(i => i.DueDate.Date <= end)
+                    : open.Where(i => i.DueDate.Date >= start && i.DueDate.Date <= end);
+                foreach (Invoice invoice in due)
+                {
+                    string risk = ResolveRisk(invoice, today);
+                    if (risk == "High") point.OverdueAmount += invoice.BalanceDue;
+                    else if (risk == "Medium") point.DueSoonAmount += invoice.BalanceDue;
+                    else point.OnTimeAmount += invoice.BalanceDue;
+                }
+                snapshot.CollectionForecast.Add(point);
+            }
+
+            decimal total = Math.Max(1m, snapshot.OutstandingAmount);
+            snapshot.ClientExposure = open
+                .GroupBy(i => Clean(i.ClientName, "Unassigned Client"))
+                .Select(g => new InvoiceClientExposureRow
+                {
+                    ClientName = g.Key,
+                    OutstandingAmount = g.Sum(i => i.BalanceDue),
+                    SharePercent = Math.Round(g.Sum(i => i.BalanceDue) * 100m / total, 1)
+                })
+                .OrderByDescending(r => r.OutstandingAmount)
+                .ThenBy(r => r.ClientName)
+                .Take(5)
+                .ToList();
+
+            snapshot.RecentInvoices = invoices
+                .OrderByDescending(i => i.BalanceDue > 0m && !IsPaid(i))
+                .ThenByDescending(i => Math.Max(0, (today.Date - i.DueDate.Date).Days))
+                .ThenByDescending(i => i.BalanceDue)
+                .ThenByDescending(i => i.InvoiceDate)
+                .Take(100)
+                .Select(i => new InvoiceRecentRow
+                {
+                    InvoiceId = i.InvoiceID,
+                    InvoiceNumber = Clean(i.InvoiceNumber, "INV-DRAFT"),
+                    ClientName = Clean(i.ClientName, "Unassigned Client"),
+                    SiteName = Clean(i.SiteName, "-"),
+                    InvoiceDate = i.InvoiceDate,
+                    DueDate = i.DueDate,
+                    Amount = i.TotalAmount,
+                    PaidAmount = i.PaidAmount,
+                    BalanceDue = Math.Max(0m, i.BalanceDue),
+                    DaysOverdue = i.BalanceDue > 0m && i.DueDate.Date < today.Date ? (today.Date - i.DueDate.Date).Days : 0,
+                    Risk = ResolveRisk(i, today),
+                    NextAction = ResolveNextAction(i, today),
+                    Status = ResolveStatus(i, today)
+                })
+                .ToList();
+        }
+
+        private string ResolveRisk(Invoice invoice, DateTime today)
+        {
+            if (invoice == null || invoice.BalanceDue <= 0m || IsPaid(invoice))
+                return "Low";
+            int days = (today.Date - invoice.DueDate.Date).Days;
+            if (days > 30 || (days > 0 && invoice.BalanceDue >= 100000m))
+                return "High";
+            if (days > 0 || invoice.DueDate.Date <= today.Date.AddDays(7))
+                return "Medium";
+            return "Low";
+        }
+
+        private string ResolveNextAction(Invoice invoice, DateTime today)
+        {
+            if (invoice == null || IsPaid(invoice) || invoice.BalanceDue <= 0m)
+                return "No collection action";
+            int days = (today.Date - invoice.DueDate.Date).Days;
+            if (days > 30) return "Escalate payment follow-up";
+            if (days > 0) return "Send payment reminder";
+            if (invoice.DueDate.Date <= today.Date.AddDays(7)) return "Confirm payment date";
+            return "Monitor due date";
         }
 
         private List<InvoiceWorkflowSummaryRow> BuildWorkflow(List<Invoice> invoices, DateTime today)

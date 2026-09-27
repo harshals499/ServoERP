@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.452.0 - 2026-09-27
+
+- Rebuilt the Invoices dashboard as a receivables operations cockpit while preserving the existing application sidebar and navigation.
+- Added live cash-expected, collected, at-risk, overdue, DSO, eight-week collection forecast, ageing, client concentration, and priority follow-up views.
+- Added a searchable invoice work queue with working open, record-payment, and reminder actions plus a responsive compact actions menu.
+- Changed post-update What's New notices to display English release information only, including safe handling of legacy staged notices.
+
 ## 1.1.451.0 - 2026-09-27
 
 - Rebuilt the Quotations dashboard as a forecasting-first command centre while preserving the existing application sidebar and navigation.

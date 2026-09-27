@@ -185,15 +185,15 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
-        /// <summary>Shows Marathi release notes once after the installed updater restarts ServoERP.</summary>
+        /// <summary>Shows English release notes once after the installed updater restarts ServoERP.</summary>
         private void ShowPostUpdateWhatsNew()
         {
             if (!UpdateService.TryConsumePostUpdateNotice(out string version, out string text))
                 return;
 
-            using (var dialog = new MarathiWhatsNewDialog())
+            using (var dialog = new WhatsNewDialog())
             {
-                dialog.Text = BrandingService.WindowTitle("नवीन काय आहे");
+                dialog.Text = BrandingService.WindowTitle("What's New");
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
@@ -203,20 +203,20 @@ namespace HVAC_Pro_Desktop.UI
 
                 Label title = new Label
                 {
-                    Text = "ServoERP अपडेट यशस्वी झाले",
+                    Text = "ServoERP was updated successfully",
                     Dock = DockStyle.Top,
                     Height = 48,
                     Padding = new Padding(22, 16, 22, 0),
-                    Font = new Font("Nirmala UI", 15f, FontStyle.Bold),
+                    Font = new Font("Segoe UI", 15f, FontStyle.Bold),
                     ForeColor = DS.Slate900
                 };
                 Label subtitle = new Label
                 {
-                    Text = "आवृत्ती " + version,
+                    Text = "Version " + version,
                     Dock = DockStyle.Top,
                     Height = 28,
                     Padding = new Padding(24, 0, 24, 0),
-                    Font = new Font("Nirmala UI", 9f),
+                    Font = new Font("Segoe UI", 9f),
                     ForeColor = DS.Slate600
                 };
                 TextBox notes = new TextBox
@@ -229,11 +229,11 @@ namespace HVAC_Pro_Desktop.UI
                     BorderStyle = BorderStyle.FixedSingle,
                     BackColor = Color.White,
                     ForeColor = DS.Slate800,
-                    Font = new Font("Nirmala UI", 10f),
+                    Font = new Font("Segoe UI", 10f),
                     Text = text
                 };
-                Button close = DS.PrimaryBtn("ठीक आहे", 112, 34);
-                close.Font = new Font("Nirmala UI", 9f, FontStyle.Bold);
+                Button close = DS.PrimaryBtn("Got it", 112, 34);
+                close.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 close.DialogResult = DialogResult.OK;
                 FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 22, 10), BackColor = DS.BgPage };
                 footer.Controls.Add(close);
@@ -3288,9 +3288,9 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class MarathiWhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
+        private sealed class WhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
         {
-            public MarathiWhatsNewDialog()
+            public WhatsNewDialog()
             {
             }
         }

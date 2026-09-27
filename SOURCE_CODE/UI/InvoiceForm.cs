@@ -100,11 +100,12 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _invoiceWorkspacePanel;
         private Panel _invoiceWorkflowCard;
         private TableLayoutPanel _invoiceWorkflowTable;
-        private DateTimePicker _invoiceDashFromPicker;
-        private DateTimePicker _invoiceDashToPicker;
-        private ComboBox _invoiceDashGroupingCombo;
+        private DateTimePicker _invoiceDashFromPicker = null;
+        private DateTimePicker _invoiceDashToPicker = null;
+        private ComboBox _invoiceDashGroupingCombo = null;
         private InvoiceDashboardSnapshot _invoiceDashboardSnapshot;
         private bool _invoiceDashboardRefreshing;
+        private bool _invoiceVisualTestMode;
         private bool _invoiceDashboardLayingOut;
         private readonly Dictionary<string, int> _invoiceDashboardCardHeights = new Dictionary<string, int>();
         private readonly HashSet<ComboBox> _invoiceComboBoxes = new HashSet<ComboBox>();
@@ -164,6 +165,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void QueueInitialLoad()
         {
+            if (_invoiceVisualTestMode)
+                return;
             Control dispatcher = FindForm() ?? Parent ?? (IsHandleCreated ? (Control)this : null);
             if (_initialLoadQueued || _dataInitialized || dispatcher == null || !dispatcher.IsHandleCreated)
                 return;
@@ -904,51 +907,132 @@ namespace HVAC_Pro_Desktop.UI
             DateTime today = DateTime.Today;
             _invoiceDashboardSnapshot = new InvoiceDashboardSnapshot
             {
-                DateFrom = new DateTime(today.Year, today.Month, 1),
-                DateTo = new DateTime(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month)),
+                DateFrom = today.AddMonths(-12).Date,
+                DateTo = today.AddDays(56).Date,
                 Grouping = InvoiceAnalyticsGrouping.Week
             };
 
-            Panel host = new Panel
+            var dashboard = new InvoiceReceivablesDashboard();
+            dashboard.RefreshRequested += () => RefreshInvoiceModuleDashboard(dashboard);
+            dashboard.OpenInvoiceRequested += OpenInvoiceFromNavigation;
+            dashboard.RecordPaymentRequested += RecordPaymentFromDashboard;
+            dashboard.SendReminderRequested += SendReminderFromDashboard;
+            dashboard.HandleCreated += (s, e) =>
             {
-                Height = 430,
-                BackColor = DS.BgPage,
-                Padding = new Padding(0, 0, 0, 12)
+                if (!_invoiceVisualTestMode)
+                    BeginInvoke((Action)(() => RefreshInvoiceModuleDashboard(dashboard)));
             };
-            host.Resize += (s, e) => LayoutInvoiceDashboard(host);
+            return dashboard;
+        }
 
-            _invoiceDashFromPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateFrom, Width = 126, Tag = "dash-filter" };
-            _invoiceDashToPicker = new DateTimePicker { Format = DateTimePickerFormat.Short, Value = _invoiceDashboardSnapshot.DateTo, Width = 126, Tag = "dash-filter" };
-            _invoiceDashGroupingCombo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown, Width = 86, Tag = "dash-filter" };
-            _invoiceDashGroupingCombo.Items.AddRange(new object[] { "Day", "Week", "Month" });
-            _invoiceDashGroupingCombo.SelectedItem = _invoiceDashboardSnapshot.Grouping.ToString();
-            _invoiceDashFromPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
-            _invoiceDashToPicker.ValueChanged += (s, e) => RefreshInvoiceModuleDashboard(host);
-            _invoiceDashGroupingCombo.SelectedIndexChanged += (s, e) => RunAfterDropdownClosed(() => RefreshInvoiceModuleDashboard(host));
-            RegisterInvoiceComboBox(_invoiceDashGroupingCombo);
+        public void LoadReceivablesPreviewForVisualTest()
+        {
+            _invoiceVisualTestMode = true;
+            if (_btnNewInvoice != null)
+                _btnNewInvoice.Visible = true;
+            if (_invoiceDashboardHost != null)
+                _invoiceDashboardHost.ShowContent();
+            InvoiceReceivablesDashboard dashboard = _invoiceDashboardPanel as InvoiceReceivablesDashboard;
+            if (dashboard == null)
+                return;
 
-            PopulateInvoiceDashboardCards(host);
-            LayoutInvoiceDashboard(host);
-            host.HandleCreated += (s, e) => BeginInvoke((Action)(() => RefreshInvoiceModuleDashboard(host)));
-            return host;
+            DateTime today = DateTime.Today;
+            var rows = new List<InvoiceRecentRow>
+            {
+                PreviewInvoice(101, "249/2025-26", "Zydus Lifesciences Limited", today.AddDays(-48), 326880m, "High", "Escalate payment follow-up"),
+                PreviewInvoice(102, "238/2025-26", "Blue Jet Healthcare Pvt Ltd", today.AddDays(-32), 261800m, "High", "Escalate payment follow-up"),
+                PreviewInvoice(103, "218/2025-26", "SD Prakash Pharma Labs Pvt Ltd", today.AddDays(-18), 198450m, "Medium", "Send payment reminder"),
+                PreviewInvoice(104, "214/2025-26", "SD Metro Mall Facility Services", today.AddDays(-9), 176220m, "Medium", "Send payment reminder"),
+                PreviewInvoice(105, "207/2025-26", "Sahyadri Foods Processing LLP", today.AddDays(-3), 162135m, "Medium", "Send payment reminder"),
+                PreviewInvoice(106, "196/2025-26", "Arvind Precision Components", today.AddDays(3), 263500m, "Medium", "Confirm payment date"),
+                PreviewInvoice(107, "192/2025-26", "Silverline Supermarket Chain", today.AddDays(8), 192400m, "Low", "Monitor due date"),
+                PreviewInvoice(108, "188/2025-26", "Vardhan Engineering Works", today.AddDays(13), 146800m, "Low", "Monitor due date"),
+                PreviewInvoice(109, "184/2025-26", "GreenLeaf Dairy Products", today.AddDays(18), 98560m, "Low", "Monitor due date"),
+                PreviewInvoice(110, "180/2025-26", "Bharat Insulation Works", today.AddDays(24), 224600m, "Low", "Monitor due date"),
+                PreviewInvoice(111, "176/2025-26", "Dino Chemical Stores", today.AddDays(29), 176450m, "Low", "Monitor due date"),
+                PreviewInvoice(112, "172/2025-26", "Apex School Infrastructure", today.AddDays(34), 112900m, "Low", "Monitor due date"),
+                PreviewInvoice(113, "168/2025-26", "UrbanEdge Co-working Spaces", today.AddDays(39), 98120m, "Low", "Monitor due date"),
+                PreviewInvoice(114, "164/2025-26", "Unity Retail Mart", today.AddDays(45), 82340m, "Low", "Monitor due date"),
+                PreviewInvoice(115, "160/2025-26", "Orion Chemical Stores", today.AddDays(52), 74400m, "Low", "Monitor due date")
+            };
+            dashboard.BindSnapshot(new InvoiceDashboardSnapshot
+            {
+                DateFrom = today.AddMonths(-12),
+                DateTo = today.AddDays(56),
+                Kpis = new InvoiceKpiSet { PaidAmount = new InvoiceKpi { Title = "Paid Amount", Value = 732500m } },
+                CashExpectedAmount = 2124000m,
+                OutstandingAmount = 2055345m,
+                AtRiskAmount = 786630m,
+                OverdueAmount = 1125485m,
+                DaysSalesOutstanding = 56m,
+                RecentInvoices = rows,
+                CollectionForecast = new List<InvoiceCollectionForecastPoint>
+                {
+                    PreviewForecast(today, 0, 110000m, 88000m, 62000m), PreviewForecast(today, 1, 148000m, 104000m, 46000m),
+                    PreviewForecast(today, 2, 214000m, 142000m, 78000m), PreviewForecast(today, 3, 152000m, 133000m, 82000m),
+                    PreviewForecast(today, 4, 108000m, 121000m, 65000m), PreviewForecast(today, 5, 76000m, 104000m, 44000m),
+                    PreviewForecast(today, 6, 66000m, 87000m, 32000m), PreviewForecast(today, 7, 51000m, 62000m, 24000m)
+                },
+                AgingBuckets = new List<InvoiceAgingBucket>
+                {
+                    new InvoiceAgingBucket { Bucket = "Not due", Amount = 778915m, Count = 5 },
+                    new InvoiceAgingBucket { Bucket = "1-30 Days", Amount = 684300m, Count = 4 },
+                    new InvoiceAgingBucket { Bucket = "31-60 Days", Amount = 412450m, Count = 3 },
+                    new InvoiceAgingBucket { Bucket = "61-90 Days", Amount = 186220m, Count = 1 },
+                    new InvoiceAgingBucket { Bucket = "90+ Days", Amount = 262135m, Count = 2 }
+                },
+                ClientExposure = new List<InvoiceClientExposureRow>
+                {
+                    new InvoiceClientExposureRow { ClientName = "Zydus Lifesciences Ltd", OutstandingAmount = 493283m, SharePercent = 24m },
+                    new InvoiceClientExposureRow { ClientName = "Blue Jet Healthcare", OutstandingAmount = 369962m, SharePercent = 18m },
+                    new InvoiceClientExposureRow { ClientName = "SD Prakash Pharma", OutstandingAmount = 246641m, SharePercent = 12m },
+                    new InvoiceClientExposureRow { ClientName = "SD Reliable Plumbing", OutstandingAmount = 184981m, SharePercent = 9m },
+                    new InvoiceClientExposureRow { ClientName = "Other clients", OutstandingAmount = 760478m, SharePercent = 37m }
+                }
+            });
+        }
+
+        private static InvoiceRecentRow PreviewInvoice(int id, string number, string client, DateTime dueDate, decimal balance, string risk, string nextAction)
+        {
+            return new InvoiceRecentRow
+            {
+                InvoiceId = id,
+                InvoiceNumber = number,
+                ClientName = client,
+                SiteName = "Main Facility",
+                InvoiceDate = dueDate.AddDays(-30),
+                DueDate = dueDate,
+                Amount = balance,
+                BalanceDue = balance,
+                DaysOverdue = dueDate.Date < DateTime.Today ? (DateTime.Today - dueDate.Date).Days : 0,
+                Risk = risk,
+                NextAction = nextAction,
+                Status = dueDate.Date < DateTime.Today ? "Overdue" : "Sent for Approval"
+            };
+        }
+
+        private static InvoiceCollectionForecastPoint PreviewForecast(DateTime today, int week, decimal onTime, decimal dueSoon, decimal overdue)
+        {
+            DateTime start = today.Date.AddDays(week * 7);
+            return new InvoiceCollectionForecastPoint
+            {
+                WeekStart = start,
+                WeekEnd = start.AddDays(6),
+                Period = start.ToString("dd MMM") + "-" + start.AddDays(6).ToString("dd MMM"),
+                OnTimeAmount = onTime,
+                DueSoonAmount = dueSoon,
+                OverdueAmount = overdue
+            };
         }
 
         private void RefreshInvoiceModuleDashboard(Panel host)
         {
-            if (_invoiceDashboardRefreshing || host == null || _invoiceDashFromPicker == null || _invoiceDashToPicker == null)
+            InvoiceReceivablesDashboard dashboard = host as InvoiceReceivablesDashboard;
+            if (_invoiceDashboardRefreshing || dashboard == null)
                 return;
 
             _invoiceDashboardRefreshing = true;
-            InvoiceAnalyticsGrouping grouping = InvoiceAnalyticsGrouping.Week;
-            string selected = _invoiceDashGroupingCombo?.SelectedItem?.ToString() ?? "Week";
-            if (selected.Equals("Day", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Day;
-            if (selected.Equals("Month", StringComparison.OrdinalIgnoreCase)) grouping = InvoiceAnalyticsGrouping.Month;
-            InvoiceAnalyticsFilter filter = new InvoiceAnalyticsFilter
-            {
-                DateFrom = _invoiceDashFromPicker.Value.Date,
-                DateTo = _invoiceDashToPicker.Value.Date,
-                Grouping = grouping
-            };
+            InvoiceAnalyticsFilter filter = dashboard.CreateFilter();
 
             // BuildSnapshot reloads every invoice and contract from SQL; running it
             // on the UI thread froze the app for 20+ seconds on first open.
@@ -970,13 +1054,10 @@ namespace HVAC_Pro_Desktop.UI
                     {
                         try
                         {
-                            if (snapshot != null && !host.IsDisposed)
+                            if (snapshot != null && !dashboard.IsDisposed)
                             {
                                 _invoiceDashboardSnapshot = snapshot;
-                                foreach (Control child in host.Controls.Cast<Control>().Where(c => Convert.ToString(c.Tag) == "dash-card").ToList())
-                                    host.Controls.Remove(child);
-                                PopulateInvoiceDashboardCards(host);
-                                LayoutInvoiceDashboard(host);
+                                dashboard.BindSnapshot(snapshot);
                             }
                         }
                         finally
@@ -990,6 +1071,38 @@ namespace HVAC_Pro_Desktop.UI
                     _invoiceDashboardRefreshing = false;
                 }
             });
+        }
+
+        private void RecordPaymentFromDashboard(int invoiceId)
+        {
+            if (invoiceId <= 0)
+                return;
+            OpenInvoiceFromNavigation(invoiceId);
+            if (_current == null || _current.InvoiceID != invoiceId)
+                return;
+            BtnRecordPayment_Click(this, EventArgs.Empty);
+            if (_invoiceDashboardPanel != null)
+                RefreshInvoiceModuleDashboard(_invoiceDashboardPanel);
+        }
+
+        private void SendReminderFromDashboard(int invoiceId)
+        {
+            if (invoiceId <= 0)
+                return;
+            try
+            {
+                _current = _invSvc.GetInvoiceById(invoiceId);
+                if (_current == null)
+                {
+                    ShowStatus("Invoice not found. Refresh and try again.", Color.Firebrick);
+                    return;
+                }
+                ShowInvoiceWhatsAppAction();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Invoices"), "Opening payment reminder", ex);
+            }
         }
 
         private void PopulateInvoiceDashboardCards(Panel host)

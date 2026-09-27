@@ -686,6 +686,9 @@
     <Compile Include="UI\InvoiceDashboardCharts.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\InvoiceReceivablesDashboard.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\ClientManagementForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
