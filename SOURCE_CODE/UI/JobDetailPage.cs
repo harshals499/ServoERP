@@ -28,6 +28,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly SiteService _siteService = new SiteService();
         private readonly ContractService _contractService = new ContractService();
         private readonly EmployeeService _employeeService = new EmployeeService();
+        private readonly FinancialReportingService _financialReportingService = new FinancialReportingService();
 
         private Label _lblJobNumber;
         private FlowLayoutPanel _pipeline;
@@ -46,6 +47,9 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblParts;
         private Label _lblProfit;
         private Label _lblMargin;
+        private Label _lblBilledRevenue;
+        private Label _lblDirectCost;
+        private Label _lblCostStatus;
         private DataGridView _gridChecklist;
         private DataGridView _gridParts;
         private AccordionPanel _checklistAccordion;
@@ -247,15 +251,18 @@ namespace HVAC_Pro_Desktop.UI
             priorityBody.Controls.Add(WrapEditor(_cmbPriority));
 
             Panel costBody;
-            Control cost = MakeCard("Job cost", out costBody, 194);
-            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 5, Height = 170 };
+            Control cost = MakeCard("Job profitability", out costBody, 278);
+            TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 8, Height = 250 };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52f));
             _txtTravel = AddCostRow(table, 0, "Travel", true);
             _txtLabour = AddCostRow(table, 1, "Labour", true);
             _lblParts = AddValueRow(table, 2, "Parts");
-            _lblProfit = AddValueRow(table, 3, "Est. Profit");
-            _lblMargin = AddValueRow(table, 4, "Margin");
+            _lblBilledRevenue = AddValueRow(table, 3, "Billed Revenue");
+            _lblDirectCost = AddValueRow(table, 4, "Direct Cost");
+            _lblProfit = AddValueRow(table, 5, "Gross Profit");
+            _lblMargin = AddValueRow(table, 6, "Gross Margin");
+            _lblCostStatus = AddValueRow(table, 7, "Cost Status");
             costBody.Controls.Add(table);
 
             _rightStack.Controls.Add(tech);
@@ -281,9 +288,25 @@ namespace HVAC_Pro_Desktop.UI
                 _txtTravel.Text = _detail.TravelCost.ToString("0.##");
                 _txtLabour.Text = _detail.LabourCost.ToString("0.##");
                 _lblParts.Text = IndiaFormatHelper.FormatCurrency(_detail.PartsCost);
-                _lblProfit.Text = IndiaFormatHelper.FormatCurrency(_detail.EstimatedProfit);
-                _lblMargin.Text = _detail.EstimatedMarginPct.ToString("0.##") + "%";
-                _lblMargin.ForeColor = _detail.EstimatedMarginPct < 15m ? Red : Teal;
+                JobProfitabilityRow profitability = LoadProfitability(job.JobID);
+                if (profitability == null)
+                {
+                    _lblBilledRevenue.Text = IndiaFormatHelper.FormatCurrency(job.ActualRevenue);
+                    _lblDirectCost.Text = IndiaFormatHelper.FormatCurrency(_detail.LabourCost + _detail.TravelCost + _detail.PartsCost);
+                    _lblProfit.Text = IndiaFormatHelper.FormatCurrency(_detail.EstimatedProfit);
+                    _lblMargin.Text = _detail.EstimatedMarginPct.ToString("0.##") + "%";
+                    _lblCostStatus.Text = "Not linked";
+                }
+                else
+                {
+                    _lblBilledRevenue.Text = IndiaFormatHelper.FormatCurrency(profitability.BilledRevenue);
+                    _lblDirectCost.Text = IndiaFormatHelper.FormatCurrency(profitability.ActualDirectCost);
+                    _lblProfit.Text = IndiaFormatHelper.FormatCurrency(profitability.GrossProfit);
+                    _lblMargin.Text = profitability.BilledRevenue <= 0m ? "n.a." : profitability.GrossMarginPercent.ToString("0.##") + "%";
+                    _lblCostStatus.Text = profitability.CostStatus;
+                }
+                _lblMargin.ForeColor = profitability != null && profitability.GrossMarginPercent < 15m ? Red : Teal;
+                _lblCostStatus.ForeColor = profitability != null && profitability.CostStatus == "Complete" ? Teal : Red;
             }
             finally
             {
@@ -293,6 +316,21 @@ namespace HVAC_Pro_Desktop.UI
             RenderPipeline(job.PipelineStatus);
             RenderChecklist();
             RenderParts();
+        }
+
+        private JobProfitabilityRow LoadProfitability(int jobId)
+        {
+            try
+            {
+                DateTime from = DateTime.Today.AddYears(-5);
+                DateTime to = DateTime.Today.AddYears(1);
+                return _financialReportingService.GetJobProfitability(from, to).FirstOrDefault(r => r.JobId == jobId);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("JobDetailPage.LoadProfitability", ex);
+                return null;
+            }
         }
 
         private void BindClients(int selectedClientId)

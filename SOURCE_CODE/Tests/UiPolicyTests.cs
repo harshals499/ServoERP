@@ -20,6 +20,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureGridColumnPolicySurvivesGridThemeLifecycleHandlers();
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
+            EnsureModernButtonInteractionStates();
             EnsureSoftBorderDesignTokens();
             EnsureInactiveInputsDoNotKeepBlueSelection();
             EnsureDispatchTechnicianClassification();
@@ -31,7 +32,24 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureAllLoggedInUsersHaveFullRoleAccess();
             EnsureForgotPasswordUsesSelfServiceDialog();
             EnsureLanControlDeploymentWorkflowIsVisible();
+            EnsureSmartUploadCardsExposeDirectDuplicateCleanup();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureSmartUploadCardsExposeDirectDuplicateCleanup()
+        {
+            using (var form = new MasterDataForm())
+            {
+                MethodInfo builder = typeof(MasterDataForm).GetMethod("BuildUploadCard", BindingFlags.Instance | BindingFlags.NonPublic);
+                if (builder == null)
+                    throw new InvalidOperationException("Master Data upload-card builder is unavailable.");
+                using (Control card = (Control)builder.Invoke(form, new object[] { "Employees", 0, "Staff profiles", (ExcelImportModule?)ExcelImportModule.Employees, "employees" }))
+                {
+                    Button action = FindControls<Button>(card).FirstOrDefault(button => button.Text == "Check / Remove Duplicates");
+                    if (action == null || !action.Enabled || action.Width < 120)
+                        throw new InvalidOperationException("Every Smart Upload card must expose a usable direct duplicate-cleanup action.");
+                }
+            }
         }
 
         private static void EnsureLanControlDeploymentWorkflowIsVisible()
@@ -160,8 +178,37 @@ namespace HVAC_Pro_Desktop.Tests
                 UIHelper.ApplyActionButton(button);
                 if (button.FlatAppearance.BorderSize < 1)
                     throw new InvalidOperationException("Secondary action buttons must have a visible border.");
-                if (button.FlatAppearance.BorderColor.ToArgb() != DS.InputBorder.ToArgb())
-                    throw new InvalidOperationException("Secondary action button border must use the soft shared border token.");
+                if (button.FlatAppearance.BorderColor.ToArgb() != DS.Slate300.ToArgb())
+                    throw new InvalidOperationException("Secondary action button border must use the elevated shared slate border token.");
+            }
+        }
+
+        private static void EnsureModernButtonInteractionStates()
+        {
+            using (var primary = new Button { Text = "Save" })
+            using (var secondary = new Button { Text = "Refresh" })
+            {
+                UIHelper.ApplyActionButton(primary);
+                UIHelper.ApplyActionButton(secondary);
+
+                if (primary.Height < 38 || primary.MinimumSize.Height < 38)
+                    throw new InvalidOperationException("Primary action buttons must use the shared 38-pixel minimum height.");
+                if (primary.FlatAppearance.MouseOverBackColor.ToArgb() != DS.Primary700.ToArgb())
+                    throw new InvalidOperationException("Primary action hover state must use the shared Primary700 token.");
+                if (secondary.FlatAppearance.MouseOverBackColor.ToArgb() != DS.Primary50.ToArgb())
+                    throw new InvalidOperationException("Secondary action hover state must use the shared Primary50 token.");
+
+                primary.Enabled = false;
+                if (primary.BackColor.ToArgb() != DS.Slate100.ToArgb() ||
+                    primary.ForeColor.ToArgb() != DS.Slate400.ToArgb() ||
+                    primary.FlatAppearance.BorderColor.ToArgb() != DS.Slate200.ToArgb())
+                    throw new InvalidOperationException("Disabled action buttons must use the shared muted palette.");
+
+                primary.Enabled = true;
+                if (primary.BackColor.ToArgb() != DS.Primary600.ToArgb() ||
+                    primary.ForeColor.ToArgb() != Color.White.ToArgb() ||
+                    primary.FlatAppearance.BorderColor.ToArgb() != DS.Primary700.ToArgb())
+                    throw new InvalidOperationException("Re-enabled primary action buttons must restore the shared primary palette.");
             }
         }
 

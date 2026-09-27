@@ -177,6 +177,7 @@ namespace HVAC_Pro_Desktop.DAL
                         while (r.Read())
                             list.Add(new InvoiceLineItem
                             {
+                                JobID = HasColumn(r, "JobID") && r["JobID"] != DBNull.Value ? (int?)Convert.ToInt32(r["JobID"]) : null,
                                 LineItemID  = (int)r["LineItemID"],
                                 InvoiceID   = (int)r["InvoiceID"],
                                 StockItemID = r["StockItemID"] != DBNull.Value ? (int?)r["StockItemID"] : null,
@@ -215,12 +216,13 @@ namespace HVAC_Pro_Desktop.DAL
                         {
                             conn.Execute(@"
                                 INSERT INTO InvoiceLineItems
-                                    (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
+                                    (InvoiceID,JobID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                 VALUES
-                                    (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
+                                    (@inv,@jobId,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
                                 new
                             {
                                 inv = invoiceId,
+                                jobId = item.JobID,
                                 stockItemId = item.StockItemID,
                                 desc = item.Description ?? "",
                                 hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),
@@ -326,12 +328,13 @@ namespace HVAC_Pro_Desktop.DAL
                             {
                                 conn.Execute(@"
                                     INSERT INTO InvoiceLineItems
-                                        (InvoiceID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
+                                        (InvoiceID,JobID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
                                     VALUES
-                                        (@inv,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
+                                        (@inv,@jobId,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
                                     new
                                 {
                                     inv = newId,
+                                    jobId = item.JobID,
                                     stockItemId = item.StockItemID,
                                     desc = item.Description ?? "",
                                     hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),

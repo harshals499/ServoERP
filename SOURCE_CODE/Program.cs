@@ -412,6 +412,45 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/profitabilityvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    string reportsPath = Path.Combine(outputDirectory, "profitability-reports-" + stamp + ".png");
+                    string dashboardPath = Path.Combine(outputDirectory, "profitability-dashboard-" + stamp + ".png");
+                    using (var reports = new ReportForm { Size = new System.Drawing.Size(1440, 900) })
+                    {
+                        reports.LoadProfitabilityPreviewForVisualTest();
+                        reports.CreateControl();
+                        reports.PerformLayout();
+                        Application.DoEvents();
+                        reports.ScrollToProfitabilityPreviewForVisualTest();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(reports.Width, reports.Height))
+                        {
+                            reports.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(reportsPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    using (var dashboard = new DashboardForm { Size = new System.Drawing.Size(1440, 900) })
+                    {
+                        dashboard.LoadFinancialPreviewForVisualTest();
+                        dashboard.CreateControl();
+                        dashboard.PerformLayout();
+                        Application.DoEvents();
+                        dashboard.ScrollToFinancialPreviewForVisualTest();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(dashboard.Width, dashboard.Height))
+                        {
+                            dashboard.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(dashboardPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    AppRuntime.LogTiming("ProfitabilityVisualTest", 0, reportsPath + " | " + dashboardPath);
+                    return;
+                }
+
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 Stopwatch stageWatch = Stopwatch.StartNew();
                 Exception sqlStartupError;
@@ -624,6 +663,8 @@ namespace HVAC_Pro_Desktop
                             lines.Add(result);
                         foreach (string result in InvoiceAnalyticsServiceSmokeTests.RunAll())
                             lines.Add("PASS " + result);
+                        foreach (string result in FinancialReportingServiceSmokeTests.RunAll())
+                            lines.Add("PASS " + result);
                     }
                     catch (Exception invoiceButtonEx)
                     {
@@ -633,6 +674,32 @@ namespace HVAC_Pro_Desktop
                     File.WriteAllLines(reportPath, lines);
                     Environment.ExitCode = lines.Any(l => l.StartsWith("FAIL ")) ? 1 : 0;
                     AppRuntime.LogTiming("InvoiceButtonSmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/smartduplicatetest"))
+                {
+                    string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(dir);
+                    string reportPath = Path.Combine(dir, "smart-upload-duplicate-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    var lines = new System.Collections.Generic.List<string>
+                    {
+                        "Smart Upload Duplicate Detector Smoke Test",
+                        DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                        string.Empty
+                    };
+                    try
+                    {
+                        foreach (string result in SmartImportDuplicateDetectorSmokeTests.RunAll())
+                            lines.Add("PASS " + result);
+                    }
+                    catch (Exception duplicateTestEx)
+                    {
+                        lines.Add("FAIL " + duplicateTestEx);
+                    }
+                    File.WriteAllLines(reportPath, lines);
+                    Environment.ExitCode = lines.Any(line => line.StartsWith("FAIL ")) ? 1 : 0;
+                    AppRuntime.LogTiming("SmartImportDuplicateDetectorSmokeTests", 0, reportPath);
                     return;
                 }
 

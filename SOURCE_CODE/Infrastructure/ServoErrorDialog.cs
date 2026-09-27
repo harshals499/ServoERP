@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Windows.Forms;
+using HVAC_Pro_Desktop.UI;
 
 namespace ServoERP.Infrastructure
 {
@@ -110,6 +111,7 @@ namespace ServoERP.Infrastructure
 
             Controls.AddRange(new Control[] { _iconBox, _lblTitle, _lblMessage, _txtDetail, _btnOK, _btnOpenLog });
             AcceptButton = _btnOK;
+            UIHelper.ApplyButtonAlignment(this);
         }
 
         /// <summary>Shows the error dialog safely from any thread.</summary>

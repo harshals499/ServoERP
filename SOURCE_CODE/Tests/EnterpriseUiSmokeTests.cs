@@ -374,7 +374,9 @@ namespace HVAC_Pro_Desktop.Tests
                     int heightDelta = row.Max(button => button.Height) - row.Min(button => button.Height);
                     if (topDelta > 4 || heightDelta > 4)
                     {
-                        string names = string.Join(", ", row.Select(button => (button.Text ?? button.Name ?? "button").Replace(Environment.NewLine, " / ")));
+                        string names = string.Join(", ", row.Select(button =>
+                            (button.Text ?? button.Name ?? "button").Replace(Environment.NewLine, " / ")
+                            + " [top=" + button.Top + ", height=" + button.Height + "]"));
                         throw new InvalidOperationException(moduleName + " has a misaligned button row in " + parent.GetType().Name + ": " + names);
                     }
                 }
@@ -488,7 +490,7 @@ namespace HVAC_Pro_Desktop.Tests
                 if (!button.Enabled)
                     continue;
 
-                if (button.Height < 34)
+                if (button.Height < 38)
                     throw new InvalidOperationException(moduleName + " has a button below global minimum height: '" + button.Text + "' height=" + button.Height);
 
                 if (button.Width < 100)
@@ -514,24 +516,24 @@ namespace HVAC_Pro_Desktop.Tests
             switch (role)
             {
                 case ButtonRole.Danger:
-                    back = Color.FromArgb(220, 38, 38);
+                    back = DS.Red600;
                     fore = Color.White;
-                    border = back;
+                    border = Color.FromArgb(185, 28, 28);
                     return;
                 case ButtonRole.Neutral:
-                    back = Color.FromArgb(249, 250, 251);
-                    fore = Color.FromArgb(55, 65, 81);
-                    border = Color.FromArgb(209, 213, 219);
+                    back = DS.Slate50;
+                    fore = DS.Slate700;
+                    border = DS.Slate200;
                     return;
                 case ButtonRole.Secondary:
                     back = Color.White;
-                    fore = Color.FromArgb(17, 24, 39);
-                    border = DS.InputBorder;
+                    fore = DS.Slate800;
+                    border = DS.Slate300;
                     return;
                 default:
-                    back = Color.FromArgb(37, 99, 235);
+                    back = DS.Primary600;
                     fore = Color.White;
-                    border = back;
+                    border = DS.Primary700;
                     return;
             }
         }

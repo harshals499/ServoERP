@@ -28,6 +28,8 @@ namespace HVAC_Pro_Desktop.UI
         private readonly PayrollService _payrollSvc = new PayrollService();
         private readonly TenderService _tenderSvc = new TenderService();
         private readonly ServiceDeskService _serviceDeskSvc = new ServiceDeskService();
+        private readonly FinancialReportingService _financialSvc = new FinancialReportingService();
+        private readonly ProfitabilityWorkbookImportService _profitabilityImportSvc = new ProfitabilityWorkbookImportService();
 
         private static int? PendingTabIndex;
         private int _currentReportIndex;
@@ -38,6 +40,7 @@ namespace HVAC_Pro_Desktop.UI
         private DataGridView _detailGrid;
         private FlowLayoutPanel _reportLibrary;
         private Panel _dashboardFlow;
+        private Panel _surface;
         private readonly Dictionary<string, ResizableCard> _dashboardCards = new Dictionary<string, ResizableCard>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TableLayoutPanel> _ownerCardBodies = new Dictionary<string, TableLayoutPanel>(StringComparer.OrdinalIgnoreCase);
         private ResizableCard _dragCard;
@@ -56,13 +59,20 @@ namespace HVAC_Pro_Desktop.UI
         private bool _initialRefreshQueued;
         private bool _refreshing;
 
+        private sealed class ExpenseJobChoice
+        {
+            public int? JobId { get; set; }
+            public string Label { get; set; }
+            public override string ToString() => Label ?? string.Empty;
+        }
+
         private static readonly string[] ReportNames =
         {
-            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites"
+            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites", "Profitability", "Import Review"
         };
         private static readonly string[] ReportTileLabels =
         {
-            "Revenue", "Collect", "AMC", "Jobs", "Techs", "Stock", "POs", "Advances", "Clients"
+            "Revenue", "Collect", "AMC", "Jobs", "Techs", "Stock", "POs", "Advances", "Clients", "Profit", "Review"
         };
         private const string PageKey = "ReportsCommandCenter";
         private const string CardOrderPath = @"C:\HVAC_PRO_MSE\CONFIG\reports_card_order.txt";
@@ -115,11 +125,32 @@ namespace HVAC_Pro_Desktop.UI
             PendingTabIndex = null;
         }
 
+        public void LoadProfitabilityPreviewForVisualTest()
+        {
+            _currentReportIndex = 9;
+            foreach (Control tile in _reportLibrary.Controls)
+                tile.BackColor = Convert.ToInt32(tile.Tag) == _currentReportIndex ? Color.FromArgb(239, 246, 255) : CardBg;
+            _detailGrid.Columns.Clear();
+            _detailGrid.Rows.Clear();
+            AddColumns("Job", "Client / Site", "Invoice", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding", "Cost Status");
+            _detailGrid.Rows.Add("JOB-26041", "Aarti Industries / Plant 2", "INV-2026-041", "1,85,000.00", "1,22,400.00", "62,600.00", "33.8", "25,000.00", "Complete");
+            _detailGrid.Rows.Add("JOB-26042", "Bluejet / Ambernath", "INV-2026-042", "78,500.00", "0.00", "78,500.00", "100.0", "78,500.00", "Cost incomplete");
+            _lblStatus.Text = "Profitability preview | FY 2026-27";
+            _lblStatus.ForeColor = Green;
+        }
+
+        public void ScrollToProfitabilityPreviewForVisualTest()
+        {
+            Panel surface = Controls.Find("ReportsSurface", true).OfType<Panel>().FirstOrDefault();
+            if (surface != null)
+                surface.AutoScrollPosition = new Point(0, surface.VerticalScroll.Maximum);
+        }
+
         private void BuildLayout()
         {
             Controls.Clear();
 
-            Panel surface = new Panel
+            _surface = new Panel
             {
                 Name = "ReportsSurface",
                 Tag = "NO_CARD_SURFACE",
@@ -128,7 +159,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = PageBg,
                 Padding = new Padding(16)
             };
-            Controls.Add(surface);
+            Controls.Add(_surface);
 
             Panel detailSection = BuildDetailSection();
             Panel librarySection = BuildLibrarySection();
@@ -136,11 +167,17 @@ namespace HVAC_Pro_Desktop.UI
             TableLayoutPanel kpiStrip = BuildKpiStrip();
             Panel header = BuildHeader();
 
-            surface.Controls.Add(detailSection);
-            surface.Controls.Add(librarySection);
-            surface.Controls.Add(commandSection);
-            surface.Controls.Add(kpiStrip);
-            surface.Controls.Add(header);
+            _surface.Controls.Add(detailSection);
+            _surface.Controls.Add(librarySection);
+            _surface.Controls.Add(commandSection);
+            _surface.Controls.Add(kpiStrip);
+
+            // Keep the workflow actions visible while the report canvas scrolls.
+            // DataGridView binding can focus the first cell and scroll its parent;
+            // placing the header outside that canvas prevents it from disappearing.
+            Controls.Add(header);
+            header.BringToFront();
+            _surface.SendToBack();
         }
 
         private Panel BuildHeader()
@@ -149,14 +186,20 @@ namespace HVAC_Pro_Desktop.UI
             Button pnl = MakeButton("Export P&L Excel", Color.White, 138);
             Button refresh = MakeButton("Refresh", Blue, 94);
             Button forms = MakeButton("Service Forms", Color.White, 108);
+            Button importProfit = MakeButton("Import Job P&L", Color.White, 126);
+            Button addExpense = MakeButton("Add Expense", Color.White, 110);
             ModernIconSystem.AddButtonIcon(export, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(pnl, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             ModernIconSystem.AddButtonIcon(forms, ModernIconKind.Document);
+            ModernIconSystem.AddButtonIcon(importProfit, ModernIconKind.Import);
+            ModernIconSystem.AddButtonIcon(addExpense, ModernIconKind.Money);
             export.Click += (s, e) => ExportCurrentReport();
             pnl.Click += (s, e) => ExportMonthlyProfitLoss();
             refresh.Click += async (s, e) => await RefreshAllAsync();
             forms.Click += (s, e) => FormTemplateWorkflowLauncher.Open(this, "Reports", "Reports", null, "service completion report AMC visit report compliance audit job costing sheet export analytics");
+            importProfit.Click += (s, e) => ImportProfitabilityWorkbook();
+            addExpense.Click += (s, e) => AddExpense();
 
             _lblStatus = new Label
             {
@@ -173,7 +216,7 @@ namespace HVAC_Pro_Desktop.UI
                 "ReportsPageHeader",
                 "Reports Command Center",
                 "Real-time insights and analytics across your business.",
-                new List<Control> { refresh, forms, pnl, export },
+                new List<Control> { refresh, addExpense, importProfit, forms, pnl, export },
                 SharedPageHeader.CreateSearchCommand("ReportsHeaderSearch", 280, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
                 _lblStatus,
                 PageBg,
@@ -329,6 +372,8 @@ namespace HVAC_Pro_Desktop.UI
             BeginInvoke((Action)(async () =>
             {
                 await RefreshAllAsync();
+                if (!IsDisposed && _surface != null)
+                    _surface.AutoScrollPosition = Point.Empty;
                 MarkDeferredLoadCompleted();
             }));
         }
@@ -587,7 +632,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 5: BindInventoryDetail(); break;
                 case 6: BindPurchaseDetail(); break;
                 case 7: BindVendorAdvanceDetail(); break;
-                default: BindClientSiteDetail(); break;
+                case 8: BindClientSiteDetail(); break;
+                case 9: BindProfitabilityDetail(); break;
+                default: BindProfitabilityImportReview(); break;
             }
         }
 
@@ -742,7 +789,8 @@ namespace HVAC_Pro_Desktop.UI
         private void WriteProfitLossSheet(ExcelWorksheet sheet)
         {
             DateTime firstMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).AddMonths(-11);
-            string[] headers = { "Month", "Revenue", "Purchases", "Salaries", "Total Expenses", "Net Profit", "Margin %" };
+            List<MonthlyProfitLossRow> monthly = _financialSvc.GetMonthlyProfitLoss(firstMonth, 12);
+            string[] headers = { "Month", "Taxable Revenue", "Direct Costs", "Gross Profit", "Gross Margin %", "Payroll", "Operating Expenses", "Net Profit", "Net Margin %" };
             for (int i = 0; i < headers.Length; i++)
             {
                 sheet.Cells[1, i + 1].Value = headers[i];
@@ -751,40 +799,164 @@ namespace HVAC_Pro_Desktop.UI
                 sheet.Cells[1, i + 1].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(239, 246, 255));
             }
 
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < monthly.Count; i++)
             {
-                DateTime month = firstMonth.AddMonths(i);
-                decimal revenue = _invoices.Where(inv => inv.InvoiceDate.Year == month.Year && inv.InvoiceDate.Month == month.Month).Sum(inv => inv.TotalAmount);
-                decimal purchases = _purchases.Where(po => po.PODate.Year == month.Year && po.PODate.Month == month.Month).Sum(po => po.TotalAmount);
-                PayrollRun run = _payrollSvc.GetPayrollRun(month.Month, month.Year);
-                decimal salaries = run == null ? 0m : run.TotalNetPay + run.TotalEPFEmployer + run.TotalESIEmployer;
-                decimal expenses = purchases + salaries;
-                decimal profit = revenue - expenses;
-                decimal margin = revenue <= 0 ? 0 : Math.Round(profit / revenue * 100m, 2);
+                MonthlyProfitLossRow value = monthly[i];
                 int row = i + 2;
 
-                sheet.Cells[row, 1].Value = month.ToString("MMM yyyy", CultureInfo.InvariantCulture);
-                sheet.Cells[row, 2].Value = revenue;
-                sheet.Cells[row, 3].Value = purchases;
-                sheet.Cells[row, 4].Value = salaries;
-                sheet.Cells[row, 5].Value = expenses;
-                sheet.Cells[row, 6].Value = profit;
-                sheet.Cells[row, 7].Value = margin;
+                sheet.Cells[row, 1].Value = value.Month;
+                sheet.Cells[row, 1].Style.Numberformat.Format = "mmm-yy";
+                sheet.Cells[row, 2].Value = value.Revenue;
+                sheet.Cells[row, 3].Value = value.DirectCosts;
+                sheet.Cells[row, 4].Value = value.GrossProfit;
+                sheet.Cells[row, 5].Value = value.GrossMarginPercent / 100m;
+                sheet.Cells[row, 6].Value = value.PayrollExpense;
+                sheet.Cells[row, 7].Value = value.OperatingExpenses;
+                sheet.Cells[row, 8].Value = value.NetProfit;
+                sheet.Cells[row, 9].Value = value.NetMarginPercent / 100m;
             }
 
-            int totalRow = 14;
+            int totalRow = monthly.Count + 2;
             sheet.Cells[totalRow, 1].Value = "Total";
             sheet.Cells[totalRow, 1].Style.Font.Bold = true;
-            for (int col = 2; col <= 6; col++)
+            foreach (int col in new[] { 2, 3, 4, 6, 7, 8 })
             {
                 sheet.Cells[totalRow, col].Formula = "SUM(" + sheet.Cells[2, col].Address + ":" + sheet.Cells[13, col].Address + ")";
                 sheet.Cells[totalRow, col].Style.Font.Bold = true;
             }
-            sheet.Cells[totalRow, 7].Formula = "IF(" + sheet.Cells[totalRow, 2].Address + "=0,0," + sheet.Cells[totalRow, 6].Address + "/" + sheet.Cells[totalRow, 2].Address + "*100)";
-            sheet.Cells[totalRow, 7].Style.Font.Bold = true;
-            sheet.Cells[2, 2, totalRow, 6].Style.Numberformat.Format = "#,##0.00";
-            sheet.Cells[2, 7, totalRow, 7].Style.Numberformat.Format = "0.00";
+            sheet.Cells[totalRow, 5].Formula = "IF(" + sheet.Cells[totalRow, 2].Address + "=0,0," + sheet.Cells[totalRow, 4].Address + "/" + sheet.Cells[totalRow, 2].Address + ")";
+            sheet.Cells[totalRow, 9].Formula = "IF(" + sheet.Cells[totalRow, 2].Address + "=0,0," + sheet.Cells[totalRow, 8].Address + "/" + sheet.Cells[totalRow, 2].Address + ")";
+            sheet.Cells[totalRow, 5].Style.Font.Bold = true;
+            sheet.Cells[totalRow, 9].Style.Font.Bold = true;
+            sheet.Cells[2, 2, totalRow, 4].Style.Numberformat.Format = "₹#,##0.00;[Red](₹#,##0.00);-";
+            sheet.Cells[2, 6, totalRow, 8].Style.Numberformat.Format = "₹#,##0.00;[Red](₹#,##0.00);-";
+            sheet.Cells[2, 5, totalRow, 5].Style.Numberformat.Format = "0.0%;[Red](0.0%);-";
+            sheet.Cells[2, 9, totalRow, 9].Style.Numberformat.Format = "0.0%;[Red](0.0%);-";
+            sheet.View.FreezePanes(2, 1);
             sheet.Cells.AutoFitColumns();
+        }
+
+        private void ImportProfitabilityWorkbook()
+        {
+            using (var dialog = new OpenFileDialog
+            {
+                Title = "Import job P&L workbook",
+                Filter = "Excel workbooks (*.xlsx)|*.xlsx",
+                Multiselect = false
+            })
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return;
+                try
+                {
+                    ProfitabilityImportPreview preview = _profitabilityImportSvc.Preview(dialog.FileName);
+                    string summary = preview.ValidRowCount.ToString("N0") + " rows found. " +
+                                     preview.MatchedRowCount.ToString("N0") + " matched to ServoERP invoices and " +
+                                     preview.ReviewRowCount.ToString("N0") + " require review.\n\n" +
+                                     "The import will be staged for review. It will not overwrite invoices, jobs, purchases, or payments.";
+                    if (MessageBox.Show(this, summary, "Review Job P&L Import", MessageBoxButtons.OKCancel, MessageBoxIcon.Information) != DialogResult.OK)
+                        return;
+                    int batchId = _financialSvc.StageImport(preview);
+                    _lblStatus.Text = "Job P&L import staged as batch #" + batchId.ToString(CultureInfo.InvariantCulture) + ".";
+                    _lblStatus.ForeColor = preview.ReviewRowCount > 0 ? Amber : Green;
+                    SelectReport(ReportNames.Length - 1);
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Importing job profitability workbook", ex);
+                    _lblStatus.Text = "Job P&L import could not be staged. Review the workbook and try again.";
+                    _lblStatus.ForeColor = Red;
+                }
+            }
+        }
+
+        private void AddExpense()
+        {
+            List<ExpenseCategory> categories;
+            try { categories = _financialSvc.GetExpenseCategories(); }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Loading expense categories", ex);
+                return;
+            }
+
+            using (Form dialog = ServoModalForm.Create("Add P&L Expense", 470, 380))
+            {
+                var category = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, DataSource = categories };
+                var job = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+                var jobChoices = new List<ExpenseJobChoice> { new ExpenseJobChoice { JobId = null, Label = "Company expense / no job" } };
+                jobChoices.AddRange(_jobs.OrderByDescending(j => j.ScheduledDate).Select(j => new ExpenseJobChoice
+                {
+                    JobId = j.JobID,
+                    Label = (j.JobNumber ?? "Job #" + j.JobID) + " - " + (j.ClientName ?? j.JobTitle ?? j.Title)
+                }));
+                job.DataSource = jobChoices;
+                var date = new DateTimePicker { Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy", Dock = DockStyle.Fill };
+                var amount = new NumericUpDown { DecimalPlaces = 2, Maximum = 1000000000m, ThousandsSeparator = true, Dock = DockStyle.Fill };
+                var reference = new TextBox { Dock = DockStyle.Fill };
+                var description = new TextBox { Dock = DockStyle.Fill, Multiline = true, Height = 58 };
+                var save = MakeButton("Save Expense", Green, 120);
+                var cancel = MakeButton("Cancel", Color.White, 90);
+                var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, WrapContents = false };
+                actions.Controls.Add(save);
+                actions.Controls.Add(cancel);
+                var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(18), ColumnCount = 2, RowCount = 7 };
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+                layout.Controls.Add(new Label { Text = "Category", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 0);
+                layout.Controls.Add(category, 1, 0);
+                layout.Controls.Add(new Label { Text = "Job allocation", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 1);
+                layout.Controls.Add(job, 1, 1);
+                layout.Controls.Add(new Label { Text = "Expense date", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 2);
+                layout.Controls.Add(date, 1, 2);
+                layout.Controls.Add(new Label { Text = "Amount excl. GST (₹)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 3);
+                layout.Controls.Add(amount, 1, 3);
+                layout.Controls.Add(new Label { Text = "Reference", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 4);
+                layout.Controls.Add(reference, 1, 4);
+                layout.Controls.Add(new Label { Text = "Description", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft }, 0, 5);
+                layout.Controls.Add(description, 1, 5);
+                layout.Controls.Add(actions, 0, 6);
+                layout.SetColumnSpan(actions, 2);
+                dialog.Controls.Add(layout);
+                cancel.Click += (s, e) => dialog.DialogResult = DialogResult.Cancel;
+                save.Click += (s, e) =>
+                {
+                    try
+                    {
+                        ExpenseCategory selected = category.SelectedItem as ExpenseCategory;
+                        ExpenseJobChoice selectedJob = job.SelectedItem as ExpenseJobChoice;
+                        if (selected != null && selected.ProfitLossGroup == "Direct Cost" && (selectedJob == null || !selectedJob.JobId.HasValue))
+                            throw new InvalidOperationException("Select a job for direct labour, travel, or other direct cost.");
+                        _financialSvc.AddExpense(new ExpenseEntry
+                        {
+                            ExpenseCategoryId = selected == null ? 0 : selected.ExpenseCategoryId,
+                            JobId = selectedJob == null ? null : selectedJob.JobId,
+                            ExpenseDate = date.Value.Date,
+                            Amount = amount.Value,
+                            ReferenceNumber = reference.Text,
+                            Description = description.Text
+                        });
+                        dialog.DialogResult = DialogResult.OK;
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(dialog, ex.Message, "Expense not saved", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                };
+                if (dialog.ShowDialog(this) == DialogResult.OK)
+                {
+                    _lblStatus.Text = "Expense saved and included in the P&L.";
+                    _lblStatus.ForeColor = Green;
+                    BindProfitabilityDetail();
+                }
+            }
         }
 
         private Label AddKpi(TableLayoutPanel host, int column, string title, Color accent, out Label subLabel)
@@ -804,6 +976,46 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(icon);
             host.Controls.Add(card, column, 0);
             return valueLabel;
+        }
+
+        private void BindProfitabilityDetail()
+        {
+            DateTime fyStart = IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
+            List<JobProfitabilityRow> rows = _financialSvc.GetJobProfitability(fyStart, fyStart.AddYears(1).AddDays(-1));
+            AddColumns("Job", "Client / Site", "Invoice", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding", "Cost Status");
+            foreach (JobProfitabilityRow row in rows.OrderByDescending(r => r.ReportingDate).Take(100))
+            {
+                int rowIndex = _detailGrid.Rows.Add(
+                    row.JobNumber,
+                    string.Join(" / ", new[] { row.ClientName, row.SiteName }.Where(v => !string.IsNullOrWhiteSpace(v))),
+                    row.InvoiceNumber ?? "",
+                    row.BilledRevenue.ToString("N2"),
+                    row.ActualDirectCost.ToString("N2"),
+                    row.GrossProfit.ToString("N2"),
+                    row.BilledRevenue <= 0m ? "n.a." : row.GrossMarginPercent.ToString("N1"),
+                    row.OutstandingAmount.ToString("N2"),
+                    row.CostStatus);
+                if (!string.Equals(row.CostStatus, "Complete", StringComparison.OrdinalIgnoreCase))
+                    _detailGrid.Rows[rowIndex].Cells[_detailGrid.Columns.Count - 1].Style.ForeColor = Red;
+            }
+        }
+
+        private void BindProfitabilityImportReview()
+        {
+            AddColumns("Row", "Customer", "Invoice", "Revenue", "Vendor Cost", "Invoice Match", "Job Match", "Status", "Review Message");
+            foreach (ProfitabilityImportRow row in _financialSvc.GetLatestImportRows().Take(250))
+            {
+                _detailGrid.Rows.Add(
+                    row.SourceRowNumber.ToString(CultureInfo.InvariantCulture),
+                    row.CustomerName,
+                    row.InvoiceNumber,
+                    row.TaxableRevenue.HasValue ? row.TaxableRevenue.Value.ToString("N2") : "n.a.",
+                    row.VendorCost.HasValue ? row.VendorCost.Value.ToString("N2") : "n.a.",
+                    row.MatchedInvoiceId.HasValue ? "#" + row.MatchedInvoiceId.Value : "Not found",
+                    row.MatchedJobId.HasValue ? "#" + row.MatchedJobId.Value : "Not linked",
+                    row.ReviewStatus,
+                    row.ReviewMessage);
+            }
         }
 
         private TableLayoutPanel MakeOwnerCardBody(string key)

@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.1.451.0 - 2026-09-27
+
+- Rebuilt the Quotations dashboard as a forecasting-first command centre while preserving the existing application sidebar and navigation.
+- Added live open-pipeline, weighted-forecast, win-rate, sales-cycle, expiry-risk, monthly forecast, stage-funnel, confidence, and follow-up views.
+- Added searchable quotation filters, owner and probability visibility, forecast-aware next actions, and working PDF, edit, purchase-order, delete, WhatsApp, refresh, and new-quotation actions.
+
+## 1.1.450.0 - 2026-09-26
+
+- Added a permanent **Check / Remove Duplicates** action to every Smart Upload card; no workbook selection is required.
+- Added survivor selection, linked-record reassignment, audited archival, confirmation, and transactional rollback for existing duplicate cleanup.
+- Updated the Master Data duplicate command to open the same module-specific cleanup workflow.
+
+## 1.1.449.0 - 2026-09-26
+
+- Added a shared existing-duplicate cleanup dialog to every Smart Upload preview.
+- Operators can select the survivor, review redundant records, and confirm a merge-and-archive operation.
+- Linked foreign-key references are reassigned inside a serializable SQL transaction; any failure rolls back the entire group.
+- Added `DuplicateMergeArchive` audit records so transaction duplicates remain recoverable and are excluded from future Smart Upload matching.
+
+## 1.1.448.0 - 2026-09-26
+
+- Added normalized duplicate detection to every Master Data Smart Upload card, covering repeated workbook rows, matches to existing records, and duplicate groups already present in SQL Server.
+- Added identity rules for employees, clients, suppliers, sites, inventory, supplier prices, quotations, invoices, payments, purchases, jobs, and AMC contracts.
+- Added duplicate counts and review details to the pre-import confirmation so operators can see whether rows are new, refresh existing records, or require cleanup before committing.
+- Blocked imports containing repeated workbook identities or rows that match multiple existing records, preventing operators from accidentally creating another ambiguous duplicate.
+
+## 1.1.447.0 - 2026-09-26
+
+- Added job and site profitability using taxable invoice revenue and linked vendor, inventory, labour, travel, and other direct costs, with visible incomplete-cost warnings.
+- Added reviewed import staging for the FY 2026-27 job P&L workbook, including invoice/job matching, normalized statuses, invalid-date detection, and an in-app reconciliation queue.
+- Added expense categories and expense entry capture for job-level direct costs and company operating expenses using additive SQL Server schema guards.
+- Rebuilt the monthly company P&L to separate taxable revenue, direct costs, gross profit, payroll, operating expenses, net profit, and both margins.
+- Replaced the dashboard's GST-inclusive totals and fixed comparison text with actual monthly P&L calculations, real prior-month comparisons, and a twelve-month trend chart.
+- Added profitability views to Reports and Job Detail, updated the Excel export, and added calculation and visual smoke coverage.
+- Kept report workflow actions pinned above the scrolling report canvas and hardened shared ComboBox selection handling during page navigation.
+
+## 1.1.446.0 - 2026-09-20
+
+- Refreshed buttons across ServoERP with a consistent 38-pixel action height, balanced padding, rounded corners, clearer primary/secondary/neutral/danger hierarchy, and stronger typography.
+- Added unified hover, pressed, keyboard-focus, and disabled states for buttons created by both legacy screens and newer shared components.
+- Improved automatic action-role detection for sign-in, connect, renew, apply, confirm, and OK actions, while preserving compact icon controls and sidebar navigation.
+- Extended the single-page UI smoke harness so custom tab-style pages can be selected and captured for visual regression checks.
+
+## 1.1.445.0 - 2026-09-20
+
+- Hardened the Gmail connector with PKCE-protected browser authorization, a bounded sign-in timeout, encrypted per-user token storage, clearer provider errors, and paged inbox synchronization.
+- Updated Service Desk mail setup and connection wording so administrators configure a Google OAuth Desktop client and users connect their own Gmail mailbox.
+- New Gmail connections import the most recent seven days of inbox mail, then use an overlap-safe incremental window with duplicate protection on later syncs.
+
 ## 1.1.444.0 - 2026-09-04
 
 - Fixed LAN deployment remaining indefinitely at `Waiting for credentials` when the elevated PowerShell credential prompt was hidden or never completed.

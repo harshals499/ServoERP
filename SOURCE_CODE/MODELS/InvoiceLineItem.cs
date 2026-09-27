@@ -2,6 +2,7 @@ namespace HVAC_Pro_Desktop.Models
 {
     public class InvoiceLineItem
     {
+        public int? JobID { get; set; }
         public int    LineItemID  { get; set; }
         public int    InvoiceID   { get; set; }
         public int?   StockItemID { get; set; }

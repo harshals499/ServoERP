@@ -533,6 +533,7 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     new InvoiceLineItem
                     {
+                        JobID = job.JobID,
                         Description = (job.JobTitle ?? job.Title ?? "Service job") + " - " + (job.JobNumber ?? string.Empty),
                         Quantity = 1,
                         Rate = actualRevenue,
