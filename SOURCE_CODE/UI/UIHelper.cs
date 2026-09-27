@@ -38,7 +38,9 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly HashSet<Control> OverlapGuardConfiguredControls = new HashSet<Control>();
         private static readonly HashSet<Button> TextFitConfiguredButtons = new HashSet<Button>();
         private static readonly HashSet<Button> ButtonFocusConfiguredButtons = new HashSet<Button>();
+        private static readonly HashSet<Button> ButtonInteractionConfiguredButtons = new HashSet<Button>();
         private static readonly Dictionary<Button, Color> ButtonNormalBorderColors = new Dictionary<Button, Color>();
+        private static readonly Dictionary<Button, ButtonVisualPalette> ButtonVisualPalettes = new Dictionary<Button, ButtonVisualPalette>();
         private static readonly HashSet<Panel> ModernCardPanels = new HashSet<Panel>();
         private static readonly HashSet<string> EmptyClientMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> EmptyVendorMessageKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -393,10 +395,10 @@ namespace HVAC_Pro_Desktop.UI
             bool iconOnly = IsIconOnlyButton(button);
             ApplyButtonStyle(button, ResolveButtonRole(button));
 
-            int targetHeight = iconOnly ? Math.Max(button.Height, 28) : Math.Max(button.Height, 36);
+            int targetHeight = iconOnly ? Math.Max(button.Height, 34) : Math.Max(button.Height, 38);
             int parentMaxHeight = GetButtonParentMaxHeight(button);
             if (parentMaxHeight > 0 && targetHeight > parentMaxHeight)
-                targetHeight = parentMaxHeight;
+                targetHeight = iconOnly ? Math.Max(34, parentMaxHeight) : parentMaxHeight;
             if (button.Height != targetHeight)
                 button.Height = targetHeight;
 
@@ -742,7 +744,9 @@ namespace HVAC_Pro_Desktop.UI
                 if (!(button.Parent is FlowLayoutPanel) && !(button.Parent is TableLayoutPanel))
                     button.Top = targetTop;
                 int parentMaxHeight = GetButtonParentMaxHeight(button);
-                button.Height = parentMaxHeight > 0 ? Math.Min(targetHeight, parentMaxHeight) : targetHeight;
+                button.Height = parentMaxHeight > 0
+                    ? (IsIconOnlyButton(button) ? Math.Max(34, Math.Min(targetHeight, parentMaxHeight)) : Math.Min(targetHeight, parentMaxHeight))
+                    : targetHeight;
                 if (button.Parent is TableLayoutPanel)
                     button.Margin = new Padding(0, 0, 8, 0);
                 else if (button.Margin == Padding.Empty || button.Margin.Right < 6)
@@ -1103,9 +1107,9 @@ namespace HVAC_Pro_Desktop.UI
 
             if (ContainsAny(key, "delete", "reset", "remove", "clear", "void", "archive", "blacklist", "disconnect"))
                 return ButtonRole.Danger;
-            if (ContainsAny(key, "cancel", "close", "back", "done", "ok"))
+            if (ContainsAny(key, "cancel", "close", "back", "done", "no,", "not now"))
                 return ButtonRole.Neutral;
-            if (ContainsAny(key, "save", "create", "add", "new", "generate", "submit", "approve", "post", "record payment", "resolve", "sync selected", "backup now"))
+            if (ContainsAny(key, "save", "create", "add", "new", "generate", "submit", "approve", "apply", "confirm", "sign in", "login", "connect", "renew", "continue", "ok", "post", "record payment", "resolve", "sync selected", "backup now"))
                 return ButtonRole.Primary;
             if (ContainsAny(key, "open", "view", "test", "refresh", "export", "import", "print", "preview", "template", "forms", "upload", "browse", "load", "filter", "copy", "compare", "download"))
                 return ButtonRole.Secondary;
@@ -1157,10 +1161,12 @@ namespace HVAC_Pro_Desktop.UI
 
             button.FlatStyle = FlatStyle.Flat;
             button.UseVisualStyleBackColor = false;
+            button.UseCompatibleTextRendering = false;
             button.Cursor = Cursors.Hand;
             button.Font = new Font("Segoe UI", Math.Max(9f, Math.Min(10f, button.Font.Size <= 0 ? 9f : button.Font.Size)), FontStyle.Bold);
-            button.Height = Math.Max(button.Height, IsIconOnlyButton(button) ? 28 : 36);
+            button.Height = Math.Max(button.Height, IsIconOnlyButton(button) ? 34 : 38);
             button.Padding = IsIconOnlyButton(button) ? Padding.Empty : new Padding(12, 0, 12, 0);
+            button.AccessibleRole = AccessibleRole.PushButton;
 
             Color bg;
             Color fg;
@@ -1171,54 +1177,64 @@ namespace HVAC_Pro_Desktop.UI
             switch (role)
             {
                 case ButtonRole.Danger:
-                    bg = Color.FromArgb(220, 38, 38);
+                    bg = DS.Red600;
                     fg = Color.White;
-                    border = bg;
+                    border = Color.FromArgb(185, 28, 28);
                     hover = Color.FromArgb(185, 28, 28);
                     down = Color.FromArgb(153, 27, 27);
                     break;
                 case ButtonRole.Neutral:
-                    bg = Color.FromArgb(249, 250, 251);
-                    fg = Color.FromArgb(55, 65, 81);
-                    border = Color.FromArgb(209, 213, 219);
-                    hover = DS.Slate200;
+                    bg = DS.Slate50;
+                    fg = DS.Slate700;
+                    border = DS.Slate200;
+                    hover = Color.FromArgb(241, 245, 249);
                     down = DS.Slate300;
                     break;
                 case ButtonRole.Secondary:
                     bg = Color.White;
-                    fg = Color.FromArgb(17, 24, 39);
-                    border = DS.InputBorder;
-                    hover = DS.BgCardHov;
-                    down = DS.Slate300;
+                    fg = DS.Slate800;
+                    border = DS.Slate300;
+                    hover = DS.Primary50;
+                    down = DS.Primary100;
                     break;
                 default:
-                    bg = Color.FromArgb(37, 99, 235);
+                    bg = DS.Primary600;
                     fg = Color.White;
-                    border = bg;
-                    hover = Color.FromArgb(29, 78, 216);
+                    border = DS.Primary700;
+                    hover = DS.Primary700;
                     down = Color.FromArgb(30, 64, 175);
                     break;
             }
 
-            button.BackColor = bg;
-            button.ForeColor = fg;
+            var palette = new ButtonVisualPalette
+            {
+                Background = bg,
+                Foreground = fg,
+                Border = border,
+                HoverBackground = hover,
+                HoverBorder = role == ButtonRole.Secondary ? DS.Primary500 : DS.Darken(border, 0.06f),
+                PressedBackground = down,
+                PressedBorder = DS.Darken(border, 0.14f)
+            };
+            ButtonVisualPalettes[button] = palette;
+
+            ApplyButtonEnabledState(button, palette);
             button.FlatAppearance.BorderSize = 1;
-            button.FlatAppearance.BorderColor = button.Focused ? Color.FromArgb(37, 99, 235) : border;
-            button.FlatAppearance.MouseOverBackColor = hover;
-            button.FlatAppearance.MouseDownBackColor = down;
             button.TextAlign = ContentAlignment.MiddleCenter;
             button.ImageAlign = ContentAlignment.MiddleLeft;
             button.TextImageRelation = button.Image == null ? TextImageRelation.Overlay : TextImageRelation.ImageBeforeText;
 
             if (!IsIconOnlyButton(button) && !IsCompactUtilityButton(button))
             {
-                button.MinimumSize = new Size(Math.Max(button.MinimumSize.Width, 110), Math.Max(button.MinimumSize.Height, 36));
+                button.MinimumSize = new Size(Math.Max(button.MinimumSize.Width, 110), Math.Max(button.MinimumSize.Height, 38));
                 if (!IsFixedWidthButton(button) && button.Width < 110)
                     button.Width = 110;
             }
 
             ConfigureButtonFocusVisual(button, border);
-            DS.Rounded(button, DS.RadiusSm);
+            ConfigureButtonInteractionVisual(button);
+            DS.Rounded(button, DS.RadiusXl);
+            button.Invalidate();
         }
 
         public static void ApplyActionButton(Button button)
@@ -1247,6 +1263,112 @@ namespace HVAC_Pro_Desktop.UI
             button.Leave += ButtonFocusChanged;
         }
 
+        private static void ConfigureButtonInteractionVisual(Button button)
+        {
+            if (button == null || ButtonInteractionConfiguredButtons.Contains(button))
+                return;
+
+            ButtonInteractionConfiguredButtons.Add(button);
+            button.Disposed += (s, e) =>
+            {
+                ButtonInteractionConfiguredButtons.Remove(button);
+                ButtonVisualPalettes.Remove(button);
+            };
+            button.EnabledChanged += ButtonEnabledChanged;
+            button.MouseEnter += ButtonMouseEnter;
+            button.MouseLeave += ButtonMouseLeave;
+            button.MouseDown += ButtonMouseDown;
+            button.MouseUp += ButtonMouseUp;
+            button.Paint += ButtonPaintFocusRing;
+        }
+
+        private static void ButtonEnabledChanged(object sender, EventArgs e)
+        {
+            Button button = sender as Button;
+            ButtonVisualPalette palette;
+            if (button == null || !ButtonVisualPalettes.TryGetValue(button, out palette))
+                return;
+
+            ApplyButtonEnabledState(button, palette);
+            button.Invalidate();
+        }
+
+        private static void ButtonMouseEnter(object sender, EventArgs e)
+        {
+            Button button = sender as Button;
+            ButtonVisualPalette palette;
+            if (button == null || !button.Enabled || !ButtonVisualPalettes.TryGetValue(button, out palette))
+                return;
+
+            button.FlatAppearance.BorderColor = palette.HoverBorder;
+            button.Invalidate();
+        }
+
+        private static void ButtonMouseLeave(object sender, EventArgs e)
+        {
+            Button button = sender as Button;
+            ButtonVisualPalette palette;
+            if (button == null || !ButtonVisualPalettes.TryGetValue(button, out palette))
+                return;
+
+            button.FlatAppearance.BorderColor = button.Focused ? DS.FocusBlue : palette.Border;
+            button.Invalidate();
+        }
+
+        private static void ButtonMouseDown(object sender, MouseEventArgs e)
+        {
+            Button button = sender as Button;
+            ButtonVisualPalette palette;
+            if (button == null || !button.Enabled || e.Button != MouseButtons.Left || !ButtonVisualPalettes.TryGetValue(button, out palette))
+                return;
+
+            button.FlatAppearance.BorderColor = palette.PressedBorder;
+            button.Invalidate();
+        }
+
+        private static void ButtonMouseUp(object sender, MouseEventArgs e)
+        {
+            Button button = sender as Button;
+            ButtonVisualPalette palette;
+            if (button == null || !button.Enabled || !ButtonVisualPalettes.TryGetValue(button, out palette))
+                return;
+
+            button.FlatAppearance.BorderColor = button.ClientRectangle.Contains(e.Location) ? palette.HoverBorder : palette.Border;
+            button.Invalidate();
+        }
+
+        private static void ApplyButtonEnabledState(Button button, ButtonVisualPalette palette)
+        {
+            if (button.Enabled)
+            {
+                button.BackColor = palette.Background;
+                button.ForeColor = palette.Foreground;
+                button.FlatAppearance.BorderColor = button.Focused ? DS.FocusBlue : palette.Border;
+                button.FlatAppearance.MouseOverBackColor = palette.HoverBackground;
+                button.FlatAppearance.MouseDownBackColor = palette.PressedBackground;
+                return;
+            }
+
+            button.BackColor = DS.Slate100;
+            button.ForeColor = DS.Slate400;
+            button.FlatAppearance.BorderColor = DS.Slate200;
+            button.FlatAppearance.MouseOverBackColor = DS.Slate100;
+            button.FlatAppearance.MouseDownBackColor = DS.Slate100;
+        }
+
+        private static void ButtonPaintFocusRing(object sender, PaintEventArgs e)
+        {
+            Button button = sender as Button;
+            if (button == null || !button.Enabled || !button.Focused || button.ClientSize.Width < 12 || button.ClientSize.Height < 12)
+                return;
+
+            Rectangle ringBounds = new Rectangle(3, 3, button.ClientSize.Width - 7, button.ClientSize.Height - 7);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (GraphicsPath ring = DS.RoundedRect(ringBounds, 5))
+            using (Pen pen = new Pen(Color.FromArgb(185, DS.Primary100), 2f))
+                e.Graphics.DrawPath(pen, ring);
+        }
+
         private static void ButtonFocusChanged(object sender, EventArgs e)
         {
             Button button = sender as Button;
@@ -1256,6 +1378,17 @@ namespace HVAC_Pro_Desktop.UI
             Color normal = ExtractNormalButtonBorder(button);
             button.FlatAppearance.BorderColor = button.Focused ? Color.FromArgb(37, 99, 235) : normal;
             button.Invalidate();
+        }
+
+        private sealed class ButtonVisualPalette
+        {
+            public Color Background;
+            public Color Foreground;
+            public Color Border;
+            public Color HoverBackground;
+            public Color HoverBorder;
+            public Color PressedBackground;
+            public Color PressedBorder;
         }
 
         private static Color ExtractNormalButtonBorder(Button button)

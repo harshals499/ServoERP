@@ -111,6 +111,7 @@ namespace HVAC_Pro_Desktop.Services
         public string CustomerDocumentStatus { get; set; }
         public string SupplierDocumentStatus { get; set; }
         public DateTime? FollowUpDate { get; set; }
+        public string OwnerName { get; set; }
     }
 
     public class QuotationTrendPoint
@@ -118,6 +119,7 @@ namespace HVAC_Pro_Desktop.Services
         public string Period { get; set; }
         public int Count { get; set; }
         public decimal Value { get; set; }
+        public decimal WeightedValue { get; set; }
     }
 
     public class QuotationTopItemRow
@@ -238,7 +240,7 @@ namespace HVAC_Pro_Desktop.Services
             snapshot.RecentQuotations = current
                 .OrderByDescending(QuoteDate)
                 .ThenByDescending(q => q.BidID)
-                .Take(10)
+                .Take(200)
                 .Select(ToRecentRow)
                 .ToList();
             snapshot.ValueTrend = BuildTrend(current, filter.Grouping, from, to);
@@ -440,7 +442,8 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     Period = FormatPeriod(periodStart, periodEnd, grouping),
                     Count = periodQuotes.Count,
-                    Value = periodQuotes.Sum(QuoteValue)
+                    Value = periodQuotes.Sum(QuoteValue),
+                    WeightedValue = periodQuotes.Sum(q => QuoteValue(q) * Probability(q))
                 });
                 cursor = periodEnd.AddDays(1);
             }
@@ -600,7 +603,8 @@ namespace HVAC_Pro_Desktop.Services
                 CommercialFlow = string.IsNullOrWhiteSpace(quote.CommercialFlow) ? "Revenue" : quote.CommercialFlow,
                 CustomerDocumentStatus = string.IsNullOrWhiteSpace(quote.CustomerDocumentStatus) ? "Quote Draft" : quote.CustomerDocumentStatus,
                 SupplierDocumentStatus = string.IsNullOrWhiteSpace(quote.SupplierDocumentStatus) ? "Not Required" : quote.SupplierDocumentStatus,
-                FollowUpDate = quote.RequiredByDate ?? (DateTime?)quote.DueDate
+                FollowUpDate = quote.RequiredByDate ?? (DateTime?)quote.DueDate,
+                OwnerName = Clean(quote.CreatedByName, "Unassigned")
             };
         }
 

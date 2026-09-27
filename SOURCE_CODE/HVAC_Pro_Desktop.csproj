@@ -292,6 +292,7 @@
     <Compile Include="MODELS\TallyIntegrationModels.cs" />
     <Compile Include="MODELS\DevTeamBrainModels.cs" />
     <Compile Include="MODELS\UnitMeasurement.cs" />
+    <Compile Include="MODELS\FinancialReportingModels.cs" />
     <Compile Include="MODELS\Validation\ValidationSeverity.cs" />
     <Compile Include="MODELS\Validation\ValidationIssue.cs" />
     <Compile Include="MODELS\Validation\ValidationResult.cs" />
@@ -327,6 +328,7 @@
     <Compile Include="DAL\MasterLookupRepository.cs" />
     <Compile Include="DAL\TallyIntegrationRepository.cs" />
     <Compile Include="DAL\UnitMeasurementRepository.cs" />
+    <Compile Include="DAL\FinancialReportingRepository.cs" />
     <!-- Services -->
     <Compile Include="SERVICES\ClientService.cs" />
     <Compile Include="SERVICES\PorterDeliveryService.cs" />
@@ -374,6 +376,8 @@
     <Compile Include="SERVICES\ExcelImportService.cs" />
     <Compile Include="SERVICES\MasterDataIngestionPipeline.cs" />
     <Compile Include="SERVICES\ImportPreflightService.cs" />
+    <Compile Include="SERVICES\SmartImportDuplicateDetector.cs" />
+    <Compile Include="SERVICES\SmartImportDuplicateCleanupService.cs" />
     <Compile Include="SERVICES\DashboardCommandCenterService.cs" />
     <Compile Include="SERVICES\DashboardRefreshService.cs" />
     <Compile Include="SERVICES\InvoiceAnalyticsService.cs" />
@@ -412,6 +416,8 @@
     <Compile Include="SERVICES\DevTeamBrainService.cs" />
     <Compile Include="SERVICES\MasterLookupService.cs" />
     <Compile Include="SERVICES\UnitMeasurementService.cs" />
+    <Compile Include="SERVICES\FinancialReportingService.cs" />
+    <Compile Include="SERVICES\ProfitabilityWorkbookImportService.cs" />
     <Compile Include="SERVICES\HsnSacMasterService.cs" />
     <Compile Include="SERVICES\SessionManager.cs" />
     <Compile Include="SERVICES\GoogleGeocodingService.cs" />
@@ -441,6 +447,7 @@
     <Compile Include="SERVICES\AppStartupService.cs" />
     <Compile Include="SERVICES\PostUpdateMaintenanceService.cs" />
     <Compile Include="SERVICES\DatabaseConnectionStateService.cs" />
+    <Compile Include="SERVICES\OfficeDatabaseHandshakeService.cs" />
     <Compile Include="SERVICES\LocalSqliteFallbackStore.cs" />
     <Compile Include="SERVICES\NodeIdentityService.cs" />
     <Compile Include="SERVICES\OfficeLanControlService.cs" />
@@ -480,12 +487,14 @@
     <Compile Include="Tests\DataQualitySmokeTests.cs" />
     <Compile Include="Tests\EndToEndWorkflowSmokeTests.cs" />
     <Compile Include="Tests\ImportPreflightSmokeTests.cs" />
+    <Compile Include="Tests\SmartImportDuplicateDetectorSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />
     <Compile Include="Tests\ContractPageSmokeTests.cs" />
     <Compile Include="Tests\InvoiceAnalyticsServiceSmokeTests.cs" />
+    <Compile Include="Tests\FinancialReportingServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationAnalyticsServiceSmokeTests.cs" />
     <Compile Include="Tests\QuotationImportSmokeTests.cs" />
     <Compile Include="Tests\ModuleDashboardNavigationSmokeTests.cs" />
@@ -503,6 +512,7 @@
     <Compile Include="Tests\LanControlManagementSmokeTests.cs" />
     <Compile Include="Tests\PdfTemplateRegressionTests.cs" />
     <Compile Include="Tests\OfflineSyncPolicyTests.cs" />
+    <Compile Include="Tests\OfficeDatabaseHandshakeTests.cs" />
     <Compile Include="Tests\GuardrailEndToEndTests.cs" />
       <!-- UI -->
     <Compile Include="UI\BaseForm.cs">
@@ -732,6 +742,9 @@
     <Compile Include="UI\TenderBidForm.QuotationDashboard.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\TenderBidForm.QuotationForecastDashboard.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\ReportForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -774,6 +787,7 @@
     <Compile Include="UI\MasterDataForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\SmartImportDuplicateCleanupDialog.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

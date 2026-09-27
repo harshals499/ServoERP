@@ -24,6 +24,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly Button _selectAll = new Button();
         private readonly Button _preflight = new Button();
         private readonly Button _chooseInstaller = new Button();
+        private readonly Button _deploymentAccess = new Button();
         private readonly Button _deploy = new Button();
         private readonly Button _healthCheck = new Button();
         private readonly Button _updateCheck = new Button();
@@ -107,7 +108,7 @@ namespace HVAC_Pro_Desktop.UI
             _status.Dock = DockStyle.Fill;
             _status.Font = DS.Small;
             _status.ForeColor = DS.Slate600;
-            _status.Text = "Run readiness checks before deployment. Credentials are requested only in the elevated deployment session and are not stored in the deployment package.";
+            _status.Text = "Run readiness checks before deployment. Approved administrator access is protected on this server and supplied automatically.";
             footer.Controls.Add(_status);
 
             Controls.Add(workspace);
@@ -146,9 +147,10 @@ namespace HVAC_Pro_Desktop.UI
             _cancelDeployment.Click += (sender, args) => CancelDeployment();
             firstRow.Controls.AddRange(new Control[] { _scan, _addTerminal, _selectAll, _preflight, _healthCheck, _updateCheck, _pilotRollout, _diagnostics, _repair, _retryFailed, _cancelDeployment });
 
-            var secondRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 66, ColumnCount = 6, RowCount = 1, BackColor = DS.BgPage, Padding = new Padding(0, 12, 0, 4) };
+            var secondRow = new TableLayoutPanel { Dock = DockStyle.Bottom, Height = 66, ColumnCount = 7, RowCount = 1, BackColor = DS.BgPage, Padding = new Padding(0, 12, 0, 4) };
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -166,15 +168,18 @@ namespace HVAC_Pro_Desktop.UI
             _filter.SelectedIndex = 0;
             _filter.SelectedIndexChanged += (sender, args) => ApplyFilter();
             ConfigureButton(_chooseInstaller, "Installer override", 130);
+            ConfigureButton(_deploymentAccess, "Admin access", 116);
             ConfigureButton(_deploy, "Deploy selected", 136);
             _chooseInstaller.Click += (sender, args) => ChooseInstaller();
+            _deploymentAccess.Click += (sender, args) => ConfigureDeploymentAccess();
             _deploy.Click += async (sender, args) => await DeploySelectedAsync();
             secondRow.Controls.Add(installerLabel, 0, 0);
             secondRow.Controls.Add(_installerPath, 1, 0);
             secondRow.Controls.Add(filterLabel, 2, 0);
             secondRow.Controls.Add(_filter, 3, 0);
             secondRow.Controls.Add(_chooseInstaller, 4, 0);
-            secondRow.Controls.Add(_deploy, 5, 0);
+            secondRow.Controls.Add(_deploymentAccess, 5, 0);
+            secondRow.Controls.Add(_deploy, 6, 0);
             actions.Controls.Add(secondRow);
             actions.Controls.Add(firstRow);
             return actions;
@@ -377,19 +382,36 @@ namespace HVAC_Pro_Desktop.UI
                 MessageBox.Show(this, "One or more selected terminals have blocking readiness failures. Correct them before deployment.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+            OfficeLanDeploymentCredential deploymentCredential;
+            if (!_service.TryLoadSavedDeploymentCredential(out deploymentCredential))
+            {
+                deploymentCredential = PromptForDeploymentCredential();
+                if (deploymentCredential == null)
+                    return;
+                if (deploymentCredential.RememberOnServer)
+                    _service.SaveDeploymentCredential(deploymentCredential);
+            }
             bool confirmed = ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Deploy ServoERP to selected PCs?",
-                string.Format("{0} PC(s) selected. LAN Control will use the terminal installer with .NET and WebView2 prerequisites, verify the transferred package hash, configure SQL, and report live progress.", selected.Count));
+                string.Format("{0} PC(s) selected. LAN Control will use the approved administrator access automatically, verify the transferred package hash, configure SQL, and report live progress.", selected.Count));
             if (!confirmed)
                 return;
 
             await RunSafeAsync("Prepare LAN deployment", async () =>
             {
-                OfficeLanDeploymentPackage package = await Task.Run(() => _service.CreateDeploymentPackage(selected, _installerOverridePath));
+                OfficeLanDeploymentPackage package;
+                try
+                {
+                    package = await Task.Run(() => _service.CreateDeploymentPackage(selected, _installerOverridePath, deploymentCredential));
+                }
+                finally
+                {
+                    deploymentCredential.Password = string.Empty;
+                }
                 _activePackage = package;
                 foreach (OfficeLanComputer item in selected)
                 {
                     item.ManagementState = "Installing";
-                    item.CurrentStage = "Waiting for credentials";
+                    item.CurrentStage = "Starting securely";
                     item.ProgressPercent = 1;
                 }
                 _service.LaunchDeployment(package);
@@ -397,8 +419,36 @@ namespace HVAC_Pro_Desktop.UI
                 _cancelDeployment.Enabled = true;
                 _computers.Refresh();
                 UpdateSummary();
-                _status.Text = string.Format("Deployment started for {0} PC(s). Complete the credential prompts in the elevated window; progress appears here automatically.", package.TargetCount);
+                _status.Text = string.Format("Unattended deployment started for {0} PC(s). No PowerShell credential prompt is required; progress appears here automatically.", package.TargetCount);
             }, _deploy, "Preparing...");
+        }
+
+        private void ConfigureDeploymentAccess()
+        {
+            OfficeLanDeploymentCredential existing;
+            _service.TryLoadSavedDeploymentCredential(out existing);
+            OfficeLanDeploymentCredential credential = PromptForDeploymentCredential(existing);
+            if (credential == null)
+                return;
+            if (credential.RememberOnServer)
+            {
+                _service.SaveDeploymentCredential(credential);
+                _status.Text = "Administrator access saved securely for unattended LAN deployments from this Windows account.";
+            }
+            else
+            {
+                _service.ForgetSavedDeploymentCredential();
+                _status.Text = "Saved LAN deployment administrator access was removed.";
+            }
+            credential.Password = string.Empty;
+            if (existing != null)
+                existing.Password = string.Empty;
+        }
+
+        private OfficeLanDeploymentCredential PromptForDeploymentCredential(OfficeLanDeploymentCredential existing = null)
+        {
+            using (var dialog = new LanDeploymentCredentialDialog(existing))
+                return dialog.ShowDialog(this) == DialogResult.OK ? dialog.Credential : null;
         }
 
         private void RefreshDeploymentProgress()
@@ -646,6 +696,26 @@ namespace HVAC_Pro_Desktop.UI
             ShowSelectedDetails();
         }
 
+        internal void CaptureDeploymentAccessDialogForVisualTest(string outputPath)
+        {
+            using (var dialog = new LanDeploymentCredentialDialog(new OfficeLanDeploymentCredential
+            {
+                UserName = @"OFFICE\ServoDeploy",
+                Password = "visual-test-only",
+                RememberOnServer = true
+            }))
+            {
+                dialog.Show(this);
+                Application.DoEvents();
+                using (var bitmap = new Bitmap(dialog.Width, dialog.Height))
+                {
+                    dialog.DrawToBitmap(bitmap, new Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                    bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                }
+                dialog.Close();
+            }
+        }
+
         private static OfficeLanComputer Preview(string host, string ip, string state, string version, string readiness, string sql, string stage, int progress, string lastSeen, bool reachable, bool local)
         {
             return new OfficeLanComputer
@@ -657,6 +727,90 @@ namespace HVAC_Pro_Desktop.UI
                 SupportsRemoteManagement = readiness == "Ready",
                 LastResult = state == "Failed" ? "SQL login failed — correct credentials and retry" : "Healthy"
             };
+        }
+
+        private sealed class LanDeploymentCredentialDialog : ServoERP.Infrastructure.ServoFormBase
+        {
+            private readonly TextBox _userName = new TextBox();
+            private readonly TextBox _password = new TextBox();
+            private readonly CheckBox _remember = new CheckBox();
+
+            public OfficeLanDeploymentCredential Credential { get; private set; }
+
+            public LanDeploymentCredentialDialog(OfficeLanDeploymentCredential existing)
+            {
+                Text = "LAN deployment administrator access";
+                StartPosition = FormStartPosition.CenterParent;
+                FormBorderStyle = FormBorderStyle.FixedDialog;
+                MaximizeBox = false;
+                MinimizeBox = false;
+                ShowInTaskbar = false;
+                ClientSize = new Size(520, 300);
+                BackColor = DS.BgPage;
+
+                Controls.Add(new Label
+                {
+                    Text = "Administrator access for terminal PCs",
+                    Font = DS.H2,
+                    ForeColor = DS.Slate900,
+                    AutoSize = true,
+                    Location = new Point(24, 20)
+                });
+                Controls.Add(new Label
+                {
+                    Text = "Use an account that Windows already authorizes as an administrator on each selected PC. LAN Control cannot bypass Windows security.",
+                    Font = DS.Body,
+                    ForeColor = DS.Slate600,
+                    Location = new Point(24, 57),
+                    Size = new Size(470, 48)
+                });
+
+                Controls.Add(new Label { Text = "Windows account", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 113) });
+                _userName.Location = new Point(24, 134);
+                _userName.Size = new Size(470, 26);
+                _userName.Text = existing == null ? Environment.UserName : existing.UserName;
+                Controls.Add(_userName);
+
+                Controls.Add(new Label { Text = "Password", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 170) });
+                _password.Location = new Point(24, 191);
+                _password.Size = new Size(470, 26);
+                _password.UseSystemPasswordChar = true;
+                _password.Text = existing == null ? string.Empty : existing.Password;
+                Controls.Add(_password);
+
+                _remember.Text = "Remember securely for unattended deployments from this server";
+                _remember.Font = DS.Small;
+                _remember.ForeColor = DS.Slate700;
+                _remember.AutoSize = true;
+                _remember.Checked = existing != null;
+                _remember.Location = new Point(24, 229);
+                Controls.Add(_remember);
+
+                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(296, 260), Size = new Size(94, 32) };
+                var use = new Button { Text = "Use access", Location = new Point(400, 260), Size = new Size(94, 32) };
+                use.Click += (sender, args) => AcceptCredential();
+                Controls.Add(cancel);
+                Controls.Add(use);
+                AcceptButton = use;
+                CancelButton = cancel;
+            }
+
+            private void AcceptCredential()
+            {
+                if (string.IsNullOrWhiteSpace(_userName.Text) || string.IsNullOrEmpty(_password.Text))
+                {
+                    MessageBox.Show(this, "Enter the Windows administrator account and password used by the selected terminal PCs.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                Credential = new OfficeLanDeploymentCredential
+                {
+                    UserName = _userName.Text.Trim(),
+                    Password = _password.Text,
+                    RememberOnServer = _remember.Checked
+                };
+                DialogResult = DialogResult.OK;
+                Close();
+            }
         }
     }
 }

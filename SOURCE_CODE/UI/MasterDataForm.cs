@@ -1584,7 +1584,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildUploadCard(string title, int count, string description, ExcelImportModule? module, string key)
         {
-            Panel card = new Panel { Width = 220, Height = 146, BackColor = DS.Slate50, Margin = new Padding(0, 0, 12, 12), Cursor = Cursors.Hand, Tag = module };
+            Panel card = new Panel { Width = 220, Height = module.HasValue ? 188 : 146, BackColor = DS.Slate50, Margin = new Padding(0, 0, 12, 12), Cursor = Cursors.Hand, Tag = module };
             card.AllowDrop = true;
             card.DragEnter += HubDragEnter;
             card.DragDrop += HubDragDrop;
@@ -1597,22 +1597,40 @@ namespace HVAC_Pro_Desktop.UI
             card.Controls.Add(new Label { Text = count.ToString("N0") + " recs", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22), AutoEllipsis = true });
             card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600, AutoEllipsis = true });
 
-            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, 102), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
+            int actionRowY = module.HasValue ? 102 : card.Height - 44;
+            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, actionRowY), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
             primary.AutoEllipsis = true;
             primary.FlatAppearance.BorderSize = 0;
             DS.Rounded(primary, DS.RadiusSm);
             primary.Click += (s, e) => RunCardAction(module, key);
-            Button map = new Button { Text = "Auto Sync", Location = new Point(128, 102), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
+            Button map = new Button { Text = "Auto Sync", Location = new Point(128, actionRowY), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
             map.AutoEllipsis = true;
             map.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(map, DS.RadiusSm);
             map.Click += (s, e) => RunMappingAction(module, key);
             card.Controls.Add(primary);
             card.Controls.Add(map);
+            Button duplicates = null;
+            if (module.HasValue)
+            {
+                duplicates = new Button { Text = "Check / Remove Duplicates", Location = new Point(14, 144), Size = new Size(card.Width - 28, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(194, 65, 12), Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom };
+                duplicates.AutoEllipsis = true;
+                duplicates.FlatAppearance.BorderColor = Color.FromArgb(253, 186, 116);
+                DS.Rounded(duplicates, DS.RadiusSm);
+                ExcelImportModule duplicateModule = module.Value;
+                duplicates.Click += (s, e) => RunDuplicateAction(duplicateModule);
+                card.Controls.Add(duplicates);
+            }
             card.Resize += (s, e) =>
             {
-                primary.Location = new Point(14, card.Height - 44);
-                map.Location = new Point(card.Width - map.Width - 14, card.Height - 44);
+                int bottomRow = duplicates == null ? card.Height - 44 : card.Height - 86;
+                primary.Location = new Point(14, bottomRow);
+                map.Location = new Point(card.Width - map.Width - 14, bottomRow);
+                if (duplicates != null)
+                {
+                    duplicates.Location = new Point(14, card.Height - 44);
+                    duplicates.Width = Math.Max(120, card.Width - 28);
+                }
             };
             card.Click += (s, e) => RunCardAction(module, key);
             return card;
@@ -2026,6 +2044,12 @@ namespace HVAC_Pro_Desktop.UI
             _ = LoadAllAsync();
         }
 
+        private void RunDuplicateAction(ExcelImportModule module)
+        {
+            ImportUiHelper.ReviewExistingDuplicates(module, ResolveDialogOwner());
+            _ = LoadAllAsync();
+        }
+
         private void RunFolderImport(ExcelImportModule? module)
         {
             ImportUiHelper.RunImportFolder(module, ResolveDialogOwner());
@@ -2160,7 +2184,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowDuplicateCheck()
         {
-            MessageBox.Show(this, "Duplicate checks now run automatically using GST numbers, phone, email, names, invoice numbers, and PO patterns. Existing records are refreshed safely and uncertain duplicates are skipped with a simple reason.", "Duplicate detection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            var menu = new ContextMenuStrip { ShowImageMargin = false };
+            foreach (ExcelImportModule module in ImportableModules())
+            {
+                ExcelImportModule selectedModule = module;
+                menu.Items.Add(GetUploadTitle(module), null, (s, e) => RunDuplicateAction(selectedModule));
+            }
+            menu.Show(Cursor.Position);
         }
 
         private string ResolveCardAction(string key)

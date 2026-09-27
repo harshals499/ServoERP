@@ -52,10 +52,12 @@ namespace HVAC_Pro_Desktop.Tests
             if (builder == null)
                 throw new InvalidOperationException("LAN deployment script builder is missing.");
             string script = builder.Invoke(null, new object[] { "ServoERP.Terminal.Setup.1.1.440.0.exe", "enterprise-exe", @"SERVER-PC\SQLEXPRESS", "HVAC_PRO", Guid.NewGuid() }) as string;
-            string[] required = { "deployment-progress.jsonl", "Write-DeploymentProgress", "Get-FileHash", "SHA256", "Get-Credential", "WinRM enabled automatically" };
+            string[] required = { "deployment-progress.jsonl", "Write-DeploymentProgress", "Get-FileHash", "SHA256", "deployment-credentials.dat", "ProtectedData]::Unprotect", "WinRM enabled automatically", "New-PSSessionOption" };
             foreach (string marker in required)
                 if (string.IsNullOrWhiteSpace(script) || script.IndexOf(marker, StringComparison.OrdinalIgnoreCase) < 0)
                     throw new InvalidOperationException("LAN deployment script is missing: " + marker);
+            if (script.IndexOf("Get-Credential", StringComparison.OrdinalIgnoreCase) >= 0 || script.IndexOf("Read-Host", StringComparison.OrdinalIgnoreCase) >= 0)
+                throw new InvalidOperationException("LAN deployment must not block on an interactive PowerShell prompt.");
         }
 
         private static void EnsureProgressReaderUsesLatestTerminalState()

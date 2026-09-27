@@ -4,7 +4,8 @@ param(
 
     [string]$AppDir = "C:\HVAC_PRO_MSE",
     [int]$PumpSeconds = 6,
-    [string]$ScreenshotPath = ""
+    [string]$ScreenshotPath = "",
+    [string]$TabText = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -87,6 +88,37 @@ function Set-TestSession($assembly) {
     $sessionType.GetMethod("SetSession").Invoke($null, @($user, $null, $null)) | Out-Null
 }
 
+function Select-TabByText {
+    param(
+        [System.Windows.Forms.Control]$RootControl,
+        [string]$Text
+    )
+
+    foreach ($child in $RootControl.Controls) {
+        if ($child -is [System.Windows.Forms.TabControl]) {
+            foreach ($page in $child.TabPages) {
+                if ([string]::Equals($page.Text, $Text, [StringComparison]::OrdinalIgnoreCase)) {
+                    $child.SelectedTab = $page
+                    return $true
+                }
+            }
+        }
+        if ($child -is [System.Windows.Forms.Label] -and
+            [string]::Equals($child.Text, $Text, [StringComparison]::OrdinalIgnoreCase)) {
+            $onClick = [System.Windows.Forms.Control].GetMethod(
+                "OnClick",
+                [Reflection.BindingFlags] "Instance,NonPublic"
+            )
+            $onClick.Invoke($child, @([EventArgs]::Empty)) | Out-Null
+            return $true
+        }
+        if (Select-TabByText -RootControl $child -Text $Text) {
+            return $true
+        }
+    }
+    return $false
+}
+
 $result = [ordered]@{
     Page = $TypeName
     Result = "FAIL"
@@ -117,6 +149,14 @@ try {
     while ([DateTime]::Now -lt $deadline) {
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 100
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($TabText)) {
+        if (-not (Select-TabByText -RootControl $control -Text $TabText)) {
+            throw "Tab '$TabText' was not found."
+        }
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 250
     }
 
     if ($control.IsDisposed) {

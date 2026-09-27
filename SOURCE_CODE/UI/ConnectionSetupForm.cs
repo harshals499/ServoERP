@@ -420,6 +420,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!persistedResult.Success)
                     throw new InvalidOperationException("The connection tested successfully, but the saved credentials could not be verified. " + persistedResult.Message);
 
+                OfficeDatabaseHandshakeService.VerifyAndPin(persistedConnectionString);
                 NodeIdentityService.EnsureRegistered();
                 AppRuntime.LogConnection("Connection string saved and verified.");
                 MessageBox.Show(

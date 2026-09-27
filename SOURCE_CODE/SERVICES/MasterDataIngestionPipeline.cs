@@ -40,6 +40,10 @@ namespace HVAC_Pro_Desktop.Services
         public int SourceRowCount { get; set; }
         public int CanonicalRowCount { get; set; }
         public bool RequiresPreflight { get; set; }
+        public int UploadDuplicateRows { get; set; }
+        public int ExistingMatchRows { get; set; }
+        public int AmbiguousMatchRows { get; set; }
+        public int ExistingDuplicateGroups { get; set; }
         public List<string> SourceHeaders { get; } = new List<string>();
         public List<string> UserMessages { get; } = new List<string>();
         public List<Dictionary<string, string>> SampleRows { get; } = new List<Dictionary<string, string>>();
@@ -113,6 +117,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly DataCleaningService _cleaner = new DataCleaningService();
         private readonly ImportAuditLogService _audit = new ImportAuditLogService();
         private readonly ExcelImportService _importService = new ExcelImportService();
+        private readonly SmartImportDuplicateDetector _duplicateDetector = new SmartImportDuplicateDetector();
         private readonly MseQuotationLayoutParser _mseQuotationParser = new MseQuotationLayoutParser();
         private readonly PurchaseOrderPdfLayoutParser _purchaseOrderPdfParser = new PurchaseOrderPdfLayoutParser();
 
@@ -162,6 +167,22 @@ namespace HVAC_Pro_Desktop.Services
                     copy[entry.Key] = entry.Value;
                 preview.SampleRows.Add(copy);
             }
+
+            SmartImportDuplicateScan duplicateScan = _duplicateDetector.Scan(detection.Module, canonicalRows, true);
+            preview.UploadDuplicateRows = duplicateScan.UploadDuplicateRows;
+            preview.ExistingMatchRows = duplicateScan.ExistingMatchRows;
+            preview.AmbiguousMatchRows = duplicateScan.AmbiguousMatchRows;
+            preview.ExistingDuplicateGroups = duplicateScan.ExistingDuplicateGroups;
+            if (duplicateScan.UploadDuplicateRows > 0)
+                preview.UserMessages.Add(duplicateScan.UploadDuplicateRows + " duplicate row(s) were detected inside this upload.");
+            if (duplicateScan.ExistingMatchRows > 0)
+                preview.UserMessages.Add(duplicateScan.ExistingMatchRows + " row(s) match existing ServoERP records and will be routed through the module's update rules.");
+            if (duplicateScan.ExistingDuplicateGroups > 0)
+                preview.UserMessages.Add(duplicateScan.ExistingDuplicateGroups + " duplicate group(s) already exist in this module and require review.");
+            if (duplicateScan.UploadDuplicateRows > 0 || duplicateScan.AmbiguousMatchRows > 0)
+                preview.UserMessages.Add("Import is blocked until repeated upload rows and ambiguous existing matches are corrected.");
+            foreach (string detail in duplicateScan.Details.Take(8))
+                preview.UserMessages.Add(detail);
 
             if (detection.Confidence < 65)
                 preview.UserMessages.Add("Detection confidence is low. Review the preview carefully before importing.");
@@ -267,6 +288,14 @@ namespace HVAC_Pro_Desktop.Services
             string stagedFile = null;
             try
             {
+                SmartImportDuplicateScan duplicateScan = _duplicateDetector.Scan(detection.Module, canonicalRows, true);
+                if (duplicateScan.UploadDuplicateRows > 0 || duplicateScan.AmbiguousMatchRows > 0)
+                {
+                    throw new InvalidOperationException(
+                        "Smart Upload stopped this import to prevent duplicate records. Repeated upload rows: "
+                        + duplicateScan.UploadDuplicateRows + "; rows matching multiple existing records: "
+                        + duplicateScan.AmbiguousMatchRows + ". Review the duplicate details in the preview, correct the source or existing master data, and try again.");
+                }
                 stagedFile = WriteCanonicalWorkbook(detection.Module, canonicalRows);
                 var diagnostics = new ExcelImportDiagnostics();
                 ExcelImportResult import = _importService.Import(detection.Module, stagedFile, new ExcelImportExecutionOptions
@@ -299,6 +328,12 @@ namespace HVAC_Pro_Desktop.Services
                     result.CreatedDefaults.Add(line);
 
                 result.UserMessages.Add(import.SuccessCount + " rows imported or refreshed in " + ExcelImportService.GetDisplayName(detection.Module) + ".");
+                if (duplicateScan.UploadDuplicateRows > 0)
+                    result.UserMessages.Add(duplicateScan.UploadDuplicateRows + " duplicate upload row(s) were detected and routed through existing-record refresh rules.");
+                if (duplicateScan.ExistingMatchRows > 0)
+                    result.UserMessages.Add(duplicateScan.ExistingMatchRows + " row(s) matched existing records and were routed through the module's update rules.");
+                if (duplicateScan.ExistingDuplicateGroups > 0)
+                    result.UserMessages.Add(duplicateScan.ExistingDuplicateGroups + " existing duplicate group(s) need cleanup in " + ExcelImportService.GetDisplayName(detection.Module) + ".");
                 if (import.SkippedCount > 0)
                     result.UserMessages.Add(import.SkippedCount + " rows were skipped safely.");
                 if (detection.Confidence < 65)

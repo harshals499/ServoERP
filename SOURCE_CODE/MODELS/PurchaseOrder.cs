@@ -47,6 +47,7 @@ namespace HVAC_Pro_Desktop.Models
         public string   PaymentReference { get; set; }
         public string   ComparisonNotes { get; set; }
         public string   Notes       { get; set; }
+        public string   FinancialCategory { get; set; } = "Direct Cost";
         public DateTime CreatedDate { get; set; }
 
         public List<PurchaseLineItem> LineItems { get; set; } = new List<PurchaseLineItem>();

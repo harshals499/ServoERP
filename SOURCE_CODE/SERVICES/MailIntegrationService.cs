@@ -18,6 +18,10 @@ namespace HVAC_Pro_Desktop.Services
 {
     public class MailIntegrationService
     {
+        private const int OAuthCallbackTimeoutMinutes = 5;
+        private const int GmailPageSize = 500;
+        private const int GmailMaximumPagesPerSync = 10;
+
         private readonly MailIntegrationRepository _repo = new MailIntegrationRepository();
         private readonly ServiceDeskService _serviceDesk = new ServiceDeskService();
         private readonly JavaScriptSerializer _json = new JavaScriptSerializer { MaxJsonLength = int.MaxValue };
@@ -38,7 +42,9 @@ namespace HVAC_Pro_Desktop.Services
             OAuthSettings settings = LoadSettings(provider);
             string redirectUri = "http://127.0.0.1:" + GetFreePort() + "/";
             string state = Guid.NewGuid().ToString("N");
-            string authUrl = BuildAuthorizeUrl(provider, settings, redirectUri, state);
+            string codeVerifier = provider == "Gmail" ? CreateCodeVerifier() : null;
+            string codeChallenge = string.IsNullOrWhiteSpace(codeVerifier) ? null : CreateCodeChallenge(codeVerifier);
+            string authUrl = BuildAuthorizeUrl(provider, settings, redirectUri, state, codeChallenge);
 
             using (var listener = new HttpListener())
             {
@@ -46,22 +52,37 @@ namespace HVAC_Pro_Desktop.Services
                 listener.Start();
                 Process.Start(new ProcessStartInfo(authUrl) { UseShellExecute = true });
 
-                HttpListenerContext context = await listener.GetContextAsync();
+                Task<HttpListenerContext> callbackTask = listener.GetContextAsync();
+                Task completedTask = await Task.WhenAny(callbackTask, Task.Delay(TimeSpan.FromMinutes(OAuthCallbackTimeoutMinutes)));
+                if (completedTask != callbackTask)
+                {
+                    listener.Stop();
+                    try { await callbackTask; } catch { }
+                    throw new TimeoutException(provider + " sign-in timed out. Start the connection again and complete sign-in within five minutes.");
+                }
+
+                HttpListenerContext context = await callbackTask;
                 string code = context.Request.QueryString["code"];
                 string returnedState = context.Request.QueryString["state"];
                 string error = context.Request.QueryString["error"];
-                byte[] response = Encoding.UTF8.GetBytes("<html><body><h2>Mail account connected.</h2><p>You can close this browser window and return to ServoERP.</p></body></html>");
+                string errorDescription = context.Request.QueryString["error_description"];
+                byte[] response = Encoding.UTF8.GetBytes("<html><body style='font-family:Segoe UI,Arial;padding:32px'><h2>Authorization received</h2><p>You can close this browser window and return to ServoERP.</p></body></html>");
                 context.Response.ContentType = "text/html";
+                context.Response.ContentEncoding = Encoding.UTF8;
                 context.Response.OutputStream.Write(response, 0, response.Length);
                 context.Response.Close();
 
                 if (!string.IsNullOrWhiteSpace(error))
-                    throw new Exception("OAuth failed: " + error);
+                    throw new Exception("Sign-in was not completed: " + FirstNonEmpty(errorDescription, error));
                 if (string.IsNullOrWhiteSpace(code) || !string.Equals(returnedState, state, StringComparison.Ordinal))
                     throw new Exception("OAuth response was invalid.");
 
-                TokenResponse token = await ExchangeCodeAsync(provider, settings, redirectUri, code);
+                TokenResponse token = await ExchangeCodeAsync(provider, settings, redirectUri, code, codeVerifier);
+                if (string.IsNullOrWhiteSpace(token.AccessToken))
+                    throw new Exception("The provider did not return an access token. Please reconnect the mailbox.");
                 MailProfile profile = await GetProfileAsync(provider, token.AccessToken);
+                if (string.IsNullOrWhiteSpace(profile.EmailAddress))
+                    throw new Exception("The connected Gmail account could not be identified. Please reconnect and allow Gmail read access.");
 
                 var account = new ConnectedMailAccount
                 {
@@ -242,18 +263,39 @@ namespace HVAC_Pro_Desktop.Services
 
         private async Task<List<MailMessageSyncItem>> FetchGmailMessagesAsync(string accessToken, DateTime? sinceUtc)
         {
-            string query = "in:inbox newer_than:14d";
+            string query = "in:inbox newer_than:7d";
             if (sinceUtc.HasValue)
                 query = "in:inbox after:" + ((DateTimeOffset)sinceUtc.Value.AddDays(-1)).ToUnixTimeSeconds();
-            string listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=25&q=" + Uri.EscapeDataString(query);
-            Dictionary<string, object> root = await GetJsonAsync(listUrl, accessToken);
-            var output = new List<MailMessageSyncItem>();
-            foreach (object item in GetArray(root, "messages"))
+
+            var messageIds = new List<string>();
+            string pageToken = null;
+            for (int page = 0; page < GmailMaximumPagesPerSync; page++)
             {
-                var msgRef = item as Dictionary<string, object>;
-                string id = GetString(msgRef, "id");
-                if (string.IsNullOrWhiteSpace(id))
-                    continue;
+                string listUrl = "https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=" + GmailPageSize
+                    + "&includeSpamTrash=false&q=" + Uri.EscapeDataString(query);
+                if (!string.IsNullOrWhiteSpace(pageToken))
+                    listUrl += "&pageToken=" + Uri.EscapeDataString(pageToken);
+
+                Dictionary<string, object> root = await GetJsonAsync(listUrl, accessToken);
+                foreach (object item in GetArray(root, "messages"))
+                {
+                    var messageReference = item as Dictionary<string, object>;
+                    string messageId = GetString(messageReference, "id");
+                    if (!string.IsNullOrWhiteSpace(messageId))
+                        messageIds.Add(messageId);
+                }
+
+                pageToken = GetString(root, "nextPageToken");
+                if (string.IsNullOrWhiteSpace(pageToken))
+                    break;
+
+                if (page == GmailMaximumPagesPerSync - 1)
+                    throw new Exception("Gmail returned more than 5,000 inbox messages for this sync window. Sync again with a more recent mailbox window.");
+            }
+
+            var output = new List<MailMessageSyncItem>();
+            foreach (string id in messageIds)
+            {
                 Dictionary<string, object> msg = await GetJsonAsync("https://gmail.googleapis.com/gmail/v1/users/me/messages/" + Uri.EscapeDataString(id) + "?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date", accessToken);
                 Dictionary<string, object> payload = GetObject(msg, "payload");
                 string fromRaw = Header(payload, "From");
@@ -269,7 +311,7 @@ namespace HVAC_Pro_Desktop.Services
                     ReceivedAtUtc = ParseUnixMillis(GetString(msg, "internalDate"))
                 });
             }
-            return output;
+            return output.OrderBy(message => message.ReceivedAtUtc ?? DateTime.MinValue).ToList();
         }
 
         private async Task<MailProfile> GetProfileAsync(string provider, string accessToken)
@@ -288,13 +330,17 @@ namespace HVAC_Pro_Desktop.Services
         {
             using (var client = new HttpClient())
             {
+                client.Timeout = TimeSpan.FromSeconds(45);
                 client.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
-                string body = await client.GetStringAsync(url);
+                HttpResponseMessage response = await client.GetAsync(url);
+                string body = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                    throw new Exception("Mail provider request failed (" + (int)response.StatusCode + "): " + ReadProviderError(body, response.ReasonPhrase));
                 return _json.Deserialize<Dictionary<string, object>>(body);
             }
         }
 
-        private async Task<TokenResponse> ExchangeCodeAsync(string provider, OAuthSettings settings, string redirectUri, string code)
+        private async Task<TokenResponse> ExchangeCodeAsync(string provider, OAuthSettings settings, string redirectUri, string code, string codeVerifier)
         {
             var values = new Dictionary<string, string>
             {
@@ -303,6 +349,8 @@ namespace HVAC_Pro_Desktop.Services
                 { "redirect_uri", redirectUri },
                 { "grant_type", "authorization_code" }
             };
+            if (!string.IsNullOrWhiteSpace(codeVerifier))
+                values["code_verifier"] = codeVerifier;
             if (provider == "Gmail" && !string.IsNullOrWhiteSpace(settings.ClientSecret))
                 values["client_secret"] = settings.ClientSecret;
             if (provider == "Outlook")
@@ -333,7 +381,7 @@ namespace HVAC_Pro_Desktop.Services
                 HttpResponseMessage response = await client.PostAsync(url, content);
                 string body = await response.Content.ReadAsStringAsync();
                 if (!response.IsSuccessStatusCode)
-                    throw new Exception("Token request failed: " + body);
+                    throw new Exception("Mailbox authorization failed: " + ReadProviderError(body, response.ReasonPhrase));
                 Dictionary<string, object> json = _json.Deserialize<Dictionary<string, object>>(body);
                 return new TokenResponse
                 {
@@ -344,7 +392,7 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private string BuildAuthorizeUrl(string provider, OAuthSettings settings, string redirectUri, string state)
+        private string BuildAuthorizeUrl(string provider, OAuthSettings settings, string redirectUri, string state, string codeChallenge)
         {
             var query = HttpUtility.ParseQueryString(string.Empty);
             query["client_id"] = settings.ClientId;
@@ -356,6 +404,9 @@ namespace HVAC_Pro_Desktop.Services
             {
                 query["access_type"] = "offline";
                 query["prompt"] = "consent";
+                query["include_granted_scopes"] = "true";
+                query["code_challenge"] = codeChallenge;
+                query["code_challenge_method"] = "S256";
             }
             else
             {
@@ -428,6 +479,48 @@ namespace HVAC_Pro_Desktop.Services
             int port = ((IPEndPoint)listener.LocalEndpoint).Port;
             listener.Stop();
             return port;
+        }
+
+        private static string CreateCodeVerifier()
+        {
+            byte[] bytes = new byte[64];
+            using (RandomNumberGenerator random = RandomNumberGenerator.Create())
+                random.GetBytes(bytes);
+            return Base64UrlEncode(bytes);
+        }
+
+        private static string CreateCodeChallenge(string codeVerifier)
+        {
+            using (SHA256 sha256 = SHA256.Create())
+                return Base64UrlEncode(sha256.ComputeHash(Encoding.ASCII.GetBytes(codeVerifier)));
+        }
+
+        private static string Base64UrlEncode(byte[] value)
+        {
+            return Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        }
+
+        private string ReadProviderError(string body, string fallback)
+        {
+            try
+            {
+                Dictionary<string, object> json = _json.Deserialize<Dictionary<string, object>>(body ?? string.Empty);
+                string description = GetString(json, "error_description");
+                if (!string.IsNullOrWhiteSpace(description))
+                    return description;
+
+                object errorValue;
+                if (json != null && json.TryGetValue("error", out errorValue))
+                {
+                    var errorObject = errorValue as Dictionary<string, object>;
+                    return FirstNonEmpty(GetString(errorObject, "message"), Convert.ToString(errorValue), fallback);
+                }
+            }
+            catch
+            {
+                // Provider errors are best-effort parsed; do not expose the full response body.
+            }
+            return FirstNonEmpty(fallback, "Unknown provider error");
         }
 
         private static string BuildEmailNote(ConnectedMailAccount account, MailMessageSyncItem message)

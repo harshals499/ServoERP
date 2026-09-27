@@ -129,6 +129,7 @@ namespace HVAC_Pro_Desktop.Services
                     DateTime start = DateTime.UtcNow;
                     DatabaseConnectionFactory.Open(connection, SafeContext(context));
                     object result = command.ExecuteScalar();
+                    OfficeDatabaseHandshakeService.VerifyOpenConnection(connection);
                     long elapsed = (long)(DateTime.UtcNow - start).TotalMilliseconds;
                     if (Convert.ToInt32(result, CultureInfo.InvariantCulture) == 1)
                     {

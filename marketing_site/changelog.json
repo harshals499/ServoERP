@@ -1,15 +1,31 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.446.0",
-  "updatedAt": "2026-09-26",
+  "latestVersion": "1.1.451.0",
+  "updatedAt": "2026-09-27",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.446/ServoERP.Desktop-1.1.446-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.446.0.exe",
-    "installer": "ServoERP_Setup_1.1.446.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.451/ServoERP.Desktop-1.1.451-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.451.0.exe",
+    "installer": "ServoERP_Setup_1.1.451.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.451.0",
+      "date": "2026-09-27",
+      "title": "Forecasting quotations, profitability, and safer Smart Upload",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Rebuilt Quotations as a live forecasting command centre with weighted pipeline, win rate, expiry risk, stage funnel, confidence, and follow-up actions while preserving the existing sidebar.",
+            "Added job and site profitability, reviewed P&L import staging, expense capture, monthly company P&L, and updated reporting views.",
+            "Added normalized Smart Upload duplicate detection plus confirmed, audited, transactional duplicate cleanup with rollback.",
+            "Included the current LAN database identity and verified-credential reliability improvements."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.446.0",
       "date": "2026-09-26",

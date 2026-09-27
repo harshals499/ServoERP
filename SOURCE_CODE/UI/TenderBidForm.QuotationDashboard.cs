@@ -44,35 +44,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildQuotationDashboardPanel()
         {
-            _quotationDashboardPanel = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = QuotePageBg,
-                Padding = new Padding(24, 10, 24, 10)
-            };
-
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = QuotePageBg,
-                ColumnCount = 1,
-                RowCount = 2
-            };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 56));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-
-            root.Controls.Add(BuildQuoteDashboardFilterBar(), 0, 0);
-            root.Controls.Add(BuildQuoteDashboardCardBoard(), 0, 1);
-
-            _quotationDashboardPanel.Controls.Add(root);
-            _quotationDashboardPanel.HandleCreated += (s, e) =>
-            {
-                if (_visualTestMode)
-                    return;
-                ApplySavedQuotationDashboardLayout();
-                BeginInvoke((Action)RefreshQuotationDashboardSafe);
-            };
-            return _quotationDashboardPanel;
+            return BuildQuotationForecastDashboardPanel();
         }
 
         private Control BuildQuoteDashboardCardBoard()
@@ -360,8 +332,7 @@ namespace HVAC_Pro_Desktop.UI
             _quoteDashStatus.Text = snapshot.UsesDemoData ? "No live quotation data" : "Live quotation data";
             _quoteDashStatus.ForeColor = snapshot.UsesDemoData ? WarnOrange : SaveGreen;
             SyncQuotationDashboardCompanies(snapshot.Companies);
-            BindQuotationActionBoard(snapshot.ActionItems);
-            BindRecentQuotations(snapshot.RecentQuotations);
+            BindQuotationForecastDashboard(snapshot);
         }
 
         public void LoadActionBoardPreviewForVisualTest()
@@ -372,6 +343,31 @@ namespace HVAC_Pro_Desktop.UI
             {
                 UsesDemoData = false,
                 Companies = new List<string> { "Allied Cooling", "Metro Hospital", "Skyline Builders" },
+                Kpis = new QuotationKpiSet
+                {
+                    TotalQuotations = new QuotationKpi { Value = 24m },
+                    RevenuePipeline = new QuotationKpi { Value = 18400000m },
+                    WeightedPipeline = new QuotationKpi { Value = 9260000m },
+                    ExpectedRevenue = new QuotationKpi { Value = 2840000m },
+                    WinRate = new QuotationKpi { Value = 34.8m },
+                    AverageSalesCycle = new QuotationKpi { Value = 42m }
+                },
+                ValueTrend = new List<QuotationTrendPoint>
+                {
+                    new QuotationTrendPoint { Period = "Apr 26", Value = 2800000m, WeightedValue = 1100000m },
+                    new QuotationTrendPoint { Period = "May 26", Value = 4200000m, WeightedValue = 1800000m },
+                    new QuotationTrendPoint { Period = "Jun 26", Value = 3600000m, WeightedValue = 1600000m },
+                    new QuotationTrendPoint { Period = "Jul 26", Value = 5200000m, WeightedValue = 2400000m },
+                    new QuotationTrendPoint { Period = "Aug 26", Value = 3100000m, WeightedValue = 1500000m },
+                    new QuotationTrendPoint { Period = "Sep 26", Value = 2600000m, WeightedValue = 900000m }
+                },
+                Funnel = new List<QuotationFunnelStage>
+                {
+                    new QuotationFunnelStage { Stage = "Total Quotations", Count = 24, Percentage = 100m, Color = Color.FromArgb(37, 99, 235) },
+                    new QuotationFunnelStage { Stage = "Sent", Count = 18, Percentage = 75m, Color = Color.FromArgb(96, 165, 250) },
+                    new QuotationFunnelStage { Stage = "Negotiation", Count = 11, Percentage = 45.8m, Color = Color.FromArgb(245, 158, 11) },
+                    new QuotationFunnelStage { Stage = "Converted", Count = 8, Percentage = 33.3m, Color = Color.FromArgb(16, 185, 129) }
+                },
                 ActionItems = new List<QuotationActionItem>
                 {
                     new QuotationActionItem { BidId = 101, Category = "Overdue", QuotationNumber = "QUO-2026-0142", ClientName = "Metro Hospital", Value = 485000m, ActionDate = today.AddDays(-4), Detail = "4 day(s) overdue", Status = "Follow Up" },
@@ -383,9 +379,9 @@ namespace HVAC_Pro_Desktop.UI
                 },
                 RecentQuotations = new List<QuotationRecentRow>
                 {
-                    new QuotationRecentRow { BidId = 106, QuotationNumber = "QUO-2026-0147", ClientName = "Nova Engineering", SiteName = "Pune Plant", QuotationDate = today.AddDays(-1), ValidTill = today.AddDays(7), Value = 825000m, Status = "Sent", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Pending" },
-                    new QuotationRecentRow { BidId = 105, QuotationNumber = "QUO-2026-0154", ClientName = "Orchid Hotels", SiteName = "Mumbai Hotel", QuotationDate = today.AddDays(-2), ValidTill = today.AddDays(12), Value = 1250000m, Status = "Negotiation", CommercialFlow = "Mixed", CustomerDocumentStatus = "Follow Up", SupplierDocumentStatus = "Received" },
-                    new QuotationRecentRow { BidId = 103, QuotationNumber = "QUO-2026-0151", ClientName = "Skyline Builders", SiteName = "Tower A", QuotationDate = today.AddDays(-3), ValidTill = today, Value = 760000m, Status = "Negotiation", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Received" }
+                    new QuotationRecentRow { BidId = 106, QuotationNumber = "QUO-2026-0147", ClientName = "Nova Engineering", SiteName = "Pune Plant", QuotationDate = today.AddDays(-1), ValidTill = today.AddDays(7), FollowUpDate = today.AddDays(2), Value = 825000m, Status = "Sent", OwnerName = "Harshal", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Pending" },
+                    new QuotationRecentRow { BidId = 105, QuotationNumber = "QUO-2026-0154", ClientName = "Orchid Hotels", SiteName = "Mumbai Hotel", QuotationDate = today.AddDays(-2), ValidTill = today.AddDays(12), FollowUpDate = today.AddDays(5), Value = 1250000m, Status = "Negotiation", OwnerName = "Priya", CommercialFlow = "Mixed", CustomerDocumentStatus = "Follow Up", SupplierDocumentStatus = "Received" },
+                    new QuotationRecentRow { BidId = 103, QuotationNumber = "QUO-2026-0151", ClientName = "Skyline Builders", SiteName = "Tower A", QuotationDate = today.AddDays(-3), ValidTill = today, FollowUpDate = today.AddDays(-1), Value = 760000m, Status = "Negotiation", OwnerName = "Harshal", CommercialFlow = "Customer", CustomerDocumentStatus = "Sent", SupplierDocumentStatus = "Received" }
                 }
             });
             if (_quoteDashStatus != null)
@@ -483,6 +479,8 @@ namespace HVAC_Pro_Desktop.UI
                 return 2;
             if (text != null && text.StartsWith("3 ", StringComparison.OrdinalIgnoreCase))
                 return 3;
+            if (text != null && text.StartsWith("6 ", StringComparison.OrdinalIgnoreCase))
+                return 6;
             return 12;
         }
 

@@ -74,6 +74,20 @@ namespace HVAC_Pro_Desktop.Services
             RunImportInternal(module, filePath, owner, null);
         }
 
+        public static void ReviewExistingDuplicates(ExcelImportModule module, IWin32Window owner = null)
+        {
+            try
+            {
+                using (var dialog = new HVAC_Pro_Desktop.UI.SmartImportDuplicateCleanupDialog(module))
+                    dialog.ShowDialog(owner);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("ImportUiHelper.ReviewExistingDuplicates." + module, ex);
+                MessageBox.Show(owner, "Duplicate review could not be opened. " + ex.Message, "Duplicate Review Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         public static void DownloadTemplate(ExcelImportModule module, IWin32Window owner = null)
         {
             try
@@ -333,6 +347,7 @@ namespace HVAC_Pro_Desktop.Services
                     Height = 84,
                     Multiline = true,
                     ReadOnly = true,
+                    ScrollBars = ScrollBars.Vertical,
                     BorderStyle = BorderStyle.None,
                     BackColor = Color.FromArgb(248, 250, 252),
                     ForeColor = Color.FromArgb(100, 116, 139),
@@ -387,31 +402,45 @@ namespace HVAC_Pro_Desktop.Services
                     BackColor = Color.FromArgb(248, 250, 252)
                 };
 
+                bool duplicateBlocked = preview.UploadDuplicateRows > 0 || preview.AmbiguousMatchRows > 0;
+                bool canCleanExisting = preview.ExistingDuplicateGroups > 0 || preview.AmbiguousMatchRows > 0;
+                int importButtonWidth = duplicateBlocked ? 150 : 112;
                 var cancel = new Button
                 {
                     Text = "Cancel",
                     DialogResult = DialogResult.Cancel,
                     Width = 96,
                     Height = 34,
-                    Left = footer.Width - 220,
+                    Left = footer.Width - importButtonWidth - 108,
                     Top = 12,
                     Anchor = AnchorStyles.Top | AnchorStyles.Right
                 };
 
                 var import = new Button
                 {
-                    Text = "Import Now",
-                    DialogResult = DialogResult.OK,
-                    Width = 112,
+                    Text = duplicateBlocked ? (canCleanExisting ? "Resolve Duplicates" : "Fix Workbook Rows") : "Import Now",
+                    DialogResult = duplicateBlocked ? DialogResult.None : DialogResult.OK,
+                    Width = importButtonWidth,
                     Height = 34,
-                    Left = footer.Width - 116,
+                    Left = footer.Width - importButtonWidth - 4,
                     Top = 12,
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     BackColor = Color.FromArgb(37, 99, 235),
                     ForeColor = Color.White,
-                    FlatStyle = FlatStyle.Flat
+                    FlatStyle = FlatStyle.Flat,
+                    Enabled = !duplicateBlocked || canCleanExisting
                 };
                 import.FlatAppearance.BorderSize = 0;
+                if (duplicateBlocked && canCleanExisting)
+                {
+                    import.Click += (s, e) =>
+                    {
+                        using (var cleanup = new HVAC_Pro_Desktop.UI.SmartImportDuplicateCleanupDialog(preview.DetectedModule))
+                            cleanup.ShowDialog(dialog);
+                        dialog.DialogResult = DialogResult.Cancel;
+                        dialog.Close();
+                    };
+                }
 
                 footer.Controls.Add(cancel);
                 footer.Controls.Add(import);
@@ -434,7 +463,8 @@ namespace HVAC_Pro_Desktop.Services
                 "File: " + Path.GetFileName(filePath),
                 "Detected module: " + ExcelImportService.GetDisplayName(preview.DetectedModule) + " | Worksheet: " + preview.DetectedSheetName + " | Confidence: " + preview.DetectionConfidence + "%",
                 "Source rows: " + preview.SourceRowCount + " | Canonical rows ready: " + preview.CanonicalRowCount + " | Preview sample: " + preview.SampleRows.Count,
-                "Mapped columns: " + preview.ColumnMappings.Count + " of " + ExcelImportService.GetHeaders(preview.DetectedModule).Length
+                "Mapped columns: " + preview.ColumnMappings.Count + " of " + ExcelImportService.GetHeaders(preview.DetectedModule).Length,
+                "Duplicate scan: " + preview.UploadDuplicateRows + " repeated upload row(s) | " + preview.ExistingMatchRows + " existing match(es) | " + preview.AmbiguousMatchRows + " ambiguous row(s) | " + preview.ExistingDuplicateGroups + " existing duplicate group(s)"
             };
 
             return string.Join(Environment.NewLine, lines);

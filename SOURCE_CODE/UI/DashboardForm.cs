@@ -47,6 +47,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly EmployeeService _employeeSvc = new EmployeeService();
         private readonly ServiceDeskService _serviceDeskSvc = new ServiceDeskService();
         private readonly NotificationCenterService _notificationSvc = new NotificationCenterService();
+        private readonly FinancialReportingService _financialReportingSvc = new FinancialReportingService();
 
         private List<B2BClient> _clients = new List<B2BClient>();
         private List<Vendor> _vendors = new List<Vendor>();
@@ -68,6 +69,7 @@ namespace HVAC_Pro_Desktop.UI
         private Timer _clockTimer;
         private string _notificationCountText = string.Empty;
         private bool _notificationCountLoading;
+        private FinancialDashboardSnapshot _visualFinanceSnapshot;
 
         public DashboardForm()
         {
@@ -95,6 +97,54 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             base.Dispose(disposing);
+        }
+
+        public void LoadFinancialPreviewForVisualTest()
+        {
+            DateTime first = new DateTime(2026, 4, 1);
+            var trend = new List<MonthlyProfitLossRow>();
+            for (int i = 0; i < 6; i++)
+            {
+                var row = new MonthlyProfitLossRow
+                {
+                    Month = first.AddMonths(i),
+                    Revenue = 450000m + i * 65000m,
+                    DirectCosts = 260000m + i * 30000m,
+                    PayrollExpense = 85000m,
+                    OperatingExpenses = 42000m + i * 2000m
+                };
+                FinancialReportingService.ApplyCalculations(row);
+                trend.Add(row);
+            }
+            MonthlyProfitLossRow current = trend.Last();
+            _visualFinanceSnapshot = new FinancialDashboardSnapshot
+            {
+                Revenue = current.Revenue,
+                DirectCosts = current.DirectCosts,
+                GrossProfit = current.GrossProfit,
+                GrossMarginPercent = current.GrossMarginPercent,
+                PayrollExpense = current.PayrollExpense,
+                OperatingExpenses = current.OperatingExpenses,
+                NetProfit = current.NetProfit,
+                NetMarginPercent = current.NetMarginPercent,
+                RevenueChangePercent = 9.8m,
+                GrossProfitChangePercent = 7.4m,
+                ExpenseChangePercent = 5.1m,
+                NetProfitChangePercent = 14.6m,
+                MonthlyTrend = trend
+            };
+            BuildShell();
+        }
+
+        public void ScrollToFinancialPreviewForVisualTest()
+        {
+            if (_host != null)
+                _host.AutoScrollPosition = new Point(0, _host.VerticalScroll.Maximum);
+        }
+
+        private FinancialDashboardSnapshot GetFinancialSnapshot()
+        {
+            return _visualFinanceSnapshot ?? _financialReportingSvc.GetDashboardSnapshot(DateTime.Today);
         }
 
         /// <summary>Refreshes dashboard labels and fonts after the selected language changes.</summary>
@@ -902,13 +952,14 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (normalized.IndexOf("Financial", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                decimal revenue = _invoices.Where(i => IsThisMonth(i.InvoiceDate)).Sum(i => i.TotalAmount);
-                decimal expenses = _purchaseOrders.Where(p => IsThisMonth(p.PODate)).Sum(p => p.TotalAmount);
+                FinancialDashboardSnapshot finance = GetFinancialSnapshot();
                 return ExceptionCardDetail.Create("Financial Overview", "This-month totals behind the finance card.", "Metric", "Amount")
-                    .AddRow("Total Revenue", Money(revenue))
-                    .AddRow("Expenses", Money(expenses))
-                    .AddRow("Gross Profit", Money(revenue - expenses))
-                    .AddRow("Net Profit", Money(revenue - expenses))
+                    .AddRow("Taxable Revenue", Money(finance.Revenue))
+                    .AddRow("Direct Costs", Money(finance.DirectCosts))
+                    .AddRow("Gross Profit", Money(finance.GrossProfit))
+                    .AddRow("Payroll", Money(finance.PayrollExpense))
+                    .AddRow("Operating Expenses", Money(finance.OperatingExpenses))
+                    .AddRow("Net Profit", Money(finance.NetProfit))
                     .AddRow("Receipts", Money(_payments.Where(p => IsThisMonth(p.PaymentDate)).Sum(p => p.AmountPaid)));
             }
             return ExceptionCardDetail.Create("Dashboard Details", "No matching dashboard detail found.", "Message").AddRow("No rows found.");
@@ -917,25 +968,36 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildFinance(Panel panel)
         {
             panel.Controls.Add(new Label { Text = "⌁  Financial Overview (This Month)", Location = new Point(18, 14), Size = new Size(300, 22), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
-            decimal revenue = _invoices.Where(i => IsThisMonth(i.InvoiceDate)).Sum(i => i.TotalAmount);
-            decimal expenses = _purchaseOrders.Where(p => IsThisMonth(p.PODate)).Sum(p => p.TotalAmount);
-            decimal gross = revenue - expenses;
-            decimal net = gross;
-            AddMiniStat(panel, 24, "Total Revenue", Money(revenue), "▲ 12.5% vs last month", DS.Green600);
-            AddMiniStat(panel, 180, "Gross Profit", Money(gross), "▲ 8.3% vs last month", gross >= 0 ? DS.Green600 : DS.Red500);
-            AddMiniStat(panel, 336, "Expenses", Money(expenses), "▼ 3.2% vs last month", DS.Red500);
-            AddMiniStat(panel, 492, "Net Profit", Money(net), "▲ 15.6% vs last month", net >= 0 ? DS.Green600 : DS.Red500);
+            FinancialDashboardSnapshot finance = GetFinancialSnapshot();
+            decimal totalExpenses = finance.DirectCosts + finance.PayrollExpense + finance.OperatingExpenses;
+            AddMiniStat(panel, 24, "Taxable Revenue", Money(finance.Revenue), TrendText(finance.RevenueChangePercent), finance.RevenueChangePercent >= 0m ? DS.Green600 : DS.Red500);
+            AddMiniStat(panel, 180, "Gross Profit", Money(finance.GrossProfit), TrendText(finance.GrossProfitChangePercent), finance.GrossProfit >= 0m ? DS.Green600 : DS.Red500);
+            AddMiniStat(panel, 336, "Expenses", Money(totalExpenses), TrendText(finance.ExpenseChangePercent), finance.ExpenseChangePercent <= 0m ? DS.Green600 : DS.Red500);
+            AddMiniStat(panel, 492, "Net Profit", Money(finance.NetProfit), TrendText(finance.NetProfitChangePercent), finance.NetProfit >= 0m ? DS.Green600 : DS.Red500);
             Chart chart = new Chart { Location = new Point(18, 112), Size = new Size(panel.Width - 36, 130), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right };
             chart.ChartAreas.Add(new ChartArea("main"));
             chart.ChartAreas[0].AxisX.MajorGrid.LineColor = Color.FromArgb(235, 239, 245);
             chart.ChartAreas[0].AxisY.MajorGrid.LineColor = Color.FromArgb(235, 239, 245);
             chart.ChartAreas[0].AxisX.LabelStyle.Font = new Font("Segoe UI", 7f);
             chart.ChartAreas[0].AxisY.LabelStyle.Font = new Font("Segoe UI", 7f);
-            AddLine(chart, "Revenue", DS.Green600, revenue);
-            AddLine(chart, "Profit", DS.Primary600, gross);
-            AddLine(chart, "Expenses", DS.Red500, expenses);
-            AddLine(chart, "Net", Color.FromArgb(124, 58, 237), net);
+            chart.Legends.Add(new Legend("finance")
+            {
+                Docking = Docking.Top,
+                Alignment = StringAlignment.Far,
+                Font = new Font("Segoe UI", 7f),
+                BackColor = Color.Transparent
+            });
+            AddTrendLine(chart, "Revenue", DS.Green600, finance.MonthlyTrend, r => r.Revenue);
+            AddTrendLine(chart, "Gross Profit", DS.Primary600, finance.MonthlyTrend, r => r.GrossProfit);
+            AddTrendLine(chart, "Expenses", DS.Red500, finance.MonthlyTrend, r => r.DirectCosts + r.PayrollExpense + r.OperatingExpenses);
+            AddTrendLine(chart, "Net Profit", Color.FromArgb(124, 58, 237), finance.MonthlyTrend, r => r.NetProfit);
             panel.Controls.Add(chart);
+        }
+
+        private static string TrendText(decimal percent)
+        {
+            string direction = percent > 0m ? "▲" : percent < 0m ? "▼" : "–";
+            return direction + " " + Math.Abs(percent).ToString("N1") + "% vs last month";
         }
 
         private void AddMiniStat(Panel panel, int x, string title, string value, string trend, Color trendColor)
@@ -945,12 +1007,11 @@ namespace HVAC_Pro_Desktop.UI
             panel.Controls.Add(new Label { Text = trend, Location = new Point(x, 84), Size = new Size(140, 18), Font = new Font("Segoe UI", 7.3f), ForeColor = trendColor });
         }
 
-        private void AddLine(Chart chart, string name, Color color, decimal total)
+        private void AddTrendLine(Chart chart, string name, Color color, IEnumerable<MonthlyProfitLossRow> rows, Func<MonthlyProfitLossRow, decimal> selector)
         {
             Series s = new Series(name) { ChartType = SeriesChartType.Spline, Color = color, BorderWidth = 2 };
-            int days = DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month);
-            for (int d = 1; d <= days; d += Math.Max(1, days / 7))
-                s.Points.AddXY(d.ToString("00") + " May", (double)Math.Max(0, total) * d / Math.Max(1, days));
+            foreach (MonthlyProfitLossRow row in rows ?? Enumerable.Empty<MonthlyProfitLossRow>())
+                s.Points.AddXY(row.Month.ToString("MMM-yy"), (double)selector(row));
             chart.Series.Add(s);
         }
 

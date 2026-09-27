@@ -229,8 +229,20 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (!combo.DroppedDown && combo.SelectionLength > 0)
                     {
-                        combo.SelectionStart = (combo.Text ?? string.Empty).Length;
-                        combo.SelectionLength = 0;
+                        // Set both values atomically. Setting SelectionStart first makes
+                        // WinForms reuse the control's transient SelectionLength, which can
+                        // be invalid while a data-bound ComboBox is rebuilding its items.
+                        int textLength = (combo.Text ?? string.Empty).Length;
+                        try
+                        {
+                            combo.Select(textLength, 0);
+                        }
+                        catch (ArgumentOutOfRangeException)
+                        {
+                            // The text can change during binding callbacks; a zero selection
+                            // is always a safe fallback and this method is cosmetic only.
+                            combo.Select(0, 0);
+                        }
                     }
                     return;
                 }

@@ -498,7 +498,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel top = new Panel { Dock = DockStyle.Top, Height = 74, BackColor = White, Padding = new Padding(12) };
             top.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, top.Width - 1, top.Height - 1);
             Button btnOutlook = MakeButton("Login Outlook", Blue, White, 126);
-            Button btnGmail = MakeButton("Login Gmail", Red, White, 114);
+            Button btnGmail = MakeButton("Connect Gmail", Red, White, 128);
             Button btnSync = MakeButton("Sync Mail", Teal, White, 100);
             Button btnSetup = MakeButton("Admin Keys", White, TextPrimary, 104);
             btnOutlook.Dock = DockStyle.Left;
@@ -827,7 +827,7 @@ namespace HVAC_Pro_Desktop.UI
                 SetStatus("Opening " + provider + " sign-in...", Blue);
                 await _mailService.ConnectAsync(provider);
                 BindMailAccounts();
-                SetStatus(provider + " connected.", Teal);
+                SetStatus(provider + " connected and ready to sync.", Teal);
             }
             catch (Exception ex)
             {
@@ -896,7 +896,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowMailSetupDialog()
         {
-            using (Form dialog = ServoModalForm.Create("Admin Mail Keys", 560, 285))
+            using (Form dialog = ServoModalForm.Create("Mail Connector Setup", 610, 330))
             {
                 TableLayoutPanel layout = new TableLayoutPanel
                 {
@@ -914,7 +914,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 Label intro = new Label
                 {
-                    Text = "One-time admin setup for browser login. After these keys are saved, users click Login Outlook or Login Gmail and the app remembers their mailbox.",
+                    Text = "One-time setup for browser login. For Gmail, enable the Gmail API and use a Google OAuth Desktop app client. Users then connect their own mailbox.",
                     Dock = DockStyle.Fill,
                     Font = new Font("Segoe UI", 9f),
                     ForeColor = TextSecondary
@@ -925,7 +925,7 @@ namespace HVAC_Pro_Desktop.UI
                 TextBox outlookTenant = AddMailSetupRow(layout, 1, "Outlook tenant", ConfigService.Get("Mail", "OutlookTenant", "common"));
                 TextBox outlookClientId = AddMailSetupRow(layout, 2, "Outlook client ID", ConfigService.Get("Mail", "OutlookClientId", string.Empty));
                 TextBox gmailClientId = AddMailSetupRow(layout, 3, "Gmail client ID", ConfigService.Get("Mail", "GmailClientId", string.Empty));
-                TextBox gmailClientSecret = AddMailSetupRow(layout, 4, "Gmail client secret", ConfigService.Get("Mail", "GmailClientSecret", string.Empty));
+                TextBox gmailClientSecret = AddMailSetupRow(layout, 4, "Gmail secret (optional)", ConfigService.Get("Mail", "GmailClientSecret", string.Empty));
 
                 FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 12, 0, 0) };
                 Button save = MakeButton("Save", Teal, White, 90);
@@ -948,8 +948,8 @@ namespace HVAC_Pro_Desktop.UI
                 ConfigService.Set("Mail", "OutlookClientId", outlookClientId.Text.Trim());
                 ConfigService.Set("Mail", "GmailClientId", gmailClientId.Text.Trim());
                 ConfigService.Set("Mail", "GmailClientSecret", gmailClientSecret.Text.Trim());
-                SetStatus("Mail login keys saved. Users can login with Outlook or Gmail now.", Teal);
-                MessageBox.Show("Mail login keys saved. Now click Login Outlook or Login Gmail.", "Mail login setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                SetStatus("Mail connector settings saved. Users can connect Outlook or Gmail now.", Teal);
+                MessageBox.Show("Mail connector settings saved. Open Emails and click Connect Gmail.", "Mail connector setup", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 

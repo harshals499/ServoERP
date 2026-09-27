@@ -85,19 +85,19 @@ namespace HVAC_Pro_Desktop.UI
             back.Click += (s, e) => _backAction?.Invoke();
             header.Controls.Add(back);
 
-            _number = new Label { Text = "AMC", Location = new Point(0, 38), Size = new Size(220, 32), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
-            _client = new Label { Text = "-", Location = new Point(230, 44), Size = new Size(260, 24), Font = new Font("Segoe UI", 10f), ForeColor = Muted, AutoEllipsis = true };
-            _status = MakeBadge("-", Grey, new Point(500, 44), 112);
-            _coverage = MakeBadge("-", Blue, new Point(620, 44), 150);
+            _number = new Label { Text = "AMC", Location = new Point(0, 44), Size = new Size(220, 32), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
+            _client = new Label { Text = "-", Location = new Point(230, 48), Size = new Size(260, 24), Font = new Font("Segoe UI", 10f), ForeColor = Muted, AutoEllipsis = true };
+            _status = MakeBadge("-", Grey, new Point(500, 48), 112);
+            _coverage = MakeBadge("-", Blue, new Point(620, 48), 150);
             Button delete = MakeButton("Delete", Color.White, Red, 84);
             delete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             delete.FlatAppearance.BorderSize = 1;
             delete.FlatAppearance.BorderColor = Red;
-            delete.Location = new Point(header.Width - 200, 36);
+            delete.Location = new Point(header.Width - 200, 42);
             delete.Click += async (s, e) => await DeleteCurrentAmcAsync();
             Button edit = MakeButton("Edit AMC", Blue, Color.White, 104);
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            edit.Location = new Point(header.Width - 104, 36);
+            edit.Location = new Point(header.Width - 104, 42);
             edit.Click += (s, e) => _editAction?.Invoke(_amcId);
             header.Controls.Add(_number);
             header.Controls.Add(_client);
@@ -107,8 +107,8 @@ namespace HVAC_Pro_Desktop.UI
             header.Controls.Add(edit);
             header.Resize += (s, e) =>
             {
-                edit.Location = new Point(Math.Max(0, header.ClientSize.Width - 104), 36);
-                delete.Location = new Point(Math.Max(0, edit.Left - 96), 36);
+                edit.Location = new Point(Math.Max(0, header.ClientSize.Width - 104), 42);
+                delete.Location = new Point(Math.Max(0, edit.Left - 96), 42);
                 LayoutHeaderBadges(header, delete);
             };
             LayoutHeaderBadges(header, delete);
