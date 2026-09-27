@@ -1,15 +1,31 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.451.0",
+  "latestVersion": "1.1.452.0",
   "updatedAt": "2026-09-27",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.451/ServoERP.Desktop-1.1.451-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.451.0.exe",
-    "installer": "ServoERP_Setup_1.1.451.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.452/ServoERP.Desktop-1.1.452-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.452.0.exe",
+    "installer": "ServoERP_Setup_1.1.452.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.452.0",
+      "date": "2026-09-27",
+      "title": "Receivables forecasting and English update notices",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Rebuilt the Invoices dashboard as a receivables operations cockpit while preserving the existing sidebar and navigation.",
+            "Added live cash-expected, collected, at-risk, overdue, DSO, eight-week forecast, ageing, client concentration, and priority follow-up views.",
+            "Added searchable invoice work queues with working open, record-payment, and reminder actions plus responsive compact controls.",
+            "Changed post-update What's New notices to display English release information only."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.451.0",
       "date": "2026-09-27",
