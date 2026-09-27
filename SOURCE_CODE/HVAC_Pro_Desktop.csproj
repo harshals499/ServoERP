@@ -493,6 +493,7 @@
     <Compile Include="Tests\SmartImportDuplicateDetectorSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
     <Compile Include="Tests\ActionCenterSmokeTests.cs" />
+    <Compile Include="Tests\ChartHoverSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />
@@ -687,6 +688,7 @@
     <Compile Include="UI\DashboardForm.ActionCenter.cs">
       <DependentUpon>DashboardForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\ChartHoverSupport.cs" />
     <Compile Include="UI\DashboardDeptCard.cs">
       <SubType>UserControl</SubType>
     </Compile>

@@ -8,7 +8,7 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public sealed class InvoiceOverviewChart : Control
+    public sealed class InvoiceOverviewChart : HoverChartControl
     {
         public InvoiceDashboardSnapshot Snapshot { get; set; }
 
@@ -21,6 +21,7 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             List<InvoiceOverviewPoint> rows = (Snapshot?.Overview ?? Enumerable.Empty<InvoiceOverviewPoint>()).ToList();
             Rectangle plot = new Rectangle(42, 18, Math.Max(80, Width - 64), Math.Max(60, Height - 58));
@@ -35,6 +36,13 @@ namespace HVAC_Pro_Desktop.UI
 
             decimal max = Math.Max(1m, rows.Select(r => r.TotalAmount).DefaultIfEmpty(1m).Max());
             DrawSeries(e.Graphics, plot, rows.Select(r => r.TotalAmount).ToArray(), max, DS.Primary600);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                float x = plot.Left + (rows.Count == 1 ? plot.Width / 2f : plot.Width * i / (float)(rows.Count - 1));
+                float y = plot.Bottom - (float)(Math.Max(0m, rows[i].TotalAmount) / max) * plot.Height;
+                AddHoverPoint(new PointF(x, y), 10f, "invoice-overview-" + i, rows[i].Period + " invoice total",
+                    ChartHoverFormat.Currency(rows[i].TotalAmount), "sum of invoice totals issued in " + rows[i].Period);
+            }
             using (Brush text = new SolidBrush(DS.Slate500))
             using (Font labelFont = new Font("Segoe UI", 7f))
             {
@@ -98,7 +106,7 @@ namespace HVAC_Pro_Desktop.UI
         public Color Color { get; set; }
     }
 
-    public sealed class InvoiceStatusDonut : Control
+    public sealed class InvoiceStatusDonut : HoverChartControl
     {
         public InvoiceDashboardSnapshot Snapshot { get; set; }
 
@@ -111,6 +119,7 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             List<InvoiceStatusBucket> buckets = BuildBuckets(Snapshot).ToList();
             decimal total = Math.Max(1m, buckets.Sum(b => b.Count));
@@ -121,7 +130,14 @@ namespace HVAC_Pro_Desktop.UI
             else
             {
                 foreach (InvoiceStatusBucket bucket in buckets)
-                    DrawSlice(e.Graphics, donut, ref start, bucket.Count / total, bucket.Color);
+                {
+                    float sliceStart = start;
+                    decimal share = bucket.Count / total;
+                    DrawSlice(e.Graphics, donut, ref start, share, bucket.Color);
+                    AddHoverDonutSlice(donut, sliceStart, (float)share * 360f, .64f, "invoice-status-" + bucket.Label,
+                        bucket.Label + " invoices", ChartHoverFormat.Count(bucket.Count) + " (" + ChartHoverFormat.Percent(share * 100m) + ")",
+                        bucket.Count + " invoices ÷ " + buckets.Sum(b => b.Count) + " total invoices");
+                }
             }
             using (SolidBrush white = new SolidBrush(Color.White))
                 e.Graphics.FillEllipse(white, Rectangle.Inflate(donut, -28, -28));

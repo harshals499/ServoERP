@@ -1630,13 +1630,14 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
-    internal class QuotationOverviewChart : Control
+    internal class QuotationOverviewChart : HoverChartControl
     {
         private List<QuotationOverviewPoint> _data = new List<QuotationOverviewPoint>();
         public void SetData(List<QuotationOverviewPoint> data) { _data = data ?? new List<QuotationOverviewPoint>(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.Clear(Color.White);
             if (!_data.Any()) { DrawEmpty(e.Graphics); return; }
             Rectangle area = new Rectangle(34, 18, Width - 52, Height - 42);
@@ -1647,9 +1648,15 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < _data.Count; i++)
             {
                 int x = area.Left + i * slot + slot / 4;
-                DrawBar(e.Graphics, x, area.Bottom, 8, area.Height * _data[i].TotalCount / max, Color.FromArgb(59, 130, 246));
-                DrawBar(e.Graphics, x + 10, area.Bottom, 8, area.Height * _data[i].ConvertedCount / max, Color.FromArgb(34, 197, 94));
-                DrawBar(e.Graphics, x + 20, area.Bottom, 8, area.Height * _data[i].PendingCount / max, Color.FromArgb(249, 115, 22));
+                int totalHeight = area.Height * _data[i].TotalCount / max;
+                int convertedHeight = area.Height * _data[i].ConvertedCount / max;
+                int pendingHeight = area.Height * _data[i].PendingCount / max;
+                DrawBar(e.Graphics, x, area.Bottom, 8, totalHeight, Color.FromArgb(59, 130, 246));
+                DrawBar(e.Graphics, x + 10, area.Bottom, 8, convertedHeight, Color.FromArgb(34, 197, 94));
+                DrawBar(e.Graphics, x + 20, area.Bottom, 8, pendingHeight, Color.FromArgb(249, 115, 22));
+                AddHoverRectangle(new RectangleF(x - 2, area.Bottom - Math.Max(4, totalHeight), 12, Math.Max(8, totalHeight)), "quotation-total-" + i, _data[i].Period + " · Total quotations", ChartHoverFormat.Count(_data[i].TotalCount), "count of quotations created in " + _data[i].Period);
+                AddHoverRectangle(new RectangleF(x + 8, area.Bottom - Math.Max(4, convertedHeight), 12, Math.Max(8, convertedHeight)), "quotation-converted-" + i, _data[i].Period + " · Converted", ChartHoverFormat.Count(_data[i].ConvertedCount), "count of quotations converted in " + _data[i].Period);
+                AddHoverRectangle(new RectangleF(x + 18, area.Bottom - Math.Max(4, pendingHeight), 12, Math.Max(8, pendingHeight)), "quotation-pending-" + i, _data[i].Period + " · Pending", ChartHoverFormat.Count(_data[i].PendingCount), "count of quotations still pending in " + _data[i].Period);
                 e.Graphics.DrawString(_data[i].Period, new Font("Segoe UI", 6.5f), Brushes.Gray, x - 4, area.Bottom + 4);
             }
         }
@@ -1657,13 +1664,14 @@ namespace HVAC_Pro_Desktop.UI
         private void DrawEmpty(Graphics g) { QuotationDashboardPaint.DrawEmpty(g, ClientRectangle, "No quotation data"); }
     }
 
-    internal class QuotationValueTrendChart : Control
+    internal class QuotationValueTrendChart : HoverChartControl
     {
         private List<QuotationTrendPoint> _data = new List<QuotationTrendPoint>();
         public void SetData(List<QuotationTrendPoint> data) { _data = data ?? new List<QuotationTrendPoint>(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.Clear(Color.White);
             if (_data.Count < 2) { QuotationDashboardPaint.DrawEmpty(e.Graphics, ClientRectangle, "No value trend"); return; }
             Rectangle area = new Rectangle(32, 18, Width - 48, Height - 42);
@@ -1675,16 +1683,20 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.DrawLines(line, points);
             foreach (PointF p in points)
                 using (Brush b = new SolidBrush(Color.FromArgb(124, 58, 237))) e.Graphics.FillEllipse(b, p.X - 2, p.Y - 2, 4, 4);
+            for (int i = 0; i < points.Length; i++)
+                AddHoverPoint(points[i], 10f, "quotation-value-" + i, _data[i].Period + " quotation value",
+                    ChartHoverFormat.Currency(_data[i].Value), "sum of quotation values for " + _data[i].Period);
         }
     }
 
-    internal class QuotationStatusDonut : Control
+    internal class QuotationStatusDonut : HoverChartControl
     {
         private List<QuotationStatusSlice> _data = new List<QuotationStatusSlice>();
         public void SetData(List<QuotationStatusSlice> data) { _data = data ?? new List<QuotationStatusSlice>(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.Clear(Color.White);
             int total = _data.Sum(s => s.Count);
             if (total == 0) { QuotationDashboardPaint.DrawEmptyDonut(e.Graphics, ClientRectangle, "No status data"); return; }
@@ -1694,6 +1706,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 float sweep = (float)(s.Count * 360.0 / total);
                 using (Brush b = new SolidBrush(s.Color)) e.Graphics.FillPie(b, pie, start, sweep);
+                AddHoverDonutSlice(pie, start, sweep, .5f, "quotation-status-" + s.Status, s.Status + " quotations",
+                    ChartHoverFormat.Count(s.Count) + " (" + ChartHoverFormat.Percent(s.Count * 100m / total) + ")",
+                    s.Count + " quotations ÷ " + total + " total quotations");
                 start += sweep;
             }
             using (Brush b = new SolidBrush(Color.White)) e.Graphics.FillEllipse(b, pie.Left + pie.Width / 4, pie.Top + pie.Height / 4, pie.Width / 2, pie.Height / 2);
@@ -1708,13 +1723,14 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
-    internal class QuotationLostReasonDonut : Control
+    internal class QuotationLostReasonDonut : HoverChartControl
     {
         private List<QuotationLostReasonSlice> _data = new List<QuotationLostReasonSlice>();
         public void SetData(List<QuotationLostReasonSlice> data) { _data = data ?? new List<QuotationLostReasonSlice>(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.Clear(Color.White);
             int total = _data.Sum(s => s.Count);
             if (total == 0) { QuotationDashboardPaint.DrawEmptyDonut(e.Graphics, ClientRectangle, "No lost quotations"); return; }
@@ -1724,6 +1740,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 float sweep = (float)(s.Count * 360.0 / total);
                 using (Brush b = new SolidBrush(s.Color)) e.Graphics.FillPie(b, pie, start, sweep);
+                AddHoverDonutSlice(pie, start, sweep, .5f, "quotation-lost-" + s.Reason, s.Reason,
+                    ChartHoverFormat.Count(s.Count) + " (" + ChartHoverFormat.Percent(s.Percentage) + ")",
+                    s.Count + " lost quotations ÷ " + total + " total lost quotations");
                 start += sweep;
             }
             using (Brush b = new SolidBrush(Color.White)) e.Graphics.FillEllipse(b, pie.Left + pie.Width / 4, pie.Top + pie.Height / 4, pie.Width / 2, pie.Height / 2);
@@ -1738,13 +1757,14 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
-    internal class QuotationFunnelChart : Control
+    internal class QuotationFunnelChart : HoverChartControl
     {
         private List<QuotationFunnelStage> _data = new List<QuotationFunnelStage>();
         public void SetData(List<QuotationFunnelStage> data) { _data = data ?? new List<QuotationFunnelStage>(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.Clear(Color.White);
             if (!_data.Any()) { QuotationDashboardPaint.DrawEmpty(e.Graphics, ClientRectangle, "No funnel data"); return; }
             int max = Math.Max(1, _data.Max(d => d.Count));
@@ -1762,6 +1782,9 @@ namespace HVAC_Pro_Desktop.UI
                     new Point(center - w / 2 + 10, y + h - 3)
                 };
                 using (Brush b = new SolidBrush(stage.Color)) e.Graphics.FillPolygon(b, shape);
+                AddHoverPolygon(shape.Select(point => new PointF(point.X, point.Y)).ToArray(), "quotation-funnel-" + stage.Stage,
+                    stage.Stage, ChartHoverFormat.Count(stage.Count) + " (" + ChartHoverFormat.Percent(stage.Percentage) + ")",
+                    stage.Count + " quotations at this stage; percentage is stage count ÷ total quotations");
                 e.Graphics.DrawString(stage.Count + "  " + stage.Stage, new Font("Segoe UI", 7.5f), Brushes.DimGray, center + Width / 4, y + 3);
                 y += h;
             }

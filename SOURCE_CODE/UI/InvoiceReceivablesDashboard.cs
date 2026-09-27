@@ -467,7 +467,7 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 
-    internal sealed class InvoiceCollectionForecastChart : Control
+    internal sealed class InvoiceCollectionForecastChart : HoverChartControl
     {
         private List<InvoiceCollectionForecastPoint> _data = new List<InvoiceCollectionForecastPoint>();
         public InvoiceCollectionForecastChart() { DoubleBuffered = true; BackColor = Color.White; }
@@ -475,6 +475,7 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.Clear(Color.White);
             Rectangle plot = new Rectangle(56, 28, Math.Max(100, Width - 76), Math.Max(70, Height - 62));
@@ -501,15 +502,27 @@ namespace HVAC_Pro_Desktop.UI
                     int barWidth = Math.Max(20, Math.Min(58, slot / 2));
                     int x = plot.Left + i * slot + (slot - barWidth) / 2;
                     int y = plot.Bottom;
-                    y = DrawSegment(e.Graphics, x, y, barWidth, point.OnTimeAmount, max, plot.Height, Color.FromArgb(34, 181, 115));
-                    y = DrawSegment(e.Graphics, x, y, barWidth, point.DueSoonAmount, max, plot.Height, Color.FromArgb(245, 166, 35));
-                    DrawSegment(e.Graphics, x, y, barWidth, point.OverdueAmount, max, plot.Height, Color.FromArgb(232, 66, 66));
+                    int nextY = DrawSegment(e.Graphics, x, y, barWidth, point.OnTimeAmount, max, plot.Height, Color.FromArgb(34, 181, 115));
+                    AddForecastRegion(x, nextY, barWidth, y - nextY, i, point, "On time", point.OnTimeAmount, "sum of invoices forecast on or before their due date");
+                    y = nextY;
+                    nextY = DrawSegment(e.Graphics, x, y, barWidth, point.DueSoonAmount, max, plot.Height, Color.FromArgb(245, 166, 35));
+                    AddForecastRegion(x, nextY, barWidth, y - nextY, i, point, "Due soon", point.DueSoonAmount, "sum of invoices due within the forecast warning window");
+                    y = nextY;
+                    nextY = DrawSegment(e.Graphics, x, y, barWidth, point.OverdueAmount, max, plot.Height, Color.FromArgb(232, 66, 66));
+                    AddForecastRegion(x, nextY, barWidth, y - nextY, i, point, "Overdue", point.OverdueAmount, "sum of overdue invoice balances in this forecast week");
                     string label = point.WeekStart.ToString("dd MMM");
                     SizeF size = e.Graphics.MeasureString(label, font);
                     e.Graphics.DrawString(label, font, muted, x + barWidth / 2f - size.Width / 2f, plot.Bottom + 7);
                 }
             }
             DrawLegend(e.Graphics);
+        }
+        private void AddForecastRegion(int x, int y, int width, int height, int index, InvoiceCollectionForecastPoint point, string category, decimal amount, string calculation)
+        {
+            if (height <= 0)
+                return;
+            AddHoverRectangle(new RectangleF(x, y, width, height), "invoice-forecast-" + index + "-" + category,
+                point.WeekStart.ToString("dd MMM yyyy") + " · " + category, ChartHoverFormat.Currency(amount), calculation);
         }
         private static int DrawSegment(Graphics graphics, int x, int bottom, int width, decimal amount, decimal max, int plotHeight, Color color)
         {
@@ -533,7 +546,7 @@ namespace HVAC_Pro_Desktop.UI
         private static string Compact(decimal value) { if (value >= 10000000m) return "₹" + (value / 10000000m).ToString("0.#") + "Cr"; if (value >= 100000m) return "₹" + (value / 100000m).ToString("0.#") + "L"; return "₹" + value.ToString("0"); }
     }
 
-    internal sealed class InvoiceAgingLadderChart : Control
+    internal sealed class InvoiceAgingLadderChart : HoverChartControl
     {
         private List<InvoiceAgingBucket> _data = new List<InvoiceAgingBucket>();
         public InvoiceAgingLadderChart() { DoubleBuffered = true; BackColor = Color.White; }
@@ -541,6 +554,7 @@ namespace HVAC_Pro_Desktop.UI
         protected override void OnPaint(PaintEventArgs e)
         {
             base.OnPaint(e);
+            BeginHoverRegions();
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             e.Graphics.Clear(Color.White);
             decimal total = _data.Sum(r => r.Amount);
@@ -561,6 +575,10 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawString(amount, value, text, Width - 106, y + 3);
                     string share = total <= 0m ? "0%" : Math.Round(row.Amount * 100m / total, 0) + "%";
                     e.Graphics.DrawString(share, label, text, Width - 42, y + 3);
+                    decimal percentage = total <= 0m ? 0m : row.Amount * 100m / total;
+                    AddHoverRectangle(new RectangleF(barX, y, Math.Max(4, barWidth), 20), "invoice-aging-" + i,
+                        row.Bucket + " receivables", ChartHoverFormat.Currency(row.Amount) + " (" + ChartHoverFormat.Percent(percentage) + ")",
+                        "bucket outstanding ÷ total outstanding receivables");
                     y += 35;
                 }
             }
