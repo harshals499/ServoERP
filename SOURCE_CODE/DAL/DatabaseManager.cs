@@ -1107,6 +1107,14 @@ namespace HVAC_Pro_Desktop.DAL
                     Notes           NVARCHAR(MAX) NULL,
                     CreatedDate     DATETIME NOT NULL DEFAULT GETDATE()
                 );");
+                AddColumn(conn, "Payments", "ReconciliationStatus", "NVARCHAR(30) NOT NULL DEFAULT 'Unreconciled'");
+                AddColumn(conn, "Payments", "ReconciledAt", "DATETIME NULL");
+                AddColumn(conn, "Payments", "ReconciledByUserId", "INT NULL");
+                AddColumn(conn, "Payments", "ReconciledByName", "NVARCHAR(100) NULL");
+                AddColumn(conn, "Payments", "ReconciliationNotes", "NVARCHAR(500) NULL");
+                AddColumn(conn, "Payments", "RowVersion", "ROWVERSION");
+                Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_Payments_ReconciliationStatus_PaymentDate' AND object_id=OBJECT_ID('dbo.Payments'))
+                    CREATE INDEX IX_Payments_ReconciliationStatus_PaymentDate ON dbo.Payments(ReconciliationStatus, PaymentDate) INCLUDE (PaymentID, InvoiceID, ClientID, AmountPaid);");
 
                 // â”€â”€ NEW: Vendors â”€â”€
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='Vendors')
@@ -4066,6 +4074,16 @@ THEN 1 ELSE 0 END";
             AddColumn(conn, "AppUsers", "FailedAttempts", "INT NOT NULL DEFAULT 0");
             AddColumn(conn, "AppUsers", "LockoutUntil", "DATETIME NULL");
             AddColumn(conn, "AppUsers", "Email", "NVARCHAR(255) NULL");
+            AddColumn(conn, "AppUsers", "EmployeeID", "INT NULL");
+            Exec(conn, @"IF OBJECT_ID('dbo.Employees','U') IS NOT NULL
+                AND NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name='FK_AppUsers_Employees')
+                ALTER TABLE dbo.AppUsers WITH CHECK ADD CONSTRAINT FK_AppUsers_Employees FOREIGN KEY (EmployeeID) REFERENCES dbo.Employees(EmployeeID);");
+            Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_AppUsers_EmployeeID' AND object_id=OBJECT_ID('dbo.AppUsers'))
+                CREATE UNIQUE INDEX UX_AppUsers_EmployeeID ON dbo.AppUsers(EmployeeID) WHERE EmployeeID IS NOT NULL;");
+            Exec(conn, @"IF OBJECT_ID('dbo.AMCVisits','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_AMCVisits_Status_ScheduledDate' AND object_id=OBJECT_ID('dbo.AMCVisits'))
+                CREATE INDEX IX_AMCVisits_Status_ScheduledDate ON dbo.AMCVisits(Status, ScheduledDate) INCLUDE (VisitID, AMCID, JobID, TechnicianName);");
+            Exec(conn, @"IF OBJECT_ID('dbo.JobPartsUsed','U') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_JobPartsUsed_JobId_InventoryItemId' AND object_id=OBJECT_ID('dbo.JobPartsUsed'))
+                CREATE INDEX IX_JobPartsUsed_JobId_InventoryItemId ON dbo.JobPartsUsed(JobId, InventoryItemId) INCLUDE (QuantityUsed, StockStatus, LinkedPoId);");
 
             Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='RolePermissions')
             CREATE TABLE RolePermissions (

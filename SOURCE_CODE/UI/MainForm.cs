@@ -63,6 +63,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int MaxHeavyCachedPages = 2;
         private const int ClientsPageIndex = 1;
         private const int InvoicesPageIndex = 3;
+        private const int PaymentsPageIndex = 4;
         private const int QuotationsPageIndex = 6;
         private const int SettingsPageIndex = 8;
         private const int JobsPageIndex = 15;
@@ -2338,6 +2339,7 @@ namespace HVAC_Pro_Desktop.UI
                     var dash = new DashboardForm();
                     dash.OnNavigate = NavigateTo;
                     dash.OnShortcut = HandleDashboardShortcut;
+                    dash.OnOpenAction = OpenActionCenterItem;
                     page = dash;
                     break;
             }
@@ -2357,6 +2359,92 @@ namespace HVAC_Pro_Desktop.UI
             if (page is JobManagementForm jmf) jmf.OnOpenJobDetail = NavigateToJobDetail;
 
             return page;
+        }
+
+        private void OpenActionCenterItem(ActionCenterItem item)
+        {
+            if (item == null || item.SourceRecordId <= 0)
+                return;
+
+            switch ((item.SourceModule ?? string.Empty).Trim().ToUpperInvariant())
+            {
+                case "JOBS":
+                    if (string.Equals(item.DeepLinkIntent, "Review", StringComparison.OrdinalIgnoreCase))
+                        NavigateToJobDetail(item.SourceRecordId);
+                    else
+                        NavigateToJobEditor(item.SourceRecordId);
+                    return;
+                case "SERVICEDESK":
+                    NavigateToServiceIncident(item.SourceRecordId);
+                    return;
+                case "INVOICES":
+                    if (string.Equals(item.DeepLinkIntent, "CreateFromJob", StringComparison.OrdinalIgnoreCase))
+                        OpenPageShortcut<InvoiceForm>(InvoicesPageIndex, page => page.OpenNewInvoiceFromJob(item.SourceRecordId));
+                    else
+                        NavigateToInvoice(item.SourceRecordId);
+                    return;
+                case "PAYMENTS":
+                    OpenPageShortcut<PaymentForm>(PaymentsPageIndex, page => page.OpenPaymentReconciliationFromNavigation(item.SourceRecordId));
+                    return;
+                case "QUOTATIONS":
+                    NavigateToQuotation(item.SourceRecordId);
+                    return;
+                case "PURCHASES":
+                    NavigateToPurchase(item.SourceRecordId);
+                    return;
+                case "CONTRACTS":
+                    NavigateTo(AMCPageIndex);
+                    BeginInvoke((Action)(() =>
+                    {
+                        UserControl page;
+                        if (_pageCache.TryGetValue(AMCPageIndex, out page) && page is AMCPage amc)
+                            amc.OpenContractById(item.SourceRecordId);
+                    }));
+                    return;
+                case "INVENTORY":
+                    NavigateTo(11);
+                    return;
+                default:
+                    NavigateTo(item.SourceModule);
+                    return;
+            }
+        }
+
+        private void NavigateToServiceIncident(int incidentId)
+        {
+            EnsureSessionOrClose();
+            if (!SessionManager.IsLoggedIn || incidentId <= 0)
+                return;
+
+            try
+            {
+                UpdateNavState(JobsPageIndex);
+                _content.SuspendLayout();
+                ClearTransientPage();
+                foreach (Control control in _content.Controls)
+                {
+                    if (control != _btnResetLayout)
+                        control.Visible = false;
+                }
+
+                var page = new ServiceDeskForm { Dock = DockStyle.Fill };
+                _transientPage = page;
+                _content.Controls.Add(page);
+                page.Visible = true;
+                page.BringToFront();
+                _currentIndex = -1;
+                BeginInvoke((Action)(() => page.OpenIncidentFromNavigation(incidentId)));
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.LogException("NavigateToServiceIncident(" + incidentId + ")", ex);
+                MessageBox.Show(this, "The service incident could not be opened. Refresh My Work and try again.",
+                    BrandingService.WindowTitle("Service Desk"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _content.ResumeLayout();
+            }
         }
 
         private static bool IsLightFirstOpenPage(int index, Control page)

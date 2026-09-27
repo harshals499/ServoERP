@@ -17,6 +17,7 @@ namespace HVAC_Pro_Desktop.Models
     public class AppUserDto
     {
         public int UserId { get; set; }
+        public int? EmployeeId { get; set; }
         public string Username { get; set; }
         public string DisplayName { get; set; }
         public int RoleId { get; set; }
@@ -75,6 +76,8 @@ namespace HVAC_Pro_Desktop.Models
     public class ManagedUserDto
     {
         public int UserId { get; set; }
+        public int? EmployeeId { get; set; }
+        public string EmployeeName { get; set; }
         public string Username { get; set; }
         public string DisplayName { get; set; }
         public int RoleId { get; set; }

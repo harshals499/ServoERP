@@ -317,6 +317,65 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/actioncentersmoketest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string reportPath = Path.Combine(outputDirectory, "action-center-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
+                    try
+                    {
+                        File.WriteAllLines(reportPath, ActionCenterSmokeTests.RunAll().Select(result => "PASS " + result));
+                        Environment.ExitCode = 0;
+                    }
+                    catch (Exception ex)
+                    {
+                        File.WriteAllText(reportPath, "FAIL " + ex);
+                        Environment.ExitCode = 1;
+                    }
+                    AppRuntime.LogTiming("ActionCenterSmokeTests", 0, reportPath);
+                    return;
+                }
+
+                if (HasArg(args, "/actioncentervisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "action-center-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    using (var page = new DashboardForm { Size = new System.Drawing.Size(1440, 900) })
+                    {
+                        page.LoadActionCenterPreviewForVisualTest();
+                        page.CreateControl();
+                        page.PerformLayout();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(page.Width, page.Height))
+                        {
+                            page.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                    AppRuntime.LogTiming("ActionCenterVisualTest", 0, outputPath);
+                    return;
+                }
+
+                if (HasArg(args, "/actioncenterpreview"))
+                {
+                    using (var host = new Form
+                    {
+                        Text = BrandingService.WindowTitle("My Work Preview"),
+                        Size = new System.Drawing.Size(1440, 900),
+                        StartPosition = FormStartPosition.CenterScreen,
+                        WindowState = FormWindowState.Maximized,
+                        BackColor = DS.BgPage
+                    })
+                    using (var page = new DashboardForm { Dock = DockStyle.Fill })
+                    {
+                        page.LoadActionCenterPreviewForVisualTest();
+                        host.Controls.Add(page);
+                        Application.Run(host);
+                    }
+                    return;
+                }
+
                 if (HasArg(args, "/firstrun"))
                 {
                     try

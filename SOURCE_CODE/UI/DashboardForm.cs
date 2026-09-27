@@ -13,8 +13,10 @@ using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class DashboardForm : DeferredPageControl
+    public partial class DashboardForm : DeferredPageControl
     {
+        protected override bool EnableAutoSaveRecovery => false;
+
         private sealed class DashboardRecentItem
         {
             public string Module { get; set; }
@@ -35,6 +37,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public Action<int> OnNavigate { get; set; }
         public Action<string> OnShortcut { get; set; }
+        public Action<ActionCenterItem> OnOpenAction { get; set; }
 
         private readonly ClientService _clientSvc = new ClientService();
         private readonly VendorService _vendorSvc = new VendorService();
@@ -80,6 +83,11 @@ namespace HVAC_Pro_Desktop.UI
             EnableDeferredLoad(async () =>
             {
                 BuildShell();
+                if (_actionCenterPreviewMode)
+                    return;
+                await Task.Run((Action)LoadActionCenterProjection);
+                if (!IsDisposed)
+                    BuildShell();
                 await Task.Run((Action)LoadData);
                 if (!IsDisposed)
                     BuildShell();
@@ -167,6 +175,7 @@ namespace HVAC_Pro_Desktop.UI
             try { _inventory = (_inventorySvc.GetAll() ?? new List<StockItem>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Inventory", ex); }
             try { _employees = (_employeeSvc.GetAll() ?? new List<Employee>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Employees", ex); }
             try { _serviceTickets = (_serviceDeskSvc.GetAll() ?? new List<ServiceDeskIncident>()).ToList(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.ServiceDesk", ex); }
+            try { _actionContracts = _actionContractService.GetAllContracts() ?? new List<AMCContract>(); } catch (Exception ex) { AppLogger.LogError("DashboardForm.LoadData.Contracts", ex); }
         }
 
         private void DashboardRefreshService_RefreshRequested(object sender, DashboardRefreshEventArgs e)
@@ -184,6 +193,9 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
+                await Task.Run((Action)LoadActionCenterProjection);
+                if (!IsDisposed)
+                    BuildShell();
                 await Task.Run((Action)LoadData);
                 if (!IsDisposed)
                     BuildShell();
@@ -221,17 +233,25 @@ namespace HVAC_Pro_Desktop.UI
             _host.Controls.Add(_root);
             Controls.Add(_host);
             AddTopBar();
-            AddGreetingBanner();
-            AddAlertsBar();
+            AddActionCenter();
             AddShortcutActionsRow();
+            AddAlertsBar();
             AddDepartmentRows();
             AddRecentActivityRow();
             AddFinancialOverviewRow();
 
             _clockTimer = new Timer { Interval = 60000 };
-            _clockTimer.Tick += (s, e) => { if (_clockLabel != null) _clockLabel.Text = DateTime.Now.ToString("hh:mm tt"); };
+            if (_nextActionRefreshAt == default(DateTime))
+                _nextActionRefreshAt = DateTime.Now.AddMinutes(5);
+            _clockTimer.Tick += (s, e) =>
+            {
+                if (_clockLabel != null)
+                    _clockLabel.Text = DateTime.Now.ToString("hh:mm tt");
+                RefreshActionCenterOnTimer();
+            };
             _clockTimer.Start();
-            QueueNotificationCountRefresh();
+            if (!_actionCenterPreviewMode)
+                QueueNotificationCountRefresh();
             }
             finally
             {
@@ -273,8 +293,8 @@ namespace HVAC_Pro_Desktop.UI
             Button customize = SecondaryButton(T("Customize"), 0, 0, 110, 34);
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "DashboardTopHeader",
-                "Dashboard",
-                "Business overview for today",
+                "My Work",
+                "Prioritized actions for today",
                 new List<Control> { notifications, customize },
                 SharedPageHeader.CreateSearchCommand("DashboardGlobalSearch", 300, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
                 BuildDashboardHeaderMetaPanel(),

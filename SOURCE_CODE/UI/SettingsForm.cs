@@ -33,6 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly HsnSacMasterService _hsnSacSvc = new HsnSacMasterService();
         private readonly NominatimGeocodingService _geoSvc = new NominatimGeocodingService();
         private readonly AuthService _authSvc = new AuthService();
+        private readonly EmployeeService _employeeSvc = new EmployeeService();
         private readonly FreshStartService _freshStartSvc = new FreshStartService();
         private readonly UnitMeasurementService _unitMeasurementSvc = new UnitMeasurementService();
         private readonly OpenSourceLicenseService _openSourceLicenseSvc = new OpenSourceLicenseService();
@@ -2182,10 +2183,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddUser()
         {
-            if (!ShowUserEditor(null, out string username, out string displayName, out int roleId, out bool isActive))
+            if (!ShowUserEditor(null, out string username, out string displayName, out int roleId, out bool isActive, out int? employeeId))
                 return;
 
-            var result = _authSvc.CreateUser(username, displayName, roleId, isActive);
+            var result = _authSvc.CreateUser(username, displayName, roleId, isActive, employeeId);
             if (!result.Success)
             {
                 MessageBox.Show(result.ErrorMessage, "Add User", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -2202,10 +2203,10 @@ namespace HVAC_Pro_Desktop.UI
             if (user == null)
                 return;
 
-            if (!ShowUserEditor(user, out string username, out string displayName, out int roleId, out bool isActive))
+            if (!ShowUserEditor(user, out string username, out string displayName, out int roleId, out bool isActive, out int? employeeId))
                 return;
 
-            if (!_authSvc.UpdateUser(user.UserId, username, displayName, roleId, isActive))
+            if (!_authSvc.UpdateUser(user.UserId, username, displayName, roleId, isActive, employeeId))
             {
                 MessageBox.Show("Unable to update user.", "Edit User", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -2259,18 +2260,20 @@ namespace HVAC_Pro_Desktop.UI
             RefreshUsers();
         }
 
-        private bool ShowUserEditor(ManagedUserDto user, out string username, out string displayName, out int roleId, out bool isActive)
+        private bool ShowUserEditor(ManagedUserDto user, out string username, out string displayName, out int roleId, out bool isActive, out int? employeeId)
         {
             username = null;
             displayName = null;
             roleId = 0;
             isActive = true;
+            employeeId = null;
             string tempUsername = null;
             string tempDisplayName = null;
             int tempRoleId = 0;
             bool tempIsActive = true;
+            int? tempEmployeeId = null;
 
-            using (Form dialog = ServoModalForm.Create(user == null ? "Add User" : "Edit User", 360, 230))
+            using (Form dialog = ServoModalForm.Create(user == null ? "Add User" : "Edit User", 360, 292))
             {
                 TextBox txtUsername = new TextBox { Location = new Point(24, 34), Width = 300, Text = user?.Username ?? string.Empty };
                 TextBox txtDisplayName = new TextBox { Location = new Point(24, 84), Width = 300, Text = user?.DisplayName ?? string.Empty };
@@ -2281,10 +2284,19 @@ namespace HVAC_Pro_Desktop.UI
                 cmbRole.ValueMember = "RoleId";
                 if (user != null)
                     cmbRole.SelectedValue = user.RoleId;
-                CheckBox chkActive = new CheckBox { Location = new Point(24, 170), Text = "User is active", Checked = user == null || user.IsActive };
+                ComboBox cmbEmployee = new ComboBox { Location = new Point(24, 184), Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
+                var employees = new List<Employee> { new Employee { EmployeeID = 0, EmployeeCode = "—", Name = "Not linked" } };
+                try { employees.AddRange(_employeeSvc.GetAll().Where(e => e != null).OrderBy(e => e.Name)); }
+                catch (Exception ex) { AppLogger.LogError("SettingsForm.ShowUserEditor.Employees", ex); }
+                cmbEmployee.DataSource = employees;
+                cmbEmployee.DisplayMember = "Name";
+                cmbEmployee.ValueMember = "EmployeeID";
+                if (user != null && user.EmployeeId.HasValue)
+                    cmbEmployee.SelectedValue = user.EmployeeId.Value;
+                CheckBox chkActive = new CheckBox { Location = new Point(24, 222), Text = "User is active", Checked = user == null || user.IsActive };
 
                 Button btnOk = MakeBtn("Save", SaveGreen, 90);
-                btnOk.Location = new Point(234, 188);
+                btnOk.Location = new Point(234, 242);
                 btnOk.Click += (s, e) =>
                 {
                     if (string.IsNullOrWhiteSpace(txtUsername.Text) || string.IsNullOrWhiteSpace(txtDisplayName.Text) || cmbRole.SelectedValue == null)
@@ -2296,6 +2308,8 @@ namespace HVAC_Pro_Desktop.UI
                     tempUsername = txtUsername.Text.Trim();
                     tempDisplayName = txtDisplayName.Text.Trim();
                     tempRoleId = Convert.ToInt32(cmbRole.SelectedValue);
+                    int selectedEmployeeId = cmbEmployee.SelectedValue == null ? 0 : Convert.ToInt32(cmbEmployee.SelectedValue);
+                    tempEmployeeId = selectedEmployeeId > 0 ? (int?)selectedEmployeeId : null;
                     tempIsActive = chkActive.Checked;
                     dialog.DialogResult = DialogResult.OK;
                     dialog.Close();
@@ -2309,6 +2323,8 @@ namespace HVAC_Pro_Desktop.UI
                     txtDisplayName,
                     new Label { Text = "Role", Location = new Point(24, 114), AutoSize = true },
                     cmbRole,
+                    new Label { Text = "Linked Employee (for My Work assignment)", Location = new Point(24, 164), AutoSize = true },
+                    cmbEmployee,
                     chkActive,
                     btnOk
                 });
@@ -2320,6 +2336,7 @@ namespace HVAC_Pro_Desktop.UI
                     displayName = tempDisplayName;
                     roleId = tempRoleId;
                     isActive = tempIsActive;
+                    employeeId = tempEmployeeId;
                 }
 
                 return ok;
