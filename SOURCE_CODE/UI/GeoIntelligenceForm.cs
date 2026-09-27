@@ -432,7 +432,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildSiteStatusCard()
         {
             Panel card = BuildDashboardCard("status_distribution", "Site Status Distribution", ModernIconKind.Status, Success);
-            _siteDistributionChart = new Panel { Dock = DockStyle.Left, Width = 210, BackColor = White };
+            _siteDistributionChart = new HoverChartPanel { Dock = DockStyle.Left, Width = 210, BackColor = White };
             _siteDistributionChart.Paint += DrawSiteDistribution;
             Panel legend = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(14, 26, 0, 0) };
             _siteDistributionCenter = new Label { Text = "0\r\nTotal Sites", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
@@ -500,7 +500,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildTechnicianPresenceCard()
         {
             Panel card = BuildDashboardCard("technician_presence", "Technician Presence", ModernIconKind.Technician, Blue);
-            _technicianPresenceChart = new Panel { Dock = DockStyle.Right, Width = 150, BackColor = White };
+            _technicianPresenceChart = new HoverChartPanel { Dock = DockStyle.Right, Width = 150, BackColor = White };
             _technicianPresenceChart.Paint += DrawTechnicianPresence;
             _technicianPresenceList = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 4 };
             _technicianPresenceList.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
@@ -528,7 +528,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = BuildDashboardCard("sla_performance", "SLA Performance", ModernIconKind.Activity, Color.FromArgb(147, 51, 234));
             card.Margin = new Padding(0, 0, 12, 12);
-            _slaGaugePanel = new Panel { Dock = DockStyle.Left, Width = 140, BackColor = White };
+            _slaGaugePanel = new HoverChartPanel { Dock = DockStyle.Left, Width = 140, BackColor = White };
             _slaGaugePanel.Paint += DrawSlaGauge;
             _slaComplianceLabel = new Label { Text = "0%\r\nSLA Compliance", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
             _slaGaugePanel.Controls.Add(_slaComplianceLabel);
@@ -547,7 +547,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = BuildDashboardCard("health_trend", "Site Health Trend", ModernIconKind.Activity, Success);
             card.Margin = new Padding(0, 0, 0, 12);
-            _siteHealthTrendPanel = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            _siteHealthTrendPanel = new HoverChartPanel { Dock = DockStyle.Fill, BackColor = White };
             _siteHealthTrendPanel.Paint += DrawSiteHealthTrend;
             card.Controls.Add(_siteHealthTrendPanel);
             return card;
@@ -2307,18 +2307,25 @@ namespace HVAC_Pro_Desktop.UI
 
         private void DrawSiteDistribution(object sender, PaintEventArgs e)
         {
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             List<SiteMonitorRow> rows = BuildSiteMonitorRows();
-            int healthy = Math.Max(1, rows.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0));
-            int warning = Math.Max(1, rows.Count(s => s.HealthScore >= 60 && s.OpenJobs > 0));
-            int critical = Math.Max(1, rows.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0));
-            int maintenance = Math.Max(1, _jobs.Count(j => Contains(j.JobType, "AMC")));
-            DrawDonut(e.Graphics, new Rectangle(26, 34, 142, 142), new[] { healthy, warning, critical, maintenance }, new[] { Success, Warning, Danger, Blue }, 34);
+            int healthy = rows.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0);
+            int warning = rows.Count(s => s.HealthScore >= 60 && s.OpenJobs > 0);
+            int critical = rows.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0);
+            int maintenance = _jobs.Count(j => Contains(j.JobType, "AMC"));
+            int[] values = { healthy, warning, critical, maintenance };
+            string[] labels = { "Healthy sites", "Warning sites", "Critical sites", "AMC jobs" };
+            Rectangle donut = new Rectangle(26, 34, 142, 142);
+            DrawDonut(e.Graphics, donut, values, new[] { Success, Warning, Danger, Blue }, 34);
+            AddGeoDonutRegions(panel, donut, values, labels, .52f, "site-distribution");
         }
 
         private void DrawTechnicianPresence(object sender, PaintEventArgs e)
         {
-            Panel panel = (Panel)sender;
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             int onSite = CountTechniciansByPresence("On Site");
             int traveling = CountTechniciansByPresence("Traveling");
@@ -2326,6 +2333,7 @@ namespace HVAC_Pro_Desktop.UI
             int leave = CountTechniciansByPresence("On Leave");
             Rectangle rect = new Rectangle(Math.Max(8, (panel.Width - 112) / 2), 28, 112, 112);
             DrawDonut(e.Graphics, rect, new[] { onSite, traveling, available, leave }, new[] { Success, Blue, Color.FromArgb(34, 197, 94), TextSecondary }, 25);
+            AddGeoDonutRegions(panel, rect, new[] { onSite, traveling, available, leave }, new[] { "On site", "Traveling", "Available", "On leave" }, .56f, "technician-presence");
             using (Brush brush = new SolidBrush(TextPrimary))
             using (Font font = new Font("Segoe UI", 14f, FontStyle.Bold))
                 e.Graphics.DrawString(_technicians.Count.ToString("N0"), font, brush, rect.X + 42, rect.Y + 38);
@@ -2336,6 +2344,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void DrawSlaGauge(object sender, PaintEventArgs e)
         {
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             int total = Math.Max(1, _jobs.Count);
             int breached = _jobs.Count(IsSlaRisk);
@@ -2345,11 +2355,14 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.DrawArc(bg, rect, 180, 180);
             using (Pen fg = new Pen(Color.FromArgb(147, 51, 234), 12))
                 e.Graphics.DrawArc(fg, rect, 180, 180 * pct / 100);
+            panel.AddHoverRectangle(rect, "sla-compliance", "SLA compliance", ChartHoverFormat.Percent(pct),
+                (total - breached) + " jobs within SLA ÷ " + total + " total jobs");
         }
 
         private void DrawSiteHealthTrend(object sender, PaintEventArgs e)
         {
-            Panel panel = (Panel)sender;
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             Rectangle area = new Rectangle(18, 22, Math.Max(120, panel.Width - 34), Math.Max(96, panel.Height - 54));
             using (Pen grid = new Pen(Color.FromArgb(226, 232, 240)))
@@ -2371,6 +2384,9 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush brush = new SolidBrush(Success))
                     e.Graphics.FillEllipse(brush, point.X - 3, point.Y - 3, 6, 6);
             }
+            for (int i = 0; i < path.Length; i++)
+                panel.AddHoverPoint(path[i], 8f, "site-health-" + i, "Site health trend · Day " + (i + 1), ChartHoverFormat.Percent(points[i]),
+                    "health baseline adjusted for open jobs, SLA-risk jobs, and the rolling trend factor");
             using (Brush brush = new SolidBrush(TextSecondary))
             using (Font font = new Font("Segoe UI", 7.5f))
             {
@@ -2388,6 +2404,21 @@ namespace HVAC_Pro_Desktop.UI
                 float sweep = values[i] * 360f / total;
                 using (Pen pen = new Pen(colors[i], thickness))
                     graphics.DrawArc(pen, rect, start, sweep);
+                start += sweep;
+            }
+        }
+
+        private static void AddGeoDonutRegions(HoverChartPanel panel, Rectangle rect, int[] values, string[] labels, float innerRatio, string keyPrefix)
+        {
+            int total = Math.Max(1, values.Sum());
+            float start = -90f;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float sweep = values[i] * 360f / total;
+                if (values[i] > 0)
+                    panel.AddHoverDonutSlice(rect, start, sweep, innerRatio, keyPrefix + "-" + i, labels[i],
+                        ChartHoverFormat.Count(values[i]) + " (" + ChartHoverFormat.Percent(values[i] * 100m / total) + ")",
+                        values[i] + " records ÷ " + values.Sum() + " total plotted records");
                 start += sweep;
             }
         }

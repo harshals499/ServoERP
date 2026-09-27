@@ -152,6 +152,8 @@ namespace HVAC_Pro_Desktop
                 lines.Add("PASS " + OfficeDatabaseHandshakeTests.RunAll());
                 foreach (string result in UiQaStateCatalogTests.RunAll())
                     lines.Add(result);
+                foreach (string result in ChartHoverSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
                 lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
                 lines.Add("PASS " + UiErrorHandlingSmokeTests.RunAll());
             }
@@ -373,6 +375,115 @@ namespace HVAC_Pro_Desktop
                         host.Controls.Add(page);
                         Application.Run(host);
                     }
+                    return;
+                }
+
+                if (HasArg(args, "/charthoverpreview"))
+                {
+                    var snapshot = new InvoiceDashboardSnapshot
+                    {
+                        Overview = new System.Collections.Generic.List<InvoiceOverviewPoint>
+                        {
+                            new InvoiceOverviewPoint { Period = "Apr-26", TotalAmount = 845000m },
+                            new InvoiceOverviewPoint { Period = "May-26", TotalAmount = 1125000m },
+                            new InvoiceOverviewPoint { Period = "Jun-26", TotalAmount = 980500m },
+                            new InvoiceOverviewPoint { Period = "Jul-26", TotalAmount = 1475000m },
+                            new InvoiceOverviewPoint { Period = "Aug-26", TotalAmount = 1310000m },
+                            new InvoiceOverviewPoint { Period = "Sep-26", TotalAmount = 1682500m }
+                        },
+                        Statuses = new System.Collections.Generic.List<InvoiceStatusSlice>
+                        {
+                            new InvoiceStatusSlice { Status = "Paid", Count = 38 },
+                            new InvoiceStatusSlice { Status = "Pending", Count = 17 },
+                            new InvoiceStatusSlice { Status = "Overdue", Count = 9 }
+                        }
+                    };
+                    using (var host = new Form
+                    {
+                        Text = BrandingService.WindowTitle("Chart Hover Preview"),
+                        Size = new System.Drawing.Size(1120, 650),
+                        StartPosition = FormStartPosition.CenterScreen,
+                        BackColor = DS.BgPage,
+                        Padding = new Padding(28)
+                    })
+                    {
+                        var heading = new Label { Text = "Chart hover details", Dock = DockStyle.Top, Height = 44, Font = new System.Drawing.Font("Segoe UI", 18f, System.Drawing.FontStyle.Bold), ForeColor = DS.Slate900 };
+                        var instruction = new Label { Text = "Hover a point or donut segment to see the exact value and how it is calculated.", Dock = DockStyle.Top, Height = 34, Font = new System.Drawing.Font("Segoe UI", 9.5f), ForeColor = DS.Slate600 };
+                        var charts = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = DS.BgPage, Padding = new Padding(0, 18, 0, 0) };
+                        charts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62f));
+                        charts.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38f));
+                        var trend = new InvoiceOverviewChart { Dock = DockStyle.Fill, Snapshot = snapshot, Margin = new Padding(0, 0, 14, 0), BackColor = System.Drawing.Color.White };
+                        var donut = new InvoiceStatusDonut { Dock = DockStyle.Fill, Snapshot = snapshot, Margin = new Padding(14, 0, 0, 0), BackColor = System.Drawing.Color.White };
+                        charts.Controls.Add(trend, 0, 0);
+                        charts.Controls.Add(donut, 1, 0);
+                        host.Controls.Add(charts);
+                        host.Controls.Add(instruction);
+                        host.Controls.Add(heading);
+                        Application.Run(host);
+                    }
+                    return;
+                }
+
+                if (HasArg(args, "/charthovervisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "chart-hover-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    var snapshot = new InvoiceDashboardSnapshot
+                    {
+                        Overview = new System.Collections.Generic.List<InvoiceOverviewPoint>
+                        {
+                            new InvoiceOverviewPoint { Period = "Apr-26", TotalAmount = 845000m },
+                            new InvoiceOverviewPoint { Period = "May-26", TotalAmount = 1125000m },
+                            new InvoiceOverviewPoint { Period = "Jun-26", TotalAmount = 980500m },
+                            new InvoiceOverviewPoint { Period = "Jul-26", TotalAmount = 1475000m },
+                            new InvoiceOverviewPoint { Period = "Aug-26", TotalAmount = 1310000m },
+                            new InvoiceOverviewPoint { Period = "Sep-26", TotalAmount = 1682500m }
+                        }
+                    };
+                    using (var host = new Form
+                    {
+                        Text = BrandingService.WindowTitle("Chart Hover Visual Test"),
+                        ClientSize = new System.Drawing.Size(900, 500),
+                        StartPosition = FormStartPosition.CenterScreen,
+                        BackColor = DS.BgPage,
+                        Padding = new Padding(28)
+                    })
+                    using (var trend = new InvoiceOverviewChart { Dock = DockStyle.Fill, Snapshot = snapshot, BackColor = System.Drawing.Color.White })
+                    using (var timer = new System.Windows.Forms.Timer { Interval = 700 })
+                    {
+                        var heading = new Label { Text = "Invoice value trend", Dock = DockStyle.Top, Height = 44, Font = new System.Drawing.Font("Segoe UI", 18f, System.Drawing.FontStyle.Bold), ForeColor = DS.Slate900 };
+                        var instruction = new Label { Text = "Hover details show the exact number and the calculation represented by the point.", Dock = DockStyle.Top, Height = 38, Font = new System.Drawing.Font("Segoe UI", 9.5f), ForeColor = DS.Slate600 };
+                        host.Controls.Add(trend);
+                        host.Controls.Add(instruction);
+                        host.Controls.Add(heading);
+                        int stage = 0;
+                        timer.Tick += (sender, eventArgs) =>
+                        {
+                            if (stage++ == 0)
+                            {
+                                System.Drawing.Rectangle plot = new System.Drawing.Rectangle(42, 18, Math.Max(80, trend.Width - 64), Math.Max(60, trend.Height - 58));
+                                int index = 3;
+                                decimal maximum = snapshot.Overview.Max(point => point.TotalAmount);
+                                int x = plot.Left + plot.Width * index / (snapshot.Overview.Count - 1);
+                                int y = plot.Bottom - (int)(plot.Height * snapshot.Overview[index].TotalAmount / maximum);
+                                Cursor.Position = trend.PointToScreen(new System.Drawing.Point(x, y));
+                                return;
+                            }
+
+                            timer.Stop();
+                            using (var bitmap = new System.Drawing.Bitmap(host.Width, host.Height))
+                            using (System.Drawing.Graphics graphics = System.Drawing.Graphics.FromImage(bitmap))
+                            {
+                                graphics.CopyFromScreen(host.Left, host.Top, 0, 0, bitmap.Size);
+                                bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                            }
+                            host.Close();
+                        };
+                        host.Shown += (sender, eventArgs) => timer.Start();
+                        Application.Run(host);
+                    }
+                    AppRuntime.LogTiming("ChartHoverVisualTest", 0, outputPath);
                     return;
                 }
 

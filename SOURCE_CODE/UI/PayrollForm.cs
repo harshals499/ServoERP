@@ -2922,7 +2922,30 @@ namespace HVAC_Pro_Desktop.UI
                 Enabled = false
             };
             chart.Legends.Add(legend);
+            ChartHoverService.Enable(chart, (series, point) =>
+            {
+                double raw = point.YValues == null || point.YValues.Length == 0 ? 0d : point.YValues[0];
+                bool percentage = string.Equals(series.Name, "Compliance", StringComparison.OrdinalIgnoreCase) || string.Equals(series.Name, "Coverage", StringComparison.OrdinalIgnoreCase);
+                return new ChartHoverContent
+                {
+                    Key = "payroll-" + series.Name + "-" + point.AxisLabel,
+                    Title = point.AxisLabel,
+                    Value = percentage ? ChartHoverFormat.Percent(Convert.ToDecimal(raw)) : ChartHoverFormat.Count(Convert.ToDecimal(raw)),
+                    Calculation = PayrollChartCalculation(series.Name, point.AxisLabel)
+                };
+            });
             return chart;
+        }
+
+        private static string PayrollChartCalculation(string seriesName, string label)
+        {
+            if (string.Equals(seriesName, "Coverage", StringComparison.OrdinalIgnoreCase))
+                return label + " count ÷ active employee count";
+            if (string.Equals(seriesName, "Compliance", StringComparison.OrdinalIgnoreCase))
+                return label + " events ÷ eligible attendance events";
+            if (string.Equals(seriesName, "Capacity", StringComparison.OrdinalIgnoreCase))
+                return "employees currently classified as " + label;
+            return "open payroll blockers classified as " + label;
         }
 
         private sealed class SafeDashboardChart : Chart
@@ -2933,7 +2956,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class PayrollQualityPulseBar : Panel
+        private sealed class PayrollQualityPulseBar : HoverChartControl
         {
             private decimal _punctuality;
             private decimal _absence;
@@ -2952,6 +2975,7 @@ namespace HVAC_Pro_Desktop.UI
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 Rectangle bounds = new Rectangle(0, 2, Math.Max(1, Width - 1), Math.Max(1, Height - 5));
                 using (Brush background = new SolidBrush(DS.Slate100))
@@ -2965,15 +2989,15 @@ namespace HVAC_Pro_Desktop.UI
                 decimal overtimeWidth = Math.Max(0m, remaining - absenceWidth - leaveWidth);
 
                 int left = bounds.Left;
-                DrawPulseSegment(e.Graphics, ref left, bounds, punctualityWidth, DS.Green600, FormatPercent(_punctuality));
-                DrawPulseSegment(e.Graphics, ref left, bounds, absenceWidth, DS.Red500, FormatPercent(_absence));
-                DrawPulseSegment(e.Graphics, ref left, bounds, leaveWidth, DS.Slate400, FormatPercent(_leave));
-                DrawPulseSegment(e.Graphics, ref left, bounds, overtimeWidth, Color.FromArgb(148, 163, 184), FormatPercent(_overtime));
+                DrawPulseSegment(e.Graphics, ref left, bounds, punctualityWidth, DS.Green600, "Punctuality", _punctuality, "on-time attendance events ÷ attendance events");
+                DrawPulseSegment(e.Graphics, ref left, bounds, absenceWidth, DS.Red500, "Absence", _absence, "absence events ÷ attendance events");
+                DrawPulseSegment(e.Graphics, ref left, bounds, leaveWidth, DS.Slate400, "Leave", _leave, "leave days normalized against active workforce capacity");
+                DrawPulseSegment(e.Graphics, ref left, bounds, overtimeWidth, Color.FromArgb(148, 163, 184), "Overtime", _overtime, "monthly overtime hours normalized against workforce capacity");
             }
 
-            private static void DrawPulseSegment(Graphics graphics, ref int left, Rectangle bounds, decimal percent, Color color, string label)
+            private void DrawPulseSegment(Graphics graphics, ref int left, Rectangle bounds, decimal widthPercent, Color color, string label, decimal exactPercent, string calculation)
             {
-                int width = (int)Math.Round(bounds.Width * (double)(percent / 100m));
+                int width = (int)Math.Round(bounds.Width * (double)(widthPercent / 100m));
                 if (width <= 0)
                     return;
 
@@ -2981,7 +3005,8 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush brush = new SolidBrush(color))
                     graphics.FillRectangle(brush, segment);
                 if (segment.Width >= 42)
-                    TextRenderer.DrawText(graphics, label, new Font("Segoe UI", 7.5f, FontStyle.Bold), segment, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                    TextRenderer.DrawText(graphics, FormatPercent(exactPercent), new Font("Segoe UI", 7.5f, FontStyle.Bold), segment, Color.White, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                AddHoverRectangle(segment, "payroll-pulse-" + label, label, ChartHoverFormat.Percent(exactPercent), calculation);
                 left += segment.Width;
             }
 

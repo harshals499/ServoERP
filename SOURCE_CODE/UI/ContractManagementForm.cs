@@ -2039,7 +2039,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class StatusBarChart : Control
+        private sealed class StatusBarChart : HoverChartControl
         {
             private Dictionary<string, int> _data = new Dictionary<string, int>();
             private readonly Dictionary<string, Color> _colors = new Dictionary<string, Color>
@@ -2059,6 +2059,7 @@ namespace HVAC_Pro_Desktop.UI
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.Clear(Color.White);
                 int labelWidth = 125;
@@ -2085,13 +2086,15 @@ namespace HVAC_Pro_Desktop.UI
                     Rectangle bar = new Rectangle(labelWidth, y + 4, barWidth, 18);
                     using (SolidBrush brush = new SolidBrush(_colors.ContainsKey(status) ? _colors[status] : Blue))
                         e.Graphics.FillRectangle(brush, bar);
+                    AddHoverRectangle(new RectangleF(labelWidth, y, Math.Max(8, barWidth), 26), "contract-status-" + status,
+                        status + " contracts", ChartHoverFormat.Count(count), "count of contracts currently marked " + status);
                     TextRenderer.DrawText(e.Graphics, count.ToString(CultureInfo.InvariantCulture), new Font("Segoe UI", 9f, FontStyle.Bold), new Rectangle(labelWidth + barWidth + 8, y, 40, 22), Ink);
                     row++;
                 }
             }
         }
 
-        private sealed class TypeDonutChart : Control
+        private sealed class TypeDonutChart : HoverChartControl
         {
             private Dictionary<string, int> _data = new Dictionary<string, int>();
             private readonly Color[] _colors = { Blue, Green, Purple, Amber, Color.FromArgb(244, 63, 94) };
@@ -2105,6 +2108,7 @@ namespace HVAC_Pro_Desktop.UI
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.Clear(Color.White);
                 int total = _data.Values.DefaultIfEmpty(0).Sum();
@@ -2118,6 +2122,9 @@ namespace HVAC_Pro_Desktop.UI
                     float sweep = total == 0 ? 0 : count * 360f / total;
                     using (Pen pen = new Pen(_colors[i % _colors.Length], 28))
                         e.Graphics.DrawArc(pen, donut, start, sweep);
+                    AddHoverDonutSlice(donut, start, sweep, .58f, "contract-type-" + type, type + " contracts",
+                        ChartHoverFormat.Count(count) + " (" + ChartHoverFormat.Percent(total == 0 ? 0m : count * 100m / total) + ")",
+                        count + " contracts ÷ " + total + " total contracts");
                     start += sweep;
                     i++;
                 }

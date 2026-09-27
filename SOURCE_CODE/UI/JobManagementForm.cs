@@ -1179,9 +1179,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel Donut(List<DashSlice> slices, string center, string subtitle, Point location, Size size)
         {
-            Panel donut = new Panel { Location = location, Size = size, BackColor = White };
+            HoverChartPanel donut = new HoverChartPanel { Location = location, Size = size, BackColor = White };
             donut.Paint += (s, e) =>
             {
+                donut.BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 int total = Math.Max(1, slices.Sum(slice => slice.Value));
                 Rectangle rect = new Rectangle(8, 8, donut.Width - 16, donut.Height - 16);
@@ -1190,6 +1191,9 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     float sweep = 360f * slice.Value / total;
                     using (Pen pen = new Pen(slice.Color, 18f)) e.Graphics.DrawArc(pen, rect, start, sweep);
+                    donut.AddHoverDonutSlice(rect, start, sweep, .62f, "job-donut-" + slice.Name, slice.Name + " jobs",
+                        ChartHoverFormat.Count(slice.Value) + " (" + ChartHoverFormat.Percent(slice.Value * 100m / total) + ")",
+                        slice.Value + " jobs ÷ " + slices.Sum(item => item.Value) + " total jobs");
                     start += sweep;
                 }
                 if (slices.All(slice => slice.Value == 0))

@@ -1011,7 +1011,25 @@ namespace HVAC_Pro_Desktop.UI
             AddTrendLine(chart, "Gross Profit", DS.Primary600, finance.MonthlyTrend, r => r.GrossProfit);
             AddTrendLine(chart, "Expenses", DS.Red500, finance.MonthlyTrend, r => r.DirectCosts + r.PayrollExpense + r.OperatingExpenses);
             AddTrendLine(chart, "Net Profit", Color.FromArgb(124, 58, 237), finance.MonthlyTrend, r => r.NetProfit);
+            ChartHoverService.Enable(chart, (series, point) => new ChartHoverContent
+            {
+                Key = "finance-" + series.Name + "-" + point.AxisLabel,
+                Title = point.AxisLabel + " · " + series.Name,
+                Value = ChartHoverFormat.Currency(Convert.ToDecimal(point.YValues[0])),
+                Calculation = FinanceTrendCalculation(series.Name)
+            });
             panel.Controls.Add(chart);
+        }
+
+        private static string FinanceTrendCalculation(string seriesName)
+        {
+            if (string.Equals(seriesName, "Revenue", StringComparison.OrdinalIgnoreCase))
+                return "sum of taxable invoice revenue for the month";
+            if (string.Equals(seriesName, "Gross Profit", StringComparison.OrdinalIgnoreCase))
+                return "monthly revenue minus direct costs";
+            if (string.Equals(seriesName, "Expenses", StringComparison.OrdinalIgnoreCase))
+                return "direct costs + payroll expense + operating expenses";
+            return "gross profit minus payroll and operating expenses";
         }
 
         private static string TrendText(decimal percent)

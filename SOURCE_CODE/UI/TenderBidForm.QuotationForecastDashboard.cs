@@ -406,21 +406,21 @@ namespace HVAC_Pro_Desktop.UI
         private static GraphicsPath Rounded(Rectangle r, int radius) { int d = radius * 2; GraphicsPath p = new GraphicsPath(); p.AddArc(r.Left, r.Top, d, d, 180, 90); p.AddArc(r.Right - d, r.Top, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.Left, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
     }
 
-    internal sealed class QuotationPipelineForecastChart : Control
+    internal sealed class QuotationPipelineForecastChart : HoverChartControl
     {
         private List<QuotationTrendPoint> _data = new List<QuotationTrendPoint>();
         public QuotationPipelineForecastChart() { DoubleBuffered = true; }
         public void SetData(IEnumerable<QuotationTrendPoint> data) { List<QuotationTrendPoint> all = (data ?? Enumerable.Empty<QuotationTrendPoint>()).ToList(); _data = all.Skip(Math.Max(0, all.Count - 6)).ToList(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; e.Graphics.Clear(Color.White);
+            base.OnPaint(e); BeginHoverRegions(); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; e.Graphics.Clear(Color.White);
             if (_data.Count == 0) { QuotationDashboardPaint.DrawEmpty(e.Graphics, ClientRectangle, "No quotation forecast data"); return; }
             Rectangle plot = new Rectangle(48, 28, Math.Max(80, Width - 70), Math.Max(60, Height - 58)); decimal max = Math.Max(1m, _data.Max(p => Math.Max(p.Value, p.WeightedValue)));
             using (Pen grid = new Pen(Color.FromArgb(232, 237, 244))) using (Font font = new Font("Segoe UI", 7f)) using (Brush muted = new SolidBrush(Color.FromArgb(100, 116, 139)))
             {
                 for (int i = 0; i <= 3; i++) { int y = plot.Top + i * plot.Height / 3; e.Graphics.DrawLine(grid, plot.Left, y, plot.Right, y); e.Graphics.DrawString(Compact(max * (3 - i) / 3m), font, muted, 2, y - 7); }
                 int slot = plot.Width / Math.Max(1, _data.Count); List<PointF> points = new List<PointF>();
-                for (int i = 0; i < _data.Count; i++) { QuotationTrendPoint p = _data[i]; int bw = Math.Max(18, Math.Min(58, slot / 2)); int cx = plot.Left + i * slot + slot / 2; int h = (int)(p.Value / max * plot.Height); using (Brush bar = new SolidBrush(Color.FromArgb(190, 215, 250))) e.Graphics.FillRectangle(bar, cx - bw / 2, plot.Bottom - h, bw, h); points.Add(new PointF(cx, plot.Bottom - (float)(p.WeightedValue / max) * plot.Height)); SizeF sz = e.Graphics.MeasureString(p.Period, font); e.Graphics.DrawString(p.Period, font, muted, cx - sz.Width / 2, plot.Bottom + 6); }
+                for (int i = 0; i < _data.Count; i++) { QuotationTrendPoint p = _data[i]; int bw = Math.Max(18, Math.Min(58, slot / 2)); int cx = plot.Left + i * slot + slot / 2; int h = (int)(p.Value / max * plot.Height); using (Brush bar = new SolidBrush(Color.FromArgb(190, 215, 250))) e.Graphics.FillRectangle(bar, cx - bw / 2, plot.Bottom - h, bw, h); PointF forecastPoint = new PointF(cx, plot.Bottom - (float)(p.WeightedValue / max) * plot.Height); points.Add(forecastPoint); AddHoverRectangle(new RectangleF(cx - bw / 2f, plot.Bottom - Math.Max(4, h), bw, Math.Max(8, h)), "quotation-pipeline-value-" + i, p.Period + " quoted value", ChartHoverFormat.Currency(p.Value), "sum of active quotation values in " + p.Period); AddHoverPoint(forecastPoint, 10f, "quotation-pipeline-weighted-" + i, p.Period + " weighted forecast", ChartHoverFormat.Currency(p.WeightedValue), "quotation value × stage probability for " + p.Period); SizeF sz = e.Graphics.MeasureString(p.Period, font); e.Graphics.DrawString(p.Period, font, muted, cx - sz.Width / 2, plot.Bottom + 6); }
                 if (points.Count > 1) using (Pen line = new Pen(Color.FromArgb(37, 99, 235), 2.4f)) e.Graphics.DrawLines(line, points.ToArray());
                 foreach (PointF p in points) { using (Brush dot = new SolidBrush(Color.FromArgb(37, 99, 235))) e.Graphics.FillEllipse(dot, p.X - 4, p.Y - 4, 8, 8); }
             }
@@ -429,23 +429,23 @@ namespace HVAC_Pro_Desktop.UI
         private static string Compact(decimal v) { if (v >= 10000000m) return "₹" + (v / 10000000m).ToString("0.#") + " Cr"; if (v >= 100000m) return "₹" + (v / 100000m).ToString("0.#") + " L"; return "₹" + v.ToString("0"); }
     }
 
-    internal sealed class QuotationStageFunnelCard : Control
+    internal sealed class QuotationStageFunnelCard : HoverChartControl
     {
         private List<QuotationFunnelStage> _data = new List<QuotationFunnelStage>();
         public QuotationStageFunnelCard() { DoubleBuffered = true; }
         public void SetData(IEnumerable<QuotationFunnelStage> data) { _data = (data ?? Enumerable.Empty<QuotationFunnelStage>()).Where(s => s.Stage == "Total Quotations" || s.Stage == "Sent" || s.Stage == "Negotiation" || s.Stage == "Converted").ToList(); Invalidate(); }
         protected override void OnPaint(PaintEventArgs e)
         {
-            base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; e.Graphics.Clear(Color.White); if (_data.Count == 0) { QuotationDashboardPaint.DrawEmpty(e.Graphics, ClientRectangle, "No stage data"); return; }
+            base.OnPaint(e); BeginHoverRegions(); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; e.Graphics.Clear(Color.White); if (_data.Count == 0) { QuotationDashboardPaint.DrawEmpty(e.Graphics, ClientRectangle, "No stage data"); return; }
             int max = Math.Max(1, _data.Max(s => s.Count)); int cw = Math.Max(120, (int)(Width * .52)); int center = 12 + cw / 2; int y = 10; int h = Math.Max(25, (Height - 24) / _data.Count);
-            using (Font bold = new Font("Segoe UI", 8f, FontStyle.Bold)) using (Font small = new Font("Segoe UI", 7.3f)) using (Brush text = new SolidBrush(Color.FromArgb(30, 41, 59))) foreach (QuotationFunnelStage s in _data) { int w = Math.Max(54, (int)(cw * (.38 + .62 * s.Count / max))); Point[] shape = { new Point(center - w / 2, y), new Point(center + w / 2, y), new Point(center + w / 2 - 10, y + h - 2), new Point(center - w / 2 + 10, y + h - 2) }; using (Brush fill = new SolidBrush(s.Color)) e.Graphics.FillPolygon(fill, shape); string count = s.Count.ToString(); SizeF size = e.Graphics.MeasureString(count, bold); e.Graphics.DrawString(count, bold, Brushes.White, center - size.Width / 2, y + (h - size.Height) / 2); string label = s.Stage == "Total Quotations" ? "All" : s.Stage == "Converted" ? "Won" : s.Stage; e.Graphics.DrawString(label, bold, text, cw + 30, y + 3); e.Graphics.DrawString(s.Percentage.ToString("0.#") + "%", small, Brushes.SlateGray, cw + 30, y + 20); y += h; }
+            using (Font bold = new Font("Segoe UI", 8f, FontStyle.Bold)) using (Font small = new Font("Segoe UI", 7.3f)) using (Brush text = new SolidBrush(Color.FromArgb(30, 41, 59))) foreach (QuotationFunnelStage s in _data) { int w = Math.Max(54, (int)(cw * (.38 + .62 * s.Count / max))); Point[] shape = { new Point(center - w / 2, y), new Point(center + w / 2, y), new Point(center + w / 2 - 10, y + h - 2), new Point(center - w / 2 + 10, y + h - 2) }; using (Brush fill = new SolidBrush(s.Color)) e.Graphics.FillPolygon(fill, shape); AddHoverPolygon(shape.Select(point => new PointF(point.X, point.Y)).ToArray(), "quotation-stage-" + s.Stage, s.Stage, ChartHoverFormat.Count(s.Count) + " (" + ChartHoverFormat.Percent(s.Percentage) + ")", "stage count ÷ total quotations"); string count = s.Count.ToString(); SizeF size = e.Graphics.MeasureString(count, bold); e.Graphics.DrawString(count, bold, Brushes.White, center - size.Width / 2, y + (h - size.Height) / 2); string label = s.Stage == "Total Quotations" ? "All" : s.Stage == "Converted" ? "Won" : s.Stage; e.Graphics.DrawString(label, bold, text, cw + 30, y + 3); e.Graphics.DrawString(s.Percentage.ToString("0.#") + "%", small, Brushes.SlateGray, cw + 30, y + 20); y += h; }
         }
     }
 
-    internal sealed class QuotationConfidenceBar : Control
+    internal sealed class QuotationConfidenceBar : HoverChartControl
     {
         private int _value; public int Value { get { return _value; } set { _value = Math.Max(0, Math.Min(100, value)); Invalidate(); } }
         public QuotationConfidenceBar() { DoubleBuffered = true; MinimumSize = new Size(100, 40); }
-        protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); e.Graphics.Clear(Color.White); using (Font f = new Font("Segoe UI", 7.7f, FontStyle.Bold)) using (Brush text = new SolidBrush(Color.FromArgb(30, 41, 59))) e.Graphics.DrawString("Forecast confidence", f, text, 0, 0); Rectangle track = new Rectangle(0, 20, Math.Max(20, Width - 42), 10); using (Brush b = new SolidBrush(Color.FromArgb(226, 232, 240))) e.Graphics.FillRectangle(b, track); using (Brush b = new SolidBrush(Color.FromArgb(16, 185, 129))) e.Graphics.FillRectangle(b, new Rectangle(track.X, track.Y, (int)(track.Width * Value / 100f), track.Height)); using (Font f = new Font("Segoe UI", 8.5f, FontStyle.Bold)) using (Brush b = new SolidBrush(Color.FromArgb(30, 41, 59))) e.Graphics.DrawString(Value + "%", f, b, Width - 39, 16); }
+        protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); BeginHoverRegions(); e.Graphics.Clear(Color.White); using (Font f = new Font("Segoe UI", 7.7f, FontStyle.Bold)) using (Brush text = new SolidBrush(Color.FromArgb(30, 41, 59))) e.Graphics.DrawString("Forecast confidence", f, text, 0, 0); Rectangle track = new Rectangle(0, 20, Math.Max(20, Width - 42), 10); using (Brush b = new SolidBrush(Color.FromArgb(226, 232, 240))) e.Graphics.FillRectangle(b, track); using (Brush b = new SolidBrush(Color.FromArgb(16, 185, 129))) e.Graphics.FillRectangle(b, new Rectangle(track.X, track.Y, (int)(track.Width * Value / 100f), track.Height)); AddHoverRectangle(RectangleF.Inflate(track, 0, 6), "quotation-confidence", "Forecast confidence", ChartHoverFormat.Percent(Value), "weighted pipeline forecast ÷ total open quotation value"); using (Font f = new Font("Segoe UI", 8.5f, FontStyle.Bold)) using (Brush b = new SolidBrush(Color.FromArgb(30, 41, 59))) e.Graphics.DrawString(Value + "%", f, b, Width - 39, 16); }
     }
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.455.0 - 2026-09-27
+
+- Added consistent hover details across ServoERP business charts, including exact en-IN values and the calculation represented by each plotted point, bar, segment, slice, funnel stage, and gauge.
+- Covered financial, payroll, report, vendor, invoice, quotation, payment, purchase-order, contract, client, job, site-health, technician-presence, and SLA visualizations with the shared chart-hover behavior.
+- Corrected site-distribution chart zero counts so hover details and rendered proportions use the same authoritative values.
+- Added CI-safe hit-test coverage for bars, points, donut slices, funnels, INR formatting, and calculation descriptions.
+
 ## 1.1.454.0 - 2026-09-27
 
 - Refined My Work with ServoERP theme tokens, shared ModernIconSystem imagery, stronger workspace hierarchy, and clearer semantic priority colours.
