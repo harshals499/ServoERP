@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.Tests
         {
             EnsureGridColumnPolicyHonorsMinimumWidth();
             EnsureGridColumnPolicySurvivesGridThemeLifecycleHandlers();
+            EnsureLayoutAuditPreservesFrozenGridSizing();
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
             EnsureModernButtonInteractionStates();
@@ -126,6 +127,41 @@ namespace HVAC_Pro_Desktop.Tests
                 grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LateTotal", HeaderText = "Late Total", Width = 20 });
                 AssertFixedPolicyColumn(grid.Columns["LateTotal"], 160, "ColumnAdded");
                 AssertFixedPolicyColumn(grid.Columns["Total"], 140, "ColumnAdded existing column");
+            }
+        }
+
+        private static void EnsureLayoutAuditPreservesFrozenGridSizing()
+        {
+            using (var host = new Panel { Size = new Size(900, 500) })
+            using (var grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+            })
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Employee",
+                    HeaderText = "Employee",
+                    Frozen = true,
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                    Width = 190
+                });
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Day1",
+                    HeaderText = "1",
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                    Width = 30
+                });
+                host.Controls.Add(grid);
+
+                LayoutAuditService.AuditAndFix(host);
+
+                if (grid.AutoSizeColumnsMode != DataGridViewAutoSizeColumnsMode.None)
+                    throw new InvalidOperationException("Layout audit must not apply Fill sizing to a grid with frozen columns.");
+                if (!grid.Columns["Employee"].Frozen || grid.Columns["Employee"].AutoSizeMode != DataGridViewAutoSizeColumnMode.None)
+                    throw new InvalidOperationException("Layout audit must preserve frozen fixed-width identity columns.");
             }
         }
 

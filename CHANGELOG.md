@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.456.0 - 2026-10-02
+
+- Fixed the Attendance page failing to open when the global layout audit attempted to apply fill sizing to its frozen employee columns.
+- Added regression coverage to preserve fixed-width frozen columns during application-wide layout normalization.
+
 ## 1.1.455.0 - 2026-09-27
 
 - Added consistent hover details across ServoERP business charts, including exact en-IN values and the calculation represented by each plotted point, bar, segment, slice, funnel stage, and gauge.
