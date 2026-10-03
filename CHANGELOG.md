@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.466.0 - 2026-10-03
+
+- Fixed invoice previews showing zero amounts when a valid legacy or imported invoice had stored totals but no child line-item rows.
+- Made invoice preview generation read-only so opening or exporting a PDF can never recalculate and overwrite authoritative invoice totals in memory.
+- Added a legacy-safe display line and GST split fallback while preserving the stored subtotal, tax, grand total, paid amount, and outstanding balance.
+- Kept the established invoice header and invoice body together on one printed PDF page for standard invoices.
+- Added regression coverage for invoices with ₹81,962.80 outstanding and no detailed line rows.
+- Added a release-manager guard that blocks public publication unless the matching version has release notes in `CHANGELOG.md`.
+
 ## 1.1.465.0 - 2026-10-03
 
 - Added in-app editing to document previews so quotation, invoice, and purchase-order text and table values can be corrected before printing or PDF/HTML export.

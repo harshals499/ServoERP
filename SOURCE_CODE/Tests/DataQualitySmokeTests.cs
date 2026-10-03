@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
+using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.Services.Validation;
 using ServoERP.Validators;
 
@@ -86,6 +87,25 @@ namespace HVAC_Pro_Desktop.Tests
             if (calc.VerifyInvoice(discountedInvoice).HasErrors || calc.VerifyInvoice(discountedInvoice).HasWarnings)
                 throw new InvalidOperationException("Expected discounted invoice totals to verify cleanly.");
             passed.Add("invoice discount totals verified");
+
+            var legacyInvoice = new Invoice
+            {
+                SubTotal = 69460m,
+                TaxAmount = 12502.80m,
+                TotalAmount = 81962.80m,
+                BalanceDue = 81962.80m,
+                GSTPercent = 18m,
+                GSTMode = "IGST",
+                LineItems = new List<InvoiceLineItem>()
+            };
+            InvoiceService.InvoicePreviewFinancials preview = InvoiceService.ResolvePreviewFinancials(legacyInvoice);
+            if (preview.TotalAmount != 81962.80m || preview.SubTotal != 69460m || preview.IGSTAmount != 12502.80m)
+                throw new InvalidOperationException("Invoice preview did not preserve authoritative stored totals.");
+            if (preview.LineItems.Count != 1 || preview.LineItems[0].Amount != 69460m)
+                throw new InvalidOperationException("Invoice preview did not create the legacy invoice display line.");
+            if (legacyInvoice.TotalAmount != 81962.80m || legacyInvoice.SubTotal != 69460m)
+                throw new InvalidOperationException("Invoice preview changed persisted invoice totals in memory.");
+            passed.Add("legacy invoice preview preserves stored totals");
 
             ExpectError(calc.VerifyPurchaseOrder(new PurchaseOrder { VendorID = 1, PONumber = "PO-1", PODate = DateTime.Today, PayByDate = DateTime.Today, TotalAmount = 100m, PaidAmount = 101m }), "PO paid exceeds total");
             passed.Add("PO paid amount rejected");

@@ -81,7 +81,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .blank-row td{height:18px;}
 .mse-official-header{margin-top:6px;margin-bottom:12px;border-bottom:0;padding-bottom:0;}
 .company-template-banner{font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;margin:0 0 8px 0;}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page{max-width:none;}.print-frame{break-inside:avoid;page-break-inside:avoid;}}
+@media print{body{zoom:.9;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page{max-width:none;}.print-frame{break-inside:avoid;page-break-inside:avoid;}}
 ";
         }
 

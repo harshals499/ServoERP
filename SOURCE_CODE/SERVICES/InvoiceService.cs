@@ -561,8 +561,11 @@ namespace HVAC_Pro_Desktop.Services
 
         public string BuildInvoiceHtml(Invoice inv)
         {
+            if (inv == null)
+                throw new ArgumentNullException(nameof(inv));
+
             PopulateInvoiceDefaults(inv);
-            RecalculateTotals(inv);
+            InvoicePreviewFinancials preview = ResolvePreviewFinancials(inv);
             var client = inv.ClientID > 0 ? _clientRepo.GetById(inv.ClientID) : null;
             var site = inv.SiteID > 0 ? _siteRepo.GetAll().FirstOrDefault(s => s.SiteID == inv.SiteID) : null;
             var settings = _settingsSvc.GetAll();
@@ -580,7 +583,7 @@ namespace HVAC_Pro_Desktop.Services
             string customerBlockHtml = BuildInvoiceCustomerBlock(client, site, inv.ClientName);
             string subject = FirstNonEmpty(inv.Subject, "Supply / service invoice.");
             string invoiceNo = FirstNonEmpty(inv.InvoiceNumber, "DRAFT-PREVIEW");
-            string words = IndiaFormatHelper.ToRupeesOnlyWords(inv.TotalAmount);
+            string words = IndiaFormatHelper.ToRupeesOnlyWords(preview.TotalAmount);
             string placeOfSupply = FirstNonEmpty(inv.PlaceOfSupply, "Maharashtra");
             string recipientGstin = FirstNonEmpty(client?.GSTNumber, "Unregistered recipient");
             string deliveryAddress = FirstNonEmpty(site?.Address, client?.BillingAddress, "Same as billing address");
@@ -588,7 +591,7 @@ namespace HVAC_Pro_Desktop.Services
 
             var rows = new StringBuilder();
             int sr = 1;
-            foreach (var item in inv.LineItems ?? new List<InvoiceLineItem>())
+            foreach (var item in preview.LineItems)
             {
                 rows.Append("<tr>");
                 rows.AppendFormat("<td class='center'>{0}</td>", sr++);
@@ -603,12 +606,12 @@ namespace HVAC_Pro_Desktop.Services
             if (rows.Length == 0)
                 rows.Append("<tr><td class='center'>1</td><td class='desc'>Service / material charges</td><td></td><td class='center'>Nos</td><td class='center'>1</td><td class='num'>0.00</td><td class='num'><strong>0.00</strong></td></tr>");
 
-            string taxRows = string.Equals(inv.GSTMode, "CGST+SGST", StringComparison.OrdinalIgnoreCase)
-                ? "<tr><td colspan='6'>Add: CGST " + (inv.GSTPercent / 2m).ToString("0.##") + "%</td><td class='total-value'>" + inv.CGSTAmount.ToString("N2") + "</td></tr>"
-                  + "<tr><td colspan='6'>Add: SGST " + (inv.GSTPercent / 2m).ToString("0.##") + "%</td><td class='total-value'>" + inv.SGSTAmount.ToString("N2") + "</td></tr>"
-                : "<tr><td colspan='6'>Add: IGST " + inv.GSTPercent.ToString("0.##") + "%</td><td class='total-value'>" + inv.IGSTAmount.ToString("N2") + "</td></tr>";
-            string roundOffRow = inv.RoundOff != 0m
-                ? "<tr><td colspan='6'>Round Off</td><td class='total-value'>" + inv.RoundOff.ToString("N2") + "</td></tr>"
+            string taxRows = string.Equals(preview.GSTMode, "CGST+SGST", StringComparison.OrdinalIgnoreCase)
+                ? "<tr><td colspan='6'>Add: CGST " + (preview.GSTPercent / 2m).ToString("0.##") + "%</td><td class='total-value'>" + preview.CGSTAmount.ToString("N2") + "</td></tr>"
+                  + "<tr><td colspan='6'>Add: SGST " + (preview.GSTPercent / 2m).ToString("0.##") + "%</td><td class='total-value'>" + preview.SGSTAmount.ToString("N2") + "</td></tr>"
+                : "<tr><td colspan='6'>Add: IGST " + preview.GSTPercent.ToString("0.##") + "%</td><td class='total-value'>" + preview.IGSTAmount.ToString("N2") + "</td></tr>";
+            string roundOffRow = preview.RoundOff != 0m
+                ? "<tr><td colspan='6'>Round Off</td><td class='total-value'>" + preview.RoundOff.ToString("N2") + "</td></tr>"
                 : string.Empty;
 
             return "<!DOCTYPE html><html><head><meta charset='utf-8'/><style>"
@@ -637,10 +640,10 @@ namespace HVAC_Pro_Desktop.Services
             + "</tr></table>"
             + "<table class='doc-grid items'><thead><tr><th style='width:54px'>Sr No.</th><th>Description</th><th style='width:92px'>HSN / SAC</th><th style='width:58px'>Unit</th><th style='width:58px'>Qty</th><th style='width:118px'>Rate (Rs.)</th><th style='width:126px'>Amount (Rs.)</th></tr></thead><tbody>"
             + rows
-            + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + inv.SubTotal.ToString("N2") + "</td></tr>"
+            + "<tr><td colspan='6' class='total-label'>Total</td><td class='total-value'>" + preview.SubTotal.ToString("N2") + "</td></tr>"
             + taxRows
             + roundOffRow
-            + "<tr><td colspan='6' class='total-label'><div class='total-summary'><span>Grand Total Amount : </span><span class='words-inline'>" + Html(words.EndsWith(".") ? words : words + ".") + "</span></div></td><td class='total-value'>" + inv.TotalAmount.ToString("N2") + "</td></tr></tbody></table>"
+            + "<tr><td colspan='6' class='total-label'><div class='total-summary'><span>Grand Total Amount : </span><span class='words-inline'>" + Html(words.EndsWith(".") ? words : words + ".") + "</span></div></td><td class='total-value'>" + preview.TotalAmount.ToString("N2") + "</td></tr></tbody></table>"
             + "<table class='doc-grid'><tr><td class='footer-left compliance'>"
             + DocumentBranding.BuildComplianceBlockHtml(shopLicense, pfNumber, esicNumber, profTax, companyPan, companyGst, msmeNumber, false)
             + "</td>"
@@ -648,6 +651,101 @@ namespace HVAC_Pro_Desktop.Services
             + "<tr><td class='certification'>" + Html(inv.CertificationNote) + "</td>"
             + "<td class='footer-right'><span class='send-title'>Send Invoice To : </span><br/>" + Html(inv.SendInvoiceTo).Replace("\n", "<br/>") + "</td></tr>"
             + "</table></div></div></body></html>";
+        }
+
+        internal static InvoicePreviewFinancials ResolvePreviewFinancials(Invoice inv)
+        {
+            if (inv == null)
+                throw new ArgumentNullException(nameof(inv));
+
+            List<InvoiceLineItem> lines = (inv.LineItems ?? new List<InvoiceLineItem>())
+                .Where(item => item != null)
+                .ToList();
+            decimal lineSubTotal = lines.Sum(item => item.Amount > 0m
+                ? item.Amount
+                : Math.Max(0m, item.Quantity) * Math.Max(0m, item.Rate));
+            decimal lineTax = lines.Sum(item => Math.Max(0m, item.TaxAmount));
+
+            decimal total = Math.Max(0m, inv.TotalAmount);
+            if (total <= 0m)
+                total = Math.Max(0m, inv.BalanceDue + inv.PaidAmount);
+            if (total <= 0m && lineSubTotal > 0m)
+                total = lineSubTotal + lineTax + Math.Round(inv.RoundOff, 2);
+
+            decimal tax = Math.Max(0m, inv.TaxAmount);
+            if (tax <= 0m)
+                tax = lineTax;
+            decimal roundOff = Math.Round(inv.RoundOff, 2);
+            decimal subTotal = Math.Max(0m, inv.SubTotal);
+            if (subTotal <= 0m)
+                subTotal = lineSubTotal;
+            if (subTotal <= 0m && total > 0m)
+                subTotal = Math.Max(0m, total - tax - roundOff);
+
+            decimal gstPercent = inv.GSTPercent > 0m ? inv.GSTPercent : 18m;
+            string gstMode = string.IsNullOrWhiteSpace(inv.GSTMode) ? "IGST" : inv.GSTMode;
+            decimal cgst = Math.Max(0m, inv.CGSTAmount);
+            decimal sgst = Math.Max(0m, inv.SGSTAmount);
+            decimal igst = Math.Max(0m, inv.IGSTAmount);
+            if (string.Equals(gstMode, "CGST+SGST", StringComparison.OrdinalIgnoreCase))
+            {
+                if (cgst + sgst <= 0m && tax > 0m)
+                {
+                    cgst = Math.Round(tax / 2m, 2);
+                    sgst = tax - cgst;
+                }
+                igst = 0m;
+            }
+            else
+            {
+                if (igst <= 0m)
+                    igst = tax;
+                cgst = 0m;
+                sgst = 0m;
+            }
+
+            if (lines.Count == 0 && (subTotal > 0m || total > 0m))
+            {
+                lines.Add(new InvoiceLineItem
+                {
+                    Description = "Service / material charges",
+                    Unit = UnitMeasurementService.DefaultCode,
+                    Quantity = 1m,
+                    Rate = subTotal,
+                    Amount = subTotal,
+                    GSTPercent = gstPercent,
+                    TaxAmount = tax,
+                    IsBillable = true
+                });
+            }
+
+            return new InvoicePreviewFinancials
+            {
+                LineItems = lines,
+                SubTotal = subTotal,
+                TaxAmount = tax,
+                TotalAmount = total,
+                RoundOff = roundOff,
+                GSTPercent = gstPercent,
+                GSTMode = gstMode,
+                CGSTAmount = cgst,
+                SGSTAmount = sgst,
+                IGSTAmount = igst
+            };
+        }
+
+        internal sealed class InvoicePreviewFinancials
+        {
+            public List<InvoiceLineItem> LineItems { get; set; }
+            public decimal SubTotal { get; set; }
+            public decimal TaxAmount { get; set; }
+            public decimal TotalAmount { get; set; }
+            public decimal RoundOff { get; set; }
+            public decimal GSTPercent { get; set; }
+            public string GSTMode { get; set; }
+            public decimal CGSTAmount { get; set; }
+            public decimal SGSTAmount { get; set; }
+            public decimal IGSTAmount { get; set; }
         }
 
         public string BuildTemplateComparison(Invoice inv)
