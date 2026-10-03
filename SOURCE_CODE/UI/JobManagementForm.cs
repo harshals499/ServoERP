@@ -424,10 +424,10 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Items.Add("Bulk Import", null, (mi, ev) => ImportUiHelper.RunImport(ExcelImportModule.Jobs, FindForm()));
                 menu.Show(add, new Point(0, add.Height));
             };
-            Button more = DashboardButton("Menu", White, TextPrimary, 60, true);
-            more.MinimumSize = new Size(60, 30);
-            more.Click += (s, e) => ShowDashboardMessage("Jobs", "Use quick actions to assign technicians, open job forms, export filtered jobs, or review scheduling.");
-            foreach (Control control in new Control[] { _dashboardSearch, filters, reports, refresh, forms, add, more })
+            Button smartDispatch = DashboardButton("Smart Dispatch", White, Blue, 118, true);
+            smartDispatch.MinimumSize = new Size(108, 30);
+            smartDispatch.Click += async (s, e) => await OpenSmartDispatchAsync(null);
+            foreach (Control control in new Control[] { _dashboardSearch, filters, reports, refresh, forms, add, smartDispatch })
             {
                 control.Margin = Padding.Empty;
                 control.Tag = ((control.Tag == null ? string.Empty : control.Tag + " ") + "FIXED_WIDTH").Trim();
@@ -437,7 +437,7 @@ namespace HVAC_Pro_Desktop.UI
                 "JobsDashboardHeader",
                 "Jobs Dashboard",
                 "Monitor jobs, technicians, and service status. Client is required; site can be selected later.",
-                new List<Control> { filters, refresh, reports, forms, more, add },
+                new List<Control> { filters, refresh, reports, forms, smartDispatch, add },
                 SharedPageHeader.CreateSearchInputShell("JobsDashboardSearchHost", _dashboardSearch, 280),
                 null,
                 PageBg,
@@ -983,6 +983,7 @@ namespace HVAC_Pro_Desktop.UI
                 Tuple.Create("Bulk Create", "Bulk Create"),
                 Tuple.Create("Workflow Board", "Workflow Board"),
                 Tuple.Create("Schedule Board", "Schedule Board"),
+                Tuple.Create("Smart Dispatch", "Smart Dispatch"),
                 Tuple.Create("Resource Planner", "Resource Planner"),
                 Tuple.Create("View Reports", "Reports")
             };
@@ -1323,7 +1324,7 @@ namespace HVAC_Pro_Desktop.UI
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
             menu.Items.Add("View", null, async (s, e) => await OpenExistingJobFromDashboardAsync(job.JobId));
             menu.Items.Add("Edit", null, async (s, e) => await OpenExistingJobFromDashboardAsync(job.JobId));
-            menu.Items.Add("Assign Technician", null, (s, e) => ShowDashboardMessage("Assign Technician", "Open the job and select a technician."));
+            menu.Items.Add("Smart Dispatch...", null, async (s, e) => await OpenSmartDispatchAsync(job.JobId));
             menu.Items.Add("Change Status", null, (s, e) => ShowDashboardMessage("Change Status", "Open the job and update its status."));
             menu.Items.Add("Duplicate", null, (s, e) => ShowDashboardMessage("Duplicate Job", "Open the job and save it as a new work order."));
             RecordDeletionUi.AddDeleteMenuItem(menu, async (s, e) => await DeleteDashboardJobAsync(job));
@@ -1382,12 +1383,31 @@ namespace HVAC_Pro_Desktop.UI
                 OpenWorkflowBoard();
             else if (action == "Schedule Board")
                 ShowDashboardMessage("Schedule Board", BuildScheduleBoardText());
+            else if (action == "Smart Dispatch")
+                await OpenSmartDispatchAsync(null);
             else if (action == "Resource Planner")
                 ShowDashboardMessage("Resource Planner", BuildResourcePlannerText());
             else if (action == "Reports")
                 ShowDashboardMessage("Reports", BuildScheduleBoardText());
             else
                 ShowDashboardMessage(action, "No dashboard action is configured for " + action + ".");
+        }
+
+        private async Task OpenSmartDispatchAsync(int? jobId)
+        {
+            bool assignmentChanged = false;
+            using (var dialog = new SmartDispatchForm(jobId))
+            {
+                dialog.AssignmentCompleted += (s, e) => assignmentChanged = true;
+                dialog.ShowDialog(FindForm());
+            }
+
+            if (!assignmentChanged)
+                return;
+
+            SetListStatus("Refreshing jobs after Smart Dispatch assignment...");
+            await LoadInitialAsync();
+            SetListStatus("Smart Dispatch assignment saved.");
         }
 
         private void AddRankRows(Panel card, List<Tuple<string, int>> rows, Color color)

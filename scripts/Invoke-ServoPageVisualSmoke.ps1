@@ -148,14 +148,21 @@ $form = $null
 $bitmap = $null
 try {
     $control = [Activator]::CreateInstance($type)
-    $control.Dock = [System.Windows.Forms.DockStyle]::Fill
-
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "ServoERP Visual Smoke - $ControlType"
-    $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
-    $form.Location = New-Object System.Drawing.Point 20, 20
-    $form.ClientSize = New-Object System.Drawing.Size $Width, $Height
-    $form.Controls.Add($control)
+    if ($control -is [System.Windows.Forms.Form]) {
+        $form = $control
+        $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $form.Location = New-Object System.Drawing.Point 20, 20
+        $form.ClientSize = New-Object System.Drawing.Size $Width, $Height
+    }
+    else {
+        $control.Dock = [System.Windows.Forms.DockStyle]::Fill
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "ServoERP Visual Smoke - $ControlType"
+        $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
+        $form.Location = New-Object System.Drawing.Point 20, 20
+        $form.ClientSize = New-Object System.Drawing.Size $Width, $Height
+        $form.Controls.Add($control)
+    }
 
     $script:servoVisualSmokeShown = $false
     $form.Add_Shown({
@@ -196,5 +203,5 @@ try {
 finally {
     if ($bitmap -ne $null) { $bitmap.Dispose() }
     if ($form -ne $null) { $form.Close(); $form.Dispose() }
-    if ($control -ne $null) { $control.Dispose() }
+    if ($control -ne $null -and $control -ne $form) { $control.Dispose() }
 }
