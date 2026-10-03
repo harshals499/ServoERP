@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.464.0 - 2026-10-03
+
+- Expanded duplicate discovery across clients, employees, suppliers, sites, and inventory using normalized names, email, phone, tax, payroll, banking, and category-specific identity fields.
+- Consolidated transitive matches such as name-linked and email-linked records into one safe review group before merge or deletion.
+- Ignored blank and placeholder identity values so generic entries such as "Not Applicable" cannot create unsafe bulk groups.
+- Added regression coverage for independent email matching, employee payroll identities, and overlapping multi-field duplicate groups.
+
 ## 1.1.463.0 - 2026-10-03
 
 - Restored the established branded company letterhead after the dynamic-header regression.

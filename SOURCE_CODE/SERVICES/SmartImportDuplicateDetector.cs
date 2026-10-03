@@ -141,20 +141,16 @@ END");
                 }
             }
 
-            // One pair of duplicate records can share several identities (for example both
-            // phone and name). Count that record set once so the operator sees a real group
-            // count rather than an inflated count of matching fields.
-            var duplicateGroups = recordsByKey
-                .Where(pair => pair.Value.Count > 1)
-                .GroupBy(pair => string.Join(",", pair.Value.OrderBy(id => id, StringComparer.OrdinalIgnoreCase)), StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .ToList();
+            // Treat every shared identity as an edge and build connected record groups.
+            // This is important when A shares a name with B and B shares an email/phone
+            // with C: all three records are one review group, not two overlapping groups.
+            List<DuplicateIdentityGroup> duplicateGroups = BuildDuplicateIdentityGroups(recordsByKey);
             result.ExistingDuplicateGroups = duplicateGroups.Count;
 
-            foreach (KeyValuePair<string, HashSet<string>> group in duplicateGroups)
+            foreach (DuplicateIdentityGroup group in duplicateGroups)
             {
-                var item = new SmartImportDuplicateGroup { MatchReason = KeyLabel(group.Key) };
-                foreach (string id in group.Value.OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
+                var item = new SmartImportDuplicateGroup { MatchReason = string.Join(", ", group.Keys.Select(KeyLabel).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(label => label, StringComparer.OrdinalIgnoreCase)) };
+                foreach (string id in group.RecordIds.OrderBy(value => value, StringComparer.OrdinalIgnoreCase))
                 {
                     Dictionary<string, string> source = existingRows.FirstOrDefault(row => string.Equals(Value(row, "RecordID"), id, StringComparison.OrdinalIgnoreCase));
                     item.Records.Add(new SmartImportDuplicateRecord
@@ -197,8 +193,64 @@ END");
                 }
             }
 
-            foreach (KeyValuePair<string, HashSet<string>> group in duplicateGroups.Take(Math.Max(0, 20 - result.Details.Count)))
-                result.Details.Add("Current database has " + group.Value.Count + " records sharing " + KeyLabel(group.Key) + ".");
+            foreach (DuplicateIdentityGroup group in duplicateGroups.Take(Math.Max(0, 20 - result.Details.Count)))
+                result.Details.Add("Current database has " + group.RecordIds.Count + " related records sharing " + string.Join(", ", group.Keys.Select(KeyLabel).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(label => label, StringComparer.OrdinalIgnoreCase)) + ".");
+        }
+
+        internal static List<SmartImportDuplicateGroup> FindExistingGroups(ExcelImportModule module, IList<Dictionary<string, string>> existingRows)
+        {
+            var scan = new SmartImportDuplicateScan();
+            ScanDatabase(module, new List<Dictionary<string, string>>(), existingRows ?? new List<Dictionary<string, string>>(), scan);
+            return scan.Groups;
+        }
+
+        private static List<DuplicateIdentityGroup> BuildDuplicateIdentityGroups(Dictionary<string, HashSet<string>> recordsByKey)
+        {
+            var keysByRecord = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var neighbours = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, HashSet<string>> identity in recordsByKey.Where(pair => pair.Value.Count > 1))
+            {
+                foreach (string recordId in identity.Value)
+                {
+                    HashSet<string> keys;
+                    if (!keysByRecord.TryGetValue(recordId, out keys))
+                        keysByRecord[recordId] = keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    keys.Add(identity.Key);
+
+                    HashSet<string> linked;
+                    if (!neighbours.TryGetValue(recordId, out linked))
+                        neighbours[recordId] = linked = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    linked.UnionWith(identity.Value.Where(id => !string.Equals(id, recordId, StringComparison.OrdinalIgnoreCase)));
+                }
+            }
+
+            var groups = new List<DuplicateIdentityGroup>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string start in neighbours.Keys.OrderBy(ParseRecordId).ThenBy(id => id, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!visited.Add(start))
+                    continue;
+                var group = new DuplicateIdentityGroup();
+                var pending = new Queue<string>();
+                pending.Enqueue(start);
+                while (pending.Count > 0)
+                {
+                    string recordId = pending.Dequeue();
+                    group.RecordIds.Add(recordId);
+                    group.Keys.UnionWith(keysByRecord[recordId]);
+                    foreach (string linkedId in neighbours[recordId])
+                        if (visited.Add(linkedId)) pending.Enqueue(linkedId);
+                }
+                if (group.RecordIds.Count > 1)
+                    groups.Add(group);
+            }
+            return groups;
+        }
+
+        private static long ParseRecordId(string value)
+        {
+            long parsed;
+            return long.TryParse(value, out parsed) ? parsed : long.MaxValue;
         }
 
         internal static IList<Dictionary<string, string>> LoadExistingRows(SqlConnection connection, ExcelImportModule module)
@@ -237,19 +289,22 @@ END");
                     break;
                 case ExcelImportModule.Clients:
                     sql = @"SELECT CONVERT(varchar(30), ClientID) RecordID, CompanyName ClientName,
-                                   Phone, Email, GSTNumber GSTIN, CompanyName DisplayName FROM B2BClients WHERE ISNULL(IsActive,1)=1";
+                                   Phone, Email, GSTNumber GSTIN, PANNumber PAN, BillingAddress Address,
+                                   CompanyName DisplayName FROM B2BClients WHERE ISNULL(IsActive,1)=1";
                     break;
                 case ExcelImportModule.Employees:
                     sql = @"SELECT CONVERT(varchar(30), EmployeeID) RecordID, EmployeeCode, Name EmployeeName,
-                                   Phone, AadhaarNumber Aadhaar, PANNumber PAN, Name DisplayName FROM Employees e
+                                   Phone, WhatsAppNumber, AadhaarNumber Aadhaar, PANNumber PAN, UAN,
+                                   ESICNumber, BankAccountNumber, Address, Name DisplayName FROM Employees e
                             WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Employees' AND a.DuplicateRecordID=CONVERT(varchar(30),e.EmployeeID))";
                     break;
                 case ExcelImportModule.Vendors:
                     sql = @"SELECT CONVERT(varchar(30), VendorID) RecordID, VendorName SupplierName,
-                                   Phone, Email, GSTNumber GSTIN, VendorName DisplayName FROM Vendors WHERE ISNULL(IsArchived,0)=0";
+                                   Phone, Email, GSTNumber GSTIN, PANNumber PAN, WhatsAppNumber,
+                                   MSMENumber, BankAccountNumber, Address, VendorName DisplayName FROM Vendors WHERE ISNULL(IsArchived,0)=0";
                     break;
                 case ExcelImportModule.Sites:
-                    sql = @"SELECT CONVERT(varchar(30), s.SiteID) RecordID, s.SiteName, c.CompanyName ClientName, s.SiteName DisplayName
+                    sql = @"SELECT CONVERT(varchar(30), s.SiteID) RecordID, s.SiteName, s.Address, c.CompanyName ClientName, s.SiteName DisplayName
                             FROM ClientSites s INNER JOIN B2BClients c ON c.ClientID=s.ClientID
                             WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID))";
                     break;
@@ -305,6 +360,7 @@ END");
                     break;
                 case ExcelImportModule.Clients:
                     Add(keys, "GSTIN", Value(row, "GSTIN"));
+                    Add(keys, "PAN", Value(row, "PAN"));
                     AddPhone(keys, Value(row, "Phone"));
                     AddEmail(keys, Value(row, "Email"));
                     Add(keys, "client name", Value(row, "ClientName"));
@@ -313,17 +369,26 @@ END");
                     Add(keys, "employee code", Value(row, "EmployeeCode"));
                     Add(keys, "Aadhaar", Value(row, "Aadhaar"));
                     Add(keys, "PAN", Value(row, "PAN"));
+                    Add(keys, "UAN", Value(row, "UAN"));
+                    Add(keys, "ESIC number", Value(row, "ESICNumber"));
+                    Add(keys, "bank account", Value(row, "BankAccountNumber"));
                     AddPhone(keys, Value(row, "Phone"));
+                    AddPhone(keys, Value(row, "WhatsAppNumber"));
                     Add(keys, "employee name", Value(row, "EmployeeName"));
                     break;
                 case ExcelImportModule.Vendors:
                     Add(keys, "GSTIN", Value(row, "GSTIN"));
+                    Add(keys, "PAN", Value(row, "PAN"));
+                    Add(keys, "MSME number", Value(row, "MSMENumber"));
+                    Add(keys, "bank account", Value(row, "BankAccountNumber"));
                     AddPhone(keys, Value(row, "Phone"));
+                    AddPhone(keys, Value(row, "WhatsAppNumber"));
                     AddEmail(keys, Value(row, "Email"));
                     Add(keys, "supplier name", Value(row, "SupplierName"));
                     break;
                 case ExcelImportModule.Sites:
                     AddComposite(keys, "client/site", row, "ClientName", "SiteName");
+                    Add(keys, "site name", Value(row, "SiteName"));
                     break;
                 case ExcelImportModule.Inventory:
                     Add(keys, "item name", Value(row, "ItemName"));
@@ -341,7 +406,7 @@ END");
         private static void Add(List<string> keys, string label, string value)
         {
             string normalized = Normalize(value);
-            if (!string.IsNullOrWhiteSpace(normalized))
+            if (IsMeaningfulIdentity(normalized))
                 keys.Add(label + "|" + normalized);
         }
 
@@ -357,15 +422,41 @@ END");
         private static void AddEmail(List<string> keys, string value)
         {
             string email = (value ?? string.Empty).Trim().ToLowerInvariant();
-            if (email.Contains("@"))
+            if (email.Contains("@") && !IsPlaceholder(Normalize(email)))
                 keys.Add("email|" + email);
         }
 
         private static void AddComposite(List<string> keys, string label, IDictionary<string, string> row, params string[] fields)
         {
             string[] values = fields.Select(field => Normalize(Value(row, field))).ToArray();
-            if (values.All(value => !string.IsNullOrWhiteSpace(value)))
+            if (values.All(IsMeaningfulIdentity))
                 keys.Add(label + "|" + string.Join("~", values));
+        }
+
+        private static bool IsMeaningfulIdentity(string normalized)
+        {
+            return !string.IsNullOrWhiteSpace(normalized) && !IsPlaceholder(normalized);
+        }
+
+        private static bool IsPlaceholder(string normalized)
+        {
+            switch (normalized ?? string.Empty)
+            {
+                case "NA":
+                case "NIL":
+                case "NONE":
+                case "NULL":
+                case "UNKNOWN":
+                case "BLANK":
+                case "NOTAVAILABLE":
+                case "NOTAPPLICABLE":
+                case "NOTPROVIDED":
+                case "0":
+                case "00":
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         internal static string Normalize(string value)
@@ -410,6 +501,12 @@ END");
                 return number.ToString("0.####", CultureInfo.InvariantCulture);
             }
             return Convert.ToString(value, CultureInfo.InvariantCulture) ?? string.Empty;
+        }
+
+        private sealed class DuplicateIdentityGroup
+        {
+            public HashSet<string> RecordIds { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            public HashSet<string> Keys { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
     }
 }

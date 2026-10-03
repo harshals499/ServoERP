@@ -29,6 +29,36 @@ namespace HVAC_Pro_Desktop.Tests
                 "client GST/name duplicates should be detected");
             passed.Add("client duplicate detection uses GSTIN and normalized company name");
 
+            var clientEmail = new List<Dictionary<string, string>>
+            {
+                Row("ClientName", "North Plant", "Email", " Accounts@Example.com "),
+                Row("ClientName", "North Plant Division", "Email", "accounts@example.com")
+            };
+            Expect(detector.ScanUploadOnly(ExcelImportModule.Clients, clientEmail).UploadDuplicateRows == 1,
+                "client email duplicates should be detected independently of name");
+            passed.Add("client duplicate detection checks email independently of name");
+
+            var employeeIdentity = new List<Dictionary<string, string>>
+            {
+                Row("EmployeeName", "Technician One", "UAN", "1002 0030 0400"),
+                Row("EmployeeName", "Technician Two", "UAN", "100200300400")
+            };
+            Expect(detector.ScanUploadOnly(ExcelImportModule.Employees, employeeIdentity).UploadDuplicateRows == 1,
+                "employee UAN duplicates should be detected independently of name");
+            passed.Add("employee duplicate detection checks payroll and bank identities");
+
+            List<SmartImportDuplicateGroup> connectedGroups = SmartImportDuplicateDetector.FindExistingGroups(
+                ExcelImportModule.Clients,
+                new List<Dictionary<string, string>>
+                {
+                    Row("RecordID", "1", "DisplayName", "Alpha", "ClientName", "Alpha", "Email", "alpha@example.com"),
+                    Row("RecordID", "2", "DisplayName", "Alpha branch", "ClientName", "Alpha", "Email", "branch@example.com"),
+                    Row("RecordID", "3", "DisplayName", "Different spelling", "ClientName", "Different", "Email", "branch@example.com")
+                });
+            Expect(connectedGroups.Count == 1 && connectedGroups[0].Records.Count == 3,
+                "overlapping name/email matches should become one safe review group");
+            passed.Add("overlapping matches are consolidated into one duplicate review group");
+
             var modules = new Dictionary<ExcelImportModule, Dictionary<string, string>>
             {
                 { ExcelImportModule.Quotations, Row("QuotationNumber", "Q-1") },
