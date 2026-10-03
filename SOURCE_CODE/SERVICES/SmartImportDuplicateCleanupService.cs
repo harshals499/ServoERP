@@ -22,6 +22,13 @@ namespace HVAC_Pro_Desktop.Services
         public IEnumerable<string> DuplicateIds { get; set; }
     }
 
+    public sealed class DuplicateCleanupPlanningResult
+    {
+        public List<DuplicateCleanupPlan> Plans { get; set; } = new List<DuplicateCleanupPlan>();
+        public int SourceGroupCount { get; set; }
+        public int ConsolidatedOverlapCount { get; set; }
+    }
+
     public sealed class SmartImportDuplicateCleanupService
     {
         private readonly DatabaseManager _database = new DatabaseManager();
@@ -43,7 +50,8 @@ namespace HVAC_Pro_Desktop.Services
         public DuplicateCleanupResult MergeAndArchiveGroups(ExcelImportModule module, IEnumerable<DuplicateCleanupPlan> cleanupPlans)
         {
             ModuleMap map = GetMap(module);
-            List<NormalizedCleanupPlan> plans = NormalizePlans(cleanupPlans);
+            DuplicateCleanupPlanningResult planning = BuildSmartBulkPlan(cleanupPlans);
+            List<NormalizedCleanupPlan> plans = NormalizePlans(planning.Plans);
             int archivedRecords = plans.Sum(plan => plan.DuplicateIds.Count);
 
             EnsureSchema();
@@ -106,7 +114,62 @@ VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
 
         internal static void ValidateBulkSelection(IEnumerable<DuplicateCleanupPlan> cleanupPlans)
         {
-            NormalizePlans(cleanupPlans);
+            NormalizePlans(BuildSmartBulkPlan(cleanupPlans).Plans);
+        }
+
+        public static DuplicateCleanupPlanningResult BuildSmartBulkPlan(IEnumerable<DuplicateCleanupPlan> cleanupPlans)
+        {
+            List<DuplicateCleanupPlan> sources = (cleanupPlans ?? Enumerable.Empty<DuplicateCleanupPlan>())
+                .Where(plan => plan != null && !string.IsNullOrWhiteSpace(plan.SurvivorId))
+                .Select(plan => new DuplicateCleanupPlan
+                {
+                    SurvivorId = plan.SurvivorId.Trim(),
+                    DuplicateIds = (plan.DuplicateIds ?? Enumerable.Empty<string>()).Where(id => !string.IsNullOrWhiteSpace(id)).Select(id => id.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                })
+                .Where(plan => plan.DuplicateIds.Any(id => !string.Equals(id, plan.SurvivorId, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+            if (sources.Count == 0)
+                throw new InvalidOperationException("Select at least one duplicate group with a survivor and records to archive.");
+
+            var components = new List<List<DuplicateCleanupPlan>>();
+            foreach (DuplicateCleanupPlan source in sources)
+            {
+                var sourceIds = new HashSet<string>((source.DuplicateIds ?? Enumerable.Empty<string>()).Concat(new[] { source.SurvivorId }), StringComparer.OrdinalIgnoreCase);
+                List<List<DuplicateCleanupPlan>> matches = components.Where(component => component.Any(plan =>
+                    (plan.DuplicateIds ?? Enumerable.Empty<string>()).Concat(new[] { plan.SurvivorId }).Any(sourceIds.Contains))).ToList();
+                if (matches.Count == 0)
+                {
+                    components.Add(new List<DuplicateCleanupPlan> { source });
+                    continue;
+                }
+                List<DuplicateCleanupPlan> target = matches[0];
+                target.Add(source);
+                foreach (List<DuplicateCleanupPlan> extra in matches.Skip(1).ToList())
+                {
+                    target.AddRange(extra);
+                    components.Remove(extra);
+                }
+            }
+
+            var result = new DuplicateCleanupPlanningResult { SourceGroupCount = sources.Count };
+            foreach (List<DuplicateCleanupPlan> component in components)
+            {
+                var allIds = new HashSet<string>(component.SelectMany(plan => (plan.DuplicateIds ?? Enumerable.Empty<string>()).Concat(new[] { plan.SurvivorId })), StringComparer.OrdinalIgnoreCase);
+                string survivor = component.GroupBy(plan => plan.SurvivorId, StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(group => group.Count())
+                    .ThenBy(group => ParseSortableId(group.Key))
+                    .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.Key)
+                    .First();
+                result.Plans.Add(new DuplicateCleanupPlan { SurvivorId = survivor, DuplicateIds = allIds.Where(id => !string.Equals(id, survivor, StringComparison.OrdinalIgnoreCase)).ToList() });
+                if (component.Count > 1) result.ConsolidatedOverlapCount += component.Count - 1;
+            }
+            return result;
+        }
+
+        private static long ParseSortableId(string value)
+        {
+            return long.TryParse(value, out long parsed) ? parsed : long.MaxValue;
         }
 
         private static List<NormalizedCleanupPlan> NormalizePlans(IEnumerable<DuplicateCleanupPlan> cleanupPlans)

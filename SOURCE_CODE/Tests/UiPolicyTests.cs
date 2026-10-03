@@ -34,7 +34,21 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureForgotPasswordUsesSelfServiceDialog();
             EnsureLanControlDeploymentWorkflowIsVisible();
             EnsureSmartUploadCardsExposeDirectDuplicateCleanup();
+            EnsureConfiguredCompanyAddressAppearsInDocuments();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureConfiguredCompanyAddressAppearsInDocuments()
+        {
+            string html = DocumentBranding.BuildConfiguredCompanyIdentityHtml(new IndiaCompanySettings
+            {
+                CompanyName = "ServoERP QA Company",
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!html.Contains("Unit 7, Test Industrial Estate, Pune") || !html.Contains("020-55550000") || !html.Contains("qa@example.test"))
+                throw new InvalidOperationException("Shared document branding must render the company address and contact details saved in Settings.");
         }
 
         private static void EnsureSmartUploadCardsExposeDirectDuplicateCleanup()
@@ -60,6 +74,9 @@ namespace HVAC_Pro_Desktop.Tests
                 CheckedListBox groupList = FindControl<CheckedListBox>(dialog);
                 if (groupList == null || !groupList.CheckOnClick)
                     throw new InvalidOperationException("Duplicate groups must support direct multi-selection.");
+                TextBox filter = FindControls<TextBox>(dialog).FirstOrDefault(box => box.Name == "DuplicateGroupFilter");
+                if (filter == null)
+                    throw new InvalidOperationException("Duplicate cleanup must support filtering groups before select-all and merge.");
             }
 
             SmartImportDuplicateCleanupService.ValidateBulkSelection(new[]
@@ -67,21 +84,13 @@ namespace HVAC_Pro_Desktop.Tests
                 new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
                 new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "4", "5" } }
             });
-            bool overlapRejected = false;
-            try
+            DuplicateCleanupPlanningResult smartPlan = SmartImportDuplicateCleanupService.BuildSmartBulkPlan(new[]
             {
-                SmartImportDuplicateCleanupService.ValidateBulkSelection(new[]
-                {
-                    new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
-                    new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "2" } }
-                });
-            }
-            catch (InvalidOperationException)
-            {
-                overlapRejected = true;
-            }
-            if (!overlapRejected)
-                throw new InvalidOperationException("Bulk duplicate cleanup must reject overlapping groups before starting a transaction.");
+                new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
+                new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "2" } }
+            });
+            if (smartPlan.Plans.Count != 1 || smartPlan.ConsolidatedOverlapCount != 1 || smartPlan.Plans[0].SurvivorId != "1" || smartPlan.Plans[0].DuplicateIds.Count() != 2)
+                throw new InvalidOperationException("Smart duplicate cleanup must consolidate overlapping groups into one deterministic safe plan.");
         }
 
         private static void EnsureLanControlDeploymentWorkflowIsVisible()

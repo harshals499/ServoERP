@@ -119,6 +119,7 @@ namespace HVAC_Pro_Desktop.Services
 <style>
 body .mse-from-block{margin-bottom:14px;}
 "
+            + DocumentBranding.BuildOfficialHeaderCss()
             + DocumentBranding.BuildOfficialCompanyDetailsCss()
             + @"
 body{font-family:'Segoe UI',Arial,sans-serif;margin:24px;color:#1A1A1A;}
@@ -135,6 +136,7 @@ th{background:#F7F7F7;}
 </head>
 <body>
 <div class='wrap'>
+" + DocumentBranding.BuildOfficialHeaderHtml() + @"
 " + DocumentBranding.BuildFromBlockHtml(DocumentBranding.DefaultCompanyName, null, null, null, null, null, null, null, false) + @"
 <div class='head'>
 <div>

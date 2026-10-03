@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.459.0 - 2026-10-03
+
+- Made every shared PDF header read the company name, registered address, phone, and email from Settings, covering invoices, quotations, purchase orders, job documents, payslips, payroll reports, and shared PDF exports.
+- Added duplicate-group filtering with select-all and clear-selection actions scoped to the visible results.
+- Added smart overlap planning that consolidates intersecting duplicate groups into one deterministic, transactional merge plan instead of failing the complete selection.
+- Added regression and rendered-layout coverage for Settings-backed document identity and safe overlapping duplicate cleanup.
+
 ## 1.1.458.0 - 2026-10-03
 
 - Added Smart Dispatch to the Jobs dashboard and each job's action menu with ranked, explainable technician recommendations.

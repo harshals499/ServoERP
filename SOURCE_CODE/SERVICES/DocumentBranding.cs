@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using HVAC_Pro_Desktop.Models;
@@ -98,19 +99,66 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         public static string BuildOfficialHeaderHtml()
         {
+            IndiaCompanySettings company = GetConfiguredCompanySettings();
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
             string logoHtml = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Company invoice header' />"
                 : "<div class='mse-official-header-logo-fallback'>"
-                + "<div class='brand-row'><span class='mark'>MSE</span><span class='company'>" + Html(DefaultCompanyName) + "</span></div>"
+                + "<div class='brand-row'><span class='mark'>MSE</span><span class='company'>" + Html(FirstNonEmpty(company.CompanyName, DefaultCompanyName)) + "</span></div>"
                 + "<div class='tagline'>Solution Providers For Process Chilling, Ventilation, Comfort Air Conditioning, Humidity Control, AMC, Utility Operation &amp; Maintenance</div>"
-                + "<div class='contact'>Thane, Maharashtra | 9967604066 | msentp.info@gmail.com | www.hvacservicesindia.in</div>"
+                + "<div class='contact'>" + Html(BuildContactLine(company)) + "</div>"
                 + "</div>";
 
             return "<div class='mse-official-header'>"
                 + "<div class='mse-official-header-top'>"
                 + "<div class='mse-official-header-logo'>" + logoHtml + "</div>"
-                + "</div></div>";
+                + "</div>" + BuildConfiguredCompanyIdentityHtml(company) + "</div>";
+        }
+
+        public static IndiaCompanySettings GetConfiguredCompanySettings()
+        {
+            try
+            {
+                return new SettingsService().GetIndiaCompanySettings() ?? new IndiaCompanySettings { CompanyName = DefaultCompanyName };
+            }
+            catch
+            {
+                return new IndiaCompanySettings { CompanyName = DefaultCompanyName };
+            }
+        }
+
+        public static string BuildConfiguredCompanyIdentityHtml(IndiaCompanySettings company)
+        {
+            company = company ?? new IndiaCompanySettings();
+            string address = FirstNonEmpty(company.Address);
+            string contact = BuildContactLine(company);
+            if (string.IsNullOrWhiteSpace(address) && string.IsNullOrWhiteSpace(contact))
+                return string.Empty;
+
+            var lines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(address))
+                lines.Add("<strong>Registered office:</strong> " + Html(address).Replace("\r\n", "<br/>").Replace("\n", "<br/>"));
+            if (!string.IsNullOrWhiteSpace(contact))
+                lines.Add(Html(contact));
+            return "<div class='mse-configured-identity' style='font-family:Segoe UI,sans-serif;font-size:9px;line-height:1.35;margin-top:5px;color:#334155'>" + string.Join("<br/>", lines) + "</div>";
+        }
+
+        public static Tuple<string, string>[] GetConfiguredIdentityRows()
+        {
+            IndiaCompanySettings company = GetConfiguredCompanySettings();
+            var rows = new List<Tuple<string, string>>();
+            if (!string.IsNullOrWhiteSpace(company.Address)) rows.Add(Tuple.Create("Registered office", company.Address.Trim()));
+            if (!string.IsNullOrWhiteSpace(company.Phone)) rows.Add(Tuple.Create("Phone", company.Phone.Trim()));
+            if (!string.IsNullOrWhiteSpace(company.Email)) rows.Add(Tuple.Create("Email", company.Email.Trim()));
+            return rows.ToArray();
+        }
+
+        private static string BuildContactLine(IndiaCompanySettings company)
+        {
+            if (company == null) return string.Empty;
+            return string.Join(" | ", new[] { company.Phone, company.Email }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim()));
         }
 
         public static Tuple<string, string>[] GetOfficialDetailRows(

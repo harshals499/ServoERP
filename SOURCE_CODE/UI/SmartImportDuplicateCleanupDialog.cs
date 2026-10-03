@@ -16,12 +16,20 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ComboBox _survivor = new ComboBox();
         private readonly CheckedListBox _duplicates = new CheckedListBox();
         private readonly Label _status = new Label();
+        private readonly TextBox _filter = new TextBox();
         private readonly Dictionary<SmartImportDuplicateGroup, GroupSelectionState> _selectionStates = new Dictionary<SmartImportDuplicateGroup, GroupSelectionState>();
+        private readonly HashSet<SmartImportDuplicateGroup> _selectedGroups = new HashSet<SmartImportDuplicateGroup>();
         private SplitContainer _workspaceSplit;
         private List<SmartImportDuplicateGroup> _items = new List<SmartImportDuplicateGroup>();
         private SmartImportDuplicateGroup _boundGroup;
         private bool _suppressBinding;
         private bool _applyingWorkspaceSplit;
+        private bool _suppressGroupChecks;
+        private List<SmartImportDuplicateGroup> _visibleItems = new List<SmartImportDuplicateGroup>();
+
+        public SmartImportDuplicateCleanupDialog() : this(ExcelImportModule.Employees, false)
+        {
+        }
 
         public SmartImportDuplicateCleanupDialog(ExcelImportModule module) : this(module, true)
         {
@@ -48,22 +56,37 @@ namespace HVAC_Pro_Desktop.UI
             var help = new Label { Dock = DockStyle.Top, Height = 46, Padding = new Padding(18, 0, 18, 8), ForeColor = Color.FromArgb(71, 85, 105), Text = "Choose a group and the record to keep. Linked records move in one transaction; failures roll back safely." };
             _workspaceSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 275, FixedPanel = FixedPanel.Panel1, Padding = new Padding(18, 4, 18, 4) };
             var groupPanel = new Panel { Dock = DockStyle.Fill };
-            var groupActions = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Padding = new Padding(0, 0, 0, 6) };
-            var selectAll = new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select all groups", Width = 126, Height = 30, FlatStyle = FlatStyle.Flat };
-            var clearAll = new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear selection", Width = 116, Height = 30, FlatStyle = FlatStyle.Flat };
+            var groupActions = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 0, 0, 6) };
+            groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
+            var selectAll = new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select all groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat };
+            var clearAll = new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear selection", Dock = DockStyle.Fill, Margin = new Padding(4, 0, 0, 0), FlatStyle = FlatStyle.Flat };
             selectAll.Click += (s, e) => SetAllGroupsChecked(true);
             clearAll.Click += (s, e) => SetAllGroupsChecked(false);
-            groupActions.Controls.Add(selectAll);
-            groupActions.Controls.Add(clearAll);
+            groupActions.Controls.Add(selectAll, 0, 0);
+            groupActions.Controls.Add(clearAll, 1, 0);
+            var filterPanel = new Panel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(0, 16, 0, 6) };
+            _filter.Name = "DuplicateGroupFilter";
+            _filter.Dock = DockStyle.Fill;
+            _filter.Font = new Font("Segoe UI", 9f);
+            _filter.TextChanged += (s, e) => ApplyGroupFilter();
+            filterPanel.Controls.Add(_filter);
+            filterPanel.Controls.Add(new Label { Text = "Filter groups", Dock = DockStyle.Top, Height = 16, Font = new Font("Segoe UI", 7.5f), ForeColor = Color.FromArgb(100, 116, 139) });
             _groups.Dock = DockStyle.Fill;
             _groups.CheckOnClick = true;
             _groups.SelectedIndexChanged += (s, e) => BindSelectedGroup();
             _groups.ItemCheck += (s, e) =>
             {
+                if (!_suppressGroupChecks && e.Index >= 0 && e.Index < _visibleItems.Count)
+                {
+                    SmartImportDuplicateGroup group = _visibleItems[e.Index];
+                    if (e.NewValue == CheckState.Checked) _selectedGroups.Add(group); else _selectedGroups.Remove(group);
+                }
                 if (IsHandleCreated)
                     BeginInvoke((Action)UpdateSelectionStatus);
             };
             groupPanel.Controls.Add(_groups);
+            groupPanel.Controls.Add(filterPanel);
             groupPanel.Controls.Add(groupActions);
             _workspaceSplit.Panel1.Controls.Add(groupPanel);
 
@@ -149,7 +172,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _items = _service.GetGroups(_module).Groups;
                 _selectionStates.Clear();
-                _groups.Items.Clear();
+                _selectedGroups.Clear();
                 foreach (SmartImportDuplicateGroup group in _items)
                 {
                     SmartImportDuplicateRecord survivor = group.Records.FirstOrDefault();
@@ -158,14 +181,10 @@ namespace HVAC_Pro_Desktop.UI
                         SurvivorId = survivor == null ? null : survivor.RecordId,
                         DuplicateIds = new HashSet<string>(group.Records.Skip(1).Select(record => record.RecordId), StringComparer.OrdinalIgnoreCase)
                     };
-                    _groups.Items.Add(group.MatchReason + " - " + group.Records.Count + " records");
                 }
-                if (_groups.Items.Count > 0)
-                {
-                    _groups.SelectedIndex = 0;
-                    _groups.SetItemChecked(0, true);
-                }
-                else { _survivor.DataSource = null; _duplicates.Items.Clear(); }
+                if (_items.Count > 0) _selectedGroups.Add(_items[0]);
+                ApplyGroupFilter();
+                if (_items.Count == 0) { _survivor.DataSource = null; _duplicates.Items.Clear(); }
                 UpdateSelectionStatus();
             }
             catch (Exception ex)
@@ -238,8 +257,34 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetAllGroupsChecked(bool isChecked)
         {
-            for (int index = 0; index < _groups.Items.Count; index++)
-                _groups.SetItemChecked(index, isChecked);
+            foreach (SmartImportDuplicateGroup group in _visibleItems)
+                if (isChecked) _selectedGroups.Add(group); else _selectedGroups.Remove(group);
+            _suppressGroupChecks = true;
+            try
+            {
+                for (int index = 0; index < _groups.Items.Count; index++)
+                    _groups.SetItemChecked(index, isChecked);
+            }
+            finally { _suppressGroupChecks = false; }
+            UpdateSelectionStatus();
+        }
+
+        private void ApplyGroupFilter()
+        {
+            string needle = (_filter.Text ?? string.Empty).Trim();
+            _visibleItems = _items.Where(group => string.IsNullOrWhiteSpace(needle) ||
+                ((group.MatchReason ?? string.Empty) + " " + string.Join(" ", group.Records.Select(record => record.DisplayName + " " + record.RecordId)))
+                    .IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
+            _suppressGroupChecks = true;
+            try
+            {
+                _groups.Items.Clear();
+                foreach (SmartImportDuplicateGroup group in _visibleItems)
+                    _groups.Items.Add(group.MatchReason + " - " + group.Records.Count + " records", _selectedGroups.Contains(group));
+            }
+            finally { _suppressGroupChecks = false; }
+            if (_groups.Items.Count > 0) _groups.SelectedIndex = 0;
+            else { _boundGroup = null; _survivor.DataSource = null; _duplicates.Items.Clear(); }
             UpdateSelectionStatus();
         }
 
@@ -247,27 +292,34 @@ namespace HVAC_Pro_Desktop.UI
         {
             _status.Text = _items.Count == 0
                 ? "No existing duplicate groups remain."
-                : _groups.CheckedIndices.Count + " of " + _items.Count + " duplicate group(s) selected.";
+                : _selectedGroups.Count + " of " + _items.Count + " group(s) selected; " + _visibleItems.Count + " visible. Overlaps are consolidated automatically.";
         }
 
         private void MergeSelectedGroups()
         {
             SaveBoundGroupSelection();
-            List<int> selectedIndexes = _groups.CheckedIndices.Cast<int>().ToList();
             var plans = new List<DuplicateCleanupPlan>();
-            foreach (int index in selectedIndexes)
+            foreach (SmartImportDuplicateGroup group in _selectedGroups)
             {
-                SmartImportDuplicateGroup group = _items[index];
                 GroupSelectionState state = _selectionStates[group];
                 plans.Add(new DuplicateCleanupPlan { SurvivorId = state.SurvivorId, DuplicateIds = state.DuplicateIds.ToList() });
             }
+            DuplicateCleanupPlanningResult planning;
+            try { planning = SmartImportDuplicateCleanupService.BuildSmartBulkPlan(plans); }
+            catch (InvalidOperationException ex)
+            {
+                MessageBox.Show(this, ex.Message, "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            plans = planning.Plans;
             int duplicateCount = plans.Sum(plan => (plan.DuplicateIds ?? Enumerable.Empty<string>()).Count());
             if (plans.Count == 0 || duplicateCount == 0)
             {
                 MessageBox.Show(this, "Select at least one duplicate group with records to archive.", "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            if (!ServoConfirmDialog.Show(this, "Merge " + plans.Count + " selected group(s) and archive " + duplicateCount + " duplicate record(s)?", "Each group's selected survivor will be kept. Linked records will be reassigned, the entire batch will run in one transaction, and the operation will be audited.")) return;
+            string overlapNote = planning.ConsolidatedOverlapCount > 0 ? " Smart planning consolidated " + planning.ConsolidatedOverlapCount + " overlapping group(s) to prevent conflicts." : string.Empty;
+            if (!ServoConfirmDialog.Show(this, "Merge " + plans.Count + " safe group(s) and archive " + duplicateCount + " duplicate record(s)?", "Linked records will be reassigned, the entire batch will run in one transaction, and the operation will be audited." + overlapNote)) return;
             try
             {
                 DuplicateCleanupResult result = _service.MergeAndArchiveGroups(_module, plans);
@@ -281,7 +333,7 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private SmartImportDuplicateGroup SelectedGroup() { return _groups.SelectedIndex >= 0 && _groups.SelectedIndex < _items.Count ? _items[_groups.SelectedIndex] : null; }
+        private SmartImportDuplicateGroup SelectedGroup() { return _groups.SelectedIndex >= 0 && _groups.SelectedIndex < _visibleItems.Count ? _visibleItems[_groups.SelectedIndex] : null; }
 
         private sealed class RecordChoice
         {
