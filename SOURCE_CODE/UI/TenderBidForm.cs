@@ -1228,7 +1228,7 @@ namespace HVAC_Pro_Desktop.UI
             AddQuoteAction(menu, "Generate PDF", () => PrintQuotationToPdf());
             AddQuoteAction(menu, "Send Supplier PO", CreatePurchaseOrdersAsync);
             AddQuoteAction(menu, "Create Customer Invoice", CreateInvoiceAsync);
-            AddQuoteAction(menu, "Create Revenue Job", CreateDispatchJobAsync);
+            AddQuoteAction(menu, "Accepted Quote → Delivery Wizard", CreateDispatchJobAsync);
             AddQuoteAction(menu, "WhatsApp Follow-up", () => ShowQuotationWhatsAppAction());
             menu.Items.Add(new ToolStripSeparator());
             AddQuoteAction(menu, "Delete Quote", DeleteCurrentQuoteAsync);
@@ -2998,12 +2998,21 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 int bidId = await EnsureSavedAsync();
-                Job job = await Task.Run(() => _svc.CreateDispatchJobFromQuotation(bidId));
+                QuotationDeliveryResult result;
+                using (var wizard = new QuotationDeliveryWizardForm(bidId))
+                {
+                    if (wizard.ShowDialog(this) != DialogResult.OK || wizard.Result == null)
+                    {
+                        SetStatus("Delivery wizard closed without creating records.", InfoBlue);
+                        return;
+                    }
+                    result = wizard.Result;
+                }
                 _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
                 PopulateCurrent(_current);
                 await RefreshListsAsync();
-                SetStatus("Revenue job created: " + job.JobNumber, SaveGreen);
-                if (ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Open created job?", "Revenue job created: " + job.JobNumber + "\r\n\r\nOpen the Jobs workspace now?"))
+                SetStatus("Delivery records created: " + result.JobNumber, SaveGreen);
+                if (ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Open created job?", "Delivery job created: " + result.JobNumber + "\r\n\r\nOpen the Jobs workspace now?"))
                     OnNavigate?.Invoke(15);
             }
             catch (Exception ex)

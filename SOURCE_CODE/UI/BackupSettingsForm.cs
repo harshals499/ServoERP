@@ -36,6 +36,7 @@ namespace HVAC_Pro_Desktop.UI
             _timeSchedule.Value = DateTime.Today.Add(ParseSchedule(DbSettings.Get("BackupScheduledTime", "18:00")));
             _chkRunOnClose.Checked = ParseBool(DbSettings.Get("BackupRunOnClose", "true"), true);
             _chkEnabled.Checked = ParseBool(DbSettings.Get("BackupEnabled", "true"), true);
+            _chkOfflineEnabled.Checked = LocalSqliteFallbackStore.IsOfflineQueueEnabled;
 
             int days;
             _numRetention.Value = int.TryParse(DbSettings.Get("BackupRetentionDays", "30"), out days)
@@ -64,6 +65,9 @@ namespace HVAC_Pro_Desktop.UI
             DbSettings.Set("BackupRetentionDays", ((int)_numRetention.Value).ToString());
             DbSettings.Set("BackupRunOnClose", _chkRunOnClose.Checked ? "true" : "false");
             DbSettings.Set("BackupEnabled", _chkEnabled.Checked ? "true" : "false");
+            ConfigService.Set("OneDriveStorage", "Enabled", _chkOneDriveEnabled.Checked ? "true" : "false");
+            ConfigService.Set("OneDriveStorage", "RootPath", _txtOneDrivePath.Text.Trim());
+            ConfigService.Set("Fallback", "AllowBusinessWrites", _chkOfflineEnabled.Checked ? "true" : "false");
             SetStatus(T("Backup settings saved."), DS.Green600);
             RefreshOneDriveStatus();
         }

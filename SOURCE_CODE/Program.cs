@@ -159,6 +159,8 @@ namespace HVAC_Pro_Desktop
                 foreach (string result in SmartDispatchServiceSmokeTests.RunAll())
                     lines.Add("PASS " + result);
                 lines.Add("PASS " + SiteMonitorRevenueSmokeTests.RunAll());
+                foreach (string result in QuotationDeliveryServiceSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
             }
             catch (Exception ex)
             {
@@ -537,6 +539,28 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/backupsettingsvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string outputPath = Path.Combine(outputDirectory, "backup-onedrive-offline-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png");
+                    using (var form = new BackupSettingsForm())
+                    {
+                        form.Show();
+                        Application.DoEvents();
+                        form.PerformLayout();
+                        Application.DoEvents();
+                        using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                        {
+                            form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                        form.Close();
+                    }
+                    AppRuntime.LogTiming("BackupSettingsVisualTest", 0, outputPath);
+                    return;
+                }
+
                 if (HasArg(args, "/officeapiconfig"))
                 {
                     Application.Run(new OfficeApiSettingsForm());
@@ -615,6 +639,39 @@ namespace HVAC_Pro_Desktop
                         }
                     }
                     AppRuntime.LogTiming("InvoiceDashboardVisualTest", 0, outputPath + " | " + compactOutputPath);
+                    return;
+                }
+
+                if (HasArg(args, "/deliverywizardvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    var outputPaths = new System.Collections.Generic.List<string>();
+                    using (var form = new QuotationDeliveryWizardForm(QuotationDeliveryServiceSmokeTests.BuildPreviewPlan()))
+                    {
+                        form.Show();
+                        Application.DoEvents();
+                        form.PerformLayout();
+                        Application.DoEvents();
+                        TabControl tabs = form.Controls.OfType<TabControl>().FirstOrDefault();
+                        int tabCount = tabs == null ? 1 : tabs.TabPages.Count;
+                        for (int tabIndex = 0; tabIndex < tabCount; tabIndex++)
+                        {
+                            string tabName = tabs == null ? "overview" : new string(tabs.TabPages[tabIndex].Text.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+                            if (tabs != null) tabs.SelectedIndex = tabIndex;
+                            Application.DoEvents();
+                            string outputPath = Path.Combine(outputDirectory, "accepted-quote-delivery-wizard-" + tabName + "-" + stamp + ".png");
+                            using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                            {
+                                form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                                bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                            }
+                            outputPaths.Add(outputPath);
+                        }
+                        form.Close();
+                    }
+                    AppRuntime.LogTiming("AcceptedQuoteDeliveryWizardVisualTest", 0, string.Join(" | ", outputPaths));
                     return;
                 }
 

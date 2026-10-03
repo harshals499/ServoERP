@@ -59,8 +59,8 @@ namespace HVAC_Pro_Desktop.DAL
             {
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
-                    INSERT INTO ClientSites (ClientID,SiteName,Address,City,ACSystemCount,RefrigerationSystemCount,CoolingTowerCount,IsCritical,AssignedTechnicianID,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,TravelRateINR)
-                    VALUES (@cid,@name,@addr,@city,@ac,@ref,@ct,@crit,@tech,@lat,@lng,@geoAddr,@geoStatus,@geoUpdatedOn,@travelRate);
+                    INSERT INTO ClientSites (ClientID,SiteName,Address,City,ACSystemCount,RefrigerationSystemCount,CoolingTowerCount,IsCritical,AssignedTechnicianID,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,TravelRateINR,SyncPublicId)
+                    VALUES (@cid,@name,@addr,@city,@ac,@ref,@ct,@crit,@tech,@lat,@lng,@geoAddr,@geoStatus,@geoUpdatedOn,@travelRate,@syncPublicId);
                     SELECT SCOPE_IDENTITY();", conn))
                 {
                     cmd.Parameters.AddWithValue("@cid",  s.ClientID);
@@ -78,6 +78,7 @@ namespace HVAC_Pro_Desktop.DAL
                     cmd.Parameters.AddWithValue("@geoStatus", (object)s.GeocodeStatus ?? DBNull.Value);
                     cmd.Parameters.AddWithValue("@geoUpdatedOn", s.GeocodeUpdatedOn.HasValue ? (object)s.GeocodeUpdatedOn.Value : DBNull.Value);
                     cmd.Parameters.AddWithValue("@travelRate", s.TravelRateINR);
+                    cmd.Parameters.AddWithValue("@syncPublicId", s.SyncPublicId.HasValue ? (object)s.SyncPublicId.Value : DBNull.Value);
                     return (int)(decimal)cmd.ExecuteScalar();
                 }
             }

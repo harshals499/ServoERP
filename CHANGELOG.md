@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.470.0 - 2026-10-03
+
+- Added customer-owned OneDrive storage for completed SQL Server backup copies and ordinary ServoERP documents without placing live SQL or SQLite database files inside OneDrive.
+- Added an approved machine-local offline queue for client, site, and job creates/updates, with stable record identities, dependent local-ID remapping, idempotent create replay, and automatic retry after SQL Server reconnects.
+- Added optimistic conflict detection that retains stale offline changes for review instead of overwriting records changed by another PC.
+- Kept invoices, payments, payroll, stock movements, and job-material changes online-only; the live `HVAC_PRO` SQL Server database remains authoritative.
+- Added an Accepted Quote → Delivery Wizard with accepted-status enforcement, one-job-per-quotation idempotency, field checklists, material reservation plans, draft purchase requirements, and a human-confirmed billing milestone.
+- Expanded Backup & Recovery with OneDrive detection, OneDrive backup-copy controls, offline-work controls, and clear safety guidance.
+
 ## 1.1.469.0 - 2026-10-03
 
 - Shipped the Site Monitor billed-revenue attribution fix as a source-aligned client release.

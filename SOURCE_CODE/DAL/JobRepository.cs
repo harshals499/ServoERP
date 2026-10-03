@@ -597,12 +597,13 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     INSERT INTO Jobs
-                    (JobNumber, ClientID, SiteID, Title, JobTitle, Description, AssignedEmployeeID, ScheduledDate, CompletedDate, ClosedDate, Priority, Status, PipelineStatus, JobType, LinkedContractId, EstimatedCost, Revenue, QuotedRevenue, ActualRevenue, IsOverdue, InvoiceId, Notes, CreatedByUserId, CreatedByName)
+                    (JobNumber, ClientID, SiteID, Title, JobTitle, Description, AssignedEmployeeID, ScheduledDate, CompletedDate, ClosedDate, Priority, Status, PipelineStatus, JobType, LinkedContractId, EstimatedCost, Revenue, QuotedRevenue, ActualRevenue, IsOverdue, InvoiceId, Notes, CreatedByUserId, CreatedByName, SyncPublicId)
                     VALUES
-                    (@jobNo, @clientId, @siteId, @title, @jobTitle, @desc, @employeeId, @scheduled, @completed, @closedDate, @priority, @status, @pipelineStatus, @jobType, @linkedContractId, @cost, @revenue, @quotedRevenue, @actualRevenue, @isOverdue, @invoiceId, @notes, @createdByUserId, @createdByName);
+                    (@jobNo, @clientId, @siteId, @title, @jobTitle, @desc, @employeeId, @scheduled, @completed, @closedDate, @priority, @status, @pipelineStatus, @jobType, @linkedContractId, @cost, @revenue, @quotedRevenue, @actualRevenue, @isOverdue, @invoiceId, @notes, @createdByUserId, @createdByName, @syncPublicId);
                     SELECT SCOPE_IDENTITY();", conn))
                 {
                     AddParams(cmd, job);
+                    cmd.Parameters.AddWithValue("@syncPublicId", job.SyncPublicId.HasValue ? (object)job.SyncPublicId.Value : DBNull.Value);
                     return Convert.ToInt32(cmd.ExecuteScalar());
                 }
             }

@@ -317,27 +317,9 @@ namespace HVAC_Pro_Desktop.Services
             }
             catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineSyncService.Queue("Jobs", "AddPart", new
-                {
-                    JobId = jobId,
-                    InventoryItemId = inventoryItemId,
-                    Quantity = qty,
-                    ItemDescription = itemDescription,
-                    UnitCostOverride = unitCostOverride
-                }, jobId, true, ex.Message);
-
-                AppDataCache.RemovePrefix("jobs:");
-                return new JobPartUsed
-                {
-                    JobId = jobId,
-                    InventoryItemId = inventoryItemId,
-                    ItemDescription = string.IsNullOrWhiteSpace(itemDescription) ? "Material pending sync" : itemDescription.Trim(),
-                    QuantityUsed = qty,
-                    Unit = UnitMeasurementService.DefaultCode,
-                    UnitCost = unitCostOverride ?? 0m,
-                    TotalCost = Math.Round(qty * (unitCostOverride ?? 0m), 2),
-                    StockStatus = "PendingSync"
-                };
+                throw new InvalidOperationException(
+                    "Materials and stock changes require the office SQL Server connection. Reconnect before adding this job material.",
+                    ex);
             }
         }
 
