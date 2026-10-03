@@ -153,6 +153,8 @@ namespace HVAC_Pro_Desktop
                     lines.Add(result);
                 lines.Add("PASS " + StartupInstanceCleanupSmokeTests.RunAll());
                 lines.Add("PASS " + UiErrorHandlingSmokeTests.RunAll());
+                foreach (string result in SmartDispatchServiceSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
             }
             catch (Exception ex)
             {

@@ -241,6 +241,7 @@
     <Compile Include="MODELS\StockMovement.cs" />
     <Compile Include="MODELS\Employee.cs" />
     <Compile Include="MODELS\Job.cs" />
+    <Compile Include="MODELS\SmartDispatchModels.cs" />
     <Compile Include="MODELS\InvoiceTemplate.cs" />
     <Compile Include="MODELS\InvoiceInventoryReservation.cs" />
     <Compile Include="MODELS\IndiaCompanySettings.cs" />
@@ -380,6 +381,7 @@
     <Compile Include="SERVICES\TenderService.cs" />
     <Compile Include="SERVICES\TenderService.MultiLine.cs" />
     <Compile Include="SERVICES\JobService.cs" />
+    <Compile Include="SERVICES\SmartDispatchService.cs" />
     <Compile Include="SERVICES\InvoiceTemplateService.cs" />
     <Compile Include="SERVICES\InvoiceInventoryService.cs" />
     <Compile Include="SERVICES\IndiaTaxValidationHelper.cs" />
@@ -464,6 +466,7 @@
     <Compile Include="Tests\SmartImportDuplicateDetectorSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
     <Compile Include="Tests\ActionCenterSmokeTests.cs" />
+    <Compile Include="Tests\SmartDispatchServiceSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />
@@ -638,6 +641,9 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\JobWorkflowBoardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\SmartDispatchForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="UI\CompliancePackForm.cs">

@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.458.0 - 2026-10-03
+
+- Added Smart Dispatch to the Jobs dashboard and each job's action menu with ranked, explainable technician recommendations.
+- Added deterministic scoring for availability, workload, skills, similar-job experience, site continuity, and distance when verified coordinates exist.
+- Added job-readiness warnings for missing site data and material shortages, while keeping every assignment human-confirmed through ServoConfirmDialog.
+- Added dispatch scoring smoke coverage and standalone-form support to the visual smoke harness.
+
 ## 1.1.454.0 - 2026-09-27
 
 - Refined My Work with ServoERP theme tokens, shared ModernIconSystem imagery, stronger workspace hierarchy, and clearer semantic priority colours.
