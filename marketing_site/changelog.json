@@ -1,15 +1,30 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.468.0",
+  "latestVersion": "1.1.469.0",
   "updatedAt": "2026-10-03",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.468/ServoERP.Desktop-1.1.468-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.468.0.exe",
-    "installer": "ServoERP_Setup_1.1.468.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.469/ServoERP.Desktop-1.1.469-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.469.0.exe",
+    "installer": "ServoERP_Setup_1.1.469.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.469.0",
+      "date": "2026-10-03",
+      "title": "ServoERP 1.1.469 - Site Revenue Attribution",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Shipped the Site Monitor billed-revenue attribution fix as a source-aligned client release.",
+            "Site and company revenue now reconciles to authoritative invoice totals without hiding invoice-only companies or double-counting ambiguous legacy invoices.",
+            "Supersedes 1.1.468 so the public release tag, published source, automatic-update package, and installer share one verifiable version."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.468.0",
       "date": "2026-10-03",
