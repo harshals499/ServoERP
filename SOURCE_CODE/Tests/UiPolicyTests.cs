@@ -51,6 +51,37 @@ namespace HVAC_Pro_Desktop.Tests
                         throw new InvalidOperationException("Every Smart Upload card must expose a usable direct duplicate-cleanup action.");
                 }
             }
+
+            using (var dialog = new SmartImportDuplicateCleanupDialog(ExcelImportModule.Employees, false))
+            {
+                List<string> buttonLabels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
+                if (!buttonLabels.Contains("Select all groups") || !buttonLabels.Contains("Clear selection") || !buttonLabels.Contains("Merge selected groups"))
+                    throw new InvalidOperationException("Duplicate cleanup must expose select-all, clear-selection, and bulk-merge actions.");
+                CheckedListBox groupList = FindControl<CheckedListBox>(dialog);
+                if (groupList == null || !groupList.CheckOnClick)
+                    throw new InvalidOperationException("Duplicate groups must support direct multi-selection.");
+            }
+
+            SmartImportDuplicateCleanupService.ValidateBulkSelection(new[]
+            {
+                new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
+                new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "4", "5" } }
+            });
+            bool overlapRejected = false;
+            try
+            {
+                SmartImportDuplicateCleanupService.ValidateBulkSelection(new[]
+                {
+                    new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
+                    new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "2" } }
+                });
+            }
+            catch (InvalidOperationException)
+            {
+                overlapRejected = true;
+            }
+            if (!overlapRejected)
+                throw new InvalidOperationException("Bulk duplicate cleanup must reject overlapping groups before starting a transaction.");
         }
 
         private static void EnsureLanControlDeploymentWorkflowIsVisible()

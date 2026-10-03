@@ -10,8 +10,16 @@ namespace HVAC_Pro_Desktop.Services
 {
     public sealed class DuplicateCleanupResult
     {
+        public int ArchivedRecords { get; set; }
+        public int MergedGroups { get; set; }
         public int ReassignedReferences { get; set; }
         public string Message { get; set; }
+    }
+
+    public sealed class DuplicateCleanupPlan
+    {
+        public string SurvivorId { get; set; }
+        public IEnumerable<string> DuplicateIds { get; set; }
     }
 
     public sealed class SmartImportDuplicateCleanupService
@@ -26,10 +34,17 @@ namespace HVAC_Pro_Desktop.Services
 
         public DuplicateCleanupResult MergeAndArchive(ExcelImportModule module, string survivorId, IEnumerable<string> duplicateIds)
         {
+            return MergeAndArchiveGroups(module, new[]
+            {
+                new DuplicateCleanupPlan { SurvivorId = survivorId, DuplicateIds = duplicateIds }
+            });
+        }
+
+        public DuplicateCleanupResult MergeAndArchiveGroups(ExcelImportModule module, IEnumerable<DuplicateCleanupPlan> cleanupPlans)
+        {
             ModuleMap map = GetMap(module);
-            List<string> ids = (duplicateIds ?? Enumerable.Empty<string>()).Where(id => !string.IsNullOrWhiteSpace(id) && id != survivorId).Distinct().ToList();
-            if (string.IsNullOrWhiteSpace(survivorId) || ids.Count == 0)
-                throw new InvalidOperationException("Select one record to keep and at least one duplicate to archive.");
+            List<NormalizedCleanupPlan> plans = NormalizePlans(cleanupPlans);
+            int archivedRecords = plans.Sum(plan => plan.DuplicateIds.Count);
 
             EnsureSchema();
             int reassigned = 0;
@@ -40,27 +55,31 @@ namespace HVAC_Pro_Desktop.Services
                 {
                     try
                     {
-                        int survivorExists = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM " + Q(map.Table) + " WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { id = survivorId }, transaction);
-                        if (survivorExists != 1)
-                            throw new InvalidOperationException("The selected survivor record no longer exists.");
-
-                        foreach (string duplicateId in ids)
+                        List<ForeignKeyRow> foreignKeys = LoadForeignKeys(connection, transaction, map.Table, map.Key);
+                        foreach (NormalizedCleanupPlan plan in plans)
                         {
-                            foreach (ForeignKeyRow fk in LoadForeignKeys(connection, transaction, map.Table, map.Key))
+                            int survivorExists = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM " + Q(map.Table) + " WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { id = plan.SurvivorId }, transaction);
+                            if (survivorExists != 1)
+                                throw new InvalidOperationException("A selected survivor record no longer exists. Refresh the duplicate list and try again.");
+
+                            foreach (string duplicateId in plan.DuplicateIds)
                             {
-                                string sql = "UPDATE " + Q(fk.SchemaName) + "." + Q(fk.TableName) + " SET " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@survivor) WHERE " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@duplicate)";
-                                reassigned += connection.Execute(sql, new { survivor = survivorId, duplicate = duplicateId }, transaction);
-                            }
+                                foreach (ForeignKeyRow fk in foreignKeys)
+                                {
+                                    string sql = "UPDATE " + Q(fk.SchemaName) + "." + Q(fk.TableName) + " SET " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@survivor) WHERE " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@duplicate)";
+                                    reassigned += connection.Execute(sql, new { survivor = plan.SurvivorId, duplicate = duplicateId }, transaction);
+                                }
 
-                            if (!string.IsNullOrWhiteSpace(map.ArchiveColumn))
-                                connection.Execute("UPDATE " + Q(map.Table) + " SET " + Q(map.ArchiveColumn) + "=@value WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { value = map.ArchiveValue, id = duplicateId }, transaction);
+                                if (!string.IsNullOrWhiteSpace(map.ArchiveColumn))
+                                    connection.Execute("UPDATE " + Q(map.Table) + " SET " + Q(map.ArchiveColumn) + "=@value WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { value = map.ArchiveValue, id = duplicateId }, transaction);
 
-                            connection.Execute(@"INSERT INTO DuplicateMergeArchive(ModuleName,TableName,PrimaryKeyName,SurvivorRecordID,DuplicateRecordID,MergedBy)
+                                connection.Execute(@"INSERT INTO DuplicateMergeArchive(ModuleName,TableName,PrimaryKeyName,SurvivorRecordID,DuplicateRecordID,MergedBy)
 VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
-                            {
-                                module = module.ToString(), table = map.Table, key = map.Key, survivor = survivorId, duplicate = duplicateId,
-                                userName = SessionManager.CurrentUser == null ? "System" : (SessionManager.CurrentUser.DisplayName ?? SessionManager.CurrentUser.Username ?? "User")
-                            }, transaction);
+                                {
+                                    module = module.ToString(), table = map.Table, key = map.Key, survivor = plan.SurvivorId, duplicate = duplicateId,
+                                    userName = SessionManager.CurrentUser == null ? "System" : (SessionManager.CurrentUser.DisplayName ?? SessionManager.CurrentUser.Username ?? "User")
+                                }, transaction);
+                            }
                         }
                         transaction.Commit();
                     }
@@ -72,8 +91,56 @@ VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
                 }
             }
 
-            SessionManager.LogAction("MERGE", module.ToString(), Convert.ToInt32(survivorId), "Smart Upload duplicate cleanup archived " + ids.Count + " record(s); reassigned " + reassigned + " reference(s).");
-            return new DuplicateCleanupResult { ReassignedReferences = reassigned, Message = ids.Count + " duplicate record(s) archived. " + reassigned + " linked reference(s) moved to the survivor." };
+            int auditRecordId;
+            if (!int.TryParse(plans[0].SurvivorId, out auditRecordId))
+                auditRecordId = 0;
+            SessionManager.LogAction("MERGE", module.ToString(), auditRecordId, "Smart Upload bulk duplicate cleanup archived " + archivedRecords + " record(s) across " + plans.Count + " group(s); reassigned " + reassigned + " reference(s).");
+            return new DuplicateCleanupResult
+            {
+                ArchivedRecords = archivedRecords,
+                MergedGroups = plans.Count,
+                ReassignedReferences = reassigned,
+                Message = archivedRecords + " duplicate record(s) across " + plans.Count + " group(s) archived. " + reassigned + " linked reference(s) moved to the selected survivors."
+            };
+        }
+
+        internal static void ValidateBulkSelection(IEnumerable<DuplicateCleanupPlan> cleanupPlans)
+        {
+            NormalizePlans(cleanupPlans);
+        }
+
+        private static List<NormalizedCleanupPlan> NormalizePlans(IEnumerable<DuplicateCleanupPlan> cleanupPlans)
+        {
+            var normalized = new List<NormalizedCleanupPlan>();
+            foreach (DuplicateCleanupPlan source in cleanupPlans ?? Enumerable.Empty<DuplicateCleanupPlan>())
+            {
+                if (source == null || string.IsNullOrWhiteSpace(source.SurvivorId))
+                    continue;
+
+                string survivorId = source.SurvivorId.Trim();
+                List<string> duplicateIds = (source.DuplicateIds ?? Enumerable.Empty<string>())
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Select(id => id.Trim())
+                    .Where(id => !string.Equals(id, survivorId, StringComparison.OrdinalIgnoreCase))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                if (duplicateIds.Count > 0)
+                    normalized.Add(new NormalizedCleanupPlan(survivorId, duplicateIds));
+            }
+
+            if (normalized.Count == 0)
+                throw new InvalidOperationException("Select at least one duplicate group with a survivor and records to archive.");
+
+            var duplicateOwners = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (NormalizedCleanupPlan plan in normalized)
+                foreach (string duplicateId in plan.DuplicateIds)
+                    if (!duplicateOwners.Add(duplicateId))
+                        throw new InvalidOperationException("Some selected duplicate groups overlap. Resolve the overlapping group separately, then select all remaining groups.");
+
+            if (normalized.Any(plan => duplicateOwners.Contains(plan.SurvivorId)))
+                throw new InvalidOperationException("A selected survivor is also marked for archival in another group. Review the overlapping groups before bulk cleanup.");
+
+            return normalized;
         }
 
         private void EnsureSchema()
@@ -132,6 +199,12 @@ WHERE OBJECT_NAME(fkc.referenced_object_id)=@table AND COL_NAME(fkc.referenced_o
             public string Key { get; private set; }
             public string ArchiveColumn { get; private set; }
             public bool ArchiveValue { get; private set; }
+        }
+        private sealed class NormalizedCleanupPlan
+        {
+            public NormalizedCleanupPlan(string survivorId, List<string> duplicateIds) { SurvivorId = survivorId; DuplicateIds = duplicateIds; }
+            public string SurvivorId { get; private set; }
+            public List<string> DuplicateIds { get; private set; }
         }
         private sealed class ForeignKeyRow { public string SchemaName { get; set; } public string TableName { get; set; } public string ColumnName { get; set; } }
     }

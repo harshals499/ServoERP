@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.457.0 - 2026-10-03
+
+- Added Select all groups and Clear selection actions to Master Data duplicate cleanup.
+- Added one-click bulk merge and archival for all selected duplicate groups, with per-group survivor choices and linked-record reassignment.
+- Made bulk cleanup transactional across the complete selection and blocked overlapping groups before any business data changes.
+
 ## 1.1.456.0 - 2026-10-02
 
 - Fixed the Attendance page failing to open when the global layout audit attempted to apply fill sizing to its frozen employee columns.
