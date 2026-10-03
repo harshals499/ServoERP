@@ -35,6 +35,7 @@ namespace HVAC_Pro_Desktop.Services
 
         // ── READ ─────────────────────────────────────────────
         public List<Invoice> GetAllInvoices()       => AppDataCache.GetOrCreate("invoices:all", CacheTtl, _invoiceRepo.GetAll);
+        public List<Invoice> GetSiteRevenueInvoices() => AppDataCache.GetOrCreate("invoices:site-revenue", CacheTtl, _invoiceRepo.GetRevenueSource);
         public List<Invoice> GetPendingInvoices()   => _invoiceRepo.GetPendingInvoices();
         public List<Invoice> GetOverdueInvoices()   => _invoiceRepo.GetOverdueInvoices();
 

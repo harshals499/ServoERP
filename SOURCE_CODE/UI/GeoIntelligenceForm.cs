@@ -15,6 +15,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         private readonly JobService _jobService = new JobService();
         private readonly EmployeeService _employeeService = new EmployeeService();
+        private readonly InvoiceService _invoiceService = new InvoiceService();
 
         private readonly Color PageBg = Color.FromArgb(246, 248, 251);
         private readonly Color White = Color.White;
@@ -113,6 +114,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<JobSummaryDto> _jobs = new List<JobSummaryDto>();
         private List<Employee> _technicians = new List<Employee>();
+        private List<Invoice> _invoices = new List<Invoice>();
         private List<JobSummaryDto> _visibleJobs = new List<JobSummaryDto>();
         private JobSummaryDto _selectedJob;
         private Employee _selectedTechnician;
@@ -512,7 +514,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildRevenueCard()
         {
-            Panel card = BuildDashboardCard("site_revenue", "Site Revenue (This Month)", ModernIconKind.Money, Success);
+            Panel card = BuildDashboardCard("site_revenue", "Billed Revenue by Site", ModernIconKind.Money, Success);
             TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 12, 0, 0) };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
@@ -1328,11 +1330,13 @@ namespace HVAC_Pro_Desktop.UI
             {
                 List<JobSummaryDto> jobs = null;
                 List<Employee> techs = null;
+                List<Invoice> invoices = null;
                 Exception error = null;
                 try
                 {
                     jobs = _jobService.GetAllJobsWithSummary();
                     techs = _employeeService.GetActiveTechnicians();
+                    invoices = _invoiceService.GetSiteRevenueInvoices();
                 }
                 catch (Exception ex)
                 {
@@ -1353,6 +1357,7 @@ namespace HVAC_Pro_Desktop.UI
                         }
                         _jobs = jobs ?? new List<JobSummaryDto>();
                         _technicians = techs ?? new List<Employee>();
+                        _invoices = invoices ?? new List<Invoice>();
                         _usingFallbackJobs = false;
                         if (_jobs.Count == 0)
                         {
@@ -1422,8 +1427,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<SiteMonitorRow> BuildSiteMonitorRows()
         {
-            return _jobs
-                .GroupBy(j => First(j.SiteName, First(j.ClientName, "Unassigned Site")))
+            var rows = _jobs
+                .GroupBy(JobSiteKey)
                 .Select(g =>
                 {
                     List<JobSummaryDto> jobs = g.ToList();
@@ -1431,24 +1436,95 @@ namespace HVAC_Pro_Desktop.UI
                     int critical = jobs.Count(IsEmergency);
                     int sla = jobs.Count(IsSlaRisk);
                     int completed = jobs.Count(j => IsClosed(j.PipelineStatus));
-                    decimal revenue = jobs.Sum(j => j.QuotedRevenue);
                     int health = Math.Max(35, 96 - (critical * 12) - (sla * 10) - Math.Max(0, open - 2) * 3 + Math.Min(8, completed));
                     return new SiteMonitorRow
                     {
-                        Site = g.Key,
-                        Region = ResolveRegion(g.Key, jobs.Select(j => j.ClientName).FirstOrDefault()),
+                        Key = g.Key,
+                        SiteId = jobs.Select(j => j.SiteId).FirstOrDefault(id => id > 0),
+                        ClientId = jobs.Select(j => j.ClientId).FirstOrDefault(id => id > 0),
+                        Client = jobs.Select(j => j.ClientName).FirstOrDefault(),
+                        Site = First(jobs.Select(j => j.SiteName).FirstOrDefault(), First(jobs.Select(j => j.ClientName).FirstOrDefault(), "Unassigned Site")),
                         OpenJobs = open,
                         CriticalJobs = critical,
                         SlaRisk = sla,
                         CompletedJobs = completed,
-                        Revenue = revenue,
+                        Revenue = 0m,
                         HealthScore = health,
                         LastVisit = jobs.Max(j => j.ScheduledDate)
                     };
-                })
+                }).ToList();
+
+            foreach (Invoice invoice in _invoices.Where(i => !string.Equals(i.PaymentStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)))
+            {
+                decimal amount = invoice.TotalAmount;
+                if (string.Equals(invoice.PaymentStatus, "Credit Note", StringComparison.OrdinalIgnoreCase))
+                    amount = -amount;
+                SiteMonitorRow row = ResolveRevenueRow(rows, invoice);
+                row.Revenue += amount;
+                if (row.LastVisit == DateTime.MinValue || invoice.InvoiceDate > row.LastVisit)
+                    row.LastVisit = invoice.InvoiceDate;
+            }
+
+            foreach (SiteMonitorRow row in rows)
+                row.Region = ResolveRegion(row.Site, row.Client);
+
+            return rows
                 .OrderByDescending(s => s.OpenJobs)
                 .ThenBy(s => s.Site)
                 .ToList();
+        }
+
+        private static string JobSiteKey(JobSummaryDto job)
+        {
+            if (job.SiteId > 0) return "site:" + job.SiteId;
+            return "client:" + job.ClientId + ":" + NormalizeLinkName(First(job.SiteName, job.ClientName));
+        }
+
+        private static string NormalizeLinkName(string value)
+        {
+            return new string((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+        }
+
+        private static SiteMonitorRow ResolveRevenueRow(List<SiteMonitorRow> rows, Invoice invoice)
+        {
+            SiteMonitorRow row = null;
+            string fallbackKey = invoice.SiteID > 0 ? "site:" + invoice.SiteID : "invoice-client:" + invoice.ClientID;
+            row = rows.FirstOrDefault(r => string.Equals(r.Key, fallbackKey, StringComparison.OrdinalIgnoreCase));
+            if (invoice.SiteID > 0)
+                row = row ?? rows.FirstOrDefault(r => r.SiteId == invoice.SiteID);
+
+            if (row == null && invoice.SiteID <= 0 && invoice.ClientID > 0)
+            {
+                List<SiteMonitorRow> clientRows = rows.Where(r => r.ClientId == invoice.ClientID).ToList();
+                if (clientRows.Count == 1)
+                    row = clientRows[0];
+            }
+
+            if (row == null && invoice.SiteID <= 0)
+            {
+                string siteName = NormalizeLinkName(invoice.SiteName);
+                List<SiteMonitorRow> named = rows.Where(r => siteName.Length > 0 && NormalizeLinkName(r.Site) == siteName).ToList();
+                if (named.Count == 1)
+                    row = named[0];
+            }
+
+            if (row != null) return row;
+
+            string site = First(invoice.SiteName, First(invoice.ClientName, "Unassigned Company"));
+            if (invoice.SiteID <= 0 && invoice.ClientID > 0 && rows.Count(r => r.ClientId == invoice.ClientID) > 1)
+                site = First(invoice.ClientName, "Company") + " - Unassigned Site";
+            row = new SiteMonitorRow
+            {
+                Key = fallbackKey,
+                SiteId = invoice.SiteID,
+                ClientId = invoice.ClientID,
+                Client = invoice.ClientName,
+                Site = site,
+                HealthScore = 96,
+                LastVisit = invoice.InvoiceDate
+            };
+            rows.Add(row);
+            return row;
         }
 
         private void BindSiteDistribution(List<SiteMonitorRow> sites)
@@ -2733,6 +2809,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private sealed class SiteMonitorRow
         {
+            public string Key { get; set; }
+            public int SiteId { get; set; }
+            public int ClientId { get; set; }
+            public string Client { get; set; }
             public string Site { get; set; }
             public string Region { get; set; }
             public int OpenJobs { get; set; }

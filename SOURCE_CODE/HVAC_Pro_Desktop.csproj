@@ -497,6 +497,7 @@
     <Compile Include="Tests\ActionCenterSmokeTests.cs" />
     <Compile Include="Tests\ChartHoverSmokeTests.cs" />
     <Compile Include="Tests\SmartDispatchServiceSmokeTests.cs" />
+    <Compile Include="Tests\SiteMonitorRevenueSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />

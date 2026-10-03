@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.468.0 - 2026-10-03
+
+- Fixed Site Monitor revenue always showing zero by sourcing actual billed invoice totals instead of empty job quotation values.
+- Linked revenue to stable company and site IDs, with safe name matching only for unambiguous legacy records.
+- Added invoice-only companies and an explicit company-level unassigned-site row when older invoices cannot be allocated safely, preventing hidden or double-counted revenue.
+- Changed the revenue card label to “Billed Revenue by Site” so the displayed all-time invoice total is clear.
+- Removed the 1,000-invoice dashboard ceiling for Site Monitor revenue while keeping the normal invoice-list limit unchanged.
+
 ## 1.1.467.0 - 2026-10-03
 
 - Enabled automatic background downloading of new ServoERP client releases without requiring the user to click Update.

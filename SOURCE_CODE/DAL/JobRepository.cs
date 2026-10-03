@@ -145,6 +145,8 @@ namespace HVAC_Pro_Desktop.DAL
                         TOP (@maxRows)
                         j.JobID,
                         j.JobNumber,
+                        j.ClientID,
+                        j.SiteID,
                         ISNULL(NULLIF(j.JobTitle, ''), j.Title) AS JobTitle,
                         ISNULL(NULLIF(j.JobType, ''), 'General') AS JobType,
                         ISNULL(NULLIF(j.PipelineStatus, ''), ISNULL(NULLIF(j.Status, ''), 'Created')) AS PipelineStatus,
@@ -192,6 +194,8 @@ namespace HVAC_Pro_Desktop.DAL
                             {
                                 JobId = GetInt(r, "JobID"),
                                 JobNumber = GetString(r, "JobNumber"),
+                                ClientId = GetInt(r, "ClientID"),
+                                SiteId = GetInt(r, "SiteID"),
                                 JobTitle = GetString(r, "JobTitle"),
                                 JobType = GetString(r, "JobType"),
                                 PipelineStatus = GetString(r, "PipelineStatus"),
