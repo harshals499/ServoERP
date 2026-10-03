@@ -18,6 +18,7 @@ namespace HVAC_Pro_Desktop.Tests
         {
             EnsureGridColumnPolicyHonorsMinimumWidth();
             EnsureGridColumnPolicySurvivesGridThemeLifecycleHandlers();
+            EnsureGridThemeAllowsNewColumnsToBeFrozen();
             EnsureLayoutAuditPreservesFrozenGridSizing();
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
@@ -217,6 +218,23 @@ namespace HVAC_Pro_Desktop.Tests
                     throw new InvalidOperationException("Layout audit must not apply Fill sizing to a grid with frozen columns.");
                 if (!grid.Columns["Employee"].Frozen || grid.Columns["Employee"].AutoSizeMode != DataGridViewAutoSizeColumnMode.None)
                     throw new InvalidOperationException("Layout audit must preserve frozen fixed-width identity columns.");
+            }
+        }
+
+        private static void EnsureGridThemeAllowsNewColumnsToBeFrozen()
+        {
+            using (var grid = new DataGridView())
+            {
+                GridTheme.Apply(grid);
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Employee", HeaderText = "Employee" });
+                grid.Columns["Employee"].Frozen = true;
+                GridTheme.FillColumns(grid);
+
+                if (!grid.Columns["Employee"].Frozen
+                    || grid.Columns["Employee"].AutoSizeMode != DataGridViewAutoSizeColumnMode.None)
+                {
+                    throw new InvalidOperationException("Grid theming must keep dynamically added frozen columns on fixed sizing.");
+                }
             }
         }
 

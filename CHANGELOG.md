@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.462.0 - 2026-10-03
+
+- Fixed the Attendance page failing while dynamically creating its frozen employee columns after global grid styling.
+- Changed shared grid sizing so new columns remain fixed until their frozen state is known, then applies Fill only to eligible non-frozen columns.
+- Added regression coverage for the exact add-column-then-freeze sequence and visually verified a complete 31-day attendance grid.
+
 ## 1.1.461.0 - 2026-10-03
 
 - Fixed saved company address, phone, and email settings being overwritten by packaged configuration values during application startup.

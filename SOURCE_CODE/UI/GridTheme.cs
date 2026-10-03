@@ -60,9 +60,12 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             dgv.Dock = DockStyle.Fill;
-            dgv.AutoSizeColumnsMode = fillWidth
-                ? DataGridViewAutoSizeColumnsMode.Fill
-                : dgv.AutoSizeColumnsMode;
+            // Keep the grid default fixed while columns are being created. A column that
+            // inherits Fill cannot subsequently be frozen, which caused pages such as
+            // Attendance to fail during dynamic column construction. Fill is applied only
+            // to eligible individual columns after their frozen state is known.
+            if (fillWidth || dgv.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill)
+                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgv.ScrollBars = ScrollBars.Both;
             dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgv.RowTemplate.Height = rowHeight;
@@ -123,9 +126,12 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (ColumnPolicies.ContainsKey(dgv))
                         ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
-                    else if (fillWidth)
-                        FillColumns(dgv);
                     FormatColumns(dgv);
+
+                    // Do not apply Fill synchronously from ColumnAdded. Callers commonly
+                    // set Frozen immediately after Columns.Add; synchronous Fill makes that
+                    // legal WinForms sequence throw before the caller can finish configuring
+                    // the column. DataBindingComplete and explicit theme passes size it later.
                 };
                 ShowEmptyState(dgv);
             }
@@ -161,8 +167,10 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (DataGridViewColumn col in dgv.Columns)
             {
-                if (col.Visible)
+                if (col.Visible && !col.Frozen)
                     col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                else if (col.Frozen)
+                    col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             }
         }
 
