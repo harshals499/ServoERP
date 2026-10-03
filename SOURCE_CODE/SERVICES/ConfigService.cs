@@ -156,12 +156,12 @@ namespace HVAC_Pro_Desktop.Services
 
         public static bool IsSilentAutoUpdateEnabled()
         {
-            return string.Equals(Get("App", "SilentAutoUpdateEnabled", "false"), "true", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(Get("App", "SilentAutoUpdateEnabled", "true"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool ShouldApplySilentUpdateOnExit()
         {
-            return string.Equals(Get("App", "SilentAutoUpdateApplyOnExit", "false"), "true", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(Get("App", "SilentAutoUpdateApplyOnExit", "true"), "true", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool ShouldApplySilentUpdateImmediately()

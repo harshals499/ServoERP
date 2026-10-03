@@ -53,6 +53,8 @@ namespace HVAC_Pro_Desktop.Services
         private const string PendingWhatsNewTextKey = "PendingWhatsNewTextEn";
         private const string LegacyPendingWhatsNewTextKey = "PendingWhatsNewTextMr";
         private const string SilentAutoUpdateModeKey = "SilentAutoUpdateMode";
+        private const string AutomaticUpdatePolicyVersionKey = "AutomaticUpdatePolicyVersion";
+        private const string CurrentAutomaticUpdatePolicyVersion = "1";
         private const string SilentAutoUpdateAutomaticMode = "Automatic";
         private const string SilentAutoUpdateDisabledMode = "Disabled";
         private static readonly object SilentUpdateSync = new object();
@@ -189,20 +191,24 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        /// <summary>Upgrades legacy client settings to the automatic update default once without overriding a later user choice.</summary>
+        /// <summary>Upgrades existing clients to background download once without overriding a later user choice.</summary>
         public static void EnsureSilentAutoUpdateDefaults()
         {
             string mode = ConfigService.Get("App", SilentAutoUpdateModeKey, string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(mode))
+            string policyVersion = ConfigService.Get("App", AutomaticUpdatePolicyVersionKey, string.Empty).Trim();
+            if (!ShouldUpgradeAutomaticUpdatePolicy(policyVersion) && !string.IsNullOrWhiteSpace(mode))
                 return;
 
             try
             {
+                ConfigService.Set("App", "VersionCheckEnabled", "true");
                 ConfigService.Set("App", "SilentAutoUpdateEnabled", "true");
                 ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
                 ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "true");
                 ConfigService.Set("App", SilentAutoUpdateModeKey, SilentAutoUpdateAutomaticMode);
-                AppLogger.LogInfo(LogContext + " migrated legacy settings to automatic download and apply-on-exit.");
+                ConfigService.Set("App", "LastSilentUpdateCheckUtc", string.Empty);
+                ConfigService.Set("App", AutomaticUpdatePolicyVersionKey, CurrentAutomaticUpdatePolicyVersion);
+                AppLogger.LogInfo(LogContext + " enabled automatic background download and apply-on-exit policy v" + CurrentAutomaticUpdatePolicyVersion + ".");
             }
             catch (Exception ex)
             {
@@ -216,6 +222,15 @@ namespace HVAC_Pro_Desktop.Services
             ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
             ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", enabled ? "true" : "false");
             ConfigService.Set("App", SilentAutoUpdateModeKey, enabled ? SilentAutoUpdateAutomaticMode : SilentAutoUpdateDisabledMode);
+            ConfigService.Set("App", AutomaticUpdatePolicyVersionKey, CurrentAutomaticUpdatePolicyVersion);
+        }
+
+        internal static bool ShouldUpgradeAutomaticUpdatePolicy(string appliedPolicyVersion)
+        {
+            return !string.Equals(
+                (appliedPolicyVersion ?? string.Empty).Trim(),
+                CurrentAutomaticUpdatePolicyVersion,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         public static Task<UpdateCheckResult> CheckForUpdatesAsync()

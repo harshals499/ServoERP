@@ -37,7 +37,21 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureSmartUploadCardsExposeDirectDuplicateCleanup();
             EnsureConfiguredCompanyAddressAppearsInDocuments();
             EnsureDocumentPreviewSupportsEditingAndSignatures();
+            EnsureAutomaticClientUpdatePolicy();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureAutomaticClientUpdatePolicy()
+        {
+            if (!UpdateService.ShouldUpgradeAutomaticUpdatePolicy(string.Empty))
+                throw new InvalidOperationException("Existing clients must be migrated to automatic background update downloads.");
+            if (UpdateService.ShouldUpgradeAutomaticUpdatePolicy("1"))
+                throw new InvalidOperationException("A completed automatic-update policy migration must preserve later user preference changes.");
+
+            MethodInfo startup = typeof(MainForm).GetMethod("BeginVersionCheck", BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo readyBanner = typeof(MainForm).GetMethod("ShowDownloadedUpdateReadyBanner", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (startup == null || readyBanner == null)
+                throw new InvalidOperationException("Main startup must support automatic update download and a ready-to-install notice.");
         }
 
         private static void EnsureDocumentPreviewSupportsEditingAndSignatures()

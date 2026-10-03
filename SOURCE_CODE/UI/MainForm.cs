@@ -3154,11 +3154,12 @@ namespace HVAC_Pro_Desktop.UI
             if (!SessionManager.IsLoggedIn || _hideUpdateBannerForSession)
                 return;
 
+            UpdateService.EnsureSilentAutoUpdateDefaults();
             if (ConfigService.IsSilentAutoUpdateEnabled())
             {
                 UpdateService.StartSilentBackgroundUpdateCheck(
                     this,
-                    null);
+                    ShowDownloadedUpdateReadyBanner);
                 return;
             }
 
@@ -3180,6 +3181,18 @@ namespace HVAC_Pro_Desktop.UI
                     AppLogger.LogInfo("Version check task failed silently: " + ex.Message);
                 }
             });
+        }
+
+        private void ShowDownloadedUpdateReadyBanner(UpdateCheckResult result)
+        {
+            if (result == null || IsDisposed)
+                return;
+
+            _latestUpdateResult = result;
+            _lblUpdateMessage.Text = "ServoERP " + result.LatestVersion + " downloaded automatically. It will install when ServoERP closes.";
+            _btnDownloadUpdate.Visible = false;
+            _pnlUpdateBanner.Visible = true;
+            _pnlUpdateBanner.BringToFront();
         }
 
         private void ShowUpdateBanner(UpdateCheckResult result)

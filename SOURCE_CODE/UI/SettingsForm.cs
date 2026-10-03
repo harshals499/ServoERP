@@ -1217,7 +1217,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _chkSilentAutoUpdateEnabled = new CheckBox
             {
-                Text = "Download and install updates automatically when ServoERP closes",
+                Text = "Automatically download updates and install when ServoERP closes",
                 Location = new Point(0, 106),
                 Width = 300,
                 Height = 26,

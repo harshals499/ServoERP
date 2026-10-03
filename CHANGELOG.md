@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.467.0 - 2026-10-03
+
+- Enabled automatic background downloading of new ServoERP client releases without requiring the user to click Update.
+- Fixed startup checking the old update preference before the automatic-update migration had run, which could leave existing clients in manual mode.
+- Added a one-time client policy migration that enables version checks, forces an immediate first background check, downloads the release, and installs safely when ServoERP closes while preserving later user preference changes.
+- Changed the update banner into an informational ready notice after download; no download action is required from the user.
+- Added regression coverage for automatic-update policy migration and startup integration.
+
 ## 1.1.466.0 - 2026-10-03
 
 - Fixed invoice previews showing zero amounts when a valid legacy or imported invoice had stored totals but no child line-item rows.
