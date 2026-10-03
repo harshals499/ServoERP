@@ -1,15 +1,32 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.467.0",
+  "latestVersion": "1.1.468.0",
   "updatedAt": "2026-10-03",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.467/ServoERP.Desktop-1.1.467-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.467.0.exe",
-    "installer": "ServoERP_Setup_1.1.467.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.468/ServoERP.Desktop-1.1.468-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.468.0.exe",
+    "installer": "ServoERP_Setup_1.1.468.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.468.0",
+      "date": "2026-10-03",
+      "title": "ServoERP 1.1.468 - Site Revenue Attribution",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Fixed Site Monitor revenue always showing zero by sourcing actual billed invoice totals instead of empty job quotation values.",
+            "Linked revenue to stable company and site IDs, with safe name matching only for unambiguous legacy records.",
+            "Added invoice-only companies and an explicit company-level unassigned-site row when older invoices cannot be allocated safely, preventing hidden or double-counted revenue.",
+            "Changed the revenue card label to “Billed Revenue by Site” so the displayed all-time invoice total is clear.",
+            "Removed the 1,000-invoice dashboard ceiling for Site Monitor revenue while keeping the normal invoice-list limit unchanged."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.467.0",
       "date": "2026-10-03",
