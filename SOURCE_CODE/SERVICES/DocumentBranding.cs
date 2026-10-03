@@ -29,12 +29,6 @@ namespace HVAC_Pro_Desktop.Services
 .mse-official-header-top{display:block;}
 .mse-official-header-logo{display:flex;align-items:center;justify-content:center;}
 .mse-official-header-logo img{display:block;width:100%;max-width:760px;height:auto;}
-.mse-live-company-header{display:flex;align-items:center;justify-content:center;gap:18px;padding:8px 14px 5px;border-bottom:2px solid #334155;font-family:'Segoe UI',sans-serif;}
-.mse-live-company-mark{font-size:30px;font-weight:900;color:#1e3a8a;letter-spacing:.02em;white-space:nowrap;}
-.mse-live-company-copy{text-align:left;min-width:0;}
-.mse-live-company-name{font-size:27px;font-weight:900;color:#dc2626;letter-spacing:.035em;text-transform:uppercase;line-height:1.05;}
-.mse-live-company-tagline{margin-top:4px;font-size:9px;font-weight:700;color:#334155;letter-spacing:.035em;}
-.mse-live-company-identity{margin-top:5px;font-size:9px;font-weight:600;line-height:1.3;color:#334155;}
 .mse-official-header-logo-fallback{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 18px;font-family:'Segoe UI',sans-serif;line-height:1.05;color:#1f2937;}
 .mse-official-header-logo-fallback .brand-row{display:flex;align-items:center;justify-content:center;gap:12px;}
 .mse-official-header-logo-fallback .mark{font-size:30px;font-weight:900;color:#1e3a8a;letter-spacing:.02em;}
@@ -112,13 +106,6 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
         public static string BuildOfficialHeaderHtml(IndiaCompanySettings company)
         {
             company = company ?? new IndiaCompanySettings { CompanyName = DefaultCompanyName };
-
-            // The bundled legacy letterhead contains a baked-in office address. Once the
-            // company has been configured, render the header from live Settings data so a
-            // stale address can never remain visible in previews, PDFs, or HTML exports.
-            if (HasConfiguredCompanyIdentity(company))
-                return BuildLiveCompanyHeaderHtml(company);
-
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
             string logoHtml = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Company invoice header' />"
@@ -131,25 +118,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             return "<div class='mse-official-header'>"
                 + "<div class='mse-official-header-top'>"
                 + "<div class='mse-official-header-logo'>" + logoHtml + "</div>"
-                + "</div>" + BuildConfiguredCompanyIdentityHtml(company) + "</div>";
-        }
-
-        private static bool HasConfiguredCompanyIdentity(IndiaCompanySettings company)
-        {
-            return company != null && (!string.IsNullOrWhiteSpace(company.Address)
-                || !string.IsNullOrWhiteSpace(company.Phone)
-                || !string.IsNullOrWhiteSpace(company.Email));
-        }
-
-        private static string BuildLiveCompanyHeaderHtml(IndiaCompanySettings company)
-        {
-            string companyName = FirstNonEmpty(company.CompanyName, DefaultCompanyName);
-            return "<div class='mse-official-header'><div class='mse-live-company-header'>"
-                + "<div class='mse-live-company-mark'>MSE</div>"
-                + "<div class='mse-live-company-copy'><div class='mse-live-company-name'>" + Html(companyName) + "</div>"
-                + "<div class='mse-live-company-tagline'>HVAC SALES, SERVICE, PROJECTS &amp; MAINTENANCE</div>"
-                + "<div class='mse-live-company-identity'>" + BuildConfiguredCompanyIdentityLinesHtml(company) + "</div>"
-                + "</div></div></div>";
+                + "</div></div>";
         }
 
         private static string BuildConfiguredCompanyIdentityLinesHtml(IndiaCompanySettings company)
@@ -246,9 +215,23 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             html.Append("<div class='mse-from-block'>");
             html.Append("<div class='mse-from-title'>From:</div>");
             html.Append("<div class='mse-from-company'>").Append(Html(FirstNonEmpty(companyName, DefaultCompanyName))).Append("</div>");
+            html.Append(BuildConfiguredCompanyIdentityHtml(GetConfiguredCompanySettings()));
             html.Append(BuildDetailLinesHtml(GetOfficialDetailRows(shopLicense, pfNumber, esicNumber, profTax, panNumber, gstNumber, msmeNumber, includeMsme)));
             html.Append("</div>");
             return html.ToString();
+        }
+
+        public static string BuildFromIdentityHtml(string companyName)
+        {
+            return BuildFromIdentityHtml(companyName, GetConfiguredCompanySettings());
+        }
+
+        public static string BuildFromIdentityHtml(string companyName, IndiaCompanySettings company)
+        {
+            company = company ?? new IndiaCompanySettings();
+            return "<div class='mse-from-block'><div class='mse-from-title'>From:</div>"
+                + "<div class='mse-from-company'>" + Html(FirstNonEmpty(companyName, company.CompanyName, DefaultCompanyName)) + "</div>"
+                + BuildConfiguredCompanyIdentityHtml(company) + "</div>";
         }
 
         public static string BuildComplianceBlockHtml(

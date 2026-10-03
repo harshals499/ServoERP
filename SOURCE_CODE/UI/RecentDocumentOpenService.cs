@@ -60,7 +60,9 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                OpenPdf(owner, bid);
+                string html = service.BuildQuotationDocumentHtml(bid);
+                using (var preview = new HtmlPreviewDialog("Quotation Preview - " + (bid.QuotationNumber ?? "Draft Quote"), html))
+                    preview.ShowDialog(owner);
             }
             catch (Exception ex)
             {
@@ -80,8 +82,9 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                if (!OpenPdf(owner, invoice))
-                    GenerateAndOpenInvoicePdf(owner, service, invoice);
+                string html = service.BuildInvoiceHtml(invoice);
+                using (var preview = new HtmlPreviewDialog("Invoice Preview - " + (invoice.InvoiceNumber ?? "(draft)"), html))
+                    preview.ShowDialog(owner);
             }
             catch (Exception ex)
             {

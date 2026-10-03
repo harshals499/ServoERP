@@ -3170,6 +3170,16 @@ namespace HVAC_Pro_Desktop.UI
 
             _selectedCard = card;
             HighlightCard(card, true);
+            RecentDocumentOpenService.OpenInvoicePdf(this, invoice.InvoiceID);
+        }
+
+        private void EditInvoice(Invoice invoice, Panel card)
+        {
+            if (_selectedCard != null)
+                HighlightCard(_selectedCard, false);
+
+            _selectedCard = card;
+            HighlightCard(card, true);
             _current = _invSvc.GetInvoiceById(invoice.InvoiceID);
             PopulateForm(_current);
             ShowInvoiceEditor();
@@ -4172,8 +4182,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (_current == null)
                     return;
 
-                PopulateForm(_current);
-                ShowInvoiceEditor();
+                RecentDocumentOpenService.OpenInvoicePdf(this, invoiceId);
             }
             catch (Exception ex)
             {
@@ -4984,7 +4993,8 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
-            menu.Items.Add("Open", null, (s, e) => SelectInvoice(invoice, card));
+            menu.Items.Add("Open Preview", null, (s, e) => SelectInvoice(invoice, card));
+            menu.Items.Add("Edit", null, (s, e) => EditInvoice(invoice, card));
             RecordDeletionUi.AddDeleteMenuItem(menu, (s, e) => DeleteInvoice(invoice, _current != null && _current.InvoiceID == invoice.InvoiceID));
             card.ContextMenuStrip = menu;
             foreach (Control control in new Control[] { lblNumber, lblClient, lblAmount, lblStatus })

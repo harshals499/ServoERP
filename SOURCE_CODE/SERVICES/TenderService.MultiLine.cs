@@ -683,7 +683,7 @@ namespace HVAC_Pro_Desktop.Services
             + "</div></td>"
             + "<td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation No.</span><span class='quote-meta-value'>" + HtmlTender(bid.QuotationNumber) + "</span></div></td></tr>"
             + "<tr><td class='meta-row'><div class='quote-meta-line'><span class='quote-meta-label'>Quotation Date</span><span class='quote-meta-value'>" + HtmlTender(submittedDate) + "</span></div></td></tr>"
-            + "<tr><td class='from-cell'><div class='mse-from-block'><div class='mse-from-title'>From:</div><div class='mse-from-company'>" + HtmlTender(companyName) + "</div></div>"
+            + "<tr><td class='from-cell'>" + DocumentBranding.BuildFromIdentityHtml(companyName)
             + "</td></tr>"
             + "</table>"
             + "<div class='subject-line'><strong>Sub:</strong> " + HtmlTender(subject) + "</div>"

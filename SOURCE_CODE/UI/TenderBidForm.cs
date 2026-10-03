@@ -1877,10 +1877,11 @@ namespace HVAC_Pro_Desktop.UI
                 control.Click += async (s, e) => await SelectQuoteAsync(quote, card);
 
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
-            menu.Items.Add("Open", null, async (s, e) => await SelectQuoteAsync(quote, card));
+            menu.Items.Add("Open Preview", null, async (s, e) => await SelectQuoteAsync(quote, card));
+            menu.Items.Add("Edit", null, async (s, e) => await EditQuoteAsync(quote, card));
             menu.Items.Add("Delete Quote", null, async (s, e) =>
             {
-                await SelectQuoteAsync(quote, card);
+                await EditQuoteAsync(quote, card);
                 await DeleteCurrentQuoteAsync();
             });
             foreach (Control control in new Control[] { card, lblNo, lblClient, lblTitle, lblStatus, lblDue })
@@ -1905,8 +1906,23 @@ namespace HVAC_Pro_Desktop.UI
             _current = await Task.Run(() => _svc.GetByIdDetailed(quote.BidID));
             PopulateCurrent(_current);
             SyncQuoteSelection();
-            ShowQuotationEditor();
+            RecentDocumentOpenService.OpenQuotationPdf(this, _current.BidID);
             SetStatus("Quotation loaded.", DS.Slate500);
+        }
+
+        private async Task EditQuoteAsync(TenderBid quote, Panel card)
+        {
+            if (_selectedCard != null)
+                HighlightCard(_selectedCard, false);
+            _selectedCard = card;
+            if (card != null)
+                HighlightCard(card, true);
+            SetStatus("Loading quotation editor...", InfoBlue);
+            _current = await Task.Run(() => _svc.GetByIdDetailed(quote.BidID));
+            PopulateCurrent(_current);
+            SyncQuoteSelection();
+            ShowQuotationEditor();
+            SetStatus("Quotation ready to edit.", DS.Slate500);
         }
 
         private void SyncQuoteSelection()
@@ -2076,15 +2092,12 @@ namespace HVAC_Pro_Desktop.UI
 
             try
             {
-                _pendingNavigationBidId = bidId;
                 QueueInitialize();
                 _current = await Task.Run(() => _svc.GetByIdDetailed(bidId));
                 if (_current == null)
                     return;
 
-                PopulateCurrent(_current);
-                SyncQuoteSelection();
-                ShowQuotationEditor();
+                RecentDocumentOpenService.OpenQuotationPdf(this, bidId);
                 if (_initialized)
                     _pendingNavigationBidId = null;
                 SetStatus("Quotation loaded.", DS.Slate500);

@@ -58,9 +58,18 @@ namespace HVAC_Pro_Desktop.Tests
                 Phone = "020-55550000",
                 Email = "qa@example.test"
             });
-            if (!fullHeader.Contains("ServoERP QA Company") || !fullHeader.Contains("Unit 7, Test Industrial Estate, Pune")
-                || !fullHeader.Contains("mse-live-company-header") || fullHeader.Contains("303, Oracle Business Hub"))
-                throw new InvalidOperationException("Document headers must use live Settings identity data instead of the legacy baked-in letterhead address.");
+            if (!fullHeader.Contains("mse-official-header-logo"))
+                throw new InvalidOperationException("Documents must preserve the established branded letterhead header.");
+
+            string fromBlock = DocumentBranding.BuildFromIdentityHtml("ServoERP QA Company", new IndiaCompanySettings
+            {
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!fromBlock.Contains("From:") || !fromBlock.Contains("Unit 7, Test Industrial Estate, Pune")
+                || !fromBlock.Contains("020-55550000") || !fromBlock.Contains("qa@example.test"))
+                throw new InvalidOperationException("Every document sender block must include the company identity saved in Settings.");
         }
 
         private static void EnsureSmartUploadCardsExposeDirectDuplicateCleanup()

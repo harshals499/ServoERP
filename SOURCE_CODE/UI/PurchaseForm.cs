@@ -1491,13 +1491,8 @@ namespace HVAC_Pro_Desktop.UI
             if (poId <= 0)
                 return;
 
-            _showDashboard = false;
-            Controls.Clear();
-            BuildLayout();
-            UIHelper.ApplyInputStyles(Controls);
-            ApplyPurchaseReferenceSkin(Controls);
-            await LoadInitialDataAsync();
-            SelectOrderById(poId);
+            await Task.Yield();
+            RecentDocumentOpenService.OpenPurchaseOrderPdf(this, poId);
         }
 
         private async Task BackToPurchaseDashboardAsync()

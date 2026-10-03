@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.463.0 - 2026-10-03
+
+- Restored the established branded company letterhead after the dynamic-header regression.
+- Added the company address, phone, and email saved in Settings to the visible From section of quotations and invoices, and clarified the company sender block on purchase orders.
+- Changed quotation, invoice, and purchase-order record opens to launch the document preview first instead of entering the editable form.
+- Kept editing available as a separate explicit Edit action and added regression coverage for Settings-backed sender identity.
+
 ## 1.1.462.0 - 2026-10-03
 
 - Fixed the Attendance page failing while dynamically creating its frozen employee columns after global grid styling.
