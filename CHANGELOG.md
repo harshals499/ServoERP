@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.469.0 - 2026-10-03
+
+- Shipped the Site Monitor billed-revenue attribution fix as a source-aligned client release.
+- Site and company revenue now reconciles to authoritative invoice totals without hiding invoice-only companies or double-counting ambiguous legacy invoices.
+- Supersedes 1.1.468 so the public release tag, published source, automatic-update package, and installer share one verifiable version.
+
 ## 1.1.468.0 - 2026-10-03
 
 - Fixed Site Monitor revenue always showing zero by sourcing actual billed invoice totals instead of empty job quotation values.
