@@ -2284,6 +2284,8 @@ END;");
                     CreatedDate       DATETIME NOT NULL DEFAULT GETDATE()
                 );");
 
+                QuotationDeliveryRepository.EnsureSchema(conn);
+
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='ClientAssets')
                 CREATE TABLE ClientAssets (
                     AssetId              INT IDENTITY(1,1) PRIMARY KEY,

@@ -34,6 +34,9 @@ namespace HVAC_Pro_Desktop.UI
             _timeSchedule.Value = DateTime.Today.Add(ParseSchedule(DbSettings.Get("BackupScheduledTime", "18:00")));
             _chkRunOnClose.Checked = ParseBool(DbSettings.Get("BackupRunOnClose", "true"), true);
             _chkEnabled.Checked = ParseBool(DbSettings.Get("BackupEnabled", "true"), true);
+            _chkOneDriveEnabled.Checked = OneDriveStorageService.IsEnabled;
+            _txtOneDrivePath.Text = OneDriveStorageService.RootPath;
+            _chkOfflineEnabled.Checked = LocalSqliteFallbackStore.IsOfflineQueueEnabled;
 
             int days;
             _numRetention.Value = int.TryParse(DbSettings.Get("BackupRetentionDays", "30"), out days)
@@ -59,7 +62,45 @@ namespace HVAC_Pro_Desktop.UI
             DbSettings.Set("BackupRetentionDays", ((int)_numRetention.Value).ToString());
             DbSettings.Set("BackupRunOnClose", _chkRunOnClose.Checked ? "true" : "false");
             DbSettings.Set("BackupEnabled", _chkEnabled.Checked ? "true" : "false");
+            ConfigService.Set("OneDriveStorage", "Enabled", _chkOneDriveEnabled.Checked ? "true" : "false");
+            ConfigService.Set("OneDriveStorage", "RootPath", _txtOneDrivePath.Text.Trim());
+            ConfigService.Set("Fallback", "AllowBusinessWrites", _chkOfflineEnabled.Checked ? "true" : "false");
             SetStatus(T("Backup settings saved."), DS.Green600);
+        }
+
+        private void DetectOneDrive(object sender, EventArgs e)
+        {
+            string detected = OneDriveStorageService.DetectInstalledRoot();
+            if (string.IsNullOrWhiteSpace(detected))
+            {
+                _lblOneDriveStatus.Text = T("OneDrive desktop folder was not detected.");
+                _lblOneDriveStatus.ForeColor = DS.Red600;
+                return;
+            }
+
+            _txtOneDrivePath.Text = detected;
+            _chkOneDriveEnabled.Checked = true;
+            _lblOneDriveStatus.Text = T("OneDrive detected. Save settings to enable backup copies.");
+            _lblOneDriveStatus.ForeColor = DS.Green600;
+        }
+
+        private void TestOneDrive(object sender, EventArgs e)
+        {
+            try
+            {
+                string path = _txtOneDrivePath.Text.Trim();
+                if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path))
+                    throw new DirectoryNotFoundException("Select the local OneDrive folder first.");
+
+                Directory.CreateDirectory(Path.Combine(path, "ServoERP", "Backups"));
+                _lblOneDriveStatus.Text = T("Ready: OneDrive\\ServoERP\\Backups");
+                _lblOneDriveStatus.ForeColor = DS.Green600;
+            }
+            catch (Exception ex)
+            {
+                _lblOneDriveStatus.Text = T("OneDrive folder unavailable: ") + ex.Message;
+                _lblOneDriveStatus.ForeColor = DS.Red600;
+            }
         }
 
         /// <summary>Tests whether the configured network path is reachable.</summary>

@@ -20,6 +20,10 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblStatus;
         private Label _lblLastBackup;
         private DataGridView _gridLog;
+        private CheckBox _chkOneDriveEnabled;
+        private TextBox _txtOneDrivePath;
+        private Label _lblOneDriveStatus;
+        private CheckBox _chkOfflineEnabled;
 
         /// <summary>Initializes backup settings controls.</summary>
         private void InitializeComponent()
@@ -27,7 +31,7 @@ namespace HVAC_Pro_Desktop.UI
             SuspendLayout();
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.BgPage;
-            ClientSize = new Size(980, 820);
+            ClientSize = new Size(980, 1000);
             Font = new Font("Segoe UI", 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -45,7 +49,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             Label subtitle = new Label
             {
-                Text = T("Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in."),
+                Text = T("Protect SQL backups in your own folders or OneDrive. Offline work uses a machine-local queue; the live database is never opened from OneDrive."),
                 Location = new Point(26, 52),
                 Size = new Size(900, 34),
                 Font = DS.Body,
@@ -114,19 +118,41 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700
             });
 
-            Panel manual = Section(T("Manual Backup & Status"), 24, 442, 912, 112);
+            Panel oneDrive = Section(T("OneDrive & Offline Work"), 24, 442, 912, 160);
+            _chkOneDriveEnabled = Check(T("Copy completed SQL backups to OneDrive"), 16, 24, 300);
+            _txtOneDrivePath = Input(16, 54, 548);
+            Button detectOneDrive = Button(T("Detect OneDrive"), DS.Primary600, Color.White, 138);
+            detectOneDrive.Location = new Point(576, 53);
+            detectOneDrive.Click += DetectOneDrive;
+            Button testOneDrive = Button(T("Test"), Color.White, DS.Slate700, 82);
+            testOneDrive.FlatAppearance.BorderColor = DS.Border;
+            testOneDrive.Location = new Point(726, 53);
+            testOneDrive.Click += TestOneDrive;
+            _chkOfflineEnabled = Check(T("Allow offline create/update for Clients, Sites, and Jobs"), 16, 94, 520);
+            _lblOneDriveStatus = new Label
+            {
+                Text = T("Financial, stock, and payroll changes remain online-only."),
+                Location = new Point(16, 124),
+                Size = new Size(850, 24),
+                Font = DS.Small,
+                ForeColor = DS.Slate600,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            oneDrive.Controls.AddRange(new Control[] { _chkOneDriveEnabled, _txtOneDrivePath, detectOneDrive, testOneDrive, _chkOfflineEnabled, _lblOneDriveStatus });
+
+            Panel manual = Section(T("Manual Backup & Status"), 24, 620, 912, 112);
             _btnBackupNow = Button(T("Backup Now"), DS.Green600, Color.White, 126);
-            _btnBackupNow.Location = new Point(16, 38);
+            _btnBackupNow.Location = new Point(590, 38);
             _btnBackupNow.Click += RunManualBackup;
             Button open = Button(T("Open Backup Folder"), DS.Primary600, Color.White, 160);
-            open.Location = new Point(154, 38);
+            open.Location = new Point(728, 38);
             open.Click += OpenBackupFolder;
-            _progress = new ProgressBar { Location = new Point(330, 43), Size = new Size(196, 18), Style = ProgressBarStyle.Blocks };
-            _lblLastBackup = new Label { Location = new Point(544, 34), Size = new Size(330, 24), Font = DS.BodyBold, ForeColor = DS.Slate800 };
-            _lblStatus = new Label { Location = new Point(544, 60), Size = new Size(330, 28), Font = DS.Small, ForeColor = DS.Slate600 };
+            _progress = new ProgressBar { Location = new Point(382, 45), Size = new Size(180, 18), Style = ProgressBarStyle.Blocks };
+            _lblLastBackup = new Label { Location = new Point(16, 34), Size = new Size(342, 24), Font = DS.BodyBold, ForeColor = DS.Slate800 };
+            _lblStatus = new Label { Location = new Point(16, 60), Size = new Size(342, 28), Font = DS.Small, ForeColor = DS.Slate600 };
             manual.Controls.AddRange(new Control[] { _btnBackupNow, open, _progress, _lblLastBackup, _lblStatus });
 
-            Panel logPanel = Section(T("Backup Log"), 24, 572, 912, 184);
+            Panel logPanel = Section(T("Backup Log"), 24, 750, 912, 184);
             _gridLog = new DataGridView
             {
                 Location = new Point(16, 28),
@@ -151,15 +177,15 @@ namespace HVAC_Pro_Desktop.UI
             logPanel.Controls.Add(clear);
 
             _btnSave = Button(T("Save Settings"), DS.Green600, Color.White, 132);
-            _btnSave.Location = new Point(676, 774);
+            _btnSave.Location = new Point(676, 960);
             _btnSave.Click += SaveClicked;
             _btnClose = Button(T("Close"), Color.White, DS.Slate700, 96);
             _btnClose.FlatAppearance.BorderColor = DS.Border;
             _btnClose.FlatAppearance.BorderSize = 1;
-            _btnClose.Location = new Point(824, 774);
+            _btnClose.Location = new Point(824, 960);
             _btnClose.Click += CloseClicked;
 
-            Controls.AddRange(new Control[] { title, subtitle, network, local, schedule, retention, manual, logPanel, _btnSave, _btnClose });
+            Controls.AddRange(new Control[] { title, subtitle, network, local, schedule, retention, oneDrive, manual, logPanel, _btnSave, _btnClose });
             ResumeLayout(false);
         }
 

@@ -8,26 +8,62 @@ namespace HVAC_Pro_Desktop.Services
 {
     public static class LocalSqliteFallbackStore
     {
-        private const string DefaultFallbackPath = @"C:\HVAC_PRO_MSE\DATABASE\ServoERP_Fallback.sqlite";
+        private static readonly string DefaultFallbackPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ServoERP",
+            "Offline",
+            "ServoERP_Offline.sqlite");
         private static readonly object Sync = new object();
 
         /// <summary>
         /// Offline business-data persistence is intentionally not enabled until its conflict and
         /// server-replay design is approved. Do not use SQLite as an ungoverned second database.
         /// </summary>
-        public static bool IsOfflineQueueEnabled => false;
+        public static bool IsOfflineQueueEnabled => string.Equals(
+            ConfigService.Get("Fallback", "AllowBusinessWrites", "true"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Returns the configured local SQLite fallback database path.</summary>
         public static string GetDatabasePath()
         {
-            string configured = ConfigService.Get("Fallback", "SqlitePath", DefaultFallbackPath);
-            return string.IsNullOrWhiteSpace(configured) ? DefaultFallbackPath : configured.Trim();
+            string configured = Environment.ExpandEnvironmentVariables(ConfigService.Get("Fallback", "SqlitePath", DefaultFallbackPath));
+            string resolved = string.IsNullOrWhiteSpace(configured) ? DefaultFallbackPath : configured.Trim();
+            if (OneDriveStorageService.IsPathInsideOneDrive(resolved))
+            {
+                AppRuntime.LogConnection("Offline database path was inside OneDrive and was redirected to machine-local storage.");
+                return DefaultFallbackPath;
+            }
+
+            return resolved;
         }
 
-        /// <summary>SQLite fallback is intentionally disabled; SQL availability is logged through normal ServoERP logs.</summary>
+        /// <summary>Creates the machine-local diagnostic store used by the approved offline queue.</summary>
         public static void EnsureReady()
         {
-            AppRuntime.LogConnection("SQLite fallback disabled; startup continues without local fallback storage.");
+            if (!IsOfflineQueueEnabled)
+                return;
+
+            lock (Sync)
+            {
+                string path = GetDatabasePath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path) ?? DefaultFallbackPath);
+                using (SQLiteConnection conn = OpenConnection())
+                {
+                    Execute(conn, @"
+CREATE TABLE IF NOT EXISTS FallbackStatus (
+    Id INTEGER PRIMARY KEY,
+    LastUpdatedUtc TEXT NOT NULL,
+    MachineName TEXT NOT NULL,
+    AppVersion TEXT NULL,
+    ConfiguredSqlServer TEXT NULL,
+    DatabaseName TEXT NULL,
+    LastSqlStatus TEXT NULL,
+    LastSqlError TEXT NULL,
+    LastSuccessfulSqlUtc TEXT NULL
+);");
+                }
+            }
         }
 
         /// <summary>Records that the configured SQL Server database is reachable.</summary>
@@ -46,15 +82,16 @@ namespace HVAC_Pro_Desktop.Services
         /// <summary>Returns a plain-text summary of the local SQLite fallback state.</summary>
         public static string BuildStatusText()
         {
-            return "Multi-PC sync: shared SQL Server is authoritative" + Environment.NewLine +
+            return "Multi-PC sync: SQL Server remains authoritative" + Environment.NewLine +
                    "Client PC: connects directly to the office SQL Server" + Environment.NewLine +
-                   "Offline queue: disabled until conflict-safe offline replay is approved.";
+                   "Offline queue: " + (IsOfflineQueueEnabled ? "enabled for Clients, Sites, and Jobs" : "disabled") + Environment.NewLine +
+                   "Offline database: machine-local and excluded from OneDrive.";
         }
 
         /// <summary>Records a recovery note in the local SQLite fallback event log.</summary>
         public static void RecordEvent(string eventType, string message)
         {
-            AppRuntime.LogConnection("Fallback event ignored because SQLite fallback is disabled: " + (eventType ?? string.Empty) + " | " + (message ?? string.Empty));
+            AppRuntime.LogConnection("Offline event: " + (eventType ?? string.Empty) + " | " + (message ?? string.Empty));
         }
 
         /// <summary>Writes the current SQL status into the local SQLite fallback database.</summary>

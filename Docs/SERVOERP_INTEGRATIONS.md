@@ -68,6 +68,35 @@ Keys:
 - `UploadUrl`
 - `BearerToken`
 
+## Microsoft OneDrive local sync
+
+Service: `HVAC_Pro_Desktop.Services.OneDriveStorageService`
+
+Capabilities:
+- Detect the signed-in OneDrive for Business or Personal folder installed on the PC.
+- Copy completed SQL Server `.bak` files into `OneDrive\ServoERP\Backups`.
+- Prepare customer-owned `Documents` and `Exports` folders.
+- Keep the live SQL Server database and the machine-local offline SQLite queue outside OneDrive.
+
+Config section: `OneDriveStorage`
+
+Keys:
+- `Enabled`
+- `RootPath`
+
+OneDrive is a backup and ordinary-document destination only. It is not used as a live database or as a shared-file replacement for SQL Server.
+
+## Offline client/site/job queue
+
+Services: `LocalSqliteFallbackStore`, `OfflineSyncService`
+
+Capabilities:
+- Queue Clients, Sites, and Jobs create/update operations during SQL connectivity failures.
+- Coalesce repeated local edits, remap dependencies created offline, and replay in order.
+- Retain stale updates as review conflicts when the SQL Server version changed.
+
+Financial, stock, payroll, and job-material changes remain online-only.
+
 ## GST e-invoice
 
 Service: `HVAC_Pro_Desktop.Services.Integrations.GstEinvoiceIntegrationService`

@@ -66,11 +66,11 @@ namespace HVAC_Pro_Desktop.DAL
                     INSERT INTO B2BClients
                         (CompanyName,IndustryType,TotalAnnualValue,PrimaryContact,SecondaryContact,
                          Phone,CustomerSince,Email,GSTNumber,PANNumber,PaymentTermsDays,
-                         CreditLimit,BillingAddress,City,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,RelationshipStage,Tags,HealthScore,Notes,AssignedTo,LeadSource,IsActive)
+                         CreditLimit,BillingAddress,City,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,RelationshipStage,Tags,HealthScore,Notes,AssignedTo,LeadSource,IsActive,SyncPublicId)
                     VALUES
                         (@name,@industry,@value,@contact1,@contact2,
                          @phone,@since,@email,@gst,@pan,@terms,
-                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive);
+                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive,@syncPublicId);
                     SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
                 return conn.QuerySingle<int>(sql, ToClientParams(c));
@@ -152,6 +152,10 @@ namespace HVAC_Pro_Desktop.DAL
                             list.Add(new ClientSite
                             {
                                 SiteID                   = (int)r["SiteID"],
+                                SyncPublicId             = r["SyncPublicId"] == DBNull.Value ? (Guid?)null : (Guid)r["SyncPublicId"],
+                                OriginNodeId             = r["OriginNodeId"] == DBNull.Value ? (Guid?)null : (Guid)r["OriginNodeId"],
+                                LastModifiedNodeId       = r["LastModifiedNodeId"] == DBNull.Value ? (Guid?)null : (Guid)r["LastModifiedNodeId"],
+                                SyncVersion              = r["SyncVersion"] == DBNull.Value ? 0L : Convert.ToInt64(r["SyncVersion"]),
                                 ClientID                 = (int)r["ClientID"],
                                 SiteName                 = r["SiteName"].ToString(),
                                 Address                  = r["Address"].ToString(),
@@ -453,7 +457,8 @@ namespace HVAC_Pro_Desktop.DAL
                 notes = c.Notes ?? "",
                 assignedTo = c.AssignedTo ?? "",
                 leadSource = c.LeadSource ?? "",
-                isActive = c.IsActive
+                isActive = c.IsActive,
+                syncPublicId = c.SyncPublicId
             };
         }
 

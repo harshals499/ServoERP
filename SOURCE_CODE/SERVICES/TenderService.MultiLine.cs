@@ -488,6 +488,11 @@ namespace HVAC_Pro_Desktop.Services
 
         public Job CreateDispatchJobFromQuotation(int tenderId)
         {
+            return CreateDispatchJobFromQuotation(tenderId, null);
+        }
+
+        public Job CreateDispatchJobFromQuotation(int tenderId, string deliveryReference)
+        {
             TenderBid bid = GetByIdDetailed(tenderId);
             if (bid == null)
                 throw new Exception("Quotation not found.");
@@ -517,7 +522,9 @@ namespace HVAC_Pro_Desktop.Services
                 QuotedRevenue = bid.BidValue,
                 Revenue = bid.BidValue,
                 Description = description,
-                Notes = "Created from quotation " + bid.QuotationNumber + Environment.NewLine + (bid.Notes ?? string.Empty)
+                Notes = "Created from quotation " + bid.QuotationNumber + Environment.NewLine +
+                        (string.IsNullOrWhiteSpace(deliveryReference) ? string.Empty : deliveryReference + Environment.NewLine) +
+                        (bid.Notes ?? string.Empty)
             };
 
             int jobId = _jobService.Create(job);

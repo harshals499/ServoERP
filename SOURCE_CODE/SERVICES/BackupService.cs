@@ -467,6 +467,21 @@ namespace HVAC_Pro_Desktop.Services
             if (trigger == BackupTrigger.Scheduled)
                 DbSettings.Set("BackupLastScheduledRun", DateTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
 
+            if (result != null && result.Success && OneDriveStorageService.IsEnabled)
+            {
+                OneDriveCopyResult copy = OneDriveStorageService.MirrorBackup(result.BackupPath, GetRetentionDays());
+                if (copy.Success)
+                {
+                    result.Message = "Backup completed and copied to OneDrive.";
+                    AppLogger.LogInfo("Backup mirrored to OneDrive: " + copy.FilePath);
+                }
+                else
+                {
+                    result.Message = "Backup completed locally. " + copy.Message;
+                    AppLogger.LogInfo(result.Message);
+                }
+            }
+
             return result;
         }
 
