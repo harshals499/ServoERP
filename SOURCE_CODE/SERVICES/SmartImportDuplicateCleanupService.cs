@@ -13,6 +13,8 @@ namespace HVAC_Pro_Desktop.Services
         public int ArchivedRecords { get; set; }
         public int MergedGroups { get; set; }
         public int ReassignedReferences { get; set; }
+        public int ResolvedChildConflicts { get; set; }
+        public int DeletedRecords { get; set; }
         public string Message { get; set; }
     }
 
@@ -49,6 +51,16 @@ namespace HVAC_Pro_Desktop.Services
 
         public DuplicateCleanupResult MergeAndArchiveGroups(ExcelImportModule module, IEnumerable<DuplicateCleanupPlan> cleanupPlans)
         {
+            return ExecuteCleanup(module, cleanupPlans, false);
+        }
+
+        public DuplicateCleanupResult MergeAndDeleteGroups(ExcelImportModule module, IEnumerable<DuplicateCleanupPlan> cleanupPlans)
+        {
+            return ExecuteCleanup(module, cleanupPlans, true);
+        }
+
+        private DuplicateCleanupResult ExecuteCleanup(ExcelImportModule module, IEnumerable<DuplicateCleanupPlan> cleanupPlans, bool deleteParentRecords)
+        {
             ModuleMap map = GetMap(module);
             DuplicateCleanupPlanningResult planning = BuildSmartBulkPlan(cleanupPlans);
             List<NormalizedCleanupPlan> plans = NormalizePlans(planning.Plans);
@@ -56,6 +68,8 @@ namespace HVAC_Pro_Desktop.Services
 
             EnsureSchema();
             int reassigned = 0;
+            int resolvedChildConflicts = 0;
+            int deletedRecords = 0;
             using (SqlConnection connection = _database.GetConnection())
             {
                 connection.Open();
@@ -64,6 +78,9 @@ namespace HVAC_Pro_Desktop.Services
                     try
                     {
                         List<ForeignKeyRow> foreignKeys = LoadForeignKeys(connection, transaction, map.Table, map.Key);
+                        Dictionary<string, List<UniqueIndexDefinition>> uniqueIndexesByForeignKey = foreignKeys
+                            .GroupBy(ForeignKeyCacheKey, StringComparer.OrdinalIgnoreCase)
+                            .ToDictionary(group => group.Key, group => LoadUniqueIndexes(connection, transaction, group.First()), StringComparer.OrdinalIgnoreCase);
                         foreach (NormalizedCleanupPlan plan in plans)
                         {
                             int survivorExists = connection.ExecuteScalar<int>("SELECT COUNT(1) FROM " + Q(map.Table) + " WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { id = plan.SurvivorId }, transaction);
@@ -74,11 +91,18 @@ namespace HVAC_Pro_Desktop.Services
                             {
                                 foreach (ForeignKeyRow fk in foreignKeys)
                                 {
+                                    foreach (UniqueIndexDefinition uniqueIndex in uniqueIndexesByForeignKey[ForeignKeyCacheKey(fk)])
+                                    {
+                                        string conflictSql = BuildUniqueChildConflictDeleteSql(fk.SchemaName, fk.TableName, fk.ColumnName, uniqueIndex.OtherColumns);
+                                        resolvedChildConflicts += connection.Execute(conflictSql, new { survivor = plan.SurvivorId, duplicate = duplicateId }, transaction);
+                                    }
                                     string sql = "UPDATE " + Q(fk.SchemaName) + "." + Q(fk.TableName) + " SET " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@survivor) WHERE " + Q(fk.ColumnName) + "=TRY_CONVERT(int,@duplicate)";
                                     reassigned += connection.Execute(sql, new { survivor = plan.SurvivorId, duplicate = duplicateId }, transaction);
                                 }
 
-                                if (!string.IsNullOrWhiteSpace(map.ArchiveColumn))
+                                if (deleteParentRecords)
+                                    deletedRecords += connection.Execute("DELETE FROM " + Q(map.Table) + " WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { id = duplicateId }, transaction);
+                                else if (!string.IsNullOrWhiteSpace(map.ArchiveColumn))
                                     connection.Execute("UPDATE " + Q(map.Table) + " SET " + Q(map.ArchiveColumn) + "=@value WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { value = map.ArchiveValue, id = duplicateId }, transaction);
 
                                 connection.Execute(@"INSERT INTO DuplicateMergeArchive(ModuleName,TableName,PrimaryKeyName,SurvivorRecordID,DuplicateRecordID,MergedBy)
@@ -102,14 +126,26 @@ VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
             int auditRecordId;
             if (!int.TryParse(plans[0].SurvivorId, out auditRecordId))
                 auditRecordId = 0;
-            SessionManager.LogAction("MERGE", module.ToString(), auditRecordId, "Smart Upload bulk duplicate cleanup archived " + archivedRecords + " record(s) across " + plans.Count + " group(s); reassigned " + reassigned + " reference(s).");
+            string action = deleteParentRecords ? "DELETE" : "MERGE";
+            SessionManager.LogAction(action, module.ToString(), auditRecordId, "Smart Upload duplicate cleanup " + (deleteParentRecords ? "deleted " : "archived ") + archivedRecords + " record(s) across " + plans.Count + " group(s); reassigned " + reassigned + " reference(s); resolved " + resolvedChildConflicts + " unique child conflict(s).");
             return new DuplicateCleanupResult
             {
                 ArchivedRecords = archivedRecords,
                 MergedGroups = plans.Count,
                 ReassignedReferences = reassigned,
-                Message = archivedRecords + " duplicate record(s) across " + plans.Count + " group(s) archived. " + reassigned + " linked reference(s) moved to the selected survivors."
+                ResolvedChildConflicts = resolvedChildConflicts,
+                DeletedRecords = deletedRecords,
+                Message = archivedRecords + " duplicate record(s) across " + plans.Count + " group(s) " + (deleteParentRecords ? "deleted" : "archived") + ". " + reassigned + " linked reference(s) moved to the selected survivors. " + resolvedChildConflicts + " duplicate child record conflict(s) safely retained on the survivor."
             };
+        }
+
+        public static string BuildUniqueChildConflictDeleteSql(string schemaName, string tableName, string foreignKeyColumn, IEnumerable<string> otherUniqueColumns)
+        {
+            List<string> columns = (otherUniqueColumns ?? Enumerable.Empty<string>()).Where(column => !string.IsNullOrWhiteSpace(column)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            string equality = columns.Count == 0
+                ? "1=1"
+                : string.Join(" AND ", columns.Select(column => "((s." + Q(column) + "=d." + Q(column) + ") OR (s." + Q(column) + " IS NULL AND d." + Q(column) + " IS NULL))"));
+            return "DELETE d FROM " + Q(schemaName) + "." + Q(tableName) + " d WHERE d." + Q(foreignKeyColumn) + "=TRY_CONVERT(int,@duplicate) AND EXISTS (SELECT 1 FROM " + Q(schemaName) + "." + Q(tableName) + " s WHERE s." + Q(foreignKeyColumn) + "=TRY_CONVERT(int,@survivor) AND " + equality + ")";
         }
 
         internal static void ValidateBulkSelection(IEnumerable<DuplicateCleanupPlan> cleanupPlans)
@@ -233,6 +269,31 @@ FROM sys.foreign_key_columns fkc
 WHERE OBJECT_NAME(fkc.referenced_object_id)=@table AND COL_NAME(fkc.referenced_object_id,fkc.referenced_column_id)=@key", new { table, key }, transaction).ToList();
         }
 
+        private static List<UniqueIndexDefinition> LoadUniqueIndexes(SqlConnection connection, SqlTransaction transaction, ForeignKeyRow foreignKey)
+        {
+            List<UniqueIndexColumnRow> rows = connection.Query<UniqueIndexColumnRow>(@"SELECT i.name IndexName,c.name ColumnName,ic.key_ordinal KeyOrdinal
+FROM sys.indexes i
+INNER JOIN sys.index_columns ic ON ic.object_id=i.object_id AND ic.index_id=i.index_id
+INNER JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id
+WHERE i.object_id=OBJECT_ID(QUOTENAME(@schemaName)+'.'+QUOTENAME(@tableName))
+  AND i.is_unique=1 AND i.has_filter=0 AND ic.is_included_column=0
+  AND EXISTS(SELECT 1 FROM sys.index_columns fkic INNER JOIN sys.columns fkc ON fkc.object_id=fkic.object_id AND fkc.column_id=fkic.column_id
+             WHERE fkic.object_id=i.object_id AND fkic.index_id=i.index_id AND fkc.name=@columnName)
+ORDER BY i.name,ic.key_ordinal", new { schemaName = foreignKey.SchemaName, tableName = foreignKey.TableName, columnName = foreignKey.ColumnName }, transaction).ToList();
+
+            return rows.GroupBy(row => row.IndexName, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new UniqueIndexDefinition
+                {
+                    Name = group.Key,
+                    OtherColumns = group.OrderBy(row => row.KeyOrdinal).Where(row => !string.Equals(row.ColumnName, foreignKey.ColumnName, StringComparison.OrdinalIgnoreCase)).Select(row => row.ColumnName).ToList()
+                }).ToList();
+        }
+
+        private static string ForeignKeyCacheKey(ForeignKeyRow foreignKey)
+        {
+            return foreignKey.SchemaName + "." + foreignKey.TableName + "." + foreignKey.ColumnName;
+        }
+
         private static string Q(string value) { return "[" + value.Replace("]", "]]" ) + "]"; }
 
         private static ModuleMap GetMap(ExcelImportModule module)
@@ -270,5 +331,7 @@ WHERE OBJECT_NAME(fkc.referenced_object_id)=@table AND COL_NAME(fkc.referenced_o
             public List<string> DuplicateIds { get; private set; }
         }
         private sealed class ForeignKeyRow { public string SchemaName { get; set; } public string TableName { get; set; } public string ColumnName { get; set; } }
+        private sealed class UniqueIndexColumnRow { public string IndexName { get; set; } public string ColumnName { get; set; } public int KeyOrdinal { get; set; } }
+        private sealed class UniqueIndexDefinition { public string Name { get; set; } public List<string> OtherColumns { get; set; } }
     }
 }

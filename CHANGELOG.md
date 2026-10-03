@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.460.0 - 2026-10-03
+
+- Fixed duplicate employee merges failing when both records contain TDS calculations for the same financial year.
+- Added metadata-driven unique child-record conflict handling before linked records are reassigned, preserving the survivor's existing child record inside the rollback-safe transaction.
+- Added an explicitly confirmed Delete duplicates action that reassigns linked records and then permanently deletes the selected duplicate master records in one audited transaction.
+- Added regression coverage for employee/financial-year uniqueness conflicts and visually verified the updated merge/delete workspace.
+
 ## 1.1.459.0 - 2026-10-03
 
 - Made every shared PDF header read the company name, registered address, phone, and email from Settings, covering invoices, quotations, purchase orders, job documents, payslips, payroll reports, and shared PDF exports.

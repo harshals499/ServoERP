@@ -69,8 +69,8 @@ namespace HVAC_Pro_Desktop.Tests
             using (var dialog = new SmartImportDuplicateCleanupDialog(ExcelImportModule.Employees, false))
             {
                 List<string> buttonLabels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
-                if (!buttonLabels.Contains("Select all groups") || !buttonLabels.Contains("Clear selection") || !buttonLabels.Contains("Merge selected groups"))
-                    throw new InvalidOperationException("Duplicate cleanup must expose select-all, clear-selection, and bulk-merge actions.");
+                if (!buttonLabels.Contains("Select all groups") || !buttonLabels.Contains("Clear selection") || !buttonLabels.Contains("Merge selected groups") || !buttonLabels.Contains("Delete duplicates"))
+                    throw new InvalidOperationException("Duplicate cleanup must expose select-all, clear-selection, bulk-merge, and explicit duplicate-delete actions.");
                 CheckedListBox groupList = FindControl<CheckedListBox>(dialog);
                 if (groupList == null || !groupList.CheckOnClick)
                     throw new InvalidOperationException("Duplicate groups must support direct multi-selection.");
@@ -91,6 +91,10 @@ namespace HVAC_Pro_Desktop.Tests
             });
             if (smartPlan.Plans.Count != 1 || smartPlan.ConsolidatedOverlapCount != 1 || smartPlan.Plans[0].SurvivorId != "1" || smartPlan.Plans[0].DuplicateIds.Count() != 2)
                 throw new InvalidOperationException("Smart duplicate cleanup must consolidate overlapping groups into one deterministic safe plan.");
+
+            string conflictSql = SmartImportDuplicateCleanupService.BuildUniqueChildConflictDeleteSql("dbo", "TDSCalculations", "EmployeeId", new[] { "FinancialYear" });
+            if (conflictSql.IndexOf("DELETE d", StringComparison.OrdinalIgnoreCase) < 0 || conflictSql.IndexOf("FinancialYear", StringComparison.OrdinalIgnoreCase) < 0 || conflictSql.IndexOf("@survivor", StringComparison.OrdinalIgnoreCase) < 0)
+                throw new InvalidOperationException("Duplicate cleanup must resolve unique employee/year child collisions before reassigning linked records.");
         }
 
         private static void EnsureLanControlDeploymentWorkflowIsVisible()

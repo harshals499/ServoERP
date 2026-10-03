@@ -52,8 +52,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildUi()
         {
-            var title = new Label { Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 14, 18, 0), Font = new Font("Segoe UI", 13f, FontStyle.Bold), Text = "Review, merge and archive duplicate records" };
-            var help = new Label { Dock = DockStyle.Top, Height = 46, Padding = new Padding(18, 0, 18, 8), ForeColor = Color.FromArgb(71, 85, 105), Text = "Choose a group and the record to keep. Linked records move in one transaction; failures roll back safely." };
+            var title = new Label { Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 14, 18, 0), Font = new Font("Segoe UI", 13f, FontStyle.Bold), Text = "Review, merge or delete duplicate records" };
+            var help = new Label { Dock = DockStyle.Top, Height = 46, Padding = new Padding(18, 0, 18, 8), ForeColor = Color.FromArgb(71, 85, 105), Text = "Choose records to merge/archive or permanently delete. Linked records move in one transaction; failures roll back safely." };
             _workspaceSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 275, FixedPanel = FixedPanel.Panel1, Padding = new Padding(18, 4, 18, 4) };
             var groupPanel = new Panel { Dock = DockStyle.Fill };
             var groupActions = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 0, 0, 6) };
@@ -101,15 +101,21 @@ namespace HVAC_Pro_Desktop.UI
             _survivor.DropDownStyle = ComboBoxStyle.DropDownList;
             _survivor.SelectedIndexChanged += (s, e) => BindDuplicateChecks();
             right.Controls.Add(_survivor, 0, 1);
-            right.Controls.Add(new Label { Text = "Records to archive", Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0), Font = new Font("Segoe UI", 9f, FontStyle.Bold) }, 0, 2);
+            right.Controls.Add(new Label { Text = "Duplicate records selected", Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0), Font = new Font("Segoe UI", 9f, FontStyle.Bold) }, 0, 2);
             _duplicates.Dock = DockStyle.Fill;
             _duplicates.CheckOnClick = true;
             right.Controls.Add(_duplicates, 0, 3);
-            var merge = new Button { Name = "MergeSelectedDuplicateGroupsButton", Text = "Merge selected groups", Dock = DockStyle.Right, Width = 205, Height = 34, BackColor = Color.FromArgb(180, 30, 30), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            var merge = new Button { Name = "MergeSelectedDuplicateGroupsButton", Text = "Merge selected groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 6, 0), BackColor = Color.FromArgb(37, 99, 235), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
             merge.FlatAppearance.BorderSize = 0;
             merge.Click += (s, e) => MergeSelectedGroups();
-            var actionPanel = new Panel { Dock = DockStyle.Fill };
-            actionPanel.Controls.Add(merge);
+            var delete = new Button { Name = "DeleteSelectedDuplicateRecordsButton", Text = "Delete duplicates", Dock = DockStyle.Fill, Margin = new Padding(6, 0, 0, 0), BackColor = Color.FromArgb(180, 30, 30), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            delete.FlatAppearance.BorderSize = 0;
+            delete.Click += (s, e) => DeleteSelectedDuplicates();
+            var actionPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56));
+            actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44));
+            actionPanel.Controls.Add(merge, 0, 0);
+            actionPanel.Controls.Add(delete, 1, 0);
             right.Controls.Add(actionPanel, 0, 4);
             _workspaceSplit.Panel2.Controls.Add(right);
 
@@ -297,21 +303,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void MergeSelectedGroups()
         {
-            SaveBoundGroupSelection();
-            var plans = new List<DuplicateCleanupPlan>();
-            foreach (SmartImportDuplicateGroup group in _selectedGroups)
-            {
-                GroupSelectionState state = _selectionStates[group];
-                plans.Add(new DuplicateCleanupPlan { SurvivorId = state.SurvivorId, DuplicateIds = state.DuplicateIds.ToList() });
-            }
             DuplicateCleanupPlanningResult planning;
-            try { planning = SmartImportDuplicateCleanupService.BuildSmartBulkPlan(plans); }
-            catch (InvalidOperationException ex)
-            {
-                MessageBox.Show(this, ex.Message, "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                return;
-            }
-            plans = planning.Plans;
+            if (!TryBuildSelectedPlan(out planning)) return;
+            List<DuplicateCleanupPlan> plans = planning.Plans;
             int duplicateCount = plans.Sum(plan => (plan.DuplicateIds ?? Enumerable.Empty<string>()).Count());
             if (plans.Count == 0 || duplicateCount == 0)
             {
@@ -330,6 +324,49 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AppLogger.LogError("SmartImportDuplicateCleanupDialog.MergeSelectedGroups", ex);
                 MessageBox.Show(this, "No records were changed. " + ex.Message, "Duplicate Cleanup Rolled Back", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void DeleteSelectedDuplicates()
+        {
+            DuplicateCleanupPlanningResult planning;
+            if (!TryBuildSelectedPlan(out planning)) return;
+            List<DuplicateCleanupPlan> plans = planning.Plans;
+            int duplicateCount = plans.Sum(plan => (plan.DuplicateIds ?? Enumerable.Empty<string>()).Count());
+            string overlapNote = planning.ConsolidatedOverlapCount > 0 ? " Smart planning consolidated " + planning.ConsolidatedOverlapCount + " overlapping group(s)." : string.Empty;
+            if (!ServoConfirmDialog.Show(this, "Permanently delete " + duplicateCount + " duplicate record(s)?", "The selected survivor in each safe group will remain. Linked records will be moved first, conflicting child rows will retain the survivor's version, and duplicate master records will then be permanently deleted in one transaction." + overlapNote)) return;
+            try
+            {
+                DuplicateCleanupResult result = _service.MergeAndDeleteGroups(_module, plans);
+                MessageBox.Show(this, result.Message, "Duplicate Records Deleted", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                LoadGroups();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SmartImportDuplicateCleanupDialog.DeleteSelectedDuplicates", ex);
+                MessageBox.Show(this, "No records were changed. " + ex.Message, "Duplicate Delete Rolled Back", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private bool TryBuildSelectedPlan(out DuplicateCleanupPlanningResult planning)
+        {
+            SaveBoundGroupSelection();
+            var plans = new List<DuplicateCleanupPlan>();
+            foreach (SmartImportDuplicateGroup group in _selectedGroups)
+            {
+                GroupSelectionState state = _selectionStates[group];
+                plans.Add(new DuplicateCleanupPlan { SurvivorId = state.SurvivorId, DuplicateIds = state.DuplicateIds.ToList() });
+            }
+            try
+            {
+                planning = SmartImportDuplicateCleanupService.BuildSmartBulkPlan(plans);
+                return true;
+            }
+            catch (InvalidOperationException ex)
+            {
+                planning = null;
+                MessageBox.Show(this, ex.Message, "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return false;
             }
         }
 
