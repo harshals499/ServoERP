@@ -36,7 +36,18 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureLanControlDeploymentWorkflowIsVisible();
             EnsureSmartUploadCardsExposeDirectDuplicateCleanup();
             EnsureConfiguredCompanyAddressAppearsInDocuments();
+            EnsureDocumentPreviewSupportsEditingAndSignatures();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureDocumentPreviewSupportsEditingAndSignatures()
+        {
+            using (var dialog = new HtmlPreviewDialog("Quotation Preview - QA", "<html><body><p>Editable QA document</p></body></html>"))
+            {
+                List<string> labels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
+                if (!labels.Contains("Edit") || !labels.Contains("Add Signature") || !labels.Contains("Save PDF") || !labels.Contains("Reset"))
+                    throw new InvalidOperationException("Document previews must expose editing, signature insertion, PDF export, and reset actions.");
+            }
         }
 
         private static void EnsureConfiguredCompanyAddressAppearsInDocuments()

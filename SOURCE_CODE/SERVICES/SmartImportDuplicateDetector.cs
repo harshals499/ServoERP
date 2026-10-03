@@ -342,10 +342,16 @@ END");
             switch (module)
             {
                 case ExcelImportModule.Quotations:
-                    Add(keys, "quotation number", Value(row, "QuotationNumber"));
+                    if (!string.IsNullOrWhiteSpace(Value(row, "LineDescription")))
+                        AddComposite(keys, "quotation/line", row, "QuotationNumber", "LineDescription");
+                    else
+                        Add(keys, "quotation number", Value(row, "QuotationNumber"));
                     break;
                 case ExcelImportModule.Invoices:
-                    Add(keys, "invoice number", Value(row, "InvoiceNumber"));
+                    if (!string.IsNullOrWhiteSpace(Value(row, "LineDescription")))
+                        AddComposite(keys, "invoice/line", row, "InvoiceNumber", "LineDescription");
+                    else
+                        Add(keys, "invoice number", Value(row, "InvoiceNumber"));
                     break;
                 case ExcelImportModule.Payments:
                     Add(keys, "payment reference", Value(row, "ReferenceNumber"));

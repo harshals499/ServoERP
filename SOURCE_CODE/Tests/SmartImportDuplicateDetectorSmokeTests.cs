@@ -59,6 +59,17 @@ namespace HVAC_Pro_Desktop.Tests
                 "overlapping name/email matches should become one safe review group");
             passed.Add("overlapping matches are consolidated into one duplicate review group");
 
+            var wideHeaders = new List<string> { "Quotation Number", "Client Name", "Description", "Qty", "Rate", "Amount", "Description [2]", "Qty [2]", "Rate [2]", "Amount [2]" };
+            var wideSource = Row("Quotation Number", "Q-WIDE-1", "Client Name", "ABC", "Description", "Copper pipe", "Qty", "2", "Rate", "500", "Amount", "1000",
+                "Description [2]", "Insulation", "Qty [2]", "4", "Rate [2]", "100", "Amount [2]", "400");
+            var wideCanonical = Row("QuotationNumber", "Q-WIDE-1", "ClientName", "ABC", "Description", "HVAC materials", "Amount", "1400");
+            List<Dictionary<string, string>> expanded = MultiColumnDocumentRowExpander.Expand(ExcelImportModule.Quotations, wideHeaders, wideSource, wideCanonical);
+            Expect(expanded.Count == 2 && expanded[0]["LineDescription"] == "Copper pipe" && expanded[1]["LineDescription"] == "Insulation",
+                "repeated quotation item columns should expand into separate line rows");
+            Expect(detector.ScanUploadOnly(ExcelImportModule.Quotations, expanded).UploadDuplicateRows == 0,
+                "different line items belonging to one quotation must not be treated as duplicate quotations");
+            passed.Add("quotation, invoice, and PO imports recognize repeated line-item column groups");
+
             var modules = new Dictionary<ExcelImportModule, Dictionary<string, string>>
             {
                 { ExcelImportModule.Quotations, Row("QuotationNumber", "Q-1") },

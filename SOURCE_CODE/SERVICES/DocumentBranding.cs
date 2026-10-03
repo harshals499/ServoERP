@@ -259,7 +259,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         public static string BuildSignatureHtml(string companyName, string authorisedSignatoryName = null)
         {
-            string imageDataUri = TryBuildImageDataUri(AuthorizedSignaturePath);
+            string imageDataUri = GetAuthorizedSignatureDataUri();
             string signatureBody = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Authorised signature' />"
                 : "<span class='blank-space'></span>";
@@ -272,6 +272,18 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
                 + "<span class='small'>" + signatoryLabel + "</span>"
                 + "<span class='signature-company'>From " + Html(FirstNonEmpty(companyName, DefaultCompanyName)) + "</span>"
                 + "<span class='signature-signed-by'>Signed by :</span>";
+        }
+
+        public static string GetAuthorizedSignatureDataUri()
+        {
+            string userPath = GetUserSignaturePath();
+            string dataUri = TryBuildImageDataUri(userPath);
+            return string.IsNullOrWhiteSpace(dataUri) ? TryBuildImageDataUri(AuthorizedSignaturePath) : dataUri;
+        }
+
+        public static string GetUserSignaturePath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ServoERP", "Branding", "authorized_signature.png");
         }
 
         private static string Html(string text)

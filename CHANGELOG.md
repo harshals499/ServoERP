@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.465.0 - 2026-10-03
+
+- Added in-app editing to document previews so quotation, invoice, and purchase-order text and table values can be corrected before printing or PDF/HTML export.
+- Added cursor-based signature image insertion, reusable per-user signature storage, removal through normal editing, and a safe reset action that never changes the saved business record.
+- Added multi-column document recognition for repeated description, quantity, unit, rate, amount, and GST column groups in quotation, invoice, and purchase-order workbooks.
+- Added invoice line-item persistence and made multi-line document rows duplicate-aware so separate items under one document number import safely.
+- Made PDF export retry with Google Chrome when Microsoft Edge exits without producing a file.
+- Added regression and visual coverage for editable preview controls, signatures, and repeated line-item column expansion.
+
 ## 1.1.464.0 - 2026-10-03
 
 - Expanded duplicate discovery across clients, employees, suppliers, sites, and inventory using normalized names, email, phone, tax, payroll, banking, and category-specific identity fields.
