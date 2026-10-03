@@ -4482,8 +4482,24 @@ THEN 1 ELSE 0 END";
         private void UpsertSettingFromConfig(SqlConnection conn, string settingKey, string configKey)
         {
             string value = ConfigService.Get("Company", configKey, string.Empty);
-            if (!string.IsNullOrWhiteSpace(value))
-                UpsertSetting(conn, settingKey, value);
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            // SQL Server is authoritative after first-run setup. Packaged/local config
+            // values are defaults only and must not overwrite changes saved in Settings
+            // every time the application starts.
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF NOT EXISTS (SELECT 1 FROM CompanySettings WHERE SettingKey = @key)
+                    INSERT INTO CompanySettings (SettingKey, SettingValue) VALUES (@key, @value);
+                ELSE IF NOT EXISTS (
+                    SELECT 1 FROM CompanySettings
+                    WHERE SettingKey = @key AND NULLIF(LTRIM(RTRIM(SettingValue)), '') IS NOT NULL)
+                    UPDATE CompanySettings SET SettingValue = @value, UpdatedDate = GETDATE() WHERE SettingKey = @key;", conn))
+            {
+                cmd.Parameters.AddWithValue("@key", settingKey ?? string.Empty);
+                cmd.Parameters.AddWithValue("@value", value);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         private void UpsertSetting(SqlConnection conn, string key, string value)

@@ -49,6 +49,17 @@ namespace HVAC_Pro_Desktop.Tests
             });
             if (!html.Contains("Unit 7, Test Industrial Estate, Pune") || !html.Contains("020-55550000") || !html.Contains("qa@example.test"))
                 throw new InvalidOperationException("Shared document branding must render the company address and contact details saved in Settings.");
+
+            string fullHeader = DocumentBranding.BuildOfficialHeaderHtml(new IndiaCompanySettings
+            {
+                CompanyName = "ServoERP QA Company",
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!fullHeader.Contains("ServoERP QA Company") || !fullHeader.Contains("Unit 7, Test Industrial Estate, Pune")
+                || !fullHeader.Contains("mse-live-company-header") || fullHeader.Contains("303, Oracle Business Hub"))
+                throw new InvalidOperationException("Document headers must use live Settings identity data instead of the legacy baked-in letterhead address.");
         }
 
         private static void EnsureSmartUploadCardsExposeDirectDuplicateCleanup()

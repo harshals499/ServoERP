@@ -2371,6 +2371,12 @@ namespace HVAC_Pro_Desktop.UI
 
                 _svc.SaveIndiaCompanySettings(settings);
                 ConfigService.Set("Company", "CompanyName", settings.CompanyName);
+                ConfigService.Set("Company", "CompanyAddress", settings.Address);
+                ConfigService.Set("Company", "CompanyPhone", settings.Phone);
+                ConfigService.Set("Company", "CompanyEmail", settings.Email);
+                ConfigService.Set("Company", "CompanyGSTIN", settings.GSTIN);
+                ConfigService.Set("Company", "CompanyPAN", settings.PAN);
+                ConfigService.Set("Company", "CompanyState", settings.CompanyState);
                 _svc.Set("DefaultMarkupPct", _numMarkupPct.Value.ToString("0.##"));
                 _hsnSacSvc.SaveAll(CollectHsnSacRows());
                 SaveDisplayFitSetting();

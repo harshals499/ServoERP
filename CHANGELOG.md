@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.461.0 - 2026-10-03
+
+- Fixed saved company address, phone, and email settings being overwritten by packaged configuration values during application startup.
+- Made SQL Server company settings authoritative after first-run setup and retained configuration values only as safe defaults for missing settings.
+- Replaced the legacy baked-in-address letterhead with a live document header whenever company identity is configured, covering quotation previews, PDF output, HTML exports, invoices, purchase orders, job documents, and payroll documents.
+- Added regression coverage and visually verified the Settings-backed company header before release.
+
 ## 1.1.460.0 - 2026-10-03
 
 - Fixed duplicate employee merges failing when both records contain TDS calculations for the same financial year.
