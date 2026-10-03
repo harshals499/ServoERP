@@ -1,15 +1,32 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.466.0",
+  "latestVersion": "1.1.467.0",
   "updatedAt": "2026-10-03",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.466/ServoERP.Desktop-1.1.466-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.466.0.exe",
-    "installer": "ServoERP_Setup_1.1.466.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.467/ServoERP.Desktop-1.1.467-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.467.0.exe",
+    "installer": "ServoERP_Setup_1.1.467.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.467.0",
+      "date": "2026-10-03",
+      "title": "ServoERP 1.1.467 - Automatic Client Updates",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Enabled automatic background downloading of new ServoERP client releases without requiring the user to click Update.",
+            "Fixed startup checking the old update preference before the automatic-update migration had run, which could leave existing clients in manual mode.",
+            "Added a one-time client policy migration that enables version checks, forces an immediate first background check, downloads the release, and installs safely when ServoERP closes while preserving later user preference changes.",
+            "Changed the update banner into an informational ready notice after download; no download action is required from the user.",
+            "Added regression coverage for automatic-update policy migration and startup integration."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.466.0",
       "date": "2026-10-03",
