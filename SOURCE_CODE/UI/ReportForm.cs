@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -32,7 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ProfitabilityWorkbookImportService _profitabilityImportSvc = new ProfitabilityWorkbookImportService();
 
         private static int? PendingTabIndex;
-        private int _currentReportIndex;
+        private int _currentReportIndex = 9;
 
         private Label _lblStatus;
         private Label _lblRevenue, _lblRevenueSub, _lblReceivable, _lblReceivableSub, _lblSla, _lblSlaSub;
@@ -41,6 +42,38 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel _reportLibrary;
         private Panel _dashboardFlow;
         private Panel _surface;
+        private Chart _explorerChart;
+        private Label _lblChartTitle;
+        private Label _lblReportTitle;
+        private Label _lblReportSubtitle;
+        private Label _lblReportCount;
+        private Label _lblSummaryRevenue;
+        private Label _lblSummaryCost;
+        private Label _lblSummaryProfit;
+        private Label _lblSummaryMargin;
+        private Label _lblSummaryOutstanding;
+        private TextBox _txtLibrarySearch;
+        private TextBox _txtResultSearch;
+        private ComboBox _cmbFinancialYear;
+        private ComboBox _cmbClient;
+        private ComboBox _cmbSite;
+        private ComboBox _cmbStatus;
+        private ComboBox _cmbExportFormat;
+        private ComboBox _cmbGroupBy;
+        private CheckBox _chkIncludeIncompleteCosts;
+        private Label _lblSavedView;
+        private Label _lblSchedule;
+        private Button _btnResetExplorer;
+        private FlowLayoutPanel _headerActions;
+        private readonly HashSet<string> _selectedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private Timer _reportScheduleTimer;
+        private string _scheduledExportFolder;
+        private string _scheduledExportFrequency;
+        private TimeSpan _scheduledExportTime;
+        private DateTime _lastScheduledExportDate = DateTime.MinValue;
+        private DateTime _requestedFinancialYearStart;
+        private string _savedClientFilter;
+        private string _savedSiteFilter;
         private readonly Dictionary<string, ResizableCard> _dashboardCards = new Dictionary<string, ResizableCard>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, TableLayoutPanel> _ownerCardBodies = new Dictionary<string, TableLayoutPanel>(StringComparer.OrdinalIgnoreCase);
         private ResizableCard _dragCard;
@@ -54,6 +87,8 @@ namespace HVAC_Pro_Desktop.UI
         private List<StockItem> _stock = new List<StockItem>();
         private List<ServiceDeskIncident> _serviceTickets = new List<ServiceDeskIncident>();
         private List<VendorAdvancePayment> _vendorAdvances = new List<VendorAdvancePayment>();
+        private List<JobProfitabilityRow> _profitabilityRows = new List<JobProfitabilityRow>();
+        private List<MonthlyProfitLossRow> _monthlyProfitLoss = new List<MonthlyProfitLossRow>();
         private PayrollDashboardSnapshot _payrollSnapshot = new PayrollDashboardSnapshot();
         private Dictionary<int, string> _clientNames = new Dictionary<int, string>();
         private bool _initialRefreshQueued;
@@ -96,6 +131,10 @@ namespace HVAC_Pro_Desktop.UI
             BuildLayout();
             AppRuntime.LogTiming("Reports.BuildLayout", ctorWatch.ElapsedMilliseconds);
             UIHelper.ApplyInputStyles(Controls);
+            if (_btnResetExplorer != null)
+                UIHelper.ApplyButtonStyle(_btnResetExplorer, ButtonRole.Neutral);
+            if (_headerActions != null)
+                _headerActions.WrapContents = false;
             RegisterFirstPaintTiming("Reports.FirstPaint", ctorWatch);
             EnableDeferredLoad(
                 (Func<Task>)(async () => await RefreshAllAsync()),
@@ -128,22 +167,52 @@ namespace HVAC_Pro_Desktop.UI
         public void LoadProfitabilityPreviewForVisualTest()
         {
             _currentReportIndex = 9;
-            foreach (Control tile in _reportLibrary.Controls)
-                tile.BackColor = Convert.ToInt32(tile.Tag) == _currentReportIndex ? Color.FromArgb(239, 246, 255) : CardBg;
-            _detailGrid.Columns.Clear();
-            _detailGrid.Rows.Clear();
-            AddColumns("Job", "Client / Site", "Invoice", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding", "Cost Status");
-            _detailGrid.Rows.Add("JOB-26041", "Aarti Industries / Plant 2", "INV-2026-041", "1,85,000.00", "1,22,400.00", "62,600.00", "33.8", "25,000.00", "Complete");
-            _detailGrid.Rows.Add("JOB-26042", "Bluejet / Ambernath", "INV-2026-042", "78,500.00", "0.00", "78,500.00", "100.0", "78,500.00", "Cost incomplete");
+            DateTime fyStart = IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
+            _profitabilityRows = new List<JobProfitabilityRow>
+            {
+                PreviewProfitabilityRow("JOB-26041", "Aarti Industries", "Plant 2", "INV-2026-041", 185000m, 122400m, 25000m, "Complete", fyStart.AddMonths(5)),
+                PreviewProfitabilityRow("JOB-26042", "Bluejet", "Ambernath", "INV-2026-042", 78500m, 48500m, 18000m, "Complete", fyStart.AddMonths(6)),
+                PreviewProfitabilityRow("JOB-26043", "Tata Consultancy Services", "Pune", "INV-2026-043", 242000m, 151000m, 42000m, "Complete", fyStart.AddMonths(7)),
+                PreviewProfitabilityRow("JOB-26044", "Larsen & Toubro", "Powai", "INV-2026-044", 164000m, 0m, 164000m, "Cost incomplete", fyStart.AddMonths(8)),
+                PreviewProfitabilityRow("JOB-26045", "Infosys", "Mysuru Campus", "INV-2026-045", 198000m, 127000m, 38000m, "Complete", fyStart.AddMonths(9))
+            };
+            _monthlyProfitLoss = Enumerable.Range(0, 12).Select(month =>
+            {
+                decimal revenue = 180000m + (month * 27000m);
+                decimal cost = 122000m + (month * 15000m);
+                MonthlyProfitLossRow row = new MonthlyProfitLossRow { Month = fyStart.AddMonths(month), Revenue = revenue, DirectCosts = cost };
+                FinancialReportingService.ApplyCalculations(row);
+                return row;
+            }).ToList();
+            PopulateExplorerFilters();
+            SelectReport(9);
             _lblStatus.Text = "Profitability preview | FY 2026-27";
             _lblStatus.ForeColor = Green;
         }
 
+        private static JobProfitabilityRow PreviewProfitabilityRow(string job, string client, string site, string invoice, decimal revenue, decimal cost, decimal outstanding, string costStatus, DateTime date)
+        {
+            JobProfitabilityRow row = new JobProfitabilityRow
+            {
+                JobNumber = job,
+                ClientName = client,
+                SiteName = site,
+                InvoiceNumber = invoice,
+                BilledRevenue = revenue,
+                ActualDirectCost = cost,
+                OutstandingAmount = outstanding,
+                CostStatus = costStatus,
+                JobStatus = "Completed",
+                ReportingDate = date
+            };
+            FinancialReportingService.ApplyCalculations(row);
+            if (!string.IsNullOrWhiteSpace(costStatus)) row.CostStatus = costStatus;
+            return row;
+        }
+
         public void ScrollToProfitabilityPreviewForVisualTest()
         {
-            Panel surface = Controls.Find("ReportsSurface", true).OfType<Panel>().FirstOrDefault();
-            if (surface != null)
-                surface.AutoScrollPosition = new Point(0, surface.VerticalScroll.Maximum);
+            // The explorer layout fits the viewport and no longer requires a scroll capture.
         }
 
         private void BuildLayout()
@@ -155,39 +224,994 @@ namespace HVAC_Pro_Desktop.UI
                 Name = "ReportsSurface",
                 Tag = "NO_CARD_SURFACE",
                 Dock = DockStyle.Fill,
-                AutoScroll = true,
+                AutoScroll = false,
                 BackColor = PageBg,
                 Padding = new Padding(16)
             };
-            Controls.Add(_surface);
-
-            Panel detailSection = BuildDetailSection();
-            Panel librarySection = BuildLibrarySection();
-            Panel commandSection = BuildCommandSection();
-            TableLayoutPanel kpiStrip = BuildKpiStrip();
             Panel header = BuildHeader();
+            _surface.Controls.Add(BuildExplorerWorkspace());
+            TableLayoutPanel shell = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 1,
+                RowCount = 2,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            shell.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            shell.RowStyles.Add(new RowStyle(SizeType.Absolute, 88f));
+            shell.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            header.Dock = DockStyle.Fill;
+            shell.Controls.Add(header, 0, 0);
+            shell.Controls.Add(_surface, 0, 1);
+            Controls.Add(shell);
+        }
 
-            _surface.Controls.Add(detailSection);
-            _surface.Controls.Add(librarySection);
-            _surface.Controls.Add(commandSection);
-            _surface.Controls.Add(kpiStrip);
+        private Control BuildExplorerWorkspace()
+        {
+            TableLayoutPanel workspace = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty
+            };
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 238f));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            workspace.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 252f));
+            workspace.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
 
-            // Keep the workflow actions visible while the report canvas scrolls.
-            // DataGridView binding can focus the first cell and scroll its parent;
-            // placing the header outside that canvas prevents it from disappearing.
-            Controls.Add(header);
-            header.BringToFront();
-            _surface.SendToBack();
+            workspace.Controls.Add(BuildExplorerLibrary(), 0, 0);
+            workspace.Controls.Add(BuildExplorerCenter(), 1, 0);
+            workspace.Controls.Add(BuildExplorerSetup(), 2, 0);
+            return workspace;
+        }
+
+        private Control BuildExplorerLibrary()
+        {
+            Panel panel = ExplorerSurface(new Padding(12));
+            panel.Margin = new Padding(0, 0, 10, 0);
+
+            Label title = ExplorerHeading("Report library", 24);
+            title.Dock = DockStyle.Top;
+            _txtLibrarySearch = new TextBox
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                Font = DS.Body,
+                BorderStyle = BorderStyle.FixedSingle,
+                AccessibleName = "Search reports"
+            };
+            _txtLibrarySearch.TextChanged += (s, e) => FilterReportLibrary();
+            SetCueBanner(_txtLibrarySearch, "Search reports");
+
+            _reportLibrary = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoScroll = true,
+                BackColor = CardBg,
+                Padding = new Padding(0, 10, 0, 0)
+            };
+            AddExplorerGroup("FINANCIAL", 9, 0, 1);
+            AddExplorerGroup("JOBS & SERVICE", 3, 4);
+            AddExplorerGroup("AMC", 2);
+            AddExplorerGroup("INVENTORY & PURCHASES", 5, 6, 7);
+            AddExplorerGroup("CLIENTS & SITES", 8);
+            AddExplorerGroup("DATA QUALITY", 10);
+            _reportLibrary.Resize += (s, e) => ResizeExplorerLibraryButtons();
+
+            Panel searchWrap = new Panel { Dock = DockStyle.Top, Height = 46, BackColor = CardBg, Padding = new Padding(0, 6, 0, 6) };
+            searchWrap.Controls.Add(_txtLibrarySearch);
+            panel.Controls.Add(_reportLibrary);
+            panel.Controls.Add(searchWrap);
+            panel.Controls.Add(title);
+            return panel;
+        }
+
+        private Control BuildExplorerCenter()
+        {
+            TableLayoutPanel center = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                Margin = new Padding(0, 0, 10, 0),
+                Padding = Padding.Empty,
+                ColumnCount = 1,
+                RowCount = 5
+            };
+            center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            center.RowStyles.Add(new RowStyle(SizeType.Absolute, 72f));
+            center.RowStyles.Add(new RowStyle(SizeType.Absolute, 72f));
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 43f));
+            center.RowStyles.Add(new RowStyle(SizeType.Absolute, 76f));
+            center.RowStyles.Add(new RowStyle(SizeType.Percent, 57f));
+
+            Panel title = ExplorerSurface(new Padding(14, 8, 14, 6));
+            title.Margin = new Padding(0, 0, 0, 8);
+            _lblReportTitle = new Label { Dock = DockStyle.Top, Height = 28, Text = "Job profitability", Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = TextDark };
+            _lblReportSubtitle = new Label { Dock = DockStyle.Fill, Text = "Analyse job-wise revenue, cost and margin across clients and sites.", Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
+            title.Controls.Add(_lblReportSubtitle);
+            title.Controls.Add(_lblReportTitle);
+
+            Panel filters = BuildExplorerFilters();
+            filters.Margin = new Padding(0, 0, 0, 8);
+            Panel chart = BuildExplorerChart();
+            chart.Margin = new Padding(0, 0, 0, 8);
+            Control summary = BuildExplorerSummary();
+            summary.Margin = new Padding(0, 0, 0, 8);
+            Control grid = BuildExplorerGrid();
+
+            center.Controls.Add(title, 0, 0);
+            center.Controls.Add(filters, 0, 1);
+            center.Controls.Add(chart, 0, 2);
+            center.Controls.Add(summary, 0, 3);
+            center.Controls.Add(grid, 0, 4);
+            return center;
+        }
+
+        private Panel BuildExplorerFilters()
+        {
+            Panel surface = ExplorerSurface(new Padding(12, 8, 12, 8));
+            TableLayoutPanel row = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 6, RowCount = 1, BackColor = CardBg, Margin = Padding.Empty };
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 21f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 19f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 15f));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 9f));
+
+            _cmbFinancialYear = ExplorerCombo();
+            _cmbClient = ExplorerCombo();
+            _cmbSite = ExplorerCombo();
+            _cmbStatus = ExplorerCombo();
+            FillFinancialYears();
+            _cmbClient.Items.Add("All clients");
+            _cmbSite.Items.Add("All sites");
+            _cmbStatus.Items.AddRange(new object[] { "All jobs", "Completed", "In progress", "Open", "Cost incomplete" });
+            _cmbClient.SelectedIndex = _cmbSite.SelectedIndex = _cmbStatus.SelectedIndex = 0;
+
+            Button run = MakeButton("Run report", Blue, 112);
+            run.Dock = DockStyle.Fill;
+            run.Margin = new Padding(6, 17, 0, 0);
+            ModernIconSystem.AddButtonIcon(run, ModernIconKind.Analytics);
+            run.Click += async (s, e) => await RunExplorerReportAsync();
+            Button reset = MakeButton("Defaults", Color.White, 82);
+            _btnResetExplorer = reset;
+            reset.Dock = DockStyle.Fill;
+            reset.Margin = new Padding(6, 17, 0, 0);
+            reset.Click += (s, e) => ResetExplorerFilters();
+
+            row.Controls.Add(ExplorerField("Financial year", _cmbFinancialYear), 0, 0);
+            row.Controls.Add(ExplorerField("Client", _cmbClient), 1, 0);
+            row.Controls.Add(ExplorerField("Site", _cmbSite), 2, 0);
+            row.Controls.Add(ExplorerField("Status", _cmbStatus), 3, 0);
+            row.Controls.Add(run, 4, 0);
+            row.Controls.Add(reset, 5, 0);
+            surface.Controls.Add(row);
+            return surface;
+        }
+
+        private Panel BuildExplorerChart()
+        {
+            Panel surface = ExplorerSurface(new Padding(12, 42, 12, 8));
+            _lblChartTitle = new Label { Text = "Monthly trend", Location = new Point(14, 10), Height = 24, Width = 360, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TextDark };
+            _explorerChart = CreateProfitabilityChart();
+            _explorerChart.Location = new Point(12, 42);
+            _explorerChart.Size = new Size(720, 240);
+            surface.Resize += (s, e) => _explorerChart.Size = new Size(Math.Max(100, surface.ClientSize.Width - 24), Math.Max(80, surface.ClientSize.Height - 50));
+            surface.Controls.Add(_explorerChart);
+            surface.Controls.Add(_lblChartTitle);
+            return surface;
+        }
+
+        private Control BuildExplorerSummary()
+        {
+            TableLayoutPanel summary = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = CardBg, ColumnCount = 5, RowCount = 1, Padding = new Padding(8, 6, 8, 6) };
+            summary.Paint += (s, e) => DrawBorder(e.Graphics, summary);
+            for (int i = 0; i < 5; i++) summary.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20f));
+            _lblSummaryRevenue = AddExplorerSummary(summary, 0, "Total revenue", Blue);
+            _lblSummaryCost = AddExplorerSummary(summary, 1, "Total direct cost", Amber);
+            _lblSummaryProfit = AddExplorerSummary(summary, 2, "Gross profit", Green);
+            _lblSummaryMargin = AddExplorerSummary(summary, 3, "Margin %", Green);
+            _lblSummaryOutstanding = AddExplorerSummary(summary, 4, "Outstanding", Amber);
+
+            _lblRevenue = _lblSummaryRevenue;
+            _lblRevenueSub = new Label();
+            _lblReceivable = _lblSummaryOutstanding;
+            _lblReceivableSub = new Label();
+            _lblMargin = _lblSummaryMargin;
+            _lblMarginSub = new Label();
+            _lblSla = new Label();
+            _lblSlaSub = new Label();
+            _lblPayroll = new Label();
+            _lblPayrollSub = new Label();
+            _lblInventory = new Label();
+            _lblInventorySub = new Label();
+            return summary;
+        }
+
+        private Control BuildExplorerGrid()
+        {
+            Panel surface = ExplorerSurface(new Padding(12, 42, 12, 8));
+            _lblReportCount = new Label { Text = "Report preview", Location = new Point(14, 10), Size = new Size(360, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TextDark };
+            _txtResultSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(520, 8), Size = new Size(220, 28), Font = DS.Body, BorderStyle = BorderStyle.FixedSingle, AccessibleName = "Search report results" };
+            surface.Resize += (s, e) => _txtResultSearch.Left = Math.Max(360, surface.ClientSize.Width - _txtResultSearch.Width - 14);
+            _txtResultSearch.TextChanged += (s, e) => ApplyGridSearchAndFilters();
+            SetCueBanner(_txtResultSearch, "Search results");
+            _detailGrid = MakeGrid();
+            _detailGrid.Dock = DockStyle.Fill;
+            _detailGrid.CellFormatting += DetailGrid_CellFormatting;
+            surface.Controls.Add(_detailGrid);
+            surface.Controls.Add(_txtResultSearch);
+            surface.Controls.Add(_lblReportCount);
+            return surface;
+        }
+
+        private Control BuildExplorerSetup()
+        {
+            Panel panel = ExplorerSurface(new Padding(14));
+            panel.Margin = Padding.Empty;
+            FlowLayoutPanel flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, BackColor = CardBg, Padding = Padding.Empty };
+            flow.Controls.Add(ExplorerHeading("Report setup", 34));
+
+            _cmbExportFormat = ExplorerCombo(214);
+            _cmbExportFormat.Items.AddRange(new object[] { "Excel (.xlsx)", "CSV (.csv)" });
+            _cmbExportFormat.SelectedIndex = 0;
+            flow.Controls.Add(ExplorerField("Format", _cmbExportFormat, 214));
+
+            _cmbGroupBy = ExplorerCombo(214);
+            _cmbGroupBy.Items.AddRange(new object[] { "Client", "Site", "Status", "No grouping" });
+            _cmbGroupBy.SelectedIndex = 0;
+            _cmbGroupBy.SelectedIndexChanged += (s, e) => ApplyGridGrouping();
+            flow.Controls.Add(ExplorerField("Group by", _cmbGroupBy, 214));
+
+            Button columns = MakeButton("Choose columns...", Color.White, 214);
+            columns.Margin = new Padding(0, 12, 0, 6);
+            columns.Click += (s, e) => ChooseVisibleColumns();
+            flow.Controls.Add(columns);
+
+            _chkIncludeIncompleteCosts = new CheckBox { Text = "Include incomplete costs", Width = 214, Height = 44, Font = DS.Body, ForeColor = TextDark, Checked = true, Padding = new Padding(2, 8, 0, 0) };
+            _chkIncludeIncompleteCosts.CheckedChanged += (s, e) => ApplyGridSearchAndFilters();
+            flow.Controls.Add(_chkIncludeIncompleteCosts);
+            flow.Controls.Add(ExplorerDivider(214));
+
+            flow.Controls.Add(ExplorerHeading("Saved view", 30));
+            _lblSavedView = new Label { Text = "No saved view", Width = 214, Height = 34, Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
+            flow.Controls.Add(_lblSavedView);
+            Button saveView = MakeButton("Save current view", Color.White, 214);
+            saveView.Click += (s, e) => SaveExplorerView();
+            flow.Controls.Add(saveView);
+            flow.Controls.Add(ExplorerDivider(214));
+
+            flow.Controls.Add(ExplorerHeading("Schedule", 30));
+            _lblSchedule = new Label { Text = "No automatic export scheduled", Width = 214, Height = 46, Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
+            flow.Controls.Add(_lblSchedule);
+            Button schedule = MakeButton("Schedule export...", Color.White, 214);
+            schedule.Click += (s, e) => ConfigureExplorerSchedule();
+            flow.Controls.Add(schedule);
+
+            Label updated = new Label { Text = "Data refreshes when you run or refresh a report.", Width = 214, Height = 58, Margin = new Padding(0, 24, 0, 0), Font = DS.Small, ForeColor = TextMid };
+            flow.Controls.Add(updated);
+            panel.Controls.Add(flow);
+            _selectedColumns.UnionWith(new[] { "Job", "Client / Site", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding" });
+            LoadExplorerPreferences();
+            return panel;
+        }
+
+        private Panel ExplorerSurface(Padding padding)
+        {
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Padding = padding };
+            panel.Paint += (s, e) => DrawBorder(e.Graphics, panel);
+            return panel;
+        }
+
+        private static Label ExplorerHeading(string text, int height)
+        {
+            return new Label
+            {
+                Text = text,
+                Width = 214,
+                Height = height,
+                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                ForeColor = TextDark,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
+            };
+        }
+
+        private static Control ExplorerDivider(int width)
+        {
+            Panel divider = new Panel { Width = width, Height = 18, Margin = new Padding(0, 8, 0, 4), BackColor = CardBg };
+            divider.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(Border))
+                    e.Graphics.DrawLine(pen, 0, divider.Height / 2, divider.Width, divider.Height / 2);
+            };
+            return divider;
+        }
+
+        private static ComboBox ExplorerCombo(int width = 150)
+        {
+            return new ComboBox
+            {
+                Dock = DockStyle.Bottom,
+                Width = width,
+                Height = 30,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                Font = DS.Body,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = TextDark
+            };
+        }
+
+        private static Control ExplorerField(string label, Control input, int width = 0)
+        {
+            Panel field = new Panel
+            {
+                Dock = width > 0 ? DockStyle.None : DockStyle.Fill,
+                Width = width > 0 ? width : input.Width,
+                Height = 54,
+                BackColor = CardBg,
+                Margin = new Padding(0, 0, 6, 0)
+            };
+            Label caption = new Label { Text = label, Dock = DockStyle.Top, Height = 18, Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = TextMid };
+            input.Dock = DockStyle.Bottom;
+            input.Height = 30;
+            field.Controls.Add(input);
+            field.Controls.Add(caption);
+            return field;
+        }
+
+        private const int EmSetCueBanner = 0x1501;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
+
+        private static void SetCueBanner(TextBox box, string text)
+        {
+            if (box == null) return;
+            box.HandleCreated += (s, e) => SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), text ?? string.Empty);
+            if (box.IsHandleCreated)
+                SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), text ?? string.Empty);
+        }
+
+        private Label AddExplorerSummary(TableLayoutPanel host, int column, string title, Color color)
+        {
+            Panel item = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Padding = new Padding(10, 2, 8, 0), Margin = Padding.Empty };
+            if (column > 0)
+                item.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, 4, 0, item.Height - 4);
+            Label caption = new Label { Text = title, Dock = DockStyle.Top, Height = 20, Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
+            Label value = new Label { Text = "-", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = color, AutoEllipsis = true };
+            item.Controls.Add(value);
+            item.Controls.Add(caption);
+            host.Controls.Add(item, column, 0);
+            return value;
+        }
+
+        private void AddExplorerGroup(string heading, params int[] indexes)
+        {
+            Label group = new Label
+            {
+                Text = heading,
+                Width = 204,
+                Height = 27,
+                Font = new Font("Segoe UI", 7.6f, FontStyle.Bold),
+                ForeColor = TextMid,
+                TextAlign = ContentAlignment.BottomLeft,
+                Padding = new Padding(5, 0, 0, 3),
+                Margin = new Padding(0, 4, 0, 0),
+                Tag = "GROUP"
+            };
+            _reportLibrary.Controls.Add(group);
+            foreach (int index in indexes)
+                _reportLibrary.Controls.Add(MakeExplorerLibraryButton(index));
+        }
+
+        private Button MakeExplorerLibraryButton(int index)
+        {
+            string label = ExplorerReportLabel(index);
+            Button button = new Button
+            {
+                Tag = index,
+                Text = label,
+                Width = 204,
+                Height = 31,
+                Margin = new Padding(0),
+                Padding = new Padding(10, 0, 6, 0),
+                FlatStyle = FlatStyle.Flat,
+                FlatAppearance = { BorderSize = 0 },
+                BackColor = index == _currentReportIndex ? Color.FromArgb(239, 246, 255) : CardBg,
+                ForeColor = index == _currentReportIndex ? Blue : TextDark,
+                Font = new Font("Segoe UI", 8.7f, index == _currentReportIndex ? FontStyle.Bold : FontStyle.Regular),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Cursor = Cursors.Hand,
+                AccessibleName = "Open " + label + " report"
+            };
+            button.Click += (s, e) => SelectReport((int)((Control)s).Tag);
+            return button;
+        }
+
+        private static string ExplorerReportLabel(int index)
+        {
+            switch (index)
+            {
+                case 0: return "Revenue summary";
+                case 1: return "Receivables ageing";
+                case 2: return "AMC contracts";
+                case 3: return "Job register";
+                case 4: return "Technician productivity";
+                case 5: return "Inventory summary";
+                case 6: return "Purchase register";
+                case 7: return "Supplier advances";
+                case 8: return "Clients & sites";
+                case 9: return "Job profitability";
+                default: return "Import review";
+            }
+        }
+
+        private static string ExplorerReportDescription(int index)
+        {
+            switch (index)
+            {
+                case 0: return "Review recurring and contract revenue by client.";
+                case 1: return "Prioritise outstanding invoices and collection follow-up.";
+                case 2: return "Monitor AMC value, expiry dates and renewal actions.";
+                case 3: return "Review job pipeline, priority, assignment and completion.";
+                case 4: return "Compare technician workload, completion and revenue.";
+                case 5: return "Identify low stock, reservations and procurement needs.";
+                case 6: return "Track purchase orders, balances and supplier status.";
+                case 7: return "Review supplier advances, application and remaining balance.";
+                case 8: return "Compare client activity, open work and revenue.";
+                case 9: return "Analyse job-wise revenue, cost and margin across clients and sites.";
+                default: return "Review imported profitability rows before they affect reporting.";
+            }
+        }
+
+        private void ResizeExplorerLibraryButtons()
+        {
+            if (_reportLibrary == null) return;
+            int width = Math.Max(150, _reportLibrary.ClientSize.Width - _reportLibrary.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth - 2);
+            foreach (Control control in _reportLibrary.Controls)
+                control.Width = width;
+        }
+
+        private void FilterReportLibrary()
+        {
+            string query = (_txtLibrarySearch.Text ?? string.Empty).Trim();
+            foreach (Control control in _reportLibrary.Controls)
+            {
+                if (control.Tag is int)
+                    control.Visible = query.Length == 0 || control.Text.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+        }
+
+        private void FillFinancialYears()
+        {
+            DateTime current = IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
+            for (int offset = 0; offset < 4; offset++)
+            {
+                int start = current.Year - offset;
+                _cmbFinancialYear.Items.Add(start + "-" + ((start + 1) % 100).ToString("00"));
+            }
+            _cmbFinancialYear.SelectedIndex = 0;
+        }
+
+        private DateTime SelectedFinancialYearStart()
+        {
+            string value = Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture);
+            int year;
+            if (value != null && value.Length >= 4 && int.TryParse(value.Substring(0, 4), out year))
+                return new DateTime(year, 4, 1);
+            return IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
+        }
+
+        private Chart CreateProfitabilityChart()
+        {
+            Chart chart = new Chart { Dock = DockStyle.None, BackColor = CardBg, Palette = ChartColorPalette.None, MinimumSize = new Size(100, 80), Size = new Size(720, 240) };
+            ChartArea area = new ChartArea("ProfitabilityTrend") { BackColor = CardBg };
+            area.AxisX.MajorGrid.Enabled = false;
+            area.AxisX.LabelStyle.Font = new Font("Segoe UI", 7.5f);
+            area.AxisX.LabelStyle.ForeColor = TextMid;
+            area.AxisY.MajorGrid.LineColor = Color.FromArgb(232, 237, 244);
+            area.AxisY.LabelStyle.Font = new Font("Segoe UI", 7.5f);
+            area.AxisY.LabelStyle.ForeColor = TextMid;
+            area.AxisY.Title = "Amount (Rs)";
+            area.AxisY2.Enabled = AxisEnabled.True;
+            area.AxisY2.LabelStyle.Font = new Font("Segoe UI", 7.5f);
+            area.AxisY2.LabelStyle.ForeColor = TextMid;
+            area.AxisY2.Title = "Margin %";
+            area.AxisX.LineColor = area.AxisY.LineColor = area.AxisY2.LineColor = Border;
+            chart.ChartAreas.Add(area);
+
+            Series revenue = new Series("Revenue") { ChartType = SeriesChartType.Column, Color = Blue, ChartArea = area.Name, IsValueShownAsLabel = false };
+            Series cost = new Series("Direct cost") { ChartType = SeriesChartType.Column, Color = Color.FromArgb(249, 115, 22), ChartArea = area.Name, IsValueShownAsLabel = false };
+            Series margin = new Series("Margin %") { ChartType = SeriesChartType.Line, Color = Green, BorderWidth = 3, YAxisType = AxisType.Secondary, ChartArea = area.Name, MarkerStyle = MarkerStyle.Circle, MarkerSize = 6 };
+            chart.Series.Add(revenue);
+            chart.Series.Add(cost);
+            chart.Series.Add(margin);
+            chart.Legends.Add(new Legend { Docking = Docking.Bottom, Alignment = StringAlignment.Center, Font = new Font("Segoe UI", 8f), BackColor = CardBg });
+            return chart;
+        }
+
+        private void PopulateExplorerFilters()
+        {
+            string selectedClient = _savedClientFilter ?? Convert.ToString(_cmbClient.SelectedItem, CultureInfo.InvariantCulture) ?? "All clients";
+            string selectedSite = _savedSiteFilter ?? Convert.ToString(_cmbSite.SelectedItem, CultureInfo.InvariantCulture) ?? "All sites";
+            IEnumerable<string> clients = _profitabilityRows.Select(r => r.ClientName).Concat(_jobs.Select(j => j.ClientName));
+            IEnumerable<string> sites = _profitabilityRows.Select(r => r.SiteName).Concat(_jobs.Select(j => j.SiteName));
+
+            FillExplorerFilter(_cmbClient, "All clients", clients, selectedClient);
+            FillExplorerFilter(_cmbSite, "All sites", sites, selectedSite);
+            _savedClientFilter = null;
+            _savedSiteFilter = null;
+        }
+
+        private static void FillExplorerFilter(ComboBox combo, string allLabel, IEnumerable<string> values, string selected)
+        {
+            combo.BeginUpdate();
+            combo.Items.Clear();
+            combo.Items.Add(allLabel);
+            foreach (string value in values.Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(v => v))
+                combo.Items.Add(value.Trim());
+            int index = combo.FindStringExact(selected);
+            combo.SelectedIndex = index >= 0 ? index : 0;
+            combo.EndUpdate();
+        }
+
+        private async Task RunExplorerReportAsync()
+        {
+            try
+            {
+                _lblStatus.Text = "Running " + ExplorerReportLabel(_currentReportIndex) + "...";
+                _lblStatus.ForeColor = Blue;
+                if (_currentReportIndex == 9)
+                {
+                    DateTime start = SelectedFinancialYearStart();
+                    var result = await Task.Run(() => new
+                    {
+                        Rows = _financialSvc.GetJobProfitability(start, start.AddYears(1).AddDays(-1)) ?? new List<JobProfitabilityRow>(),
+                        Trend = _financialSvc.GetMonthlyProfitLoss(start, 12) ?? new List<MonthlyProfitLossRow>()
+                    });
+                    _profitabilityRows = result.Rows;
+                    _monthlyProfitLoss = result.Trend;
+                    PopulateExplorerFilters();
+                }
+                BindDetailGrid();
+                _lblStatus.Text = "Updated " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+                _lblStatus.ForeColor = Green;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Running Reports explorer", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Running report", ex);
+                _lblStatus.Text = "Report could not run. Check the filters and try again.";
+                _lblStatus.ForeColor = Red;
+            }
+        }
+
+        private void ResetExplorerFilters()
+        {
+            if (_cmbFinancialYear.Items.Count > 0) _cmbFinancialYear.SelectedIndex = 0;
+            if (_cmbClient.Items.Count > 0) _cmbClient.SelectedIndex = 0;
+            if (_cmbSite.Items.Count > 0) _cmbSite.SelectedIndex = 0;
+            if (_cmbStatus.Items.Count > 0) _cmbStatus.SelectedIndex = 0;
+            _txtResultSearch.Clear();
+            _chkIncludeIncompleteCosts.Checked = true;
+            BindDetailGrid();
+        }
+
+        private List<JobProfitabilityRow> FilteredProfitabilityRows(bool includeResultSearch)
+        {
+            IEnumerable<JobProfitabilityRow> query = _profitabilityRows ?? Enumerable.Empty<JobProfitabilityRow>();
+            string client = Convert.ToString(_cmbClient.SelectedItem, CultureInfo.InvariantCulture);
+            string site = Convert.ToString(_cmbSite.SelectedItem, CultureInfo.InvariantCulture);
+            string status = Convert.ToString(_cmbStatus.SelectedItem, CultureInfo.InvariantCulture);
+
+            if (!string.IsNullOrWhiteSpace(client) && !client.StartsWith("All ", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(r => string.Equals(r.ClientName, client, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(site) && !site.StartsWith("All ", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(r => string.Equals(r.SiteName, site, StringComparison.OrdinalIgnoreCase));
+            if (!_chkIncludeIncompleteCosts.Checked)
+                query = query.Where(r => string.Equals(r.CostStatus, "Complete", StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(status) && !status.StartsWith("All ", StringComparison.OrdinalIgnoreCase))
+            {
+                if (status.IndexOf("cost incomplete", StringComparison.OrdinalIgnoreCase) >= 0)
+                    query = query.Where(r => !string.Equals(r.CostStatus, "Complete", StringComparison.OrdinalIgnoreCase));
+                else if (status.IndexOf("complete", StringComparison.OrdinalIgnoreCase) >= 0)
+                    query = query.Where(r => string.Equals(r.JobStatus, "Completed", StringComparison.OrdinalIgnoreCase) || string.Equals(r.JobStatus, "Closed", StringComparison.OrdinalIgnoreCase));
+                else if (status.IndexOf("progress", StringComparison.OrdinalIgnoreCase) >= 0)
+                    query = query.Where(r => (r.JobStatus ?? string.Empty).IndexOf("Progress", StringComparison.OrdinalIgnoreCase) >= 0);
+                else if (status.IndexOf("open", StringComparison.OrdinalIgnoreCase) >= 0)
+                    query = query.Where(r => !IsComplete(r.JobStatus));
+            }
+
+            string search = includeResultSearch ? (_txtResultSearch.Text ?? string.Empty).Trim() : string.Empty;
+            if (search.Length > 0)
+            {
+                query = query.Where(r => new[] { r.JobNumber, r.ClientName, r.SiteName, r.InvoiceNumber, r.JobStatus, r.CostStatus }
+                    .Any(v => !string.IsNullOrWhiteSpace(v) && v.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+            return query.OrderByDescending(r => r.ReportingDate).ToList();
+        }
+
+        private void BindExplorerPresentation()
+        {
+            if (_explorerChart == null) return;
+            _lblChartTitle.Text = "Monthly trend (FY " + Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture) + ")";
+            _explorerChart.Series["Revenue"].Name = "Revenue";
+            _explorerChart.Series["Direct cost"].Enabled = true;
+            _explorerChart.Series["Margin %"].Enabled = true;
+            foreach (Series series in _explorerChart.Series)
+                series.Points.Clear();
+
+            IEnumerable<MonthlyProfitLossRow> trend = (_monthlyProfitLoss ?? new List<MonthlyProfitLossRow>()).OrderBy(r => r.Month);
+            foreach (MonthlyProfitLossRow row in trend)
+            {
+                string month = row.Month.ToString("MMM yy", CultureInfo.InvariantCulture);
+                _explorerChart.Series["Revenue"].Points.AddXY(month, row.Revenue);
+                _explorerChart.Series["Direct cost"].Points.AddXY(month, row.DirectCosts);
+                _explorerChart.Series["Margin %"].Points.AddXY(month, row.GrossMarginPercent);
+            }
+
+            List<JobProfitabilityRow> rows = FilteredProfitabilityRows(false);
+            decimal revenue = rows.Sum(r => r.BilledRevenue);
+            decimal cost = rows.Sum(r => r.ActualDirectCost);
+            decimal profit = rows.Sum(r => r.GrossProfit);
+            decimal outstanding = rows.Sum(r => r.OutstandingAmount);
+            decimal margin = revenue == 0m ? 0m : Math.Round(profit / revenue * 100m, 1);
+            SetExplorerSummary(_lblSummaryRevenue, "Total revenue", IndiaFormatHelper.FormatCurrency(revenue), Blue);
+            SetExplorerSummary(_lblSummaryCost, "Total direct cost", IndiaFormatHelper.FormatCurrency(cost), Amber);
+            SetExplorerSummary(_lblSummaryProfit, "Gross profit", IndiaFormatHelper.FormatCurrency(profit), Green);
+            SetExplorerSummary(_lblSummaryMargin, "Margin %", margin.ToString("N1", CultureInfo.GetCultureInfo("en-IN")) + "%", Green);
+            SetExplorerSummary(_lblSummaryOutstanding, "Outstanding", IndiaFormatHelper.FormatCurrency(outstanding), Amber);
+        }
+
+        private void BindGenericExplorerPresentation()
+        {
+            if (_explorerChart == null || _detailGrid == null) return;
+            _lblChartTitle.Text = ExplorerReportLabel(_currentReportIndex) + " overview";
+            Series records = _explorerChart.Series[0];
+            records.Points.Clear();
+            _explorerChart.Series[1].Enabled = false;
+            _explorerChart.Series[2].Enabled = false;
+
+            DataGridViewColumn categoryColumn = _detailGrid.Columns.Cast<DataGridViewColumn>().LastOrDefault();
+            if (categoryColumn != null)
+            {
+                var groups = _detailGrid.Rows.Cast<DataGridViewRow>()
+                    .Select(r => Convert.ToString(r.Cells[categoryColumn.Index].Value, CultureInfo.CurrentCulture))
+                    .Where(v => !string.IsNullOrWhiteSpace(v))
+                    .GroupBy(v => v)
+                    .OrderByDescending(g => g.Count())
+                    .Take(8);
+                foreach (var group in groups)
+                    records.Points.AddXY(ShortText(group.Key, 14), group.Count());
+            }
+
+            int total = _detailGrid.Rows.Count;
+            int columns = _detailGrid.Columns.Count;
+            SetExplorerSummary(_lblSummaryRevenue, "Total records", total.ToString("N0"), Blue);
+            SetExplorerSummary(_lblSummaryCost, "Visible columns", columns.ToString("N0"), Blue);
+            SetExplorerSummary(_lblSummaryProfit, "Report", ExplorerReportLabel(_currentReportIndex), Green);
+            SetExplorerSummary(_lblSummaryMargin, "Financial year", Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture), Green);
+            SetExplorerSummary(_lblSummaryOutstanding, "Export", "Ready", Amber);
+        }
+
+        private static void SetExplorerSummary(Label value, string caption, string text, Color color)
+        {
+            value.Text = text;
+            value.ForeColor = color;
+            Label captionLabel = value.Parent == null
+                ? null
+                : value.Parent.Controls.OfType<Label>().FirstOrDefault(label => !ReferenceEquals(label, value));
+            if (captionLabel != null) captionLabel.Text = caption;
+        }
+
+        private void ApplyGridSearchAndFilters()
+        {
+            if (_detailGrid == null) return;
+            if (_currentReportIndex == 9)
+            {
+                _detailGrid.Columns.Clear();
+                _detailGrid.Rows.Clear();
+                BindProfitabilityDetail();
+                BindExplorerPresentation();
+                return;
+            }
+
+            string search = (_txtResultSearch.Text ?? string.Empty).Trim();
+            _detailGrid.CurrentCell = null;
+            foreach (DataGridViewRow row in _detailGrid.Rows)
+            {
+                row.Visible = search.Length == 0 || row.Cells.Cast<DataGridViewCell>()
+                    .Any(cell => Convert.ToString(cell.Value, CultureInfo.CurrentCulture).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+            UpdateExplorerGridCount();
+            ApplySelectedColumns();
+            ApplyGridGrouping();
+        }
+
+        private void UpdateExplorerGridCount()
+        {
+            if (_lblReportCount == null || _detailGrid == null) return;
+            int visible = _detailGrid.Rows.Cast<DataGridViewRow>().Count(r => r.Visible);
+            _lblReportCount.Text = "Report preview (" + visible.ToString("N0") + " records)";
+        }
+
+        private void ApplyGridGrouping()
+        {
+            if (_detailGrid == null || _detailGrid.Columns.Count == 0 || _cmbGroupBy == null) return;
+            string group = Convert.ToString(_cmbGroupBy.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty;
+            if (group == "No grouping") return;
+            DataGridViewColumn column = _detailGrid.Columns.Cast<DataGridViewColumn>().FirstOrDefault(c => c.HeaderText.IndexOf(group, StringComparison.OrdinalIgnoreCase) >= 0);
+            if (column != null && column.SortMode != DataGridViewColumnSortMode.NotSortable)
+            {
+                try { _detailGrid.Sort(column, System.ComponentModel.ListSortDirection.Ascending); }
+                catch { }
+            }
+        }
+
+        private void DetailGrid_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            string header = _detailGrid.Columns[e.ColumnIndex].HeaderText;
+            if (header.IndexOf("Revenue", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("Cost", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("Profit", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("Outstanding", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("Balance", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                header.IndexOf("Amount", StringComparison.OrdinalIgnoreCase) >= 0)
+                e.CellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+
+            string value = Convert.ToString(e.Value, CultureInfo.CurrentCulture);
+            if (value.IndexOf("incomplete", StringComparison.OrdinalIgnoreCase) >= 0 || value.IndexOf("overdue", StringComparison.OrdinalIgnoreCase) >= 0)
+                e.CellStyle.ForeColor = Red;
+            else if (value.Equals("Complete", StringComparison.OrdinalIgnoreCase) || value.Equals("Completed", StringComparison.OrdinalIgnoreCase))
+                e.CellStyle.ForeColor = Green;
+        }
+
+        private void ChooseVisibleColumns()
+        {
+            if (_detailGrid.Columns.Count == 0) return;
+            using (var dialog = new ExplorerDialog("Choose report columns", new Size(420, 480)))
+            {
+                CheckedListBox list = new CheckedListBox { Dock = DockStyle.Fill, CheckOnClick = true, Font = DS.Body, BorderStyle = BorderStyle.None };
+                foreach (DataGridViewColumn column in _detailGrid.Columns)
+                    list.Items.Add(column.HeaderText, _selectedColumns.Count == 0 || _selectedColumns.Contains(column.HeaderText));
+                Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 62, Padding = new Padding(12), BackColor = PageBg };
+                Button apply = MakeButton("Apply", Blue, 96);
+                apply.Dock = DockStyle.Right;
+                apply.DialogResult = DialogResult.OK;
+                Button cancel = MakeButton("Cancel", Color.White, 96);
+                cancel.Dock = DockStyle.Right;
+                cancel.DialogResult = DialogResult.Cancel;
+                footer.Controls.Add(apply);
+                footer.Controls.Add(cancel);
+                dialog.Controls.Add(list);
+                dialog.Controls.Add(footer);
+                dialog.AcceptButton = apply;
+                dialog.CancelButton = cancel;
+                if (dialog.ShowDialog(this) != DialogResult.OK) return;
+                _selectedColumns.Clear();
+                foreach (object item in list.CheckedItems)
+                    _selectedColumns.Add(Convert.ToString(item, CultureInfo.InvariantCulture));
+                if (_selectedColumns.Count == 0)
+                {
+                    MessageBox.Show(this, "Select at least one report column.", BrandingService.WindowTitle("Reports"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                ApplySelectedColumns();
+            }
+        }
+
+        private void ApplySelectedColumns()
+        {
+            if (_detailGrid == null) return;
+            foreach (DataGridViewColumn column in _detailGrid.Columns)
+                column.Visible = _selectedColumns.Count == 0 || _selectedColumns.Contains(column.HeaderText);
+        }
+
+        private static string ExplorerViewPath => Path.Combine(Application.UserAppDataPath, "reports-view.txt");
+        private static string ExplorerSchedulePath => Path.Combine(Application.UserAppDataPath, "reports-schedule.txt");
+
+        private void SaveExplorerView()
+        {
+            try
+            {
+                Directory.CreateDirectory(Application.UserAppDataPath);
+                File.WriteAllLines(ExplorerViewPath, new[]
+                {
+                    _currentReportIndex.ToString(CultureInfo.InvariantCulture),
+                    Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    Convert.ToString(_cmbClient.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    Convert.ToString(_cmbSite.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    Convert.ToString(_cmbStatus.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    Convert.ToString(_cmbExportFormat.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    Convert.ToString(_cmbGroupBy.SelectedItem, CultureInfo.InvariantCulture) ?? string.Empty,
+                    _chkIncludeIncompleteCosts.Checked.ToString(CultureInfo.InvariantCulture),
+                    string.Join("|", _selectedColumns.OrderBy(v => v))
+                });
+                _lblSavedView.Text = ExplorerReportLabel(_currentReportIndex) + " · " + Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture);
+                _lblStatus.Text = "Report view saved for this Windows user.";
+                _lblStatus.ForeColor = Green;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Saving report view", ex);
+                MessageBox.Show(this, "ServoERP could not save this report view. Please try again.", BrandingService.WindowTitle("Reports"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void LoadExplorerPreferences()
+        {
+            try
+            {
+                if (File.Exists(ExplorerViewPath))
+                {
+                    string[] values = File.ReadAllLines(ExplorerViewPath);
+                    int reportIndex;
+                    if (values.Length > 0 && int.TryParse(values[0], out reportIndex))
+                        _currentReportIndex = Math.Max(0, Math.Min(ReportNames.Length - 1, reportIndex));
+                    SelectComboValue(_cmbFinancialYear, values.Length > 1 ? values[1] : null);
+                    _savedClientFilter = values.Length > 2 ? values[2] : null;
+                    _savedSiteFilter = values.Length > 3 ? values[3] : null;
+                    SelectComboValue(_cmbStatus, values.Length > 4 ? values[4] : null);
+                    SelectComboValue(_cmbExportFormat, values.Length > 5 ? values[5] : null);
+                    SelectComboValue(_cmbGroupBy, values.Length > 6 ? values[6] : null);
+                    bool includeIncomplete;
+                    if (values.Length > 7 && bool.TryParse(values[7], out includeIncomplete))
+                        _chkIncludeIncompleteCosts.Checked = includeIncomplete;
+                    _selectedColumns.Clear();
+                    if (values.Length > 8)
+                    {
+                        foreach (string column in values[8].Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries))
+                            _selectedColumns.Add(column);
+                    }
+                    _lblSavedView.Text = ExplorerReportLabel(_currentReportIndex) + " · saved locally";
+                }
+
+                if (File.Exists(ExplorerSchedulePath))
+                {
+                    string[] schedule = File.ReadAllLines(ExplorerSchedulePath);
+                    if (schedule.Length >= 3)
+                    {
+                        _scheduledExportFrequency = schedule[0];
+                        TimeSpan.TryParse(schedule[1], CultureInfo.InvariantCulture, out _scheduledExportTime);
+                        _scheduledExportFolder = schedule[2];
+                        _lblSchedule.Text = _scheduledExportFrequency + " at " + DateTime.Today.Add(_scheduledExportTime).ToString("hh:mm tt") + "\n" + _scheduledExportFolder;
+                        StartScheduleTimer();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Loading report preferences", ex);
+            }
+        }
+
+        private static void SelectComboValue(ComboBox combo, string value)
+        {
+            if (combo == null || string.IsNullOrWhiteSpace(value)) return;
+            int index = combo.FindStringExact(value);
+            if (index >= 0) combo.SelectedIndex = index;
+        }
+
+        private void ConfigureExplorerSchedule()
+        {
+            using (var folderDialog = new FolderBrowserDialog { Description = "Choose where ServoERP should save scheduled report exports", ShowNewFolderButton = true })
+            {
+                if (!string.IsNullOrWhiteSpace(_scheduledExportFolder) && Directory.Exists(_scheduledExportFolder))
+                    folderDialog.SelectedPath = _scheduledExportFolder;
+                if (folderDialog.ShowDialog(this) != DialogResult.OK) return;
+
+                using (var dialog = new ExplorerDialog("Schedule report export", new Size(430, 270)))
+                {
+                    TableLayoutPanel body = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, Padding = new Padding(18), BackColor = CardBg };
+                    body.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));
+                    body.RowStyles.Add(new RowStyle(SizeType.Absolute, 62f));
+                    body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+                    body.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
+                    ComboBox frequency = ExplorerCombo();
+                    frequency.Items.AddRange(new object[] { "Daily", "Every Monday", "First day of month" });
+                    frequency.SelectedIndex = 0;
+                    DateTimePicker time = new DateTimePicker { Dock = DockStyle.Bottom, Format = DateTimePickerFormat.Time, ShowUpDown = true, Font = DS.Body, Value = DateTime.Today.AddHours(18) };
+                    Label note = new Label { Dock = DockStyle.Fill, Text = "Scheduled exports run while ServoERP is open. The selected report and saved view are used.", Font = DS.Small, ForeColor = TextMid };
+                    FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, BackColor = CardBg };
+                    Button save = MakeButton("Save schedule", Blue, 124);
+                    save.DialogResult = DialogResult.OK;
+                    Button cancel = MakeButton("Cancel", Color.White, 92);
+                    cancel.DialogResult = DialogResult.Cancel;
+                    actions.Controls.Add(save);
+                    actions.Controls.Add(cancel);
+                    body.Controls.Add(ExplorerField("Frequency", frequency), 0, 0);
+                    body.Controls.Add(ExplorerField("Export time", time), 0, 1);
+                    body.Controls.Add(note, 0, 2);
+                    body.Controls.Add(actions, 0, 3);
+                    dialog.Controls.Add(body);
+                    dialog.AcceptButton = save;
+                    dialog.CancelButton = cancel;
+                    if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+                    _scheduledExportFrequency = Convert.ToString(frequency.SelectedItem, CultureInfo.InvariantCulture);
+                    _scheduledExportTime = time.Value.TimeOfDay;
+                    _scheduledExportFolder = folderDialog.SelectedPath;
+                    Directory.CreateDirectory(Application.UserAppDataPath);
+                    File.WriteAllLines(ExplorerSchedulePath, new[] { _scheduledExportFrequency, _scheduledExportTime.ToString("c", CultureInfo.InvariantCulture), _scheduledExportFolder });
+                    _lblSchedule.Text = _scheduledExportFrequency + " at " + time.Value.ToString("hh:mm tt") + "\n" + _scheduledExportFolder;
+                    SaveExplorerView();
+                    StartScheduleTimer();
+                    _lblStatus.Text = "Scheduled report export saved.";
+                    _lblStatus.ForeColor = Green;
+                }
+            }
+        }
+
+        private void StartScheduleTimer()
+        {
+            if (_reportScheduleTimer == null)
+            {
+                _reportScheduleTimer = new Timer { Interval = 60000 };
+                _reportScheduleTimer.Tick += (s, e) => RunScheduledExportIfDue();
+                Disposed += (s, e) =>
+                {
+                    if (_reportScheduleTimer != null)
+                    {
+                        _reportScheduleTimer.Stop();
+                        _reportScheduleTimer.Dispose();
+                    }
+                };
+            }
+            _reportScheduleTimer.Start();
+        }
+
+        private void RunScheduledExportIfDue()
+        {
+            if (string.IsNullOrWhiteSpace(_scheduledExportFolder) || !Directory.Exists(_scheduledExportFolder)) return;
+            DateTime now = DateTime.Now;
+            if (_lastScheduledExportDate.Date == now.Date || now.TimeOfDay < _scheduledExportTime) return;
+            bool due = string.Equals(_scheduledExportFrequency, "Daily", StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(_scheduledExportFrequency, "Every Monday", StringComparison.OrdinalIgnoreCase) && now.DayOfWeek == DayOfWeek.Monday)
+                || (string.Equals(_scheduledExportFrequency, "First day of month", StringComparison.OrdinalIgnoreCase) && now.Day == 1);
+            if (!due) return;
+
+            try
+            {
+                string path = BuildScheduledExportPath(_scheduledExportFolder);
+                WriteCurrentGridExport(path);
+                _lastScheduledExportDate = now.Date;
+                _lblStatus.Text = "Scheduled report exported to " + path;
+                _lblStatus.ForeColor = Green;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Scheduled report export", ex);
+                _lblStatus.Text = "Scheduled report export failed. Review the export folder.";
+                _lblStatus.ForeColor = Red;
+            }
+        }
+
+        private string BuildScheduledExportPath(string folder)
+        {
+            bool excel = _cmbExportFormat == null || _cmbExportFormat.SelectedIndex <= 0;
+            string extension = excel ? ".xlsx" : ".csv";
+            string fileName = ExplorerReportLabel(_currentReportIndex).Replace(" ", "_").Replace("&", "and") + "_" + DateTime.Now.ToString("yyyyMMdd-HHmm") + extension;
+            return Path.Combine(folder, fileName);
         }
 
         private Panel BuildHeader()
         {
-            Button export = MakeButton("Export CSV", Green, 104);
-            Button pnl = MakeButton("Export P&L Excel", Color.White, 138);
+            Button export = MakeButton("Export", Green, 104);
+            Button pnl = MakeButton("Export P&L", Color.White, 116);
             Button refresh = MakeButton("Refresh", Blue, 94);
-            Button forms = MakeButton("Service Forms", Color.White, 108);
-            Button importProfit = MakeButton("Import Job P&L", Color.White, 126);
-            Button addExpense = MakeButton("Add Expense", Color.White, 110);
+            Button forms = MakeButton("Service", Color.White, 104);
+            Button importProfit = MakeButton("Import Job", Color.White, 112);
+            Button addExpense = MakeButton("Add", Color.White, 98);
             ModernIconSystem.AddButtonIcon(export, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(pnl, ModernIconKind.Export);
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
@@ -204,23 +1228,60 @@ namespace HVAC_Pro_Desktop.UI
             _lblStatus = new Label
             {
                 Text = "Loading reports...",
-                Width = 320,
+                Location = new Point(490, 28),
+                Width = 148,
                 Height = 22,
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Green,
                 TextAlign = ContentAlignment.MiddleRight,
-                AutoEllipsis = true
+                AutoEllipsis = true,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left
             };
 
-            Panel header = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceDashboard(
-                "ReportsPageHeader",
-                "Reports Command Center",
-                "Real-time insights and analytics across your business.",
-                new List<Control> { refresh, addExpense, importProfit, forms, pnl, export },
-                SharedPageHeader.CreateSearchCommand("ReportsHeaderSearch", 280, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
-                _lblStatus,
-                PageBg,
-                new Padding(0, 8, 0, 12))).Header;
+            Panel header = new Panel { Name = "ReportsPageHeader", Tag = "custom-header-actions no-global-actions", Dock = DockStyle.Fill, Height = 88, BackColor = PageBg, Padding = Padding.Empty };
+            header.Paint += (s, e) =>
+            {
+                using (Pen pen = new Pen(DS.Slate200))
+                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
+            };
+            Label title = new Label { Text = "Reports Command Center", Location = new Point(10, 9), Size = new Size(286, 30), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = TextDark, AutoEllipsis = true };
+            Label subtitle = new Label { Text = "Real-time insights and analytics across your business.", Location = new Point(10, 42), Size = new Size(286, 20), Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
+            Control search = SharedPageHeader.CreateSearchCommand("ReportsHeaderSearch", 180, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this));
+            search.Location = new Point(302, 22);
+
+            FlowLayoutPanel actions = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                Width = 770,
+                Height = 72,
+                Padding = new Padding(0, 20, 0, 0),
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                AutoScroll = false,
+                BackColor = PageBg
+            };
+            _headerActions = actions;
+            foreach (Control action in new Control[] { refresh, addExpense, importProfit, forms, pnl, export })
+            {
+                action.Tag = "FIXED_WIDTH";
+                action.Margin = new Padding(4, 0, 0, 0);
+                actions.Controls.Add(action);
+            }
+            header.Controls.Add(title);
+            header.Controls.Add(subtitle);
+            header.Controls.Add(search);
+            header.Controls.Add(_lblStatus);
+            header.Controls.Add(actions);
+            actions.BringToFront();
+            header.Resize += (s, e) =>
+            {
+                bool roomy = header.ClientSize.Width >= 1280;
+                search.Visible = roomy;
+                _lblStatus.Visible = roomy;
+                actions.Width = Math.Min(770, Math.Max(560, header.ClientSize.Width - (roomy ? 664 : 310)));
+            };
+            header.Dock = DockStyle.Top;
+            header.Height = 88;
             return header;
         }
 
@@ -334,12 +1395,14 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _lblStatus.Text = "Refreshing reports...";
                 _lblStatus.ForeColor = Blue;
+                _requestedFinancialYearStart = SelectedFinancialYearStart();
                 var fetchWatch = System.Diagnostics.Stopwatch.StartNew();
                 await Task.Run(() => LoadData());
                 AppRuntime.LogTiming("Reports.FetchData", fetchWatch.ElapsedMilliseconds);
                 if (IsDisposed)
                     return;
                 var bindWatch = System.Diagnostics.Stopwatch.StartNew();
+                PopulateExplorerFilters();
                 BindKpis();
                 BindOwnerCommandCards();
                 SelectReport(_currentReportIndex);
@@ -436,8 +1499,21 @@ namespace HVAC_Pro_Desktop.UI
                 try { return AppDataCache.GetOrCreate("clients:active", ttl, () => _clientSvc.GetAllClients() ?? new List<B2BClient>()).ToDictionary(c => c.ClientID, c => c.CompanyName); }
                 catch { return new Dictionary<int, string>(); }
             });
+            DateTime fyStart = _requestedFinancialYearStart == default(DateTime)
+                ? IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today)
+                : _requestedFinancialYearStart;
+            Task<List<JobProfitabilityRow>> profitabilityTask = Task.Run(() =>
+            {
+                try { return _financialSvc.GetJobProfitability(fyStart, fyStart.AddYears(1).AddDays(-1)) ?? new List<JobProfitabilityRow>(); }
+                catch { return new List<JobProfitabilityRow>(); }
+            });
+            Task<List<MonthlyProfitLossRow>> monthlyProfitLossTask = Task.Run(() =>
+            {
+                try { return _financialSvc.GetMonthlyProfitLoss(fyStart, 12) ?? new List<MonthlyProfitLossRow>(); }
+                catch { return new List<MonthlyProfitLossRow>(); }
+            });
 
-            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, quotationsTask, techniciansTask, stockTask, advancesTask, serviceTicketsTask, payrollTask, clientNamesTask);
+            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, quotationsTask, techniciansTask, stockTask, advancesTask, serviceTicketsTask, payrollTask, clientNamesTask, profitabilityTask, monthlyProfitLossTask);
 
             _contracts = contractsTask.Result;
             _invoices = invoicesTask.Result;
@@ -450,10 +1526,19 @@ namespace HVAC_Pro_Desktop.UI
             _serviceTickets = serviceTicketsTask.Result;
             _payrollSnapshot = payrollTask.Result;
             _clientNames = clientNamesTask.Result;
+            _profitabilityRows = profitabilityTask.Result;
+            _monthlyProfitLoss = monthlyProfitLossTask.Result;
         }
+
 
         private void BindKpis()
         {
+            if (_explorerChart != null)
+            {
+                BindExplorerPresentation();
+                return;
+            }
+
             decimal arr = _contracts.Where(c => c.ContractStatus == "Active").Sum(c => c.AnnualValue);
             decimal mrr = _contracts.Where(c => c.ContractStatus == "Active").Sum(c => c.MonthlyValue);
             List<Invoice> openInvoices = _invoices.Where(i => i.PaymentStatus != "Paid").ToList();
@@ -609,11 +1694,24 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SelectReport(int index)
         {
+            int previousIndex = _currentReportIndex;
             _currentReportIndex = Math.Max(0, Math.Min(ReportNames.Length - 1, index));
             foreach (Control tile in _reportLibrary.Controls)
             {
-                int tileIndex = Convert.ToInt32(tile.Tag);
-                tile.BackColor = tileIndex == _currentReportIndex ? Color.FromArgb(239, 246, 255) : CardBg;
+                if (!(tile.Tag is int)) continue;
+                int tileIndex = (int)tile.Tag;
+                bool selected = tileIndex == _currentReportIndex;
+                tile.BackColor = selected ? Color.FromArgb(239, 246, 255) : CardBg;
+                tile.ForeColor = selected ? Blue : TextDark;
+                tile.Font = new Font("Segoe UI", 8.7f, selected ? FontStyle.Bold : FontStyle.Regular);
+            }
+            if (_lblReportTitle != null) _lblReportTitle.Text = ExplorerReportLabel(_currentReportIndex);
+            if (_lblReportSubtitle != null) _lblReportSubtitle.Text = ExplorerReportDescription(_currentReportIndex);
+            if (previousIndex != _currentReportIndex)
+            {
+                _selectedColumns.Clear();
+                if (_currentReportIndex == 9)
+                    _selectedColumns.UnionWith(new[] { "Job", "Client / Site", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding" });
             }
             BindDetailGrid();
         }
@@ -636,6 +1734,13 @@ namespace HVAC_Pro_Desktop.UI
                 case 9: BindProfitabilityDetail(); break;
                 default: BindProfitabilityImportReview(); break;
             }
+            ApplySelectedColumns();
+            ApplyGridGrouping();
+            UpdateExplorerGridCount();
+            if (_currentReportIndex == 9)
+                BindExplorerPresentation();
+            else
+                BindGenericExplorerPresentation();
         }
 
         private void BindRevenueDetail()
@@ -737,25 +1842,72 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ExportCurrentReport()
         {
-            using (var dlg = new SaveFileDialog { FileName = ReportNames[_currentReportIndex].Replace(" ", "") + "_" + DateTime.Today.ToString("yyyyMMdd") + ".csv", Filter = "CSV|*.csv" })
+            bool excel = _cmbExportFormat == null || _cmbExportFormat.SelectedIndex <= 0;
+            string extension = excel ? ".xlsx" : ".csv";
+            string filter = excel ? "Excel workbook (*.xlsx)|*.xlsx" : "CSV file (*.csv)|*.csv";
+            using (var dlg = new SaveFileDialog { FileName = ExplorerReportLabel(_currentReportIndex).Replace(" ", "_") + "_" + DateTime.Today.ToString("yyyyMMdd") + extension, Filter = filter })
             {
                 if (dlg.ShowDialog() != DialogResult.OK) return;
-                StringBuilder sb = new StringBuilder();
-                List<string> headers = new List<string>();
-                foreach (DataGridViewColumn col in _detailGrid.Columns)
-                    headers.Add(col.HeaderText);
-                sb.AppendLine(string.Join(",", headers));
-                foreach (DataGridViewRow row in _detailGrid.Rows)
+                try
                 {
-                    List<string> values = new List<string>();
-                    foreach (DataGridViewCell cell in row.Cells)
-                        values.Add("\"" + (cell.Value == null ? "" : cell.Value.ToString()).Replace("\"", "\"\"") + "\"");
-                    sb.AppendLine(string.Join(",", values));
+                    WriteCurrentGridExport(dlg.FileName);
+                    _lblStatus.Text = "Exported: " + Path.GetFileName(dlg.FileName);
+                    _lblStatus.ForeColor = Green;
                 }
-                File.WriteAllText(dlg.FileName, sb.ToString(), Encoding.UTF8);
-                _lblStatus.Text = "Exported: " + Path.GetFileName(dlg.FileName);
-                _lblStatus.ForeColor = Green;
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("Exporting report", ex);
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Exporting report", ex);
+                    _lblStatus.Text = "Report export failed.";
+                    _lblStatus.ForeColor = Red;
+                }
             }
+        }
+
+        private void WriteCurrentGridExport(string path)
+        {
+            List<DataGridViewColumn> columns = _detailGrid.Columns.Cast<DataGridViewColumn>().Where(c => c.Visible).OrderBy(c => c.DisplayIndex).ToList();
+            List<DataGridViewRow> rows = _detailGrid.Rows.Cast<DataGridViewRow>().Where(r => r.Visible && !r.IsNewRow).ToList();
+            if (string.Equals(Path.GetExtension(path), ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                using (ExcelPackage package = new ExcelPackage())
+                {
+                    ExcelWorksheet sheet = package.Workbook.Worksheets.Add("Report");
+                    sheet.Cells[1, 1].Value = ExplorerReportLabel(_currentReportIndex);
+                    sheet.Cells[1, 1, 1, Math.Max(1, columns.Count)].Merge = true;
+                    sheet.Cells[1, 1].Style.Font.Bold = true;
+                    sheet.Cells[1, 1].Style.Font.Size = 14;
+                    sheet.Cells[2, 1].Value = "Generated";
+                    sheet.Cells[2, 2].Value = DateTime.Now;
+                    sheet.Cells[2, 2].Style.Numberformat.Format = "dd/mm/yyyy hh:mm";
+                    for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+                    {
+                        sheet.Cells[4, columnIndex + 1].Value = columns[columnIndex].HeaderText;
+                        sheet.Cells[4, columnIndex + 1].Style.Font.Bold = true;
+                        sheet.Cells[4, columnIndex + 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        sheet.Cells[4, columnIndex + 1].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(239, 246, 255));
+                    }
+                    for (int rowIndex = 0; rowIndex < rows.Count; rowIndex++)
+                    {
+                        for (int columnIndex = 0; columnIndex < columns.Count; columnIndex++)
+                            sheet.Cells[rowIndex + 5, columnIndex + 1].Value = rows[rowIndex].Cells[columns[columnIndex].Index].Value;
+                    }
+                    if (columns.Count > 0) sheet.Cells[1, 1, Math.Max(5, rows.Count + 4), columns.Count].AutoFitColumns();
+                    package.SaveAs(new FileInfo(path));
+                }
+                return;
+            }
+
+            StringBuilder sb = new StringBuilder();
+            sb.AppendLine(string.Join(",", columns.Select(c => CsvValue(c.HeaderText))));
+            foreach (DataGridViewRow row in rows)
+                sb.AppendLine(string.Join(",", columns.Select(c => CsvValue(Convert.ToString(row.Cells[c.Index].Value, CultureInfo.CurrentCulture)))));
+            File.WriteAllText(path, sb.ToString(), new UTF8Encoding(true));
+        }
+
+        private static string CsvValue(string value)
+        {
+            return "\"" + (value ?? string.Empty).Replace("\"", "\"\"") + "\"";
         }
 
         private void ExportMonthlyProfitLoss()
@@ -980,10 +2132,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindProfitabilityDetail()
         {
-            DateTime fyStart = IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
-            List<JobProfitabilityRow> rows = _financialSvc.GetJobProfitability(fyStart, fyStart.AddYears(1).AddDays(-1));
             AddColumns("Job", "Client / Site", "Invoice", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding", "Cost Status");
-            foreach (JobProfitabilityRow row in rows.OrderByDescending(r => r.ReportingDate).Take(100))
+            foreach (JobProfitabilityRow row in FilteredProfitabilityRows(true).Take(250))
             {
                 int rowIndex = _detailGrid.Rows.Add(
                     row.JobNumber,
@@ -998,6 +2148,9 @@ namespace HVAC_Pro_Desktop.UI
                 if (!string.Equals(row.CostStatus, "Complete", StringComparison.OrdinalIgnoreCase))
                     _detailGrid.Rows[rowIndex].Cells[_detailGrid.Columns.Count - 1].Style.ForeColor = Red;
             }
+            ApplySelectedColumns();
+            ApplyGridGrouping();
+            UpdateExplorerGridCount();
         }
 
         private void BindProfitabilityImportReview()
@@ -1987,6 +3140,22 @@ namespace HVAC_Pro_Desktop.UI
                     Rectangle rect = new Rectangle(bounds.X, bounds.Y, Math.Max(1, bounds.Width - 1), Math.Max(1, bounds.Height - 1));
                     graphics.DrawRectangle(pen, rect);
                 }
+            }
+        }
+
+        private sealed class ExplorerDialog : ServoERP.Infrastructure.ServoFormBase
+        {
+            public ExplorerDialog(string title, Size size)
+            {
+                Text = BrandingService.WindowTitle(title);
+                Size = size;
+                MinimumSize = size;
+                StartPosition = FormStartPosition.CenterParent;
+                BackColor = CardBg;
+                Font = DS.Body;
+                ShowInTaskbar = false;
+                MaximizeBox = false;
+                MinimizeBox = false;
             }
         }
 

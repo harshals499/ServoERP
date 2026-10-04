@@ -159,6 +159,8 @@ namespace HVAC_Pro_Desktop
                     lines.Add("PASS " + result);
                 foreach (string result in AmcPreventivePlannerSmokeTests.RunAll())
                     lines.Add("PASS " + result);
+                foreach (string result in ReportExplorerSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
             }
             catch (Exception ex)
             {
