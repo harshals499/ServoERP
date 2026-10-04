@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -22,9 +23,7 @@ namespace HVAC_Pro_Desktop.Services
 
             string tempRoot = Path.Combine(Path.GetTempPath(), "ServoERP_Pdf_" + Guid.NewGuid().ToString("N"));
             string tempHtml = Path.Combine(tempRoot, "document.html");
-            string userDataDir = Path.Combine(tempRoot, "browser-profile");
             Directory.CreateDirectory(tempRoot);
-            Directory.CreateDirectory(userDataDir);
 
             try
             {
@@ -32,50 +31,48 @@ namespace HVAC_Pro_Desktop.Services
                 if (File.Exists(outputPath))
                     File.Delete(outputPath);
 
-                string browserPath = FindPdfBrowser();
-                if (string.IsNullOrWhiteSpace(browserPath))
+                string[] browserPaths = FindPdfBrowsers();
+                if (browserPaths.Length == 0)
                     throw new InvalidOperationException("Microsoft Edge or Google Chrome is required to generate PDF output.");
-
-                string arguments =
-                    "--headless --disable-gpu --disable-extensions --disable-background-networking " +
-                    "--no-first-run --no-default-browser-check --run-all-compositor-stages-before-draw " +
-                    "--no-pdf-header-footer --virtual-time-budget=1500 --user-data-dir=\"" + userDataDir + "\" " +
-                    "--print-to-pdf=\"" + outputPath + "\" \"" + new Uri(tempHtml).AbsoluteUri + "\"";
-
-                var psi = new ProcessStartInfo
+                var failures = new StringBuilder();
+                for (int browserIndex = 0; browserIndex < browserPaths.Length; browserIndex++)
                 {
-                    FileName = browserPath,
-                    Arguments = arguments,
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardError = false,
-                    RedirectStandardOutput = false
-                };
-
-                using (Process process = Process.Start(psi))
-                {
-                    if (process == null)
-                        throw new InvalidOperationException("PDF browser process could not start.");
-
-                    bool exited = process.WaitForExit(EXPORT_TIMEOUT_MS);
-
-                    if (!exited)
+                    string browserPath = browserPaths[browserIndex];
+                    string userDataDir = Path.Combine(tempRoot, "browser-profile-" + browserIndex);
+                    Directory.CreateDirectory(userDataDir);
+                    if (File.Exists(outputPath)) File.Delete(outputPath);
+                    string arguments =
+                        "--headless=new --disable-gpu --disable-extensions --disable-background-networking " +
+                        "--no-first-run --no-default-browser-check --run-all-compositor-stages-before-draw " +
+                        "--no-pdf-header-footer --virtual-time-budget=1500 --user-data-dir=\"" + userDataDir + "\" " +
+                        "--print-to-pdf=\"" + outputPath + "\" \"" + new Uri(tempHtml).AbsoluteUri + "\"";
+                    var psi = new ProcessStartInfo
                     {
-                        try
+                        FileName = browserPath,
+                        Arguments = arguments,
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        RedirectStandardError = false,
+                        RedirectStandardOutput = false
+                    };
+                    using (Process process = Process.Start(psi))
+                    {
+                        if (process == null) continue;
+                        bool exited = process.WaitForExit(EXPORT_TIMEOUT_MS);
+                        if (!exited)
                         {
-                            process.Kill();
+                            try { process.Kill(); }
+                            catch (Exception killEx) { AppLogger.LogError("HtmlPdfExportService.ExportHtmlToPdf.KillTimedOutProcess", killEx); }
+                            failures.Append(Path.GetFileName(browserPath)).Append(" timed out; ");
+                            continue;
                         }
-                        catch (Exception killEx)
-                        {
-                            AppLogger.LogError("HtmlPdfExportService.ExportHtmlToPdf.KillTimedOutProcess", killEx);
-                        }
-                        throw new TimeoutException("PDF generation timed out.");
+                        WaitForPdfFile(outputPath);
+                        if (File.Exists(outputPath) && new FileInfo(outputPath).Length > 0)
+                            return;
+                        failures.Append(Path.GetFileName(browserPath)).Append(" exited ").Append(process.ExitCode).Append(" without a PDF; ");
                     }
-
-                    WaitForPdfFile(outputPath);
-                    if (!File.Exists(outputPath) || new FileInfo(outputPath).Length <= 0)
-                        throw new InvalidOperationException("PDF generation did not complete. Browser exit code: " + process.ExitCode + ".");
                 }
+                throw new InvalidOperationException("PDF generation did not complete. " + failures.ToString().Trim());
             }
             finally
             {
@@ -118,7 +115,7 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private static string FindPdfBrowser()
+        private static string[] FindPdfBrowsers()
         {
             string[] candidates =
             {
@@ -128,13 +125,10 @@ namespace HVAC_Pro_Desktop.Services
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Google", "Chrome", "Application", "chrome.exe")
             };
 
+            var found = new System.Collections.Generic.List<string>();
             foreach (string path in candidates)
-            {
-                if (File.Exists(path))
-                    return path;
-            }
-
-            return string.Empty;
+                if (File.Exists(path) && !found.Contains(path, StringComparer.OrdinalIgnoreCase)) found.Add(path);
+            return found.ToArray();
         }
     }
 }

@@ -67,6 +67,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public LoginForm()
         {
+            ServoERP.Infrastructure.AppIconService.Apply(this);
             Text = BrandingService.WindowTitle("Login");
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(1180, 760);
@@ -86,6 +87,7 @@ namespace HVAC_Pro_Desktop.UI
 
             SuspendLayout();
             BuildLayout();
+            ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             LayoutScaler.ApplyGlobalScale(this);
             ResumeLayout(true);
             WireEvents();

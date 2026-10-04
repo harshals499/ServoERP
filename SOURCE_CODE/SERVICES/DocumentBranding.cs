@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using HVAC_Pro_Desktop.Models;
@@ -80,7 +81,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 .blank-row td{height:18px;}
 .mse-official-header{margin-top:6px;margin-bottom:12px;border-bottom:0;padding-bottom:0;}
 .company-template-banner{font-family:'Segoe UI',sans-serif;font-size:11px;font-weight:600;color:#1d4ed8;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:6px 8px;margin:0 0 8px 0;}
-@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page{max-width:none;}.print-frame{break-inside:avoid;page-break-inside:avoid;}}
+@media print{body{zoom:.9;-webkit-print-color-adjust:exact;print-color-adjust:exact;}.page{max-width:none;}.print-frame{break-inside:avoid;page-break-inside:avoid;}}
 ";
         }
 
@@ -98,19 +99,78 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         public static string BuildOfficialHeaderHtml()
         {
+            IndiaCompanySettings company = GetConfiguredCompanySettings();
+            return BuildOfficialHeaderHtml(company);
+        }
+
+        public static string BuildOfficialHeaderHtml(IndiaCompanySettings company)
+        {
+            company = company ?? new IndiaCompanySettings { CompanyName = DefaultCompanyName };
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
             string logoHtml = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Company invoice header' />"
                 : "<div class='mse-official-header-logo-fallback'>"
-                + "<div class='brand-row'><span class='mark'>MSE</span><span class='company'>" + Html(DefaultCompanyName) + "</span></div>"
+                + "<div class='brand-row'><span class='mark'>MSE</span><span class='company'>" + Html(FirstNonEmpty(company.CompanyName, DefaultCompanyName)) + "</span></div>"
                 + "<div class='tagline'>Solution Providers For Process Chilling, Ventilation, Comfort Air Conditioning, Humidity Control, AMC, Utility Operation &amp; Maintenance</div>"
-                + "<div class='contact'>Thane, Maharashtra | 9967604066 | msentp.info@gmail.com | www.hvacservicesindia.in</div>"
+                + "<div class='contact'>" + Html(BuildContactLine(company)) + "</div>"
                 + "</div>";
 
             return "<div class='mse-official-header'>"
                 + "<div class='mse-official-header-top'>"
                 + "<div class='mse-official-header-logo'>" + logoHtml + "</div>"
                 + "</div></div>";
+        }
+
+        private static string BuildConfiguredCompanyIdentityLinesHtml(IndiaCompanySettings company)
+        {
+            var lines = new List<string>();
+            if (!string.IsNullOrWhiteSpace(company.Address))
+                lines.Add("<strong>Registered office:</strong> " + Html(company.Address.Trim()).Replace("\r\n", "<br/>").Replace("\n", "<br/>"));
+            string contact = BuildContactLine(company);
+            if (!string.IsNullOrWhiteSpace(contact))
+                lines.Add(Html(contact));
+            return string.Join("<br/>", lines);
+        }
+
+        public static IndiaCompanySettings GetConfiguredCompanySettings()
+        {
+            try
+            {
+                return new SettingsService().GetIndiaCompanySettings() ?? new IndiaCompanySettings { CompanyName = DefaultCompanyName };
+            }
+            catch
+            {
+                return new IndiaCompanySettings { CompanyName = DefaultCompanyName };
+            }
+        }
+
+        public static string BuildConfiguredCompanyIdentityHtml(IndiaCompanySettings company)
+        {
+            company = company ?? new IndiaCompanySettings();
+            string address = FirstNonEmpty(company.Address);
+            string contact = BuildContactLine(company);
+            if (string.IsNullOrWhiteSpace(address) && string.IsNullOrWhiteSpace(contact))
+                return string.Empty;
+
+            return "<div class='mse-configured-identity' style='font-family:Segoe UI,sans-serif;font-size:9px;line-height:1.35;margin-top:5px;color:#334155'>" + BuildConfiguredCompanyIdentityLinesHtml(company) + "</div>";
+        }
+
+        public static Tuple<string, string>[] GetConfiguredIdentityRows()
+        {
+            IndiaCompanySettings company = GetConfiguredCompanySettings();
+            var rows = new List<Tuple<string, string>>();
+            if (!string.IsNullOrWhiteSpace(company.Address)) rows.Add(Tuple.Create("Registered office", company.Address.Trim()));
+            if (!string.IsNullOrWhiteSpace(company.Phone)) rows.Add(Tuple.Create("Phone", company.Phone.Trim()));
+            if (!string.IsNullOrWhiteSpace(company.Email)) rows.Add(Tuple.Create("Email", company.Email.Trim()));
+            return rows.ToArray();
+        }
+
+        private static string BuildContactLine(IndiaCompanySettings company)
+        {
+            if (company == null) return string.Empty;
+            return string.Join(" | ", new[] { company.Phone, company.Email }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim()));
         }
 
         public static Tuple<string, string>[] GetOfficialDetailRows(
@@ -155,9 +215,23 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             html.Append("<div class='mse-from-block'>");
             html.Append("<div class='mse-from-title'>From:</div>");
             html.Append("<div class='mse-from-company'>").Append(Html(FirstNonEmpty(companyName, DefaultCompanyName))).Append("</div>");
+            html.Append(BuildConfiguredCompanyIdentityHtml(GetConfiguredCompanySettings()));
             html.Append(BuildDetailLinesHtml(GetOfficialDetailRows(shopLicense, pfNumber, esicNumber, profTax, panNumber, gstNumber, msmeNumber, includeMsme)));
             html.Append("</div>");
             return html.ToString();
+        }
+
+        public static string BuildFromIdentityHtml(string companyName)
+        {
+            return BuildFromIdentityHtml(companyName, GetConfiguredCompanySettings());
+        }
+
+        public static string BuildFromIdentityHtml(string companyName, IndiaCompanySettings company)
+        {
+            company = company ?? new IndiaCompanySettings();
+            return "<div class='mse-from-block'><div class='mse-from-title'>From:</div>"
+                + "<div class='mse-from-company'>" + Html(FirstNonEmpty(companyName, company.CompanyName, DefaultCompanyName)) + "</div>"
+                + BuildConfiguredCompanyIdentityHtml(company) + "</div>";
         }
 
         public static string BuildComplianceBlockHtml(
@@ -185,7 +259,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         public static string BuildSignatureHtml(string companyName, string authorisedSignatoryName = null)
         {
-            string imageDataUri = TryBuildImageDataUri(AuthorizedSignaturePath);
+            string imageDataUri = GetAuthorizedSignatureDataUri();
             string signatureBody = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Authorised signature' />"
                 : "<span class='blank-space'></span>";
@@ -198,6 +272,18 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
                 + "<span class='small'>" + signatoryLabel + "</span>"
                 + "<span class='signature-company'>From " + Html(FirstNonEmpty(companyName, DefaultCompanyName)) + "</span>"
                 + "<span class='signature-signed-by'>Signed by :</span>";
+        }
+
+        public static string GetAuthorizedSignatureDataUri()
+        {
+            string userPath = GetUserSignaturePath();
+            string dataUri = TryBuildImageDataUri(userPath);
+            return string.IsNullOrWhiteSpace(dataUri) ? TryBuildImageDataUri(AuthorizedSignaturePath) : dataUri;
+        }
+
+        public static string GetUserSignaturePath()
+        {
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ServoERP", "Branding", "authorized_signature.png");
         }
 
         private static string Html(string text)

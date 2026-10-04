@@ -54,6 +54,10 @@
       <HintPath>packages\FluentValidation.11.11.0\lib\netstandard2.0\FluentValidation.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Krypton.Toolkit">
+      <HintPath>packages\Krypton.Toolkit.105.26.7.201\lib\net472\Krypton.Toolkit.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="Microsoft.Bcl.AsyncInterfaces">
       <HintPath>packages\Microsoft.Bcl.AsyncInterfaces.9.0.1\lib\net462\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
       <Private>True</Private>
@@ -86,8 +90,16 @@
       <HintPath>packages\System.Buffers.4.6.0\lib\net462\System.Buffers.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System.Collections.Immutable">
+      <HintPath>packages\System.Collections.Immutable.9.0.10\lib\net462\System.Collections.Immutable.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System.Diagnostics.DiagnosticSource">
       <HintPath>packages\System.Diagnostics.DiagnosticSource.8.0.1\lib\net462\System.Diagnostics.DiagnosticSource.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Formats.Nrbf">
+      <HintPath>packages\System.Formats.Nrbf.9.0.10\lib\net462\System.Formats.Nrbf.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Memory, Version=4.0.2.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
@@ -96,6 +108,14 @@
     </Reference>
     <Reference Include="System.Numerics.Vectors">
       <HintPath>packages\System.Numerics.Vectors.4.6.0\lib\net462\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Reflection.Metadata">
+      <HintPath>packages\System.Reflection.Metadata.9.0.10\lib\net462\System.Reflection.Metadata.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Resources.Extensions">
+      <HintPath>packages\System.Resources.Extensions.9.0.10\lib\net462\System.Resources.Extensions.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -108,6 +128,10 @@
     </Reference>
     <Reference Include="System.Threading.Tasks.Extensions">
       <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.ValueTuple, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.ValueTuple.4.5.0\lib\net47\System.ValueTuple.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Newtonsoft.Json">
@@ -173,6 +197,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Infrastructure\AppExceptionHandler.cs" />
+    <Compile Include="Infrastructure\AppIconService.cs" />
     <Compile Include="Infrastructure\ExceptionLogger.cs" />
     <Compile Include="Infrastructure\IRefreshable.cs" />
     <Compile Include="Infrastructure\PDFGenerator.cs" />
@@ -191,6 +216,7 @@
     <Compile Include="Infrastructure\ServoPageBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Infrastructure\ServoTheme.cs" />
     <Compile Include="Infrastructure\UIThread.cs" />
     <Compile Include="Validators\AMCContractValidator.cs" />
     <Compile Include="Validators\B2BClientValidator.cs" />
@@ -257,6 +283,7 @@
     <Compile Include="MODELS\ModuleState.cs" />
     <Compile Include="MODELS\PaginationState.cs" />
     <Compile Include="MODELS\ServiceDeskModels.cs" />
+    <Compile Include="MODELS\PorterDelivery.cs" />
     <Compile Include="MODELS\MailIntegrationModels.cs" />
     <Compile Include="MODELS\MasterDataModels.cs" />
     <Compile Include="MODELS\MasterLookupModels.cs" />
@@ -302,6 +329,7 @@
     <Compile Include="DAL\AuthRepository.cs" />
     <Compile Include="DAL\PayrollRepository.cs" />
     <Compile Include="DAL\ServiceDeskRepository.cs" />
+    <Compile Include="DAL\PorterDeliveryRepository.cs" />
     <Compile Include="DAL\MailIntegrationRepository.cs" />
     <Compile Include="DAL\MasterDataRepository.cs" />
     <Compile Include="DAL\MasterLookupRepository.cs" />
@@ -310,6 +338,7 @@
     <Compile Include="DAL\FinancialReportingRepository.cs" />
     <!-- Services -->
     <Compile Include="SERVICES\ClientService.cs" />
+    <Compile Include="SERVICES\PorterDeliveryService.cs" />
     <Compile Include="SERVICES\ContractService.cs" />
     <Compile Include="SERVICES\InvoiceService.cs" />
     <Compile Include="SERVICES\PaymentService.cs" />
@@ -473,7 +502,9 @@
     <Compile Include="Tests\SmartImportDuplicateDetectorSmokeTests.cs" />
     <Compile Include="Tests\DashboardCommandCenterSmokeTests.cs" />
     <Compile Include="Tests\ActionCenterSmokeTests.cs" />
+    <Compile Include="Tests\ChartHoverSmokeTests.cs" />
     <Compile Include="Tests\SmartDispatchServiceSmokeTests.cs" />
+    <Compile Include="Tests\SiteMonitorRevenueSmokeTests.cs" />
     <Compile Include="Tests\QuotationDeliveryServiceSmokeTests.cs" />
     <Compile Include="Tests\AmcPreventivePlannerSmokeTests.cs" />
     <Compile Include="Tests\ReportExplorerSmokeTests.cs" />
@@ -671,16 +702,23 @@
     <Compile Include="UI\MainForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="UI\PorterDeliveriesForm.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="UI\DashboardForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\DashboardForm.ActionCenter.cs">
       <DependentUpon>DashboardForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="UI\ChartHoverSupport.cs" />
     <Compile Include="UI\DashboardDeptCard.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\InvoiceDashboardCharts.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\InvoiceReceivablesDashboard.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\ClientManagementForm.cs">

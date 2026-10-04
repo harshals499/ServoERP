@@ -1278,6 +1278,7 @@ END");
             int? siteId = string.IsNullOrWhiteSpace(siteName) ? (int?)null : EnsureSiteId(conn, transaction, clientId, clientName, siteName, null, null, null, null, null, null, options);
 
             int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 InvoiceID FROM Invoices WHERE InvoiceNumber=@number", new SqlParameter("@number", invoiceNumber));
+            int invoiceId;
             if (existingId.HasValue)
             {
                 Execute(conn, transaction, @"
@@ -1294,12 +1295,14 @@ WHERE InvoiceID=@id",
                     new SqlParameter("@totalAmount", totalAmount),
                     new SqlParameter("@status", status),
                     new SqlParameter("@id", existingId.Value));
+                invoiceId = existingId.Value;
             }
             else
             {
-                Execute(conn, transaction, @"
+                invoiceId = ExecuteScalarInt(conn, transaction, @"
 INSERT INTO Invoices (InvoiceNumber, ClientID, SiteID, InvoiceDate, DueDate, Subject, SubTotal, TaxAmount, TotalAmount, PaymentStatus)
-VALUES (@number,@clientId,@siteId,@invoiceDate,@dueDate,@subject,@amount,@taxAmount,@totalAmount,@status)",
+VALUES (@number,@clientId,@siteId,@invoiceDate,@dueDate,@subject,@amount,@taxAmount,@totalAmount,@status);
+SELECT CAST(SCOPE_IDENTITY() AS INT);",
                     new SqlParameter("@number", invoiceNumber),
                     new SqlParameter("@clientId", clientId),
                     new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
@@ -1312,7 +1315,46 @@ VALUES (@number,@clientId,@siteId,@invoiceDate,@dueDate,@subject,@amount,@taxAmo
                     new SqlParameter("@status", status));
             }
 
+            ImportInvoiceLineItem(conn, transaction, sheet, map, row, invoiceId, options);
             return true;
+        }
+
+        private static void ImportInvoiceLineItem(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, int invoiceId, ExcelImportExecutionOptions options)
+        {
+            string description = GetCell(sheet, row, map, "LineDescription");
+            if (string.IsNullOrWhiteSpace(description))
+                return;
+
+            string resetKey = invoiceId.ToString(CultureInfo.InvariantCulture);
+            if (!options.InvoiceLineItemsReset.Contains(resetKey))
+            {
+                Execute(conn, transaction, "DELETE FROM InvoiceLineItems WHERE InvoiceID=@id", new SqlParameter("@id", invoiceId));
+                options.InvoiceLineItemsReset.Add(resetKey);
+            }
+
+            decimal quantity = GetDecimal(sheet, row, map, "LineQuantity");
+            if (quantity <= 0m) quantity = 1m;
+            string unit = NullIfEmpty(GetCell(sheet, row, map, "LineUnit")) ?? UnitMeasurementService.DefaultCode;
+            decimal rate = GetDecimal(sheet, row, map, "LineRate");
+            decimal amount = GetDecimal(sheet, row, map, "LineAmount");
+            if (amount <= 0m) amount = Math.Round(quantity * rate, 2);
+            if (rate <= 0m && quantity > 0m) rate = Math.Round(amount / quantity, 2);
+            decimal gstRate = GetDecimal(sheet, row, map, "LineGSTRate");
+            if (gstRate <= 0m) gstRate = 18m;
+            decimal taxAmount = Math.Round(amount * gstRate / 100m, 2);
+
+            Execute(conn, transaction, @"
+INSERT INTO InvoiceLineItems
+(InvoiceID, Description, Unit, Quantity, Rate, Amount, GSTPercent, TaxAmount, Category, TaxType, IsBillable)
+VALUES (@invoiceId,@description,@unit,@quantity,@rate,@amount,@gstRate,@taxAmount,'Service','Taxable',1)",
+                new SqlParameter("@invoiceId", invoiceId),
+                new SqlParameter("@description", description.Trim()),
+                new SqlParameter("@unit", unit),
+                DecimalParameter("@quantity", quantity),
+                DecimalParameter("@rate", rate),
+                DecimalParameter("@amount", amount),
+                DecimalParameter("@gstRate", gstRate),
+                DecimalParameter("@taxAmount", taxAmount));
         }
 
         private bool ImportPaymentRow(SqlConnection conn, SqlTransaction transaction, ExcelWorksheet sheet, Dictionary<string, int> map, int row, ExcelImportResult result, ExcelImportExecutionOptions options)
@@ -1992,7 +2034,7 @@ VALUES
                 case ExcelImportModule.Quotations:
                     return new[] { "QuotationNumber", "QuotationDate", "ClientName", "SiteName", "Description", "Amount", "TaxableAmount", "Status", "ValidUntil", "LineDescription", "LineQuantity", "LineUnit", "LineRate", "LineAmount", "LineGSTRate", "Notes" };
                 case ExcelImportModule.Invoices:
-                    return new[] { "InvoiceNumber", "InvoiceDate", "ClientName", "SiteName", "Description", "Amount", "TaxAmount", "TotalAmount", "Status", "DueDate" };
+                    return new[] { "InvoiceNumber", "InvoiceDate", "ClientName", "SiteName", "Description", "Amount", "TaxAmount", "TotalAmount", "Status", "DueDate", "LineDescription", "LineQuantity", "LineUnit", "LineRate", "LineAmount", "LineGSTRate" };
                 case ExcelImportModule.Payments:
                     return new[] { "PaymentDate", "InvoiceNumber", "ClientName", "AmountPaid", "PaymentMode", "ReferenceNumber", "Notes" };
                 case ExcelImportModule.Purchases:
@@ -2058,7 +2100,7 @@ VALUES
                 case ExcelImportModule.Quotations:
                     return new[] { "QTN-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Quarterly AMC quotation", "29500", "25000", "Draft", "30/04/2026", "Service charges", "1", "Nos", "25000", "25000", "18", "Imported quotation notes" };
                 case ExcelImportModule.Invoices:
-                    return new[] { "INV-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Service invoice", "10000", "1800", "11800", "Pending", "02/05/2026" };
+                    return new[] { "INV-2026-04-0001", "17/04/2026", "ABC Corp", "Main Plant", "Service invoice", "10000", "1800", "11800", "Pending", "02/05/2026", "Preventive maintenance", "1", "Nos", "10000", "10000", "18" };
                 case ExcelImportModule.Payments:
                     return new[] { "17/04/2026", "INV-2026-04-0001", "ABC Corp", "11800", "NEFT", "UTR12345", "April collection" };
                 case ExcelImportModule.Purchases:

@@ -19,6 +19,7 @@ namespace ServoERP.Infrastructure
         /// <summary>Creates an error dialog with user-safe message text and technical details.</summary>
         public ServoErrorDialog(string userMessage, Exception ex = null)
         {
+            AppIconService.Apply(this);
             InitializeLayout(userMessage, ex);
         }
 

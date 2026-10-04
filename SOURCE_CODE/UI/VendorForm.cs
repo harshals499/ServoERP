@@ -1248,9 +1248,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel MakeDonutPanel(List<DashboardSlice> slices, string center, string subtitle, Point location, Size size)
         {
-            Panel donut = new Panel { Location = location, Size = size, BackColor = White };
+            HoverChartPanel donut = new HoverChartPanel { Location = location, Size = size, BackColor = White };
             donut.Paint += (s, e) =>
             {
+                donut.BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 decimal total = Math.Max(1m, slices.Sum(sl => sl.ValueDecimal > 0 ? sl.ValueDecimal : sl.Value));
                 float start = -90f;
@@ -1261,6 +1262,10 @@ namespace HVAC_Pro_Desktop.UI
                     float sweep = (float)(360m * val / total);
                     using (Pen pen = new Pen(slice.Color, 18f))
                         e.Graphics.DrawArc(pen, rect, start, sweep);
+                    bool monetary = slices.Any(item => item.ValueDecimal > 0m);
+                    donut.AddHoverDonutSlice(rect, start, sweep, .62f, "vendor-donut-" + slice.Name, slice.Name,
+                        monetary ? ChartHoverFormat.Currency(val) + " (" + ChartHoverFormat.Percent(val * 100m / total) + ")" : ChartHoverFormat.Count(val) + " (" + ChartHoverFormat.Percent(val * 100m / total) + ")",
+                        monetary ? "category spend ÷ total vendor spend" : "vendor count in category ÷ total vendors");
                     start += sweep;
                 }
                 using (SolidBrush brush = new SolidBrush(White))
@@ -1273,9 +1278,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel MakeGaugePanel(double rating, Point location, Size size)
         {
-            Panel gauge = new Panel { Location = location, Size = size, BackColor = White };
+            HoverChartPanel gauge = new HoverChartPanel { Location = location, Size = size, BackColor = White };
             gauge.Paint += (s, e) =>
             {
+                gauge.BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle rect = new Rectangle(10, 12, gauge.Width - 20, gauge.Height * 2 - 22);
                 using (Pen redPen = new Pen(Red, 12f)) e.Graphics.DrawArc(redPen, rect, 180, 54);
@@ -1286,6 +1292,8 @@ namespace HVAC_Pro_Desktop.UI
                 Point center = new Point(gauge.Width / 2, gauge.Height - 10);
                 Point tip = new Point(center.X + (int)(Math.Cos(rad) * (gauge.Width / 2 - 24)), center.Y + (int)(Math.Sin(rad) * (gauge.Width / 2 - 24)));
                 using (Pen pen = new Pen(TextPrimary, 2f)) e.Graphics.DrawLine(pen, center, tip);
+                gauge.AddHoverRectangle(gauge.ClientRectangle, "vendor-rating", "Average vendor rating",
+                    rating.ToString("0.00") + " / 5.00", "sum of active vendor ratings ÷ rated active vendors");
             };
             return gauge;
         }
@@ -3250,6 +3258,13 @@ namespace HVAC_Pro_Desktop.UI
                 priceSeries.Points.AddXY(point.PeriodDate.ToString("MMM yy"), point.UnitPrice);
 
             _scorecardChart.Series.Add(priceSeries);
+            ChartHoverService.Enable(_scorecardChart, (hoverSeries, point) => new ChartHoverContent
+            {
+                Key = "vendor-price-" + point.AxisLabel,
+                Title = point.AxisLabel + " · Unit price",
+                Value = ChartHoverFormat.Currency(Convert.ToDecimal(point.YValues[0])),
+                Calculation = "recorded vendor unit price for " + seriesData.ItemName + " in " + point.AxisLabel
+            });
             _scorecardChart.Titles.Add(new Title(seriesData.ItemName + " (" + (seriesData.UOM ?? "Nos") + ")", Docking.Top, new Font("Segoe UI", 9f, FontStyle.Bold), TextPrimary));
         }
 

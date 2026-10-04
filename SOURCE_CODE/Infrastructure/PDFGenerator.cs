@@ -170,10 +170,16 @@ namespace ServoERP.Infrastructure
 
         private static void ComposeHeader(IContainer container, string title)
         {
+            IndiaCompanySettings company = DocumentBranding.GetConfiguredCompanySettings();
             container.Column(col =>
             {
-                col.Item().Text(DocumentBranding.DefaultCompanyName).FontSize(18).Bold();
+                col.Item().Text(Safe(company.CompanyName, DocumentBranding.DefaultCompanyName)).FontSize(18).Bold();
                 col.Item().Text(Safe(title)).FontSize(13).FontColor(Colors.Grey.Darken2);
+                if (!string.IsNullOrWhiteSpace(company.Address))
+                    col.Item().PaddingTop(3).Text("Registered office: " + company.Address.Trim()).FontSize(9);
+                string contact = string.Join(" | ", new[] { company.Phone, company.Email }.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()));
+                if (!string.IsNullOrWhiteSpace(contact))
+                    col.Item().Text(contact).FontSize(9).FontColor(Colors.Grey.Darken1);
                 col.Item().PaddingTop(6).Element(ComposeOfficialDetails);
                 col.Item().PaddingTop(4).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
             });

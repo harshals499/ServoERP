@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.478.0 - 2026-10-04
+
+- Made Site Monitor available with every activated ServoERP license, including Trial and Starter AMC.
+- Added an upgrade compatibility rule so older client license snapshots receive Site Monitor even when their cached module list predates the entitlement change.
+- Kept missing or tampered installations blocked and added regression coverage across every license plan.
+
+## 1.1.477.0 - 2026-10-04
+
+- Fixed Site Monitor disappearing from the sidebar on client PCs whose valid license entitlement uses the public `Site Monitor` name or the earlier `Dispatch Center` name instead of the internal `GeoIntelligence` key.
+- Kept existing plan access unchanged: Site Monitor remains hidden when the license has no matching entitlement.
+- Added automated coverage for all supported Site Monitor entitlement aliases, explicit denial, and the non-entitled Starter AMC case.
+
+## 1.1.476.0 - 2026-10-04
+
+- Added combined Search, Region, and Work filters to **All Sites by Region - Live Work** in Site Monitor.
+- Added Active work, No active work, Critical / SLA risk, and Unassigned technician shortcuts plus a live filtered-site count and one-click Clear action.
+- Kept the selected region during data refreshes and prevented filter controls from triggering the table's work-details drill-down.
+- Added CI-safe coverage for combined site search and work-state filtering and visually verified the updated full-width layout.
+
+## 1.1.475.0 - 2026-10-04
+
+- Promoted **All Sites by Region - Live Work** to the primary Site Monitor view and moved the supporting operational cards below it.
+- Listed every master customer site, including sites without jobs, with region, client, current work, technician, schedule, status, priority, and open-work count.
+- Added a full work-details drill-down that shows every active job for each site and a clear available state when no work is active.
+- Joined jobs to sites by exact site ID to prevent similarly named sites from sharing work, while preserving invoice-based site revenue attribution.
+- Added CI-safe coverage proving sites without jobs remain visible and billed revenue is not hidden or double-counted.
+
 ## 1.1.474.0 - 2026-10-04
 
 - Added exact chart hover details throughout the Reports library, including revenue, direct cost, gross profit, margin, category, and record-count context.
@@ -15,7 +42,7 @@
 - Preserved the existing report library, expense entry, profitability import, service forms, monthly P&L export, and all underlying business data.
 - Added deterministic Reports Explorer smoke coverage for navigation, filters, search, chart binding, and Excel/CSV exports.
 
-## 1.1.472.0 - 2026-10-03
+## 1.1.472.0 - 2026-10-04
 
 - Removed the unusable Agent Simulation, ServoERP Brain agent dashboard, and AI assistant/model controls from Settings.
 - Removed the related Settings status tile and save/load hooks so ordinary settings changes no longer read or rewrite hidden AI configuration.
@@ -35,14 +62,89 @@
 - Added an approved machine-local offline queue for client, site, and job creates/updates, with stable record identities, dependent local-ID remapping, idempotent create replay, and automatic retry after SQL Server reconnects.
 - Added optimistic conflict detection that retains stale offline changes for review instead of overwriting records changed by another PC.
 - Kept invoices, payments, payroll, stock movements, and job-material changes online-only; the live `HVAC_PRO` SQL Server database remains authoritative.
-- Expanded Backup & Recovery with OneDrive detection/testing, OneDrive backup-copy controls, offline-work controls, and clear safety guidance.
+- Added an Accepted Quote → Delivery Wizard with accepted-status enforcement, one-job-per-quotation idempotency, field checklists, material reservation plans, draft purchase requirements, and a human-confirmed billing milestone.
+- Expanded Backup & Recovery with OneDrive detection, OneDrive backup-copy controls, offline-work controls, and clear safety guidance.
+
+## 1.1.469.0 - 2026-10-03
+
+- Shipped the Site Monitor billed-revenue attribution fix as a source-aligned client release.
+- Site and company revenue now reconciles to authoritative invoice totals without hiding invoice-only companies or double-counting ambiguous legacy invoices.
+- Supersedes 1.1.468 so the public release tag, published source, automatic-update package, and installer share one verifiable version.
+
+## 1.1.468.0 - 2026-10-03
+
+- Fixed Site Monitor revenue always showing zero by sourcing actual billed invoice totals instead of empty job quotation values.
+- Linked revenue to stable company and site IDs, with safe name matching only for unambiguous legacy records.
+- Added invoice-only companies and an explicit company-level unassigned-site row when older invoices cannot be allocated safely, preventing hidden or double-counted revenue.
+- Changed the revenue card label to “Billed Revenue by Site” so the displayed all-time invoice total is clear.
+- Removed the 1,000-invoice dashboard ceiling for Site Monitor revenue while keeping the normal invoice-list limit unchanged.
+
+## 1.1.467.0 - 2026-10-03
+
+- Enabled automatic background downloading of new ServoERP client releases without requiring the user to click Update.
+- Fixed startup checking the old update preference before the automatic-update migration had run, which could leave existing clients in manual mode.
+- Added a one-time client policy migration that enables version checks, forces an immediate first background check, downloads the release, and installs safely when ServoERP closes while preserving later user preference changes.
+- Changed the update banner into an informational ready notice after download; no download action is required from the user.
+- Added regression coverage for automatic-update policy migration and startup integration.
+
+## 1.1.466.0 - 2026-10-03
+
+- Fixed invoice previews showing zero amounts when a valid legacy or imported invoice had stored totals but no child line-item rows.
+- Made invoice preview generation read-only so opening or exporting a PDF can never recalculate and overwrite authoritative invoice totals in memory.
+- Added a legacy-safe display line and GST split fallback while preserving the stored subtotal, tax, grand total, paid amount, and outstanding balance.
+- Kept the established invoice header and invoice body together on one printed PDF page for standard invoices.
+- Added regression coverage for invoices with ₹81,962.80 outstanding and no detailed line rows.
+- Added a release-manager guard that blocks public publication unless the matching version has release notes in `CHANGELOG.md`.
+
+## 1.1.465.0 - 2026-10-03
+
+- Added in-app editing to document previews so quotation, invoice, and purchase-order text and table values can be corrected before printing or PDF/HTML export.
+- Added cursor-based signature image insertion, reusable per-user signature storage, removal through normal editing, and a safe reset action that never changes the saved business record.
+- Added multi-column document recognition for repeated description, quantity, unit, rate, amount, and GST column groups in quotation, invoice, and purchase-order workbooks.
+- Added invoice line-item persistence and made multi-line document rows duplicate-aware so separate items under one document number import safely.
+- Made PDF export retry with Google Chrome when Microsoft Edge exits without producing a file.
+- Added regression and visual coverage for editable preview controls, signatures, and repeated line-item column expansion.
+
+## 1.1.464.0 - 2026-10-03
+
+- Expanded duplicate discovery across clients, employees, suppliers, sites, and inventory using normalized names, email, phone, tax, payroll, banking, and category-specific identity fields.
+- Consolidated transitive matches such as name-linked and email-linked records into one safe review group before merge or deletion.
+- Ignored blank and placeholder identity values so generic entries such as "Not Applicable" cannot create unsafe bulk groups.
+- Added regression coverage for independent email matching, employee payroll identities, and overlapping multi-field duplicate groups.
+
+## 1.1.463.0 - 2026-10-03
+
+- Restored the established branded company letterhead after the dynamic-header regression.
+- Added the company address, phone, and email saved in Settings to the visible From section of quotations and invoices, and clarified the company sender block on purchase orders.
+- Changed quotation, invoice, and purchase-order record opens to launch the document preview first instead of entering the editable form.
+- Kept editing available as a separate explicit Edit action and added regression coverage for Settings-backed sender identity.
+
+## 1.1.462.0 - 2026-10-03
+
+- Fixed the Attendance page failing while dynamically creating its frozen employee columns after global grid styling.
+- Changed shared grid sizing so new columns remain fixed until their frozen state is known, then applies Fill only to eligible non-frozen columns.
+- Added regression coverage for the exact add-column-then-freeze sequence and visually verified a complete 31-day attendance grid.
+
+## 1.1.461.0 - 2026-10-03
+
+- Fixed saved company address, phone, and email settings being overwritten by packaged configuration values during application startup.
+- Made SQL Server company settings authoritative after first-run setup and retained configuration values only as safe defaults for missing settings.
+- Replaced the legacy baked-in-address letterhead with a live document header whenever company identity is configured, covering quotation previews, PDF output, HTML exports, invoices, purchase orders, job documents, and payroll documents.
+- Added regression coverage and visually verified the Settings-backed company header before release.
+
+## 1.1.460.0 - 2026-10-03
+
+- Fixed duplicate employee merges failing when both records contain TDS calculations for the same financial year.
+- Added metadata-driven unique child-record conflict handling before linked records are reassigned, preserving the survivor's existing child record inside the rollback-safe transaction.
+- Added an explicitly confirmed Delete duplicates action that reassigns linked records and then permanently deletes the selected duplicate master records in one audited transaction.
+- Added regression coverage for employee/financial-year uniqueness conflicts and visually verified the updated merge/delete workspace.
 
 ## 1.1.459.0 - 2026-10-03
 
-- Added an Accepted Quote → Delivery Wizard that previews and requires confirmation before creating delivery records.
-- Added accepted-status enforcement, one-job-per-quotation idempotency, standard field checklists, material reservation plans, draft purchase requirements, and a planned billing milestone copied from the accepted quotation total.
-- Kept procurement and billing human-controlled: the wizard does not auto-send supplier POs, messages, or customer invoices, and material planning does not consume physical stock.
-- Added additive SQL Server schema guards, deterministic service smoke coverage, and a standalone visual regression capture for the wizard.
+- Made every shared PDF header read the company name, registered address, phone, and email from Settings, covering invoices, quotations, purchase orders, job documents, payslips, payroll reports, and shared PDF exports.
+- Added duplicate-group filtering with select-all and clear-selection actions scoped to the visible results.
+- Added smart overlap planning that consolidates intersecting duplicate groups into one deterministic, transactional merge plan instead of failing the complete selection.
+- Added regression and rendered-layout coverage for Settings-backed document identity and safe overlapping duplicate cleanup.
 
 ## 1.1.458.0 - 2026-10-03
 
@@ -51,27 +153,46 @@
 - Added job-readiness warnings for missing site data and material shortages, while keeping every assignment human-confirmed through ServoConfirmDialog.
 - Added dispatch scoring smoke coverage and standalone-form support to the visual smoke harness.
 
+## 1.1.457.0 - 2026-10-03
+
+- Added Select all groups and Clear selection actions to Master Data duplicate cleanup.
+- Added one-click bulk merge and archival for all selected duplicate groups, with per-group survivor choices and linked-record reassignment.
+- Made bulk cleanup transactional across the complete selection and blocked overlapping groups before any business data changes.
+
+## 1.1.456.0 - 2026-10-02
+
+- Fixed the Attendance page failing to open when the global layout audit attempted to apply fill sizing to its frozen employee columns.
+- Added regression coverage to preserve fixed-width frozen columns during application-wide layout normalization.
+
+## 1.1.455.0 - 2026-09-27
+
+- Added consistent hover details across ServoERP business charts, including exact en-IN values and the calculation represented by each plotted point, bar, segment, slice, funnel stage, and gauge.
+- Covered financial, payroll, report, vendor, invoice, quotation, payment, purchase-order, contract, client, job, site-health, technician-presence, and SLA visualizations with the shared chart-hover behavior.
+- Corrected site-distribution chart zero counts so hover details and rendered proportions use the same authoritative values.
+- Added CI-safe hit-test coverage for bars, points, donut slices, funnels, INR formatting, and calculation descriptions.
+
 ## 1.1.454.0 - 2026-09-27
 
 - Refined My Work with ServoERP theme tokens, shared ModernIconSystem imagery, stronger workspace hierarchy, and clearer semantic priority colours.
 - Replaced the low-visibility Action Center filter ComboBox with visible themed filter chips and a persistent active state.
 - Tightened the recommended-action layout, promoted its next step to the primary action, and improved queue headers, item counts, row scanability, and hover/action affordances.
-
-## 1.1.453.0 - 2026-09-27
-
 - Added a bounded, one-round-trip SQL projection for My Work so actionable records load before the legacy analytics dashboard and no longer depend on full module collections.
 - Added explicit App User to Employee linking in Settings and exact employee-ID assignment filtering, retaining name matching only as an upgrade fallback for unlinked users.
 - Added direct AMC visit obligations and job-specific part-shortage actions with exact source-child identities and safe deep links to the owning job or contract.
 - Added a dedicated payment reconciliation lifecycle with visible unreconciled/reconciled state, exact-payment deep links, role permission checks, optimistic row-version concurrency, audit history, and automatic My Work refresh.
 - Added guarded indexes for user assignment, reconciliation, AMC schedules, and job parts; verified the additive migration against SQL Server Express and extended role/action smoke coverage.
-
-## 1.1.452.0 - 2026-09-27
-
 - Added My Work / Action Center as the post-login operational home, with critical, overdue, today, waiting, upcoming, and recommended-next-action queues.
 - Added deterministic, explainable priority scoring and role-focused workspaces for technicians, service coordination, sales, accounts/procurement, and management.
 - Derived actions from authoritative jobs, service incidents, AMC contracts, quotations, invoices, purchase orders, and inventory without duplicating business state.
 - Added stale-action revalidation for multi-PC use plus exact-record deep links, including completed-job invoice drafts prefilled with job, client, site, description, and value context.
 - Added action filters, permission-aware empty-state shortcuts, refresh behavior, audit entries for action launches, visual preview coverage, and business-scenario smoke tests.
+
+## 1.1.452.0 - 2026-09-27
+
+- Rebuilt the Invoices dashboard as a receivables operations cockpit while preserving the existing application sidebar and navigation.
+- Added live cash-expected, collected, at-risk, overdue, DSO, eight-week collection forecast, ageing, client concentration, and priority follow-up views.
+- Added a searchable invoice work queue with working open, record-payment, and reminder actions plus a responsive compact actions menu.
+- Changed post-update What's New notices to display English release information only, including safe handling of legacy staged notices.
 
 ## 1.1.451.0 - 2026-09-27
 
@@ -109,31 +230,23 @@
 - Added profitability views to Reports and Job Detail, updated the Excel export, and added calculation and visual smoke coverage.
 - Kept report workflow actions pinned above the scrolling report canvas and hardened shared ComboBox selection handling during page navigation.
 
-## 1.1.446.0 - 2026-09-20
+## 1.1.446.0 - 2026-09-26
 
-- Refreshed buttons across ServoERP with a consistent 38-pixel action height, balanced padding, rounded corners, clearer primary/secondary/neutral/danger hierarchy, and stronger typography.
-- Added unified hover, pressed, keyboard-focus, and disabled states for buttons created by both legacy screens and newer shared components.
-- Improved automatic action-role detection for sign-in, connect, renew, apply, confirm, and OK actions, while preserving compact icon controls and sidebar navigation.
-- Extended the single-page UI smoke harness so custom tab-style pages can be selected and captured for visual regression checks.
+- Added a dedicated Porter Deliveries module under Operations with local ServoERP booking records, client and site linking, pickup/drop details, delivery status, scheduling, driver information, costs, search, filters, and KPI summaries.
+- Added Book on Porter workflow that opens Porter Enterprise and lets the user record the returned Porter booking ID in ServoERP.
+- Added guarded local SQL storage and audit logging for Porter delivery records without requiring a Porter API connection.
+- Refined the Porter Deliveries screen into a responsive list-and-editor layout with bounded actions, readable KPI cards, and corrected screen-edge clipping.
+- Fixed every ServoERP window and dialog to use the official application icon and a stable Windows taskbar identity across installed, updated, and development launch paths.
+- Improved saved SQL credential recovery and silent background update installation behavior for client terminals.
 
-## 1.1.445.0 - 2026-09-20
+## 1.1.445.0 - 2026-09-26
 
-- Hardened the Gmail connector with PKCE-protected browser authorization, a bounded sign-in timeout, encrypted per-user token storage, clearer provider errors, and paged inbox synchronization.
-- Updated Service Desk mail setup and connection wording so administrators configure a Google OAuth Desktop client and users connect their own Gmail mailbox.
-- New Gmail connections import the most recent seven days of inbox mail, then use an overlap-safe incremental window with duplicate protection on later syncs.
-
-## 1.1.444.0 - 2026-09-04
-
-- Fixed LAN deployment remaining indefinitely at `Waiting for credentials` when the elevated PowerShell credential prompt was hidden or never completed.
-- Added server-side administrator access setup protected with Windows current-user DPAPI, allowing approved credentials to be reused for unattended terminal installation without placing passwords in scripts or command-line arguments.
-- Reused the server's verified SQL configuration automatically, preserved Windows Authentication when configured, deleted the one-time deployment credential envelope immediately after launch, and added bounded WinRM connection timeouts with actionable per-PC authentication failures.
-
-## 1.1.443.0 - 2026-08-25
-
-- Added a permanent office-database identity handshake so every enrolled terminal verifies the same authoritative SQL Server database before business screens or writes are enabled.
-- Blocked startup and connection changes when a terminal reaches an unrelated or uninitialised database, preventing split-office records and accidental data loss while preserving the existing SQL configuration.
-- Added terminal handshake health metadata and kept offline business-data writes disabled; all terminals continue working directly against the shared office SQL database with the existing per-device ServoERP license activation flow.
-- Fixed Enterprise installer packaging under PowerShell 7 so office-server and SQL-free terminal installers can be produced reliably from the same release.
+- Standardized the desktop application on the Microsoft365Blue visual system with shared typography, controls, grids, dashboards, dialogs, and form styling.
+- Redesigned Settings into a compact responsive two-column workspace with bordered modules, visible input boundaries, masonry packing, and rebuilt Unit and System Tools sections.
+- Added opt-in company-isolated OneDrive backup mirroring through the Windows OneDrive sync client, including detection, retention cleanup, and independent success/failure logging.
+- Added a general-purpose Book Porter Delivery action to Dispatch Center.
+- Simplified the Dashboard action rail to retain Refresh while removing Backup Now and Preview.
+- Added required runtime bindings and completed Release UI navigation verification across the core ERP modules.
 
 ## 1.1.442.0 - 2026-08-22
 

@@ -49,10 +49,20 @@ namespace HVAC_Pro_Desktop.Tests
                 throw new InvalidOperationException("Status donut should reclassify unpaid past-due invoices as Overdue.");
             if (snapshot.TopClients.First().ClientName != "Alpha Cooling" || snapshot.TopClients.First().Amount != 175000m)
                 throw new InvalidOperationException("Top clients should group by client and sort by amount.");
-            if (snapshot.RecentInvoices.First().InvoiceNumber != "INV-004")
-                throw new InvalidOperationException("Recent invoices should sort by invoice date descending.");
+            if (snapshot.RecentInvoices.First().InvoiceNumber != "INV-005" || !snapshot.RecentInvoices.Any(r => r.InvoiceNumber == "INV-004"))
+                throw new InvalidOperationException("Invoice work queue should prioritize the oldest overdue balance while retaining recent paid invoices.");
             if (snapshot.AgingBuckets.First(b => b.Bucket == "31-60 Days").Amount != 50000m)
                 throw new InvalidOperationException("Receivables aging should bucket unpaid balances by due date age.");
+            if (snapshot.AgingBuckets.First(b => b.Bucket == "Not due").Amount != 75000m)
+                throw new InvalidOperationException("Receivables aging should include open balances that are not yet due.");
+            if (snapshot.OutstandingAmount != 195000m || snapshot.CashExpectedAmount != 195000m || snapshot.OverdueAmount != 120000m)
+                throw new InvalidOperationException("Receivables cockpit totals should include all open invoices and the 30-day collection window.");
+            if (snapshot.CollectionForecast.Count != 8 || snapshot.CollectionForecast.Sum(p => p.TotalAmount) != 195000m)
+                throw new InvalidOperationException("Eight-week collection forecast should allocate each open balance exactly once.");
+            if (!snapshot.ClientExposure.Any(r => r.ClientName == "Alpha Cooling" && r.OutstandingAmount == 125000m))
+                throw new InvalidOperationException("Client concentration should be calculated from outstanding balances.");
+            if (!snapshot.RecentInvoices.Any(r => r.InvoiceNumber == "INV-003" && r.Risk == "High" && r.DaysOverdue == 40))
+                throw new InvalidOperationException("Invoice work queue should expose collection risk and days overdue.");
             if (!snapshot.Reminders.Any(r => r.IndexOf("pending approval", StringComparison.OrdinalIgnoreCase) >= 0))
                 throw new InvalidOperationException("Dynamic reminders should include pending approval counts.");
             if (!snapshot.Reminders.Any(r => r.IndexOf("expiring this month", StringComparison.OrdinalIgnoreCase) >= 0))
@@ -69,6 +79,11 @@ namespace HVAC_Pro_Desktop.Tests
             if (empty.Kpis.TotalInvoices.Value != 0m || empty.Kpis.TotalAmount.Value != 0m || empty.RecentInvoices.Any() || empty.TopClients.Any())
                 throw new InvalidOperationException("Empty invoice dashboard must not show seeded amounts, clients, dates, or invoice numbers.");
             passed.Add("empty invoice dashboard stays empty without seeded business data");
+
+            string englishNotice = UpdateService.BuildEnglishWhatsNewTextForTest("1.2.3", "[English]\n- Faster invoice dashboard.\n[मराठी]\n- मराठी मजकूर");
+            if (englishNotice.IndexOf("Faster invoice dashboard", StringComparison.OrdinalIgnoreCase) < 0 || englishNotice.Any(c => c >= '\u0900' && c <= '\u097F'))
+                throw new InvalidOperationException("Post-update release notes must display English content only.");
+            passed.Add("post-update What's New notice is English-only");
 
             return passed;
         }

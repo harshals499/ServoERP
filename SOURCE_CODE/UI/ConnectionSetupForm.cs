@@ -358,6 +358,20 @@ namespace HVAC_Pro_Desktop.UI
                 _lblStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
                 _lblStatus.Text = result.Message;
                 AppRuntime.LogConnection(result.Success ? "Connection setup test succeeded." : "Connection setup test failed.");
+
+                if (result.Success)
+                {
+                    DialogResult saveVerifiedConnection = MessageBox.Show(
+                        this,
+                        "The database connection was successful. Save these verified settings and the new password on this PC now?\r\n\r\n" +
+                        "The password will be protected for this Windows computer.",
+                        BrandingService.WindowTitle("Save Database Password"),
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+
+                    if (saveVerifiedConnection == DialogResult.Yes)
+                        SaveConnection();
+                }
             }
             catch (Exception ex)
             {
@@ -397,9 +411,24 @@ namespace HVAC_Pro_Desktop.UI
                 ConfigurationManager.RefreshSection("connectionStrings");
                 SaveInstallerDatabaseConfig(connectionString);
                 ConfigService.Set("Database", "ServerRole", _rbPrivateServer.Checked ? "ClientPC" : "LocalSqlServer");
-                OfficeDatabaseHandshakeService.VerifyAndPin(connectionString);
+
+                string persistedConnectionString = DatabaseManager.GetConfiguredConnectionString();
+                DatabaseConnectionTestResult persistedResult = DatabaseConnectionFactory
+                    .TestDatabaseConnectionAsync(persistedConnectionString, (int)_numMaxPoolSize.Value)
+                    .GetAwaiter()
+                    .GetResult();
+                if (!persistedResult.Success)
+                    throw new InvalidOperationException("The connection tested successfully, but the saved credentials could not be verified. " + persistedResult.Message);
+
+                OfficeDatabaseHandshakeService.VerifyAndPin(persistedConnectionString);
                 NodeIdentityService.EnsureRegistered();
-                AppRuntime.LogConnection("Connection string saved.");
+                AppRuntime.LogConnection("Connection string saved and verified.");
+                MessageBox.Show(
+                    this,
+                    "The database password was saved and verified on this PC. ServoERP will use it the next time it starts.",
+                    BrandingService.WindowTitle("Database Password Saved"),
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
                 DialogResult = DialogResult.OK;
                 Close();
             }

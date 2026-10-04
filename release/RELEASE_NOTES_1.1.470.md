@@ -6,18 +6,18 @@ Release date: 03/10/2026
 
 ServoERP can now copy completed SQL Server backups into the customer's locally synced OneDrive folder and can safely retain client, site, and job create/update work when the office SQL Server connection is interrupted. SQL Server remains the authoritative business database; ServoERP never runs the live database from OneDrive.
 
-This build also includes the Accepted Quote to Delivery Wizard introduced in 1.1.459, with human confirmation before creating delivery records.
+This build also introduces an Accepted Quote to Delivery Wizard with human confirmation before creating delivery records.
 
 ## Features and fixes
 
 - Added automatic detection of Microsoft OneDrive for Business or Personal local sync folders, plus a configurable folder override.
-- Added `OneDrive\ServoERP\Backups`, `Documents`, and `Exports` preparation and optional copying of completed SQL backup files to OneDrive.
+- Added tenant-isolated `OneDrive\ServoERP Backups\<company>` folders and optional copying of completed SQL backup files to OneDrive.
 - Enabled the machine-local SQLite offline queue for Clients, Sites, and Jobs create/update operations.
 - Added stable public identities, idempotent create replay, ordered dependency remapping for records created offline, and update coalescing.
 - Added optimistic server-version checks. Stale offline edits remain in Conflict status for review and do not overwrite newer office records.
 - Kept invoices, payments, payroll, inventory movements, and job-material operations online-only.
-- Added OneDrive and offline-work controls to Backup & Recovery, including detection, folder testing, and visible scope guidance.
-- Added the accepted-quotation delivery workflow, planning safeguards, and confirmation boundary from 1.1.459.
+- Added OneDrive and offline-work controls to Backup & Recovery, including detection and visible scope guidance.
+- Added the accepted-quotation delivery workflow, planning safeguards, and confirmation boundary.
 
 ## Affected modules
 
@@ -32,12 +32,12 @@ This build also includes the Accepted Quote to Delivery Wizard introduced in 1.1
 
 - SQL Server: no destructive migration. Existing additive sync identity and outbox columns/tables remain in use.
 - Local machine: creates `%LOCALAPPDATA%\ServoERP\Offline\ServoERP_Offline.sqlite` when offline work is enabled.
-- OneDrive: creates a `ServoERP` folder with `Backups`, `Documents`, and `Exports` subfolders when enabled.
+- OneDrive: creates a tenant-isolated `ServoERP Backups\<company>` folder when enabled.
 - The `LicenseInfo` table is unchanged.
 
 ## Configuration and dependency changes
 
-- Added `OneDriveStorage.Enabled` and `OneDriveStorage.RootPath` settings.
+- Added OneDrive backup settings plus `OneDriveStorage.RootPath` for offline-file safety checks.
 - `Fallback.Mode` is now `LocalSQLiteOfflineQueue`; `Fallback.AllowBusinessWrites` controls the approved offline queue.
 - No new NuGet packages were added.
 - A signed-in Microsoft OneDrive desktop client is required for automatic folder detection and cloud synchronization.
@@ -58,9 +58,9 @@ This build also includes the Accepted Quote to Delivery Wizard introduced in 1.1
 
 1. Install or update ServoERP normally.
 2. Open Settings, then Backup Settings.
-3. Under OneDrive & Offline Work, select **Detect OneDrive**, verify the local OneDrive folder, and enable OneDrive backup copies if required.
-4. Enable offline client/site/job work if approved for that installation, then save settings.
-5. Run **Backup Now** and confirm that a completed `.bak` copy appears under `OneDrive\ServoERP\Backups`.
+3. Under Company OneDrive, select **Detect**, verify the local OneDrive folder, and enable OneDrive backup copies if required.
+4. Under Offline Work, enable offline client/site/job work if approved for that installation, then save settings.
+5. Run **Backup Now** and confirm that a completed `.bak` copy appears under `OneDrive\ServoERP Backups\<company>`.
 6. Keep the office SQL Server online whenever financial, inventory, payroll, or job-material work is performed.
 
 ## Validation performed
@@ -68,7 +68,8 @@ This build also includes the Accepted Quote to Delivery Wizard introduced in 1.1
 - Built `HVAC_Pro_Desktop.csproj` successfully in Debug and Release configurations with MSBuild 17.14.40.
 - Verified `SOURCE_CODE\bin\Release\HVAC_Pro_Desktop.exe` exists with file version `1.1.470.0`.
 - Ran the Release CI smoke harness successfully, including offline scope/conflict policy, UI policy, office-database handshake, startup recovery, accepted-quotation delivery, and Smart Dispatch checks.
-- Captured and visually reviewed the built Backup & Recovery form at 996 x 1039 pixels; OneDrive/offline controls, safety guidance, backup actions, and backup log render without overlap or clipping.
+- Captured and visually reviewed the built Backup & Recovery form at 996 x 981 pixels; OneDrive/offline controls, safety guidance, backup actions, and backup log render without overlap or clipping.
+- Captured and visually reviewed all five built Accepted Quote to Delivery Wizard steps, including the 1180 x 780 review screen; job, material, purchase-need, billing, and confirmation content renders correctly.
 - Did not upload a real customer backup to OneDrive during automated validation; the setting remains opt-in.
 
 ## Known limitations

@@ -19,7 +19,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
             {
                 return new List<string>
                 {
-                    "Dashboard", "Clients", "Quotations", "Invoices", "Reports", "Settings", "MasterData"
+                    "Dashboard", "Clients", "Quotations", "Invoices", "Reports", "Settings", "GeoIntelligence", "MasterData"
                 };
             }
 
@@ -28,7 +28,7 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                 return new List<string>
                 {
                     "Dashboard", "Clients", "Contracts", "Invoices", "Payments", "Quotations", "Reports",
-                    "Settings", "Vendors", "Purchases", "Inventory", "Employees", "Attendance", "WorkOrders", "ServiceDesk", "MasterData"
+                    "Settings", "Vendors", "Purchases", "Inventory", "Employees", "Attendance", "GeoIntelligence", "WorkOrders", "ServiceDesk", "MasterData"
                 };
             }
 
@@ -58,6 +58,12 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                     || modules.Exists(m => string.Equals(m, "Payroll", StringComparison.OrdinalIgnoreCase))
                     || modules.Exists(m => string.Equals(m, "Employees", StringComparison.OrdinalIgnoreCase));
             }
+
+            // Site Monitor is a core operational workspace for every activated license.
+            // Keep this compatibility rule independent of cached entitlement lists so
+            // older client PCs receive the page immediately after updating.
+            if (string.Equals(moduleKey, "GeoIntelligence", StringComparison.OrdinalIgnoreCase))
+                return snapshot.Status != LicenseStatus.Missing && snapshot.Status != LicenseStatus.Tampered;
 
             return modules.Exists(m => string.Equals(m, moduleKey, StringComparison.OrdinalIgnoreCase));
         }

@@ -8,7 +8,10 @@ namespace HVAC_Pro_Desktop.UI
     {
         private TextBox _txtNetworkPath;
         private TextBox _txtLocalPath;
+        private TextBox _txtOneDrivePath;
         private Label _lblNetworkStatus;
+        private Label _lblOneDriveStatus;
+        private CheckBox _chkOneDriveEnabled;
         private DateTimePicker _timeSchedule;
         private CheckBox _chkRunOnClose;
         private CheckBox _chkEnabled;
@@ -20,9 +23,6 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblStatus;
         private Label _lblLastBackup;
         private DataGridView _gridLog;
-        private CheckBox _chkOneDriveEnabled;
-        private TextBox _txtOneDrivePath;
-        private Label _lblOneDriveStatus;
         private CheckBox _chkOfflineEnabled;
 
         /// <summary>Initializes backup settings controls.</summary>
@@ -31,7 +31,7 @@ namespace HVAC_Pro_Desktop.UI
             SuspendLayout();
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.BgPage;
-            ClientSize = new Size(980, 1000);
+            ClientSize = new Size(980, 942);
             Font = new Font("Segoe UI", 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -56,31 +56,49 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate600
             };
 
-            Panel network = Section(T("Network Server Connection"), 24, 96, 444, 146);
+            Panel network = Section(T("Network Server"), 24, 96, 288, 146);
             Label networkLabel = Label(T("Network Server Path (UNC)"), 16, 18, 250);
-            _txtNetworkPath = Input(16, 42, 296);
+            _txtNetworkPath = Input(16, 42, 178);
             _txtNetworkPath.Text = @"\\SERVERNAME\SharedFolder\ServoERP_Backups";
-            Button test = Button(T("Test Connection"), DS.Primary600, Color.White, 128);
-            test.Location = new Point(324, 41);
+            Button test = Button(T("Test"), DS.Primary600, Color.White, 70);
+            test.Location = new Point(202, 41);
             test.Click += TestNetworkConnection;
             _lblNetworkStatus = new Label
             {
                 Text = T("Leave blank to skip network backup"),
                 Location = new Point(16, 86),
-                Size = new Size(390, 38),
+                Size = new Size(250, 38),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
             };
             network.Controls.AddRange(new Control[] { networkLabel, _txtNetworkPath, test, _lblNetworkStatus });
 
-            Panel local = Section(T("Local Backup Folder"), 492, 96, 444, 146);
-            _txtLocalPath = Input(16, 42, 296);
-            Button browse = Button(T("Browse"), DS.Primary600, Color.White, 96);
-            browse.Location = new Point(324, 41);
+            Panel local = Section(T("Local Backup"), 322, 96, 288, 146);
+            _txtLocalPath = Input(16, 42, 178);
+            Button browse = Button(T("Browse"), DS.Primary600, Color.White, 70);
+            browse.Location = new Point(202, 41);
             browse.Click += BrowseLocalFolder;
             local.Controls.Add(Label(T("Local Backup Folder"), 16, 18, 250));
             local.Controls.Add(_txtLocalPath);
             local.Controls.Add(browse);
+
+            Panel oneDrive = Section(T("Company OneDrive"), 620, 96, 316, 146);
+            _chkOneDriveEnabled = Check(T("Copy every successful backup to OneDrive"), 16, 20, 278);
+            _chkOneDriveEnabled.CheckedChanged += (s, e) => RefreshOneDriveStatus();
+            _txtOneDrivePath = Input(16, 52, 190);
+            _txtOneDrivePath.TextChanged += (s, e) => RefreshOneDriveStatus();
+            Button detectOneDrive = Button(T("Detect"), DS.Primary600, Color.White, 76);
+            detectOneDrive.Location = new Point(214, 51);
+            detectOneDrive.Click += DetectOneDriveFolder;
+            _lblOneDriveStatus = new Label
+            {
+                Text = T("OneDrive backup is optional"),
+                Location = new Point(16, 90),
+                Size = new Size(278, 38),
+                Font = DS.Small,
+                ForeColor = DS.Slate600
+            };
+            oneDrive.Controls.AddRange(new Control[] { _chkOneDriveEnabled, _txtOneDrivePath, detectOneDrive, _lblOneDriveStatus });
 
             Panel schedule = Section(T("Schedule"), 24, 260, 444, 164);
             _timeSchedule = new DateTimePicker
@@ -118,29 +136,20 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700
             });
 
-            Panel oneDrive = Section(T("OneDrive & Offline Work"), 24, 442, 912, 160);
-            _chkOneDriveEnabled = Check(T("Copy completed SQL backups to OneDrive"), 16, 24, 300);
-            _txtOneDrivePath = Input(16, 54, 548);
-            Button detectOneDrive = Button(T("Detect OneDrive"), DS.Primary600, Color.White, 138);
-            detectOneDrive.Location = new Point(576, 53);
-            detectOneDrive.Click += DetectOneDrive;
-            Button testOneDrive = Button(T("Test"), Color.White, DS.Slate700, 82);
-            testOneDrive.FlatAppearance.BorderColor = DS.Border;
-            testOneDrive.Location = new Point(726, 53);
-            testOneDrive.Click += TestOneDrive;
-            _chkOfflineEnabled = Check(T("Allow offline create/update for Clients, Sites, and Jobs"), 16, 94, 520);
-            _lblOneDriveStatus = new Label
+            Panel offline = Section(T("Offline Work"), 24, 442, 912, 100);
+            _chkOfflineEnabled = Check(T("Allow offline create/update for Clients, Sites, and Jobs"), 16, 26, 520);
+            Label offlineScope = new Label
             {
                 Text = T("Financial, stock, and payroll changes remain online-only."),
-                Location = new Point(16, 124),
+                Location = new Point(16, 58),
                 Size = new Size(850, 24),
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
                 TextAlign = ContentAlignment.MiddleLeft
             };
-            oneDrive.Controls.AddRange(new Control[] { _chkOneDriveEnabled, _txtOneDrivePath, detectOneDrive, testOneDrive, _chkOfflineEnabled, _lblOneDriveStatus });
+            offline.Controls.AddRange(new Control[] { _chkOfflineEnabled, offlineScope });
 
-            Panel manual = Section(T("Manual Backup & Status"), 24, 620, 912, 112);
+            Panel manual = Section(T("Manual Backup & Status"), 24, 560, 912, 112);
             _btnBackupNow = Button(T("Backup Now"), DS.Green600, Color.White, 126);
             _btnBackupNow.Location = new Point(590, 38);
             _btnBackupNow.Click += RunManualBackup;
@@ -152,7 +161,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblStatus = new Label { Location = new Point(16, 60), Size = new Size(342, 28), Font = DS.Small, ForeColor = DS.Slate600 };
             manual.Controls.AddRange(new Control[] { _btnBackupNow, open, _progress, _lblLastBackup, _lblStatus });
 
-            Panel logPanel = Section(T("Backup Log"), 24, 750, 912, 184);
+            Panel logPanel = Section(T("Backup Log"), 24, 690, 912, 184);
             _gridLog = new DataGridView
             {
                 Location = new Point(16, 28),
@@ -177,15 +186,15 @@ namespace HVAC_Pro_Desktop.UI
             logPanel.Controls.Add(clear);
 
             _btnSave = Button(T("Save Settings"), DS.Green600, Color.White, 132);
-            _btnSave.Location = new Point(676, 960);
+            _btnSave.Location = new Point(676, 892);
             _btnSave.Click += SaveClicked;
             _btnClose = Button(T("Close"), Color.White, DS.Slate700, 96);
             _btnClose.FlatAppearance.BorderColor = DS.Border;
             _btnClose.FlatAppearance.BorderSize = 1;
-            _btnClose.Location = new Point(824, 960);
+            _btnClose.Location = new Point(824, 892);
             _btnClose.Click += CloseClicked;
 
-            Controls.AddRange(new Control[] { title, subtitle, network, local, schedule, retention, oneDrive, manual, logPanel, _btnSave, _btnClose });
+            Controls.AddRange(new Control[] { title, subtitle, network, local, oneDrive, schedule, retention, offline, manual, logPanel, _btnSave, _btnClose });
             ResumeLayout(false);
         }
 

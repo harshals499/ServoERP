@@ -209,7 +209,17 @@ namespace HVAC_Pro_Desktop.UI
             if (ContainsAny(meta, "no-global-actions", "custom-header-actions"))
                 return;
 
-            if (header == null || header.IsDisposed || (HasRefreshButton(header) && HasPreviewButton(header)))
+            bool isDashboardHeader = IsInsideDashboard(header);
+            if (isDashboardHeader)
+            {
+                foreach (Button preview in Descendants(header).OfType<Button>().Where(IsPreviewButton).ToArray())
+                {
+                    preview.Parent?.Controls.Remove(preview);
+                    preview.Dispose();
+                }
+            }
+
+            if (header == null || header.IsDisposed || (HasRefreshButton(header) && (isDashboardHeader || HasPreviewButton(header))))
                 return;
 
             FlowLayoutPanel existingFlowRail = Descendants(header)
@@ -218,7 +228,7 @@ namespace HVAC_Pro_Desktop.UI
 
             if (existingFlowRail != null)
             {
-                AddHeaderButtonsToFlowRail(existingFlowRail);
+                AddHeaderButtonsToFlowRail(existingFlowRail, !isDashboardHeader);
                 return;
             }
 
@@ -241,10 +251,10 @@ namespace HVAC_Pro_Desktop.UI
                 host.BringToFront();
             }
 
-            AddHeaderButtonsToFlowRail(host);
+            AddHeaderButtonsToFlowRail(host, !isDashboardHeader);
         }
 
-        private static void AddHeaderButtonsToFlowRail(FlowLayoutPanel rail)
+        private static void AddHeaderButtonsToFlowRail(FlowLayoutPanel rail, bool includePreview)
         {
             if (rail == null || rail.IsDisposed)
                 return;
@@ -252,8 +262,18 @@ namespace HVAC_Pro_Desktop.UI
             if (rail.Controls.Find(GlobalRefreshButtonName, false).Length == 0 && !HasRefreshButton(rail.Parent ?? rail))
                 rail.Controls.Add(CreateRefreshButton());
 
-            if (rail.Controls.Find(GlobalPreviewButtonName, false).Length == 0 && !HasPreviewButton(rail.Parent ?? rail))
+            if (includePreview && rail.Controls.Find(GlobalPreviewButtonName, false).Length == 0 && !HasPreviewButton(rail.Parent ?? rail))
                 rail.Controls.Add(CreatePreviewButton());
+        }
+
+        private static bool IsInsideDashboard(Control control)
+        {
+            for (Control current = control; current != null; current = current.Parent)
+            {
+                if (current is DashboardForm)
+                    return true;
+            }
+            return false;
         }
 
         private static Button CreateRefreshButton()

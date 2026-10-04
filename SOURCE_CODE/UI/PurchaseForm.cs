@@ -1491,13 +1491,8 @@ namespace HVAC_Pro_Desktop.UI
             if (poId <= 0)
                 return;
 
-            _showDashboard = false;
-            Controls.Clear();
-            BuildLayout();
-            UIHelper.ApplyInputStyles(Controls);
-            ApplyPurchaseReferenceSkin(Controls);
-            await LoadInitialDataAsync();
-            SelectOrderById(poId);
+            await Task.Yield();
+            RecentDocumentOpenService.OpenPurchaseOrderPdf(this, poId);
         }
 
         private async Task BackToPurchaseDashboardAsync()
@@ -1849,13 +1844,14 @@ namespace HVAC_Pro_Desktop.UI
             public decimal Value { get; set; }
         }
 
-        private sealed class PoStatusDonutChart : Control
+        private sealed class PoStatusDonutChart : HoverChartControl
         {
             private Dictionary<string, int> _data = new Dictionary<string, int>();
             private readonly Color[] _colors = { PoMuted, InfoBlue, PoPurple, WarnOrange, SaveGreen, DelRed };
             public void SetData(Dictionary<string, int> data) { _data = data ?? new Dictionary<string, int>(); Invalidate(); }
             protected override void OnPaint(PaintEventArgs e)
             {
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.Clear(PoSurface);
                 int total = _data.Values.DefaultIfEmpty(0).Sum();
@@ -1867,6 +1863,9 @@ namespace HVAC_Pro_Desktop.UI
                     int count = _data.ContainsKey(PoStatuses[i]) ? _data[PoStatuses[i]] : 0;
                     float sweep = total == 0 ? 0 : count * 360f / total;
                     using (Pen p = new Pen(_colors[i], 24)) e.Graphics.DrawArc(p, rect, start, sweep);
+                    AddHoverDonutSlice(rect, start, sweep, .62f, "po-status-" + PoStatuses[i], PoStatuses[i] + " purchase orders",
+                        ChartHoverFormat.Count(count) + " (" + ChartHoverFormat.Percent(total == 0 ? 0m : count * 100m / total) + ")",
+                        count + " purchase orders ÷ " + total + " total purchase orders");
                     start += sweep;
                 }
                 TextRenderer.DrawText(e.Graphics, total.ToString(), new Font("Segoe UI", 16f, FontStyle.Bold), new Rectangle(rect.X, rect.Y + 36, rect.Width, 28), PoText, TextFormatFlags.HorizontalCenter);
@@ -1883,12 +1882,13 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class PoValueTrendChart : Control
+        private sealed class PoValueTrendChart : HoverChartControl
         {
             private List<MonthlyPoPoint> _points = new List<MonthlyPoPoint>();
             public void SetData(List<MonthlyPoPoint> points) { _points = points ?? new List<MonthlyPoPoint>(); Invalidate(); }
             protected override void OnPaint(PaintEventArgs e)
             {
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 e.Graphics.Clear(PoSurface);
                 Rectangle plot = new Rectangle(42, 16, Width - 60, Height - 44);
@@ -1905,6 +1905,9 @@ namespace HVAC_Pro_Desktop.UI
                 for (int i = 0; i < _points.Count; i++)
                 {
                     float x = plot.Left + (plot.Width * i / Math.Max(1, _points.Count - 1));
+                    if (i < pts.Length)
+                        AddHoverPoint(pts[i], 10f, "po-value-" + i, _points[i].Label + " purchase order value",
+                            ChartHoverFormat.Currency(_points[i].Value), "sum of purchase order totals created in " + _points[i].Label);
                     TextRenderer.DrawText(e.Graphics, _points[i].Label, new Font("Segoe UI", 7f), new Rectangle((int)x - 18, plot.Bottom + 4, 36, 18), PoMuted, TextFormatFlags.HorizontalCenter);
                 }
                 TextRenderer.DrawText(e.Graphics, "₹" + Math.Round(max / 100000m) + "L", new Font("Segoe UI", 7f), new Rectangle(0, plot.Top, 38, 18), PoMuted, TextFormatFlags.Right);

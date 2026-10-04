@@ -26,6 +26,7 @@ namespace ServoERP.Infrastructure
             RenderHelper.EnableDoubleBufferAll(this);
             RenderHelper.OptimiseAllGrids(this);
             base.OnLoad(e);
+            ServoTheme.ApplyTo(this);
 
             double elapsed = (DateTime.Now - _loadStart).TotalMilliseconds;
             ExceptionLogger.Log("Page loaded: " + GetType().Name + " in " + elapsed.ToString("F0") + "ms", "Navigation");

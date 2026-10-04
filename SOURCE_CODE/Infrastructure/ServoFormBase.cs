@@ -17,6 +17,7 @@ namespace ServoERP.Infrastructure
         protected ServoFormBase()
         {
             AutoScaleMode = AutoScaleMode.Dpi;
+            AppIconService.Apply(this);
             RenderHelper.EnableDoubleBuffer(this);
             KeyPreview = true;
         }
@@ -121,7 +122,7 @@ namespace ServoERP.Infrastructure
             if (root == null || root.IsDisposed)
                 return;
 
-            DS.ApplyTheme(root);
+            ServoTheme.ApplyTo(root);
             UIHelper.ApplyInputStyle(root);
             UIHelper.ApplyInputStyles(root.Controls);
             InputOutlineService.ApplyToTree(root);

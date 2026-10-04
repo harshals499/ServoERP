@@ -278,6 +278,12 @@ function Build-ReleaseReportPath {
 }
 
 $versionInfo = Resolve-ReleaseVersion -RequestedVersion $Version -RequestedPatchIncrement $PatchIncrement
+if ($Publish) {
+    $documentedChanges = @(Get-ChangesFromMarkdownChangelog -Path $changelogFile -FullVersion $versionInfo.FullVersion)
+    if ($documentedChanges.Count -eq 0) {
+        throw "Public release $($versionInfo.FullVersion) is blocked because CHANGELOG.md has no matching release notes. Add the release section before publishing."
+    }
+}
 $notes = Resolve-ReleaseNotes -RequestedTitle $Title -RequestedChanges $Changes -FullVersion $versionInfo.FullVersion
 $report = [ordered]@{
     product = "ServoERP"

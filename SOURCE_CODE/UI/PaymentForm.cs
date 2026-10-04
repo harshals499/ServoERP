@@ -1379,13 +1379,14 @@ namespace HVAC_Pro_Desktop.UI
             public decimal Net;
         }
 
-        private sealed class PayCashFlowChart : Control
+        private sealed class PayCashFlowChart : HoverChartControl
         {
             private List<PayTrendPoint> _points = new List<PayTrendPoint>();
             public void SetData(List<PayTrendPoint> points) { _points = points ?? new List<PayTrendPoint>(); Invalidate(); }
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 Rectangle plot = new Rectangle(36, 12, Math.Max(20, Width - 48), Math.Max(20, Height - 30));
                 decimal max = Math.Max(1m, _points.SelectMany(p => new[] { p.Receipts, p.Payments, Math.Abs(p.Net) }).DefaultIfEmpty(1m).Max());
@@ -1399,9 +1400,9 @@ namespace HVAC_Pro_Desktop.UI
                         e.Graphics.DrawString(i == 0 ? "₹0" : "₹" + (Math.Round(max * i / 4 / 100000m)).ToString("0") + "L", new Font("Segoe UI", 6.5f), text, 0, y - 7);
                     }
                 }
-                DrawPayLine(e.Graphics, plot, max, p => p.Receipts, SaveGreen);
-                DrawPayLine(e.Graphics, plot, max, p => p.Payments, PayRed);
-                DrawPayLine(e.Graphics, plot, max, p => p.Net, InfoBlue);
+                DrawPayLine(e.Graphics, plot, max, p => p.Receipts, SaveGreen, "Receipts", "sum of customer receipts recorded on this date");
+                DrawPayLine(e.Graphics, plot, max, p => p.Payments, PayRed, "Payments", "sum of outgoing payments recorded on this date");
+                DrawPayLine(e.Graphics, plot, max, p => p.Net, InfoBlue, "Net cash flow", "receipts minus outgoing payments for this date");
                 if (_points.Count > 0)
                 {
                     using (Brush b = new SolidBrush(PayMuted))
@@ -1415,7 +1416,7 @@ namespace HVAC_Pro_Desktop.UI
                     }
                 }
             }
-            private void DrawPayLine(Graphics g, Rectangle plot, decimal max, Func<PayTrendPoint, decimal> selector, Color color)
+            private void DrawPayLine(Graphics g, Rectangle plot, decimal max, Func<PayTrendPoint, decimal> selector, Color color, string label, string calculation)
             {
                 if (_points.Count < 2) return;
                 PointF[] pts = _points.Select((p, i) => new PointF(plot.Left + (plot.Width * i / (float)Math.Max(1, _points.Count - 1)), plot.Bottom - (float)(Math.Max(0, selector(p)) / max) * plot.Height)).ToArray();
@@ -1423,10 +1424,13 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush brush = new SolidBrush(color))
                     foreach (PointF pt in pts.Where((p, i) => i % Math.Max(1, _points.Count / 6) == 0))
                         g.FillEllipse(brush, pt.X - 3, pt.Y - 3, 6, 6);
+                for (int i = 0; i < pts.Length; i++)
+                    AddHoverPoint(pts[i], 9f, "cash-" + label + "-" + i, _points[i].Date.ToString("dd/MM/yyyy") + " · " + label,
+                        ChartHoverFormat.Currency(selector(_points[i])), calculation);
             }
         }
 
-        private sealed class PayDonutChart : Control
+        private sealed class PayDonutChart : HoverChartControl
         {
             private decimal _receipts;
             private decimal _payments;
@@ -1434,6 +1438,7 @@ namespace HVAC_Pro_Desktop.UI
             protected override void OnPaint(PaintEventArgs e)
             {
                 base.OnPaint(e);
+                BeginHoverRegions();
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
                 decimal total = Math.Max(1m, _receipts + _payments);
                 Rectangle pie = new Rectangle(18, 48, Math.Min(118, Height - 70), Math.Min(118, Height - 70));
@@ -1444,6 +1449,12 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawArc(green, pie, -90, rSweep);
                     e.Graphics.DrawArc(red, pie, -90 + rSweep, 360 - rSweep);
                 }
+                AddHoverDonutSlice(pie, -90, rSweep, .62f, "payment-mix-receipts", "Receipts",
+                    ChartHoverFormat.Currency(_receipts) + " (" + ChartHoverFormat.Percent(_receipts * 100m / total) + ")",
+                    "receipts ÷ combined receipts and payments");
+                AddHoverDonutSlice(pie, -90 + rSweep, 360 - rSweep, .62f, "payment-mix-payments", "Payments",
+                    ChartHoverFormat.Currency(_payments) + " (" + ChartHoverFormat.Percent(_payments * 100m / total) + ")",
+                    "payments ÷ combined receipts and payments");
                 using (Font bold = new Font("Segoe UI", 8f, FontStyle.Bold))
                 using (Font small = new Font("Segoe UI", 7f))
                 using (Brush text = new SolidBrush(PayText))

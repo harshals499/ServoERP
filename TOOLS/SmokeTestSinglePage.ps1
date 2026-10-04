@@ -5,7 +5,9 @@ param(
     [string]$AppDir = "C:\HVAC_PRO_MSE",
     [int]$PumpSeconds = 6,
     [string]$ScreenshotPath = "",
-    [string]$TabText = ""
+    [string]$TabText = "",
+    [int]$WindowWidth = 1440,
+    [int]$WindowHeight = 860
 )
 
 $ErrorActionPreference = "Stop"
@@ -138,7 +140,7 @@ try {
     $form.Text = "Smoke test - " + $TypeName
     $form.StartPosition = [System.Windows.Forms.FormStartPosition]::Manual
     $form.Location = New-Object System.Drawing.Point(-30000, -30000)
-    $form.Size = New-Object System.Drawing.Size(1440, 860)
+    $form.Size = New-Object System.Drawing.Size($WindowWidth, $WindowHeight)
     $form.ShowInTaskbar = $false
 
     $control.Dock = [System.Windows.Forms.DockStyle]::Fill

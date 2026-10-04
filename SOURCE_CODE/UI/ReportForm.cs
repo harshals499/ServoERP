@@ -2900,6 +2900,13 @@ namespace HVAC_Pro_Desktop.UI
             series.IsValueShownAsLabel = type == SeriesChartType.Column || type == SeriesChartType.Bar;
             series.Font = new Font("Segoe UI", 8f);
             chart.Series.Add(series);
+            ChartHoverService.Enable(chart, (hoverSeries, point) => new ChartHoverContent
+            {
+                Key = "report-" + name + "-" + point.AxisLabel,
+                Title = string.IsNullOrWhiteSpace(point.AxisLabel) ? name : point.AxisLabel,
+                Value = ChartHoverFormat.Number(Convert.ToDecimal(point.YValues[0])),
+                Calculation = "report value aggregated for this category using the active report filters"
+            });
             return chart;
         }
 

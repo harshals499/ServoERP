@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -24,7 +25,9 @@ namespace HVAC_Pro_Desktop.Services
         public string StatusMessage { get; set; }
         public bool IsUpdateAvailable { get; set; }
         public bool CanApplyUpdate { get; set; }
+        public bool RequiresLegacyInstallerMigration { get; set; }
         internal UpdateInfo VelopackUpdateInfo { get; set; }
+        internal string LegacyInstallerPath { get; set; }
     }
 
     internal sealed class GitHubReleaseAssetInfo
@@ -47,8 +50,11 @@ namespace HVAC_Pro_Desktop.Services
         private const string UpdatesFolder = @"C:\HVAC_PRO_MSE\UPDATES";
         private const string LogContext = "Velopack update";
         private const string PendingWhatsNewVersionKey = "PendingWhatsNewVersion";
-        private const string PendingWhatsNewTextKey = "PendingWhatsNewTextMr";
+        private const string PendingWhatsNewTextKey = "PendingWhatsNewTextEn";
+        private const string LegacyPendingWhatsNewTextKey = "PendingWhatsNewTextMr";
         private const string SilentAutoUpdateModeKey = "SilentAutoUpdateMode";
+        private const string AutomaticUpdatePolicyVersionKey = "AutomaticUpdatePolicyVersion";
+        private const string CurrentAutomaticUpdatePolicyVersion = "1";
         private const string SilentAutoUpdateAutomaticMode = "Automatic";
         private const string SilentAutoUpdateDisabledMode = "Disabled";
         private static readonly object SilentUpdateSync = new object();
@@ -154,7 +160,7 @@ namespace HVAC_Pro_Desktop.Services
                 downloadedUpdate = _downloadedSilentUpdate;
             }
 
-            if (downloadedUpdate == null || !downloadedUpdate.CanApplyUpdate || downloadedUpdate.VelopackUpdateInfo == null)
+            if (downloadedUpdate == null || !downloadedUpdate.CanApplyUpdate)
             {
                 AppLogger.LogInfo(LogContext + " apply-on-exit skipped: no downloaded package is ready.");
                 return false;
@@ -167,8 +173,14 @@ namespace HVAC_Pro_Desktop.Services
                 SaveLastStatus("Installing downloaded update v" + downloadedUpdate.LatestVersion + " as ServoERP closes.");
                 AppLogger.LogInfo(LogContext + " apply-on-exit requested. latest=" + downloadedUpdate.LatestVersion);
 
+                if (downloadedUpdate.RequiresLegacyInstallerMigration)
+                {
+                    ScheduleLegacyInstallerAfterExit(downloadedUpdate);
+                    return true;
+                }
+
                 UpdateManager manager = CreateManager(GetGitHubRepositoryUrl());
-                manager.ApplyUpdatesAndRestart(downloadedUpdate.VelopackUpdateInfo.TargetFullRelease, null);
+                manager.WaitExitThenApplyUpdates(downloadedUpdate.VelopackUpdateInfo.TargetFullRelease, true, true, null);
                 return true;
             }
             catch (Exception ex)
@@ -179,20 +191,24 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        /// <summary>Upgrades legacy client settings to the automatic update default once without overriding a later user choice.</summary>
+        /// <summary>Upgrades existing clients to background download once without overriding a later user choice.</summary>
         public static void EnsureSilentAutoUpdateDefaults()
         {
             string mode = ConfigService.Get("App", SilentAutoUpdateModeKey, string.Empty).Trim();
-            if (!string.IsNullOrWhiteSpace(mode))
+            string policyVersion = ConfigService.Get("App", AutomaticUpdatePolicyVersionKey, string.Empty).Trim();
+            if (!ShouldUpgradeAutomaticUpdatePolicy(policyVersion) && !string.IsNullOrWhiteSpace(mode))
                 return;
 
             try
             {
+                ConfigService.Set("App", "VersionCheckEnabled", "true");
                 ConfigService.Set("App", "SilentAutoUpdateEnabled", "true");
                 ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
                 ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", "true");
                 ConfigService.Set("App", SilentAutoUpdateModeKey, SilentAutoUpdateAutomaticMode);
-                AppLogger.LogInfo(LogContext + " migrated legacy settings to automatic download and apply-on-exit.");
+                ConfigService.Set("App", "LastSilentUpdateCheckUtc", string.Empty);
+                ConfigService.Set("App", AutomaticUpdatePolicyVersionKey, CurrentAutomaticUpdatePolicyVersion);
+                AppLogger.LogInfo(LogContext + " enabled automatic background download and apply-on-exit policy v" + CurrentAutomaticUpdatePolicyVersion + ".");
             }
             catch (Exception ex)
             {
@@ -206,6 +222,15 @@ namespace HVAC_Pro_Desktop.Services
             ConfigService.Set("App", "SilentAutoUpdateApplyImmediately", "false");
             ConfigService.Set("App", "SilentAutoUpdateApplyOnExit", enabled ? "true" : "false");
             ConfigService.Set("App", SilentAutoUpdateModeKey, enabled ? SilentAutoUpdateAutomaticMode : SilentAutoUpdateDisabledMode);
+            ConfigService.Set("App", AutomaticUpdatePolicyVersionKey, CurrentAutomaticUpdatePolicyVersion);
+        }
+
+        internal static bool ShouldUpgradeAutomaticUpdatePolicy(string appliedPolicyVersion)
+        {
+            return !string.Equals(
+                (appliedPolicyVersion ?? string.Empty).Trim(),
+                CurrentAutomaticUpdatePolicyVersion,
+                StringComparison.OrdinalIgnoreCase);
         }
 
         public static Task<UpdateCheckResult> CheckForUpdatesAsync()
@@ -336,6 +361,8 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
+            if (update.RequiresLegacyInstallerMigration)
+                return await DownloadLegacyInstallerAsync(update, progress, cancellationToken).ConfigureAwait(false);
             if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
                 throw new InvalidOperationException("No Velopack update package is available to download.");
 
@@ -361,6 +388,15 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (update == null)
                 throw new ArgumentNullException(nameof(update));
+            if (update.RequiresLegacyInstallerMigration)
+            {
+                EnsureSafeToApplyUpdate();
+                BackupConfigurationFiles(update.LatestVersion);
+                ScheduleLegacyInstallerAfterExit(update);
+                SaveLastStatus("Installing ServoERP v" + update.LatestVersion + " silently after ServoERP closes...");
+                Application.Exit();
+                return;
+            }
             if (update.VelopackUpdateInfo == null || update.VelopackUpdateInfo.TargetFullRelease == null)
                 throw new InvalidOperationException("No downloaded Velopack update is ready to apply.");
             EnsureSafeToApplyUpdate();
@@ -374,17 +410,20 @@ namespace HVAC_Pro_Desktop.Services
             manager.ApplyUpdatesAndRestart(update.VelopackUpdateInfo.TargetFullRelease, null);
         }
 
-        /// <summary>Returns the Marathi What's New notice once after a successful Velopack restart.</summary>
+        /// <summary>Returns the English What's New notice once after a successful Velopack restart.</summary>
         public static bool TryConsumePostUpdateNotice(out string version, out string text)
         {
             version = ConfigService.Get("App", PendingWhatsNewVersionKey, string.Empty).Trim();
             text = ConfigService.Get("App", PendingWhatsNewTextKey, string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(ConfigService.Get("App", LegacyPendingWhatsNewTextKey, string.Empty)))
+                text = BuildEnglishWhatsNewText(version, string.Empty);
             string current = GetCurrentAssemblyVersion();
             if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(text) || !string.Equals(version, current, StringComparison.OrdinalIgnoreCase))
                 return false;
 
             ConfigService.Set("App", PendingWhatsNewVersionKey, string.Empty);
             ConfigService.Set("App", PendingWhatsNewTextKey, string.Empty);
+            ConfigService.Set("App", LegacyPendingWhatsNewTextKey, string.Empty);
             return true;
         }
 
@@ -442,10 +481,15 @@ namespace HVAC_Pro_Desktop.Services
                     }
 
                     result.IsUpdateAvailable = true;
-                    result.CanApplyUpdate = false;
-                    result.StatusMessage = "Update available: v" + result.LatestVersion + ". This copy was not installed through the Desktop installer, so open the latest installer to update.";
+                    result.RequiresLegacyInstallerMigration = Uri.TryCreate(result.DownloadUrl, UriKind.Absolute, out Uri installerUri) &&
+                                                                      installerUri.Scheme == Uri.UriSchemeHttps &&
+                                                                      installerUri.AbsolutePath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+                    result.CanApplyUpdate = result.RequiresLegacyInstallerMigration;
+                    result.StatusMessage = result.CanApplyUpdate
+                        ? "Update available: v" + result.LatestVersion + ". ServoERP will migrate this older installation to silent automatic updates."
+                        : "Update available: v" + result.LatestVersion + ", but no compatible Desktop installer was found.";
                     SaveLastStatus(result.StatusMessage);
-                    AppLogger.LogInfo(LogContext + " manual-install update available. latest=" + result.LatestVersion + " url=" + result.DownloadUrl);
+                    AppLogger.LogInfo(LogContext + " legacy-install migration available. latest=" + result.LatestVersion + " url=" + result.DownloadUrl);
                     return result;
                 }
             }
@@ -456,6 +500,76 @@ namespace HVAC_Pro_Desktop.Services
                 AppLogger.LogInfo(LogContext + " manual fallback failed: " + manualEx.Message);
                 return result;
             }
+        }
+
+        private static async Task<string> DownloadLegacyInstallerAsync(UpdateCheckResult update, IProgress<int> progress, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(update.DownloadUrl) ||
+                !Uri.TryCreate(update.DownloadUrl, UriKind.Absolute, out Uri installerUri) ||
+                installerUri.Scheme != Uri.UriSchemeHttps)
+                throw new InvalidOperationException("A secure ServoERP installer download was not available.");
+
+            Directory.CreateDirectory(UpdatesFolder);
+            string targetPath = Path.Combine(UpdatesFolder, "ServoERP-Setup-" + NormalizeReleaseVersion(update.LatestVersion) + ".exe");
+            string temporaryPath = targetPath + ".download";
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+
+            SaveLastStatus("Downloading ServoERP v" + update.LatestVersion + " silently...");
+            using (var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) })
+            using (HttpResponseMessage response = await client.GetAsync(installerUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+                long total = response.Content.Headers.ContentLength ?? -1L;
+                using (Stream input = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                using (var output = new FileStream(temporaryPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                {
+                    byte[] buffer = new byte[81920];
+                    long received = 0;
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                    {
+                        await output.WriteAsync(buffer, 0, read, cancellationToken).ConfigureAwait(false);
+                        received += read;
+                        if (progress != null && total > 0)
+                            progress.Report((int)Math.Min(100L, received * 100L / total));
+                    }
+                }
+            }
+
+            if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length < 1024 * 1024)
+                throw new InvalidDataException("The downloaded ServoERP installer was incomplete.");
+
+            if (File.Exists(targetPath))
+                File.Delete(targetPath);
+            File.Move(temporaryPath, targetPath);
+            update.LegacyInstallerPath = targetPath;
+            SaveLastStatus("ServoERP v" + update.LatestVersion + " downloaded and will install silently when ServoERP closes.");
+            return targetPath;
+        }
+
+        private static void ScheduleLegacyInstallerAfterExit(UpdateCheckResult update)
+        {
+            string installerPath = update == null ? null : update.LegacyInstallerPath;
+            if (string.IsNullOrWhiteSpace(installerPath) || !File.Exists(installerPath))
+                throw new FileNotFoundException("The downloaded ServoERP installer could not be found.", installerPath);
+
+            int processId = Process.GetCurrentProcess().Id;
+            string escapedInstaller = installerPath.Replace("'", "''");
+            string command = "$p=Get-Process -Id " + processId.ToString(CultureInfo.InvariantCulture) + " -ErrorAction SilentlyContinue; " +
+                             "if($p){$p.WaitForExit()}; Start-Sleep -Milliseconds 750; " +
+                             "Start-Process -FilePath '" + escapedInstaller + "' -ArgumentList '--silent' -WindowStyle Hidden";
+            string encodedCommand = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(command));
+
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -EncodedCommand " + encodedCommand,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden
+            });
+            AppLogger.LogInfo(LogContext + " scheduled silent legacy migration. latest=" + update.LatestVersion);
         }
 
         private static void EnsureSafeToApplyUpdate()
@@ -539,7 +653,8 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 ConfigService.Set("App", PendingWhatsNewVersionKey, version ?? string.Empty);
-                ConfigService.Set("App", PendingWhatsNewTextKey, BuildMarathiWhatsNewText(version, releaseNotes));
+                ConfigService.Set("App", PendingWhatsNewTextKey, BuildEnglishWhatsNewText(version, releaseNotes));
+                ConfigService.Set("App", LegacyPendingWhatsNewTextKey, string.Empty);
             }
             catch (Exception ex)
             {
@@ -547,26 +662,31 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        private static string BuildMarathiWhatsNewText(string version, string releaseNotes)
+        internal static string BuildEnglishWhatsNewTextForTest(string version, string releaseNotes)
+        {
+            return BuildEnglishWhatsNewText(version, releaseNotes);
+        }
+
+        private static string BuildEnglishWhatsNewText(string version, string releaseNotes)
         {
             string notes = (releaseNotes ?? string.Empty).Trim();
             int marker = notes.IndexOf("[मराठी]", StringComparison.OrdinalIgnoreCase);
             if (marker >= 0)
-                notes = notes.Substring(marker + "[मराठी]".Length).Trim();
+                notes = notes.Substring(0, marker).Trim();
+
+            notes = notes.Replace("[English]", string.Empty).Trim();
+            string[] englishLines = notes
+                .Replace("\r\n", "\n")
+                .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0 && !ContainsDevanagari(line))
+                .ToArray();
+            notes = string.Join("\r\n", englishLines);
 
             if (string.IsNullOrWhiteSpace(notes))
-                notes = "- कार्यक्षमता, स्थिरता आणि सुरक्षितता सुधारली आहे.";
+                notes = "- Performance, stability, and security improvements.";
 
-            notes = notes
-                .Replace("Added the requested reusable valve-supply, valve-service, and general-installation catalogue entries to invoice item selection.", "इनव्हॉइसमध्ये निवडीसाठी व्हॉल्व्ह सप्लाय, व्हॉल्व्ह सर्व्हिस आणि जनरल इंस्टॉलेशनचे नवीन पर्याय जोडले आहेत.")
-                .Replace("Corrected prospect-to-active lifecycle persistence so prospects no longer remain counted as active after conversion.", "प्रॉस्पेक्टला Active केल्यानंतर त्याची स्थिती आणि मोजणी आता योग्यरीत्या अपडेट होते.")
-                .Replace("Quotation validity now follows either date selection and displays the exact duration using days or whole weeks; removed the unwanted Customer Follow-up panel.", "कोटेशनची वैधता आता दोन्ही तारखांनुसार दिवस किंवा आठवड्यांत अचूक दिसते; अनावश्यक Customer Follow-up भाग काढला आहे.")
-                .Replace("Restored durable reconnect replay for Clients, Sites, and Jobs only. Invoice, payment, stock, and payroll writes remain online-only.", "Clients, Sites आणि Jobs साठी नेटवर्क परत आल्यावर सुरक्षित री-कनेक्ट सुविधा सुधारली आहे. इनव्हॉइस, पेमेंट, स्टॉक आणि पेरोलसाठी ऑनलाइन कनेक्शन आवश्यक आहे.");
-
-            if (!ContainsDevanagari(notes))
-                notes = "- या आवृत्तीमध्ये कार्यक्षमता, स्थिरता आणि सुरक्षितता सुधारली आहे.";
-
-            return "ServoERP आवृत्ती " + (version ?? string.Empty) + " यशस्वीपणे अपडेट झाली आहे.\r\n\r\nनवीन काय आहे:\r\n" + notes;
+            return "ServoERP version " + (version ?? string.Empty) + " was updated successfully.\r\n\r\nWhat's new:\r\n" + notes;
         }
 
         private static bool ContainsDevanagari(string value)

@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.Services.Licensing;
 using HVAC_Pro_Desktop.UI;
 using HVAC_Pro_Desktop.UI.Controls;
 
@@ -18,6 +19,8 @@ namespace HVAC_Pro_Desktop.Tests
         {
             EnsureGridColumnPolicyHonorsMinimumWidth();
             EnsureGridColumnPolicySurvivesGridThemeLifecycleHandlers();
+            EnsureGridThemeAllowsNewColumnsToBeFrozen();
+            EnsureLayoutAuditPreservesFrozenGridSizing();
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
             EnsureModernButtonInteractionStates();
@@ -28,12 +31,114 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureGlobalPaginationControlKeepsControlsInsideBounds();
             EnsureGlobalButtonStylingPreservesBusinessTags();
             EnsureSidebarNavigationSurvivesGlobalButtonStyling();
+            EnsureSiteMonitorIsAvailableWithEveryLicense();
             EnsureLockedCardKeepsUserSizeDuringPacking();
             EnsureAllLoggedInUsersHaveFullRoleAccess();
             EnsureForgotPasswordUsesSelfServiceDialog();
             EnsureLanControlDeploymentWorkflowIsVisible();
             EnsureSmartUploadCardsExposeDirectDuplicateCleanup();
+            EnsureConfiguredCompanyAddressAppearsInDocuments();
+            EnsureDocumentPreviewSupportsEditingAndSignatures();
+            EnsureAutomaticClientUpdatePolicy();
             return new List<string> { "PASS UI policies verified" };
+        }
+
+        private static void EnsureSiteMonitorIsAvailableWithEveryLicense()
+        {
+            foreach (LicensePlanType plan in new[] { LicensePlanType.Trial, LicensePlanType.Basic, LicensePlanType.Standard, LicensePlanType.Pro, LicensePlanType.Enterprise })
+            {
+                var planDefaults = new LicenseSnapshot
+                {
+                    LicenseKey = "TEST-" + plan,
+                    PlanType = plan,
+                    Status = LicenseStatus.Active,
+                    EnabledModules = new List<string>()
+                };
+                if (!LicenseFeatureCatalog.GetModulesForPlan(plan).Contains("GeoIntelligence")
+                    || !LicenseFeatureCatalog.IsModuleEnabled(planDefaults, "GeoIntelligence"))
+                    throw new InvalidOperationException("Site Monitor must be included with the " + plan + " license.");
+
+                var legacyExplicitModules = new LicenseSnapshot
+                {
+                    LicenseKey = "LEGACY-" + plan,
+                    PlanType = plan,
+                    Status = LicenseStatus.Active,
+                    EnabledModules = new List<string> { "Dashboard" }
+                };
+                if (!LicenseFeatureCatalog.IsModuleEnabled(legacyExplicitModules, "GeoIntelligence"))
+                    throw new InvalidOperationException("Older " + plan + " license snapshots must receive Site Monitor after updating.");
+            }
+
+            var missingLicense = new LicenseSnapshot
+            {
+                Status = LicenseStatus.Missing,
+                EnabledModules = new List<string>()
+            };
+            var tamperedLicense = new LicenseSnapshot
+            {
+                Status = LicenseStatus.Tampered,
+                EnabledModules = new List<string>()
+            };
+            if (LicenseFeatureCatalog.IsModuleEnabled(missingLicense, "GeoIntelligence")
+                || LicenseFeatureCatalog.IsModuleEnabled(tamperedLicense, "GeoIntelligence")
+                || LicenseFeatureCatalog.IsModuleEnabled(null, "GeoIntelligence"))
+                throw new InvalidOperationException("Site Monitor must still require an activated license.");
+        }
+
+        private static void EnsureAutomaticClientUpdatePolicy()
+        {
+            if (!UpdateService.ShouldUpgradeAutomaticUpdatePolicy(string.Empty))
+                throw new InvalidOperationException("Existing clients must be migrated to automatic background update downloads.");
+            if (UpdateService.ShouldUpgradeAutomaticUpdatePolicy("1"))
+                throw new InvalidOperationException("A completed automatic-update policy migration must preserve later user preference changes.");
+
+            MethodInfo startup = typeof(MainForm).GetMethod("BeginVersionCheck", BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo readyBanner = typeof(MainForm).GetMethod("ShowDownloadedUpdateReadyBanner", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (startup == null || readyBanner == null)
+                throw new InvalidOperationException("Main startup must support automatic update download and a ready-to-install notice.");
+        }
+
+        private static void EnsureDocumentPreviewSupportsEditingAndSignatures()
+        {
+            using (var dialog = new HtmlPreviewDialog("Quotation Preview - QA", "<html><body><p>Editable QA document</p></body></html>"))
+            {
+                List<string> labels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
+                if (!labels.Contains("Edit") || !labels.Contains("Add Signature") || !labels.Contains("Save PDF") || !labels.Contains("Reset"))
+                    throw new InvalidOperationException("Document previews must expose editing, signature insertion, PDF export, and reset actions.");
+            }
+        }
+
+        private static void EnsureConfiguredCompanyAddressAppearsInDocuments()
+        {
+            string html = DocumentBranding.BuildConfiguredCompanyIdentityHtml(new IndiaCompanySettings
+            {
+                CompanyName = "ServoERP QA Company",
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!html.Contains("Unit 7, Test Industrial Estate, Pune") || !html.Contains("020-55550000") || !html.Contains("qa@example.test"))
+                throw new InvalidOperationException("Shared document branding must render the company address and contact details saved in Settings.");
+
+            string fullHeader = DocumentBranding.BuildOfficialHeaderHtml(new IndiaCompanySettings
+            {
+                CompanyName = "ServoERP QA Company",
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!fullHeader.Contains("mse-official-header-logo"))
+                throw new InvalidOperationException("Documents must preserve the established branded letterhead header.");
+
+            string fromBlock = DocumentBranding.BuildFromIdentityHtml("ServoERP QA Company", new IndiaCompanySettings
+            {
+                Address = "Unit 7, Test Industrial Estate, Pune",
+                Phone = "020-55550000",
+                Email = "qa@example.test"
+            });
+            if (!fromBlock.Contains("From:") || !fromBlock.Contains("Unit 7, Test Industrial Estate, Pune")
+                || !fromBlock.Contains("020-55550000") || !fromBlock.Contains("qa@example.test"))
+                throw new InvalidOperationException("Every document sender block must include the company identity saved in Settings.");
         }
 
         private static void EnsureSmartUploadCardsExposeDirectDuplicateCleanup()
@@ -50,6 +155,36 @@ namespace HVAC_Pro_Desktop.Tests
                         throw new InvalidOperationException("Every Smart Upload card must expose a usable direct duplicate-cleanup action.");
                 }
             }
+
+            using (var dialog = new SmartImportDuplicateCleanupDialog(ExcelImportModule.Employees, false))
+            {
+                List<string> buttonLabels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
+                if (!buttonLabels.Contains("Select all groups") || !buttonLabels.Contains("Clear selection") || !buttonLabels.Contains("Merge selected groups") || !buttonLabels.Contains("Delete duplicates"))
+                    throw new InvalidOperationException("Duplicate cleanup must expose select-all, clear-selection, bulk-merge, and explicit duplicate-delete actions.");
+                CheckedListBox groupList = FindControl<CheckedListBox>(dialog);
+                if (groupList == null || !groupList.CheckOnClick)
+                    throw new InvalidOperationException("Duplicate groups must support direct multi-selection.");
+                TextBox filter = FindControls<TextBox>(dialog).FirstOrDefault(box => box.Name == "DuplicateGroupFilter");
+                if (filter == null)
+                    throw new InvalidOperationException("Duplicate cleanup must support filtering groups before select-all and merge.");
+            }
+
+            SmartImportDuplicateCleanupService.ValidateBulkSelection(new[]
+            {
+                new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
+                new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "4", "5" } }
+            });
+            DuplicateCleanupPlanningResult smartPlan = SmartImportDuplicateCleanupService.BuildSmartBulkPlan(new[]
+            {
+                new DuplicateCleanupPlan { SurvivorId = "1", DuplicateIds = new[] { "2" } },
+                new DuplicateCleanupPlan { SurvivorId = "3", DuplicateIds = new[] { "2" } }
+            });
+            if (smartPlan.Plans.Count != 1 || smartPlan.ConsolidatedOverlapCount != 1 || smartPlan.Plans[0].SurvivorId != "1" || smartPlan.Plans[0].DuplicateIds.Count() != 2)
+                throw new InvalidOperationException("Smart duplicate cleanup must consolidate overlapping groups into one deterministic safe plan.");
+
+            string conflictSql = SmartImportDuplicateCleanupService.BuildUniqueChildConflictDeleteSql("dbo", "TDSCalculations", "EmployeeId", new[] { "FinancialYear" });
+            if (conflictSql.IndexOf("DELETE d", StringComparison.OrdinalIgnoreCase) < 0 || conflictSql.IndexOf("FinancialYear", StringComparison.OrdinalIgnoreCase) < 0 || conflictSql.IndexOf("@survivor", StringComparison.OrdinalIgnoreCase) < 0)
+                throw new InvalidOperationException("Duplicate cleanup must resolve unique employee/year child collisions before reassigning linked records.");
         }
 
         private static void EnsureLanControlDeploymentWorkflowIsVisible()
@@ -126,6 +261,58 @@ namespace HVAC_Pro_Desktop.Tests
                 grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LateTotal", HeaderText = "Late Total", Width = 20 });
                 AssertFixedPolicyColumn(grid.Columns["LateTotal"], 160, "ColumnAdded");
                 AssertFixedPolicyColumn(grid.Columns["Total"], 140, "ColumnAdded existing column");
+            }
+        }
+
+        private static void EnsureLayoutAuditPreservesFrozenGridSizing()
+        {
+            using (var host = new Panel { Size = new Size(900, 500) })
+            using (var grid = new DataGridView
+            {
+                Dock = DockStyle.Fill,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None
+            })
+            {
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Employee",
+                    HeaderText = "Employee",
+                    Frozen = true,
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                    Width = 190
+                });
+                grid.Columns.Add(new DataGridViewTextBoxColumn
+                {
+                    Name = "Day1",
+                    HeaderText = "1",
+                    AutoSizeMode = DataGridViewAutoSizeColumnMode.None,
+                    Width = 30
+                });
+                host.Controls.Add(grid);
+
+                LayoutAuditService.AuditAndFix(host);
+
+                if (grid.AutoSizeColumnsMode != DataGridViewAutoSizeColumnsMode.None)
+                    throw new InvalidOperationException("Layout audit must not apply Fill sizing to a grid with frozen columns.");
+                if (!grid.Columns["Employee"].Frozen || grid.Columns["Employee"].AutoSizeMode != DataGridViewAutoSizeColumnMode.None)
+                    throw new InvalidOperationException("Layout audit must preserve frozen fixed-width identity columns.");
+            }
+        }
+
+        private static void EnsureGridThemeAllowsNewColumnsToBeFrozen()
+        {
+            using (var grid = new DataGridView())
+            {
+                GridTheme.Apply(grid);
+                grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Employee", HeaderText = "Employee" });
+                grid.Columns["Employee"].Frozen = true;
+                GridTheme.FillColumns(grid);
+
+                if (!grid.Columns["Employee"].Frozen
+                    || grid.Columns["Employee"].AutoSizeMode != DataGridViewAutoSizeColumnMode.None)
+                {
+                    throw new InvalidOperationException("Grid theming must keep dynamically added frozen columns on fixed sizing.");
+                }
             }
         }
 

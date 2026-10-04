@@ -75,6 +75,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
         private const int UserGuidePageIndex = 23;
+        private const int PorterDeliveriesPageIndex = 24;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -125,11 +126,12 @@ namespace HVAC_Pro_Desktop.UI
             ("AMC", "A"),
             ("Attendance", "A"),
             ("User Guide", "U"),
+            ("Porter Deliveries", "P"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, PorterDeliveriesPageIndex, 11, 1, 9, 15, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -152,21 +154,9 @@ namespace HVAC_Pro_Desktop.UI
             WindowState = FormWindowState.Maximized;
             BackColor = DS.BgPage;
             Font = new Font("Segoe UI", _compactShell ? 8.25f : 9f);
-            try
-            {
-                var embeddedIcon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-                if (embeddedIcon != null)
-                    this.Icon = embeddedIcon;
-                else
-                {
-                    string iconPath = System.IO.Path.Combine(
-                        System.IO.Path.GetDirectoryName(Application.ExecutablePath), "app.ico");
-                    if (System.IO.File.Exists(iconPath))
-                        this.Icon = new System.Drawing.Icon(iconPath);
-                }
-            }
-            catch { }
+            ServoERP.Infrastructure.AppIconService.Apply(this);
             BuildLayout();
+            ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             AgentSimulationService.Instance.ProgressChanged += AgentSimulationProgressChanged;
             DatabaseConnectionStateService.StateChanged += DatabaseConnectionStateChanged;
             Disposed += (s, e) =>
@@ -196,15 +186,15 @@ namespace HVAC_Pro_Desktop.UI
             };
         }
 
-        /// <summary>Shows Marathi release notes once after the installed updater restarts ServoERP.</summary>
+        /// <summary>Shows English release notes once after the installed updater restarts ServoERP.</summary>
         private void ShowPostUpdateWhatsNew()
         {
             if (!UpdateService.TryConsumePostUpdateNotice(out string version, out string text))
                 return;
 
-            using (var dialog = new MarathiWhatsNewDialog())
+            using (var dialog = new WhatsNewDialog())
             {
-                dialog.Text = BrandingService.WindowTitle("नवीन काय आहे");
+                dialog.Text = BrandingService.WindowTitle("What's New");
                 dialog.StartPosition = FormStartPosition.CenterParent;
                 dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
                 dialog.MaximizeBox = false;
@@ -214,20 +204,20 @@ namespace HVAC_Pro_Desktop.UI
 
                 Label title = new Label
                 {
-                    Text = "ServoERP अपडेट यशस्वी झाले",
+                    Text = "ServoERP was updated successfully",
                     Dock = DockStyle.Top,
                     Height = 48,
                     Padding = new Padding(22, 16, 22, 0),
-                    Font = new Font("Nirmala UI", 15f, FontStyle.Bold),
+                    Font = new Font("Segoe UI", 15f, FontStyle.Bold),
                     ForeColor = DS.Slate900
                 };
                 Label subtitle = new Label
                 {
-                    Text = "आवृत्ती " + version,
+                    Text = "Version " + version,
                     Dock = DockStyle.Top,
                     Height = 28,
                     Padding = new Padding(24, 0, 24, 0),
-                    Font = new Font("Nirmala UI", 9f),
+                    Font = new Font("Segoe UI", 9f),
                     ForeColor = DS.Slate600
                 };
                 TextBox notes = new TextBox
@@ -240,11 +230,11 @@ namespace HVAC_Pro_Desktop.UI
                     BorderStyle = BorderStyle.FixedSingle,
                     BackColor = Color.White,
                     ForeColor = DS.Slate800,
-                    Font = new Font("Nirmala UI", 10f),
+                    Font = new Font("Segoe UI", 10f),
                     Text = text
                 };
-                Button close = DS.PrimaryBtn("ठीक आहे", 112, 34);
-                close.Font = new Font("Nirmala UI", 9f, FontStyle.Bold);
+                Button close = DS.PrimaryBtn("Got it", 112, 34);
+                close.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 close.DialogResult = DialogResult.OK;
                 FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 22, 10), BackColor = DS.BgPage };
                 footer.Controls.Add(close);
@@ -1722,6 +1712,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
                 case UserGuidePageIndex: return "\uE8A5"; // User Guide
+                case PorterDeliveriesPageIndex: return "\uE7C3"; // Delivery truck
                 default: return "\uE10F";
             }
         }
@@ -2338,6 +2329,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
+                case PorterDeliveriesPageIndex: page = new PorterDeliveriesForm(); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
                         _amcPage = new AMCPage();
@@ -2457,7 +2449,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex || index == PorterDeliveriesPageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -2474,6 +2466,7 @@ namespace HVAC_Pro_Desktop.UI
                 || page is WhatsAppHubForm
                 || page is JobManagementForm
                 || page is AMCPage;
+
         }
 
         private void TouchPage(int index)
@@ -3093,6 +3086,9 @@ namespace HVAC_Pro_Desktop.UI
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
+                case "PORTER":
+                case "PORTERDELIVERIES":
+                case "PORTER DELIVERIES": return PorterDeliveriesPageIndex;
                 default: return 0;
             }
         }
@@ -3122,6 +3118,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
                 case UserGuidePageIndex: return "Dashboard";
+                case PorterDeliveriesPageIndex: return "WorkOrders";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }
@@ -3157,11 +3154,12 @@ namespace HVAC_Pro_Desktop.UI
             if (!SessionManager.IsLoggedIn || _hideUpdateBannerForSession)
                 return;
 
+            UpdateService.EnsureSilentAutoUpdateDefaults();
             if (ConfigService.IsSilentAutoUpdateEnabled())
             {
                 UpdateService.StartSilentBackgroundUpdateCheck(
                     this,
-                    null);
+                    ShowDownloadedUpdateReadyBanner);
                 return;
             }
 
@@ -3183,6 +3181,18 @@ namespace HVAC_Pro_Desktop.UI
                     AppLogger.LogInfo("Version check task failed silently: " + ex.Message);
                 }
             });
+        }
+
+        private void ShowDownloadedUpdateReadyBanner(UpdateCheckResult result)
+        {
+            if (result == null || IsDisposed)
+                return;
+
+            _latestUpdateResult = result;
+            _lblUpdateMessage.Text = "ServoERP " + result.LatestVersion + " downloaded automatically. It will install when ServoERP closes.";
+            _btnDownloadUpdate.Visible = false;
+            _pnlUpdateBanner.Visible = true;
+            _pnlUpdateBanner.BringToFront();
         }
 
         private void ShowUpdateBanner(UpdateCheckResult result)
@@ -3297,28 +3307,6 @@ namespace HVAC_Pro_Desktop.UI
             return dialog;
         }
 
-        private void OpenUpdateDownload()
-        {
-            try
-            {
-                string url = _latestUpdateResult == null ? null : _latestUpdateResult.DownloadUrl;
-                if (string.IsNullOrWhiteSpace(url))
-                    return;
-
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("UpdateBanner.Download", ex);
-                MessageBox.Show("Unable to open the update download link.\r\n" + ex.Message,
-                    "Download update", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-        }
-
         private void DownloadAndInstallUpdate()
         {
             if (_latestUpdateResult == null)
@@ -3390,11 +3378,10 @@ namespace HVAC_Pro_Desktop.UI
                         progressForm.Close();
                         AppLogger.LogError("UpdateDownload.Install", ex);
                         MessageBox.Show(
-                            "Automatic update could not complete.\r\n\r\n" + ex.Message + "\r\n\r\nThe download page will open now.",
+                            "Automatic update could not complete.\r\n\r\n" + ex.Message + "\r\n\r\nServoERP did not open a browser. It will retry during the next update check.",
                             "Install update",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);
-                        OpenUpdateDownload();
                     }
                 };
 
@@ -3402,9 +3389,9 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
-        private sealed class MarathiWhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
+        private sealed class WhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
         {
-            public MarathiWhatsNewDialog()
+            public WhatsNewDialog()
             {
             }
         }

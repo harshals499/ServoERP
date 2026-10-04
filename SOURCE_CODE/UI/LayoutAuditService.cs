@@ -144,7 +144,10 @@ namespace HVAC_Pro_Desktop.UI
                 fixedCount++;
             }
 
-            if (grid.AutoSizeColumnsMode != DataGridViewAutoSizeColumnsMode.Fill)
+            bool hasFrozenColumns = grid.Columns
+                .Cast<DataGridViewColumn>()
+                .Any(column => column.Frozen);
+            if (!hasFrozenColumns && grid.AutoSizeColumnsMode != DataGridViewAutoSizeColumnsMode.Fill)
             {
                 grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
                 fixedCount++;

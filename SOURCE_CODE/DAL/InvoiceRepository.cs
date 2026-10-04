@@ -24,6 +24,15 @@ namespace HVAC_Pro_Desktop.DAL
             return GetRecent(DefaultRecentRows);
         }
 
+        public List<Invoice> GetRevenueSource()
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                return conn.Query<Invoice>(InvoiceSelect + " ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC").ToList();
+            }
+        }
+
         public List<Invoice> GetRecent(int maxRows)
         {
             var list = new List<Invoice>();

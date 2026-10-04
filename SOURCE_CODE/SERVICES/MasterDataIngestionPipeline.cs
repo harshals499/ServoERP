@@ -82,6 +82,7 @@ namespace HVAC_Pro_Desktop.Services
         public ExcelImportDiagnostics Diagnostics { get; set; }
         public string QuotationImportDirection { get; set; }
         internal HashSet<string> QuotationLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        internal HashSet<string> InvoiceLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         internal HashSet<string> PurchaseLineItemsReset { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -156,6 +157,8 @@ namespace HVAC_Pro_Desktop.Services
             };
 
             preview.SourceHeaders.AddRange(detection.Sheet.Headers);
+            if (canonicalRows.Count > detection.Sheet.Rows.Count && MultiColumnDocumentRowExpander.Supports(detection.Module))
+                preview.UserMessages.Add((canonicalRows.Count - detection.Sheet.Rows.Count) + " additional line item row(s) were recognized from repeated document columns.");
 
             foreach (KeyValuePair<string, string> entry in mapping.MappedColumns)
                 preview.ColumnMappings[entry.Key] = entry.Value;
@@ -490,9 +493,8 @@ namespace HVAC_Pro_Desktop.Services
             foreach (Dictionary<string, string> sourceRow in sheet.Rows)
             {
                 Dictionary<string, string> canonical = _cleaner.CreateCanonicalRow(module, sourceRow, mapping);
-                if (!_cleaner.IsMeaningfulRow(module, canonical))
-                    continue;
-                rows.Add(canonical);
+                foreach (Dictionary<string, string> expanded in MultiColumnDocumentRowExpander.Expand(module, sheet.Headers, sourceRow, canonical))
+                    if (_cleaner.IsMeaningfulRow(module, expanded)) rows.Add(expanded);
             }
 
             return rows;
@@ -1352,11 +1354,17 @@ namespace HVAC_Pro_Desktop.Services
             if (headerRow <= 0)
                 return sheet;
 
+            var usedHeaders = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
             for (int col = 1; col <= totalColumns; col++)
             {
                 string header = CleanHeader(readCell(headerRow, col));
-                if (!string.IsNullOrWhiteSpace(header))
-                    sheet.Headers.Add(header);
+                if (string.IsNullOrWhiteSpace(header))
+                    header = "Column " + col.ToString(CultureInfo.InvariantCulture);
+                int occurrence;
+                usedHeaders.TryGetValue(header, out occurrence);
+                occurrence++;
+                usedHeaders[header] = occurrence;
+                sheet.Headers.Add(occurrence == 1 ? header : header + " [" + occurrence.ToString(CultureInfo.InvariantCulture) + "]");
             }
 
             if (sheet.Headers.Count == 0)
@@ -1606,7 +1614,13 @@ namespace HVAC_Pro_Desktop.Services
                     { "TaxAmount", new[] { "Tax Amount", "GST Amount", "GST", "Tax" } },
                     { "TotalAmount", new[] { "Total Amount", "Grand Total", "Invoice Total" } },
                     { "Status", new[] { "Status", "Payment Status" } },
-                    { "DueDate", new[] { "Due Date", "Payment Due", "Due On" } }
+                    { "DueDate", new[] { "Due Date", "Payment Due", "Due On" } },
+                    { "LineDescription", new[] { "Line Description", "Item Description", "Item", "Product", "Service", "Particulars" } },
+                    { "LineQuantity", new[] { "Line Quantity", "Quantity", "Qty" } },
+                    { "LineUnit", new[] { "Line Unit", "Unit", "UOM" } },
+                    { "LineRate", new[] { "Line Rate", "Rate", "Unit Price", "Price" } },
+                    { "LineAmount", new[] { "Line Amount", "Taxable Value" } },
+                    { "LineGSTRate", new[] { "GST Rate", "GST Percent", "GST %", "Tax Rate" } }
                 }
             },
             { ExcelImportModule.Quotations, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
@@ -1618,7 +1632,13 @@ namespace HVAC_Pro_Desktop.Services
                     { "Description", new[] { "Description", "Narration", "Subject" } },
                     { "Amount", new[] { "Amount", "Quote Value", "Value" } },
                     { "Status", new[] { "Status", "Quotation Status" } },
-                    { "ValidUntil", new[] { "Valid Until", "Expiry Date", "Valid To" } }
+                    { "ValidUntil", new[] { "Valid Until", "Expiry Date", "Valid To" } },
+                    { "LineDescription", new[] { "Line Description", "Item Description", "Item", "Product", "Material", "Particulars" } },
+                    { "LineQuantity", new[] { "Line Quantity", "Quantity", "Qty" } },
+                    { "LineUnit", new[] { "Line Unit", "Unit", "UOM" } },
+                    { "LineRate", new[] { "Line Rate", "Rate", "Unit Price", "Price" } },
+                    { "LineAmount", new[] { "Line Amount", "Taxable Value" } },
+                    { "LineGSTRate", new[] { "GST Rate", "GST Percent", "GST %", "Tax Rate" } }
                 }
             },
             { ExcelImportModule.Purchases, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
@@ -1733,6 +1753,104 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             return builder.ToString();
+        }
+    }
+
+    internal static class MultiColumnDocumentRowExpander
+    {
+        private static readonly Dictionary<ExcelImportModule, Dictionary<string, string[]>> Fields =
+            new Dictionary<ExcelImportModule, Dictionary<string, string[]>>
+            {
+                { ExcelImportModule.Quotations, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "LineDescription", new[] { "Line Description", "Item Description", "Description", "Item", "Product", "Material", "Particulars" } },
+                        { "LineQuantity", new[] { "Line Quantity", "Quantity", "Qty" } },
+                        { "LineUnit", new[] { "Line Unit", "Unit", "UOM" } },
+                        { "LineRate", new[] { "Line Rate", "Rate", "Unit Price", "Price" } },
+                        { "LineAmount", new[] { "Line Amount", "Amount", "Value", "Total" } },
+                        { "LineGSTRate", new[] { "GST Rate", "GST Percent", "GST %", "Tax Rate" } }
+                    }
+                },
+                { ExcelImportModule.Invoices, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "LineDescription", new[] { "Line Description", "Item Description", "Description", "Item", "Product", "Service", "Particulars" } },
+                        { "LineQuantity", new[] { "Line Quantity", "Quantity", "Qty" } },
+                        { "LineUnit", new[] { "Line Unit", "Unit", "UOM" } },
+                        { "LineRate", new[] { "Line Rate", "Rate", "Unit Price", "Price" } },
+                        { "LineAmount", new[] { "Line Amount", "Amount", "Taxable Amount", "Value" } },
+                        { "LineGSTRate", new[] { "GST Rate", "GST Percent", "GST %", "Tax Rate" } }
+                    }
+                },
+                { ExcelImportModule.Purchases, new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        { "ItemDescription", new[] { "Item Description", "Description", "Item", "Product", "Material", "Particulars" } },
+                        { "Quantity", new[] { "Quantity", "Qty", "Purchase Qty" } },
+                        { "Unit", new[] { "Unit", "UOM" } },
+                        { "UnitPrice", new[] { "Unit Price", "Rate", "Price" } },
+                        { "TotalAmount", new[] { "Line Amount", "Amount", "Total Amount", "Value" } }
+                    }
+                }
+            };
+
+        public static bool Supports(ExcelImportModule module)
+        {
+            return Fields.ContainsKey(module);
+        }
+
+        public static List<Dictionary<string, string>> Expand(ExcelImportModule module, IList<string> sourceHeaders, Dictionary<string, string> sourceRow, Dictionary<string, string> canonical)
+        {
+            Dictionary<string, string[]> fieldAliases;
+            if (!Fields.TryGetValue(module, out fieldAliases) || sourceHeaders == null || sourceRow == null)
+                return new List<Dictionary<string, string>> { canonical };
+
+            var columns = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, string[]> field in fieldAliases)
+            {
+                columns[field.Key] = sourceHeaders.Where(header => Matches(header, field.Value)).ToList();
+            }
+
+            int groupCount = columns.Values.Count == 0 ? 0 : columns.Values.Max(list => list.Count);
+            string descriptionField = module == ExcelImportModule.Purchases ? "ItemDescription" : "LineDescription";
+            if (groupCount <= 1)
+                return new List<Dictionary<string, string>> { canonical };
+
+            var rows = new List<Dictionary<string, string>>();
+            for (int index = 0; index < groupCount; index++)
+            {
+                var expanded = new Dictionary<string, string>(canonical, StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, List<string>> field in columns)
+                {
+                    if (index >= field.Value.Count)
+                        continue;
+                    string value;
+                    if (sourceRow.TryGetValue(field.Value[index], out value))
+                        expanded[field.Key] = value ?? string.Empty;
+                }
+
+                string description;
+                if (expanded.TryGetValue(descriptionField, out description) && !string.IsNullOrWhiteSpace(description))
+                    rows.Add(expanded);
+            }
+            return rows.Count == 0 ? new List<Dictionary<string, string>> { canonical } : rows;
+        }
+
+        private static bool Matches(string header, IEnumerable<string> aliases)
+        {
+            string normalizedHeader = NormalizeHeader(header);
+            return aliases.Any(alias =>
+            {
+                string normalizedAlias = NormalizeHeader(alias);
+                return normalizedHeader == normalizedAlias || normalizedHeader.StartsWith(normalizedAlias, StringComparison.OrdinalIgnoreCase);
+            });
+        }
+
+        private static string NormalizeHeader(string value)
+        {
+            string withoutOccurrence = Regex.Replace(value ?? string.Empty, @"\s*\[\d+\]\s*$", string.Empty);
+            var builder = new StringBuilder();
+            foreach (char ch in withoutOccurrence)
+                if (char.IsLetterOrDigit(ch)) builder.Append(char.ToLowerInvariant(ch));
+            return builder.ToString().TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
         }
     }
 

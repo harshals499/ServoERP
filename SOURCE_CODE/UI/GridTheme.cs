@@ -29,12 +29,12 @@ namespace HVAC_Pro_Desktop.UI
 
     public static class GridTheme
     {
-        public static readonly Color HeaderBack = Color.FromArgb(248, 250, 252);
+        public static readonly Color HeaderBack = Color.FromArgb(245, 249, 253);
         public static readonly Color HeaderFore = Color.FromArgb(15, 23, 42);
-        public static readonly Color RowAlt = Color.FromArgb(248, 250, 252);
+        public static readonly Color RowAlt = Color.FromArgb(250, 252, 254);
         public static readonly Color RowNormal = Color.White;
-        public static readonly Color RowSelected = Color.FromArgb(241, 245, 249);
-        public static readonly Color RowSelectedFore = Color.FromArgb(15, 23, 42);
+        public static readonly Color RowSelected = Color.FromArgb(15, 108, 189);
+        public static readonly Color RowSelectedFore = Color.White;
         public static readonly Color GridLine = Color.FromArgb(209, 213, 219);
         public static readonly Color BorderColor = Color.FromArgb(209, 213, 219);
 
@@ -60,9 +60,12 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             dgv.Dock = DockStyle.Fill;
-            bool hasFrozenColumn = NormalizeFrozenColumns(dgv);
-            if (fillWidth && !hasFrozenColumn)
-                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            // Keep the grid default fixed while columns are being created. A column that
+            // inherits Fill cannot subsequently be frozen, which caused pages such as
+            // Attendance to fail during dynamic column construction. Fill is applied only
+            // to eligible individual columns after their frozen state is known.
+            if (fillWidth || dgv.AutoSizeColumnsMode == DataGridViewAutoSizeColumnsMode.Fill)
+                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
             dgv.ScrollBars = ScrollBars.Both;
             dgv.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;
             dgv.RowTemplate.Height = rowHeight;
@@ -104,8 +107,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             FormatColumns(dgv);
-            if (!hasFrozenColumn)
-                FillColumns(dgv);
+            FillColumns(dgv);
             GlobalStatusEditor.Attach(dgv);
 
             if (!BoundGrids.Contains(dgv))
@@ -116,7 +118,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (ColumnPolicies.ContainsKey(dgv))
                         ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
                     else if (fillWidth)
-                        FillColumnsSafely(dgv);
+                        FillColumns(dgv);
                     FormatColumns(dgv);
                     dgv.Invalidate();
                 };
@@ -124,9 +126,12 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     if (ColumnPolicies.ContainsKey(dgv))
                         ApplyColumnPolicyCore(dgv, ColumnPolicies[dgv]);
-                    else if (fillWidth)
-                        FillColumnsSafely(dgv);
                     FormatColumns(dgv);
+
+                    // Do not apply Fill synchronously from ColumnAdded. Callers commonly
+                    // set Frozen immediately after Columns.Add; synchronous Fill makes that
+                    // legal WinForms sequence throw before the caller can finish configuring
+                    // the column. DataBindingComplete and explicit theme passes size it later.
                 };
                 ShowEmptyState(dgv);
             }
@@ -164,34 +169,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (col.Visible && !col.Frozen)
                     col.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                else if (col.Frozen)
+                    col.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
             }
-        }
-
-        private static void FillColumnsSafely(DataGridView dgv)
-        {
-            NormalizeFrozenColumns(dgv);
-            FillColumns(dgv);
-        }
-
-        private static bool NormalizeFrozenColumns(DataGridView dgv)
-        {
-            if (dgv == null || dgv.Columns.Count == 0)
-                return false;
-
-            bool hasFrozenColumn = false;
-            foreach (DataGridViewColumn column in dgv.Columns)
-            {
-                if (!column.Frozen)
-                    continue;
-
-                hasFrozenColumn = true;
-                column.AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
-            }
-
-            if (hasFrozenColumn)
-                dgv.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
-
-            return hasFrozenColumn;
         }
 
         public static void ApplyColumnPolicy(DataGridView dgv, IEnumerable<GridColumnPolicy> policies)

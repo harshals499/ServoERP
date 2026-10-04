@@ -1745,6 +1745,35 @@ namespace HVAC_Pro_Desktop.DAL
                     ModifiedDate DATETIME NULL
                 );");
 
+                Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='PorterDeliveries')
+                CREATE TABLE PorterDeliveries (
+                    PorterDeliveryId INT IDENTITY(1,1) PRIMARY KEY,
+                    BookingReference NVARCHAR(100) NOT NULL,
+                    ClientId INT NULL,
+                    SiteId INT NULL,
+                    LinkedJobId INT NULL,
+                    PickupAddress NVARCHAR(500) NOT NULL,
+                    DropAddress NVARCHAR(500) NOT NULL,
+                    ContactName NVARCHAR(150) NULL,
+                    ContactPhone NVARCHAR(50) NULL,
+                    VehicleType NVARCHAR(100) NULL,
+                    ScheduledAt DATETIME NULL,
+                    Status NVARCHAR(40) NOT NULL DEFAULT 'Booked',
+                    EstimatedAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+                    FinalAmount DECIMAL(18,2) NOT NULL DEFAULT 0,
+                    DriverName NVARCHAR(150) NULL,
+                    DriverPhone NVARCHAR(50) NULL,
+                    TrackingUrl NVARCHAR(500) NULL,
+                    Notes NVARCHAR(MAX) NULL,
+                    CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+                    CreatedByName NVARCHAR(100) NULL,
+                    ModifiedAt DATETIME NULL,
+                    ModifiedByName NVARCHAR(100) NULL
+                );");
+
+                Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='IX_PorterDeliveries_Status_ScheduledAt' AND object_id=OBJECT_ID('PorterDeliveries'))
+                CREATE INDEX IX_PorterDeliveries_Status_ScheduledAt ON PorterDeliveries(Status, ScheduledAt);");
+
                 Exec(conn, @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name='ServiceDeskNotes')
                 CREATE TABLE ServiceDeskNotes (
                     NoteId INT IDENTITY(1,1) PRIMARY KEY,
@@ -4455,8 +4484,24 @@ THEN 1 ELSE 0 END";
         private void UpsertSettingFromConfig(SqlConnection conn, string settingKey, string configKey)
         {
             string value = ConfigService.Get("Company", configKey, string.Empty);
-            if (!string.IsNullOrWhiteSpace(value))
-                UpsertSetting(conn, settingKey, value);
+            if (string.IsNullOrWhiteSpace(value))
+                return;
+
+            // SQL Server is authoritative after first-run setup. Packaged/local config
+            // values are defaults only and must not overwrite changes saved in Settings
+            // every time the application starts.
+            using (SqlCommand cmd = new SqlCommand(@"
+                IF NOT EXISTS (SELECT 1 FROM CompanySettings WHERE SettingKey = @key)
+                    INSERT INTO CompanySettings (SettingKey, SettingValue) VALUES (@key, @value);
+                ELSE IF NOT EXISTS (
+                    SELECT 1 FROM CompanySettings
+                    WHERE SettingKey = @key AND NULLIF(LTRIM(RTRIM(SettingValue)), '') IS NOT NULL)
+                    UPDATE CompanySettings SET SettingValue = @value, UpdatedDate = GETDATE() WHERE SettingKey = @key;", conn))
+            {
+                cmd.Parameters.AddWithValue("@key", settingKey ?? string.Empty);
+                cmd.Parameters.AddWithValue("@value", value);
+                cmd.ExecuteNonQuery();
+            }
         }
 
         private void UpsertSetting(SqlConnection conn, string key, string value)

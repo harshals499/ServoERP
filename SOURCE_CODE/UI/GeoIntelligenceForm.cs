@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -15,6 +16,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         private readonly JobService _jobService = new JobService();
         private readonly EmployeeService _employeeService = new EmployeeService();
+        private readonly InvoiceService _invoiceService = new InvoiceService();
         private readonly SiteService _siteService = new SiteService();
         private readonly ClientService _clientService = new ClientService();
 
@@ -78,6 +80,10 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _slaGaugePanel;
         private Panel _siteHealthTrendPanel;
         private DataGridView _regionGrid;
+        private TextBox _txtSiteRegionSearch;
+        private ComboBox _cmbSiteRegion;
+        private ComboBox _cmbSiteWork;
+        private Label _lblSiteFilterCount;
         private DataGridView _maintenanceGrid;
         private DataGridView _problemGrid;
         private DataGridView _attentionGrid;
@@ -115,8 +121,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<JobSummaryDto> _jobs = new List<JobSummaryDto>();
         private List<Employee> _technicians = new List<Employee>();
+        private List<Invoice> _invoices = new List<Invoice>();
         private List<ClientSite> _sites = new List<ClientSite>();
         private List<B2BClient> _clients = new List<B2BClient>();
+        private List<SiteMonitorRow> _siteMonitorRows = new List<SiteMonitorRow>();
         private List<JobSummaryDto> _visibleJobs = new List<JobSummaryDto>();
         private JobSummaryDto _selectedJob;
         private Employee _selectedTechnician;
@@ -126,6 +134,11 @@ namespace HVAC_Pro_Desktop.UI
         private bool _usingFallbackJobs;
         private Timer _initialDispatchLoadTimer;
         private bool _siteMonitorLayout;
+        private bool _bindingSiteMonitorFilters;
+        private const int EmSetCueBanner = 0x1501;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 
         public Action<int> OnNavigate { get; set; }
         public Action<int> OnOpenClientSite { get; set; }
@@ -204,7 +217,7 @@ namespace HVAC_Pro_Desktop.UI
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1280));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1320));
             scroll.Controls.Add(root);
             scroll.Resize += (s, e) => root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
             root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
@@ -223,8 +236,8 @@ namespace HVAC_Pro_Desktop.UI
                 ColumnCount = 2,
                 RowCount = 1
             };
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38f));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62f));
 
             Panel copy = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
             Label title = new Label
@@ -275,9 +288,12 @@ namespace HVAC_Pro_Desktop.UI
             _chkAutoRefresh.FlatAppearance.BorderColor = Border;
             _chkAutoRefresh.CheckedChanged += (s, e) => UpdateAutoRefreshState();
             Button date = MakeSiteToolbarButton(DateTime.Today.AddDays(-6).ToString("MMM d") + " - " + DateTime.Today.ToString("MMM d, yyyy"), ModernIconKind.Calendar, 206);
+            Button porterDelivery = MakeSiteToolbarButton("Book Porter Delivery", ModernIconKind.Location, 196);
+            porterDelivery.Click += btnPorterDelivery_Click;
             actions.Controls.Add(filters);
             actions.Controls.Add(_chkAutoRefresh);
             actions.Controls.Add(date);
+            actions.Controls.Add(porterDelivery);
 
             _lblStatus = new Label
             {
@@ -375,7 +391,7 @@ namespace HVAC_Pro_Desktop.UI
                 RowCount = 2
             };
             dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 400f));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 440f));
             dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             dashboard.Controls.Add(BuildRegionCard(), 0, 0);
 
@@ -441,7 +457,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildSiteStatusCard()
         {
             Panel card = BuildDashboardCard("status_distribution", "Site Status Distribution", ModernIconKind.Status, Success);
-            _siteDistributionChart = new Panel { Dock = DockStyle.Left, Width = 210, BackColor = White };
+            _siteDistributionChart = new HoverChartPanel { Dock = DockStyle.Left, Width = 210, BackColor = White };
             _siteDistributionChart.Paint += DrawSiteDistribution;
             Panel legend = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(14, 26, 0, 0) };
             _siteDistributionCenter = new Label { Text = "0\r\nTotal Sites", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
@@ -482,7 +498,120 @@ namespace HVAC_Pro_Desktop.UI
             _regionGrid.MultiSelect = false;
             _regionGrid.CellFormatting += FormatRegionWorkRow;
             card.Controls.Add(_regionGrid);
+            card.Controls.Add(BuildSiteRegionFilters());
             return card;
+        }
+
+        private Control BuildSiteRegionFilters()
+        {
+            TableLayoutPanel filters = new TableLayoutPanel
+            {
+                Name = "SiteRegionFilterBar",
+                Dock = DockStyle.Top,
+                Height = 46,
+                BackColor = White,
+                ColumnCount = 4,
+                RowCount = 1,
+                Padding = new Padding(0, 6, 0, 8)
+            };
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            filters.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            TableLayoutPanel searchHost = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = White,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            searchHost.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50f));
+            searchHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            searchHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            Label searchLabel = new Label
+            {
+                Text = "Search",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
+            };
+            _txtSiteRegionSearch = new TextBox
+            {
+                Name = "SiteRegionSearch",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = Padding.Empty
+            };
+            _txtSiteRegionSearch.HandleCreated += (s, e) => SendMessage(_txtSiteRegionSearch.Handle, EmSetCueBanner, new IntPtr(1), "Search site, client, work or technician");
+            _txtSiteRegionSearch.TextChanged += (s, e) => ApplySiteRegionFilters();
+            searchHost.Controls.Add(searchLabel, 0, 0);
+            searchHost.Controls.Add(_txtSiteRegionSearch, 1, 0);
+
+            _cmbSiteRegion = MakeSiteFilterCombo("SiteRegionFilter");
+            _cmbSiteRegion.Margin = new Padding(0, 0, 8, 0);
+            _cmbSiteRegion.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
+
+            _cmbSiteWork = MakeSiteFilterCombo("SiteWorkFilter");
+            _cmbSiteWork.Items.AddRange(new object[] { "All work", "Active work", "No active work", "Critical / SLA risk", "Unassigned technician" });
+            _cmbSiteWork.SelectedIndex = 0;
+            _cmbSiteWork.Margin = new Padding(0, 0, 8, 0);
+            _cmbSiteWork.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
+
+            Panel result = new Panel { Name = "SiteFilterResult", Dock = DockStyle.Fill, BackColor = White, Margin = Padding.Empty };
+            _lblSiteFilterCount = new Label
+            {
+                Name = "SiteFilterCount",
+                Text = "0 sites",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleRight,
+                AutoEllipsis = true,
+                Padding = new Padding(0, 0, 64, 0)
+            };
+            LinkLabel clear = new LinkLabel
+            {
+                Name = "SiteFilterClear",
+                Text = "Clear",
+                Dock = DockStyle.Right,
+                Width = 56,
+                BackColor = White,
+                ForeColor = Blue,
+                LinkColor = Blue,
+                ActiveLinkColor = Blue,
+                VisitedLinkColor = Blue,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            clear.Click += (s, e) => ClearSiteRegionFilters();
+            result.Controls.Add(_lblSiteFilterCount);
+            result.Controls.Add(clear);
+
+            filters.Controls.Add(searchHost, 0, 0);
+            filters.Controls.Add(_cmbSiteRegion, 1, 0);
+            filters.Controls.Add(_cmbSiteWork, 2, 0);
+            filters.Controls.Add(result, 3, 0);
+            return filters;
+        }
+
+        private ComboBox MakeSiteFilterCombo(string name)
+        {
+            return new ComboBox
+            {
+                Name = name,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.8f),
+                BackColor = White
+            };
         }
 
         private Control BuildUpcomingMaintenanceCard()
@@ -531,7 +660,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildTechnicianPresenceCard()
         {
             Panel card = BuildDashboardCard("technician_presence", "Technician Presence", ModernIconKind.Technician, Blue);
-            _technicianPresenceChart = new Panel { Dock = DockStyle.Right, Width = 150, BackColor = White };
+            _technicianPresenceChart = new HoverChartPanel { Dock = DockStyle.Right, Width = 150, BackColor = White };
             _technicianPresenceChart.Paint += DrawTechnicianPresence;
             _technicianPresenceList = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 4 };
             _technicianPresenceList.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70f));
@@ -543,7 +672,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildRevenueCard()
         {
-            Panel card = BuildDashboardCard("site_revenue", "Site Revenue (This Month)", ModernIconKind.Money, Success);
+            Panel card = BuildDashboardCard("site_revenue", "Billed Revenue by Site", ModernIconKind.Money, Success);
             TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = White, ColumnCount = 2, RowCount = 3, Padding = new Padding(0, 12, 0, 0) };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
@@ -559,7 +688,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = BuildDashboardCard("sla_performance", "SLA Performance", ModernIconKind.Activity, Color.FromArgb(147, 51, 234));
             card.Margin = new Padding(0, 0, 12, 12);
-            _slaGaugePanel = new Panel { Dock = DockStyle.Left, Width = 140, BackColor = White };
+            _slaGaugePanel = new HoverChartPanel { Dock = DockStyle.Left, Width = 140, BackColor = White };
             _slaGaugePanel.Paint += DrawSlaGauge;
             _slaComplianceLabel = new Label { Text = "0%\r\nSLA Compliance", Dock = DockStyle.Bottom, Height = 52, Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleCenter };
             _slaGaugePanel.Controls.Add(_slaComplianceLabel);
@@ -578,7 +707,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = BuildDashboardCard("health_trend", "Site Health Trend", ModernIconKind.Activity, Success);
             card.Margin = new Padding(0, 0, 0, 12);
-            _siteHealthTrendPanel = new Panel { Dock = DockStyle.Fill, BackColor = White };
+            _siteHealthTrendPanel = new HoverChartPanel { Dock = DockStyle.Fill, BackColor = White };
             _siteHealthTrendPanel.Paint += DrawSiteHealthTrend;
             card.Controls.Add(_siteHealthTrendPanel);
             return card;
@@ -615,6 +744,12 @@ namespace HVAC_Pro_Desktop.UI
         private void AttachSiteMonitorDrilldown(Control control, string detailKey)
         {
             if (control == null || string.IsNullOrWhiteSpace(detailKey))
+                return;
+
+            // The region filter bar owns its own interactive controls. Do not turn
+            // search, filter, or clear actions into dashboard drill-down clicks.
+            if (string.Equals(detailKey, "regions", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(control.Name, "SiteRegionFilterBar", StringComparison.OrdinalIgnoreCase))
                 return;
 
             DataGridView regionWorkGrid = control as DataGridView;
@@ -885,6 +1020,15 @@ namespace HVAC_Pro_Desktop.UI
             });
             _lblStatus = result.StatusLabel;
             return result.Header;
+        }
+
+        private void btnPorterDelivery_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "https://porter.in/enterprise",
+                UseShellExecute = true
+            });
         }
 
         private Control BuildKpiRow()
@@ -1379,6 +1523,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 List<JobSummaryDto> jobs = null;
                 List<Employee> techs = null;
+                List<Invoice> invoices = null;
                 List<ClientSite> sites = null;
                 List<B2BClient> clients = null;
                 Exception error = null;
@@ -1386,6 +1531,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     jobs = _jobService.GetAllJobsWithSummary();
                     techs = _employeeService.GetActiveTechnicians();
+                    invoices = _invoiceService.GetSiteRevenueInvoices();
                     sites = _siteService.GetAll();
                     clients = _clientService.GetAllClientsIncludingInactive();
                 }
@@ -1408,6 +1554,7 @@ namespace HVAC_Pro_Desktop.UI
                         }
                         _jobs = jobs ?? new List<JobSummaryDto>();
                         _technicians = techs ?? new List<Employee>();
+                        _invoices = invoices ?? new List<Invoice>();
                         _sites = sites ?? new List<ClientSite>();
                         _clients = clients ?? new List<B2BClient>();
                         _usingFallbackJobs = false;
@@ -1517,6 +1664,20 @@ namespace HVAC_Pro_Desktop.UI
                     group.ToList()));
             }
 
+            foreach (Invoice invoice in _invoices.Where(i => !string.Equals(i.PaymentStatus, "Cancelled", StringComparison.OrdinalIgnoreCase)))
+            {
+                decimal amount = string.Equals(invoice.PaymentStatus, "Credit Note", StringComparison.OrdinalIgnoreCase)
+                    ? -invoice.TotalAmount
+                    : invoice.TotalAmount;
+                SiteMonitorRow row = ResolveRevenueRow(rows, invoice);
+                row.Revenue += amount;
+                if (row.LastVisit == DateTime.MinValue || invoice.InvoiceDate > row.LastVisit)
+                    row.LastVisit = invoice.InvoiceDate;
+            }
+
+            foreach (SiteMonitorRow row in rows)
+                row.Region = First(row.Region, ResolveRegion(row.Site, row.Client));
+
             return rows
                 .OrderBy(row => row.Region)
                 .ThenBy(row => row.Site)
@@ -1543,6 +1704,7 @@ namespace HVAC_Pro_Desktop.UI
 
             return new SiteMonitorRow
             {
+                Key = siteId > 0 ? "site:" + siteId : "client:" + clientId + ":" + NormalizeLinkName(First(siteName, clientName)),
                 SiteId = siteId,
                 ClientId = clientId,
                 Site = First(siteName, "Unassigned Site"),
@@ -1552,7 +1714,7 @@ namespace HVAC_Pro_Desktop.UI
                 CriticalJobs = critical,
                 SlaRisk = sla,
                 CompletedJobs = completed,
-                Revenue = jobs.Sum(job => job.QuotedRevenue),
+                Revenue = 0m,
                 HealthScore = health,
                 LastVisit = jobs.Count == 0 ? default(DateTime) : jobs.Max(job => job.ScheduledDate),
                 CurrentWork = work,
@@ -1562,6 +1724,60 @@ namespace HVAC_Pro_Desktop.UI
                 WorkStatus = current == null ? "Available" : First(current.PipelineStatus, "Scheduled"),
                 Priority = current == null ? "-" : First(current.Priority, "Normal")
             };
+        }
+
+        private static string NormalizeLinkName(string value)
+        {
+            return new string((value ?? string.Empty).Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
+        }
+
+        private SiteMonitorRow ResolveRevenueRow(List<SiteMonitorRow> rows, Invoice invoice)
+        {
+            string fallbackKey = invoice.SiteID > 0 ? "site:" + invoice.SiteID : "invoice-client:" + invoice.ClientID;
+            SiteMonitorRow row = rows.FirstOrDefault(r => string.Equals(r.Key, fallbackKey, StringComparison.OrdinalIgnoreCase));
+            if (invoice.SiteID > 0)
+                row = row ?? rows.FirstOrDefault(r => r.SiteId == invoice.SiteID);
+
+            if (row == null && invoice.SiteID <= 0 && invoice.ClientID > 0)
+            {
+                List<SiteMonitorRow> clientRows = rows.Where(r => r.ClientId == invoice.ClientID).ToList();
+                if (clientRows.Count == 1)
+                    row = clientRows[0];
+            }
+
+            if (row == null && invoice.SiteID <= 0)
+            {
+                string siteName = NormalizeLinkName(invoice.SiteName);
+                List<SiteMonitorRow> named = rows.Where(r => siteName.Length > 0 && NormalizeLinkName(r.Site) == siteName).ToList();
+                if (named.Count == 1)
+                    row = named[0];
+            }
+
+            if (row != null)
+                return row;
+
+            string site = First(invoice.SiteName, First(invoice.ClientName, "Unassigned Company"));
+            if (invoice.SiteID <= 0 && invoice.ClientID > 0 && rows.Count(r => r.ClientId == invoice.ClientID) > 1)
+                site = First(invoice.ClientName, "Company") + " - Unassigned Site";
+            row = new SiteMonitorRow
+            {
+                Key = fallbackKey,
+                SiteId = invoice.SiteID,
+                ClientId = invoice.ClientID,
+                Client = invoice.ClientName,
+                Site = site,
+                Region = ResolveRegion(site, invoice.ClientName),
+                Revenue = 0m,
+                HealthScore = 96,
+                LastVisit = invoice.InvoiceDate,
+                CurrentWork = "No active work",
+                CurrentJobNumber = "-",
+                Technician = "-",
+                WorkStatus = "Available",
+                Priority = "-"
+            };
+            rows.Add(row);
+            return row;
         }
 
         private void BindSiteDistribution(List<SiteMonitorRow> sites)
@@ -1590,8 +1806,67 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindRegions(List<SiteMonitorRow> sites)
         {
+            _siteMonitorRows = (sites ?? new List<SiteMonitorRow>())
+                .OrderBy(site => site.Region)
+                .ThenByDescending(site => site.OpenJobs)
+                .ThenBy(site => site.Site)
+                .ToList();
+            string selectedRegion = _cmbSiteRegion == null ? "All regions" : Convert.ToString(_cmbSiteRegion.SelectedItem);
+            _bindingSiteMonitorFilters = true;
+            try
+            {
+                _cmbSiteRegion.Items.Clear();
+                _cmbSiteRegion.Items.Add("All regions");
+                foreach (string region in _siteMonitorRows.Select(site => First(site.Region, "Unspecified")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(region => region))
+                    _cmbSiteRegion.Items.Add(region);
+                int selectedIndex = _cmbSiteRegion.FindStringExact(selectedRegion);
+                _cmbSiteRegion.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            }
+            finally
+            {
+                _bindingSiteMonitorFilters = false;
+            }
+            ApplySiteRegionFilters();
+        }
+
+        private void ApplySiteRegionFilters()
+        {
+            if (_bindingSiteMonitorFilters || _regionGrid == null || _cmbSiteRegion == null || _cmbSiteWork == null)
+                return;
+
+            string search = (_txtSiteRegionSearch == null ? string.Empty : _txtSiteRegionSearch.Text ?? string.Empty).Trim();
+            string region = Convert.ToString(_cmbSiteRegion.SelectedItem);
+            string work = Convert.ToString(_cmbSiteWork.SelectedItem);
+            IEnumerable<SiteMonitorRow> query = _siteMonitorRows;
+            if (!string.IsNullOrWhiteSpace(region) && !string.Equals(region, "All regions", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(site => string.Equals(First(site.Region, "Unspecified"), region, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(site =>
+                    Contains(site.Region, search) || Contains(site.Site, search) || Contains(site.Client, search) ||
+                    Contains(site.CurrentWork, search) || Contains(site.CurrentJobNumber, search) || Contains(site.Technician, search) ||
+                    Contains(site.WorkStatus, search) || Contains(site.Priority, search));
+            }
+
+            switch ((work ?? string.Empty).ToLowerInvariant())
+            {
+                case "active work":
+                    query = query.Where(site => site.OpenJobs > 0);
+                    break;
+                case "no active work":
+                    query = query.Where(site => site.OpenJobs == 0);
+                    break;
+                case "critical / sla risk":
+                    query = query.Where(site => site.CriticalJobs > 0 || site.SlaRisk > 0);
+                    break;
+                case "unassigned technician":
+                    query = query.Where(site => site.OpenJobs > 0 && string.Equals(site.Technician, "Unassigned", StringComparison.OrdinalIgnoreCase));
+                    break;
+            }
+
+            List<SiteMonitorRow> visible = query.ToList();
             _regionGrid.Rows.Clear();
-            foreach (SiteMonitorRow site in sites.OrderBy(s => s.Region).ThenByDescending(s => s.OpenJobs).ThenBy(s => s.Site))
+            foreach (SiteMonitorRow site in visible)
             {
                 int rowIndex = _regionGrid.Rows.Add(
                     site.Region,
@@ -1607,6 +1882,27 @@ namespace HVAC_Pro_Desktop.UI
                 row.Tag = site;
                 row.Cells[3].ToolTipText = site.CurrentJobNumber + " | " + site.Technician + " | " + site.WorkStatus + " | " + DateTimeText(site.Scheduled);
             }
+            if (_lblSiteFilterCount != null)
+                _lblSiteFilterCount.Text = visible.Count.ToString("N0") + " of " + _siteMonitorRows.Count.ToString("N0") + " sites";
+        }
+
+        private void ClearSiteRegionFilters()
+        {
+            _bindingSiteMonitorFilters = true;
+            try
+            {
+                if (_txtSiteRegionSearch != null)
+                    _txtSiteRegionSearch.Clear();
+                if (_cmbSiteRegion != null && _cmbSiteRegion.Items.Count > 0)
+                    _cmbSiteRegion.SelectedIndex = 0;
+                if (_cmbSiteWork != null && _cmbSiteWork.Items.Count > 0)
+                    _cmbSiteWork.SelectedIndex = 0;
+            }
+            finally
+            {
+                _bindingSiteMonitorFilters = false;
+            }
+            ApplySiteRegionFilters();
         }
 
         private void FormatRegionWorkRow(object sender, DataGridViewCellFormattingEventArgs e)
@@ -2449,18 +2745,25 @@ namespace HVAC_Pro_Desktop.UI
 
         private void DrawSiteDistribution(object sender, PaintEventArgs e)
         {
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             List<SiteMonitorRow> rows = BuildSiteMonitorRows();
-            int healthy = Math.Max(1, rows.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0));
-            int warning = Math.Max(1, rows.Count(s => s.HealthScore >= 60 && s.OpenJobs > 0));
-            int critical = Math.Max(1, rows.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0));
-            int maintenance = Math.Max(1, _jobs.Count(j => Contains(j.JobType, "AMC")));
-            DrawDonut(e.Graphics, new Rectangle(26, 34, 142, 142), new[] { healthy, warning, critical, maintenance }, new[] { Success, Warning, Danger, Blue }, 34);
+            int healthy = rows.Count(s => s.HealthScore >= 80 && s.OpenJobs == 0);
+            int warning = rows.Count(s => s.HealthScore >= 60 && s.OpenJobs > 0);
+            int critical = rows.Count(s => s.HealthScore < 60 || s.CriticalJobs > 0);
+            int maintenance = _jobs.Count(j => Contains(j.JobType, "AMC"));
+            int[] values = { healthy, warning, critical, maintenance };
+            string[] labels = { "Healthy sites", "Warning sites", "Critical sites", "AMC jobs" };
+            Rectangle donut = new Rectangle(26, 34, 142, 142);
+            DrawDonut(e.Graphics, donut, values, new[] { Success, Warning, Danger, Blue }, 34);
+            AddGeoDonutRegions(panel, donut, values, labels, .52f, "site-distribution");
         }
 
         private void DrawTechnicianPresence(object sender, PaintEventArgs e)
         {
-            Panel panel = (Panel)sender;
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             int onSite = CountTechniciansByPresence("On Site");
             int traveling = CountTechniciansByPresence("Traveling");
@@ -2468,6 +2771,7 @@ namespace HVAC_Pro_Desktop.UI
             int leave = CountTechniciansByPresence("On Leave");
             Rectangle rect = new Rectangle(Math.Max(8, (panel.Width - 112) / 2), 28, 112, 112);
             DrawDonut(e.Graphics, rect, new[] { onSite, traveling, available, leave }, new[] { Success, Blue, Color.FromArgb(34, 197, 94), TextSecondary }, 25);
+            AddGeoDonutRegions(panel, rect, new[] { onSite, traveling, available, leave }, new[] { "On site", "Traveling", "Available", "On leave" }, .56f, "technician-presence");
             using (Brush brush = new SolidBrush(TextPrimary))
             using (Font font = new Font("Segoe UI", 14f, FontStyle.Bold))
                 e.Graphics.DrawString(_technicians.Count.ToString("N0"), font, brush, rect.X + 42, rect.Y + 38);
@@ -2478,6 +2782,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void DrawSlaGauge(object sender, PaintEventArgs e)
         {
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             int total = Math.Max(1, _jobs.Count);
             int breached = _jobs.Count(IsSlaRisk);
@@ -2487,11 +2793,14 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.DrawArc(bg, rect, 180, 180);
             using (Pen fg = new Pen(Color.FromArgb(147, 51, 234), 12))
                 e.Graphics.DrawArc(fg, rect, 180, 180 * pct / 100);
+            panel.AddHoverRectangle(rect, "sla-compliance", "SLA compliance", ChartHoverFormat.Percent(pct),
+                (total - breached) + " jobs within SLA ÷ " + total + " total jobs");
         }
 
         private void DrawSiteHealthTrend(object sender, PaintEventArgs e)
         {
-            Panel panel = (Panel)sender;
+            HoverChartPanel panel = (HoverChartPanel)sender;
+            panel.BeginHoverRegions();
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
             Rectangle area = new Rectangle(18, 22, Math.Max(120, panel.Width - 34), Math.Max(96, panel.Height - 54));
             using (Pen grid = new Pen(Color.FromArgb(226, 232, 240)))
@@ -2513,6 +2822,9 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush brush = new SolidBrush(Success))
                     e.Graphics.FillEllipse(brush, point.X - 3, point.Y - 3, 6, 6);
             }
+            for (int i = 0; i < path.Length; i++)
+                panel.AddHoverPoint(path[i], 8f, "site-health-" + i, "Site health trend · Day " + (i + 1), ChartHoverFormat.Percent(points[i]),
+                    "health baseline adjusted for open jobs, SLA-risk jobs, and the rolling trend factor");
             using (Brush brush = new SolidBrush(TextSecondary))
             using (Font font = new Font("Segoe UI", 7.5f))
             {
@@ -2530,6 +2842,21 @@ namespace HVAC_Pro_Desktop.UI
                 float sweep = values[i] * 360f / total;
                 using (Pen pen = new Pen(colors[i], thickness))
                     graphics.DrawArc(pen, rect, start, sweep);
+                start += sweep;
+            }
+        }
+
+        private static void AddGeoDonutRegions(HoverChartPanel panel, Rectangle rect, int[] values, string[] labels, float innerRatio, string keyPrefix)
+        {
+            int total = Math.Max(1, values.Sum());
+            float start = -90f;
+            for (int i = 0; i < values.Length; i++)
+            {
+                float sweep = values[i] * 360f / total;
+                if (values[i] > 0)
+                    panel.AddHoverDonutSlice(rect, start, sweep, innerRatio, keyPrefix + "-" + i, labels[i],
+                        ChartHoverFormat.Count(values[i]) + " (" + ChartHoverFormat.Percent(values[i] * 100m / total) + ")",
+                        values[i] + " records ÷ " + values.Sum() + " total plotted records");
                 start += sweep;
             }
         }
@@ -2844,6 +3171,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private sealed class SiteMonitorRow
         {
+            public string Key { get; set; }
             public int SiteId { get; set; }
             public int ClientId { get; set; }
             public string Site { get; set; }
