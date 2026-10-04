@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.475.0 - 2026-10-04
+
+- Promoted **All Sites by Region - Live Work** to the primary Site Monitor view and moved the supporting operational cards below it.
+- Listed every master customer site, including sites without jobs, with region, client, current work, technician, schedule, status, priority, and open-work count.
+- Added a full work-details drill-down that shows every active job for each site and a clear available state when no work is active.
+- Joined jobs to sites by exact site ID to prevent similarly named sites from sharing work, while preserving invoice-based site revenue attribution.
+- Added CI-safe coverage proving sites without jobs remain visible and billed revenue is not hidden or double-counted.
+
 ## 1.1.474.0 - 2026-10-04
 
 - Added exact chart hover details throughout the Reports library, including revenue, direct cost, gross profit, margin, category, and record-count context.

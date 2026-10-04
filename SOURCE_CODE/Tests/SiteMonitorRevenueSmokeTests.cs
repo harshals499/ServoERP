@@ -20,6 +20,19 @@ namespace HVAC_Pro_Desktop.Tests
                     new JobSummaryDto { JobId = 2, ClientId = 20, SiteId = 201, ClientName = "Multi", SiteName = "Multi North", ScheduledDate = DateTime.Today },
                     new JobSummaryDto { JobId = 3, ClientId = 20, SiteId = 202, ClientName = "Multi", SiteName = "Multi South", ScheduledDate = DateTime.Today }
                 });
+                SetField(form, "_sites", new List<ClientSite>
+                {
+                    new ClientSite { SiteID = 101, ClientID = 10, SiteName = "Acme Pune", City = "Pune" },
+                    new ClientSite { SiteID = 201, ClientID = 20, SiteName = "Multi North", City = "Mumbai" },
+                    new ClientSite { SiteID = 202, ClientID = 20, SiteName = "Multi South", City = "Mumbai" },
+                    new ClientSite { SiteID = 303, ClientID = 40, SiteName = "Quiet Chennai", City = "Chennai" }
+                });
+                SetField(form, "_clients", new List<B2BClient>
+                {
+                    new B2BClient { ClientID = 10, CompanyName = "Acme" },
+                    new B2BClient { ClientID = 20, CompanyName = "Multi" },
+                    new B2BClient { ClientID = 40, CompanyName = "Quiet Customer" }
+                });
                 SetField(form, "_invoices", new List<Invoice>
                 {
                     new Invoice { InvoiceID = 1, ClientID = 10, SiteID = 101, ClientName = "Acme", SiteName = "Acme Pune", TotalAmount = 1000m, InvoiceDate = DateTime.Today, PaymentStatus = "Paid" },
@@ -37,6 +50,8 @@ namespace HVAC_Pro_Desktop.Tests
                     throw new InvalidOperationException("Ambiguous company invoices must share one unassigned-site bucket.");
                 if (!rows.Cast<object>().Any(r => ReadSite(r) == "Invoice Only" && ReadRevenue(r) == 700m))
                     throw new InvalidOperationException("Invoice-only companies must remain visible in Site Monitor revenue.");
+                if (!rows.Cast<object>().Any(r => ReadSite(r) == "Quiet Chennai" && ReadWork(r) == "No active work"))
+                    throw new InvalidOperationException("Master sites without jobs must remain visible with a clear no-active-work state.");
             }
             return "Site Monitor revenue uses exact invoice totals without hiding or double-counting company invoices.";
         }
@@ -59,6 +74,11 @@ namespace HVAC_Pro_Desktop.Tests
         private static string ReadSite(object row)
         {
             return Convert.ToString(row.GetType().GetProperty("Site").GetValue(row, null));
+        }
+
+        private static string ReadWork(object row)
+        {
+            return Convert.ToString(row.GetType().GetProperty("CurrentWork").GetValue(row, null));
         }
     }
 }
