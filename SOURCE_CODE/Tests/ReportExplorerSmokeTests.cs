@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
@@ -26,17 +27,36 @@ namespace HVAC_Pro_Desktop.Tests
 
                 Ensure(grid.Rows.Count == 5, "The profitability preview did not bind all sample rows.");
                 Ensure(chart.Series["Revenue"].Points.Count == 12, "The monthly profitability chart did not bind the financial-year trend.");
+                Ensure(chart.Series.Cast<Series>().Where(series => series.Enabled).SelectMany(series => series.Points).All(point => !string.IsNullOrWhiteSpace(point.ToolTip)), "The profitability chart does not expose hover details for every visible point.");
                 Ensure(library.Controls.Count >= 16, "The categorized report library is incomplete.");
-                yield return "Reports explorer binds the report library, financial summary, trend chart, and preview table.";
+                yield return "Reports explorer binds the report library, financial summary, trend chart, hover details, and preview table.";
 
                 for (int reportIndex = 0; reportIndex < 11; reportIndex++)
                 {
                     Invoke(report, "SelectReport", reportIndex);
                     Ensure(grid.Columns.Count > 0, "Report library item " + reportIndex + " did not bind a report schema.");
+                    DataGridViewRow previewRow;
+                    bool temporaryRow = grid.Rows.Count == 0;
+                    if (temporaryRow)
+                    {
+                        int rowIndex = grid.Rows.Add();
+                        previewRow = grid.Rows[rowIndex];
+                        foreach (DataGridViewCell cell in previewRow.Cells)
+                            cell.Value = grid.Columns[cell.ColumnIndex].HeaderText + " sample";
+                    }
+                    else
+                    {
+                        previewRow = grid.Rows[0];
+                    }
+
+                    byte[] previewPdf = InvokeResult<byte[]>(report, "BuildReportRowPreviewPdf", previewRow);
+                    EnsurePdf(previewPdf, "Report library item " + reportIndex + " did not create a PDF row preview.");
+                    if (temporaryRow)
+                        grid.Rows.Remove(previewRow);
                 }
                 Invoke(report, "SelectReport", 9);
                 Ensure(grid.Rows.Count == 5, "Returning to Job profitability did not restore its preview.");
-                yield return "Every report-library destination opens a working report schema.";
+                yield return "Every report-library destination opens a working report schema and creates a read-only PDF row preview.";
 
                 search.Text = "Bluejet";
                 Ensure(grid.Rows.Count == 1, "Result search did not narrow the profitability preview.");
@@ -82,6 +102,19 @@ namespace HVAC_Pro_Desktop.Tests
             MethodInfo method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
             if (method == null) throw new InvalidOperationException("Missing Reports explorer method: " + name);
             method.Invoke(instance, args);
+        }
+
+        private static T InvokeResult<T>(object instance, string name, params object[] args)
+        {
+            MethodInfo method = instance.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+            if (method == null) throw new InvalidOperationException("Missing Reports explorer method: " + name);
+            return (T)method.Invoke(instance, args);
+        }
+
+        private static void EnsurePdf(byte[] content, string message)
+        {
+            Ensure(content != null && content.Length > 1000, message);
+            Ensure(content[0] == (byte)'%' && content[1] == (byte)'P' && content[2] == (byte)'D' && content[3] == (byte)'F', message);
         }
 
         private static void Ensure(bool condition, string message)

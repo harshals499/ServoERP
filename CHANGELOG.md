@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.474.0 - 2026-10-04
+
+- Added exact chart hover details throughout the Reports library, including revenue, direct cost, gross profit, margin, category, and record-count context.
+- Made every Reports table row open a read-only PDF preview instead of an editable form.
+- Opened existing linked PDFs first and generated the appropriate invoice or job PDF when a native business document is available.
+- Added a branded PDF report-row preview for AMC, inventory, supplier advances, client/site summaries, import review, and other rows without a native document PDF.
+- Added visible click-for-PDF guidance and automated coverage for hover details and PDF generation across every Reports library destination.
+
 ## 1.1.473.0 - 2026-10-04
 
 - Rebuilt Reports as a focused Report Explorer with categorized navigation, useful financial-year/client/site/status filters, a live profitability trend, and a searchable detailed preview.
