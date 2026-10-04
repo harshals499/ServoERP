@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.472.0 - 2026-10-03
+## 1.1.472.0 - 2026-10-04
 
 - Removed the unusable Agent Simulation, ServoERP Brain agent dashboard, and AI assistant/model controls from Settings.
 - Removed the related Settings status tile and save/load hooks so ordinary settings changes no longer read or rewrite hidden AI configuration.
