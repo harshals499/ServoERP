@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.477.0 - 2026-10-04
+
+- Fixed Site Monitor disappearing from the sidebar on client PCs whose valid license entitlement uses the public `Site Monitor` name or the earlier `Dispatch Center` name instead of the internal `GeoIntelligence` key.
+- Kept existing plan access unchanged: Site Monitor remains hidden when the license has no matching entitlement.
+- Added automated coverage for all supported Site Monitor entitlement aliases, explicit denial, and the non-entitled Starter AMC case.
+
 ## 1.1.476.0 - 2026-10-04
 
 - Added combined Search, Region, and Work filters to **All Sites by Region - Live Work** in Site Monitor.

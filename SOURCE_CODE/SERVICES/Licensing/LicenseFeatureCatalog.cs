@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.Services.Licensing
@@ -59,7 +60,38 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                     || modules.Exists(m => string.Equals(m, "Employees", StringComparison.OrdinalIgnoreCase));
             }
 
+            // Site Monitor was previously exposed as Dispatch Center while the internal
+            // license key remained GeoIntelligence. Accept all shipped/public names so
+            // different PCs using the same entitlement do not render different sidebars.
+            if (string.Equals(moduleKey, "GeoIntelligence", StringComparison.OrdinalIgnoreCase))
+            {
+                return ContainsModule(modules, "GeoIntelligence")
+                    || ContainsModule(modules, "SiteMonitor")
+                    || ContainsModule(modules, "DispatchCenter");
+            }
+
             return modules.Exists(m => string.Equals(m, moduleKey, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool ContainsModule(IEnumerable<string> modules, string expectedKey)
+        {
+            string expected = NormalizeModuleKey(expectedKey);
+            return modules != null && modules.Any(module => string.Equals(NormalizeModuleKey(module), expected, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string NormalizeModuleKey(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var normalized = new System.Text.StringBuilder(value.Length);
+            foreach (char character in value)
+            {
+                if (char.IsLetterOrDigit(character))
+                    normalized.Append(character);
+            }
+
+            return normalized.ToString();
         }
     }
 }
