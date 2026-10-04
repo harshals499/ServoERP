@@ -22,6 +22,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly InvoiceService _invoiceService = new InvoiceService();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
         private readonly SyncMetadataService _syncMetadata = new SyncMetadataService();
@@ -559,6 +560,15 @@ namespace HVAC_Pro_Desktop.Services
         private void ValidateJobForSave(Job job)
         {
             ValidationResult result = _businessRules.ValidateJob(job);
+            if (job != null)
+            {
+                var relationships = _relationshipIntegrity.CheckClientSite(job.ClientID, job.SiteID, "WorkOrders");
+                relationships.Merge(_relationshipIntegrity.CheckEmployee(job.AssignedEmployeeID, "WorkOrders", "AssignedEmployeeID"));
+                relationships.Merge(_relationshipIntegrity.CheckContractContext(job.ClientID, job.SiteID, job.LinkedContractId, "WorkOrders"));
+                relationships.Merge(_relationshipIntegrity.CheckInvoiceContext(job.ClientID, job.SiteID, job.InvoiceId, "WorkOrders"));
+                RelationshipIntegrityService.EnsureValid(relationships, "This work order cannot be saved because its linked records do not agree.");
+                result.Merge(relationships);
+            }
             if (job != null && !string.IsNullOrWhiteSpace(job.JobNumber))
             {
                 bool duplicateNumber = _repo.JobNumberExists(job.JobNumber.Trim(), job.JobID);

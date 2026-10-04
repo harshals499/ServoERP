@@ -257,6 +257,7 @@ try {
 
     $clientIds = @()
     $siteIds = @()
+    $siteIdsByClient = @{}
     for ($i = 0; $i -lt 25; $i++) {
         $city = $cities[$i % $cities.Count]
         $pan = 'SDCLI' + ('{0:D4}' -f ($i + 1)) + 'B'
@@ -272,25 +273,31 @@ try {
             Notes='ServoERP demo: fake Indian SME/service-business account for screenshots and sales demos.'
         }
         $clientIds += $clientId
+        $ownedSiteIds = @()
         [void](Insert-Row $conn 'ClientContacts' @{ ClientID=$clientId; ContactName=$contacts[$i % $contacts.Count]; Role='Facility Manager'; Phone=('91{0:D8}' -f (71000000 + $i * 779)); Email=('contact{0}@demo-client.in' -f ($i + 1)); IsPrimary=1; Notes='Primary demo contact' })
 
         $siteCount = if ($i -lt 15) { 2 } else { 1 }
         for ($s = 0; $s -lt $siteCount; $s++) {
             if ($siteIds.Count -ge 40) { break }
             $siteName = if ($s -eq 0) { 'Main Facility' } else { @('Warehouse Block','Production Unit','Corporate Office','Retail Site')[$i % 4] }
-            $siteIds += Insert-Row $conn 'ClientSites' @{
+            $siteId = Insert-Row $conn 'ClientSites' @{
                 ClientID=$clientId; SiteName=('SD {0} - {1}' -f ($city.City), $siteName); Address=('{0}, Plot {1}, {2}, {3}' -f $siteName, (20 + $i + $s), $city.Area, $city.City);
                 City=$city.City; ACSystemCount=(4 + (($i + $s) % 22)); RefrigerationSystemCount=(($i + $s) % 5); CoolingTowerCount=(($i + $s) % 3);
                 IsCritical=([int](($i + $s) % 4 -eq 0)); AssignedTechnicianID=$null; TravelRateINR=(650 + (($i + $s) * 25))
             }
+            $siteIds += $siteId
+            $ownedSiteIds += $siteId
         }
+        $siteIdsByClient[$clientId] = $ownedSiteIds
     }
 
     $contractIds = @()
     for ($i = 0; $i -lt 20; $i++) {
         $monthly = 28000 + ($i * 5500)
+        $contractClientId = $clientIds[$i]
+        $contractSiteId = @($siteIdsByClient[$contractClientId])[0]
         $contractIds += Insert-Row $conn 'AMCContracts' @{
-            ClientID=$clientIds[$i]; SiteID=$siteIds[$i]; StartDate=(New-Date (-300 + $i * 8)); EndDate=(New-Date (45 + $i * 5));
+            ClientID=$contractClientId; SiteID=$contractSiteId; StartDate=(New-Date (-300 + $i * 8)); EndDate=(New-Date (45 + $i * 5));
             MonthlyValue=$monthly; AnnualValue=($monthly * 12); ContractStatus=(@('Active','Active','Renewal Due','Pending Renewal')[$i % 4]);
             SLAResponseTimeHours=(@(2,4,6,8)[$i % 4]); SLAUptimePercent=(98.5 + (($i % 5) / 10)); SLARepairTimeHours=(@(8,12,16,24)[$i % 4]);
             MaintenanceFrequency=(@('Monthly','Quarterly','Bi-monthly')[$i % 3]); ContractType=(@('Comprehensive AMC','Preventive AMC','Facility Support')[$i % 3]);
@@ -329,9 +336,12 @@ try {
     $quotationIds = @()
     for ($i = 0; $i -lt 30; $i++) {
         $clientIndex = $i % $clientIds.Count
+        $quoteClientId = $clientIds[$clientIndex]
+        $ownedSiteIds = @($siteIdsByClient[$quoteClientId])
+        $quoteSiteId = $ownedSiteIds[0]
         $amount = 45000 + ($i * 12500)
         $quotationIds += Insert-Row $conn 'Quotations' @{
-            QuotationNumber=('SD-QTN-2026-{0:D4}' -f ($i + 1)); ClientID=$clientIds[$clientIndex]; SiteID=$siteIds[$clientIndex]; TenderName=('{0} proposal for {1}' -f $serviceTypes[$i % $serviceTypes.Count], $clientNames[$clientIndex].Replace('SD ',''));
+            QuotationNumber=('SD-QTN-2026-{0:D4}' -f ($i + 1)); ClientID=$quoteClientId; SiteID=$quoteSiteId; TenderName=('{0} proposal for {1}' -f $serviceTypes[$i % $serviceTypes.Count], $clientNames[$clientIndex].Replace('SD ',''));
             SystemCount=(1 + ($i % 8)); BidValue=$amount; TotalTaxableValue=$amount; TotalGST=($amount * 0.18); TotalWithGST=($amount * 1.18);
             DueDate=(New-Date (-120 + $i * 8)); SubmittedDate=(New-Date (-135 + $i * 8)); Status=(@('Draft','Pending','Approved','Submitted','Won')[$i % 5]);
             ClientName=$clientNames[$clientIndex]; Notes='ServoERP demo: quotation with GST-ready service pricing.'
@@ -341,11 +351,14 @@ try {
     $invoiceIds = @()
     for ($i = 0; $i -lt 25; $i++) {
         $clientIndex = $i % $clientIds.Count
+        $invoiceClientId = $clientIds[$clientIndex]
+        $invoiceOwnedSiteIds = @($siteIdsByClient[$invoiceClientId])
+        $invoiceSiteId = $invoiceOwnedSiteIds[0]
         $sub = 32000 + ($i * 9600)
         $paid = if ($i % 5 -eq 0) { 0 } elseif ($i % 5 -eq 1) { [math]::Round($sub * 1.18 / 2, 2) } else { [math]::Round($sub * 1.18, 2) }
         $total = [math]::Round($sub * 1.18, 2)
         $invoiceId = Insert-Row $conn 'Invoices' @{
-            ContractID=$(if ($i -lt $contractIds.Count) { $contractIds[$i] } else { $null }); ClientID=$clientIds[$clientIndex]; SiteID=$siteIds[$clientIndex]; QuotationBidID=$(if ($i -lt $quotationIds.Count) { $quotationIds[$i] } else { $null });
+            ContractID=$(if ($i -lt $contractIds.Count) { $contractIds[$i] } else { $null }); ClientID=$invoiceClientId; SiteID=$invoiceSiteId; QuotationBidID=$(if ($i -lt $quotationIds.Count) { $quotationIds[$i] } else { $null });
             InvoiceNumber=('SD-INV-2026-{0:D4}' -f ($i + 1)); InvoiceDate=(New-Date (-170 + $i * 7)); DueDate=(New-Date (-140 + $i * 7));
             SubTotal=$sub; GSTPercent=18; TaxAmount=($total - $sub); TotalAmount=$total; PaidAmount=$paid; BalanceDue=($total - $paid);
             PaymentStatus=$(if ($paid -eq 0) { if ($i % 4 -eq 0) { 'Overdue' } else { 'Pending' } } elseif ($paid -lt $total) { 'Partially Paid' } else { 'Paid' });
@@ -355,16 +368,19 @@ try {
         $invoiceIds += $invoiceId
         [void](Insert-Row $conn 'InvoiceLineItems' @{ InvoiceID=$invoiceId; Description=($serviceTypes[$i % $serviceTypes.Count] + ' labour and consumables'); HSNCode='998719'; Unit='Job'; Quantity=1; Rate=$sub; Amount=$sub; GSTPercent=18; TaxAmount=($total - $sub); IsBillable=1 })
         if ($paid -gt 0) {
-            [void](Insert-Row $conn 'Payments' @{ PaymentNumber=('SD-PAY-2026-{0:D4}' -f ($i + 1)); InvoiceID=$invoiceId; ClientID=$clientIds[$clientIndex]; AmountPaid=$paid; PaymentDate=(New-Date (-132 + $i * 7)); PaymentMode=(@('NEFT/RTGS','UPI','Cheque','Bank Transfer')[$i % 4]); ReferenceNumber=('SDUTR{0:D8}' -f ($i + 1001)); Notes='ServoERP demo: collection history for dashboard and payment module.' })
+            [void](Insert-Row $conn 'Payments' @{ PaymentNumber=('SD-PAY-2026-{0:D4}' -f ($i + 1)); InvoiceID=$invoiceId; ClientID=$invoiceClientId; AmountPaid=$paid; PaymentDate=(New-Date (-132 + $i * 7)); PaymentMode=(@('NEFT/RTGS','UPI','Cheque','Bank Transfer')[$i % 4]); ReferenceNumber=('SDUTR{0:D8}' -f ($i + 1001)); Notes='ServoERP demo: collection history for dashboard and payment module.' })
         }
     }
 
     for ($i = 0; $i -lt 80; $i++) {
         $clientIndex = $i % $clientIds.Count
+        $jobClientId = $clientIds[$clientIndex]
+        $jobOwnedSiteIds = @($siteIdsByClient[$jobClientId])
+        $jobSiteId = if ($i -lt $contractIds.Count) { $jobOwnedSiteIds[0] } else { $jobOwnedSiteIds[$i % $jobOwnedSiteIds.Count] }
         $status = $statusList[$i % $statusList.Count]
         $scheduled = New-Date (-240 + $i * 5)
         $jobId = Insert-Row $conn 'Jobs' @{
-            JobNumber=('SD-JOB-2026-{0:D4}' -f ($i + 1)); ClientID=$clientIds[$clientIndex]; SiteID=$siteIds[$clientIndex % $siteIds.Count];
+            JobNumber=('SD-JOB-2026-{0:D4}' -f ($i + 1)); ClientID=$jobClientId; SiteID=$jobSiteId;
             Title=('{0} - {1}' -f $serviceTypes[$i % $serviceTypes.Count], $clientNames[$clientIndex].Replace('SD ',''));
             JobTitle=('{0} - {1}' -f $serviceTypes[$i % $serviceTypes.Count], $cities[$clientIndex % $cities.Count].City);
             Description='Demo service job with realistic technician assignment, parts usage, and customer notes.';
@@ -382,10 +398,13 @@ try {
 
     for ($i = 0; $i -lt 30; $i++) {
         $clientIndex = $i % $clientIds.Count
+        $incidentClientId = $clientIds[$clientIndex]
+        $incidentOwnedSiteIds = @($siteIdsByClient[$incidentClientId])
+        $incidentSiteId = $incidentOwnedSiteIds[$i % $incidentOwnedSiteIds.Count]
         $opened = New-Date (-90 + $i * 4)
         $status = @('New','Assigned','In Progress','Resolved','Closed')[$i % 5]
         $incidentId = Insert-Row $conn 'ServiceDeskIncidents' @{
-            IncidentNumber=('SD-INC-2026-{0:D4}' -f ($i + 1)); ClientId=$clientIds[$clientIndex]; SiteId=$siteIds[$clientIndex % $siteIds.Count];
+            IncidentNumber=('SD-INC-2026-{0:D4}' -f ($i + 1)); ClientId=$incidentClientId; SiteId=$incidentSiteId;
             AssignedEmployeeId=$employeeIds[$i % $employeeIds.Count]; LinkedJobId=$null; CallerName=$contacts[$i % $contacts.Count]; CallerPhone=('91{0:D8}' -f (72000000 + $i * 617));
             Category=(@('HVAC','Electrical','Plumbing','Fire Safety','Insulation')[$i % 5]); EquipmentType=(@('VRF System','Main LT Panel','Pump Room','Fire Alarm Panel','Duct Insulation')[$i % 5]);
             AssetSerialNumber=('ASSET-SD-{0:D5}' -f ($i + 1)); Priority=$priorityList[$i % $priorityList.Count]; Status=$status;

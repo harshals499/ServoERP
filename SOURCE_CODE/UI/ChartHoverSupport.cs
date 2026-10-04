@@ -63,11 +63,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             public Binding Hover { get; } = new Binding();
             public Func<Series, DataPoint, ChartHoverContent> Formatter { get; set; }
+            public Action<ChartHoverContent> Preview { get; set; }
         }
 
         private static readonly ConditionalWeakTable<Chart, ChartBinding> ChartBindings = new ConditionalWeakTable<Chart, ChartBinding>();
 
-        public static void Enable(Chart chart, Func<Series, DataPoint, ChartHoverContent> formatter)
+        public static void Enable(Chart chart, Func<Series, DataPoint, ChartHoverContent> formatter, Action<ChartHoverContent> preview = null)
         {
             if (chart == null)
                 return;
@@ -76,10 +77,11 @@ namespace HVAC_Pro_Desktop.UI
             if (ChartBindings.TryGetValue(chart, out existing))
             {
                 existing.Formatter = formatter;
+                existing.Preview = preview;
                 return;
             }
 
-            var binding = new ChartBinding { Formatter = formatter };
+            var binding = new ChartBinding { Formatter = formatter, Preview = preview };
             ChartBindings.Add(chart, binding);
             chart.MouseMove += (sender, args) =>
             {
@@ -87,19 +89,37 @@ namespace HVAC_Pro_Desktop.UI
                 if (hit == null || hit.Series == null || hit.PointIndex < 0 || hit.PointIndex >= hit.Series.Points.Count)
                 {
                     Hide(chart, binding.Hover);
+                    if (binding.Preview != null)
+                        binding.Preview(null);
                     return;
                 }
 
                 DataPoint point = hit.Series.Points[hit.PointIndex];
                 ChartHoverContent content = binding.Formatter == null ? DefaultContent(hit.Series, point) : binding.Formatter(hit.Series, point);
                 Show(chart, binding.Hover, content, args.Location);
+                if (binding.Preview != null)
+                    binding.Preview(content);
             };
-            chart.MouseLeave += (sender, args) => Hide(chart, binding.Hover);
+            chart.MouseLeave += (sender, args) =>
+            {
+                Hide(chart, binding.Hover);
+                if (binding.Preview != null)
+                    binding.Preview(null);
+            };
             chart.Disposed += (sender, args) =>
             {
                 binding.Hover.ToolTip.Dispose();
                 ChartBindings.Remove(chart);
             };
+        }
+
+        internal static string HoverTextForTest(Chart chart, Series series, DataPoint point)
+        {
+            ChartBinding binding;
+            if (chart == null || series == null || point == null || !ChartBindings.TryGetValue(chart, out binding))
+                return null;
+            ChartHoverContent content = binding.Formatter == null ? DefaultContent(series, point) : binding.Formatter(series, point);
+            return content == null ? null : content.ToString();
         }
 
         private static ChartHoverContent DefaultContent(Series series, DataPoint point)

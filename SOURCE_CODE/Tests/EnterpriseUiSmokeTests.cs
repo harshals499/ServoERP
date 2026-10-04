@@ -186,6 +186,9 @@ namespace HVAC_Pro_Desktop.Tests
                 foreach (string result in DataQualitySmokeTests.RunAll())
                     record("PASS " + result);
                 CleanupUiResources();
+                foreach (string result in RelationshipIntegritySmokeTests.RunAll())
+                    record("PASS " + result);
+                CleanupUiResources();
                 foreach (string result in EndToEndWorkflowSmokeTests.RunAll())
                     record("PASS " + result);
                 CleanupUiResources();

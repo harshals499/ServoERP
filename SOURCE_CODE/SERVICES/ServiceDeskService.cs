@@ -4,6 +4,8 @@ using System.Linq;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services.Audit;
+using HVAC_Pro_Desktop.Models.Validation;
+using HVAC_Pro_Desktop.Services.Validation;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -13,6 +15,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly ServiceDeskRepository _repo = new ServiceDeskRepository();
         private readonly JobService _jobService = new JobService();
         private readonly AuditTrailService _audit = new AuditTrailService();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
 
         public List<ServiceDeskIncident> GetAll()
         {
@@ -61,6 +64,10 @@ namespace HVAC_Pro_Desktop.Services
                 throw new Exception("Short description is required.");
 
             Normalize(incident);
+            ValidationResult relationshipResult = _relationshipIntegrity.CheckClientSite(incident.ClientId.GetValueOrDefault(), incident.SiteId, "ServiceDesk");
+            relationshipResult.Merge(_relationshipIntegrity.CheckEmployee(incident.AssignedEmployeeId, "ServiceDesk", "AssignedEmployeeId"));
+            relationshipResult.Merge(_relationshipIntegrity.CheckJobContext(incident.ClientId, incident.SiteId, incident.LinkedJobId, "ServiceDesk"));
+            RelationshipIntegrityService.EnsureValid(relationshipResult, "This service incident cannot be saved because one or more linked records do not agree.");
 
             int id;
             if (incident.IncidentId <= 0)

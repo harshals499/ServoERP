@@ -29,6 +29,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly CalculationVerificationService _calculationVerifier = new CalculationVerificationService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
         private const decimal GstRate = 0.18m;
@@ -510,6 +511,10 @@ namespace HVAC_Pro_Desktop.Services
 
             foreach (InvoiceLineItem item in inv.LineItems)
             {
+                if (item.StockItemID.HasValue && item.StockItemID.Value <= 0)
+                    item.StockItemID = null;
+                if (item.JobID.HasValue && item.JobID.Value <= 0)
+                    item.JobID = null;
                 item.Category = string.IsNullOrWhiteSpace(item.Category) ? (item.IsStockItem ? "Material" : "Service") : item.Category.Trim();
                 if (string.IsNullOrWhiteSpace(item.Description))
                     item.Description = string.Equals(item.Category, "Material", StringComparison.OrdinalIgnoreCase) ? "Material charges" : "Service charges";
@@ -523,6 +528,19 @@ namespace HVAC_Pro_Desktop.Services
         {
             ValidationResult result = _businessRules.ValidateInvoice(inv);
             result.Merge(_calculationVerifier.VerifyInvoice(inv));
+            if (inv != null)
+            {
+                ValidationResult relationships = _relationshipIntegrity.CheckClientSite(inv.ClientID, inv.SiteID, "Invoices");
+                relationships.Merge(_relationshipIntegrity.CheckContractContext(inv.ClientID, inv.SiteID, inv.ContractID, "Invoices"));
+                relationships.Merge(_relationshipIntegrity.CheckQuotationContext(inv.ClientID, inv.SiteID, inv.QuotationBidID, "Invoices"));
+                foreach (InvoiceLineItem line in inv.LineItems ?? new List<InvoiceLineItem>())
+                {
+                    relationships.Merge(_relationshipIntegrity.CheckStockItem(line.StockItemID, "Invoices", "StockItemID"));
+                    relationships.Merge(_relationshipIntegrity.CheckJobContext(inv.ClientID, inv.SiteID, line.JobID, "Invoices"));
+                }
+                RelationshipIntegrityService.EnsureValid(relationships, "This invoice cannot be saved because one or more linked records do not agree.");
+                result.Merge(relationships);
+            }
             if (inv != null && !string.IsNullOrWhiteSpace(inv.InvoiceNumber))
             {
                 bool duplicateNumber = _invoiceRepo.InvoiceNumberExists(inv.InvoiceNumber.Trim(), inv.InvoiceID);

@@ -3,12 +3,15 @@ using System.Collections.Generic;
 using System.Linq;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
+using HVAC_Pro_Desktop.Models.Validation;
+using HVAC_Pro_Desktop.Services.Validation;
 
 namespace HVAC_Pro_Desktop.Services
 {
     public sealed class FinancialReportingService
     {
         private readonly FinancialReportingRepository _repository;
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private static readonly object SchemaSync = new object();
         private static bool _schemaReady;
 
@@ -83,6 +86,10 @@ namespace HVAC_Pro_Desktop.Services
                 throw new InvalidOperationException("Enter a valid expense date.");
             if (string.IsNullOrWhiteSpace(entry.Description))
                 throw new InvalidOperationException("Enter a short expense description.");
+
+            ValidationResult relationshipResult = _relationshipIntegrity.CheckClientSite(entry.ClientId.GetValueOrDefault(), entry.SiteId, "Expenses");
+            relationshipResult.Merge(_relationshipIntegrity.CheckJobContext(entry.ClientId, entry.SiteId, entry.JobId, "Expenses"));
+            RelationshipIntegrityService.EnsureValid(relationshipResult, "This expense cannot be saved because one or more linked records do not agree.");
 
             entry.Description = entry.Description.Trim();
             entry.ReferenceNumber = string.IsNullOrWhiteSpace(entry.ReferenceNumber) ? null : entry.ReferenceNumber.Trim();

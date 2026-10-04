@@ -11,6 +11,7 @@ using System.Windows.Forms;
 using System.Windows.Forms.DataVisualization.Charting;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
+using HVAC_Pro_Desktop.Services.Validation;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
 using ServoERP.Infrastructure;
@@ -32,6 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ServiceDeskService _serviceDeskSvc = new ServiceDeskService();
         private readonly FinancialReportingService _financialSvc = new FinancialReportingService();
         private readonly ProfitabilityWorkbookImportService _profitabilityImportSvc = new ProfitabilityWorkbookImportService();
+        private readonly RelationshipIntegrityService _relationshipIntegritySvc = new RelationshipIntegrityService();
 
         private static int? PendingTabIndex;
         private int _currentReportIndex = 9;
@@ -45,6 +47,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _surface;
         private Chart _explorerChart;
         private Label _lblChartTitle;
+        private Label _lblChartCalculationPreview;
         private Label _lblReportTitle;
         private Label _lblReportSubtitle;
         private Label _lblReportCount;
@@ -90,6 +93,7 @@ namespace HVAC_Pro_Desktop.UI
         private List<VendorAdvancePayment> _vendorAdvances = new List<VendorAdvancePayment>();
         private List<JobProfitabilityRow> _profitabilityRows = new List<JobProfitabilityRow>();
         private List<MonthlyProfitLossRow> _monthlyProfitLoss = new List<MonthlyProfitLossRow>();
+        private RelationshipHealthSnapshot _relationshipHealth = new RelationshipHealthSnapshot();
         private PayrollDashboardSnapshot _payrollSnapshot = new PayrollDashboardSnapshot();
         private Dictionary<int, string> _clientNames = new Dictionary<int, string>();
         private bool _initialRefreshQueued;
@@ -106,11 +110,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private static readonly string[] ReportNames =
         {
-            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites", "Profitability", "Import Review"
+            "Revenue", "Collections", "Contracts", "Jobs", "Technicians", "Materials", "Purchases", "Supplier Advances", "Clients / Sites", "Profitability", "Import Review", "Relationship Health"
         };
         private static readonly string[] ReportTileLabels =
         {
-            "Revenue", "Collect", "AMC", "Jobs", "Techs", "Stock", "POs", "Advances", "Clients", "Profit", "Review"
+            "Revenue", "Collect", "AMC", "Jobs", "Techs", "Stock", "POs", "Advances", "Clients", "Profit", "Review", "Relations"
         };
         private const string PageKey = "ReportsCommandCenter";
         private const string CardOrderPath = @"C:\HVAC_PRO_MSE\CONFIG\reports_card_order.txt";
@@ -192,6 +196,44 @@ namespace HVAC_Pro_Desktop.UI
             SelectReport(9);
             _lblStatus.Text = "Profitability preview | FY 2026-27";
             _lblStatus.ForeColor = Green;
+        }
+
+        public void LoadRelationshipHealthPreviewForVisualTest()
+        {
+            _usingPreviewData = true;
+            string[] modules = { "Clients / Sites", "Inventory", "Jobs", "Purchases", "Service Desk", "Invoices", "HR & Payroll", "AMC", "Quotations", "Master Data" };
+            var rows = new List<RelationshipHealthRow>();
+            for (int index = 0; index < 100; index++)
+            {
+                int childRows = 70 + ((index * 13) % 80);
+                int populated = childRows - ((index % 4) * 6);
+                int orphanKeys = index >= 94 ? 1 : 0;
+                bool requiresContext = index % 6 == 0;
+                rows.Add(new RelationshipHealthRow
+                {
+                    Module = modules[index % modules.Length],
+                    RelationshipName = "Preview relationship " + (index + 1).ToString(CultureInfo.InvariantCulture),
+                    ChildTable = "PreviewChild" + index.ToString(CultureInfo.InvariantCulture),
+                    ChildColumn = "ParentId",
+                    ParentTable = "PreviewParent" + index.ToString(CultureInfo.InvariantCulture),
+                    ParentColumn = "Id",
+                    ChildRows = childRows,
+                    PopulatedKeys = populated,
+                    MatchedKeys = Math.Max(0, populated - orphanKeys),
+                    OrphanKeys = orphanKeys,
+                    ContextViolations = index >= 96 ? 1 : 0,
+                    IsForeignKeyEnforced = index < 94,
+                    RequiresContextProtection = requiresContext,
+                    IsContextProtectionEnforced = !requiresContext || index < 94,
+                    EnforcementStatus = index < 94 ? "Enforced" : "Blocked by preview data",
+                    Severity = index < 94 ? "Healthy" : "Review",
+                    Recommendation = index < 94 ? "None" : "Review the referenced preview row"
+                });
+            }
+            _relationshipHealth = new RelationshipHealthSnapshot { Rows = rows };
+            SelectReport(11);
+            SetRelationshipHealthStatus();
+            _lblStatus.ForeColor = _relationshipHealth.OrphanKeys > 0 || _relationshipHealth.ContextViolations > 0 ? Amber : Green;
         }
 
         private static JobProfitabilityRow PreviewProfitabilityRow(string job, string client, string site, string invoice, decimal revenue, decimal cost, decimal outstanding, string costStatus, DateTime date)
@@ -306,7 +348,7 @@ namespace HVAC_Pro_Desktop.UI
             AddExplorerGroup("AMC", 2);
             AddExplorerGroup("INVENTORY & PURCHASES", 5, 6, 7);
             AddExplorerGroup("CLIENTS & SITES", 8);
-            AddExplorerGroup("DATA QUALITY", 10);
+            AddExplorerGroup("DATA QUALITY", 10, 11);
             _reportLibrary.Resize += (s, e) => ResizeExplorerLibraryButtons();
 
             Panel searchWrap = new Panel { Dock = DockStyle.Top, Height = 46, BackColor = CardBg, Padding = new Padding(0, 6, 0, 6) };
@@ -402,13 +444,28 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildExplorerChart()
         {
-            Panel surface = ExplorerSurface(new Padding(12, 42, 12, 8));
+            Panel surface = ExplorerSurface(new Padding(12, 62, 12, 8));
             _lblChartTitle = new Label { Text = "Monthly trend", Location = new Point(14, 10), Height = 24, Width = 360, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TextDark };
+            _lblChartCalculationPreview = new Label
+            {
+                Text = "Hover a graph point to preview its exact value and calculation.",
+                Location = new Point(14, 35),
+                Height = 20,
+                Width = 700,
+                Font = new Font("Segoe UI", 8.5f),
+                ForeColor = TextMid,
+                AutoEllipsis = true
+            };
             _explorerChart = CreateProfitabilityChart();
-            _explorerChart.Location = new Point(12, 42);
-            _explorerChart.Size = new Size(720, 240);
-            surface.Resize += (s, e) => _explorerChart.Size = new Size(Math.Max(100, surface.ClientSize.Width - 24), Math.Max(80, surface.ClientSize.Height - 50));
+            _explorerChart.Location = new Point(12, 62);
+            _explorerChart.Size = new Size(720, 220);
+            surface.Resize += (s, e) =>
+            {
+                _lblChartCalculationPreview.Width = Math.Max(100, surface.ClientSize.Width - 28);
+                _explorerChart.Size = new Size(Math.Max(100, surface.ClientSize.Width - 24), Math.Max(80, surface.ClientSize.Height - 70));
+            };
             surface.Controls.Add(_explorerChart);
+            surface.Controls.Add(_lblChartCalculationPreview);
             surface.Controls.Add(_lblChartTitle);
             return surface;
         }
@@ -648,7 +705,13 @@ namespace HVAC_Pro_Desktop.UI
                 Cursor = Cursors.Hand,
                 AccessibleName = "Open " + label + " report"
             };
-            button.Click += (s, e) => SelectReport((int)((Control)s).Tag);
+            button.Click += async (s, e) =>
+            {
+                int selectedIndex = (int)((Control)s).Tag;
+                SelectReport(selectedIndex);
+                if (selectedIndex == 11)
+                    await RefreshRelationshipHealthAsync();
+            };
             return button;
         }
 
@@ -666,7 +729,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 7: return "Supplier advances";
                 case 8: return "Clients & sites";
                 case 9: return "Job profitability";
-                default: return "Import review";
+                case 10: return "Import review";
+                case 11: return "Relationship health";
+                default: return "Report";
             }
         }
 
@@ -684,7 +749,9 @@ namespace HVAC_Pro_Desktop.UI
                 case 7: return "Review supplier advances, application and remaining balance.";
                 case 8: return "Compare client activity, open work and revenue.";
                 case 9: return "Analyse job-wise revenue, cost and margin across clients and sites.";
-                default: return "Review imported profitability rows before they affect reporting.";
+                case 10: return "Review imported profitability rows before they affect reporting.";
+                case 11: return "Measure relationship coverage, orphan records, client/site consistency and database protection.";
+                default: return "Review operational data.";
             }
         }
 
@@ -751,8 +818,73 @@ namespace HVAC_Pro_Desktop.UI
             chart.Series.Add(cost);
             chart.Series.Add(margin);
             chart.Legends.Add(new Legend { Docking = Docking.Bottom, Alignment = StringAlignment.Center, Font = new Font("Segoe UI", 8f), BackColor = CardBg });
-            chart.GetToolTipText += ExplorerChart_GetToolTipText;
+            ChartHoverService.Enable(chart, BuildExplorerChartHoverContent, UpdateExplorerChartCalculationPreview);
             return chart;
+        }
+
+        private void UpdateExplorerChartCalculationPreview(ChartHoverContent content)
+        {
+            if (_lblChartCalculationPreview == null)
+                return;
+
+            if (content == null)
+                return;
+
+            _lblChartCalculationPreview.Text = content.Title + "  |  Exact value: " + content.Value + "  |  Calculation: " + content.Calculation;
+            _lblChartCalculationPreview.ForeColor = Blue;
+        }
+
+        private ChartHoverContent BuildExplorerChartHoverContent(Series series, DataPoint point)
+        {
+            string label = string.IsNullOrWhiteSpace(point.AxisLabel) ? ExplorerReportLabel(_currentReportIndex) : point.AxisLabel;
+            decimal raw = point.YValues == null || point.YValues.Length == 0 ? 0m : Convert.ToDecimal(point.YValues[0]);
+            int seriesIndex = _explorerChart == null || series == null ? 0 : _explorerChart.Series.IndexOf(series.Name);
+            string seriesLabel = string.IsNullOrWhiteSpace(series.LegendText) || string.Equals(series.LegendText, "Auto", StringComparison.OrdinalIgnoreCase)
+                ? series.Name
+                : series.LegendText;
+
+            if (_currentReportIndex == 11)
+            {
+                string calculation;
+                if (seriesIndex == 0)
+                    calculation = "populated relationship keys / child rows x 100";
+                else if (seriesIndex == 1)
+                    calculation = "matched parent records / populated relationship keys x 100";
+                else
+                    calculation = "consistent client/site references / populated relationship keys x 100";
+                return new ChartHoverContent
+                {
+                    Key = "relationship-" + seriesIndex + "-" + label + "-" + raw.ToString(CultureInfo.InvariantCulture),
+                    Title = label + " · " + seriesLabel,
+                    Value = ChartHoverFormat.Percent(raw),
+                    Calculation = calculation
+                };
+            }
+
+            if (_currentReportIndex == 9)
+            {
+                bool percentage = seriesIndex == 2;
+                string calculation = seriesIndex == 0
+                    ? "sum of billed revenue for the month using the active report filters"
+                    : seriesIndex == 1
+                        ? "sum of direct job costs for the month using the active report filters"
+                        : "(revenue - direct cost) / revenue x 100";
+                return new ChartHoverContent
+                {
+                    Key = "profitability-" + seriesIndex + "-" + label + "-" + raw.ToString(CultureInfo.InvariantCulture),
+                    Title = label + " · " + seriesLabel,
+                    Value = percentage ? ChartHoverFormat.Percent(raw) : ChartHoverFormat.Currency(raw),
+                    Calculation = calculation
+                };
+            }
+
+            return new ChartHoverContent
+            {
+                Key = "report-" + _currentReportIndex + "-" + label + "-" + raw.ToString(CultureInfo.InvariantCulture),
+                Title = label + " · " + ExplorerReportLabel(_currentReportIndex),
+                Value = ChartHoverFormat.Count(raw),
+                Calculation = "records in this category after applying the active report filters"
+            };
         }
 
         private void PopulateExplorerFilters()
@@ -798,8 +930,15 @@ namespace HVAC_Pro_Desktop.UI
                     _monthlyProfitLoss = result.Trend;
                     PopulateExplorerFilters();
                 }
+                else if (_currentReportIndex == 11)
+                {
+                    _relationshipHealth = await Task.Run(() => _relationshipIntegritySvc.ReconcileAndGetHealthSnapshot()) ?? new RelationshipHealthSnapshot();
+                }
                 BindDetailGrid();
-                _lblStatus.Text = "Updated " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
+                if (_currentReportIndex == 11)
+                    SetRelationshipHealthStatus();
+                else
+                    _lblStatus.Text = "Updated " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
                 _lblStatus.ForeColor = Green;
             }
             catch (Exception ex)
@@ -809,6 +948,33 @@ namespace HVAC_Pro_Desktop.UI
                 _lblStatus.Text = "Report could not run. Check the filters and try again.";
                 _lblStatus.ForeColor = Red;
             }
+        }
+
+        private async Task RefreshRelationshipHealthAsync()
+        {
+            try
+            {
+                _lblStatus.Text = "Automatically connecting safe relationships...";
+                _lblStatus.ForeColor = Blue;
+                _relationshipHealth = await Task.Run(() => _relationshipIntegritySvc.ReconcileAndGetHealthSnapshot()) ?? new RelationshipHealthSnapshot();
+                if (_currentReportIndex == 11)
+                    BindDetailGrid();
+                SetRelationshipHealthStatus();
+                _lblStatus.ForeColor = _relationshipHealth.RelationshipsNeedingReview > 0 ? Amber : Green;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Automatically connecting relationships", ex);
+                _lblStatus.Text = "Relationship auto-connect could not complete. Existing data was not changed.";
+                _lblStatus.ForeColor = Red;
+            }
+        }
+
+        private void SetRelationshipHealthStatus()
+        {
+            _lblStatus.Text = "Auto-connect | " + _relationshipHealth.ConnectedRelationships.ToString("N0") + "/" +
+                              _relationshipHealth.RelationshipsChecked.ToString("N0") + " protected | " +
+                              _relationshipHealth.RelationshipsNeedingReview.ToString("N0") + " need review";
         }
 
         private void ResetExplorerFilters()
@@ -860,7 +1026,17 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_explorerChart == null) return;
             _lblChartTitle.Text = "Monthly trend (FY " + Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture) + ")";
+            ChartArea area = _explorerChart.ChartAreas[0];
+            area.AxisY.Title = "Amount (Rs)";
+            area.AxisY.Minimum = double.NaN;
+            area.AxisY.Maximum = double.NaN;
+            area.AxisY2.Title = "Margin %";
+            area.AxisY2.Minimum = double.NaN;
+            area.AxisY2.Maximum = double.NaN;
             _explorerChart.Series["Revenue"].Name = "Revenue";
+            _explorerChart.Series[0].LegendText = "Revenue";
+            _explorerChart.Series[1].LegendText = "Direct cost";
+            _explorerChart.Series[2].LegendText = "Margin %";
             _explorerChart.Series["Direct cost"].Enabled = true;
             _explorerChart.Series["Margin %"].Enabled = true;
             foreach (Series series in _explorerChart.Series)
@@ -870,18 +1046,12 @@ namespace HVAC_Pro_Desktop.UI
             foreach (MonthlyProfitLossRow row in trend)
             {
                 string month = row.Month.ToString("MMM yy", CultureInfo.InvariantCulture);
-                string tooltip = month + Environment.NewLine +
-                                 "Revenue: " + IndiaFormatHelper.FormatCurrency(row.Revenue) + Environment.NewLine +
-                                 "Direct cost: " + IndiaFormatHelper.FormatCurrency(row.DirectCosts) + Environment.NewLine +
-                                 "Gross profit: " + IndiaFormatHelper.FormatCurrency(row.GrossProfit) + Environment.NewLine +
-                                 "Margin: " + row.GrossMarginPercent.ToString("N1", CultureInfo.GetCultureInfo("en-IN")) + "%";
-                int revenuePoint = _explorerChart.Series["Revenue"].Points.AddXY(month, row.Revenue);
-                int costPoint = _explorerChart.Series["Direct cost"].Points.AddXY(month, row.DirectCosts);
-                int marginPoint = _explorerChart.Series["Margin %"].Points.AddXY(month, row.GrossMarginPercent);
-                _explorerChart.Series["Revenue"].Points[revenuePoint].ToolTip = tooltip;
-                _explorerChart.Series["Direct cost"].Points[costPoint].ToolTip = tooltip;
-                _explorerChart.Series["Margin %"].Points[marginPoint].ToolTip = tooltip;
+                _explorerChart.Series["Revenue"].Points.AddXY(month, row.Revenue);
+                _explorerChart.Series["Direct cost"].Points.AddXY(month, row.DirectCosts);
+                _explorerChart.Series["Margin %"].Points.AddXY(month, row.GrossMarginPercent);
             }
+            if (_explorerChart.Series["Revenue"].Points.Count > 0)
+                UpdateExplorerChartCalculationPreview(BuildExplorerChartHoverContent(_explorerChart.Series["Revenue"], _explorerChart.Series["Revenue"].Points[0]));
 
             List<JobProfitabilityRow> rows = FilteredProfitabilityRows(false);
             decimal revenue = rows.Sum(r => r.BilledRevenue);
@@ -900,7 +1070,15 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_explorerChart == null || _detailGrid == null) return;
             _lblChartTitle.Text = ExplorerReportLabel(_currentReportIndex) + " overview";
+            ChartArea area = _explorerChart.ChartAreas[0];
+            area.AxisY.Title = "Records";
+            area.AxisY.Minimum = double.NaN;
+            area.AxisY.Maximum = double.NaN;
+            area.AxisY2.Title = string.Empty;
+            area.AxisY2.Minimum = double.NaN;
+            area.AxisY2.Maximum = double.NaN;
             Series records = _explorerChart.Series[0];
+            records.LegendText = "Records";
             records.Points.Clear();
             _explorerChart.Series[1].Enabled = false;
             _explorerChart.Series[2].Enabled = false;
@@ -916,12 +1094,11 @@ namespace HVAC_Pro_Desktop.UI
                     .Take(8);
                 foreach (var group in groups)
                 {
-                    int pointIndex = records.Points.AddXY(ShortText(group.Key, 14), group.Count());
-                    records.Points[pointIndex].ToolTip = ExplorerReportLabel(_currentReportIndex) + Environment.NewLine +
-                                                         group.Key + Environment.NewLine +
-                                                         "Records: " + group.Count().ToString("N0", CultureInfo.GetCultureInfo("en-IN"));
+                    records.Points.AddXY(ShortText(group.Key, 14), group.Count());
                 }
             }
+            if (records.Points.Count > 0)
+                UpdateExplorerChartCalculationPreview(BuildExplorerChartHoverContent(records, records.Points[0]));
 
             int total = _detailGrid.Rows.Count;
             int columns = _detailGrid.Columns.Count;
@@ -932,17 +1109,59 @@ namespace HVAC_Pro_Desktop.UI
             SetExplorerSummary(_lblSummaryOutstanding, "Export", "Ready", Amber);
         }
 
-        private void ExplorerChart_GetToolTipText(object sender, ToolTipEventArgs e)
+        private void BindRelationshipHealthPresentation()
         {
-            if (e == null || e.HitTestResult == null || e.HitTestResult.ChartElementType != ChartElementType.DataPoint)
-                return;
+            if (_explorerChart == null) return;
 
-            Series series = e.HitTestResult.Series;
-            int pointIndex = e.HitTestResult.PointIndex;
-            if (series == null || pointIndex < 0 || pointIndex >= series.Points.Count)
-                return;
+            _lblChartTitle.Text = "Relationship integrity by module";
+            Series coverage = _explorerChart.Series[0];
+            Series integrity = _explorerChart.Series[1];
+            Series context = _explorerChart.Series[2];
+            coverage.Enabled = integrity.Enabled = context.Enabled = true;
+            coverage.LegendText = "Coverage %";
+            integrity.LegendText = "Integrity %";
+            context.LegendText = "Context %";
+            foreach (Series series in _explorerChart.Series)
+                series.Points.Clear();
 
-            e.Text = series.Points[pointIndex].ToolTip;
+            ChartArea area = _explorerChart.ChartAreas[0];
+            area.AxisY.Title = "Coverage / integrity %";
+            area.AxisY.Minimum = 0d;
+            area.AxisY.Maximum = 100d;
+            area.AxisY2.Title = "Context %";
+            area.AxisY2.Minimum = 0d;
+            area.AxisY2.Maximum = 100d;
+
+            foreach (var module in (_relationshipHealth.Rows ?? new List<RelationshipHealthRow>())
+                .GroupBy(row => row.Module ?? "Other")
+                .Select(group => new
+                {
+                    Module = group.Key,
+                    ChildRows = group.Sum(row => row.ChildRows),
+                    Populated = group.Sum(row => row.PopulatedKeys),
+                    Matched = group.Sum(row => row.MatchedKeys),
+                    ContextBase = group.Sum(row => row.PopulatedKeys),
+                    ContextViolations = group.Sum(row => row.ContextViolations)
+                })
+                .OrderBy(group => group.Module)
+                .Take(10))
+            {
+                decimal coveragePercent = module.ChildRows == 0 ? 100m : decimal.Round(module.Populated * 100m / module.ChildRows, 2);
+                decimal integrityPercent = module.Populated == 0 ? 100m : decimal.Round(module.Matched * 100m / module.Populated, 2);
+                decimal contextPercent = module.ContextBase == 0 ? 100m : decimal.Round((module.ContextBase - module.ContextViolations) * 100m / module.ContextBase, 2);
+                string label = ShortText(module.Module, 14);
+                coverage.Points.AddXY(label, coveragePercent);
+                integrity.Points.AddXY(label, integrityPercent);
+                context.Points.AddXY(label, contextPercent);
+            }
+            if (coverage.Points.Count > 0)
+                UpdateExplorerChartCalculationPreview(BuildExplorerChartHoverContent(coverage, coverage.Points[0]));
+
+            SetExplorerSummary(_lblSummaryRevenue, "Auto-connected", _relationshipHealth.ConnectedRelationships.ToString("N0") + " / " + _relationshipHealth.RelationshipsChecked.ToString("N0"), _relationshipHealth.MissingProtections > 0 ? Blue : Green);
+            SetExplorerSummary(_lblSummaryCost, "Needs review", _relationshipHealth.RelationshipsNeedingReview.ToString("N0"), _relationshipHealth.RelationshipsNeedingReview > 0 ? Amber : Green);
+            SetExplorerSummary(_lblSummaryProfit, "Orphan references", _relationshipHealth.OrphanKeys.ToString("N0"), _relationshipHealth.OrphanKeys > 0 ? Red : Green);
+            SetExplorerSummary(_lblSummaryMargin, "Client/site issues", _relationshipHealth.ContextViolations.ToString("N0"), _relationshipHealth.ContextViolations > 0 ? Red : Green);
+            SetExplorerSummary(_lblSummaryOutstanding, "Protection", _relationshipHealth.ProtectionPercent.ToString("N2", CultureInfo.GetCultureInfo("en-IN")) + "%", _relationshipHealth.ProtectionPercent < 100m ? Amber : Green);
         }
 
         private static void SetExplorerSummary(Label value, string caption, string text, Color color)
@@ -1663,8 +1882,13 @@ namespace HVAC_Pro_Desktop.UI
                 try { return _financialSvc.GetMonthlyProfitLoss(fyStart, 12) ?? new List<MonthlyProfitLossRow>(); }
                 catch { return new List<MonthlyProfitLossRow>(); }
             });
+            Task<RelationshipHealthSnapshot> relationshipHealthTask = Task.Run(() =>
+            {
+                try { return _relationshipIntegritySvc.ReconcileAndGetHealthSnapshot() ?? new RelationshipHealthSnapshot(); }
+                catch { return new RelationshipHealthSnapshot(); }
+            });
 
-            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, quotationsTask, techniciansTask, stockTask, advancesTask, serviceTicketsTask, payrollTask, clientNamesTask, profitabilityTask, monthlyProfitLossTask);
+            Task.WaitAll(contractsTask, invoicesTask, purchasesTask, jobsTask, quotationsTask, techniciansTask, stockTask, advancesTask, serviceTicketsTask, payrollTask, clientNamesTask, profitabilityTask, monthlyProfitLossTask, relationshipHealthTask);
 
             _contracts = contractsTask.Result;
             _invoices = invoicesTask.Result;
@@ -1679,6 +1903,7 @@ namespace HVAC_Pro_Desktop.UI
             _clientNames = clientNamesTask.Result;
             _profitabilityRows = profitabilityTask.Result;
             _monthlyProfitLoss = monthlyProfitLossTask.Result;
+            _relationshipHealth = relationshipHealthTask.Result;
         }
 
 
@@ -1847,15 +2072,25 @@ namespace HVAC_Pro_Desktop.UI
         {
             int previousIndex = _currentReportIndex;
             _currentReportIndex = Math.Max(0, Math.Min(ReportNames.Length - 1, index));
+            Control selectedTile = null;
             foreach (Control tile in _reportLibrary.Controls)
             {
                 if (!(tile.Tag is int)) continue;
                 int tileIndex = (int)tile.Tag;
                 bool selected = tileIndex == _currentReportIndex;
+                if (selected) selectedTile = tile;
                 tile.BackColor = selected ? Color.FromArgb(239, 246, 255) : CardBg;
                 tile.ForeColor = selected ? Blue : TextDark;
                 tile.Font = new Font("Segoe UI", 8.7f, selected ? FontStyle.Bold : FontStyle.Regular);
             }
+            if (selectedTile != null)
+                _reportLibrary.ScrollControlIntoView(selectedTile);
+            bool usesOperationalFilters = _currentReportIndex != 10 && _currentReportIndex != 11;
+            if (_cmbFinancialYear != null) _cmbFinancialYear.Enabled = usesOperationalFilters;
+            if (_cmbClient != null) _cmbClient.Enabled = usesOperationalFilters;
+            if (_cmbSite != null) _cmbSite.Enabled = usesOperationalFilters;
+            if (_cmbStatus != null) _cmbStatus.Enabled = usesOperationalFilters;
+            if (_chkIncludeIncompleteCosts != null) _chkIncludeIncompleteCosts.Enabled = _currentReportIndex == 9;
             if (_lblReportTitle != null) _lblReportTitle.Text = ExplorerReportLabel(_currentReportIndex);
             if (_lblReportSubtitle != null) _lblReportSubtitle.Text = ExplorerReportDescription(_currentReportIndex);
             if (previousIndex != _currentReportIndex)
@@ -1883,6 +2118,8 @@ namespace HVAC_Pro_Desktop.UI
                 case 7: BindVendorAdvanceDetail(); break;
                 case 8: BindClientSiteDetail(); break;
                 case 9: BindProfitabilityDetail(); break;
+                case 10: BindProfitabilityImportReview(); break;
+                case 11: BindRelationshipHealthDetail(); break;
                 default: BindProfitabilityImportReview(); break;
             }
             ApplySelectedColumns();
@@ -1890,8 +2127,32 @@ namespace HVAC_Pro_Desktop.UI
             UpdateExplorerGridCount();
             if (_currentReportIndex == 9)
                 BindExplorerPresentation();
+            else if (_currentReportIndex == 11)
+                BindRelationshipHealthPresentation();
             else
                 BindGenericExplorerPresentation();
+        }
+
+        private void BindRelationshipHealthDetail()
+        {
+            AddColumns("Module", "Relationship", "Coverage %", "Integrity %", "Context %", "Orphans", "Context Issues", "Protection", "Connection");
+            foreach (RelationshipHealthRow row in (_relationshipHealth.Rows ?? new List<RelationshipHealthRow>())
+                .OrderByDescending(value => value.OrphanKeys > 0 || value.ContextViolations > 0)
+                .ThenByDescending(value => !value.IsForeignKeyEnforced)
+                .ThenBy(value => value.Module)
+                .ThenBy(value => value.RelationshipName))
+            {
+                AddDetailRow(row,
+                    row.Module,
+                    row.RelationshipName,
+                    row.CoveragePercent.ToString("N2", CultureInfo.GetCultureInfo("en-IN")),
+                    row.IntegrityPercent.ToString("N2", CultureInfo.GetCultureInfo("en-IN")),
+                    row.ContextConsistencyPercent.ToString("N2", CultureInfo.GetCultureInfo("en-IN")),
+                    row.OrphanKeys.ToString("N0", CultureInfo.GetCultureInfo("en-IN")),
+                    row.ContextViolations.ToString("N0", CultureInfo.GetCultureInfo("en-IN")),
+                    row.EnforcementStatus,
+                    row.ConnectionStatus);
+            }
         }
 
         private void BindRevenueDetail()
@@ -2162,7 +2423,7 @@ namespace HVAC_Pro_Desktop.UI
                     int batchId = _financialSvc.StageImport(preview);
                     _lblStatus.Text = "Job P&L import staged as batch #" + batchId.ToString(CultureInfo.InvariantCulture) + ".";
                     _lblStatus.ForeColor = preview.ReviewRowCount > 0 ? Amber : Green;
-                    SelectReport(ReportNames.Length - 1);
+                    SelectReport(10);
                 }
                 catch (Exception ex)
                 {

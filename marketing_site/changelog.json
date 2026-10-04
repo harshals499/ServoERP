@@ -1,15 +1,109 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.478.0",
+  "latestVersion": "1.1.484.0",
   "updatedAt": "2026-10-04",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.478/ServoERP.Desktop-1.1.478-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.478.0.exe",
-    "installer": "ServoERP_Setup_1.1.478.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.484/ServoERP.Desktop-1.1.484-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.484.0.exe",
+    "installer": "ServoERP_Setup_1.1.484.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.484.0",
+      "date": "2026-10-04",
+      "title": "Restore calculation previews and cumulative release history",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Restored exact-value and mathematical calculation previews inside Reports graph cards and hover details, including profitability and Relationship Health formulas.",
+            "Reintegrated and verified the latest 50 tagged ServoERP releases so previously shipped modules, fixes, dependencies, and regression tests are included in one cumulative build.",
+            "Preserved relationship integrity, Site Monitor licensing, site revenue, and All Sites by Region filter behavior and added a release gate against future branch omissions."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.483.0",
+      "date": "2026-10-04",
+      "title": "Restore All Sites by Region filters",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Restored Search, Region, and Work filters inside Site Monitor > All Sites by Region - Live Work.",
+            "Restored work-state shortcuts, live result counts, and one-click Clear while preserving the selected region across refreshes.",
+            "Added CI regression coverage for combined filtering and kept filter controls separate from the detail drill-down."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.482.0",
+      "date": "2026-10-04",
+      "title": "Restore Site Monitor for every activated license",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Restored Site Monitor in the Operations sidebar for every activated ServoERP license, including Trial and Starter AMC.",
+            "Restored compatibility for older protected license snapshots whose cached module list predates Site Monitor.",
+            "Added regression coverage across every license plan and activated state while keeping missing or tampered installations blocked."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.481.0",
+      "date": "2026-10-04",
+      "title": "Complete cross-module relationship catalog",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Expanded automatic relationship enforcement and reporting from 55 core links to 100 established cross-module links covering every operational sidebar area.",
+            "Connected client contacts/activity/team/assets/documents/rate cards, supplier pricing/advances, inventory reservations/usage/pending charges, employee attendance/payroll/loans/tax, contract SLA, master lookup/template/unit, import, and expense-category records.",
+            "Added compound Client/Site ownership protection for client assets and documents.",
+            "Updated live Relationship Health cards and module chart from the expanded catalog; the inspected database reports 94 of 100 protected with six legacy-data relationships needing review.",
+            "Added a smoke-test guard that prevents accidental removal of any registered cross-module relationship."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.480.0",
+      "date": "2026-10-04",
+      "title": "Automatic relationship connections and live protection cards",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Made Relationship Health automatically retry safe SQL relationship enforcement whenever the report is opened or run, so cleaned relationships become protected without restarting ServoERP.",
+            "Added composite Client/Site ownership detection so the report distinguishes direct foreign keys from fully connected customer ownership.",
+            "Updated the five Relationship Health cards to show auto-connected relationships, relationships needing review, orphan references, Client/Site issues, and total protection percentage.",
+            "Added connection status per relationship and automated calculation coverage for the new protection cards."
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.479.0",
+      "date": "2026-10-04",
+      "title": "Relationship integrity and data quality",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Added a Relationship Health report under Reports > Data Quality with mathematical coverage, reference-integrity, client/site-consistency, orphan, and foreign-key-protection measures across 55 operational relationships.",
+            "Added portable, guarded SQL Server startup migration for 34 missing direct relationships and seven client/site compound relationships; clean relationships are enforced while conflicts are preserved and recorded in `RelationshipIntegrityIssues` for review.",
+            "Added blocking save-time validation for Client, Site, Contract, Invoice, Quotation, Job, Technician, Vendor, and Stock relationships across Jobs, AMC, Invoices, Quotations, Purchases, Sites, Expenses, and Service Desk.",
+            "Fixed the demo-data loader so contracts, quotations, invoices, jobs, incidents, and payments use sites/clients from the same owner rather than a shifted flat-site index."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.478.0",
       "date": "2026-10-04",

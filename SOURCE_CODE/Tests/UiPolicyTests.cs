@@ -69,6 +69,19 @@ namespace HVAC_Pro_Desktop.Tests
                     throw new InvalidOperationException("Older " + plan + " license snapshots must receive Site Monitor after updating.");
             }
 
+            foreach (LicenseStatus validStatus in new[] { LicenseStatus.Active, LicenseStatus.Warning, LicenseStatus.Grace, LicenseStatus.Expired, LicenseStatus.Suspended, LicenseStatus.Frozen })
+            {
+                var activated = new LicenseSnapshot
+                {
+                    LicenseKey = "STATUS-" + validStatus,
+                    PlanType = LicensePlanType.Basic,
+                    Status = validStatus,
+                    EnabledModules = new List<string> { "Dashboard" }
+                };
+                if (!LicenseFeatureCatalog.IsModuleEnabled(activated, "GeoIntelligence"))
+                    throw new InvalidOperationException("Site Monitor must remain visible for an activated license in " + validStatus + " status.");
+            }
+
             var missingLicense = new LicenseSnapshot
             {
                 Status = LicenseStatus.Missing,

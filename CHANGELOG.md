@@ -1,5 +1,47 @@
 # Changelog
 
+## 1.1.484.0 - 2026-10-04
+
+- Restored the exact-value and mathematical-calculation preview on Reports graphs as both a hover tooltip and a persistent in-card strip, including profitability and Relationship Health formulas.
+- Reintegrated the cumulative public release line and verified that every one of the latest 50 version tags is an ancestor of this build, restoring previously omitted shipped components such as chart hover support, Site Monitor revenue attribution, automatic updates, document previews, duplicate cleanup, Porter delivery, invoice receivables, application theme/icon support, and their regression tests.
+- Preserved all 1.1.479-1.1.483 relationship-integrity, Site Monitor licensing, and All Sites by Region filter work on top of the cumulative release history.
+- Added a release-manager gate that blocks future packaging when any of the latest 50 tagged releases is absent from the current branch.
+
+## 1.1.483.0 - 2026-10-04
+
+- Restored the Search, Region, and Work filters inside **Site Monitor > All Sites by Region - Live Work**.
+- Restored Active work, No active work, Critical / SLA risk, and Unassigned technician shortcuts, live result counts, and one-click Clear.
+- Preserved the selected region across data refreshes and kept filter interactions separate from the table drill-down action.
+- Added CI regression coverage for combined search, region, work-state, result-count, and clear behavior.
+
+## 1.1.482.0 - 2026-10-04
+
+- Restored the established rule that Site Monitor is available on every activated ServoERP license, including Trial and Starter AMC.
+- Restored upgrade compatibility for older cached license snapshots whose module list predates the Site Monitor entitlement.
+- Added regression coverage across every license plan and activated license state while keeping missing or tampered installations blocked.
+
+## 1.1.481.0 - 2026-10-04
+
+- Expanded automatic relationship enforcement and reporting from 55 core links to 100 established cross-module links covering every operational sidebar area.
+- Connected client contacts/activity/team/assets/documents/rate cards, supplier pricing/advances, inventory reservations/usage/pending charges, employee attendance/payroll/loans/tax, contract SLA, master lookup/template/unit, import, and expense-category records.
+- Added compound Client/Site ownership protection for client assets and documents.
+- Updated live Relationship Health cards and module chart from the expanded catalog; the inspected database reports 94 of 100 protected with six legacy-data relationships needing review.
+- Added a smoke-test guard that prevents accidental removal of any registered cross-module relationship.
+
+## 1.1.480.0 - 2026-10-04
+
+- Made Relationship Health automatically retry safe SQL relationship enforcement whenever the report is opened or run, so cleaned relationships become protected without restarting ServoERP.
+- Added composite Client/Site ownership detection so the report distinguishes direct foreign keys from fully connected customer ownership.
+- Updated the five Relationship Health cards to show auto-connected relationships, relationships needing review, orphan references, Client/Site issues, and total protection percentage.
+- Added connection status per relationship and automated calculation coverage for the new protection cards.
+
+## 1.1.479.0 - 2026-10-04
+
+- Added a Relationship Health report under Reports > Data Quality with mathematical coverage, reference-integrity, client/site-consistency, orphan, and foreign-key-protection measures across 55 operational relationships.
+- Added portable, guarded SQL Server startup migration for 34 missing direct relationships and seven client/site compound relationships; clean relationships are enforced while conflicts are preserved and recorded in `RelationshipIntegrityIssues` for review.
+- Added blocking save-time validation for Client, Site, Contract, Invoice, Quotation, Job, Technician, Vendor, and Stock relationships across Jobs, AMC, Invoices, Quotations, Purchases, Sites, Expenses, and Service Desk.
+- Fixed the demo-data loader so contracts, quotations, invoices, jobs, incidents, and payments use sites/clients from the same owner rather than a shifted flat-site index.
+
 ## 1.1.478.0 - 2026-10-04
 
 - Made Site Monitor available with every activated ServoERP license, including Trial and Starter AMC.

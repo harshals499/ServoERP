@@ -554,6 +554,8 @@ namespace HVAC_Pro_Desktop.UI
             searchHost.Controls.Add(_txtSiteRegionSearch, 1, 0);
 
             _cmbSiteRegion = MakeSiteFilterCombo("SiteRegionFilter");
+            _cmbSiteRegion.Items.Add("All regions");
+            _cmbSiteRegion.SelectedIndex = 0;
             _cmbSiteRegion.Margin = new Padding(0, 0, 8, 0);
             _cmbSiteRegion.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
 

@@ -5,6 +5,8 @@ param(
     [string]$AppDir,
     [string]$OutputDir,
     [string]$ReadyControlName,
+    [string]$PrepareMethod,
+    [int]$PrepareDelayMilliseconds = 0,
     [int]$Width = 1366,
     [int]$Height = 820,
     [int]$TimeoutSeconds = 30,
@@ -178,6 +180,17 @@ try {
     if (-not $script:servoVisualSmokeShown) { throw "Host form did not reach Shown within $TimeoutSeconds seconds." }
 
     Wait-ForUiIdle -Milliseconds 750
+    if (-not [string]::IsNullOrWhiteSpace($PrepareMethod)) {
+        if ($PrepareDelayMilliseconds -gt 0) {
+            Wait-ForUiIdle -Milliseconds $PrepareDelayMilliseconds
+        }
+        $method = $control.GetType().GetMethod($PrepareMethod, [Reflection.BindingFlags]'Instance,Public')
+        if ($null -eq $method -or $method.GetParameters().Count -ne 0) {
+            throw "Public parameterless preparation method '$PrepareMethod' was not found on $ControlType."
+        }
+        $method.Invoke($control, @()) | Out-Null
+        Wait-ForUiIdle -Milliseconds 750
+    }
     Wait-ForReadyControl -RootControl $form -Name $ReadyControlName -Timeout $TimeoutSeconds
     Wait-ForUiIdle -Milliseconds 500
 

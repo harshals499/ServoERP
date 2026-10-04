@@ -102,8 +102,6 @@ namespace HVAC_Pro_Desktop.Models
         public string JobType { get; set; }
         public string PipelineStatus { get; set; }
         public string Priority { get; set; }
-        public int ClientId { get; set; }
-        public int SiteId { get; set; }
         public string ClientName { get; set; }
         public string SiteName { get; set; }
         public string TechnicianName { get; set; }

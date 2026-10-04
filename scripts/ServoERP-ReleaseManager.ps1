@@ -277,6 +277,40 @@ function Build-ReleaseReportPath {
     return Join-Path $dir "release-report.json"
 }
 
+function Assert-CumulativeReleaseHistory {
+    param([int]$ReleaseCount = 50)
+
+    Push-Location $repoRoot
+    try {
+        & git rev-parse --is-inside-work-tree *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cumulative release audit requires a Git working tree."
+        }
+
+        $tags = @(& git tag --list "v*" --sort=-v:refname | Select-Object -First $ReleaseCount)
+        if ($tags.Count -eq 0) {
+            throw "Cumulative release audit found no version tags."
+        }
+
+        $missing = New-Object System.Collections.Generic.List[string]
+        foreach ($tag in $tags) {
+            & git merge-base --is-ancestor $tag HEAD
+            if ($LASTEXITCODE -ne 0) {
+                $missing.Add($tag)
+            }
+        }
+
+        if ($missing.Count -gt 0) {
+            throw "Release is missing shipped history from: $($missing -join ', '). Merge the cumulative public release line before packaging."
+        }
+
+        return $tags.Count
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 $versionInfo = Resolve-ReleaseVersion -RequestedVersion $Version -RequestedPatchIncrement $PatchIncrement
 if ($Publish) {
     $documentedChanges = @(Get-ChangesFromMarkdownChangelog -Path $changelogFile -FullVersion $versionInfo.FullVersion)
@@ -306,6 +340,11 @@ try {
         Remove-PathIfExists -Path $publishDir
         Remove-PathIfExists -Path $velopackDir
         Remove-StaleReleaseFiles -Root $repoRoot
+    }
+
+    Invoke-LoggedStage -Report $report -Name "cumulative-release-audit" -Action {
+        $auditedReleaseCount = Assert-CumulativeReleaseHistory -ReleaseCount 50
+        $report.artifacts.cumulativeReleaseTagsVerified = $auditedReleaseCount
     }
 
     Invoke-LoggedStage -Report $report -Name "set-version" -Action {

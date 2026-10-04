@@ -7,6 +7,7 @@ using System.Linq;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Models.Validation;
+using HVAC_Pro_Desktop.Services.Validation;
 
 namespace HVAC_Pro_Desktop.Services
 {
@@ -22,6 +23,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly SettingsService _settingsSvc = new SettingsService();
         private readonly InventoryRepository _inventoryRepo = new InventoryRepository();
         private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
 
         public List<TenderBid> GetAll()
         {
@@ -704,6 +706,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             ValidationResult result = _businessRules.ValidateQuotation(bid);
             result.Merge(_calculationVerifier.VerifyQuotation(bid));
+            AddRelationshipValidation(bid, result);
             if (bid != null && !string.IsNullOrWhiteSpace(bid.QuotationNumber))
             {
                 bool duplicateNumber = GetAll().Any(existing =>
@@ -713,6 +716,22 @@ namespace HVAC_Pro_Desktop.Services
                     result.Add(ValidationSeverity.Error, "Quotations", "QuotationNumber", "Another quotation already uses this quotation number.", "Open the existing quotation or generate a new quotation number.");
             }
             _validation.EnsureValid(result, "Quotation validation failed");
+        }
+
+        private void AddRelationshipValidation(TenderBid bid, ValidationResult result)
+        {
+            if (bid == null || result == null)
+                return;
+            ValidationResult relationships = _relationshipIntegrity.CheckClientSite(bid.ClientID, bid.SiteID, "Quotations");
+            relationships.Merge(_relationshipIntegrity.CheckVendor(bid.RecommendedVendorID, "Quotations", "RecommendedVendorID"));
+            foreach (TenderBidLineItem line in bid.LineItems ?? new List<TenderBidLineItem>())
+            {
+                relationships.Merge(_relationshipIntegrity.CheckStockItem(line.InventoryItemId, "Quotations", "InventoryItemId"));
+                relationships.Merge(_relationshipIntegrity.CheckVendor(line.VendorID, "Quotations", "VendorID"));
+                relationships.Merge(_relationshipIntegrity.CheckVendor(line.BestSupplierId, "Quotations", "BestSupplierId"));
+            }
+            RelationshipIntegrityService.EnsureValid(relationships, "This quotation cannot be saved because one or more linked records do not agree.");
+            result.Merge(relationships);
         }
     }
 }

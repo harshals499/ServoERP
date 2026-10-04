@@ -843,6 +843,7 @@ body{background:#fff;}
         {
             ValidationResult result = _businessRules.ValidateQuotation(bid);
             result.Merge(_calculationVerifier.VerifyQuotation(bid));
+            AddRelationshipValidation(bid, result);
             _validation.EnsureValid(result, "Quotation validation failed");
         }
 

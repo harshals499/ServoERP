@@ -198,8 +198,6 @@ namespace HVAC_Pro_Desktop.DAL
                                 ClientId = GetInt(r, "ClientID"),
                                 SiteId = GetInt(r, "SiteID"),
                                 JobNumber = GetString(r, "JobNumber"),
-                                ClientId = GetInt(r, "ClientID"),
-                                SiteId = GetInt(r, "SiteID"),
                                 JobTitle = GetString(r, "JobTitle"),
                                 JobType = GetString(r, "JobType"),
                                 PipelineStatus = GetString(r, "PipelineStatus"),

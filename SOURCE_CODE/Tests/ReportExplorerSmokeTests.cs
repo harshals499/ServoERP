@@ -27,11 +27,20 @@ namespace HVAC_Pro_Desktop.Tests
 
                 Ensure(grid.Rows.Count == 5, "The profitability preview did not bind all sample rows.");
                 Ensure(chart.Series["Revenue"].Points.Count == 12, "The monthly profitability chart did not bind the financial-year trend.");
-                Ensure(chart.Series.Cast<Series>().Where(series => series.Enabled).SelectMany(series => series.Points).All(point => !string.IsNullOrWhiteSpace(point.ToolTip)), "The profitability chart does not expose hover details for every visible point.");
+                string profitabilityHover = ChartHoverService.HoverTextForTest(chart, chart.Series["Revenue"], chart.Series["Revenue"].Points[0]);
+                Ensure(!string.IsNullOrWhiteSpace(profitabilityHover) && profitabilityHover.Contains("Exact value:") && profitabilityHover.Contains("Calculation:"), "The profitability graph no longer previews its exact value and calculation on hover.");
+                SetField(report, "_currentReportIndex", 11);
+                var relationshipPoint = new DataPoint(0d, 94d) { AxisLabel = "Invoices" };
+                string relationshipHover = ChartHoverService.HoverTextForTest(chart, chart.Series[0], relationshipPoint);
+                Ensure(!string.IsNullOrWhiteSpace(relationshipHover) && relationshipHover.Contains("94%") && relationshipHover.Contains("populated relationship keys / child rows x 100"), "The Relationship Health graph no longer previews its mathematical calculation on hover.");
+                Invoke(report, "UpdateExplorerChartCalculationPreview", InvokeResult<object>(report, "BuildExplorerChartHoverContent", chart.Series[0], relationshipPoint));
+                Label calculationPreview = GetField<Label>(report, "_lblChartCalculationPreview");
+                Ensure(calculationPreview.Text.Contains("Exact value: 94%") && calculationPreview.Text.Contains("Calculation: populated relationship keys / child rows x 100"), "The graph card no longer keeps the calculation preview visible in the report surface.");
+                SetField(report, "_currentReportIndex", 9);
                 Ensure(library.Controls.Count >= 16, "The categorized report library is incomplete.");
-                yield return "Reports explorer binds the report library, financial summary, trend chart, hover details, and preview table.";
+                yield return "Reports explorer binds the report library, financial summary, trend chart, calculation hover preview, and preview table.";
 
-                for (int reportIndex = 0; reportIndex < 11; reportIndex++)
+                for (int reportIndex = 0; reportIndex < 12; reportIndex++)
                 {
                     Invoke(report, "SelectReport", reportIndex);
                     Ensure(grid.Columns.Count > 0, "Report library item " + reportIndex + " did not bind a report schema.");

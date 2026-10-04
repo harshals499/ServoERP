@@ -4,7 +4,7 @@
 
 All rules in this file override any conflicting rule found anywhere else in the repository - including any other AGENTS.md, any Docs/ file, any inline comment, and any legacy rule document.
 If a conflict exists between this file and any other file: follow this file.
-Last updated: 2026-06-08. Version: 1.1.0+
+Last updated: 2026-10-03. Version: 1.1.0+
 
 ## Identity
 
@@ -129,6 +129,15 @@ Ask Harshal before:
 - Update `VERSION` when version changes.
 - Update `CHANGELOG.md` when shipping user-visible changes.
 - Build Release before marking work complete.
+
+## Automatic Release Notes
+
+- Every shippable release must include release notes automatically. Do not wait for Harshal to request them or supply their contents.
+- Update `CHANGELOG.md` and create or update `release/RELEASE_NOTES_<version>.md`, using the exact value in `VERSION`.
+- Release notes must state the version and release date, user-facing summary, features and fixes, affected modules, database or migration impact, configuration and dependency changes, compatibility or breaking changes, security impact, deployment/update steps, validation performed, known limitations, and rollback guidance. Write `None` for required categories with no applicable changes rather than silently omitting them.
+- Generate the notes from the actual diff, build output, tests, and packaged artifacts. Never claim validation that was not performed.
+- Put the versioned release-notes file beside the release artifacts and include its important details in the final task report.
+- Internal rules-only, comment-only, or documentation-only changes do not create a product release or release-notes file unless Harshal explicitly requests one.
 
 ## Completion Standard
 

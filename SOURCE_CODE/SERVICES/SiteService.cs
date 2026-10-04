@@ -15,6 +15,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly SiteRepository _repo = new SiteRepository();
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly SyncMetadataService _syncMetadata = new SyncMetadataService();
         private readonly SyncOutboxService _syncOutbox = new SyncOutboxService();
@@ -170,6 +171,12 @@ namespace HVAC_Pro_Desktop.Services
         private void ValidateSiteForSave(ClientSite site)
         {
             ValidationResult result = _businessRules.ValidateSite(site);
+            if (site != null)
+            {
+                ValidationResult relationships = _relationshipIntegrity.CheckEmployee(site.AssignedTechnicianID, "Sites", "AssignedTechnicianID");
+                RelationshipIntegrityService.EnsureValid(relationships, "This site cannot be saved because the assigned technician is invalid.");
+                result.Merge(relationships);
+            }
             _validation.EnsureValid(result, "Site validation failed");
         }
     }

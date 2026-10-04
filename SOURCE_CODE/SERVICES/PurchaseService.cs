@@ -29,6 +29,7 @@ namespace HVAC_Pro_Desktop.Services
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly CalculationVerificationService _calculationVerifier = new CalculationVerificationService();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
         private readonly UnitMeasurementService _unitMeasurements = new UnitMeasurementService();
 
@@ -880,7 +881,21 @@ namespace HVAC_Pro_Desktop.Services
             ValidationResult result = _businessRules.ValidatePurchaseOrder(po);
             result.Merge(_calculationVerifier.VerifyPurchaseOrder(po));
             if (po != null)
+            {
                 AddSupplierRoleValidation(po, result);
+                ValidationResult relationships = _relationshipIntegrity.CheckClientSite(po.ClientID, po.SiteID, "Purchases");
+                relationships.Merge(_relationshipIntegrity.CheckEmployee(po.AssignedTechnicianId, "Purchases", "AssignedTechnicianId"));
+                relationships.Merge(_relationshipIntegrity.CheckContractContext(po.ClientID, po.SiteID, po.RelatedContractID, "Purchases"));
+                relationships.Merge(_relationshipIntegrity.CheckQuotationContext(po.ClientID, po.SiteID, po.RecommendedByBidID, "Purchases"));
+                foreach (PurchaseLineItem line in po.LineItems ?? new List<PurchaseLineItem>())
+                {
+                    relationships.Merge(_relationshipIntegrity.CheckStockItem(line.InventoryItemId, "Purchases", "InventoryItemId"));
+                    relationships.Merge(_relationshipIntegrity.CheckVendor(line.VendorID, "Purchases", "VendorID"));
+                    relationships.Merge(_relationshipIntegrity.CheckJobContext(po.ClientID, po.SiteID, line.LinkedWorkOrderId, "Purchases"));
+                }
+                RelationshipIntegrityService.EnsureValid(relationships, "This purchase order cannot be saved because one or more linked records do not agree.");
+                result.Merge(relationships);
+            }
             if (po != null && !string.IsNullOrWhiteSpace(po.PONumber))
             {
                 bool duplicateNumber = GetAllFresh().Any(existing =>

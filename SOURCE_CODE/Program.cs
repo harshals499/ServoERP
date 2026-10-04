@@ -169,6 +169,9 @@ namespace HVAC_Pro_Desktop
                     lines.Add("PASS " + result);
                 foreach (string result in ReportExplorerSmokeTests.RunAll())
                     lines.Add("PASS " + result);
+                foreach (string result in RelationshipIntegritySmokeTests.RunAll())
+                    lines.Add("PASS " + result);
+                lines.Add("PASS " + SiteMonitorRegionFilterSmokeTests.RunAll());
             }
             catch (Exception ex)
             {

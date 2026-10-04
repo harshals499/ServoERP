@@ -596,6 +596,15 @@ namespace HVAC_Pro_Desktop.DAL
         public SqlConnection GetConnection() => DatabaseConnectionFactory.CreateConnection(_connectionString);
         public string ResolvedServer => _resolvedServer;
 
+        public void EnsureRelationshipIntegrity()
+        {
+            using (SqlConnection conn = GetConnection())
+            {
+                DatabaseConnectionFactory.Open(conn, "DatabaseManager.EnsureRelationshipIntegrity");
+                EnsureRelationshipIntegritySchema(conn);
+            }
+        }
+
         public void InitializeDatabase()
         {
             if (string.IsNullOrWhiteSpace(_connectionString))
@@ -2532,6 +2541,7 @@ END;");
                 EnsureLicenseSchema(conn);
                 EnsureTallyIntegrationSchema(conn);
                 EnsureAuditMetadataColumns(conn);
+                EnsureRelationshipIntegritySchema(conn);
                 SeedPayrollReferenceData(conn);
                 SeedSecurityData(conn);
                 ApplyPurchaseOrderFreshStartReset(conn);
@@ -4738,6 +4748,288 @@ THEN 1 ELSE 0 END";
             {
                 cmd.CommandTimeout = 60;
                 cmd.ExecuteNonQuery();
+            }
+        }
+
+        private void EnsureRelationshipIntegritySchema(SqlConnection conn)
+        {
+            // DDL and metadata inspection intentionally use SqlCommand here. This startup migration
+            // must work before repositories are available and must never concatenate user input.
+            Exec(conn, @"IF OBJECT_ID('dbo.RelationshipIntegrityIssues','U') IS NULL
+            CREATE TABLE dbo.RelationshipIntegrityIssues (
+                IssueId INT IDENTITY(1,1) PRIMARY KEY,
+                RuleKey NVARCHAR(160) NOT NULL,
+                ChildTable NVARCHAR(128) NOT NULL,
+                ChildColumn NVARCHAR(128) NULL,
+                ParentTable NVARCHAR(128) NULL,
+                ViolationCount INT NOT NULL DEFAULT 0,
+                Status NVARCHAR(30) NOT NULL,
+                Detail NVARCHAR(1000) NULL,
+                CheckedUtc DATETIME NOT NULL DEFAULT GETUTCDATE(),
+                CONSTRAINT UQ_RelationshipIntegrityIssues_RuleKey UNIQUE(RuleKey)
+            );");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientSites_AssignedEmployee", "ClientSites", "AssignedTechnicianID", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Jobs_LinkedContract", "Jobs", "LinkedContractId", "AMCContracts", "ContractID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Jobs_Invoice", "Jobs", "InvoiceId", "Invoices", "InvoiceID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_AMCVisits_Job", "AMCVisits", "JobID", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Invoices_Client", "Invoices", "ClientID", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Invoices_Site", "Invoices", "SiteID", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Invoices_Quotation", "Invoices", "QuotationBidID", "Quotations", "BidID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_InvoiceLines_Stock", "InvoiceLineItems", "StockItemID", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_InvoiceLines_Job", "InvoiceLineItems", "JobID", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Quotations_Client", "Quotations", "ClientID", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Quotations_Site", "Quotations", "SiteID", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Quotations_Vendor", "Quotations", "RecommendedVendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Quotations_Template", "Quotations", "TemplateId", "QuoteTemplates", "TemplateId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_QuoteLines_Stock", "QuotationLineItems", "InventoryItemId", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_QuoteLines_Vendor", "QuotationLineItems", "VendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_QuoteLines_BestVendor", "QuotationLineItems", "BestSupplierId", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseOrders_Client", "PurchaseOrders", "ClientID", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseOrders_Site", "PurchaseOrders", "SiteID", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseOrders_Contract", "PurchaseOrders", "RelatedContractID", "AMCContracts", "ContractID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseOrders_Quotation", "PurchaseOrders", "RecommendedByBidID", "Quotations", "BidID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseOrders_Employee", "PurchaseOrders", "AssignedTechnicianId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseLines_Job", "PurchaseLineItems", "LinkedWorkOrderId", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PurchaseLines_Vendor", "PurchaseLineItems", "VendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_JobParts_Stock", "JobPartsUsed", "InventoryItemId", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_JobParts_Vendor", "JobPartsUsed", "VendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_JobParts_PO", "JobPartsUsed", "LinkedPoId", "PurchaseOrders", "POID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceDesk_Client", "ServiceDeskIncidents", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceDesk_Site", "ServiceDeskIncidents", "SiteId", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceDesk_Employee", "ServiceDeskIncidents", "AssignedEmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceDesk_Job", "ServiceDeskIncidents", "LinkedJobId", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Expenses_Client", "ExpenseEntries", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Expenses_Site", "ExpenseEntries", "SiteId", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ProfitImport_Invoice", "ProfitabilityImportRows", "MatchedInvoiceId", "Invoices", "InvoiceID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ProfitImport_Job", "ProfitabilityImportRows", "MatchedJobId", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Expenses_Category", "ExpenseEntries", "ExpenseCategoryId", "ExpenseCategories", "ExpenseCategoryId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ProfitImport_Batch", "ProfitabilityImportRows", "ImportBatchId", "ProfitabilityImportBatches", "ImportBatchId");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientContacts_Client", "ClientContacts", "ClientID", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientActivity_Client", "ClientActivity", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientTeam_Client", "ClientTeam", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientAssets_Client", "ClientAssets", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientAssets_Site", "ClientAssets", "SiteId", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientAssets_Contract", "ClientAssets", "ContractId", "AMCContracts", "ContractID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientDocuments_Client", "ClientDocuments", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientDocuments_Site", "ClientDocuments", "SiteId", "ClientSites", "SiteID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientDocuments_Asset", "ClientDocuments", "AssetId", "ClientAssets", "AssetId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientDocuments_Contract", "ClientDocuments", "ContractId", "AMCContracts", "ContractID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceRateCards_Client", "ServiceRateCards", "ClientId", "B2BClients", "ClientID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ClientPriceMemory_Client", "ClientPriceMemory", "ClientId", "B2BClients", "ClientID");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_StockItems_Vendor", "StockItems", "VendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_SupplierPrices_Vendor", "SupplierItemPrices", "VendorID", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_SupplierPrices_Stock", "SupplierItemPrices", "ItemID", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_VendorAdvances_Vendor", "VendorAdvancePayments", "VendorId", "Vendors", "VendorID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_VendorAdvances_PO", "VendorAdvancePayments", "POID", "PurchaseOrders", "POID");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_Reservations_Invoice", "InvoiceInventoryReservations", "InvoiceID", "Invoices", "InvoiceID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_Reservations_Stock", "InvoiceInventoryReservations", "StockItemID", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_UsageLog_Invoice", "InventoryUsageLog", "InvoiceID", "Invoices", "InvoiceID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_UsageLog_Stock", "InventoryUsageLog", "StockItemID", "StockItems", "ItemID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PendingCharges_Job", "PendingCharges", "WorkOrderId", "Jobs", "JobID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PendingCharges_PO", "PendingCharges", "SourcePoId", "PurchaseOrders", "POID");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_EmployeeSkills_Employee", "EmployeeSkills", "EmployeeID", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_EmployeeDocuments_Employee", "EmployeeDocuments", "EmployeeID", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_SalaryStructure_Employee", "SalaryStructure", "EmployeeID", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_SalaryStructures_Employee", "SalaryStructures", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PayrollEntries_Employee", "PayrollEntries", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_PayrollEntries_Run", "PayrollEntries", "PayrollRunId", "PayrollRuns", "PayrollRunId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_EmployeeLoans_Employee", "EmployeeLoans", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_SalaryAdvances_Employee", "SalaryAdvances", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_TDSCalculations_Employee", "TDSCalculations", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_StatutoryPayments_Run", "StatutoryPayments", "PayrollRunId", "PayrollRuns", "PayrollRunId");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_AttendanceRecords_Employee", "AttendanceRecords", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_EmployeeAttendance_Employee", "EmployeeAttendance", "EmployeeID", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_LeaveBalances_Employee", "LeaveBalances", "EmployeeId", "Employees", "EmployeeID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_LeaveBalances_Type", "LeaveBalances", "LeaveTypeId", "LeaveTypes", "LeaveTypeId");
+
+            EnsureRelationshipForeignKey(conn, "FK_RI_SLALogs_Contract", "SLALogs", "ContractID", "AMCContracts", "ContractID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_ServiceNotes_Incident", "ServiceDeskNotes", "IncidentId", "ServiceDeskIncidents", "IncidentId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_QuoteTemplateItems_Template", "QuoteTemplateItems", "TemplateId", "QuoteTemplates", "TemplateId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_MasterLookupValues_Category", "MasterLookupValues", "CategoryId", "MasterLookupCategories", "CategoryId");
+            EnsureRelationshipForeignKey(conn, "FK_RI_UnitAliases_Unit", "UnitMeasurementAliases", "UnitMeasurementId", "UnitMeasurements", "UnitMeasurementID");
+            EnsureRelationshipForeignKey(conn, "FK_RI_DataImportErrors_Batch", "DataImportErrors", "BatchId", "DataImportBatches", "BatchId");
+
+            EnsureTrustedRelationshipForeignKey(conn, "FK_AMCContracts_Clients", "AMCContracts");
+            EnsureTrustedRelationshipForeignKey(conn, "FK_AMCEquipment_AMC", "AMCEquipment");
+            EnsureTrustedRelationshipForeignKey(conn, "FK_AMCVisits_AMC", "AMCVisits");
+
+            EnsureClientSiteRelationshipKey(conn);
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_Jobs_ClientSite", "Jobs", "ClientID", "SiteID");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_AMCContracts_ClientSite", "AMCContracts", "ClientID", "SiteID");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_Invoices_ClientSite", "Invoices", "ClientID", "SiteID");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_Quotations_ClientSite", "Quotations", "ClientID", "SiteID");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_PurchaseOrders_ClientSite", "PurchaseOrders", "ClientID", "SiteID");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_ServiceDesk_ClientSite", "ServiceDeskIncidents", "ClientId", "SiteId");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_Expenses_ClientSite", "ExpenseEntries", "ClientId", "SiteId");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_ClientAssets_ClientSite", "ClientAssets", "ClientId", "SiteId");
+            EnsureClientSiteCompositeForeignKey(conn, "FK_RI_ClientDocuments_ClientSite", "ClientDocuments", "ClientId", "SiteId");
+        }
+
+        private void EnsureRelationshipForeignKey(SqlConnection conn, string constraintName, string childTable, string childColumn, string parentTable, string parentColumn)
+        {
+            if (!RelationshipObjectsExist(conn, childTable, childColumn, parentTable, parentColumn))
+                return;
+
+            string child = QuoteRelationshipIdentifier(childTable);
+            string childCol = QuoteRelationshipIdentifier(childColumn);
+            string parent = QuoteRelationshipIdentifier(parentTable);
+            string parentCol = QuoteRelationshipIdentifier(parentColumn);
+            string constraint = QuoteRelationshipIdentifier(constraintName);
+            string ruleKey = childTable + "." + childColumn + "->" + parentTable + "." + parentColumn;
+
+            int orphanCount;
+            using (SqlCommand count = new SqlCommand("SELECT COUNT(*) FROM dbo." + child + " c LEFT JOIN dbo." + parent + " p ON p." + parentCol + "=c." + childCol + " WHERE c." + childCol + " IS NOT NULL AND p." + parentCol + " IS NULL", conn))
+                orphanCount = Convert.ToInt32(count.ExecuteScalar());
+
+            if (orphanCount > 0)
+            {
+                RecordRelationshipIssue(conn, ruleKey, childTable, childColumn, parentTable, orphanCount, "BlockedByData", "Foreign key was not added because existing orphan references must be reviewed.");
+                return;
+            }
+
+            try
+            {
+                using (SqlCommand exists = new SqlCommand(@"
+SELECT COUNT(*) FROM sys.foreign_key_columns fkc
+WHERE fkc.parent_object_id=OBJECT_ID(@child)
+  AND COL_NAME(fkc.parent_object_id,fkc.parent_column_id)=@childColumn
+  AND fkc.referenced_object_id=OBJECT_ID(@parent)
+  AND COL_NAME(fkc.referenced_object_id,fkc.referenced_column_id)=@parentColumn;", conn))
+                {
+                    exists.Parameters.AddWithValue("@child", "dbo." + childTable);
+                    exists.Parameters.AddWithValue("@childColumn", childColumn);
+                    exists.Parameters.AddWithValue("@parent", "dbo." + parentTable);
+                    exists.Parameters.AddWithValue("@parentColumn", parentColumn);
+                    if (Convert.ToInt32(exists.ExecuteScalar()) == 0)
+                        Exec(conn, "ALTER TABLE dbo." + child + " WITH CHECK ADD CONSTRAINT " + constraint + " FOREIGN KEY (" + childCol + ") REFERENCES dbo." + parent + "(" + parentCol + ");");
+                }
+                RecordRelationshipIssue(conn, ruleKey, childTable, childColumn, parentTable, 0, "Enforced", "Foreign key is enabled for new and existing records.");
+            }
+            catch (SqlException ex)
+            {
+                RecordRelationshipIssue(conn, ruleKey, childTable, childColumn, parentTable, 0, "MigrationReview", "Constraint could not be added: " + ex.Message);
+                AppLogger.LogError("Adding relationship constraint " + constraintName, ex);
+            }
+        }
+
+        private void EnsureClientSiteRelationshipKey(SqlConnection conn)
+        {
+            if (!RelationshipObjectsExist(conn, "ClientSites", "ClientID", "ClientSites", "SiteID"))
+                return;
+            Exec(conn, @"IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id=OBJECT_ID('dbo.ClientSites') AND name='UX_RI_ClientSites_ClientID_SiteID')
+                CREATE UNIQUE INDEX UX_RI_ClientSites_ClientID_SiteID ON dbo.ClientSites(ClientID,SiteID);");
+        }
+
+        private void EnsureTrustedRelationshipForeignKey(SqlConnection conn, string constraintName, string childTable)
+        {
+            string constraint = QuoteRelationshipIdentifier(constraintName);
+            string child = QuoteRelationshipIdentifier(childTable);
+            bool exists;
+            using (SqlCommand command = new SqlCommand("SELECT COUNT(*) FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(@child) AND name=@name", conn))
+            {
+                command.Parameters.AddWithValue("@child", "dbo." + childTable);
+                command.Parameters.AddWithValue("@name", constraintName);
+                exists = Convert.ToInt32(command.ExecuteScalar()) > 0;
+            }
+            if (!exists)
+                return;
+
+            try
+            {
+                Exec(conn, "ALTER TABLE dbo." + child + " WITH CHECK CHECK CONSTRAINT " + constraint + ";");
+                RecordRelationshipIssue(conn, "Trust:" + constraintName, childTable, null, null, 0, "Enforced", "Existing foreign key was checked against current data and is trusted.");
+            }
+            catch (SqlException ex)
+            {
+                RecordRelationshipIssue(conn, "Trust:" + constraintName, childTable, null, null, 0, "MigrationReview", "Existing foreign key could not be trusted: " + ex.Message);
+                AppLogger.LogError("Trusting relationship constraint " + constraintName, ex);
+            }
+        }
+
+        private void EnsureClientSiteCompositeForeignKey(SqlConnection conn, string constraintName, string childTable, string clientColumn, string siteColumn)
+        {
+            if (!RelationshipObjectsExist(conn, childTable, clientColumn, "ClientSites", "ClientID") ||
+                !RelationshipObjectsExist(conn, childTable, siteColumn, "ClientSites", "SiteID"))
+                return;
+
+            string child = QuoteRelationshipIdentifier(childTable);
+            string client = QuoteRelationshipIdentifier(clientColumn);
+            string site = QuoteRelationshipIdentifier(siteColumn);
+            string constraint = QuoteRelationshipIdentifier(constraintName);
+            string ruleKey = childTable + ".ClientSiteConsistency";
+            int violations;
+            using (SqlCommand count = new SqlCommand("SELECT COUNT(*) FROM dbo." + child + " c INNER JOIN dbo.ClientSites s ON s.SiteID=c." + site + " WHERE c." + client + " IS NOT NULL AND c." + site + " IS NOT NULL AND s.ClientID<>c." + client, conn))
+                violations = Convert.ToInt32(count.ExecuteScalar());
+
+            if (violations > 0)
+            {
+                RecordRelationshipIssue(conn, ruleKey, childTable, clientColumn + "+" + siteColumn, "ClientSites", violations, "BlockedByData", "Client and Site point to different client accounts. Existing records were preserved.");
+                return;
+            }
+
+            try
+            {
+                using (SqlCommand exists = new SqlCommand("SELECT COUNT(*) FROM sys.foreign_keys WHERE parent_object_id=OBJECT_ID(@child) AND name=@name", conn))
+                {
+                    exists.Parameters.AddWithValue("@child", "dbo." + childTable);
+                    exists.Parameters.AddWithValue("@name", constraintName);
+                    if (Convert.ToInt32(exists.ExecuteScalar()) == 0)
+                        Exec(conn, "ALTER TABLE dbo." + child + " WITH CHECK ADD CONSTRAINT " + constraint + " FOREIGN KEY (" + client + "," + site + ") REFERENCES dbo.ClientSites(ClientID,SiteID);");
+                }
+                RecordRelationshipIssue(conn, ruleKey, childTable, clientColumn + "+" + siteColumn, "ClientSites", 0, "Enforced", "Client and Site ownership is enforced as one relationship.");
+            }
+            catch (SqlException ex)
+            {
+                RecordRelationshipIssue(conn, ruleKey, childTable, clientColumn + "+" + siteColumn, "ClientSites", 0, "MigrationReview", "Composite constraint could not be added: " + ex.Message);
+                AppLogger.LogError("Adding client/site constraint " + constraintName, ex);
+            }
+        }
+
+        private static bool RelationshipObjectsExist(SqlConnection conn, string childTable, string childColumn, string parentTable, string parentColumn)
+        {
+            using (SqlCommand command = new SqlCommand(@"
+SELECT CASE WHEN OBJECT_ID(@child,'U') IS NOT NULL AND OBJECT_ID(@parent,'U') IS NOT NULL
+              AND COL_LENGTH(@child,@childColumn) IS NOT NULL AND COL_LENGTH(@parent,@parentColumn) IS NOT NULL
+            THEN 1 ELSE 0 END;", conn))
+            {
+                command.Parameters.AddWithValue("@child", "dbo." + childTable);
+                command.Parameters.AddWithValue("@childColumn", childColumn);
+                command.Parameters.AddWithValue("@parent", "dbo." + parentTable);
+                command.Parameters.AddWithValue("@parentColumn", parentColumn);
+                return Convert.ToInt32(command.ExecuteScalar()) == 1;
+            }
+        }
+
+        private static string QuoteRelationshipIdentifier(string identifier)
+        {
+            if (string.IsNullOrWhiteSpace(identifier) || !Regex.IsMatch(identifier, "^[A-Za-z][A-Za-z0-9_]*$"))
+                throw new InvalidOperationException("Unsafe relationship schema identifier.");
+            return "[" + identifier + "]";
+        }
+
+        private static void RecordRelationshipIssue(SqlConnection conn, string ruleKey, string childTable, string childColumn, string parentTable, int violationCount, string status, string detail)
+        {
+            using (SqlCommand command = new SqlCommand(@"
+MERGE dbo.RelationshipIntegrityIssues AS target
+USING (SELECT @ruleKey AS RuleKey) AS source ON source.RuleKey=target.RuleKey
+WHEN MATCHED THEN UPDATE SET ChildTable=@childTable,ChildColumn=@childColumn,ParentTable=@parentTable,ViolationCount=@violationCount,Status=@status,Detail=@detail,CheckedUtc=GETUTCDATE()
+WHEN NOT MATCHED THEN INSERT(RuleKey,ChildTable,ChildColumn,ParentTable,ViolationCount,Status,Detail,CheckedUtc)
+VALUES(@ruleKey,@childTable,@childColumn,@parentTable,@violationCount,@status,@detail,GETUTCDATE());", conn))
+            {
+                command.Parameters.AddWithValue("@ruleKey", ruleKey);
+                command.Parameters.AddWithValue("@childTable", childTable);
+                command.Parameters.AddWithValue("@childColumn", (object)childColumn ?? DBNull.Value);
+                command.Parameters.AddWithValue("@parentTable", (object)parentTable ?? DBNull.Value);
+                command.Parameters.AddWithValue("@violationCount", violationCount);
+                command.Parameters.AddWithValue("@status", status);
+                command.Parameters.AddWithValue("@detail", (object)detail ?? DBNull.Value);
+                command.ExecuteNonQuery();
             }
         }
 

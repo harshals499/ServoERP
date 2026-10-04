@@ -15,6 +15,7 @@ namespace HVAC_Pro_Desktop.Services
         private ClientRepository _clientRepo;
         private readonly BusinessRuleEngine _businessRules = new BusinessRuleEngine();
         private readonly GlobalValidationEngine _validation = new GlobalValidationEngine();
+        private readonly RelationshipIntegrityService _relationshipIntegrity = new RelationshipIntegrityService();
         private readonly AuditTrailService _audit = new AuditTrailService();
 
         public ContractService()
@@ -144,6 +145,12 @@ namespace HVAC_Pro_Desktop.Services
         private void ValidateContractForSave(AMCContract contract)
         {
             ValidationResult result = _businessRules.ValidateContract(contract);
+            if (contract != null)
+            {
+                ValidationResult relationships = _relationshipIntegrity.CheckClientSite(contract.ClientID, contract.SiteID, "Contracts");
+                RelationshipIntegrityService.EnsureValid(relationships, "This AMC contract cannot be saved because the selected site does not belong to the client.");
+                result.Merge(relationships);
+            }
             _validation.EnsureValid(result, "Contract validation failed");
         }
     }
