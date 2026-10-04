@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.478.0 - 2026-10-04
+
+- Made Site Monitor available with every activated ServoERP license, including Trial and Starter AMC.
+- Added an upgrade compatibility rule so older client license snapshots receive Site Monitor even when their cached module list predates the entitlement change.
+- Kept missing or tampered installations blocked and added regression coverage across every license plan.
+
 ## 1.1.477.0 - 2026-10-04
 
 - Fixed Site Monitor disappearing from the sidebar on client PCs whose valid license entitlement uses the public `Site Monitor` name or the earlier `Dispatch Center` name instead of the internal `GeoIntelligence` key.

@@ -31,7 +31,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureGlobalPaginationControlKeepsControlsInsideBounds();
             EnsureGlobalButtonStylingPreservesBusinessTags();
             EnsureSidebarNavigationSurvivesGlobalButtonStyling();
-            EnsureSiteMonitorLicenseAliasesStayCompatible();
+            EnsureSiteMonitorIsAvailableWithEveryLicense();
             EnsureLockedCardKeepsUserSizeDuringPacking();
             EnsureAllLoggedInUsersHaveFullRoleAccess();
             EnsureForgotPasswordUsesSelfServiceDialog();
@@ -43,34 +43,46 @@ namespace HVAC_Pro_Desktop.Tests
             return new List<string> { "PASS UI policies verified" };
         }
 
-        private static void EnsureSiteMonitorLicenseAliasesStayCompatible()
+        private static void EnsureSiteMonitorIsAvailableWithEveryLicense()
         {
-            foreach (string alias in new[] { "GeoIntelligence", "Geo Intelligence", "SiteMonitor", "Site Monitor", "DispatchCenter", "Dispatch Center" })
+            foreach (LicensePlanType plan in new[] { LicensePlanType.Trial, LicensePlanType.Basic, LicensePlanType.Standard, LicensePlanType.Pro, LicensePlanType.Enterprise })
             {
-                var entitled = new LicenseSnapshot
+                var planDefaults = new LicenseSnapshot
                 {
-                    PlanType = LicensePlanType.Pro,
-                    EnabledModules = new List<string> { "Dashboard", "WorkOrders", alias }
+                    LicenseKey = "TEST-" + plan,
+                    PlanType = plan,
+                    Status = LicenseStatus.Active,
+                    EnabledModules = new List<string>()
                 };
-                if (!LicenseFeatureCatalog.IsModuleEnabled(entitled, "GeoIntelligence"))
-                    throw new InvalidOperationException("Site Monitor must accept the licensed module alias: " + alias + ".");
+                if (!LicenseFeatureCatalog.GetModulesForPlan(plan).Contains("GeoIntelligence")
+                    || !LicenseFeatureCatalog.IsModuleEnabled(planDefaults, "GeoIntelligence"))
+                    throw new InvalidOperationException("Site Monitor must be included with the " + plan + " license.");
+
+                var legacyExplicitModules = new LicenseSnapshot
+                {
+                    LicenseKey = "LEGACY-" + plan,
+                    PlanType = plan,
+                    Status = LicenseStatus.Active,
+                    EnabledModules = new List<string> { "Dashboard" }
+                };
+                if (!LicenseFeatureCatalog.IsModuleEnabled(legacyExplicitModules, "GeoIntelligence"))
+                    throw new InvalidOperationException("Older " + plan + " license snapshots must receive Site Monitor after updating.");
             }
 
-            var notEntitled = new LicenseSnapshot
+            var missingLicense = new LicenseSnapshot
             {
-                PlanType = LicensePlanType.Pro,
-                EnabledModules = new List<string> { "Dashboard", "WorkOrders" }
-            };
-            if (LicenseFeatureCatalog.IsModuleEnabled(notEntitled, "GeoIntelligence"))
-                throw new InvalidOperationException("Site Monitor must remain hidden when no matching entitlement is present.");
-
-            var starterDefaults = new LicenseSnapshot
-            {
-                PlanType = LicensePlanType.Basic,
+                Status = LicenseStatus.Missing,
                 EnabledModules = new List<string>()
             };
-            if (LicenseFeatureCatalog.IsModuleEnabled(starterDefaults, "GeoIntelligence"))
-                throw new InvalidOperationException("Site Monitor alias compatibility must not change Starter AMC plan access.");
+            var tamperedLicense = new LicenseSnapshot
+            {
+                Status = LicenseStatus.Tampered,
+                EnabledModules = new List<string>()
+            };
+            if (LicenseFeatureCatalog.IsModuleEnabled(missingLicense, "GeoIntelligence")
+                || LicenseFeatureCatalog.IsModuleEnabled(tamperedLicense, "GeoIntelligence")
+                || LicenseFeatureCatalog.IsModuleEnabled(null, "GeoIntelligence"))
+                throw new InvalidOperationException("Site Monitor must still require an activated license.");
         }
 
         private static void EnsureAutomaticClientUpdatePolicy()
