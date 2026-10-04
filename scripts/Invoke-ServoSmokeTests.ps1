@@ -44,6 +44,14 @@ function Invoke-SmokeSwitch {
     }
 
     if ($process.ExitCode -ne 0) {
+        $reportDirectory = Join-Path $Root 'TEST_RESULTS'
+        $latestReport = Get-ChildItem -LiteralPath $reportDirectory -Filter 'ci-smoke-*.txt' -File -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($latestReport) {
+            Write-Host "Smoke report: $($latestReport.FullName)"
+            Get-Content -LiteralPath $latestReport.FullName | Write-Host
+        }
         throw "Smoke test $Switch failed with exit code $($process.ExitCode). Check TEST_RESULTS and LOGS for the report."
     }
 }
