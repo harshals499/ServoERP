@@ -13,6 +13,7 @@ using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
 using OfficeOpenXml;
 using OfficeOpenXml.Style;
+using ServoERP.Infrastructure;
 
 namespace HVAC_Pro_Desktop.UI
 {
@@ -94,6 +95,7 @@ namespace HVAC_Pro_Desktop.UI
         private bool _initialRefreshQueued;
         private bool _refreshing;
         private bool _usingPreviewData;
+        private bool _openingRowPreview;
 
         private sealed class ExpenseJobChoice
         {
@@ -440,14 +442,25 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildExplorerGrid()
         {
             Panel surface = ExplorerSurface(new Padding(12, 42, 12, 8));
-            _lblReportCount = new Label { Text = "Report preview", Location = new Point(14, 10), Size = new Size(360, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TextDark };
+            _lblReportCount = new Label { Text = "Report preview · Click row for PDF", Location = new Point(14, 10), Size = new Size(480, 24), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TextDark };
             _txtResultSearch = new TextBox { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(520, 8), Size = new Size(220, 28), Font = DS.Body, BorderStyle = BorderStyle.FixedSingle, AccessibleName = "Search report results" };
-            surface.Resize += (s, e) => _txtResultSearch.Left = Math.Max(360, surface.ClientSize.Width - _txtResultSearch.Width - 14);
+            surface.Resize += (s, e) =>
+            {
+                _txtResultSearch.Left = Math.Max(360, surface.ClientSize.Width - _txtResultSearch.Width - 14);
+                _lblReportCount.Width = Math.Max(220, _txtResultSearch.Left - 28);
+            };
             _txtResultSearch.TextChanged += (s, e) => ApplyGridSearchAndFilters();
             SetCueBanner(_txtResultSearch, "Search results");
             _detailGrid = MakeGrid();
             _detailGrid.Dock = DockStyle.Fill;
             _detailGrid.CellFormatting += DetailGrid_CellFormatting;
+            _detailGrid.CellClick += DetailGrid_CellClick;
+            _detailGrid.CellMouseEnter += (s, e) =>
+            {
+                if (e.RowIndex >= 0) _detailGrid.Cursor = Cursors.Hand;
+            };
+            _detailGrid.CellMouseLeave += (s, e) => _detailGrid.Cursor = Cursors.Default;
+            _detailGrid.AccessibleDescription = "Select any report row to open its read-only PDF preview.";
             surface.Controls.Add(_detailGrid);
             surface.Controls.Add(_txtResultSearch);
             surface.Controls.Add(_lblReportCount);
@@ -738,6 +751,7 @@ namespace HVAC_Pro_Desktop.UI
             chart.Series.Add(cost);
             chart.Series.Add(margin);
             chart.Legends.Add(new Legend { Docking = Docking.Bottom, Alignment = StringAlignment.Center, Font = new Font("Segoe UI", 8f), BackColor = CardBg });
+            chart.GetToolTipText += ExplorerChart_GetToolTipText;
             return chart;
         }
 
@@ -856,9 +870,17 @@ namespace HVAC_Pro_Desktop.UI
             foreach (MonthlyProfitLossRow row in trend)
             {
                 string month = row.Month.ToString("MMM yy", CultureInfo.InvariantCulture);
-                _explorerChart.Series["Revenue"].Points.AddXY(month, row.Revenue);
-                _explorerChart.Series["Direct cost"].Points.AddXY(month, row.DirectCosts);
-                _explorerChart.Series["Margin %"].Points.AddXY(month, row.GrossMarginPercent);
+                string tooltip = month + Environment.NewLine +
+                                 "Revenue: " + IndiaFormatHelper.FormatCurrency(row.Revenue) + Environment.NewLine +
+                                 "Direct cost: " + IndiaFormatHelper.FormatCurrency(row.DirectCosts) + Environment.NewLine +
+                                 "Gross profit: " + IndiaFormatHelper.FormatCurrency(row.GrossProfit) + Environment.NewLine +
+                                 "Margin: " + row.GrossMarginPercent.ToString("N1", CultureInfo.GetCultureInfo("en-IN")) + "%";
+                int revenuePoint = _explorerChart.Series["Revenue"].Points.AddXY(month, row.Revenue);
+                int costPoint = _explorerChart.Series["Direct cost"].Points.AddXY(month, row.DirectCosts);
+                int marginPoint = _explorerChart.Series["Margin %"].Points.AddXY(month, row.GrossMarginPercent);
+                _explorerChart.Series["Revenue"].Points[revenuePoint].ToolTip = tooltip;
+                _explorerChart.Series["Direct cost"].Points[costPoint].ToolTip = tooltip;
+                _explorerChart.Series["Margin %"].Points[marginPoint].ToolTip = tooltip;
             }
 
             List<JobProfitabilityRow> rows = FilteredProfitabilityRows(false);
@@ -893,7 +915,12 @@ namespace HVAC_Pro_Desktop.UI
                     .OrderByDescending(g => g.Count())
                     .Take(8);
                 foreach (var group in groups)
-                    records.Points.AddXY(ShortText(group.Key, 14), group.Count());
+                {
+                    int pointIndex = records.Points.AddXY(ShortText(group.Key, 14), group.Count());
+                    records.Points[pointIndex].ToolTip = ExplorerReportLabel(_currentReportIndex) + Environment.NewLine +
+                                                         group.Key + Environment.NewLine +
+                                                         "Records: " + group.Count().ToString("N0", CultureInfo.GetCultureInfo("en-IN"));
+                }
             }
 
             int total = _detailGrid.Rows.Count;
@@ -903,6 +930,19 @@ namespace HVAC_Pro_Desktop.UI
             SetExplorerSummary(_lblSummaryProfit, "Report", ExplorerReportLabel(_currentReportIndex), Green);
             SetExplorerSummary(_lblSummaryMargin, "Financial year", Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture), Green);
             SetExplorerSummary(_lblSummaryOutstanding, "Export", "Ready", Amber);
+        }
+
+        private void ExplorerChart_GetToolTipText(object sender, ToolTipEventArgs e)
+        {
+            if (e == null || e.HitTestResult == null || e.HitTestResult.ChartElementType != ChartElementType.DataPoint)
+                return;
+
+            Series series = e.HitTestResult.Series;
+            int pointIndex = e.HitTestResult.PointIndex;
+            if (series == null || pointIndex < 0 || pointIndex >= series.Points.Count)
+                return;
+
+            e.Text = series.Points[pointIndex].ToolTip;
         }
 
         private static void SetExplorerSummary(Label value, string caption, string text, Color color)
@@ -943,7 +983,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_lblReportCount == null || _detailGrid == null) return;
             int visible = _detailGrid.Rows.Cast<DataGridViewRow>().Count(r => r.Visible);
-            _lblReportCount.Text = "Report preview (" + visible.ToString("N0") + " records)";
+            _lblReportCount.Text = "Report preview (" + visible.ToString("N0") + " records) · Click row for PDF";
         }
 
         private void ApplyGridGrouping()
@@ -976,6 +1016,115 @@ namespace HVAC_Pro_Desktop.UI
                 e.CellStyle.ForeColor = Red;
             else if (value.Equals("Complete", StringComparison.OrdinalIgnoreCase) || value.Equals("Completed", StringComparison.OrdinalIgnoreCase))
                 e.CellStyle.ForeColor = Green;
+        }
+
+        private void DetailGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= _detailGrid.Rows.Count || _openingRowPreview)
+                return;
+
+            OpenReportRowPreview(_detailGrid.Rows[e.RowIndex]);
+        }
+
+        private void OpenReportRowPreview(DataGridViewRow row)
+        {
+            if (row == null || row.IsNewRow)
+                return;
+
+            _openingRowPreview = true;
+            try
+            {
+                object target = row.Tag;
+                if (target != null && RecentDocumentOpenService.OpenPdf(this, target))
+                    return;
+
+                Invoice invoice = target as Invoice;
+                if (invoice != null && invoice.InvoiceID > 0)
+                {
+                    RecentDocumentOpenService.OpenInvoicePdf(this, invoice.InvoiceID);
+                    return;
+                }
+
+                Job job = target as Job;
+                if (job != null && job.JobID > 0)
+                {
+                    RecentDocumentOpenService.OpenJobReportPdf(this, job.JobID);
+                    return;
+                }
+
+                JobProfitabilityRow profitability = target as JobProfitabilityRow;
+                if (profitability != null && profitability.JobId > 0)
+                {
+                    RecentDocumentOpenService.OpenJobReportPdf(this, profitability.JobId);
+                    return;
+                }
+
+                ProfitabilityImportRow importRow = target as ProfitabilityImportRow;
+                if (importRow != null && importRow.MatchedInvoiceId.HasValue && importRow.MatchedInvoiceId.Value > 0)
+                {
+                    RecentDocumentOpenService.OpenInvoicePdf(this, importRow.MatchedInvoiceId.Value);
+                    return;
+                }
+                if (importRow != null && importRow.MatchedJobId.HasValue && importRow.MatchedJobId.Value > 0)
+                {
+                    RecentDocumentOpenService.OpenJobReportPdf(this, importRow.MatchedJobId.Value);
+                    return;
+                }
+
+                byte[] pdf = BuildReportRowPreviewPdf(row);
+                string reference = FirstReportRowValue(row);
+                string fileName = SafePreviewFileName(ExplorerReportLabel(_currentReportIndex) + "-" + reference) + ".pdf";
+                PDFGenerator.OpenPDF(pdf, fileName);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Opening report row PDF preview", ex);
+                AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("Reports"), "Opening read-only report preview", ex);
+            }
+            finally
+            {
+                _openingRowPreview = false;
+            }
+        }
+
+        private byte[] BuildReportRowPreviewPdf(DataGridViewRow row)
+        {
+            var fields = new List<Tuple<string, string>>();
+            if (row != null && row.DataGridView != null)
+            {
+                foreach (DataGridViewColumn column in row.DataGridView.Columns.Cast<DataGridViewColumn>().OrderBy(c => c.DisplayIndex))
+                {
+                    string value = Convert.ToString(row.Cells[column.Index].Value, CultureInfo.GetCultureInfo("en-IN"));
+                    fields.Add(Tuple.Create(column.HeaderText, string.IsNullOrWhiteSpace(value) ? "-" : value.Trim()));
+                }
+            }
+
+            return PDFGenerator.GenerateReportRowPreview(
+                ExplorerReportLabel(_currentReportIndex),
+                FirstReportRowValue(row),
+                fields);
+        }
+
+        private static string FirstReportRowValue(DataGridViewRow row)
+        {
+            if (row == null)
+                return "Report row";
+
+            foreach (DataGridViewCell cell in row.Cells)
+            {
+                string value = Convert.ToString(cell.Value, CultureInfo.GetCultureInfo("en-IN"));
+                if (!string.IsNullOrWhiteSpace(value))
+                    return value.Trim();
+            }
+            return "Report row";
+        }
+
+        private static string SafePreviewFileName(string value)
+        {
+            string safe = string.IsNullOrWhiteSpace(value) ? "ServoERP-Report-Preview" : value.Trim();
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+                safe = safe.Replace(invalid, '-');
+            return safe;
         }
 
         private void ChooseVisibleColumns()
@@ -1751,7 +1900,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (AMCContract c in _contracts.Where(c => c.ContractStatus == "Active").OrderByDescending(c => c.AnnualValue))
             {
                 string client = ResolveClientName(c.ClientID);
-                _detailGrid.Rows.Add(client, c.MonthlyValue.ToString("N0"), c.AnnualValue.ToString("N0"), c.ContractType, c.ContractStatus);
+                AddDetailRow(c, client, c.MonthlyValue.ToString("N0"), c.AnnualValue.ToString("N0"), c.ContractType, c.ContractStatus);
             }
         }
 
@@ -1759,7 +1908,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             AddColumns("Invoice", "Client", "Due", "Balance", "Status");
             foreach (Invoice inv in _invoices.Where(i => i.PaymentStatus != "Paid").OrderByDescending(i => i.BalanceDue).Take(30))
-                _detailGrid.Rows.Add(inv.InvoiceNumber, inv.ClientName ?? "", inv.DueDate.ToString("dd-MMM-yy"), inv.BalanceDue.ToString("N0"), inv.PaymentStatus);
+                AddDetailRow(inv, inv.InvoiceNumber, inv.ClientName ?? "", inv.DueDate.ToString("dd-MMM-yy"), inv.BalanceDue.ToString("N0"), inv.PaymentStatus);
         }
 
         private void BindContractDetail()
@@ -1769,7 +1918,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int days = (c.EndDate - DateTime.Today).Days;
                 string client = ResolveClientName(c.ClientID);
-                _detailGrid.Rows.Add(client, c.ContractType, c.EndDate.ToString("dd-MMM-yyyy"), days.ToString(), c.MonthlyValue.ToString("N0"), days <= 30 ? "Renew" : "Monitor");
+                AddDetailRow(c, client, c.ContractType, c.EndDate.ToString("dd-MMM-yyyy"), days.ToString(), c.MonthlyValue.ToString("N0"), days <= 30 ? "Renew" : "Monitor");
             }
         }
 
@@ -1785,7 +1934,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             AddColumns("Job", "Client", "Type", "Priority", "Technician", "Status");
             foreach (Job j in _jobs.OrderByDescending(j => j.ScheduledDate).Take(30))
-                _detailGrid.Rows.Add(j.JobNumber, j.ClientName ?? "", j.JobType, j.Priority, j.AssignedEmployeeName ?? "", j.Status);
+                AddDetailRow(j, j.JobNumber, j.ClientName ?? "", j.JobType, j.Priority, j.AssignedEmployeeName ?? "", j.Status);
         }
 
         private void BindTechnicianDetail()
@@ -1798,7 +1947,7 @@ namespace HVAC_Pro_Desktop.UI
                 int completed = techJobs.Count(j => IsComplete(j.Status));
                 decimal revenue = techJobs.Sum(j => Math.Max(j.Revenue, Math.Max(j.ActualRevenue, j.QuotedRevenue)));
                 decimal avg = techJobs.Count == 0 ? 0 : revenue / techJobs.Count;
-                _detailGrid.Rows.Add(tech.Name, open.ToString(), completed.ToString(), revenue.ToString("N0"), avg.ToString("N0"));
+                AddDetailRow(tech, tech.Name, open.ToString(), completed.ToString(), revenue.ToString("N0"), avg.ToString("N0"));
             }
         }
 
@@ -1806,21 +1955,21 @@ namespace HVAC_Pro_Desktop.UI
         {
             AddColumns("Item", "Category", "Buffer Qty", "Reserved", "Typical Buy Qty", "Reference Value");
             foreach (StockItem item in _stock.OrderByDescending(i => i.AvailableStock <= 0m || i.IsLowStock).ThenBy(i => i.ItemName).Take(30))
-                _detailGrid.Rows.Add(item.ItemName, item.Category, item.CurrentStock.ToString("N1"), item.ReservedStock.ToString("N1"), item.ReorderLevel.ToString("N1"), item.StockValue.ToString("N0"));
+                AddDetailRow(item, item.ItemName, item.Category, item.CurrentStock.ToString("N1"), item.ReservedStock.ToString("N1"), item.ReorderLevel.ToString("N1"), item.StockValue.ToString("N0"));
         }
 
         private void BindPurchaseDetail()
         {
             AddColumns("PO", "Supplier", "Date", "Amount", "Balance", "Status");
             foreach (PurchaseOrder po in _purchases.OrderByDescending(p => p.PODate).Take(30))
-                _detailGrid.Rows.Add(po.PONumber, po.VendorName ?? "", po.PODate.ToString("dd-MMM-yy"), po.TotalAmount.ToString("N0"), po.BalanceDue.ToString("N0"), po.Status);
+                AddDetailRow(po, po.PONumber, po.VendorName ?? "", po.PODate.ToString("dd-MMM-yy"), po.TotalAmount.ToString("N0"), po.BalanceDue.ToString("N0"), po.Status);
         }
 
         private void BindVendorAdvanceDetail()
         {
             AddColumns("Supplier", "Type", "Date", "Amount", "Applied", "Balance", "Reference");
             foreach (VendorAdvancePayment advance in _vendorAdvances.Take(30))
-                _detailGrid.Rows.Add(
+                AddDetailRow(advance,
                     advance.VendorName ?? ("Supplier #" + advance.VendorId),
                     advance.TransactionType,
                     advance.TransactionDate.ToString("dd-MMM-yy"),
@@ -1838,7 +1987,7 @@ namespace HVAC_Pro_Desktop.UI
                 decimal revenue = row.Sum(j => Math.Max(j.Revenue, Math.Max(j.ActualRevenue, j.QuotedRevenue)));
                 int open = row.Count(j => !IsComplete(j.Status));
                 DateTime last = row.Max(j => j.ScheduledDate);
-                _detailGrid.Rows.Add(row.Key, row.Count().ToString(), revenue.ToString("N0"), open.ToString(), last.ToString("dd-MMM-yy"));
+                AddDetailRow(row.FirstOrDefault(), row.Key, row.Count().ToString(), revenue.ToString("N0"), open.ToString(), last.ToString("dd-MMM-yy"));
             }
         }
 
@@ -2137,7 +2286,7 @@ namespace HVAC_Pro_Desktop.UI
             AddColumns("Job", "Client / Site", "Invoice", "Revenue", "Direct Cost", "Gross Profit", "Margin %", "Outstanding", "Cost Status");
             foreach (JobProfitabilityRow row in FilteredProfitabilityRows(true).Take(250))
             {
-                int rowIndex = _detailGrid.Rows.Add(
+                int rowIndex = AddDetailRow(row,
                     row.JobNumber,
                     string.Join(" / ", new[] { row.ClientName, row.SiteName }.Where(v => !string.IsNullOrWhiteSpace(v))),
                     row.InvoiceNumber ?? "",
@@ -2160,13 +2309,13 @@ namespace HVAC_Pro_Desktop.UI
             AddColumns("Row", "Customer", "Invoice", "Revenue", "Vendor Cost", "Invoice Match", "Job Match", "Status", "Review Message");
             if (_usingPreviewData)
             {
-                _detailGrid.Rows.Add("2", "Aarti Industries", "INV-2026-041", "185000.00", "122400.00", "#41", "#26041", "Matched", "Ready for review");
-                _detailGrid.Rows.Add("3", "Larsen & Toubro", "INV-2026-044", "164000.00", "n.a.", "#44", "#26044", "Review", "Vendor cost is incomplete");
+                AddDetailRow(new ProfitabilityImportRow { SourceRowNumber = 2, CustomerName = "Aarti Industries", InvoiceNumber = "INV-2026-041", TaxableRevenue = 185000m, VendorCost = 122400m, ReviewStatus = "Matched", ReviewMessage = "Ready for review" }, "2", "Aarti Industries", "INV-2026-041", "185000.00", "122400.00", "#41", "#26041", "Matched", "Ready for review");
+                AddDetailRow(new ProfitabilityImportRow { SourceRowNumber = 3, CustomerName = "Larsen & Toubro", InvoiceNumber = "INV-2026-044", TaxableRevenue = 164000m, ReviewStatus = "Review", ReviewMessage = "Vendor cost is incomplete" }, "3", "Larsen & Toubro", "INV-2026-044", "164000.00", "n.a.", "#44", "#26044", "Review", "Vendor cost is incomplete");
                 return;
             }
             foreach (ProfitabilityImportRow row in _financialSvc.GetLatestImportRows().Take(250))
             {
-                _detailGrid.Rows.Add(
+                AddDetailRow(row,
                     row.SourceRowNumber.ToString(CultureInfo.InvariantCulture),
                     row.CustomerName,
                     row.InvoiceNumber,
@@ -2792,6 +2941,16 @@ namespace HVAC_Pro_Desktop.UI
         {
             foreach (string header in headers)
                 _detailGrid.Columns.Add(C(header, 120));
+        }
+
+        private int AddDetailRow(object previewTarget, params object[] values)
+        {
+            int rowIndex = _detailGrid.Rows.Add(values);
+            DataGridViewRow row = _detailGrid.Rows[rowIndex];
+            row.Tag = previewTarget;
+            foreach (DataGridViewCell cell in row.Cells)
+                cell.ToolTipText = "Open read-only PDF preview";
+            return rowIndex;
         }
 
         private Button MakeButton(string text, Color bg, int width)

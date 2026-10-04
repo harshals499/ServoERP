@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -116,6 +117,36 @@ namespace ServoERP.Infrastructure
                         });
                     });
                     page.Footer().AlignCenter().Text("ServoERP | Made in India").FontSize(9);
+                });
+            }).GeneratePdf();
+        }
+
+        /// <summary>Generates a read-only PDF preview for a selected report row.</summary>
+        public static byte[] GenerateReportRowPreview(string reportTitle, string reference, IEnumerable<Tuple<string, string>> fields)
+        {
+            Tuple<string, string>[] rows = (fields ?? Enumerable.Empty<Tuple<string, string>>()).ToArray();
+            return Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(1.5f, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(10).FontFamily("Lato"));
+                    page.Header().Element(c => ComposeHeader(c, Safe(reportTitle, "Report Preview")));
+                    page.Content().Column(col =>
+                    {
+                        col.Spacing(10);
+                        col.Item().Background(Colors.Blue.Lighten5).Padding(8).Text("Read-only report preview").FontColor(Colors.Blue.Darken2).SemiBold();
+                        col.Item().Row(row =>
+                        {
+                            row.RelativeItem().Text("Reference: " + Safe(reference)).Bold();
+                            row.RelativeItem().AlignRight().Text("Generated: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", India));
+                        });
+                        col.Item().Element(c => ComposeKeyValueTable(c, rows.Length == 0
+                            ? new[] { Pair("Details", "No report details are available for this row.") }
+                            : rows));
+                    });
+                    page.Footer().AlignCenter().Text("ServoERP | Read-only report preview").FontSize(9);
                 });
             }).GeneratePdf();
         }
