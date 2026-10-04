@@ -507,6 +507,7 @@
     <Compile Include="Tests\SiteMonitorRevenueSmokeTests.cs" />
     <Compile Include="Tests\QuotationDeliveryServiceSmokeTests.cs" />
     <Compile Include="Tests\AmcPreventivePlannerSmokeTests.cs" />
+    <Compile Include="Tests\ReportExplorerSmokeTests.cs" />
     <Compile Include="Tests\DashboardRecentActivitySmokeTests.cs" />
     <Compile Include="Tests\PurchaseDashboardViewButtonSmokeTests.cs" />
     <Compile Include="Tests\SaveButtonSmokeTests.cs" />

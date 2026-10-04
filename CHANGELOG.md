@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.473.0 - 2026-10-04
+
+- Rebuilt Reports as a focused Report Explorer with categorized navigation, useful financial-year/client/site/status filters, a live profitability trend, and a searchable detailed preview.
+- Added configurable report columns, client-side grouping, saved report views, and scheduled Excel/CSV exports while ServoERP is open.
+- Preserved the existing report library, expense entry, profitability import, service forms, monthly P&L export, and all underlying business data.
+- Added deterministic Reports Explorer smoke coverage for navigation, filters, search, chart binding, and Excel/CSV exports.
+
 ## 1.1.472.0 - 2026-10-04
 
 - Removed the unusable Agent Simulation, ServoERP Brain agent dashboard, and AI assistant/model controls from Settings.
