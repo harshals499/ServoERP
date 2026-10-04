@@ -30,6 +30,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _listCaption;
         private Button _btnAddAMC;
         private Button _btnImportAMC;
+        private Button _btnPreventivePlanner;
         private bool _loadInProgress;
         private bool _addAmcDialogOpen;
         private Control _dashboardShell;
@@ -117,6 +118,18 @@ namespace HVAC_Pro_Desktop.UI
             _btnImportAMC.Name = "btnImportAMC";
             _btnImportAMC.Click += (s, e) => ImportUiHelper.RunImport(ExcelImportModule.AMC, FindForm());
 
+            _btnPreventivePlanner = MakeButton("Preventive Planner", DarkGrey, 164);
+            _btnPreventivePlanner.Name = "btnPreventivePlanner";
+            _btnPreventivePlanner.Click += async (s, e) =>
+            {
+                using (var planner = new AMCPreventivePlannerForm())
+                {
+                    planner.ShowDialog(FindForm());
+                    if (planner.PlanApplied)
+                        await LoadAMCDataAsync();
+                }
+            };
+
             return SharedPageHeader.Build(new SharedPageHeaderModel
             {
                 Name = "AMCPageHeader",
@@ -127,7 +140,7 @@ namespace HVAC_Pro_Desktop.UI
                 Subtitle = "Track annual maintenance contracts, renewal windows, visits, and covered equipment.",
                 TitleWidth = 360,
                 SubtitleWidth = 640,
-                RightActions = new List<Control> { _btnImportAMC, _btnAddAMC }
+                RightActions = new List<Control> { _btnPreventivePlanner, _btnImportAMC, _btnAddAMC }
             }).Header;
         }
 

@@ -157,6 +157,8 @@ namespace HVAC_Pro_Desktop
                     lines.Add("PASS " + result);
                 foreach (string result in QuotationDeliveryServiceSmokeTests.RunAll())
                     lines.Add("PASS " + result);
+                foreach (string result in AmcPreventivePlannerSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
             }
             catch (Exception ex)
             {
@@ -447,6 +449,108 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/settingsvisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    string topOutputPath = Path.Combine(outputDirectory, "settings-472-top-" + stamp + ".png");
+                    string lowerOutputPath = Path.Combine(outputDirectory, "settings-472-lower-" + stamp + ".png");
+                    string reportPath = Path.Combine(outputDirectory, "settings-472-visual-" + stamp + ".txt");
+                    SessionManager.SetSession(new AppUserDto
+                    {
+                        UserId = 1,
+                        Username = "visual-test-admin",
+                        DisplayName = "Visual Test Admin",
+                        RoleId = 1,
+                        RoleName = "Admin",
+                        IsActive = true
+                    });
+                    try
+                    {
+                        using (var host = new Form
+                        {
+                            Text = BrandingService.WindowTitle("Settings Visual Test"),
+                            Size = new System.Drawing.Size(1440, 900),
+                            StartPosition = FormStartPosition.CenterScreen,
+                            BackColor = DS.BgPage
+                        })
+                        using (var page = new SettingsForm { Dock = DockStyle.Fill })
+                        {
+                            host.Controls.Add(page);
+                            page.LoadPreviewForVisualTest();
+                            host.Show();
+                            Application.DoEvents();
+                            page.PerformLayout();
+                            Application.DoEvents();
+
+                            var controls = new System.Collections.Generic.List<Control>();
+                            var pending = new System.Collections.Generic.Queue<Control>();
+                            pending.Enqueue(page);
+                            while (pending.Count > 0)
+                            {
+                                Control current = pending.Dequeue();
+                                controls.Add(current);
+                                foreach (Control child in current.Controls)
+                                    pending.Enqueue(child);
+                            }
+
+                            string[] retiredText =
+                            {
+                                "Agent Simulation",
+                                "Run Agent Simulation",
+                                "ServoERP Brain",
+                                "Open Dev Team Dashboard",
+                                "Enable ServoERP Assistant",
+                                "Open AI Copilot",
+                                "Check Assistant"
+                            };
+                            string[] found = controls
+                                .Select(control => control.Text ?? string.Empty)
+                                .Where(text => retiredText.Any(term => text.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0))
+                                .Distinct(StringComparer.OrdinalIgnoreCase)
+                                .ToArray();
+
+                            using (var bitmap = new System.Drawing.Bitmap(host.ClientSize.Width, host.ClientSize.Height))
+                            {
+                                host.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                                bitmap.Save(topOutputPath, System.Drawing.Imaging.ImageFormat.Png);
+                            }
+
+                            TabControl tabs = page.Controls.OfType<TabControl>().FirstOrDefault();
+                            Panel scrollHost = tabs == null || tabs.TabPages.Count == 0
+                                ? null
+                                : tabs.TabPages[0].Controls.OfType<Panel>().FirstOrDefault();
+                            if (scrollHost != null)
+                            {
+                                scrollHost.AutoScrollPosition = new System.Drawing.Point(0, Math.Max(0, scrollHost.VerticalScroll.Maximum));
+                                Application.DoEvents();
+                            }
+                            using (var bitmap = new System.Drawing.Bitmap(host.ClientSize.Width, host.ClientSize.Height))
+                            {
+                                host.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                                bitmap.Save(lowerOutputPath, System.Drawing.Imaging.ImageFormat.Png);
+                            }
+
+                            File.WriteAllLines(reportPath, new[]
+                            {
+                                found.Length == 0 ? "PASS retired Settings controls are absent" : "FAIL retired Settings controls remain: " + string.Join(" | ", found),
+                                "Top capture: " + topOutputPath,
+                                "Lower capture: " + lowerOutputPath,
+                                "Rendered controls scanned: " + controls.Count
+                            });
+                            Environment.ExitCode = found.Length == 0 ? 0 : 1;
+                            host.Close();
+                        }
+                    }
+                    finally
+                    {
+                        SessionManager.ClearSession();
+                    }
+                    AppRuntime.LogTiming("SettingsVisualTest", 0, reportPath);
+                    return;
+                }
+
                 if (HasArg(args, "/officeapiconfig"))
                 {
                     Application.Run(new OfficeApiSettingsForm());
@@ -527,6 +631,39 @@ namespace HVAC_Pro_Desktop
                         form.Close();
                     }
                     AppRuntime.LogTiming("AcceptedQuoteDeliveryWizardVisualTest", 0, string.Join(" | ", outputPaths));
+                    return;
+                }
+
+                if (HasArg(args, "/amcplannervisualtest"))
+                {
+                    string outputDirectory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+                    Directory.CreateDirectory(outputDirectory);
+                    string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                    var outputPaths = new System.Collections.Generic.List<string>();
+                    using (var form = new AMCPreventivePlannerForm(AmcPreventivePlannerSmokeTests.BuildPreviewPlan()))
+                    {
+                        form.Show();
+                        Application.DoEvents();
+                        form.PerformLayout();
+                        Application.DoEvents();
+                        TabControl tabs = form.Controls.OfType<TabControl>().FirstOrDefault();
+                        int tabCount = tabs == null ? 1 : tabs.TabPages.Count;
+                        for (int tabIndex = 0; tabIndex < tabCount; tabIndex++)
+                        {
+                            string tabName = tabs == null ? "overview" : new string(tabs.TabPages[tabIndex].Text.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+                            if (tabs != null) tabs.SelectedIndex = tabIndex;
+                            Application.DoEvents();
+                            string outputPath = Path.Combine(outputDirectory, "amc-preventive-planner-" + tabName + "-" + stamp + ".png");
+                            using (var bitmap = new System.Drawing.Bitmap(form.Width, form.Height))
+                            {
+                                form.DrawToBitmap(bitmap, new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height));
+                                bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+                            }
+                            outputPaths.Add(outputPath);
+                        }
+                        form.Close();
+                    }
+                    AppRuntime.LogTiming("AmcPreventivePlannerVisualTest", 0, string.Join(" | ", outputPaths));
                     return;
                 }
 
