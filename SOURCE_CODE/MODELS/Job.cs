@@ -95,6 +95,8 @@ namespace HVAC_Pro_Desktop.Models
     public class JobSummaryDto
     {
         public int JobId { get; set; }
+        public int ClientId { get; set; }
+        public int SiteId { get; set; }
         public string JobNumber { get; set; }
         public string JobTitle { get; set; }
         public string JobType { get; set; }

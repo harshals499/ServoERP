@@ -15,6 +15,8 @@ namespace HVAC_Pro_Desktop.UI
     {
         private readonly JobService _jobService = new JobService();
         private readonly EmployeeService _employeeService = new EmployeeService();
+        private readonly SiteService _siteService = new SiteService();
+        private readonly ClientService _clientService = new ClientService();
 
         private readonly Color PageBg = Color.FromArgb(246, 248, 251);
         private readonly Color White = Color.White;
@@ -113,6 +115,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<JobSummaryDto> _jobs = new List<JobSummaryDto>();
         private List<Employee> _technicians = new List<Employee>();
+        private List<ClientSite> _sites = new List<ClientSite>();
+        private List<B2BClient> _clients = new List<B2BClient>();
         private List<JobSummaryDto> _visibleJobs = new List<JobSummaryDto>();
         private JobSummaryDto _selectedJob;
         private Employee _selectedTechnician;
@@ -200,7 +204,7 @@ namespace HVAC_Pro_Desktop.UI
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 860));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1280));
             scroll.Controls.Add(root);
             scroll.Resize += (s, e) => root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
             root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
@@ -363,6 +367,18 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildSiteMonitorDashboard()
         {
+            TableLayoutPanel dashboard = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = PageBg,
+                ColumnCount = 1,
+                RowCount = 2
+            };
+            dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 400f));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            dashboard.Controls.Add(BuildRegionCard(), 0, 0);
+
             TableLayoutPanel grid = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -373,25 +389,21 @@ namespace HVAC_Pro_Desktop.UI
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33f));
             grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 35f));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 34f));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 30f));
-            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 36f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.34f));
 
             grid.Controls.Add(BuildSiteStatusCard(), 0, 0);
-            grid.Controls.Add(BuildRegionCard(), 1, 0);
-            grid.Controls.Add(BuildUpcomingMaintenanceCard(), 2, 0);
-            grid.Controls.Add(BuildProblematicSitesCard(), 0, 1);
-            grid.Controls.Add(BuildImmediateAttentionCard(), 1, 1);
-            grid.Controls.Add(BuildEquipmentSummaryCard(), 2, 1);
-            grid.Controls.Add(BuildTechnicianPresenceCard(), 0, 2);
-            grid.Controls.Add(BuildRevenueCard(), 1, 2);
-            TableLayoutPanel rightBottom = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
-            rightBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 47f));
-            rightBottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 53f));
-            rightBottom.Controls.Add(BuildSlaPerformanceCard(), 0, 0);
-            rightBottom.Controls.Add(BuildHealthTrendCard(), 1, 0);
-            grid.Controls.Add(rightBottom, 2, 2);
-            return grid;
+            grid.Controls.Add(BuildUpcomingMaintenanceCard(), 1, 0);
+            grid.Controls.Add(BuildProblematicSitesCard(), 2, 0);
+            grid.Controls.Add(BuildImmediateAttentionCard(), 0, 1);
+            grid.Controls.Add(BuildEquipmentSummaryCard(), 1, 1);
+            grid.Controls.Add(BuildTechnicianPresenceCard(), 2, 1);
+            grid.Controls.Add(BuildRevenueCard(), 0, 2);
+            grid.Controls.Add(BuildSlaPerformanceCard(), 1, 2);
+            grid.Controls.Add(BuildHealthTrendCard(), 2, 2);
+            dashboard.Controls.Add(grid, 0, 1);
+            return dashboard;
         }
 
         private Panel BuildDashboardCard(string detailKey, string title, ModernIconKind icon, Color accent)
@@ -442,11 +454,33 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildRegionCard()
         {
-            Panel card = BuildDashboardCard("regions", "Sites by Region", ModernIconKind.Location, Blue);
+            Panel card = BuildDashboardCard("regions", "All Sites by Region - Live Work", ModernIconKind.Location, Blue);
+            card.Margin = new Padding(0, 0, 0, 14);
             _regionGrid = MakeSiteGrid();
             _regionGrid.Columns.Add("Region", "Region");
-            _regionGrid.Columns.Add("Sites", "Sites");
-            _regionGrid.Columns[1].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            _regionGrid.Columns.Add("Site", "Site");
+            _regionGrid.Columns.Add("Client", "Client");
+            _regionGrid.Columns.Add("Work", "Work happening now");
+            _regionGrid.Columns.Add("Technician", "Technician");
+            _regionGrid.Columns.Add("Schedule", "Scheduled");
+            _regionGrid.Columns.Add("Status", "Status");
+            _regionGrid.Columns.Add("Priority", "Priority");
+            _regionGrid.Columns.Add("Open", "Open");
+            _regionGrid.Columns[0].FillWeight = 72f;
+            _regionGrid.Columns[1].FillWeight = 104f;
+            _regionGrid.Columns[2].FillWeight = 100f;
+            _regionGrid.Columns[3].FillWeight = 155f;
+            _regionGrid.Columns[4].FillWeight = 92f;
+            _regionGrid.Columns[5].FillWeight = 82f;
+            _regionGrid.Columns[6].FillWeight = 76f;
+            _regionGrid.Columns[7].FillWeight = 60f;
+            _regionGrid.Columns[8].FillWeight = 42f;
+            _regionGrid.Columns[8].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            _regionGrid.Columns[6].DefaultCellStyle.Font = new Font("Segoe UI", 8.3f, FontStyle.Bold);
+            _regionGrid.RowTemplate.Height = 34;
+            _regionGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            _regionGrid.MultiSelect = false;
+            _regionGrid.CellFormatting += FormatRegionWorkRow;
             card.Controls.Add(_regionGrid);
             return card;
         }
@@ -583,6 +617,19 @@ namespace HVAC_Pro_Desktop.UI
             if (control == null || string.IsNullOrWhiteSpace(detailKey))
                 return;
 
+            DataGridView regionWorkGrid = control as DataGridView;
+            if (regionWorkGrid != null && string.Equals(detailKey, "regions", StringComparison.OrdinalIgnoreCase))
+            {
+                bool regionDrilldownAttached = string.Equals(Convert.ToString(regionWorkGrid.Tag), detailKey, StringComparison.OrdinalIgnoreCase);
+                if (!regionDrilldownAttached)
+                {
+                    regionWorkGrid.Tag = detailKey;
+                    regionWorkGrid.Cursor = Cursors.Default;
+                    regionWorkGrid.CellDoubleClick += (s, e) => OpenSiteMonitorDetail(detailKey);
+                }
+                return;
+            }
+
             bool alreadyAttached = string.Equals(Convert.ToString(control.Tag), detailKey, StringComparison.OrdinalIgnoreCase);
             if (!alreadyAttached)
             {
@@ -679,10 +726,26 @@ namespace HVAC_Pro_Desktop.UI
                     break;
 
                 case "regions":
-                    detail.Title = "Sites by Region";
-                    detail.Columns.AddRange(new[] { "Region", "Sites", "Open Issues", "Critical", "SLA Risk", "Revenue", "Average Health" });
-                    foreach (var region in sites.GroupBy(s => s.Region).OrderByDescending(g => g.Count()))
-                        detail.Rows.Add(Row(region.Key, region.Count(), region.Sum(s => s.OpenJobs), region.Sum(s => s.CriticalJobs), region.Sum(s => s.SlaRisk), MoneyText(region.Sum(s => s.Revenue)), Math.Round(region.Average(s => s.HealthScore), 0) + "%"));
+                    detail.Title = "All Sites by Region - Work Details";
+                    detail.Columns.AddRange(new[] { "Region", "Site", "Client", "Job", "Work", "Technician", "Scheduled", "Status", "Priority", "Open Jobs", "Health" });
+                    foreach (SiteMonitorRow site in sites.OrderBy(s => s.Region).ThenBy(s => s.Site))
+                    {
+                        List<JobSummaryDto> activeJobs = _jobs
+                            .Where(job => !IsClosed(job.PipelineStatus) &&
+                                ((site.SiteId > 0 && job.SiteId == site.SiteId) ||
+                                 (job.SiteId <= 0 && string.Equals(First(job.SiteName, job.ClientName), site.Site, StringComparison.OrdinalIgnoreCase))))
+                            .OrderByDescending(IsEmergency)
+                            .ThenByDescending(IsSlaRisk)
+                            .ThenBy(job => job.ScheduledDate)
+                            .ToList();
+                        if (activeJobs.Count == 0)
+                        {
+                            detail.Rows.Add(Row(site.Region, site.Site, site.Client, "-", "No active work", "-", "-", "Available", "-", 0, site.HealthScore + "%"));
+                            continue;
+                        }
+                        foreach (JobSummaryDto job in activeJobs)
+                            detail.Rows.Add(Row(site.Region, site.Site, site.Client, First(job.JobNumber, "Job #" + job.JobId), First(job.JobTitle, First(job.JobType, "Service visit")), First(job.TechnicianName, "Unassigned"), DateTimeText(job.ScheduledDate), First(job.PipelineStatus, "Scheduled"), First(job.Priority, "Normal"), site.OpenJobs, site.HealthScore + "%"));
+                    }
                     break;
 
                 case "equipment_summary":
@@ -1316,11 +1379,15 @@ namespace HVAC_Pro_Desktop.UI
             {
                 List<JobSummaryDto> jobs = null;
                 List<Employee> techs = null;
+                List<ClientSite> sites = null;
+                List<B2BClient> clients = null;
                 Exception error = null;
                 try
                 {
                     jobs = _jobService.GetAllJobsWithSummary();
                     techs = _employeeService.GetActiveTechnicians();
+                    sites = _siteService.GetAll();
+                    clients = _clientService.GetAllClientsIncludingInactive();
                 }
                 catch (Exception ex)
                 {
@@ -1341,8 +1408,10 @@ namespace HVAC_Pro_Desktop.UI
                         }
                         _jobs = jobs ?? new List<JobSummaryDto>();
                         _technicians = techs ?? new List<Employee>();
+                        _sites = sites ?? new List<ClientSite>();
+                        _clients = clients ?? new List<B2BClient>();
                         _usingFallbackJobs = false;
-                        if (_jobs.Count == 0)
+                        if (_jobs.Count == 0 && !_siteMonitorLayout)
                         {
                             _jobs = BuildSeedDispatchJobs();
                             _usingFallbackJobs = true;
@@ -1410,33 +1479,89 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<SiteMonitorRow> BuildSiteMonitorRows()
         {
-            return _jobs
-                .GroupBy(j => First(j.SiteName, First(j.ClientName, "Unassigned Site")))
-                .Select(g =>
-                {
-                    List<JobSummaryDto> jobs = g.ToList();
-                    int open = jobs.Count(j => !IsClosed(j.PipelineStatus));
-                    int critical = jobs.Count(IsEmergency);
-                    int sla = jobs.Count(IsSlaRisk);
-                    int completed = jobs.Count(j => IsClosed(j.PipelineStatus));
-                    decimal revenue = jobs.Sum(j => j.QuotedRevenue);
-                    int health = Math.Max(35, 96 - (critical * 12) - (sla * 10) - Math.Max(0, open - 2) * 3 + Math.Min(8, completed));
-                    return new SiteMonitorRow
-                    {
-                        Site = g.Key,
-                        Region = ResolveRegion(g.Key, jobs.Select(j => j.ClientName).FirstOrDefault()),
-                        OpenJobs = open,
-                        CriticalJobs = critical,
-                        SlaRisk = sla,
-                        CompletedJobs = completed,
-                        Revenue = revenue,
-                        HealthScore = health,
-                        LastVisit = jobs.Max(j => j.ScheduledDate)
-                    };
-                })
-                .OrderByDescending(s => s.OpenJobs)
-                .ThenBy(s => s.Site)
+            Dictionary<int, B2BClient> clientsById = _clients
+                .Where(client => client != null)
+                .GroupBy(client => client.ClientID)
+                .ToDictionary(group => group.Key, group => group.First());
+            HashSet<int> knownSiteIds = new HashSet<int>(_sites.Where(site => site != null).Select(site => site.SiteID));
+            List<SiteMonitorRow> rows = new List<SiteMonitorRow>();
+
+            foreach (ClientSite site in _sites.Where(site => site != null))
+            {
+                B2BClient client;
+                clientsById.TryGetValue(site.ClientID, out client);
+                List<JobSummaryDto> jobs = _jobs
+                    .Where(job => job.SiteId == site.SiteID ||
+                        (job.SiteId <= 0 && string.Equals(job.SiteName, site.SiteName, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+                rows.Add(BuildSiteMonitorRow(
+                    site.SiteID,
+                    site.ClientID,
+                    SiteService.GetDisplayName(site),
+                    First(site.City, client == null ? null : client.City),
+                    client == null ? null : client.CompanyName,
+                    jobs));
+            }
+
+            foreach (IGrouping<string, JobSummaryDto> group in _jobs
+                .Where(job => job.SiteId <= 0 || !knownSiteIds.Contains(job.SiteId))
+                .GroupBy(job => First(job.SiteName, First(job.ClientName, "Unassigned Site")), StringComparer.OrdinalIgnoreCase))
+            {
+                JobSummaryDto sample = group.First();
+                rows.Add(BuildSiteMonitorRow(
+                    sample.SiteId,
+                    sample.ClientId,
+                    group.Key,
+                    null,
+                    sample.ClientName,
+                    group.ToList()));
+            }
+
+            return rows
+                .OrderBy(row => row.Region)
+                .ThenBy(row => row.Site)
                 .ToList();
+        }
+
+        private SiteMonitorRow BuildSiteMonitorRow(int siteId, int clientId, string siteName, string region, string clientName, List<JobSummaryDto> jobs)
+        {
+            jobs = jobs ?? new List<JobSummaryDto>();
+            List<JobSummaryDto> activeJobs = jobs.Where(job => !IsClosed(job.PipelineStatus)).ToList();
+            JobSummaryDto current = activeJobs
+                .OrderByDescending(IsEmergency)
+                .ThenByDescending(IsSlaRisk)
+                .ThenBy(job => job.ScheduledDate)
+                .FirstOrDefault();
+            int open = activeJobs.Count;
+            int critical = activeJobs.Count(IsEmergency);
+            int sla = activeJobs.Count(IsSlaRisk);
+            int completed = jobs.Count(job => IsClosed(job.PipelineStatus));
+            int health = Math.Max(35, 96 - (critical * 12) - (sla * 10) - Math.Max(0, open - 2) * 3 + Math.Min(8, completed));
+            string work = current == null
+                ? "No active work"
+                : First(current.JobTitle, First(current.JobType, "Service visit")) + (open > 1 ? " (+" + (open - 1).ToString("N0") + " more)" : string.Empty);
+
+            return new SiteMonitorRow
+            {
+                SiteId = siteId,
+                ClientId = clientId,
+                Site = First(siteName, "Unassigned Site"),
+                Client = First(clientName, "Unassigned client"),
+                Region = First(region, ResolveRegion(siteName, clientName)),
+                OpenJobs = open,
+                CriticalJobs = critical,
+                SlaRisk = sla,
+                CompletedJobs = completed,
+                Revenue = jobs.Sum(job => job.QuotedRevenue),
+                HealthScore = health,
+                LastVisit = jobs.Count == 0 ? default(DateTime) : jobs.Max(job => job.ScheduledDate),
+                CurrentWork = work,
+                CurrentJobNumber = current == null ? "-" : First(current.JobNumber, "Job #" + current.JobId),
+                Technician = current == null ? "-" : First(current.TechnicianName, "Unassigned"),
+                Scheduled = current == null ? default(DateTime) : current.ScheduledDate,
+                WorkStatus = current == null ? "Available" : First(current.PipelineStatus, "Scheduled"),
+                Priority = current == null ? "-" : First(current.Priority, "Normal")
+            };
         }
 
         private void BindSiteDistribution(List<SiteMonitorRow> sites)
@@ -1466,8 +1591,37 @@ namespace HVAC_Pro_Desktop.UI
         private void BindRegions(List<SiteMonitorRow> sites)
         {
             _regionGrid.Rows.Clear();
-            foreach (var region in sites.GroupBy(s => s.Region).Select(g => new { Region = g.Key, Count = g.Count() }).OrderByDescending(r => r.Count).Take(7))
-                _regionGrid.Rows.Add(region.Region, region.Count.ToString("N0") + " Sites");
+            foreach (SiteMonitorRow site in sites.OrderBy(s => s.Region).ThenByDescending(s => s.OpenJobs).ThenBy(s => s.Site))
+            {
+                int rowIndex = _regionGrid.Rows.Add(
+                    site.Region,
+                    site.Site,
+                    site.Client,
+                    site.CurrentWork,
+                    site.Technician,
+                    DateTimeText(site.Scheduled),
+                    site.WorkStatus,
+                    site.Priority,
+                    site.OpenJobs.ToString("N0"));
+                DataGridViewRow row = _regionGrid.Rows[rowIndex];
+                row.Tag = site;
+                row.Cells[3].ToolTipText = site.CurrentJobNumber + " | " + site.Technician + " | " + site.WorkStatus + " | " + DateTimeText(site.Scheduled);
+            }
+        }
+
+        private void FormatRegionWorkRow(object sender, DataGridViewCellFormattingEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.RowIndex >= _regionGrid.Rows.Count)
+                return;
+            SiteMonitorRow site = _regionGrid.Rows[e.RowIndex].Tag as SiteMonitorRow;
+            if (site == null)
+                return;
+            if (e.ColumnIndex == 6)
+            {
+                e.CellStyle.ForeColor = site.CriticalJobs > 0 ? Danger : site.OpenJobs > 0 ? Blue : Success;
+            }
+            if (e.ColumnIndex == 7 && (Contains(site.Priority, "Critical") || Contains(site.Priority, "Emergency") || Contains(site.Priority, "High")))
+                e.CellStyle.ForeColor = Danger;
         }
 
         private void BindUpcomingMaintenance()
@@ -2690,7 +2844,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private sealed class SiteMonitorRow
         {
+            public int SiteId { get; set; }
+            public int ClientId { get; set; }
             public string Site { get; set; }
+            public string Client { get; set; }
             public string Region { get; set; }
             public int OpenJobs { get; set; }
             public int CriticalJobs { get; set; }
@@ -2699,6 +2856,12 @@ namespace HVAC_Pro_Desktop.UI
             public decimal Revenue { get; set; }
             public int HealthScore { get; set; }
             public DateTime LastVisit { get; set; }
+            public string CurrentWork { get; set; }
+            public string CurrentJobNumber { get; set; }
+            public string Technician { get; set; }
+            public DateTime Scheduled { get; set; }
+            public string WorkStatus { get; set; }
+            public string Priority { get; set; }
         }
 
         private sealed class SiteMonitorDetail

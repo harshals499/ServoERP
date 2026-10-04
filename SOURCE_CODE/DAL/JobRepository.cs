@@ -144,6 +144,8 @@ namespace HVAC_Pro_Desktop.DAL
                     SELECT
                         TOP (@maxRows)
                         j.JobID,
+                        j.ClientID,
+                        j.SiteID,
                         j.JobNumber,
                         ISNULL(NULLIF(j.JobTitle, ''), j.Title) AS JobTitle,
                         ISNULL(NULLIF(j.JobType, ''), 'General') AS JobType,
@@ -191,6 +193,8 @@ namespace HVAC_Pro_Desktop.DAL
                             list.Add(new JobSummaryDto
                             {
                                 JobId = GetInt(r, "JobID"),
+                                ClientId = GetInt(r, "ClientID"),
+                                SiteId = GetInt(r, "SiteID"),
                                 JobNumber = GetString(r, "JobNumber"),
                                 JobTitle = GetString(r, "JobTitle"),
                                 JobType = GetString(r, "JobType"),
