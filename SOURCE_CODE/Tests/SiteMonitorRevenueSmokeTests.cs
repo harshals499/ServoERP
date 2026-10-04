@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Windows.Forms;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.UI;
 
@@ -52,8 +53,30 @@ namespace HVAC_Pro_Desktop.Tests
                     throw new InvalidOperationException("Invoice-only companies must remain visible in Site Monitor revenue.");
                 if (!rows.Cast<object>().Any(r => ReadSite(r) == "Quiet Chennai" && ReadWork(r) == "No active work"))
                     throw new InvalidOperationException("Master sites without jobs must remain visible with a clear no-active-work state.");
+
+                Invoke(form, "BindRegions", rows);
+                TextBox search = (TextBox)GetField(form, "_txtSiteRegionSearch");
+                ComboBox regionFilter = (ComboBox)GetField(form, "_cmbSiteRegion");
+                ComboBox workFilter = (ComboBox)GetField(form, "_cmbSiteWork");
+                DataGridView grid = (DataGridView)GetField(form, "_regionGrid");
+                search.Text = "Quiet Chennai";
+                workFilter.SelectedItem = "No active work";
+                Invoke(form, "ApplySiteRegionFilters");
+                if (grid.Rows.Count != 1 || Convert.ToString(grid.Rows[0].Cells[1].Value) != "Quiet Chennai")
+                    throw new InvalidOperationException("Site Monitor search and work-state filters must combine without hiding the matching site.");
+
+                search.Clear();
+                workFilter.SelectedItem = "All work";
+                regionFilter.SelectedItem = "Chennai";
+                Invoke(form, "ApplySiteRegionFilters");
+                if (grid.Rows.Count != 1 || Convert.ToString(grid.Rows[0].Cells[0].Value) != "Chennai")
+                    throw new InvalidOperationException("Site Monitor region filter must show only sites from the selected region.");
+
+                Invoke(form, "ClearSiteRegionFilters");
+                if (grid.Rows.Count != rows.Count)
+                    throw new InvalidOperationException("Clearing Site Monitor filters must restore every loaded site.");
             }
-            return "Site Monitor revenue uses exact invoice totals without hiding or double-counting company invoices.";
+            return "Site Monitor lists master sites, combines search, region, and work-state filters, and preserves exact invoice revenue.";
         }
 
         private static void SetField(object target, string name, object value)
@@ -61,9 +84,14 @@ namespace HVAC_Pro_Desktop.Tests
             target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).SetValue(target, value);
         }
 
-        private static object Invoke(object target, string name)
+        private static object GetField(object target, string name)
         {
-            return target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
+            return target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(target);
+        }
+
+        private static object Invoke(object target, string name, params object[] arguments)
+        {
+            return target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, arguments);
         }
 
         private static decimal ReadRevenue(object row)

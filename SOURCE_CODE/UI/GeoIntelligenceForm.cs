@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -79,6 +80,10 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _slaGaugePanel;
         private Panel _siteHealthTrendPanel;
         private DataGridView _regionGrid;
+        private TextBox _txtSiteRegionSearch;
+        private ComboBox _cmbSiteRegion;
+        private ComboBox _cmbSiteWork;
+        private Label _lblSiteFilterCount;
         private DataGridView _maintenanceGrid;
         private DataGridView _problemGrid;
         private DataGridView _attentionGrid;
@@ -119,6 +124,7 @@ namespace HVAC_Pro_Desktop.UI
         private List<Invoice> _invoices = new List<Invoice>();
         private List<ClientSite> _sites = new List<ClientSite>();
         private List<B2BClient> _clients = new List<B2BClient>();
+        private List<SiteMonitorRow> _siteMonitorRows = new List<SiteMonitorRow>();
         private List<JobSummaryDto> _visibleJobs = new List<JobSummaryDto>();
         private JobSummaryDto _selectedJob;
         private Employee _selectedTechnician;
@@ -128,6 +134,11 @@ namespace HVAC_Pro_Desktop.UI
         private bool _usingFallbackJobs;
         private Timer _initialDispatchLoadTimer;
         private bool _siteMonitorLayout;
+        private bool _bindingSiteMonitorFilters;
+        private const int EmSetCueBanner = 0x1501;
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
 
         public Action<int> OnNavigate { get; set; }
         public Action<int> OnOpenClientSite { get; set; }
@@ -206,7 +217,7 @@ namespace HVAC_Pro_Desktop.UI
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 126));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1280));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 1320));
             scroll.Controls.Add(root);
             scroll.Resize += (s, e) => root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
             root.Width = Math.Max(1120, scroll.ClientSize.Width - scroll.Padding.Horizontal - SystemInformation.VerticalScrollBarWidth);
@@ -380,7 +391,7 @@ namespace HVAC_Pro_Desktop.UI
                 RowCount = 2
             };
             dashboard.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 400f));
+            dashboard.RowStyles.Add(new RowStyle(SizeType.Absolute, 440f));
             dashboard.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             dashboard.Controls.Add(BuildRegionCard(), 0, 0);
 
@@ -487,7 +498,120 @@ namespace HVAC_Pro_Desktop.UI
             _regionGrid.MultiSelect = false;
             _regionGrid.CellFormatting += FormatRegionWorkRow;
             card.Controls.Add(_regionGrid);
+            card.Controls.Add(BuildSiteRegionFilters());
             return card;
+        }
+
+        private Control BuildSiteRegionFilters()
+        {
+            TableLayoutPanel filters = new TableLayoutPanel
+            {
+                Name = "SiteRegionFilterBar",
+                Dock = DockStyle.Top,
+                Height = 46,
+                BackColor = White,
+                ColumnCount = 4,
+                RowCount = 1,
+                Padding = new Padding(0, 6, 0, 8)
+            };
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 18f));
+            filters.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+
+            TableLayoutPanel searchHost = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = White,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = new Padding(0, 0, 8, 0)
+            };
+            searchHost.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 50f));
+            searchHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            searchHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            Label searchLabel = new Label
+            {
+                Text = "Search",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleLeft,
+                Margin = Padding.Empty
+            };
+            _txtSiteRegionSearch = new TextBox
+            {
+                Name = "SiteRegionSearch",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 9f),
+                BorderStyle = BorderStyle.FixedSingle,
+                Margin = Padding.Empty
+            };
+            _txtSiteRegionSearch.HandleCreated += (s, e) => SendMessage(_txtSiteRegionSearch.Handle, EmSetCueBanner, new IntPtr(1), "Search site, client, work or technician");
+            _txtSiteRegionSearch.TextChanged += (s, e) => ApplySiteRegionFilters();
+            searchHost.Controls.Add(searchLabel, 0, 0);
+            searchHost.Controls.Add(_txtSiteRegionSearch, 1, 0);
+
+            _cmbSiteRegion = MakeSiteFilterCombo("SiteRegionFilter");
+            _cmbSiteRegion.Margin = new Padding(0, 0, 8, 0);
+            _cmbSiteRegion.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
+
+            _cmbSiteWork = MakeSiteFilterCombo("SiteWorkFilter");
+            _cmbSiteWork.Items.AddRange(new object[] { "All work", "Active work", "No active work", "Critical / SLA risk", "Unassigned technician" });
+            _cmbSiteWork.SelectedIndex = 0;
+            _cmbSiteWork.Margin = new Padding(0, 0, 8, 0);
+            _cmbSiteWork.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
+
+            Panel result = new Panel { Name = "SiteFilterResult", Dock = DockStyle.Fill, BackColor = White, Margin = Padding.Empty };
+            _lblSiteFilterCount = new Label
+            {
+                Name = "SiteFilterCount",
+                Text = "0 sites",
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                ForeColor = TextSecondary,
+                TextAlign = ContentAlignment.MiddleRight,
+                AutoEllipsis = true,
+                Padding = new Padding(0, 0, 64, 0)
+            };
+            LinkLabel clear = new LinkLabel
+            {
+                Name = "SiteFilterClear",
+                Text = "Clear",
+                Dock = DockStyle.Right,
+                Width = 56,
+                BackColor = White,
+                ForeColor = Blue,
+                LinkColor = Blue,
+                ActiveLinkColor = Blue,
+                VisitedLinkColor = Blue,
+                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            clear.Click += (s, e) => ClearSiteRegionFilters();
+            result.Controls.Add(_lblSiteFilterCount);
+            result.Controls.Add(clear);
+
+            filters.Controls.Add(searchHost, 0, 0);
+            filters.Controls.Add(_cmbSiteRegion, 1, 0);
+            filters.Controls.Add(_cmbSiteWork, 2, 0);
+            filters.Controls.Add(result, 3, 0);
+            return filters;
+        }
+
+        private ComboBox MakeSiteFilterCombo(string name)
+        {
+            return new ComboBox
+            {
+                Name = name,
+                Dock = DockStyle.Fill,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 8.8f),
+                BackColor = White
+            };
         }
 
         private Control BuildUpcomingMaintenanceCard()
@@ -620,6 +744,12 @@ namespace HVAC_Pro_Desktop.UI
         private void AttachSiteMonitorDrilldown(Control control, string detailKey)
         {
             if (control == null || string.IsNullOrWhiteSpace(detailKey))
+                return;
+
+            // The region filter bar owns its own interactive controls. Do not turn
+            // search, filter, or clear actions into dashboard drill-down clicks.
+            if (string.Equals(detailKey, "regions", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(control.Name, "SiteRegionFilterBar", StringComparison.OrdinalIgnoreCase))
                 return;
 
             DataGridView regionWorkGrid = control as DataGridView;
@@ -1676,8 +1806,67 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindRegions(List<SiteMonitorRow> sites)
         {
+            _siteMonitorRows = (sites ?? new List<SiteMonitorRow>())
+                .OrderBy(site => site.Region)
+                .ThenByDescending(site => site.OpenJobs)
+                .ThenBy(site => site.Site)
+                .ToList();
+            string selectedRegion = _cmbSiteRegion == null ? "All regions" : Convert.ToString(_cmbSiteRegion.SelectedItem);
+            _bindingSiteMonitorFilters = true;
+            try
+            {
+                _cmbSiteRegion.Items.Clear();
+                _cmbSiteRegion.Items.Add("All regions");
+                foreach (string region in _siteMonitorRows.Select(site => First(site.Region, "Unspecified")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(region => region))
+                    _cmbSiteRegion.Items.Add(region);
+                int selectedIndex = _cmbSiteRegion.FindStringExact(selectedRegion);
+                _cmbSiteRegion.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
+            }
+            finally
+            {
+                _bindingSiteMonitorFilters = false;
+            }
+            ApplySiteRegionFilters();
+        }
+
+        private void ApplySiteRegionFilters()
+        {
+            if (_bindingSiteMonitorFilters || _regionGrid == null || _cmbSiteRegion == null || _cmbSiteWork == null)
+                return;
+
+            string search = (_txtSiteRegionSearch == null ? string.Empty : _txtSiteRegionSearch.Text ?? string.Empty).Trim();
+            string region = Convert.ToString(_cmbSiteRegion.SelectedItem);
+            string work = Convert.ToString(_cmbSiteWork.SelectedItem);
+            IEnumerable<SiteMonitorRow> query = _siteMonitorRows;
+            if (!string.IsNullOrWhiteSpace(region) && !string.Equals(region, "All regions", StringComparison.OrdinalIgnoreCase))
+                query = query.Where(site => string.Equals(First(site.Region, "Unspecified"), region, StringComparison.OrdinalIgnoreCase));
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(site =>
+                    Contains(site.Region, search) || Contains(site.Site, search) || Contains(site.Client, search) ||
+                    Contains(site.CurrentWork, search) || Contains(site.CurrentJobNumber, search) || Contains(site.Technician, search) ||
+                    Contains(site.WorkStatus, search) || Contains(site.Priority, search));
+            }
+
+            switch ((work ?? string.Empty).ToLowerInvariant())
+            {
+                case "active work":
+                    query = query.Where(site => site.OpenJobs > 0);
+                    break;
+                case "no active work":
+                    query = query.Where(site => site.OpenJobs == 0);
+                    break;
+                case "critical / sla risk":
+                    query = query.Where(site => site.CriticalJobs > 0 || site.SlaRisk > 0);
+                    break;
+                case "unassigned technician":
+                    query = query.Where(site => site.OpenJobs > 0 && string.Equals(site.Technician, "Unassigned", StringComparison.OrdinalIgnoreCase));
+                    break;
+            }
+
+            List<SiteMonitorRow> visible = query.ToList();
             _regionGrid.Rows.Clear();
-            foreach (SiteMonitorRow site in sites.OrderBy(s => s.Region).ThenByDescending(s => s.OpenJobs).ThenBy(s => s.Site))
+            foreach (SiteMonitorRow site in visible)
             {
                 int rowIndex = _regionGrid.Rows.Add(
                     site.Region,
@@ -1693,6 +1882,27 @@ namespace HVAC_Pro_Desktop.UI
                 row.Tag = site;
                 row.Cells[3].ToolTipText = site.CurrentJobNumber + " | " + site.Technician + " | " + site.WorkStatus + " | " + DateTimeText(site.Scheduled);
             }
+            if (_lblSiteFilterCount != null)
+                _lblSiteFilterCount.Text = visible.Count.ToString("N0") + " of " + _siteMonitorRows.Count.ToString("N0") + " sites";
+        }
+
+        private void ClearSiteRegionFilters()
+        {
+            _bindingSiteMonitorFilters = true;
+            try
+            {
+                if (_txtSiteRegionSearch != null)
+                    _txtSiteRegionSearch.Clear();
+                if (_cmbSiteRegion != null && _cmbSiteRegion.Items.Count > 0)
+                    _cmbSiteRegion.SelectedIndex = 0;
+                if (_cmbSiteWork != null && _cmbSiteWork.Items.Count > 0)
+                    _cmbSiteWork.SelectedIndex = 0;
+            }
+            finally
+            {
+                _bindingSiteMonitorFilters = false;
+            }
+            ApplySiteRegionFilters();
         }
 
         private void FormatRegionWorkRow(object sender, DataGridViewCellFormattingEventArgs e)

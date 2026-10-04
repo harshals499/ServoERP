@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.476.0 - 2026-10-04
+
+- Added combined Search, Region, and Work filters to **All Sites by Region - Live Work** in Site Monitor.
+- Added Active work, No active work, Critical / SLA risk, and Unassigned technician shortcuts plus a live filtered-site count and one-click Clear action.
+- Kept the selected region during data refreshes and prevented filter controls from triggering the table's work-details drill-down.
+- Added CI-safe coverage for combined site search and work-state filtering and visually verified the updated full-width layout.
+
 ## 1.1.475.0 - 2026-10-04
 
 - Promoted **All Sites by Region - Live Work** to the primary Site Monitor view and moved the supporting operational cards below it.
