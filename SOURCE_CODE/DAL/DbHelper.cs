@@ -259,7 +259,33 @@ BEGIN
     ALTER TABLE dbo.AMCEquipment WITH NOCHECK
         ADD CONSTRAINT FK_AMCEquipment_AMC
         FOREIGN KEY (AMCID) REFERENCES dbo.AMCContracts(ContractID);
-END;");
+END;
+
+IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AMCVisitReminderDrafts')
+BEGIN
+    CREATE TABLE dbo.AMCVisitReminderDrafts (
+        ReminderDraftID INT IDENTITY(1,1) PRIMARY KEY,
+        AMCID INT NOT NULL,
+        VisitID INT NULL,
+        VisitNumber INT NOT NULL,
+        ScheduledDate DATE NOT NULL,
+        Channel NVARCHAR(30) NOT NULL,
+        Recipient NVARCHAR(255) NULL,
+        DraftText NVARCHAR(1000) NOT NULL,
+        Status NVARCHAR(30) NOT NULL DEFAULT 'Draft',
+        CreatedByName NVARCHAR(150) NULL,
+        CreatedAt DATETIME NOT NULL DEFAULT GETDATE(),
+        UpdatedAt DATETIME NOT NULL DEFAULT GETDATE()
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE name = 'IX_AMCVisitReminderDrafts_Visit'
+      AND object_id = OBJECT_ID('dbo.AMCVisitReminderDrafts')
+)
+CREATE INDEX IX_AMCVisitReminderDrafts_Visit
+ON dbo.AMCVisitReminderDrafts(AMCID, VisitNumber, ScheduledDate, Status);");
 
                     Execute(connection, @"
 IF NOT EXISTS (SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'AMCVisits')

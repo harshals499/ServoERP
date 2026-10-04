@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.472.0 - 2026-10-03
+
+- Removed the unusable Agent Simulation, ServoERP Brain agent dashboard, and AI assistant/model controls from Settings.
+- Removed the related Settings status tile and save/load hooks so ordinary settings changes no longer read or rewrite hidden AI configuration.
+- Kept existing business settings, compliance tools, and underlying data unchanged.
+
+## 1.1.471.0 - 2026-10-03
+
+- Added an AMC Preventive Planner that creates a reviewable visit calendar across active contracts and requires dispatcher confirmation before adding missing visits.
+- Balanced proposed visit dates against combined daily AMC and open-job capacity while avoiding Sundays and visibly flagging any remaining capacity conflicts.
+- Flagged overdue scheduled visits and past-due missing obligations for dispatcher follow-up without silently changing their status.
+- Prepared customer-specific WhatsApp or email reminder drafts for near-term visits without auto-sending any message.
+- Added idempotent, transactional visit creation, additive SQL Server reminder-draft storage, deterministic service smoke coverage, and visual regression coverage.
+
 ## 1.1.470.0 - 2026-10-03
 
 - Added customer-owned OneDrive storage for completed SQL Server backup copies and ordinary ServoERP documents without placing live SQL or SQLite database files inside OneDrive.

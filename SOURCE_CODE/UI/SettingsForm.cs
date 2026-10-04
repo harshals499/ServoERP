@@ -10,7 +10,6 @@ using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using HVAC_Pro_Desktop.AI;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 using HVAC_Pro_Desktop.Services;
@@ -40,7 +39,6 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ModuleCatalogService _moduleCatalogSvc = new ModuleCatalogService();
         private readonly CompliancePackService _compliancePackSvc = new CompliancePackService();
         private readonly BackupService _backupSvc = new BackupService();
-        private readonly AiAssistantService _aiAssistantSvc = new AiAssistantService();
         private readonly LicenseService _licenseSvc = new LicenseService();
         private readonly DeviceFingerprintService _deviceFingerprintSvc = new DeviceFingerprintService();
         private readonly CloudBackupIntegrationService _cloudBackupIntegrationSvc = new CloudBackupIntegrationService();
@@ -98,12 +96,6 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cmbUnitCategory;
         private ComboBox _cmbUnitMeasurementSystem;
         private TextBox _txtUnitAliases;
-        private CheckBox _chkAiEnabled;
-        private ComboBox _cmbAiProvider;
-        private TextBox _txtAiEndpoint;
-        private TextBox _txtAiModel;
-        private NumericUpDown _numAiMaxTokens;
-        private NumericUpDown _numAiTemperature;
         private Panel _generalFlow;
         private Label _lblUserTotal;
         private Label _lblUserActive;
@@ -119,7 +111,6 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblSettingsDbState;
         private Label _lblSettingsBackupState;
         private Label _lblSettingsLicenseState;
-        private Label _lblSettingsAssistantState;
         private bool _reflowingSettingsCards;
         private bool _initialLoadQueued;
         private bool _settingsCardsBuilt;
@@ -246,6 +237,29 @@ namespace HVAC_Pro_Desktop.UI
             QueueDeferredSettingsPolish();
             QueueDeferredSecondarySettingsCards();
             AppRuntime.LogTiming("Settings.BuildCards.Complete", watch.ElapsedMilliseconds);
+        }
+
+        /// <summary>Builds the complete Settings surface without database loading for visual regression capture.</summary>
+        internal void LoadPreviewForVisualTest()
+        {
+            if (_generalFlow == null || _generalFlow.IsDisposed)
+                return;
+
+            _generalCanvas.SuspendLayout();
+            _generalFlow.SuspendLayout();
+            try
+            {
+                BuildForm(_generalFlow, includeDeferredCards: true);
+                _settingsCardsBuilt = true;
+                _secondarySettingsCardsBuilt = true;
+                CenterCanvas(_generalCanvas.Parent as Panel, _generalCanvas);
+                ReflowSettingsCards();
+            }
+            finally
+            {
+                _generalFlow.ResumeLayout(true);
+                _generalCanvas.ResumeLayout(true);
+            }
         }
 
         private void QueueDeferredSecondarySettingsCards()
@@ -475,11 +489,6 @@ namespace HVAC_Pro_Desktop.UI
             BuildGeneralSettingsGuide(parent);
             BuildHelpSupportCard(parent);
             BuildUpdateNotificationsCard(parent);
-            if (includeDeferredCards)
-            {
-                BuildAgentSimulationCard(parent);
-                BuildDevTeamDashboardCard(parent);
-            }
             AppRuntime.LogTiming("Settings.BuildForm.Guides.Complete", 0);
 
             AppRuntime.LogTiming("Settings.BuildForm.Company.Start", 0);
@@ -581,7 +590,6 @@ namespace HVAC_Pro_Desktop.UI
 
             if (includeDeferredCards)
             {
-                BuildLocalAiCard(parent);
                 AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
                 BuildLegalAgreementsCard(parent);
                 BuildOpenSourceLicensesCard(parent);
@@ -776,9 +784,6 @@ namespace HVAC_Pro_Desktop.UI
             if (_secondarySettingsCardsBuilt || parent == null || parent.IsDisposed)
                 return;
 
-            BuildAgentSimulationCard(parent);
-            BuildDevTeamDashboardCard(parent);
-            BuildLocalAiCard(parent);
             AppRuntime.LogTiming("Settings.BuildForm.ComplianceCards.Start", 0);
             BuildLegalAgreementsCard(parent);
             BuildOpenSourceLicensesCard(parent);
@@ -928,7 +933,6 @@ namespace HVAC_Pro_Desktop.UI
             _lblSettingsDbState = AddSummaryCard(summaryFlow, "Database", "Checking", SaveGreen);
             _lblSettingsBackupState = AddSummaryCard(summaryFlow, "Backup", "Pending", DS.Amber600);
             _lblSettingsLicenseState = AddSummaryCard(summaryFlow, "License", "Review", DS.Red600);
-            _lblSettingsAssistantState = AddSummaryCard(summaryFlow, "Assistant", "Disabled", DS.Teal600);
             body.Controls.Add(summaryFlow);
 
             Label playbook = new Label
@@ -1048,92 +1052,6 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             CrashProtectionService.SafeShowDialog(this, "Open Help & Support", () => new SupportCenterDialog());
-        }
-
-        private void BuildAgentSimulationCard(Panel parent)
-        {
-            Panel body = AddModernSettingsCard(parent, "Agent Simulation", "Run isolated [AGENT] QA data, PDFs, report, pause/resume, and cleanup.", 260);
-            Label summary = new Label
-            {
-                Text = "Tracks exact IDs in AgentState.json. Real records are not touched.",
-                Location = new Point(0, 2),
-                Size = new Size(520, 54),
-                Font = new Font("Segoe UI", 9f),
-                ForeColor = DS.Slate600
-            };
-            body.Controls.Add(summary);
-
-            Button run = MakeBtn("Run Agent Simulation", InfoBlue, 184);
-            run.Location = new Point(0, 76);
-            run.Name = "btnRunAgentSimulation";
-            ModernIconSystem.AddButtonIcon(run, ModernIconKind.Service);
-            run.Click += (s, e) => OpenAgentSimulationPanel(true);
-            body.Controls.Add(run);
-
-            Button openReport = MakeBtn("Open Latest Report", Color.White, 160);
-            openReport.ForeColor = DS.Primary600;
-            openReport.FlatAppearance.BorderColor = DS.Border;
-            openReport.FlatAppearance.BorderSize = 1;
-            openReport.Location = new Point(202, 76);
-            openReport.Click += (s, e) => OpenLatestAgentReport();
-            body.Controls.Add(openReport);
-        }
-
-        private void BuildDevTeamDashboardCard(Panel parent)
-        {
-            Panel body = AddModernSettingsCard(parent, "ServoERP Brain - Dev Team", "Local AI dev team (Ollama-powered) that audits and improves this app.", 200);
-            Label summary = new Label
-            {
-                Text = "Runs fully offline via the local Ollama models. Submit a task, watch the 8 agents work, and review the final report.",
-                Location = new Point(0, 2),
-                Size = new Size(520, 54),
-                Font = new Font("Segoe UI", 9f),
-                ForeColor = DS.Slate600
-            };
-            body.Controls.Add(summary);
-
-            Button open = MakeBtn("Open Dev Team Dashboard", InfoBlue, 200);
-            open.Location = new Point(0, 76);
-            open.Name = "btnOpenDevTeamDashboard";
-            open.Click += (s, e) => OpenDevTeamDashboard();
-            body.Controls.Add(open);
-        }
-
-        private void OpenDevTeamDashboard()
-        {
-            MainForm main = FindForm() as MainForm;
-            if (main != null)
-            {
-                main.ShowDevTeamDashboard();
-                return;
-            }
-
-            using (var dashboard = new DevTeamDashboardForm())
-                dashboard.ShowDialog(FindForm());
-        }
-
-        private void OpenAgentSimulationPanel(bool start)
-        {
-            if (start)
-                AgentSimulationService.Instance.StartOrResume();
-
-            using (var panel = new AgentSimulationPanel())
-                panel.ShowDialog(FindForm());
-        }
-
-        private void OpenLatestAgentReport()
-        {
-            try
-            {
-                string path = AgentSimulationService.Instance.BuildLatestReport();
-                if (File.Exists(path))
-                    System.Diagnostics.Process.Start("notepad.exe", path);
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("SettingsForm.OpenLatestAgentReport", ex);
-                MessageBox.Show("Unable to open agent report:\r\n" + ex.Message, "Agent Simulation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
         }
 
         private void BuildLoginAccessSection(Panel parent)
@@ -1438,63 +1356,6 @@ namespace HVAC_Pro_Desktop.UI
             layout();
         }
 
-        private void BuildLocalAiCard(Panel parent)
-        {
-            Panel aiBody = AddModernSettingsCard(parent, "ServoERP Assistant", "Built-in ERP helper. No server, model setup, or API key is required.", 410);
-
-            _chkAiEnabled = new CheckBox
-            {
-                Text = "Enable ServoERP Assistant",
-                Location = new Point(0, 0),
-                Size = new Size(240, 26),
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-                ForeColor = DS.Slate700,
-                BackColor = Color.White
-            };
-            aiBody.Controls.Add(_chkAiEnabled);
-
-            _cmbAiProvider = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbAiProvider.Items.AddRange(new object[] { "Built-in" });
-            PlaceLabeledControl(aiBody, "Provider", _cmbAiProvider, 0, 52, 190);
-            _cmbAiProvider.Enabled = true;
-
-            _txtAiEndpoint = new TextBox { Visible = false };
-            _txtAiModel = new TextBox { Visible = false };
-            _numAiMaxTokens = MakeDecimalBox(Point.Empty, 0, 64m, 4096m, 700m, 0, 50m);
-            _numAiTemperature = MakeDecimalBox(Point.Empty, 0, 0m, 2m, 0.2m, 2, 0.05m);
-            _numAiMaxTokens.Visible = false;
-            _numAiTemperature.Visible = false;
-            aiBody.Controls.Add(_txtAiEndpoint);
-            aiBody.Controls.Add(_txtAiModel);
-            aiBody.Controls.Add(_numAiMaxTokens);
-            aiBody.Controls.Add(_numAiTemperature);
-
-            Label help = new Label
-            {
-                Text = "No API keys, endpoints, or model setup are needed. The assistant uses built-in ServoERP rules, module context, and preview-only actions.",
-                Location = new Point(0, 124),
-                Size = new Size(528, 48),
-                Font = DS.Small,
-                ForeColor = DS.Slate600
-            };
-            aiBody.Controls.Add(help);
-
-            Button openCopilot = MakeBtn("Open AI Copilot", InfoBlue, 150);
-            openCopilot.Location = new Point(0, 190);
-            openCopilot.Click += (s, e) =>
-            {
-                MainForm shell = FindForm() as MainForm;
-                if (shell != null)
-                    shell.ShowAiCopilot();
-            };
-            aiBody.Controls.Add(openCopilot);
-
-            Button test = MakeBtn("Check Assistant", InfoBlue, 138);
-            test.Location = new Point(164, 190);
-            test.Click += async (s, e) => await TestLocalAiAsync();
-            aiBody.Controls.Add(test);
-        }
-
         private void BuildLegalAgreementsCard(Panel parent)
         {
             Panel legalBody = AddModernSettingsCard(parent, "Legal Agreements", "View EULA, Privacy Policy, Data Processing Policy, and Disclaimer.", 220);
@@ -1684,7 +1545,6 @@ namespace HVAC_Pro_Desktop.UI
                 RefreshRuntimeSettingsLabels();
                 LoadDisplayFitSetting();
                 LoadUiScaleSetting();
-                LoadAiSettings();
                 AppRuntime.LogTiming("Settings.LoadSettings.RuntimeLoaded", watch.ElapsedMilliseconds);
 
                 RefreshIndiaDefaultsPreview();
@@ -2381,7 +2241,6 @@ namespace HVAC_Pro_Desktop.UI
                 _hsnSacSvc.SaveAll(CollectHsnSacRows());
                 SaveDisplayFitSetting();
                 SaveUiScaleSetting();
-                SaveAiSettings();
                 if (_txtVersionCheckUrl != null)
                 {
                     ConfigService.Set("App", "GitHubRepositoryUrl", ConfigService.ProductionVersionCheckUrl);
@@ -2439,58 +2298,6 @@ namespace HVAC_Pro_Desktop.UI
             string selected = LayoutScaler.GetUiScalePercent().ToString(CultureInfo.InvariantCulture) + "%";
             int index = _cmbUiScale.Items.IndexOf(selected);
             _cmbUiScale.SelectedIndex = index >= 0 ? index : Math.Max(0, _cmbUiScale.Items.IndexOf("100%"));
-        }
-
-        private void LoadAiSettings()
-        {
-            if (_chkAiEnabled == null)
-                return;
-
-            AiProviderConfig config = AiProviderConfig.Load();
-            _chkAiEnabled.Checked = config.Enabled;
-            SelectCombo(_cmbAiProvider, config.Provider, "Built-in");
-            _txtAiEndpoint.Text = config.EndpointUrl;
-            _txtAiModel.Text = config.ModelName;
-            _numAiMaxTokens.Value = Clamp(_numAiMaxTokens, config.MaxTokens);
-            _numAiTemperature.Value = Clamp(_numAiTemperature, config.Temperature);
-            RefreshSettingsWorkspaceSummary();
-        }
-
-        private void SaveAiSettings()
-        {
-            if (_chkAiEnabled == null)
-                return;
-
-            var config = new AiProviderConfig
-            {
-                Enabled = _chkAiEnabled.Checked,
-                Provider = "Built-in",
-                EndpointUrl = "",
-                ModelName = "ServoERP Bot",
-                MaxTokens = (int)_numAiMaxTokens.Value,
-                Temperature = _numAiTemperature.Value
-            };
-            config.Save();
-        }
-
-        private async Task TestLocalAiAsync()
-        {
-            try
-            {
-                SaveAiSettings();
-                _lblStatus.Text = "Checking assistant...";
-                _lblStatus.ForeColor = InfoBlue;
-            bool ok = await _aiAssistantSvc.IsLocalAiReachableAsync(CancellationToken.None);
-                _lblStatus.Text = ok
-                    ? "ServoERP Assistant is ready."
-                    : "ServoERP Assistant is disabled.";
-                _lblStatus.ForeColor = ok ? SaveGreen : DS.Amber600;
-            }
-            catch (Exception ex)
-            {
-                _lblStatus.Text = "Assistant check failed: " + ex.Message;
-                _lblStatus.ForeColor = Color.Red;
-            }
         }
 
         private void SaveUiScaleSetting()
@@ -3837,8 +3644,6 @@ namespace HVAC_Pro_Desktop.UI
                 ? "Action"
                 : "Active";
 
-            bool assistantEnabled = _chkAiEnabled != null && _chkAiEnabled.Checked;
-            _lblSettingsAssistantState.Text = assistantEnabled ? "Enabled" : "Disabled";
         }
 
         private async Task CreateCloudBackupAsync()
