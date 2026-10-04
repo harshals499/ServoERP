@@ -93,6 +93,7 @@ namespace HVAC_Pro_Desktop.UI
         private Dictionary<int, string> _clientNames = new Dictionary<int, string>();
         private bool _initialRefreshQueued;
         private bool _refreshing;
+        private bool _usingPreviewData;
 
         private sealed class ExpenseJobChoice
         {
@@ -166,6 +167,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public void LoadProfitabilityPreviewForVisualTest()
         {
+            _usingPreviewData = true;
             _currentReportIndex = 9;
             DateTime fyStart = IndiaFinancialYearHelper.GetFinancialYearStart(DateTime.Today);
             _profitabilityRows = new List<JobProfitabilityRow>
@@ -2156,6 +2158,12 @@ namespace HVAC_Pro_Desktop.UI
         private void BindProfitabilityImportReview()
         {
             AddColumns("Row", "Customer", "Invoice", "Revenue", "Vendor Cost", "Invoice Match", "Job Match", "Status", "Review Message");
+            if (_usingPreviewData)
+            {
+                _detailGrid.Rows.Add("2", "Aarti Industries", "INV-2026-041", "185000.00", "122400.00", "#41", "#26041", "Matched", "Ready for review");
+                _detailGrid.Rows.Add("3", "Larsen & Toubro", "INV-2026-044", "164000.00", "n.a.", "#44", "#26044", "Review", "Vendor cost is incomplete");
+                return;
+            }
             foreach (ProfitabilityImportRow row in _financialSvc.GetLatestImportRows().Take(250))
             {
                 _detailGrid.Rows.Add(
