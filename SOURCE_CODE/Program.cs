@@ -132,7 +132,11 @@ namespace HVAC_Pro_Desktop
 
         private static string WriteCiSmokeReport()
         {
-            string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+            string repositoryRoot = Environment.GetEnvironmentVariable("GITHUB_WORKSPACE");
+            if (string.IsNullOrWhiteSpace(repositoryRoot))
+                repositoryRoot = Directory.GetCurrentDirectory();
+
+            string dir = Path.Combine(repositoryRoot, "TEST_RESULTS");
             Directory.CreateDirectory(dir);
             string reportPath = Path.Combine(dir, "ci-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".txt");
             var lines = new System.Collections.Generic.List<string>
@@ -292,6 +296,7 @@ namespace HVAC_Pro_Desktop
                 {
                     string reportPath = WriteCiSmokeReport();
                     string reportText = File.Exists(reportPath) ? File.ReadAllText(reportPath) : string.Empty;
+                    Console.WriteLine(reportText);
                     Environment.ExitCode = reportText.Contains(Environment.NewLine + "FAIL ") ? 1 : 0;
                     AppRuntime.LogTiming("CiSmokeTests", 0, reportPath);
                     return;
