@@ -1,3 +1,4 @@
+using Dapper;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
@@ -84,6 +85,7 @@ namespace HVAC_Pro_Desktop.Services
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
                 SqlTransaction transaction = options.UseTransaction ? conn.BeginTransaction() : null;
                 var sheet = package.Workbook.Worksheets.FirstOrDefault();
                 if (sheet == null || sheet.Dimension == null)
@@ -408,11 +410,26 @@ END");
             return GetScalarInt(conn, transaction, "SELECT TOP 1 ClientID FROM B2BClients WHERE CompanyName=@name AND ISNULL(IsActive,1)=1", new SqlParameter("@name", clientName));
         }
 
+        private sealed class QuotationIdentity
+        {
+            public int BidID { get; set; }
+            public int? ClientID { get; set; }
+            public string CompanyName { get; set; }
+        }
+
+        private sealed class SiteIdentity
+        {
+            public int SiteID { get; set; }
+            public string SiteName { get; set; }
+        }
+
         private int? FindSiteId(SqlConnection conn, SqlTransaction transaction, int clientId, string siteName)
         {
-            return GetScalarInt(conn, transaction, "SELECT TOP 1 SiteID FROM ClientSites WHERE ClientID=@clientId AND SiteName=@siteName",
-                new SqlParameter("@clientId", clientId),
-                new SqlParameter("@siteName", siteName));
+            var candidates = conn.Query<SiteIdentity>("SELECT COALESCE(TRY_CONVERT(int,a.SurvivorRecordID),s.SiteID) SiteID, s.SiteName FROM ClientSites s LEFT JOIN DuplicateMergeArchive a ON a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID) WHERE s.ClientID=@clientId", new { clientId }, transaction)
+                .Where(site => SmartImportDuplicateDetector.Normalize((string)site.SiteName) == SmartImportDuplicateDetector.Normalize(siteName)).GroupBy(site => (int)site.SiteID).Select(group => group.First()).ToList();
+            if (candidates.Count > 1)
+                throw new InvalidOperationException("Multiple sites match this client and site name. Resolve the Sites duplicates in Master Data before importing.");
+            return candidates.Count == 1 ? (int?)candidates[0].SiteID : null;
         }
 
         private int? FindVendorId(SqlConnection conn, SqlTransaction transaction, string vendorName)
@@ -764,6 +781,8 @@ WHERE ItemName = @name AND ISNULL(IsActive, 1) = 1;", conn, transaction))
 
         private int EnsureClientId(SqlConnection conn, SqlTransaction transaction, string clientName, string contactPerson, string phone, string email, string address, string city, string state, string gstin, ExcelImportExecutionOptions options)
         {
+            if (SmartImportDuplicateDetector.IsSuspectClientName(clientName))
+                throw new InvalidOperationException("Client name is a number, heading or quotation term. Correct the client mapping before importing.");
             int? existingId = FindClientId(conn, transaction, clientName);
             if (!existingId.HasValue && !string.IsNullOrWhiteSpace(gstin))
                 existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 ClientID FROM B2BClients WHERE GSTNumber=@gstin", new SqlParameter("@gstin", gstin));
@@ -1043,6 +1062,13 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
             if (string.IsNullOrWhiteSpace(description))
                 return AddError(result, row, "Missing required field: Description");
 
+            var existingQuotes = conn.Query<QuotationIdentity>("SELECT q.BidID, q.ClientID, c.CompanyName FROM Quotations q LEFT JOIN B2BClients c ON c.ClientID=q.ClientID WHERE q.QuotationNumber=@quotationNumber", new { quotationNumber }, transaction).ToList();
+            if (existingQuotes.Count > 1)
+                return AddError(result, row, "Quotation number matches multiple saved quotations. Resolve quotation duplicates in Master Data first.");
+            if (existingQuotes.Count == 1 && existingQuotes[0].ClientID.HasValue &&
+                SmartImportDuplicateDetector.Normalize(existingQuotes[0].CompanyName) != SmartImportDuplicateDetector.Normalize(clientName))
+                return AddError(result, row, "Quotation number belongs to another client. Review the client link before changing its amount or importing again.");
+
             int clientId = EnsureClientId(conn, transaction, clientName, null, null, null, null, null, null, null, options);
             int? siteId = string.IsNullOrWhiteSpace(siteName) ? (int?)null : EnsureSiteId(conn, transaction, clientId, clientName, siteName, null, null, null, null, null, null, options);
 
@@ -1051,7 +1077,7 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);", conn, transaction))
             if (existingId.HasValue)
             {
                 Execute(conn, transaction, @"
-UPDATE Quotations SET ClientID=@clientId, SiteID=@siteId, TenderName=@title, BidValue=@value,
+UPDATE Quotations SET ClientID=@clientId, ClientName=@clientName, SiteID=@siteId, TenderName=@title, BidValue=@value,
 SubmittedDate=@quotationDate, DueDate=@validUntil, Status=@status, Notes=@notes,
 IsMultiLine=CASE WHEN @hasLineItems=1 THEN 1 ELSE ISNULL(IsMultiLine,0) END,
 TotalTaxableValue=CASE WHEN @taxableValue > 0 THEN @taxableValue ELSE @value END,
@@ -1061,6 +1087,7 @@ CommercialFlow=@commercialFlow, CustomerDocumentStatus=@customerDocStatus,
 SupplierDocumentStatus=@supplierDocStatus, FlowNotes=@flowNotes
 WHERE BidID=@id",
                     new SqlParameter("@clientId", clientId),
+                    new SqlParameter("@clientName", clientName),
                     new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
                     new SqlParameter("@title", (object)description ?? DBNull.Value),
                     new SqlParameter("@value", amount),
@@ -1080,14 +1107,15 @@ WHERE BidID=@id",
             else
             {
                 quotationId = ExecuteScalarInt(conn, transaction, @"
-INSERT INTO Quotations (QuotationNumber, ClientID, SiteID, TenderName, BidValue, SubmittedDate, DueDate, Status, Notes, TotalTaxableValue, TotalWithGST,
+INSERT INTO Quotations (QuotationNumber, ClientID, ClientName, SiteID, TenderName, BidValue, SubmittedDate, DueDate, Status, Notes, TotalTaxableValue, TotalWithGST,
 TotalGSTAmount, IsMultiLine, CommercialFlow, CustomerDocumentStatus, SupplierDocumentStatus, FlowNotes)
-VALUES (@number,@clientId,@siteId,@title,@value,@quotationDate,@validUntil,@status,@notes,CASE WHEN @taxableValue > 0 THEN @taxableValue ELSE @value END,@value,
+VALUES (@number,@clientId,@clientName,@siteId,@title,@value,@quotationDate,@validUntil,@status,@notes,CASE WHEN @taxableValue > 0 THEN @taxableValue ELSE @value END,@value,
 CASE WHEN @taxableValue > 0 THEN @value - @taxableValue ELSE 0 END,@hasLineItems,
 @commercialFlow,@customerDocStatus,@supplierDocStatus,@flowNotes);
 SELECT CAST(SCOPE_IDENTITY() AS INT);",
                     new SqlParameter("@number", quotationNumber),
                     new SqlParameter("@clientId", clientId),
+                    new SqlParameter("@clientName", clientName),
                     new SqlParameter("@siteId", (object)siteId ?? DBNull.Value),
                     new SqlParameter("@title", (object)description ?? DBNull.Value),
                     new SqlParameter("@value", amount),
@@ -1648,6 +1676,8 @@ VALUES (@jobNumber,@clientId,@siteId,@title,@title,@description,@employeeId,@sch
             if (string.IsNullOrWhiteSpace(clientName))
                 return AddError(result, row, "Missing required field: ClientName");
 
+            if (SmartImportDuplicateDetector.IsSuspectClientName(clientName))
+                return AddError(result, row, "Client name is a number, heading or quotation term. Correct the workbook mapping.");
             string finalAddress = string.IsNullOrWhiteSpace(state) ? address : (address + (string.IsNullOrWhiteSpace(address) ? string.Empty : ", ") + state);
             int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 ClientID FROM B2BClients WHERE CompanyName=@name", new SqlParameter("@name", clientName));
             if (!existingId.HasValue && !string.IsNullOrWhiteSpace(gstin))
@@ -1840,9 +1870,19 @@ VALUES (@name,@phone,@email,@address,@city,@gstin,@notes,@category,1,1,0)",
                 return AddError(result, row, "Missing required field: ClientName");
 
             int clientId = EnsureClientId(conn, transaction, clientName, contactPerson, phone, null, address, city, null, null, options);
-            int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 SiteID FROM ClientSites WHERE ClientID=@clientId AND SiteName=@siteName",
-                new SqlParameter("@clientId", clientId),
-                new SqlParameter("@siteName", siteName));
+            int? existingId = FindSiteId(conn, transaction, clientId, siteName);
+            string stableId = GetCell(sheet, row, map, "SiteID");
+            if (!string.IsNullOrWhiteSpace(stableId))
+            {
+                int siteId;
+                if (!int.TryParse(stableId, out siteId) || siteId <= 0)
+                    return AddError(result, row, "SiteID must be a positive saved site ID.");
+                int? ownedId = conn.QuerySingleOrDefault<int?>("SELECT SiteID FROM ClientSites WHERE SiteID=@siteId AND ClientID=@clientId AND NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),ClientSites.SiteID))", new { siteId, clientId }, transaction);
+                if (!ownedId.HasValue || (existingId.HasValue && existingId.Value != ownedId.Value))
+                    return AddError(result, row, "SiteID is archived, belongs to another client, or conflicts with the site name. Review Sites duplicates first.");
+                existingId = ownedId;
+                conn.Execute("UPDATE ClientSites SET SiteName=@siteName WHERE SiteID=@siteId AND ClientID=@clientId", new { siteName, siteId, clientId }, transaction);
+            }
 
             if (existingId.HasValue)
             {
@@ -2048,7 +2088,7 @@ VALUES
                 case ExcelImportModule.Vendors:
                     return new[] { "SupplierName", "ContactPerson", "Phone", "Email", "Address", "City", "GSTIN", "Notes" };
                 case ExcelImportModule.Sites:
-                    return new[] { "SiteName", "ClientName", "Address", "City", "ContactPerson", "Phone", "SiteType", "Notes" };
+                    return new[] { "SiteName", "ClientName", "Address", "City", "ContactPerson", "Phone", "SiteType", "Notes", "SiteID" };
                 case ExcelImportModule.Inventory:
                     return new[] { "ItemName", "Category", "CurrentStock", "Unit", "LastPurchaseRate", "ReorderLevel", "StockValue", "Notes" };
                 case ExcelImportModule.SupplierItemPrices:

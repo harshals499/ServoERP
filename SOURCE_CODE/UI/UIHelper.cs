@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -1081,6 +1081,8 @@ namespace HVAC_Pro_Desktop.UI
         public static UiActionVariant ResolveActionVariant(string text)
         {
             string key = (text ?? string.Empty).ToLowerInvariant();
+            if (ContainsAny(key, "clear filters", "reset filters", "clear selection", "clear all selection"))
+                return UiActionVariant.Ghost;
             if (ContainsAny(key, "delete", "void", "remove", "reset", "clear", "archive", "blacklist"))
                 return UiActionVariant.Danger;
             if (ContainsAny(key, "convert to purchase order", "convert to invoice", "whatsapp follow-up"))
@@ -1105,6 +1107,8 @@ namespace HVAC_Pro_Desktop.UI
                           (button == null ? string.Empty : button.Text ?? string.Empty))
                 .ToLowerInvariant();
 
+            if (ContainsAny(key, "clear filters", "reset filters", "clear selection", "clear all selection"))
+                return ButtonRole.Neutral;
             if (ContainsAny(key, "delete", "reset", "remove", "clear", "void", "archive", "blacklist", "disconnect"))
                 return ButtonRole.Danger;
             if (ContainsAny(key, "cancel", "close", "back", "done", "no,", "not now"))

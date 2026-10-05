@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -45,7 +45,14 @@ namespace ServoERP.Infrastructure
                 Padding = new Padding(20),
                 BackColor = Color.White
             };
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+            int actionHeight;
+            int detailHeight;
+            using (var actionFont = new Font("Segoe UI", 11f, FontStyle.Bold))
+                actionHeight = Math.Max(34, TextRenderer.MeasureText(action ?? string.Empty, actionFont, new Size(400, 0), TextFormatFlags.WordBreak).Height + 4);
+            using (var detailFont = new Font("Segoe UI", 9f))
+                detailHeight = Math.Max(90, TextRenderer.MeasureText(detail ?? string.Empty, detailFont, new Size(400, 0), TextFormatFlags.WordBreak).Height + 8);
+            ClientSize = new Size(440, Math.Min(Screen.FromControl(this).WorkingArea.Height - 80, actionHeight + detailHeight + 82));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, actionHeight));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
 
@@ -55,7 +62,7 @@ namespace ServoERP.Infrastructure
                 Font = new Font("Segoe UI", 11f, FontStyle.Bold),
                 Dock = DockStyle.Fill,
                 ForeColor = Color.FromArgb(180, 30, 30),
-                AutoEllipsis = true,
+                AutoEllipsis = false,
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -63,9 +70,11 @@ namespace ServoERP.Infrastructure
             {
                 Text = detail,
                 Font = new Font("Segoe UI", 9f),
-                Dock = DockStyle.Fill,
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                MaximumSize = new Size(400, 0),
                 ForeColor = Color.FromArgb(60, 60, 60),
-                AutoEllipsis = true,
+                AutoEllipsis = false,
                 TextAlign = ContentAlignment.TopLeft
             };
 
@@ -103,7 +112,9 @@ namespace ServoERP.Infrastructure
             actions.Controls.Add(btnConfirm);
             actions.Controls.Add(btnCancel);
             layout.Controls.Add(lblAction, 0, 0);
-            layout.Controls.Add(lblDetail, 0, 1);
+            var detailPanel = new Panel { Dock = DockStyle.Fill, AutoScroll = true };
+            detailPanel.Controls.Add(lblDetail);
+            layout.Controls.Add(detailPanel, 0, 1);
             layout.Controls.Add(actions, 0, 2);
             Controls.Add(layout);
             AcceptButton = btnConfirm;

@@ -512,7 +512,7 @@ namespace HVAC_Pro_Desktop.UI
                     "PurchaseOrdersDashboardHeader",
                     "Purchase Orders",
                     "Manage and track all purchase orders from creation to receipt and payment.",
-                    new List<Control> { refreshPo, importPo, bell, gear, newPo },
+                    new List<Control> { refreshPo, WorkspaceActionUi.CreateClearFilters(ResetPurchaseOrdersDashboardFilters), importPo, bell, gear, newPo },
                     _poDashSearch,
                     null,
                     PoPageBg)).Header;

@@ -23,9 +23,13 @@ namespace HVAC_Pro_Desktop.DAL
         public List<B2BClient> GetAllIncludingInactive()
         {
             using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                HVAC_Pro_Desktop.Services.SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
                 return conn.Query<B2BClient>(
-                    "SELECT TOP (@maxRows) * FROM B2BClients ORDER BY CompanyName",
+                    "SELECT TOP (@maxRows) * FROM B2BClients c WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Clients' AND a.DuplicateRecordID=CONVERT(varchar(30),c.ClientID)) ORDER BY CompanyName",
                     new { maxRows = DefaultClientListRows }).ToList();
+            }
         }
 
         public B2BClient GetById(int id)

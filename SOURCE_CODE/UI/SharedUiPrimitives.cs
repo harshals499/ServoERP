@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -277,8 +277,9 @@ namespace HVAC_Pro_Desktop.UI
             GridTheme.Apply(grid);
             grid.RowHeadersVisible = false;
             grid.AllowUserToResizeRows = false;
-            grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
-            grid.MultiSelect = false;
+            if (grid.SelectionMode != DataGridViewSelectionMode.CellSelect)
+                grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+            // Preserve the page's selection policy; styling must not disable bulk selection.
             grid.BackgroundColor = DS.BgCard;
             grid.EnableHeadersVisualStyles = false;
             grid.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.None;

@@ -73,7 +73,7 @@ namespace HVAC_Pro_Desktop.UI
             dgv.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 
             dgv.AllowUserToResizeRows = false;
-            dgv.MultiSelect = false;
+            // Selection policy belongs to the page, including its supported bulk actions.
             if (dgv.SelectionMode != DataGridViewSelectionMode.CellSelect)
                 dgv.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgv.BorderStyle = BorderStyle.None;

@@ -57,6 +57,11 @@ namespace ServoERP.Infrastructure
         /// <summary>Closes modal forms with Escape using DialogResult.Cancel.</summary>
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.S))
+            {
+                Button save = WorkspaceActionUi.FindSaveButton(this);
+                if (save != null) { save.PerformClick(); return true; }
+            }
             if (keyData == Keys.Escape)
             {
                 DialogResult = DialogResult.Cancel;
@@ -108,7 +113,7 @@ namespace ServoERP.Infrastructure
 
             MessageBox.Show(this, message, title ?? Text ?? "Validation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             onInvalid?.Invoke();
-            return true;
+            return false;
         }
 
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>

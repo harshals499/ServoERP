@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Drawing;
@@ -133,6 +133,7 @@ namespace HVAC_Pro_Desktop.UI
             return SharedPageHeader.Build(new SharedPageHeaderModel
             {
                 Name = "AMCPageHeader",
+                AllowCompactWrap = true,
                 Mode = SharedPageHeaderMode.Dashboard,
                 Dock = DockStyle.Fill,
                 BackColor = PageBg,
@@ -140,7 +141,7 @@ namespace HVAC_Pro_Desktop.UI
                 Subtitle = "Track annual maintenance contracts, renewal windows, visits, and covered equipment.",
                 TitleWidth = 360,
                 SubtitleWidth = 640,
-                RightActions = new List<Control> { _btnPreventivePlanner, _btnImportAMC, _btnAddAMC }
+                RightActions = new List<Control> { WorkspaceActionUi.CreateClearFilters(() => { _searchBox.Text = string.Empty; _statusFilter.SelectedIndex = _typeFilter.SelectedIndex = _renewalFilter.SelectedIndex = 0; ApplyFilters(); }), _btnPreventivePlanner, _btnImportAMC, _btnAddAMC }
             }).Header;
         }
 
@@ -911,15 +912,17 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
                 return;
 
             bool saved = false;
+            bool deleted = false;
             using (var form = new AddAMCForm(contractId))
             {
                 saved = form.ShowDialog(this) == DialogResult.OK;
+                deleted = form.ContractDeleted;
             }
 
             if (saved)
             {
                 AppDataCache.Remove("amc:dashboard-payload");
-                OpenDetailPage(contractId);
+                if (deleted) ShowDashboard(); else OpenDetailPage(contractId);
             }
         }
 

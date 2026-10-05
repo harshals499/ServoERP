@@ -182,12 +182,7 @@ namespace HVAC_Pro_Desktop.DAL
                 {
                     try
                     {
-                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL AND COL_LENGTH('dbo.Invoices', 'ContractID') IS NOT NULL UPDATE dbo.Invoices SET ContractID=NULL WHERE ContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.SLALogs', 'U') IS NOT NULL AND COL_LENGTH('dbo.SLALogs', 'ContractID') IS NOT NULL DELETE FROM dbo.SLALogs WHERE ContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Jobs', 'U') IS NOT NULL AND COL_LENGTH('dbo.Jobs', 'LinkedContractId') IS NOT NULL UPDATE dbo.Jobs SET LinkedContractId=NULL WHERE LinkedContractId=@id", contractId);
-                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'RelatedContractID') IS NOT NULL UPDATE dbo.PurchaseOrders SET RelatedContractID=NULL WHERE RelatedContractID=@id", contractId);
-                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToId') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToType') IS NOT NULL UPDATE dbo.PurchaseOrders SET LinkedToId=NULL WHERE LinkedToType='Contract' AND LinkedToId=@id", contractId);
-                        ExecuteDelete(conn, tx, "DELETE FROM AMCContracts WHERE ContractID=@id", contractId);
+                        DeleteLinkedRecords(conn, tx, contractId);
                         tx.Commit();
                     }
                     catch
@@ -199,13 +194,24 @@ namespace HVAC_Pro_Desktop.DAL
             }
         }
 
+        // Shared transaction body also allows rollback-only verification of linked-record deletion.
+        internal static void DeleteLinkedRecords(SqlConnection conn, SqlTransaction tx, int contractId)
+        {
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL AND COL_LENGTH('dbo.Invoices', 'ContractID') IS NOT NULL UPDATE dbo.Invoices SET ContractID=NULL WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.SLALogs', 'U') IS NOT NULL AND COL_LENGTH('dbo.SLALogs', 'ContractID') IS NOT NULL DELETE FROM dbo.SLALogs WHERE ContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.Jobs', 'U') IS NOT NULL AND COL_LENGTH('dbo.Jobs', 'LinkedContractId') IS NOT NULL UPDATE dbo.Jobs SET LinkedContractId=NULL WHERE LinkedContractId=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'RelatedContractID') IS NOT NULL UPDATE dbo.PurchaseOrders SET RelatedContractID=NULL WHERE RelatedContractID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToId') IS NOT NULL AND COL_LENGTH('dbo.PurchaseOrders', 'LinkedToType') IS NOT NULL UPDATE dbo.PurchaseOrders SET LinkedToId=NULL WHERE LinkedToType='Contract' AND LinkedToId=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.ClientAssets','U') IS NOT NULL AND COL_LENGTH('dbo.ClientAssets','ContractId') IS NOT NULL UPDATE dbo.ClientAssets SET ContractId=NULL WHERE ContractId=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.AMCVisitReminderDrafts','U') IS NOT NULL DELETE FROM dbo.AMCVisitReminderDrafts WHERE AMCID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.AMCVisits','U') IS NOT NULL DELETE FROM dbo.AMCVisits WHERE AMCID=@id", contractId);
+                        ExecuteDelete(conn, tx, "IF OBJECT_ID('dbo.AMCEquipment','U') IS NOT NULL DELETE FROM dbo.AMCEquipment WHERE AMCID=@id", contractId);
+                        ExecuteDelete(conn, tx, "DELETE FROM AMCContracts WHERE ContractID=@id", contractId);
+        }
+
         private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
         {
-            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@id", id);
-                cmd.ExecuteNonQuery();
-            }
+            conn.Execute(sql, new { id }, tx);
         }
 
         private const string ContractSelectSql = @"

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -11,14 +11,14 @@ namespace HVAC_Pro_Desktop.UI
         public static DialogResult ConfirmPermanentDelete(IWin32Window owner, string recordType, string recordLabel, string impact)
         {
             string label = string.IsNullOrWhiteSpace(recordLabel) ? "this " + recordType.ToLowerInvariant() : recordLabel;
-            string message = "Permanently delete " + label + "?";
+            string message = "Record: " + label;
             if (!string.IsNullOrWhiteSpace(impact))
                 message += Environment.NewLine + Environment.NewLine + impact;
 
             return ServoERP.Infrastructure.ServoConfirmDialog.Show(
                 owner,
-                message,
-                "This cannot be undone.")
+                "Delete " + recordType + "?",
+                message + Environment.NewLine + Environment.NewLine + "This cannot be undone.")
                 ? DialogResult.Yes
                 : DialogResult.No;
         }

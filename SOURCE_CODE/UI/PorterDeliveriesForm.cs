@@ -73,15 +73,17 @@ namespace HVAC_Pro_Desktop.UI
             _spendKpi = Kpi(kpis, 3, "TOTAL SPEND");
             root.Controls.Add(kpis, 0, 1);
 
-            var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Padding = new Padding(0, 8, 0, 8) };
+            var filters = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Padding = new Padding(0, 8, 0, 8) };
             filters.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 190));
+            filters.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 126));
             _search = new TextBox { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 10f) };
             _search.TextChanged += (s, e) => BindGrid();
             _filterStatus = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
             _filterStatus.Items.AddRange(new object[] { "All statuses", "Booked", "Assigned", "Picked Up", "In Transit", "Delivered", "Cancelled" });
             _filterStatus.SelectedIndex = 0; _filterStatus.SelectedIndexChanged += (s, e) => BindGrid();
             filters.Controls.Add(_search, 0, 0); filters.Controls.Add(_filterStatus, 1, 0);
+            filters.Controls.Add(WorkspaceActionUi.CreateClearFilters(() => { _search.Text = string.Empty; _filterStatus.SelectedIndex = 0; BindGrid(); }), 2, 0);
             root.Controls.Add(filters, 0, 2);
 
             var body = new SplitContainer { Dock = DockStyle.Fill, FixedPanel = FixedPanel.Panel2, BackColor = DS.Border };

@@ -285,7 +285,7 @@ namespace HVAC_Pro_Desktop.UI
                 "ContractDashboardHeader",
                 "Contract Management",
                 "Track AMC agreements, renewals, SLA terms, and optional site links.",
-                new List<Control> { newButton },
+                new List<Control> { WorkspaceActionUi.CreateClearFilters(() => { if (_dashboardSearch != null) _dashboardSearch.Text = string.Empty; if (_tableStatusFilter != null) _tableStatusFilter.SelectedIndex = 0; _tablePage = 1; RefreshDashboardTablesOnly(); }), newButton },
                 SharedPageHeader.CreateSearchInputShell("ContractDashboardSearchHost", _dashboardSearch, 320),
                 meta,
                 PageBg,

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -82,12 +82,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildForecastFilterBar()
         {
-            var bar = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = QuotePageBg, ColumnCount = 6, RowCount = 1, Margin = Padding.Empty, Padding = new Padding(0, 6, 0, 5) };
+            var bar = new TableLayoutPanel { Dock = DockStyle.Fill, BackColor = QuotePageBg, ColumnCount = 7, RowCount = 1, Margin = Padding.Empty, Padding = new Padding(0, 6, 0, 5) };
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 192f));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 124f));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100f));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150f));
+            bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120f));
             bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120f));
             bar.Controls.Add(new Label { Text = "Forecast & Pipeline", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = QuoteText, TextAlign = ContentAlignment.MiddleLeft }, 0, 0);
             _quoteDashCompany = ForecastCombo(184);
@@ -108,7 +109,7 @@ namespace HVAC_Pro_Desktop.UI
             create.TextImageRelation = TextImageRelation.ImageBeforeText;
             create.Click += (s, e) => NewRecord();
             _quoteDashStatus = new Label { Text = "Loading...", Width = 112, Height = 30, Font = new Font("Segoe UI", 8f), ForeColor = QuoteMuted, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
-            Control[] controls = { _quoteDashCompany, _quoteDashMonths, refresh, create, _quoteDashStatus };
+            Control[] controls = { _quoteDashCompany, _quoteDashMonths, refresh, create, WorkspaceActionUi.CreateClearFilters(() => { _quoteDashCompany.SelectedIndex = 0; _quoteDashMonths.SelectedItem = "6 months"; _forecastActionFilter = "Overdue"; _forecastTableFilter = "All"; if (_forecastSearch != null) _forecastSearch.Clear(); RefreshQuotationDashboardSafe(); }), _quoteDashStatus };
             for (int i = 0; i < controls.Length; i++)
             {
                 controls[i].Dock = DockStyle.Fill;

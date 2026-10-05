@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -88,6 +88,7 @@ namespace HVAC_Pro_Desktop.UI
         private DateTime _overviewStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
         private DateTime _overviewEnd = new DateTime(DateTime.Today.Year, DateTime.Today.Month, DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month));
         private string _overviewTab = "All Transactions";
+        private readonly List<Label> _overviewTabLabels = new List<Label>();
         private int _overviewPage = 1;
         private bool _showOverview = true;
         private int _overviewPageSize = 10;
@@ -395,7 +396,7 @@ namespace HVAC_Pro_Desktop.UI
                     "PaymentsOverviewHeader",
                     "Payments",
                     "Track receipts, receivables, refunds, and supplier payments.",
-                    new List<Control> { _dateRangeLabel, filters, import, report, bell, newPayment },
+                    new List<Control> { _dateRangeLabel, filters, WorkspaceActionUi.CreateClearFilters(() => { _overviewTab = "All Transactions"; if (_txnSearch != null) _txnSearch.Text = string.Empty; if (_txnTypeFilter != null) _txnTypeFilter.SelectedIndex = 0; DateTime start = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1); SetOverviewRange(start, start.AddMonths(1).AddDays(-1)); }), import, report, bell, newPayment },
                     SharedPageHeader.CreateSearchCommand("PaymentsHeaderSearch", 260, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
                     user,
                     PayPageBg,
@@ -522,10 +523,12 @@ namespace HVAC_Pro_Desktop.UI
             card.Height = 384;
             card.Margin = new Padding(0, 0, 0, 14);
             string[] tabs = { "All Transactions", "Receipts", "Payments Made", "Refunds" };
+            _overviewTabLabels.Clear();
             int x = 14;
             foreach (string tab in tabs)
             {
                 Label label = new Label { Text = tab, Location = new Point(x, 12), Size = new Size(tab == "All Transactions" ? 110 : 92, 26), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = tab == _overviewTab ? InfoBlue : PayMuted, Cursor = Cursors.Hand };
+                _overviewTabLabels.Add(label);
                 string captured = tab;
                 label.Click += (s, e) => { _overviewTab = captured; _overviewPage = 1; RefreshTransactionsTable(); };
                 card.Controls.Add(label);
@@ -703,6 +706,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshTransactionsTable()
         {
+            foreach (Label tab in _overviewTabLabels)
+                if (!tab.IsDisposed) tab.ForeColor = tab.Text == _overviewTab ? InfoBlue : PayMuted;
             List<PaymentTxn> rows = GetFilteredTransactions();
             int pageSize = Math.Max(1, _overviewPageSize);
             _overviewPage = PaginationState.NormalizePage(_overviewPage, rows.Count, pageSize);

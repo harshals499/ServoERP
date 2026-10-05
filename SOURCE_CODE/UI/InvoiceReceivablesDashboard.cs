@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -104,10 +104,13 @@ namespace HVAC_Pro_Desktop.UI
             queueCard.Controls.Add(_search);
             queueCard.Controls.Add(_rowCount);
             queueCard.Controls.Add(refresh);
+            Button clearFilters = WorkspaceActionUi.CreateClearFilters(() => { _queueFilter.SelectedIndex = 0; _search.Text = "Search invoices..."; _search.ForeColor = Muted; BindQueue(); });
+            queueCard.Controls.Add(clearFilters);
             queueCard.Resize += (s, e) =>
             {
                 refresh.Location = new Point(Math.Max(420, queueCard.ClientSize.Width - 88), 12);
-                _search.Location = new Point(refresh.Left - _search.Width - 8, 12);
+                clearFilters.Location = new Point(refresh.Left - clearFilters.Width - 8, 10);
+                _search.Location = new Point(clearFilters.Left - _search.Width - 8, 12);
                 _queueFilter.Location = new Point(_search.Left - _queueFilter.Width - 8, 12);
                 _rowCount.Location = new Point(_queueFilter.Left - _rowCount.Width - 6, 12);
             };

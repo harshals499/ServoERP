@@ -70,6 +70,19 @@ namespace HVAC_Pro_Desktop.Tests
                 "different line items belonging to one quotation must not be treated as duplicate quotations");
             passed.Add("quotation, invoice, and PO imports recognize repeated line-item column groups");
 
+            Expect(detector.ScanUploadOnly(ExcelImportModule.Sites, new List<Dictionary<string, string>> {
+                Row("ClientName", "Alpha", "SiteName", "Plant"), Row("ClientName", "Beta", "SiteName", "Plant") }).UploadDuplicateRows == 0,
+                "same site name under different clients must stay separate");
+            Expect(detector.ScanUploadOnly(ExcelImportModule.Sites, new List<Dictionary<string, string>> {
+                Row("ClientName", "Alpha", "SiteName", "Old name", "Address", "42 Industrial Road"),
+                Row("ClientName", "Alpha", "SiteName", "New name", "Address", "42 Industrial Road") }).UploadDuplicateRows == 1,
+                "renamed sites sharing a client and address need review");
+            foreach (string invalid in new[] { "1", "1.1", "218", "• Quotation Is Valid Upto 07 Days .", "Grand Total" })
+                Expect(SmartImportDuplicateDetector.IsSuspectClientName(invalid), "quotation artifact should be flagged: " + invalid);
+            foreach (string valid in new[] { "3M India", "Atul", "Bluejet-Shahad", "218 Industries" })
+                Expect(!SmartImportDuplicateDetector.IsSuspectClientName(valid), "real client must remain valid: " + valid);
+            passed.Add("site identity stays within client ownership, renamed addresses are reviewed, and quotation artifacts are flagged");
+
             var modules = new Dictionary<ExcelImportModule, Dictionary<string, string>>
             {
                 { ExcelImportModule.Quotations, Row("QuotationNumber", "Q-1") },

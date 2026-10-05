@@ -124,7 +124,7 @@ namespace HVAC_Pro_Desktop.UI
                 FindForm(),
                 "AMC contract",
                 "AMC " + _amcId.ToString(CultureInfo.InvariantCulture),
-                "Linked invoices, jobs, and purchase orders will be kept but unlinked. SLA log entries for this contract will be removed.");
+                "Linked invoices, jobs, and purchase orders will be kept but unlinked. Contract equipment, visits, reminder drafts and SLA logs will be removed.");
             if (confirm != DialogResult.Yes)
                 return;
 

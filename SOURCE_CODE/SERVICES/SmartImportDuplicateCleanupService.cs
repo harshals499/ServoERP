@@ -89,6 +89,14 @@ namespace HVAC_Pro_Desktop.Services
 
                             foreach (string duplicateId in plan.DuplicateIds)
                             {
+                                if (module == ExcelImportModule.Sites)
+                                {
+                                    int matchingClient = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM ClientSites s INNER JOIN ClientSites d ON d.ClientID=s.ClientID WHERE s.SiteID=TRY_CONVERT(int,@survivor) AND d.SiteID=TRY_CONVERT(int,@duplicate)", new { survivor = plan.SurvivorId, duplicate = duplicateId }, transaction);
+                                    if (matchingClient != 1) throw new InvalidOperationException("Sites belonging to different clients cannot be merged. Correct the client ownership first.");
+                                }
+                                if (module == ExcelImportModule.Clients)
+                                    connection.Execute(@"UPDATE q SET ClientName=c.CompanyName FROM Quotations q INNER JOIN B2BClients c ON c.ClientID=TRY_CONVERT(int,@survivor) WHERE q.ClientID=TRY_CONVERT(int,@duplicate)", new { survivor = plan.SurvivorId, duplicate = duplicateId }, transaction);
+
                                 foreach (ForeignKeyRow fk in foreignKeys)
                                 {
                                     foreach (UniqueIndexDefinition uniqueIndex in uniqueIndexesByForeignKey[ForeignKeyCacheKey(fk)])
@@ -104,6 +112,9 @@ namespace HVAC_Pro_Desktop.Services
                                     deletedRecords += connection.Execute("DELETE FROM " + Q(map.Table) + " WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { id = duplicateId }, transaction);
                                 else if (!string.IsNullOrWhiteSpace(map.ArchiveColumn))
                                     connection.Execute("UPDATE " + Q(map.Table) + " SET " + Q(map.ArchiveColumn) + "=@value WHERE " + Q(map.Key) + "=TRY_CONVERT(int,@id)", new { value = map.ArchiveValue, id = duplicateId }, transaction);
+
+                                // Keep previous aliases pointing at the current survivor after later merges.
+                                connection.Execute("UPDATE DuplicateMergeArchive SET SurvivorRecordID=@survivor WHERE ModuleName=@module AND SurvivorRecordID=@duplicate", new { survivor = plan.SurvivorId, duplicate = duplicateId, module = module.ToString() }, transaction);
 
                                 connection.Execute(@"INSERT INTO DuplicateMergeArchive(ModuleName,TableName,PrimaryKeyName,SurvivorRecordID,DuplicateRecordID,MergedBy)
 VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
@@ -122,6 +133,9 @@ VALUES(@module,@table,@key,@survivor,@duplicate,@userName)", new
                     }
                 }
             }
+
+            foreach (string prefix in new[] { "clients:", "sites:", "tenders:", "quotations:", "contracts:", "amc:", "invoices:", "jobs:", "purchases:" })
+                AppDataCache.RemovePrefix(prefix);
 
             int auditRecordId;
             if (!int.TryParse(plans[0].SurvivorId, out auditRecordId))

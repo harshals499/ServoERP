@@ -1,4 +1,5 @@
 using System;
+using HVAC_Pro_Desktop.UI;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FluentValidation;
@@ -30,6 +31,16 @@ namespace ServoERP.Infrastructure
 
             double elapsed = (DateTime.Now - _loadStart).TotalMilliseconds;
             ExceptionLogger.Log("Page loaded: " + GetType().Name + " in " + elapsed.ToString("F0") + "ms", "Navigation");
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.S))
+            {
+                Button save = WorkspaceActionUi.FindSaveButton(this);
+                if (save != null) { save.PerformClick(); return true; }
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         /// <summary>Reloads page data when navigation returns to the page.</summary>
@@ -79,7 +90,7 @@ namespace ServoERP.Infrastructure
             IWin32Window owner = (IWin32Window)FindForm() ?? this;
             MessageBox.Show(owner, message, title ?? (FindForm()?.Text ?? "Validation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             onInvalid?.Invoke();
-            return true;
+            return false;
         }
 
         /// <summary>Applies low-flicker rendering and performance settings to a grid.</summary>

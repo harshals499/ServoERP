@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -59,8 +59,8 @@ namespace HVAC_Pro_Desktop.UI
             var groupActions = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 0, 0, 6) };
             groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            var selectAll = new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select all groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat };
-            var clearAll = new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear selection", Dock = DockStyle.Fill, Margin = new Padding(4, 0, 0, 0), FlatStyle = FlatStyle.Flat };
+            var selectAll = new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select shown groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat };
+            var clearAll = new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear all selection", Dock = DockStyle.Fill, Margin = new Padding(4, 0, 0, 0), FlatStyle = FlatStyle.Flat };
             selectAll.Click += (s, e) => SetAllGroupsChecked(true);
             clearAll.Click += (s, e) => SetAllGroupsChecked(false);
             groupActions.Controls.Add(selectAll, 0, 0);
@@ -263,6 +263,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetAllGroupsChecked(bool isChecked)
         {
+            _selectedGroups.Clear();
             foreach (SmartImportDuplicateGroup group in _visibleItems)
                 if (isChecked) _selectedGroups.Add(group); else _selectedGroups.Remove(group);
             _suppressGroupChecks = true;

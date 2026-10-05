@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -172,7 +172,7 @@ namespace HVAC_Pro_Desktop.Tests
             using (var dialog = new SmartImportDuplicateCleanupDialog(ExcelImportModule.Employees, false))
             {
                 List<string> buttonLabels = FindControls<Button>(dialog).Select(button => button.Text).ToList();
-                if (!buttonLabels.Contains("Select all groups") || !buttonLabels.Contains("Clear selection") || !buttonLabels.Contains("Merge selected groups") || !buttonLabels.Contains("Delete duplicates"))
+                if (!buttonLabels.Contains("Select shown groups") || !buttonLabels.Contains("Clear all selection") || !buttonLabels.Contains("Merge selected groups") || !buttonLabels.Contains("Delete duplicates"))
                     throw new InvalidOperationException("Duplicate cleanup must expose select-all, clear-selection, bulk-merge, and explicit duplicate-delete actions.");
                 CheckedListBox groupList = FindControl<CheckedListBox>(dialog);
                 if (groupList == null || !groupList.CheckOnClick)
@@ -361,6 +361,8 @@ namespace HVAC_Pro_Desktop.Tests
             AssertActionVariant("Create Dispatch Job", UiActionVariant.Primary);
             AssertActionVariant("WhatsApp Follow-up", UiActionVariant.Secondary);
             AssertActionVariant("Clear Form", UiActionVariant.Danger);
+            AssertActionVariant("Clear Filters", UiActionVariant.Ghost);
+            AssertActionVariant("Clear Selection", UiActionVariant.Ghost);
             AssertActionVariant("Resolve", UiActionVariant.Primary);
         }
 

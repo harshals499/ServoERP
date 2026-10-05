@@ -14,7 +14,8 @@ namespace ServoERP.Validators
             if (TryValidate(validator, instance, out message))
                 return;
 
-            AppLogger.LogInfo("Validation warning only: " + (string.IsNullOrWhiteSpace(context) ? "Validation" : context) + " | " + message.Replace(Environment.NewLine, " "));
+            AppLogger.LogInfo("Validation blocked save: " + (string.IsNullOrWhiteSpace(context) ? "Validation" : context) + " | " + message.Replace(Environment.NewLine, " "));
+            throw new FluentValidation.ValidationException(message);
         }
 
         public static bool TryValidate<T>(IValidator<T> validator, T instance, out string message)

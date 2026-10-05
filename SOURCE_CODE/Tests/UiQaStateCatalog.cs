@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -61,7 +61,10 @@ namespace HVAC_Pro_Desktop.Tests
             new UiQaModule("Jobs", "HVAC_Pro_Desktop.UI.JobManagementForm", 15, true),
             new UiQaModule("RetiredServiceDesk", "HVAC_Pro_Desktop.UI.ServiceDeskForm", 16, false),
             new UiQaModule("MasterData", "HVAC_Pro_Desktop.UI.MasterDataForm", 17, false),
-            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false)
+            new UiQaModule("WhatsAppHub", "HVAC_Pro_Desktop.UI.WhatsAppHubForm", 18, false),
+            new UiQaModule("AMC", "HVAC_Pro_Desktop.UI.AMCPage", 21, false),
+            new UiQaModule("Attendance", "HVAC_Pro_Desktop.UI.AttendanceForm", 22, false),
+            new UiQaModule("PorterDeliveries", "HVAC_Pro_Desktop.UI.PorterDeliveriesForm", 24, false)
         };
 
         public static IEnumerable<Tuple<UiQaModule, string>> Matrix()

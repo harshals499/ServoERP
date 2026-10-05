@@ -726,6 +726,8 @@
     <Compile Include="UI\InvoiceReceivablesDashboard.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\ClientImportRepairDialog.cs" />
+    <Compile Include="UI\WorkspaceActionUi.cs" />
     <Compile Include="UI\ClientManagementForm.cs">
       <SubType>UserControl</SubType>
     </Compile>

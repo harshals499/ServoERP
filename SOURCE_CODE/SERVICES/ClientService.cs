@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -265,7 +265,13 @@ namespace HVAC_Pro_Desktop.Services
             _syncMetadata.EnsureSiteIdentity(site);
             ValidationResult result = _businessRules.ValidateSite(site);
             if (site != null)
+            {
+                if (site.ClientID > 0 && !string.IsNullOrWhiteSpace(site.SiteName) &&
+                    new SiteRepository().GetByClientId(site.ClientID).Any(existing => existing.SiteID != site.SiteID &&
+                        SmartImportDuplicateDetector.Normalize(existing.SiteName) == SmartImportDuplicateDetector.Normalize(site.SiteName)))
+                    result.Add(ValidationSeverity.Error, "Sites", "SiteName", "This client already has a site with this name. Edit the existing site or resolve duplicates in Master Data.");
                 result.Merge(_referenceIntegrity.CheckClientSite(site.ClientID, site.SiteID, GetClientSites(site.ClientID), "Sites"));
+            }
             _validation.EnsureValid(result, "Site validation failed");
             try
             {

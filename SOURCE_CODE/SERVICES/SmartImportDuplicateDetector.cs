@@ -85,7 +85,7 @@ namespace HVAC_Pro_Desktop.Services
             return result;
         }
 
-        private static void EnsureArchiveSchema(SqlConnection connection)
+        internal static void EnsureArchiveSchema(SqlConnection connection)
         {
             connection.Execute(@"IF OBJECT_ID(N'dbo.DuplicateMergeArchive',N'U') IS NULL
 BEGIN
@@ -304,7 +304,7 @@ END");
                                    MSMENumber, BankAccountNumber, Address, VendorName DisplayName FROM Vendors WHERE ISNULL(IsArchived,0)=0";
                     break;
                 case ExcelImportModule.Sites:
-                    sql = @"SELECT CONVERT(varchar(30), s.SiteID) RecordID, s.SiteName, s.Address, c.CompanyName ClientName, s.SiteName DisplayName
+                    sql = @"SELECT CONVERT(varchar(30), s.SiteID) RecordID, s.SiteName, s.Address, c.CompanyName ClientName, c.CompanyName+' / '+s.SiteName DisplayName
                             FROM ClientSites s INNER JOIN B2BClients c ON c.ClientID=s.ClientID
                             WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID))";
                     break;
@@ -394,7 +394,7 @@ END");
                     break;
                 case ExcelImportModule.Sites:
                     AddComposite(keys, "client/site", row, "ClientName", "SiteName");
-                    Add(keys, "site name", Value(row, "SiteName"));
+                    AddComposite(keys, "client/address", row, "ClientName", "Address");
                     break;
                 case ExcelImportModule.Inventory:
                     Add(keys, "item name", Value(row, "ItemName"));
@@ -463,6 +463,16 @@ END");
                 default:
                     return false;
             }
+        }
+
+        internal static bool IsSuspectClientName(string value)
+        {
+            string name = (value ?? string.Empty).Trim();
+            string normalized = Normalize(name);
+            return !name.Any(char.IsLetter) || IsPlaceholder(normalized)
+                || normalized.StartsWith("QUOTATIONISVALID", StringComparison.Ordinal)
+                || normalized == "TERMSANDCONDITIONS" || normalized == "GRANDTOTAL"
+                || normalized == "SUBTOTAL" || normalized == "CLIENTNAME";
         }
 
         internal static string Normalize(string value)

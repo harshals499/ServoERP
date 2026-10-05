@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
@@ -80,6 +80,7 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
             AutoScroll = false;
             DashboardRefreshService.RefreshRequested += DashboardRefreshService_RefreshRequested;
+            WorkspaceActionUi.BindDashboardResize(this, RebuildIfReady, () => !_buildingShell && IsHandleCreated && !IsDisposed);
             EnableDeferredLoad(async () =>
             {
                 BuildShell();
@@ -286,11 +287,34 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddTopBar()
         {
-            Panel bar = CardPanel(ContentWidth(), 96);
+            Panel bar = CardPanel(Math.Min(ContentWidth(), Math.Max(1, ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 34)), 96);
+            bar.Name = "DashboardTopHeaderHost";
+            bar.Tag = "custom-header-actions no-global-actions";
             bar.BackColor = Color.White;
 
             Button notifications = BuildNotificationButton(0, 0, 38, GetNotificationCountText());
             Button customize = SecondaryButton(T("Customize"), 0, 0, 110, 34);
+            customize.Click += (sender, args) =>
+            {
+                GlobalCardContextMenu.ApplyToTree(this);
+                GlobalDashboardLayoutService.ApplyToTree(this);
+                var cards = WorkspaceActionUi.Descendants(this).Where(GlobalCardContextMenu.IsAttachedCard).ToList();
+                customize.ContextMenuStrip?.Dispose();
+                var menu = new ContextMenuStrip();
+                customize.ContextMenuStrip = menu;
+                var unlock = menu.Items.Add(T("Unlock dashboard cards"), null, (item, e) => cards.ForEach(card => GlobalDashboardLayoutService.SetCardLocked(card, false)));
+                var lockCards = menu.Items.Add(T("Lock dashboard cards"), null, (item, e) => cards.ForEach(card => GlobalDashboardLayoutService.SetCardLocked(card, true)));
+                unlock.Enabled = lockCards.Enabled = cards.Count > 0;
+                menu.Items.Add(T("Reset dashboard layout"), null, (item, e) =>
+                {
+                    if (ServoERP.Infrastructure.ServoConfirmDialog.Show(this, "Reset dashboard layout?", "Saved card positions, sizes and locks for My Work will return to their defaults. Business records will be kept."))
+                    {
+                        GlobalDashboardLayoutService.ResetPage(this);
+                        BuildShell();
+                    }
+                });
+                menu.Show(customize, new Point(0, customize.Height));
+            };
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "DashboardTopHeader",
                 "My Work",
@@ -305,7 +329,9 @@ namespace HVAC_Pro_Desktop.UI
             model.DefaultHeight = 82;
             model.CompactHeight = 118;
             Panel header = SharedPageHeader.Build(model).Header;
+            header.SizeChanged += (sender, args) => bar.Height = Math.Max(96, header.Height);
             bar.Controls.Add(header);
+            bar.Height = Math.Max(96, header.Height);
             _root.Controls.Add(bar);
         }
 

@@ -1,3 +1,4 @@
+﻿using System.Linq;
 namespace HVAC_Pro_Desktop.UI
 {
 	internal enum SharedPageHeaderMode
@@ -399,30 +400,60 @@ namespace HVAC_Pro_Desktop.UI
 			header.Controls.Add(actionHost);
 			System.Action layout = delegate
 			{
-				bool flag = model.AllowCompactWrap && header.ClientSize.Width < model.CompactBreakpoint;
-				header.Height = (flag ? model.CompactHeight : model.DefaultHeight);
-				int num = (flag ? model.CompactActionTop : model.ActionTop);
-				int y = (flag ? model.CompactCenterTop : model.CenterTop);
-				System.Collections.Generic.List<System.Windows.Forms.Control> list = System.Linq.Enumerable.ToList(System.Linq.Enumerable.Where(model.RightActions, (System.Windows.Forms.Control action) => action != null && !action.IsDisposed && action.Visible));
-				int width = HVAC_Pro_Desktop.UI.SharedUiPrimitives.MeasureVisibleControlSpan(list, model.ActionGap);
-				int height = System.Math.Max(38, (list.Count != 0) ? (System.Linq.Enumerable.Max(list, (System.Windows.Forms.Control action) => action.Height) + 4) : 0);
-				actionHost.SuspendLayout();
-				actionHost.Size = new System.Drawing.Size(width, height);
-				actionHost.Location = new System.Drawing.Point(System.Math.Max(model.Padding.Left, header.ClientSize.Width - model.Padding.Right - actionHost.Width), num);
-				HVAC_Pro_Desktop.UI.SharedUiPrimitives.LayoutVisibleControlsLeftToRightCentered(list, 0, actionHost.Height, model.ActionGap);
-				actionHost.ResumeLayout(false);
-				actionHost.Invalidate(true);
+                var list = model.RightActions.Where(action => action != null && !action.IsDisposed && action.Visible).ToList();
+                int span = SharedUiPrimitives.MeasureVisibleControlSpan(list, model.ActionGap);
+                int available = System.Math.Max(1, header.ClientSize.Width - model.Padding.Horizontal);
+                int centerSpan = model.CenterContent != null && model.CenterContent.Visible ? model.CenterContent.Width + model.SectionGap : 0;
+                int metaSpan = model.RightMetaControl != null && model.RightMetaControl.Visible ? model.RightMetaControl.Width + model.SectionGap : 0;
+                bool flag = model.AllowCompactWrap && (header.ClientSize.Width < model.CompactBreakpoint || available < span + centerSpan + metaSpan + model.MinTextWidth);
+                int y = flag ? model.CompactCenterTop : model.CenterTop;
+                int num = flag ? model.CompactActionTop : model.ActionTop;
+                if (flag && centerSpan + metaSpan > 0)
+                    num = System.Math.Max(num, y + System.Math.Max(model.CenterContent?.Height ?? 0, model.RightMetaControl?.Height ?? 0) + model.ActionGap);
+                int height = System.Math.Max(38, list.Count != 0 ? list.Max(action => action.Height) + 4 : 0);
+                actionHost.SuspendLayout();
+                if (flag)
+                {
+                    int x = 0, rowY = 0, rowHeight = 0;
+                    foreach (var action in list)
+                    {
+                        if (x > 0 && x + action.Width > available) { rowY += rowHeight + model.ActionGap; x = 0; rowHeight = 0; }
+                        action.Location = new System.Drawing.Point(x, rowY);
+                        rowHeight = System.Math.Max(rowHeight, action.Height);
+                        x += action.Width + model.ActionGap;
+                    }
+                    height = System.Math.Max(height, rowY + rowHeight + 4);
+                    actionHost.Size = new System.Drawing.Size(System.Math.Min(span, available), height);
+                    actionHost.Location = new System.Drawing.Point(model.Padding.Left, num);
+                }
+                else
+                {
+                    actionHost.Size = new System.Drawing.Size(span, height);
+                    actionHost.Location = new System.Drawing.Point(System.Math.Max(model.Padding.Left, header.ClientSize.Width - model.Padding.Right - span), num);
+                    SharedUiPrimitives.LayoutVisibleControlsLeftToRightCentered(list, 0, height, model.ActionGap);
+                }
+                int requiredHeight = flag ? System.Math.Max(model.CompactHeight, num + height + model.Padding.Bottom) : model.DefaultHeight;
+                var table = header.Parent as System.Windows.Forms.TableLayoutPanel;
+                if (table != null)
+                {
+                    int row = table.GetPositionFromControl(header).Row;
+                    if (row >= 0 && row < table.RowStyles.Count && table.RowStyles[row].SizeType == System.Windows.Forms.SizeType.Absolute && table.RowStyles[row].Height != requiredHeight)
+                        table.RowStyles[row].Height = requiredHeight;
+                }
+                header.Height = requiredHeight;
+                actionHost.ResumeLayout(false);
+                actionHost.Invalidate(true);
 				int num2 = actionHost.Left - model.SectionGap;
 				if (model.RightMetaControl != null && model.RightMetaControl.Visible)
 				{
-					int y2 = num + System.Math.Max(0, (actionHost.Height - model.RightMetaControl.Height) / 2);
-					model.RightMetaControl.Location = new System.Drawing.Point(System.Math.Max(model.Padding.Left, num2 - model.RightMetaControl.Width), y2);
+					int y2 = flag ? y : num + System.Math.Max(0, (actionHost.Height - model.RightMetaControl.Height) / 2);
+					model.RightMetaControl.Location = new System.Drawing.Point(System.Math.Max(model.Padding.Left, (flag ? header.ClientSize.Width - model.Padding.Right : num2) - model.RightMetaControl.Width), y2);
 					num2 = model.RightMetaControl.Left - model.SectionGap;
 				}
 				if (model.CenterContent != null && model.CenterContent.Visible)
 				{
 					int num3 = (flag ? model.Padding.Left : (model.Padding.Left + 220));
-					int num4 = (flag ? num2 : num2);
+					int num4 = flag ? header.ClientSize.Width - model.Padding.Right - metaSpan : num2;
 					int val = System.Math.Max(140, num4 - num3);
 					int val2 = (flag ? System.Math.Min(model.MinTextWidth, val) : model.MinTextWidth);
 					int num5 = System.Math.Min(model.CenterContent.Width, System.Math.Max(val2, val));
@@ -443,6 +474,8 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				layout();
 			};
+            header.ParentChanged += delegate { layout(); };
+            header.VisibleChanged += delegate { layout(); };
 			foreach (System.Windows.Forms.Control item2 in System.Linq.Enumerable.Where(model.RightActions, (System.Windows.Forms.Control action) => action != null))
 			{
 				item2.VisibleChanged += delegate

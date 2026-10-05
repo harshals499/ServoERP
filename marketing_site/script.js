@@ -1,4 +1,4 @@
-const DEMO_REQUEST_ENDPOINT = "/api/demo-request";
+﻿const DEMO_REQUEST_ENDPOINT = "/api/demo-request";
 const DEMO_SUCCESS_MESSAGE = "Thank you! Our team will contact you shortly.";
 const DEMO_REQUEST_EMAIL = "support@servoerp.in";
 
@@ -213,4 +213,3 @@ leadForm?.addEventListener("submit", async (event) => {
     submitButton.textContent = originalButtonText;
   }
 });
-

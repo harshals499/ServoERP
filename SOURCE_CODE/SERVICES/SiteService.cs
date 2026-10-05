@@ -173,6 +173,10 @@ namespace HVAC_Pro_Desktop.Services
             ValidationResult result = _businessRules.ValidateSite(site);
             if (site != null)
             {
+                if (site.ClientID > 0 && !string.IsNullOrWhiteSpace(site.SiteName) &&
+                    _repo.GetByClientId(site.ClientID).Any(existing => existing.SiteID != site.SiteID &&
+                        SmartImportDuplicateDetector.Normalize(existing.SiteName) == SmartImportDuplicateDetector.Normalize(site.SiteName)))
+                    result.Add(ValidationSeverity.Error, "Sites", "SiteName", "This client already has a site with this name. Edit the existing site or resolve duplicates in Master Data.");
                 ValidationResult relationships = _relationshipIntegrity.CheckEmployee(site.AssignedTechnicianID, "Sites", "AssignedTechnicianID");
                 RelationshipIntegrityService.EnsureValid(relationships, "This site cannot be saved because the assigned technician is invalid.");
                 result.Merge(relationships);

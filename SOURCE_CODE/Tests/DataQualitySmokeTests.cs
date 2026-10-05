@@ -27,9 +27,10 @@ namespace HVAC_Pro_Desktop.Tests
             ExpectError(rules.ValidateVendor(new Vendor { VendorName = "Bad GST", GSTNumber = "BADGST" }), "invalid vendor GST");
             passed.Add("invalid GST rejected");
 
-            new GlobalValidationEngine().EnsureValid(rules.ValidateVendor(new Vendor { VendorName = "Bad GST", GSTNumber = "BADGST" }), "warning-only validation gate");
-            FluentValidationGuard.EnsureValid(new VendorValidator(), new Vendor { VendorName = string.Empty }, "warning-only fluent validation gate");
-            passed.Add("validation gates warn without blocking save");
+            ExpectBlocked(() => new GlobalValidationEngine().EnsureValid(rules.ValidateVendor(new Vendor { VendorName = "Bad GST", GSTNumber = "BADGST" }), "Vendor validation"));
+            ExpectBlocked(() => FluentValidationGuard.EnsureValid(new VendorValidator(), new Vendor { VendorName = string.Empty }, "Vendor validation"));
+            new GlobalValidationEngine().EnsureValid(rules.ValidateClient(new B2BClient { CompanyName = "Phone warning", Phone = "abc" }), "Client validation");
+            passed.Add("validation errors block save while warning-only results remain allowed");
 
             ExpectError(duplicates.CheckClient(
                 new B2BClient { ClientID = 2, CompanyName = "Acme New", GSTNumber = "27ABCDE1234F1Z0" },
@@ -143,6 +144,14 @@ namespace HVAC_Pro_Desktop.Tests
             passed.Add("impossible dates rejected");
 
             return passed;
+        }
+
+        private static void ExpectBlocked(Action action)
+        {
+            try { action(); }
+            catch (InvalidOperationException) { return; }
+            catch (FluentValidation.ValidationException) { return; }
+            throw new InvalidOperationException("Invalid data was allowed through the save validation gate.");
         }
 
         private static void ExpectError(ValidationResult result, string name)

@@ -1,15 +1,31 @@
 {
   "product": "ServoERP",
-  "latestVersion": "1.1.484.0",
-  "updatedAt": "2026-10-04",
+  "latestVersion": "1.1.486.0",
+  "updatedAt": "2026-10-05",
   "download": {
     "available": true,
     "message": "Public installer and update packages are available for this release.",
-    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.484/ServoERP.Desktop-1.1.484-full.nupkg",
-    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.484.0.exe",
-    "installer": "ServoERP_Setup_1.1.484.0.exe"
+    "packageUrl": "https://github.com/harshals499/ServoERP/releases/download/v1.1.486/ServoERP.Desktop-1.1.486-full.nupkg",
+    "url": "https://downloads.servoerp.in/ServoERP_Setup_1.1.486.0.exe",
+    "installer": "ServoERP_Setup_1.1.486.0.exe"
   },
   "versions": [
+    {
+      "version": "1.1.486.0",
+      "date": "2026-10-05",
+      "title": "AMC deletion, import integrity and action consistency",
+      "changes": [
+        {
+          "type": "release",
+          "items": [
+            "Delete AMC from the editor with a clear linked-record confirmation.",
+            "Review quotation artifacts imported as clients and block ambiguous quotation overwrites.",
+            "Prevent duplicate sites within a client and preserve renamed site identities.",
+            "Improve Save validation, selection scope, Clear Filters and responsive action headers."
+          ]
+        }
+      ]
+    },
     {
       "version": "1.1.484.0",
       "date": "2026-10-04",

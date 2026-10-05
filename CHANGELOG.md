@@ -1,4 +1,27 @@
-# Changelog
+﻿# Changelog
+
+## 1.1.486 - 2026-10-05
+
+- Audited page and dialog actions, with a source inventory and separate native runtime evidence rather than treating button labels as successful business operations.
+- Invalid FluentValidation and business-rule errors now block saves; warnings alone remain nonblocking. Invalid AMC input stops before persistence, and failed AMC setup leaves Save disabled.
+- Save operations prevent duplicate submissions and restore each control's previous enabled state. Ctrl+S invokes a single visible, enabled editor Save action.
+- Shared grid styling preserves multiple selection and cell selection. Imported client repair exposes Filter records, Clear Filters, Select all shown, Clear Selection and Close.
+- Duplicate cleanup identifies selection scope as shown groups; Clear all selection also clears filtered-out groups.
+- Connected the previously unwired Dashboard Customize button to card unlock, lock and confirmed layout reset actions.
+- Added Clear Filters to Clients, Contracts, Suppliers, Jobs, Purchases, Payments, AMC, Porter Deliveries, Quotation forecast and Invoice work queue. Payments resets its period label and transaction scope together.
+- Delete confirmations keep the record identity and linked-record impact in a readable, scrollable summary.
+- Shared action headers wrap when space is insufficient; Dashboard, Clients and Jobs rebuild their dashboards after resizing so header actions remain reachable.
+- Extended the UI QA catalog to AMC, Attendance and Porter Deliveries. Added a repeatable isolated-database audit harness.
+- Enforced normalized same-client site-name protection through the compatibility ClientService.CreateSite path as well as SiteService.
+- Includes the AMC deletion, quotation import/client repair and client-scoped site identity fixes from 1.1.485. Installation does not automatically delete or merge customer records.
+
+## 1.1.485 - 2026-10-05
+
+- Added Delete AMC inside the AMC edit dialog, with a confirmation summary and transactional cleanup of equipment, visits, reminder drafts and SLA logs. Existing invoices, jobs, purchases and client assets remain, with contract links cleared.
+- Added Clients > Add Client > Review Imported Client Records to detect numeric workbook rows, headings and quotation terms imported as clients, show linked quotation numbers/amounts, and relink selected records to a reviewed client before archiving.
+- Blocked quotation-number imports from overwriting another client's quotation or selecting an ambiguous duplicate number; synchronize quotation client display names with their saved client links.
+- Scoped site duplicate checks to each client, detect renamed sites sharing an address for review, hide archived duplicates from site lists and AMC selection, resolve old merged site names to the retained site, and add optional SiteID to site imports for safe name changes.
+- Reject duplicate site names during normal site saves and refresh related caches after confirmed cleanup.
 
 ## 1.1.484.0 - 2026-10-04
 

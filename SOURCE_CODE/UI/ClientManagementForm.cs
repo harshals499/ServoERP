@@ -432,6 +432,9 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildDashboardShell()
         {
             _dashboardHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, AutoScroll = true, Padding = new Padding(22, 16, 22, 22) };
+            Panel dashboardHost = _dashboardHost;
+            WorkspaceActionUi.BindDashboardResize(dashboardHost, RenderClientsDashboard, () => _showDashboard && !IsDisposed && _dashboardHost == dashboardHost);
+
             _dashboardHost.AutoScrollMinSize = new Size(0, 1240);
             Controls.Add(_dashboardHost);
         }
@@ -457,13 +460,13 @@ namespace HVAC_Pro_Desktop.UI
                 header.Location = new Point(0, 0);
                 content.Controls.Add(header);
 
-                FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 74), Size = new Size(content.Width, 96), BackColor = DS.BgPage, WrapContents = false, AutoScroll = false };
+                FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, header.Bottom + 10), Size = new Size(content.Width, 96), BackColor = DS.BgPage, WrapContents = false, AutoScroll = true };
                 int cardWidth = Math.Max(206, (content.Width - 64) / 5);
                 foreach (Control card in BuildClientStatCards(cardWidth))
                     stats.Controls.Add(card);
                 content.Controls.Add(stats);
 
-                TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 188), Size = new Size(content.Width, 238), BackColor = DS.BgPage, ColumnCount = 4, RowCount = 1 };
+                TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, stats.Bottom + 18), Size = new Size(content.Width, 238), BackColor = DS.BgPage, ColumnCount = 4, RowCount = 1 };
                 top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
                 top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32f));
                 top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36f));
@@ -473,7 +476,7 @@ namespace HVAC_Pro_Desktop.UI
                 top.Controls.Add(BuildClientSummaryCard(), 2, 0);
                 content.Controls.Add(top);
 
-                TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, 444), Size = new Size(content.Width, 520), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
+                TableLayoutPanel middle = new TableLayoutPanel { Location = new Point(0, top.Bottom + 18), Size = new Size(content.Width, 520), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
                 middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 76f));
                 middle.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24f));
                 middle.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -481,13 +484,15 @@ namespace HVAC_Pro_Desktop.UI
                 middle.Controls.Add(BuildClientDashboardSidebar(), 1, 0);
                 content.Controls.Add(middle);
 
-                TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 982), Size = new Size(content.Width, 230), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
+                TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, middle.Bottom + 18), Size = new Size(content.Width, 230), BackColor = DS.BgPage, ColumnCount = 2, RowCount = 1 };
                 bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
                 bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
                 bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
                 bottom.Controls.Add(BuildClientRenewalsCard(), 0, 0);
                 bottom.Controls.Add(BuildTopClientsRevenueCard(), 1, 0);
                 content.Controls.Add(bottom);
+                content.Height = Math.Max(contentHeight, bottom.Bottom + 18);
+                _dashboardHost.AutoScrollMinSize = new Size(0, content.Height + 44);
             }
             finally
             {
@@ -511,6 +516,14 @@ namespace HVAC_Pro_Desktop.UI
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
                 menu.Items.Add("Add Client", null, (mi, ev) => OpenClientEditor(null, "New Client"));
                 menu.Items.Add("Import Clients", null, (mi, ev) => ImportUiHelper.RunImport(ExcelImportModule.Clients, FindForm(), result => RefreshClientsAfterImport()));
+                menu.Items.Add("Review Imported Client Records", null, (mi, ev) =>
+                {
+                    using (var review = new ClientImportRepairDialog())
+                    {
+                        review.ShowDialog(FindForm());
+                        if (review.ChangesApplied) RefreshClientsAfterImport();
+                    }
+                });
                 menu.Items.Add("Add Contact", null, (mi, ev) => ShowActionModal("Add Contact", "Open a client record first, then add contact details.", "Contact name", ""));
                 menu.Show(add, new Point(0, add.Height));
             };
@@ -518,7 +531,7 @@ namespace HVAC_Pro_Desktop.UI
                 "ClientsDashboardHeader",
                 "Clients Management",
                 "Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready.",
-                new List<Control> { filters, add },
+                new List<Control> { filters, WorkspaceActionUi.CreateClearFilters(ClearClientDashboardFilters), add },
                 SharedPageHeader.CreateSearchInputShell("ClientsDashboardSearchHost", _dashboardSearch, 340),
                 null,
                 DS.BgPage,
@@ -544,6 +557,14 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardClientsLoaded = false;
             _dashboardClientsPage = 1;
             _ = LoadClientsAsync();
+        }
+
+        private void ClearClientDashboardFilters()
+        {
+            _dashboardStatus = "All Status";
+            _dashboardSearchText = _dashboardTableSearchText = string.Empty;
+            _dashboardClientsPage = 1;
+            RenderClientsDashboard();
         }
 
         private IEnumerable<Control> BuildClientStatCards(int width)
@@ -706,8 +727,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildClientDashboardSidebar()
         {
-            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(10, 0, 0, 0) };
-            TableLayoutPanel stack = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, BackColor = DS.BgPage };
+            Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(10, 0, 0, 0), AutoScroll = true };
+            TableLayoutPanel stack = new TableLayoutPanel { Dock = DockStyle.Top, Height = 520, ColumnCount = 1, RowCount = 3, BackColor = DS.BgPage };
             stack.RowStyles.Add(new RowStyle(SizeType.Absolute, 132f));
             stack.RowStyles.Add(new RowStyle(SizeType.Absolute, 252f));
             stack.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -715,6 +736,14 @@ namespace HVAC_Pro_Desktop.UI
             stack.Controls.Add(BuildClientQuickActionsCard(), 0, 1);
             stack.Controls.Add(BuildClientSmartAlertsCard(), 0, 2);
             panel.Controls.Add(stack);
+            Action resizeActions = () =>
+            {
+                int actionsHeight = stack.ClientSize.Width < 276 ? 340 : 210;
+                stack.RowStyles[1].Height = actionsHeight;
+                stack.Height = Math.Max(520, 132 + actionsHeight + 144);
+            };
+            stack.Resize += (sender, args) => resizeActions();
+            resizeActions();
             return panel;
         }
 

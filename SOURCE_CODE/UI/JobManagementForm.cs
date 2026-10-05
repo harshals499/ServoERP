@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -309,6 +309,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _dashboardHost = new Panel { Dock = DockStyle.Fill, BackColor = PageBg, AutoScroll = true, Padding = new Padding(18, 14, 18, 18) };
             UiPerformanceService.EnableDoubleBuffer(_dashboardHost);
+            WorkspaceActionUi.BindDashboardResize(_dashboardHost, () => { CaptureDashboardFilterState(); RenderJobsDashboard(); }, () => _showDashboard && !IsDisposed);
             Controls.Add(_dashboardHost);
         }
 
@@ -437,7 +438,7 @@ namespace HVAC_Pro_Desktop.UI
                 "JobsDashboardHeader",
                 "Jobs Dashboard",
                 "Monitor jobs, technicians, and service status. Client is required; site can be selected later.",
-                new List<Control> { filters, refresh, reports, forms, smartDispatch, add },
+                new List<Control> { WorkspaceActionUi.CreateClearFilters(ResetDashboardFilters), filters, refresh, reports, forms, smartDispatch, add },
                 SharedPageHeader.CreateSearchInputShell("JobsDashboardSearchHost", _dashboardSearch, 280),
                 null,
                 PageBg,

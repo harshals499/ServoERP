@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -348,12 +348,12 @@ namespace HVAC_Pro_Desktop.UI
             header.Location = new Point(0, 0);
             content.Controls.Add(header);
 
-            FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, 96), Size = new Size(content.Width, 96), BackColor = PageBg, WrapContents = false, AutoScroll = true };
+            FlowLayoutPanel stats = new FlowLayoutPanel { Location = new Point(0, header.Bottom + 10), Size = new Size(content.Width, 96), BackColor = PageBg, WrapContents = false, AutoScroll = true };
             foreach (Control card in BuildVendorStatCards(Math.Max(205, (content.Width - 48) / 5)))
                 stats.Controls.Add(card);
             content.Controls.Add(stats);
 
-            TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, 210), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 4, RowCount = 1 };
+            TableLayoutPanel top = new TableLayoutPanel { Location = new Point(0, stats.Bottom + 18), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 4, RowCount = 1 };
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 22f));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28f));
@@ -365,7 +365,7 @@ namespace HVAC_Pro_Desktop.UI
             top.Controls.Add(BuildPerformanceCard(), 3, 0);
             content.Controls.Add(top);
 
-            TableLayoutPanel mid = new TableLayoutPanel { Location = new Point(0, 458), Size = new Size(content.Width, 640), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
+            TableLayoutPanel mid = new TableLayoutPanel { Location = new Point(0, top.Bottom + 18), Size = new Size(content.Width, 640), BackColor = PageBg, ColumnCount = 2, RowCount = 1 };
             mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 84f));
             mid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 16f));
             mid.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
@@ -374,11 +374,13 @@ namespace HVAC_Pro_Desktop.UI
             mid.Controls.Add(BuildVendorDashboardSidebar(), 1, 0);
             content.Controls.Add(mid);
 
-            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, 1116), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 1, RowCount = 1 };
+            TableLayoutPanel bottom = new TableLayoutPanel { Location = new Point(0, mid.Bottom + 18), Size = new Size(content.Width, 230), BackColor = PageBg, ColumnCount = 1, RowCount = 1 };
             bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             bottom.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             bottom.Controls.Add(BuildUpcomingRenewalsCard(), 0, 0);
             content.Controls.Add(bottom);
+            content.Height = Math.Max(content.Height, bottom.Bottom + 18);
+            _vendorDashboardHost.AutoScrollMinSize = new Size(0, content.Height + 44);
 
             _vendorDashboardHost.ResumeLayout();
             _renderingDashboard = false;
@@ -526,7 +528,7 @@ namespace HVAC_Pro_Desktop.UI
                 "VendorDashboardHeader",
                 titleText,
                 subtitleText,
-                new List<Control> { filters, removeDuplicates, addVendor },
+                new List<Control> { filters, WorkspaceActionUi.CreateClearFilters(() => { _dashboardSearchText = string.Empty; _dashboardCategory = "All Categories"; _dashboardTab = "All Suppliers"; _dashboardPage = 1; RenderVendorDashboard(); }), removeDuplicates, addVendor },
                 dashboardSearchHost,
                 null,
                 PageBg,

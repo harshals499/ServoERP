@@ -1,4 +1,6 @@
-using System;
+﻿using System;
+using System.Linq;
+using Dapper;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Drawing;
@@ -14,6 +16,7 @@ namespace HVAC_Pro_Desktop.UI
     /// <summary>Form for creating or editing an AMC contract.</summary>
     public partial class AddAMCForm : ServoERP.Infrastructure.ServoFormBase
     {
+        public bool ContractDeleted { get; private set; }
         private readonly CultureInfo _india = new CultureInfo("en-IN");
         private readonly MasterLookupService _lookupSvc = new MasterLookupService();
         private readonly int? _contractId;
@@ -43,6 +46,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _summaryStatus;
         private Label _titleLabel;
         private bool _loadInProgress;
+        private bool _referenceDataReady;
         private bool _saveInProgress;
         private bool _bindingReferenceData;
         private int _siteLoadRequestId;
@@ -295,6 +299,31 @@ namespace HVAC_Pro_Desktop.UI
             _btnSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _btnSave.Click += (s, e) => SaveAMC();
 
+            Button delete = MakeButton("Delete AMC", Color.FromArgb(220, 38, 38), 112);
+            delete.Name = "DeleteAmcButton";
+            delete.Visible = _contractId.HasValue;
+            delete.Location = new Point(0, 12);
+            delete.Click += async (sender, args) =>
+            {
+                if (_loadInProgress || _saveInProgress || !_contractId.HasValue) return;
+                if (RecordDeletionUi.ConfirmPermanentDelete(this, "AMC contract", _txtAMCNumber.Text,
+                    "Linked invoices, jobs and purchase orders will be kept but unlinked. Contract equipment, visits, reminder drafts and SLA logs will be removed.") != DialogResult.Yes) return;
+                _saveInProgress = true;
+                panel.Enabled = false;
+                try
+                {
+                    await Task.Run(() => new ContractService().DeleteContract(_contractId.Value));
+                    ContractDeleted = true;
+                    DialogResult = DialogResult.OK;
+                    Close();
+                }
+                catch (Exception ex)
+                {
+                    AppRuntime.ShowRecoverableError(BrandingService.WindowTitle("AMC"), "Deleting AMC contract", ex);
+                }
+                finally { _saveInProgress = false; if (!IsDisposed) panel.Enabled = true; }
+            };
+            panel.Controls.Add(delete);
             panel.Controls.Add(cancel);
             panel.Controls.Add(_btnRenew);
             panel.Controls.Add(_btnSave);
@@ -314,6 +343,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _loadInProgress = true;
+            _referenceDataReady = false;
             SetReferenceLoadingState(true);
             CancellationTokenSource previous = _referenceLoadCancellation;
             if (previous != null)
@@ -384,10 +414,10 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbClient == null || _cmbSite == null || _cmbEquipment == null)
                 return;
 
-            _cmbClient.Enabled = !isLoading;
-            _cmbSite.Enabled = !isLoading;
-            _cmbEquipment.Enabled = !isLoading;
-            _btnSave.Enabled = !isLoading;
+            _cmbClient.Enabled = !isLoading && _referenceDataReady;
+            _cmbSite.Enabled = !isLoading && _referenceDataReady;
+            _cmbEquipment.Enabled = !isLoading && _referenceDataReady;
+            _btnSave.Enabled = !isLoading && _referenceDataReady;
             if (isLoading)
             {
                 _cmbClient.DataSource = null;
@@ -406,6 +436,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetReferenceLoadFailedState(string message)
         {
+            _referenceDataReady = false;
             if (_cmbClient == null || _cmbSite == null || _cmbEquipment == null || _btnSave == null)
                 return;
 
@@ -582,6 +613,7 @@ WHERE ContractID = @ContractID;", connection))
             if (payload == null)
                 payload = new ReferencePayload();
 
+            _referenceDataReady = true;
             _bindingReferenceData = true;
             try
             {
@@ -680,6 +712,12 @@ WHERE ContractID = @ContractID;", connection))
         }
 
         /// <summary>Loads client sites from SQL Server.</summary>
+        private sealed class SiteLookup
+        {
+            public int SiteID { get; set; }
+            public string SiteName { get; set; }
+        }
+
         private List<LookupItem> LoadSites(int clientId)
         {
             var sites = new List<LookupItem>();
@@ -689,16 +727,9 @@ WHERE ContractID = @ContractID;", connection))
             using (SqlConnection connection = DatabaseConnectionFactory.CreateConnection())
             {
                 DatabaseConnectionFactory.Open(connection, "AddAMCForm.LoadSites");
-                using (SqlCommand command = new SqlCommand("SELECT SiteID, SiteName FROM ClientSites WHERE ClientID = @ClientID ORDER BY SiteName;", connection))
-                {
-                    command.CommandTimeout = ReferenceCommandTimeoutSeconds;
-                    command.Parameters.AddWithValue("@ClientID", clientId);
-                    using (SqlDataReader reader = command.ExecuteReader())
-                    {
-                        while (reader.Read())
-                            sites.Add(new LookupItem(ReadInt(reader, "SiteID"), ReadString(reader, "SiteName")));
-                    }
-                }
+                SmartImportDuplicateDetector.EnsureArchiveSchema(connection);
+                sites = connection.Query<SiteLookup>("SELECT SiteID, SiteName FROM ClientSites s WHERE ClientID=@clientId AND NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID)) ORDER BY SiteName", new { clientId }, commandTimeout: ReferenceCommandTimeoutSeconds)
+                    .Select(site => new LookupItem(site.SiteID, site.SiteName)).ToList();
             }
 
             return sites;
@@ -752,13 +783,14 @@ WHERE ContractID = @ContractID;", connection))
         /// <summary>Validates and starts saving the AMC record.</summary>
         private async void SaveAMC()
         {
-            if (_saveInProgress)
+            if (_saveInProgress || _loadInProgress || !_referenceDataReady)
                 return;
 
             string validation = ValidateForm();
             if (!string.IsNullOrWhiteSpace(validation))
             {
                 MessageBox.Show(validation, BrandingService.WindowTitle("AMC Warning"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
             }
 
             AMCInput input = BuildInput();

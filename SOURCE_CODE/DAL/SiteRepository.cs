@@ -1,4 +1,7 @@
 using System;
+using System.Linq;
+using Dapper;
+using HVAC_Pro_Desktop.Services;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.Models;
@@ -11,32 +14,22 @@ namespace HVAC_Pro_Desktop.DAL
 
         public List<ClientSite> GetByClientId(int clientId)
         {
-            var list = new List<ClientSite>();
-            using (SqlConnection conn = _db.GetConnection())
+            using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand(
-                    "SELECT * FROM ClientSites WHERE ClientID=@cid ORDER BY SiteName", conn))
-                {
-                    cmd.Parameters.AddWithValue("@cid", clientId);
-                    using (SqlDataReader r = cmd.ExecuteReader())
-                        while (r.Read()) list.Add(Map(r));
-                }
+                SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
+                return conn.Query<ClientSite>("SELECT * FROM ClientSites s WHERE ClientID=@clientId AND NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID)) ORDER BY SiteName", new { clientId }).ToList();
             }
-            return list;
         }
 
         public List<ClientSite> GetAll()
         {
-            var list = new List<ClientSite>();
-            using (SqlConnection conn = _db.GetConnection())
+            using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand("SELECT * FROM ClientSites ORDER BY SiteName", conn))
-                using (SqlDataReader r = cmd.ExecuteReader())
-                    while (r.Read()) list.Add(Map(r));
+                SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
+                return conn.Query<ClientSite>("SELECT * FROM ClientSites s WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Sites' AND a.DuplicateRecordID=CONVERT(varchar(30),s.SiteID)) ORDER BY SiteName").ToList();
             }
-            return list;
         }
 
         public ClientSite GetBySyncPublicId(Guid syncPublicId)

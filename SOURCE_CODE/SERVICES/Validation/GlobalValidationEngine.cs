@@ -19,7 +19,8 @@ namespace HVAC_Pro_Desktop.Services.Validation
                 .Where(i => i.Severity == ValidationSeverity.Error || i.Severity == ValidationSeverity.Critical)
                 .Take(8)
                 .Select(i => "- " + i.Message + (string.IsNullOrWhiteSpace(i.SuggestedFix) ? string.Empty : " Fix: " + i.SuggestedFix)));
-            AppLogger.LogInfo("Validation warning only: " + (string.IsNullOrWhiteSpace(context) ? "Validation" : context) + " | " + message.Replace(Environment.NewLine, " "));
+            AppLogger.LogInfo("Validation blocked save: " + (string.IsNullOrWhiteSpace(context) ? "Validation" : context) + " | " + message.Replace(Environment.NewLine, " "));
+            throw new InvalidOperationException((string.IsNullOrWhiteSpace(context) ? "Please correct these details before saving." : context) + Environment.NewLine + message);
         }
 
         public static string CleanText(string value, int maxLength = 255)
