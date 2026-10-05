@@ -67,7 +67,9 @@ Close ServoERP and restore prior application binaries while preserving configura
 
 ## Public distribution
 
-- GitHub release: https://github.com/harshals499/ServoERP/releases/tag/v1.1.486
+- GitHub release: https://github.com/harshals499/ServoERP/releases/tag/v1.1.486.0
 - Windows installer: https://downloads.servoerp.in/ServoERP_Setup_1.1.486.0.exe
 - Production metadata: https://servoerp.in/latest.json
 - Publication verification is recorded separately in the public-release validation report after upload.
+
+GitHub permanently reserved `v1.1.486` after an empty immutable release entry was removed. The complete public release uses tag `v1.1.486.0`; the application and Velopack package versions remain 1.1.486.0 and 1.1.486 respectively.
