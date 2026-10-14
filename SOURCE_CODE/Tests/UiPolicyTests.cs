@@ -25,6 +25,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureActionButtonAppliesSecondaryBorder();
             EnsureModernButtonInteractionStates();
             EnsureSoftBorderDesignTokens();
+            EnsureQuotationVisualInheritance();
             EnsureInactiveInputsDoNotKeepBlueSelection();
             EnsureDispatchTechnicianClassification();
             EnsureGlobalPaginationControlNavigatesSafely();
@@ -416,17 +417,49 @@ namespace HVAC_Pro_Desktop.Tests
             }
         }
 
+        private static void EnsureQuotationVisualInheritance()
+        {
+            using (var host = new Form { ClientSize = new Size(900, 600), ShowInTaskbar = false,
+                StartPosition = FormStartPosition.Manual, Location = new Point(-10000, -10000) })
+            using (var nested = new Panel { Dock = DockStyle.Fill })
+            {
+                host.Controls.Add(nested);
+                QuotationVisualPolicy.Apply(host);
+                host.Show();
+                var card = new Panel { Name = "NestedEditorCard", Bounds = new Rectangle(10, 20, 300, 180),
+                    BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle };
+                var input = new TextBox { Text = "Preserve entered value", Bounds = new Rectangle(20, 70, 180, 24) };
+                var warning = new Label { Text = "Overdue", ForeColor = Color.Red };
+                card.Controls.Add(input); card.Controls.Add(warning);
+                Rectangle bounds = card.Bounds;
+                nested.Controls.Add(card);
+                Application.DoEvents(); Application.DoEvents();
+                if (card.BorderStyle != BorderStyle.None || card.BackColor != Color.White || host.BackColor != DS.BgPage)
+                    throw new InvalidOperationException("Nested controls must inherit quotation surfaces after creation.");
+                if (card.Bounds != bounds || input.Text != "Preserve entered value" || warning.ForeColor != Color.Red)
+                    throw new InvalidOperationException("Appearance policy must preserve geometry, data and semantic colours.");
+                using (var grid = new DataGridView())
+                {
+                    card.Controls.Add(grid); Application.DoEvents(); Application.DoEvents();
+                    if (grid.DefaultCellStyle.SelectionBackColor != DS.Primary50 ||
+                        grid.DefaultCellStyle.SelectionForeColor != DS.Slate900)
+                        throw new InvalidOperationException("Late-created nested grids must inherit quotation selection contrast.");
+                }
+                host.Close();
+            }
+        }
+
         private static void EnsureSoftBorderDesignTokens()
         {
-            Color expected = Color.FromArgb(209, 213, 219);
+            Color expected = Color.FromArgb(224, 230, 238);
             if (DS.Border.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("DS.Border must remain #D1D5DB for app-wide outline consistency.");
+                throw new InvalidOperationException("DS.Border must remain #E0E6EE for app-wide outline consistency.");
             if (DS.BorderStrong.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("DS.BorderStrong must remain #D1D5DB for app-wide outline consistency.");
+                throw new InvalidOperationException("DS.BorderStrong must remain #E0E6EE for app-wide outline consistency.");
             if (GridTheme.BorderColor.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("Grid outer border token must remain #D1D5DB.");
-            if (GridTheme.GridLine.ToArgb() != expected.ToArgb())
-                throw new InvalidOperationException("Grid line token must remain #D1D5DB.");
+                throw new InvalidOperationException("Grid outer border token must remain #E0E6EE.");
+            if (GridTheme.GridLine.ToArgb() != Color.FromArgb(232, 237, 244).ToArgb())
+                throw new InvalidOperationException("Grid separators must match the quotation dashboard #E8EDF4.");
         }
 
         private static void EnsureInactiveInputsDoNotKeepBlueSelection()

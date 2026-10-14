@@ -1,3 +1,9 @@
+﻿# 1.1.511 — 14 October 2026
+
+- Apply Quotations dashboard card, canvas, action and table visual rules across shared pages, details and nested dialogs.
+- Fix nested appearance inheritance, dark-button contrast and My Work heading/action overlap.
+- Validate with Release build, CI-safe policies and native WinForms screenshot review against a disposable test database.
+
 ## 1.1.509 - 11/10/2026
 
 ## 1.1.510 - 11/10/2026

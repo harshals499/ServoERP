@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using Krypton.Toolkit;
 using HVAC_Pro_Desktop.UI;
@@ -20,6 +20,10 @@ namespace ServoERP.Infrastructure
             PaletteManager.GlobalPaletteMode = PaletteMode.Microsoft365Blue;
             PaletteManager.BaseFont = ApplicationFont;
             PaletteManager.GlobalApplyToolstrips = true;
+            Application.Idle += (s, e) =>
+            {
+                foreach (Form form in Application.OpenForms) QuotationVisualPolicy.Attach(form);
+            };
         }
 
         internal static void ApplyTo(Control root)
@@ -29,6 +33,7 @@ namespace ServoERP.Infrastructure
 
             root.Font = ApplicationFont;
             DS.ApplyTheme(root);
+            QuotationVisualPolicy.Apply(root);
         }
     }
 }

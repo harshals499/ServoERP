@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
@@ -12,16 +12,16 @@ namespace HVAC_Pro_Desktop.UI
         public const string ThemePolicy = "ServoERP uses one Microsoft 365 Blue light theme across every module and dialog.";
 
         public static readonly Color White = Color.White;
-        public static readonly Color BgPage = Color.FromArgb(245, 249, 253);
+        public static readonly Color BgPage = Color.FromArgb(246, 248, 251);
         public static readonly Color BgSubtle = Color.FromArgb(250, 252, 254);
         public static readonly Color BgCard = Color.White;
-        public static readonly Color BgCardHov = Color.FromArgb(245, 249, 253);
+        public static readonly Color BgCardHov = Color.FromArgb(246, 248, 251);
         public static readonly Color BgInput = Color.White;
         public static readonly Color InputBorder = Color.FromArgb(194, 209, 224);
         public static readonly Color InputText = Color.FromArgb(15, 23, 42);
         public static readonly Color InputMutedText = Color.FromArgb(100, 116, 139);
         public static readonly Color InputDisabledBack = Color.FromArgb(243, 246, 249);
-        public static readonly Color BgRail = Color.FromArgb(245, 249, 253);
+        public static readonly Color BgRail = Color.FromArgb(246, 248, 251);
 
         // Microsoft Fluent / Microsoft 365 blue ramp.
         public static readonly Color Primary700 = Color.FromArgb(17, 94, 163);
@@ -54,8 +54,8 @@ namespace HVAC_Pro_Desktop.UI
         public static readonly Color Slate100 = Color.FromArgb(241, 245, 249);
         public static readonly Color Slate50 = Color.FromArgb(248, 250, 252);
 
-        public static readonly Color Border = Color.FromArgb(209, 213, 219);
-        public static readonly Color BorderStrong = Color.FromArgb(209, 213, 219);
+        public static readonly Color Border = Color.FromArgb(224, 230, 238);
+        public static readonly Color BorderStrong = Color.FromArgb(224, 230, 238);
         public static readonly Color FocusBlue = Primary600;
         public static readonly Color Shadow = Color.FromArgb(200, 211, 222);
         public static readonly Color Indigo600 = Primary700;
@@ -73,7 +73,7 @@ namespace HVAC_Pro_Desktop.UI
         public const int Space5 = 20;
         public const int Space6 = 24;
         public const int RadiusSm = 6;
-        public const int RadiusMd = 8;
+        public const int RadiusMd = 9;
         public const int RadiusLg = 10;
         public const int RadiusXl = 12;
 

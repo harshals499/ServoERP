@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FluentValidation;
@@ -31,6 +31,8 @@ namespace ServoERP.Infrastructure
             base.OnLoad(e);
             _loaded = true;
             if (!SuppressAutomaticChildPolish) ApplySharedFrontendPolish(this);
+            QuotationVisualPolicy.Apply(this);
+            if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");
         }
 

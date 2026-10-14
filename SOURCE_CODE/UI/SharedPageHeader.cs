@@ -381,6 +381,7 @@ namespace HVAC_Pro_Desktop.UI
 			};
 			foreach (System.Windows.Forms.Control item in System.Linq.Enumerable.Where(model.RightActions, (System.Windows.Forms.Control action) => action != null))
 			{
+                item.Dock = System.Windows.Forms.DockStyle.None;
 				item.Margin = System.Windows.Forms.Padding.Empty;
 				item.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
 				actionHost.Controls.Add(item);

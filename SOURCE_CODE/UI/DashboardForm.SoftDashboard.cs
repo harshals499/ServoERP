@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -10,10 +10,10 @@ namespace HVAC_Pro_Desktop.UI
 {
     public partial class DashboardForm
     {
-        private static readonly Color SoftCanvas = Color.FromArgb(246, 247, 245);
-        private static readonly Color SoftBorder = Color.FromArgb(227, 231, 228);
-        private static readonly Color SoftInk = Color.FromArgb(42, 55, 66);
-        private static readonly Color SoftBlue = Color.FromArgb(69, 110, 147);
+        private static readonly Color SoftCanvas = DS.BgPage;
+        private static readonly Color SoftBorder = DS.Border;
+        private static readonly Color SoftInk = Color.FromArgb(17, 24, 39);
+        private static readonly Color SoftBlue = DS.Primary600;
         private DashboardHoverPreview _dashboardPreview;
         private int _inboxPage = 1;
         private int _inboxPageSize = 3;
@@ -78,7 +78,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = CardPanel(width, height);
             card.Name = name;
-            SoftText(card, title, 18, 14, width - 36, 25, 11f, true);
+            SoftText(card, title, 18, 14, Math.Max(80, width - 180), 25, 9.5f, true);
             SoftText(card, subtitle, 18, 42, width - 36, 20, 8.5f).ForeColor = DS.Slate500;
             return card;
         }

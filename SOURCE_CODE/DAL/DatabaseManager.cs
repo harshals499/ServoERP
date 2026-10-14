@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -53,6 +53,9 @@ namespace HVAC_Pro_Desktop.DAL
 
         public static string GetConfiguredConnectionString()
         {
+            // Diagnostic scopes also cover repositories that resolve the connection directly.
+            if (!string.IsNullOrWhiteSpace(DatabaseConnectionFactory.DiagnosticConnectionString))
+                return DatabaseConnectionFactory.DiagnosticConnectionString;
             string tenantConnectionString = TryBuildInstallerConfigConnectionString();
             if (!string.IsNullOrWhiteSpace(tenantConnectionString))
                 return DatabaseConnectionFactory.NormalizeConnectionString(tenantConnectionString);

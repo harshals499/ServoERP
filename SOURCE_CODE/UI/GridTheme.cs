@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -29,14 +29,14 @@ namespace HVAC_Pro_Desktop.UI
 
     public static class GridTheme
     {
-        public static readonly Color HeaderBack = Color.FromArgb(245, 249, 253);
-        public static readonly Color HeaderFore = Color.FromArgb(15, 23, 42);
+        public static readonly Color HeaderBack = Color.FromArgb(248, 250, 252);
+        public static readonly Color HeaderFore = Color.FromArgb(100, 116, 139);
         public static readonly Color RowAlt = Color.FromArgb(250, 252, 254);
         public static readonly Color RowNormal = Color.White;
-        public static readonly Color RowSelected = Color.FromArgb(15, 108, 189);
-        public static readonly Color RowSelectedFore = Color.White;
-        public static readonly Color GridLine = Color.FromArgb(209, 213, 219);
-        public static readonly Color BorderColor = Color.FromArgb(209, 213, 219);
+        public static readonly Color RowSelected = DS.Primary50;
+        public static readonly Color RowSelectedFore = DS.Slate900;
+        public static readonly Color GridLine = Color.FromArgb(232, 237, 244);
+        public static readonly Color BorderColor = DS.Border;
 
         private static readonly HashSet<DataGridView> BoundGrids = new HashSet<DataGridView>();
         private static readonly HashSet<DataGridView> StyledGrids = new HashSet<DataGridView>();

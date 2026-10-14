@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using HVAC_Pro_Desktop.UI;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -28,6 +28,8 @@ namespace ServoERP.Infrastructure
             RenderHelper.OptimiseAllGrids(this);
             base.OnLoad(e);
             ServoTheme.ApplyTo(this);
+            QuotationVisualPolicy.Apply(this);
+            if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
 
             double elapsed = (DateTime.Now - _loadStart).TotalMilliseconds;
             ExceptionLogger.Log("Page loaded: " + GetType().Name + " in " + elapsed.ToString("F0") + "ms", "Navigation");

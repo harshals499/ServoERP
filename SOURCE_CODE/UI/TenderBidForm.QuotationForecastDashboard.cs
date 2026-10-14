@@ -403,7 +403,7 @@ namespace HVAC_Pro_Desktop.UI
     internal sealed class QuotationForecastCard : Panel
     {
         public QuotationForecastCard() { BackColor = Color.White; DoubleBuffered = true; }
-        protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath p = Rounded(new Rectangle(0, 0, Width - 1, Height - 1), 9)) using (Pen pen = new Pen(Color.FromArgb(224, 230, 238))) e.Graphics.DrawPath(pen, p); }
+        protected override void OnPaint(PaintEventArgs e) { base.OnPaint(e); e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath p = Rounded(new Rectangle(0, 0, Width - 1, Height - 1), 9)) using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawPath(pen, p); }
         private static GraphicsPath Rounded(Rectangle r, int radius) { int d = radius * 2; GraphicsPath p = new GraphicsPath(); p.AddArc(r.Left, r.Top, d, d, 180, 90); p.AddArc(r.Right - d, r.Top, d, d, 270, 90); p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90); p.AddArc(r.Left, r.Bottom - d, d, d, 90, 90); p.CloseFigure(); return p; }
     }
 
