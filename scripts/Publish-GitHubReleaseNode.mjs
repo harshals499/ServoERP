@@ -68,6 +68,15 @@ for (const artifactPath of artifactPaths) {
 console.log("GitHub release upload completed.");
 
 async function getOrCreateRelease() {
+  // Draft releases are not reliably returned by the public tag endpoint.
+  // Pin uploads to the explicitly created draft instead of creating another release.
+  if (args["release-id"]) {
+    if (!/^\d+$/.test(args["release-id"])) fail("Invalid --release-id.");
+    const draft = await githubFetch(`${apiBase}/repos/${owner}/${repoName}/releases/${args["release-id"]}`);
+    if (draft.tag_name !== args.tag || !draft.draft) fail("Explicit release must be a matching draft.");
+    if ((draft.assets || []).length) fail("Explicit draft already has assets; reconcile before retrying.");
+    return draft;
+  }
   const encodedTag = encodeURIComponent(args.tag);
   const byTagUrl = `${apiBase}/repos/${owner}/${repoName}/releases/tags/${encodedTag}`;
   const existing = await githubFetch(byTagUrl, { allow404: true });

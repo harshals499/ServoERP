@@ -1,4 +1,4 @@
-﻿# 1.1.512 — prepared 14 October 2026 (unpublished)
+﻿# 1.1.512 — 14 October 2026
 
 - Build selected Daily Dispatch dashboard: compact header, unified summary band, schedule timeline and attention queue, team/followup cards, collections and activity.
 - Keep filters, pagination, permissions and existing workflow actions; stack sections at narrower widths.
