@@ -886,6 +886,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Resources\Icons\Lucide\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Target Name="ValidateServoReleaseNotes" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(ServoReleaseNotesPath)')" Text="Versioned release notes are required: $(ServoReleaseNotesPath)" />
     <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\scripts\Assert-ServoReleaseNotes.ps1&quot; -Version &quot;$(ServoReleaseVersion)&quot; -NotesPath &quot;$(ServoReleaseNotesPath)&quot; -AssemblyInfoPath &quot;$(MSBuildProjectDirectory)\Properties\AssemblyInfo.cs&quot;" />

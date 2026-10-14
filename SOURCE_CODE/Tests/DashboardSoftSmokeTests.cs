@@ -49,26 +49,26 @@ namespace HVAC_Pro_Desktop.Tests
                     foreach (string metricName in new[] { "JobsTodayCard", "SlaRiskCard", "ReceivablesCard", "LowStockCard" })
                     {
                         Control metric = Card(page, metricName);
-                        Require(metric is QuotationForecastCard, "Dashboard metric must use the quotation surface.");
+                        Require(metric.Parent.Name == "DispatchSummaryBand", "Dashboard metric must use the quotation surface.");
                         Label title = metric.Controls.OfType<Label>().Single(l => l.Name == "MetricTitle");
                         Label value = metric.Controls.OfType<Label>().Single(l => l.Name == "MetricValue");
                         PictureBox icon = metric.Controls.OfType<PictureBox>().Single();
-                        Require(title.Font.Bold && Math.Abs(title.Font.Size - 8.2f) < .01f && Math.Abs(value.Font.Size - 15f) < .01f,
+                        Require(title.Font.Bold && Math.Abs(title.Font.Size - 9.5f) < .01f && Math.Abs(value.Font.Size - 18f) < .01f,
                             "Metric typography differs from quotation rules.");
-                        Require(icon.Size == new Size(42, 42), "Metric icon container differs from quotation rules.");
+                        Require(icon.Size == new Size(28, 28), "Metric icon container differs from quotation rules.");
                     }
-                    Require(Children(Card(page, "PriorityInboxCard")).OfType<Button>().Any(b => b.Text == "All" && b.BackColor == DashboardVisuals.Blue),
-                        "Selected inbox filter must use the quotation chip state.");
-                    results.Add("main dashboard uses quotation card types, metric typography, icon sizes and selected filter style");
+                    Require(Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Name == "InboxFilterButton").ContextMenuStrip.Items.Count == 8,
+                        "Attention filters must remain available.");
+                    results.Add("dispatch summary typography, real icons and all eight attention filters are available");
                     page.Size = new Size(1440, 900); Rebuild(page);
                     string shortcut = null; page.OnShortcut = value => shortcut = value;
                     Children(page).OfType<Button>().Single(b => b.Text == "+ New job").PerformClick();
                     Require(shortcut == DashboardForm.ShortcutNewJob, "New job shortcut did not route.");
-                    Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Text == "Critical").PerformClick();
+                    ((ToolStripMenuItem)Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Name == "InboxFilterButton").ContextMenuStrip.Items.Cast<ToolStripItem>().Single(i => i.Text == "Critical")).PerformClick();
                     Application.DoEvents();
                     Require((string)typeof(DashboardForm).GetField("_actionFilter", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(page) == "Critical",
                         "Quotation-style inbox chip did not update the filter.");
-                    Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Text == "All").PerformClick();
+                    ((ToolStripMenuItem)Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Name == "InboxFilterButton").ContextMenuStrip.Items.Cast<ToolStripItem>().Single(i => i.Text == "All")).PerformClick();
                     Application.DoEvents();
                     results.Add("inbox filter buttons update the selected filter and restore the complete inbox");
                     var pager = Children(page).OfType<UI.Controls.GlobalPaginationControl>().Single();

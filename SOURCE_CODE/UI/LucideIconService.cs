@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -118,7 +118,7 @@ namespace HVAC_Pro_Desktop.UI
             if (string.IsNullOrWhiteSpace(data))
                 return path;
 
-            MatchCollection tokens = Regex.Matches(data, @"[MmLlHhVvCcSsQqTtZz]|-?\d*\.?\d+(?:e[-+]?\d+)?", RegexOptions.IgnoreCase);
+            MatchCollection tokens = Regex.Matches(data, @"[MmLlHhVvCcSsQqTtAaZz]|-?\d*\.?\d+(?:e[-+]?\d+)?", RegexOptions.IgnoreCase);
             int i = 0;
             char command = 'M';
             PointF current = PointF.Empty;
@@ -182,6 +182,16 @@ namespace HVAC_Pro_Desktop.UI
                     current = next;
                     continue;
                 }
+                if (upper == 'A' && HasNumbers(tokens, i, 7))
+                {
+                    double rx = Math.Abs(Number(tokens[i++].Value)), ry = Math.Abs(Number(tokens[i++].Value));
+                    double phi = Number(tokens[i++].Value) * Math.PI / 180;
+                    bool large = Number(tokens[i++].Value) != 0, sweep = Number(tokens[i++].Value) != 0;
+                    PointF next = Point(tokens, ref i, relative, current);
+                    AddSvgArc(path, current, next, rx, ry, phi, large, sweep);
+                    current = next;
+                    continue;
+                }
                 if (upper == 'Q' && HasNumbers(tokens, i, 4))
                 {
                     PointF c = Point(tokens, ref i, relative, current);
@@ -195,6 +205,43 @@ namespace HVAC_Pro_Desktop.UI
                 break;
             }
             return path;
+        }
+
+        // SVG endpoint-to-centre conversion (W3C SVG implementation notes).
+        private static void AddSvgArc(GraphicsPath path, PointF from, PointF to, double rx, double ry,
+            double phi, bool large, bool sweep)
+        {
+            if (rx == 0 || ry == 0) { path.AddLine(from, to); return; }
+            if (from == to) return;
+            double cos = Math.Cos(phi), sin = Math.Sin(phi);
+            double dx = (from.X - to.X) / 2d, dy = (from.Y - to.Y) / 2d;
+            double x = cos * dx + sin * dy, y = -sin * dx + cos * dy;
+            double scale = x * x / (rx * rx) + y * y / (ry * ry);
+            if (scale > 1) { rx *= Math.Sqrt(scale); ry *= Math.Sqrt(scale); }
+            double factor = Math.Sqrt(Math.Max(0, (rx * rx * ry * ry - rx * rx * y * y - ry * ry * x * x) /
+                (rx * rx * y * y + ry * ry * x * x))) * (large == sweep ? -1 : 1);
+            double cxp = factor * rx * y / ry, cyp = -factor * ry * x / rx;
+            double cx = cos * cxp - sin * cyp + (from.X + to.X) / 2d;
+            double cy = sin * cxp + cos * cyp + (from.Y + to.Y) / 2d;
+            double start = Math.Atan2((y - cyp) / ry, (x - cxp) / rx);
+            double end = Math.Atan2((-y - cyp) / ry, (-x - cxp) / rx);
+            double delta = end - start;
+            if (sweep && delta < 0) delta += 2 * Math.PI;
+            if (!sweep && delta > 0) delta -= 2 * Math.PI;
+            int segments = Math.Max(1, (int)Math.Ceiling(Math.Abs(delta) / (Math.PI / 2)));
+            Func<double, PointF> point = angle => new PointF((float)(cx + cos * rx * Math.Cos(angle) - sin * ry * Math.Sin(angle)),
+                (float)(cy + sin * rx * Math.Cos(angle) + cos * ry * Math.Sin(angle)));
+            Func<double, PointF> tangent = angle => new PointF((float)(-cos * rx * Math.Sin(angle) - sin * ry * Math.Cos(angle)),
+                (float)(-sin * rx * Math.Sin(angle) + cos * ry * Math.Cos(angle)));
+            for (int n = 0; n < segments; n++)
+            {
+                double a = start + delta * n / segments, b = start + delta * (n + 1) / segments;
+                float k = (float)(4d / 3 * Math.Tan((b - a) / 4));
+                PointF p0 = n == 0 ? from : point(a), p3 = n == segments - 1 ? to : point(b);
+                PointF t0 = tangent(a), t1 = tangent(b);
+                path.AddBezier(p0, new PointF(p0.X + k * t0.X, p0.Y + k * t0.Y),
+                    new PointF(p3.X - k * t1.X, p3.Y - k * t1.Y), p3);
+            }
         }
 
         private static bool HasNumbers(MatchCollection tokens, int index, int count)
@@ -236,6 +283,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private static string ResolvePath(string iconName)
         {
+            string bundled = Path.Combine(Path.GetDirectoryName(typeof(LucideIconService).Assembly.Location), "Resources", "Icons", "Lucide", iconName);
+            if (File.Exists(bundled)) return bundled;
             string direct = Path.Combine(DefaultIconRoot, iconName);
             if (File.Exists(direct))
                 return direct;

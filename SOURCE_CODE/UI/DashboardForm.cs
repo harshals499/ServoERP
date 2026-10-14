@@ -250,7 +250,7 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
-                Padding = new Padding(18, 14, 18, 24),
+                Padding = new Padding(18, 0, 18, 18),
                 BackColor = SoftCanvas
             };
             _host.Controls.Add(_root);
@@ -339,15 +339,24 @@ namespace HVAC_Pro_Desktop.UI
             refresh.AccessibleName = "Refresh dashboard";
             ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
             refresh.Click += async (sender, args) => await RefreshDashboardDataAsync();
+            customize.Text = string.Empty; customize.Width = 34; customize.AccessibleName = "Customize dashboard";
+            ModernIconSystem.AddButtonIcon(customize, ModernIconKind.Settings);
+            var commands = new List<Control> { notifications };
+            if (DashboardCan("WorkOrders", "Create")) { var b = DashboardVisuals.Action("+ New job", 126, DashboardVisuals.Blue, Color.White); b.Click += (s, e) => OnShortcut?.Invoke(ShortcutNewJob); commands.Add(b); }
+            if (DashboardCan("Quotations", "Create")) { var b = DashboardVisuals.Action("Quotation", 126, Color.White, DashboardVisuals.Ink); b.Click += (s, e) => OnShortcut?.Invoke(ShortcutNewQuotation); commands.Add(b); }
+            if (DashboardCan("Invoices", "Create")) { var b = DashboardVisuals.Action("Invoice", 126, Color.White, DashboardVisuals.Ink); b.Click += (s, e) => OnShortcut?.Invoke(ShortcutNewInvoice); commands.Add(b); }
+            if (DashboardCan("Payments", "Create")) { var b = DashboardVisuals.Action("Record payment", 150, Color.White, DashboardVisuals.Ink); b.Click += (s, e) => OnNavigate?.Invoke(4); commands.Add(b); }
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "DashboardTopHeader",
-                "My Work",
-                "A clear view of your day",
-                new List<Control> { notifications, customize, refresh },
+                "Daily Dispatch",
+                DateTime.Today.ToString("dddd, dd MMMM yyyy"),
+                commands,
                 null,
                 null,
                 Color.White,
                 new Padding(22, 12, 22, 12));
+            model.CompactUtility = true;
+            model.UtilityActions.Add(customize); model.UtilityActions.Add(refresh);
             model.Dock = DockStyle.Fill;
             model.DrawBottomBorder = false;
             model.DefaultHeight = 70;

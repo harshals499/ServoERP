@@ -78,7 +78,9 @@ namespace HVAC_Pro_Desktop.UI
                 name == "TeamTodayCard" ? ModernIconKind.Technician :
                 name == "ComingUpCard" || name == "TodayJobsCard" ? ModernIconKind.Calendar :
                 name == "CollectionsCard" ? ModernIconKind.Money : ModernIconKind.Activity;
-            DashboardVisuals.Heading(card, title, icon, DashboardVisuals.Blue, subtitle, 132);
+            DispatchIcon(card, icon, 18, 17);
+            SoftText(card, title, 56, 14, width - 210, 26, 12f, true);
+            SoftText(card, subtitle, 56, 42, width - 78, 22, 9f).ForeColor = DS.Slate500;
             return card;
         }
 
@@ -96,65 +98,53 @@ namespace HVAC_Pro_Desktop.UI
             _actionSnapshot.Items = _actionSnapshot.Items.Where(i => DashboardCanView(
                 IsAny(i.SourceModule, "Jobs", "ServiceDesk") ? "WorkOrders" : i.SourceModule)).ToList();
             int width = ContentWidth();
-            AddSoftToolbar(width);
             AddSoftMetrics(width);
             int gap = 14;
-            bool stacked = width < 1000;
-            int mainWidth = stacked ? width : (int)((width - gap) * 0.65);
+            bool stacked = width < 1100;
+            int mainWidth = stacked ? width : (int)((width - gap) * 0.555);
             int sideWidth = stacked ? width : width - mainWidth - gap;
-            Panel inbox = BuildSoftInbox(mainWidth);
-            Panel team = BuildSoftTeam(sideWidth);
+            Panel inbox = BuildSoftInbox(sideWidth);
+            Panel team = BuildSoftTeam(mainWidth);
             Panel coming = BuildSoftComing(sideWidth);
             Panel jobs = BuildSoftJobs(mainWidth);
-            Panel collections = BuildSoftCollections(sideWidth);
+            jobs.Height = Math.Max(jobs.Height, inbox.Height);
             if (stacked)
             {
-                _root.Controls.Add(inbox); _root.Controls.Add(jobs);
-                _root.Controls.Add(team); _root.Controls.Add(coming); _root.Controls.Add(collections);
+                _root.Controls.Add(jobs); _root.Controls.Add(inbox);
+                _root.Controls.Add(team); _root.Controls.Add(coming);
             }
             else
             {
-                var body = new Panel { Width = width, Height = inbox.Height + 14 + jobs.Height, BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 12), Tag = "NO_DASHBOARD_RESIZE" };
-                inbox.Location = Point.Empty;
-                jobs.Location = new Point(0, inbox.Height + 14);
-                team.Location = new Point(mainWidth + gap, 0);
-                coming.Location = new Point(mainWidth + gap, 220);
-                collections.Location = new Point(mainWidth + gap, 382);
-                body.Controls.AddRange(new Control[] { inbox, jobs, team, coming, collections });
+                var body = new Panel { Width = width, Height = jobs.Height + 14 + team.Height,
+                    BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 14), Tag = "NO_DASHBOARD_RESIZE" };
+                jobs.Location = Point.Empty;
+                inbox.Location = new Point(mainWidth + gap, 0);
+                team.Width = mainWidth;
+                team.Location = new Point(0, jobs.Height + gap);
+                coming.Location = new Point(mainWidth + gap, jobs.Height + gap);
+                body.Controls.AddRange(new Control[] { jobs, inbox, team, coming });
                 _root.Controls.Add(body);
             }
+            _root.Controls.Add(BuildSoftCollections(width));
             AddSoftActivity(width);
             CrashProtectionService.AttachToTree(this);
         }
 
-        private void AddSoftToolbar(int width)
+        private void DispatchIcon(Control parent, ModernIconKind icon, int x, int y)
         {
-            var bar = new Panel { Width = width, Height = 40, BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 10) };
-            Label dateLabel = SoftText(bar, DateTime.Today.ToString("dddd, dd MMMM yyyy"), 0, 9, Math.Max(160, width - 620), 24, 9f);
-            var commands = new List<Tuple<string, string, Action>>();
-            if (DashboardCan("WorkOrders", "Create")) commands.Add(Tuple.Create("+ New job", "New job", (Action)(() => OnShortcut?.Invoke(ShortcutNewJob))));
-            if (DashboardCan("Quotations", "Create")) commands.Add(Tuple.Create("Quotation", "Quotation", (Action)(() => OnShortcut?.Invoke(ShortcutNewQuotation))));
-            if (DashboardCan("Invoices", "Create")) commands.Add(Tuple.Create("Invoice", "Invoice", (Action)(() => OnShortcut?.Invoke(ShortcutNewInvoice))));
-            if (DashboardCan("Payments", "Create")) commands.Add(Tuple.Create("Record payment", "Payment", (Action)(() => OnNavigate?.Invoke(4))));
-            int x = Math.Max(210, width - commands.Count * 134);
-            var actionButtons = new List<Button>();
-            foreach (var command in commands) { actionButtons.Add(SoftButton(bar, command.Item1, x, 2, 126, command.Item3, command.Item2 == "New job")); x += 134; }
-            if (width < 800 && commands.Count > 2)
-            {
-                bar.Height = 92;
-                dateLabel.Width = width;
-                int i = 0;
-                foreach (Button b in actionButtons) { b.Location = new Point((i++ % 4) * 142, 43); }
-            }
-            _root.Controls.Add(bar);
+            var picture = new PictureBox { Location = new Point(x, y), Size = new Size(28, 28),
+                Image = ModernIconSystem.IconBitmap(icon, 24, SoftBlue), SizeMode = PictureBoxSizeMode.CenterImage,
+                BackColor = Color.Transparent };
+            picture.Disposed += (sender, args) => picture.Image?.Dispose();
+            parent.Controls.Add(picture);
         }
 
         private void AddSoftMetrics(int width)
         {
             bool twoRows = width < 1050;
             int count = twoRows ? 2 : 4;
-            int cardWidth = (width - (count - 1) * 12) / count;
-            var row = new Panel { Width = width, Height = twoRows ? 202 : 96, BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 14) };
+            int cardWidth = width / count;
+            var row = new Panel { Width = width, Height = twoRows ? 216 : 108, BackColor = Color.FromArgb(237, 246, 255), Margin = new Padding(0, 0, 0, 14), Tag = "DISPATCH_PRESENTATION NO_DASHBOARD_RESIZE", Name = "DispatchSummaryBand" };
             List<Job> today = DashboardJobs.Where(j => j.ScheduledDate.Date == DateTime.Today && ActiveJob(j)).ToList();
             List<ActionCenterItem> risk = _actionSnapshot.Items.Where(i => i.SourceModule == "ServiceDesk" && i.SlaDeadline.HasValue && i.Priority >= ActionCenterPriority.Urgent).ToList();
             var overdue = DashboardCanView("Invoices") ? _invoices.Where(i => i.DueDate.Date < DateTime.Today && i.BalanceDue > 0 && !IsPaid(i.PaymentStatus)).ToList() : new List<Invoice>();
@@ -168,7 +158,7 @@ namespace HVAC_Pro_Desktop.UI
             Preview(cards[1], "SLA at risk", "Urgent or critical service incidents with an SLA deadline. " + risk.Count + " matching incidents.", risk.Select(i => i.Reference + " · " + i.ClientName + "\n" + i.PriorityReason));
             Preview(cards[2], "Overdue receivables", "Unpaid invoice balances past their due date. Total: " + Money(overdue.Sum(i => i.BalanceDue)), overdue.Select(i => i.InvoiceNumber + " · " + i.ClientName + " · " + Money(i.BalanceDue)));
             Preview(cards[3], "Low stock", "Items at the reorder level or with no available stock. " + low.Count + " matching items.", low.Select(i => i.ItemName + " · " + i.AvailableStock.ToString("N2") + " " + i.Unit + " available"));
-            for (int i = 0; i < cards.Length; i++) { cards[i].Location = new Point((i % count) * (cardWidth + 12), (i / count) * 106); row.Controls.Add(cards[i]); }
+            for (int i = 0; i < cards.Length; i++) { cards[i].Location = new Point((i % count) * cardWidth, (i / count) * 108); row.Controls.Add(cards[i]); }
             cards[0].Enabled = DashboardCanView("WorkOrders");
             cards[2].Enabled = DashboardCanView("Invoices"); cards[3].Enabled = DashboardCanView("Inventory");
             _root.Controls.Add(row);
@@ -176,14 +166,15 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel SoftMetric(string name, string title, string value, string subtitle, int width, ModernIconKind icon, Action click)
         {
-            Color accent = name == "ReceivablesCard" ? Color.FromArgb(220, 38, 38) :
-                name == "SlaRiskCard" ? Color.FromArgb(234, 88, 12) :
-                name == "LowStockCard" ? Color.FromArgb(79, 70, 229) : DashboardVisuals.Blue;
-            Label valueLabel, subLabel;
-            Panel card = DashboardVisuals.Metric(title, value, subtitle, icon, accent,
-                DS.Lighten(accent, .92f), out valueLabel, out subLabel);
-            card.Size = new Size(width, 96); card.Name = name;
-            card.Tag = "NO_DASHBOARD_RESIZE"; card.Cursor = Cursors.Hand; card.TabStop = true;
+            var card = new Panel { Size = new Size(width, 108), Name = name,
+                BackColor = Color.Transparent, Tag = "DISPATCH_PRESENTATION NO_DASHBOARD_RESIZE",
+                Cursor = Cursors.Hand, TabStop = true };
+            DispatchIcon(card, icon, 22, 28);
+            SoftText(card, value, 66, 13, width - 80, 34, 18f, true).Name = "MetricValue";
+            SoftText(card, title, 66, 48, width - 80, 23, 9.5f, true).Name = "MetricTitle";
+            SoftText(card, subtitle, 66, 74, width - 80, 22, 8.5f).ForeColor = DS.Slate500;
+            card.Paint += (sender, args) => { using (var pen = new Pen(Color.FromArgb(216, 230, 245)))
+                args.Graphics.DrawLine(pen, width - 1, 20, width - 1, 88); };
             foreach (Control child in card.Controls) child.Click += (s, e) => click();
             card.Click += (s, e) => click();
             card.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space) { e.Handled = true; click(); } };
@@ -192,38 +183,45 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildSoftInbox(int width)
         {
-            Panel card = SoftCard("PriorityInboxCard", "Priority inbox", "Items that need your attention", width, 274);
-            string[] filters = { "All", "Mine", "Critical", "Today", "Overdue", "Upcoming", "Waiting" };
-            int x = 18;
+            Panel card = SoftCard("PriorityInboxCard", "Needs attention", "Your work, ranked by urgency", width, 330);
+            string[] filters = { "All", "Mine", "Critical", "Today", "Overdue", "Upcoming", "Waiting", "SLA risk" };
+            var filterMenu = new ContextMenuStrip();
+            Button filterButton = SoftButton(card, _actionFilter + " ▾", width - 130, 16, 112, () => { });
+            filterButton.Name = "InboxFilterButton";
+            filterButton.ContextMenuStrip = filterMenu;
             foreach (string filter in filters)
             {
-                Button chip = DashboardVisuals.Chip(filter, filter == _actionFilter);
-                chip.Location = new Point(x, 66);
-                chip.Click += (s, e) => { _actionFilter = filter; _inboxPage = 1; BeginInvoke((Action)BuildShell); };
-                card.Controls.Add(chip); x += chip.Width + 6;
+                var entry = new ToolStripMenuItem(filter) { Checked = filter == _actionFilter };
+                entry.Click += (sender, args) => { _actionFilter = filter; _inboxPage = 1; BeginInvoke((Action)BuildShell); };
+                filterMenu.Items.Add(entry);
             }
+            filterButton.Click += (sender, args) => filterMenu.Show(filterButton, new Point(0, filterButton.Height));
+            filterButton.Disposed += (sender, args) => filterMenu.Dispose();
             var actions = FilterActions(_actionSnapshot.Items).OrderByDescending(i => i.PriorityScore).ThenBy(i => i.DueAt ?? DateTime.MaxValue).ToList();
             var pager = new Controls.GlobalPaginationControl { Location = new Point(18, 273), Width = width - 36 };
             pager.SetState(_inboxPage, actions.Count, _inboxPageSize);
             _inboxPage = pager.CurrentPage;
             pager.PageChanged += (s, e) => { _inboxPage = pager.CurrentPage; BeginInvoke((Action)BuildShell); };
             pager.PageSizeChanged += (s, e) => { _inboxPageSize = pager.PageSize; _inboxPage = 1; BeginInvoke((Action)BuildShell); };
-            card.Height = pager.Bottom + 10;
+            card.Height = Math.Max(pager.Bottom + 10, width < 650 ? 380 : 330);
             card.Controls.Add(pager);
-            var rows = new Panel { Location = new Point(18, 102), Width = width - 36, Height = 165, AutoScroll = true, BackColor = Color.White };
+            var rows = new Panel { Location = new Point(18, 76), Width = width - 36, Height = 191, AutoScroll = true, BackColor = Color.White, Tag = "DISPATCH_PRESENTATION" };
             card.Controls.Add(rows);
             var visibleActions = actions.Skip(pager.Skip).Take(pager.PageSize).ToList();
             if (actions.Count == 0) SoftText(rows, "You're clear here — no matching work items.", 0, 25, rows.Width, 40);
             for (int i = 0; i < visibleActions.Count; i++)
             {
                 ActionCenterItem item = visibleActions[i];
-                Panel row = new Panel { Width = rows.Width - (_inboxPageSize > 3 ? SystemInformation.VerticalScrollBarWidth : 0), Height = 54, BackColor = Color.White };
-                row.Location = new Point(0, i * 55);
-                Label badge = ModernIconSystem.Badge(ActionIcon(item), 28, Blend(PriorityColor(item), .94f), PriorityColor(item), 7);
-                badge.Location = new Point(0, 10); row.Controls.Add(badge);
-                SoftText(row, item.Title, 40, 1, row.Width - 180, 18, 8.8f, true);
-                SoftText(row, ActionContext(item), 40, 20, row.Width - 180, 16, 8.1f).ForeColor = DS.Slate500;
-                SoftText(row, item.PriorityReason, 40, 37, row.Width - 180, 16, 7.8f).ForeColor = PriorityColor(item);
+                Panel row = new Panel { Width = rows.Width - (_inboxPageSize > 3 ? SystemInformation.VerticalScrollBarWidth : 0), Height = 62, BackColor = Color.White };
+                row.Location = new Point(0, i * 64);
+                DispatchIcon(row, ActionIcon(item), 0, 12);
+                Label priority = SoftText(row, item.Priority.ToString(), 36, 13, 68, 24, 8f, true);
+                priority.Tag = "DISPATCH_PRESENTATION";
+                priority.ForeColor = PriorityColor(item);
+                priority.BackColor = Blend(PriorityColor(item), .93f);
+                SoftText(row, item.Title, 116, 1, row.Width - 256, 18, 8.8f, true);
+                SoftText(row, ActionContext(item), 116, 20, row.Width - 256, 16, 8.1f).ForeColor = DS.Slate500;
+                SoftText(row, item.PriorityReason, 116, 37, row.Width - 256, 16, 7.8f).ForeColor = PriorityColor(item);
                 Button action = SoftButton(row, item.SuggestedAction, row.Width - 130, 10, 130, () => { });
                 action.Click += async (s, e) => await OpenActionAsync(item, action);
                 rows.Controls.Add(row);
@@ -234,10 +232,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildSoftTeam(int width)
         {
-            Panel card = SoftCard("TeamTodayCard", "Team today", "Recorded job assignments for today", width, 206);
+            Panel card = SoftCard("TeamTodayCard", "Team today", "Recorded job assignments for today", width, 151);
             var active = DashboardJobs.Where(j => ActiveJob(j) && j.ScheduledDate.Date == DateTime.Today && j.AssignedEmployeeID.HasValue).ToList();
             var groups = active.GroupBy(j => j.AssignedEmployeeID.Value).OrderBy(g => g.First().AssignedEmployeeName).ToList();
-            for (int i = 0; i < Math.Min(3, groups.Count); i++)
+            for (int i = 0; i < Math.Min(2, groups.Count); i++)
             {
                 string name = Safe(groups[i].First().AssignedEmployeeName, "Technician #" + groups[i].Key);
                 SoftText(card, Initials(name), 18, 69 + i * 32, 34, 27, 9f, true).ForeColor = SoftBlue;
@@ -245,7 +243,7 @@ namespace HVAC_Pro_Desktop.UI
                 SoftText(card, groups[i].Count() + " active job(s) · " + groups[i].First().SiteName, 60, 84 + i * 32, width - 78, 18, 8f).ForeColor = DS.Slate500;
             }
             if (groups.Count == 0) SoftText(card, "No recorded assignments today.", 18, 85, width - 36, 36);
-            if (DashboardCanView("GeoIntelligence")) SoftButton(card, "Open dispatch", width - 148, 167, 130, () => OnNavigate?.Invoke(14));
+            if (DashboardCanView("GeoIntelligence")) SoftButton(card, "Open dispatch", width - 148, 16, 130, () => OnNavigate?.Invoke(14));
             Preview(card, "Team today", "Today's active jobs grouped by assigned technician. Attendance and availability are not inferred.", groups.Select(g => Safe(g.First().AssignedEmployeeName, "Technician #" + g.Key) + " · " + g.Count() + " jobs\n" + string.Join(", ", g.Select(j => j.JobNumber))));
             return card;
         }
@@ -253,10 +251,10 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildSoftComing(int width)
         {
             var items = _actionSnapshot.Items.Where(i => i.Bucket == ActionCenterBucket.Upcoming || i.Bucket == ActionCenterBucket.Waiting).OrderBy(i => i.DueAt ?? DateTime.MaxValue).ToList();
-            Panel card = SoftCard("ComingUpCard", "Coming up", "Next obligations and follow-ups", width, 148);
+            Panel card = SoftCard("ComingUpCard", "Coming up", "Next obligations and follow-ups", width, 151);
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
-                var item = items[i]; int y = 65 + i * 40;
+                var item = items[i]; int y = 72 + i * 37;
                 SoftText(card, item.Title, 18, y, width - 134, 20, 8.5f, true);
                 SoftText(card, FirstNonEmpty(item.ClientName, item.Reference) + " · " + (item.DueAt.HasValue ? item.DueAt.Value.ToString("dd/MM/yyyy") : "Waiting"), 18, y + 21, width - 134, 18, 8f).ForeColor = DS.Slate500;
                 Button action = SoftButton(card, "Review", width - 98, y, 80, () => { });
@@ -270,30 +268,41 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildSoftJobs(int width)
         {
             var jobs = DashboardJobs.Where(j => j.ScheduledDate.Date == DateTime.Today && ActiveJob(j)).OrderBy(j => j.ScheduledDate).ToList();
-            Panel card = SoftCard("TodayJobsCard", "Today's jobs", "Scheduled work for today", width, 230);
+            Panel card = SoftCard("TodayJobsCard", "Today's schedule", "Active jobs scheduled for today", width, 330);
             if (DashboardCanView("WorkOrders")) SoftButton(card, "View all jobs", width - 138, 16, 120, () => OnNavigate?.Invoke(15));
-            card.Paint += (s, e) =>
+            var schedule = new Panel { Location = new Point(18, 78), Size = new Size(width - 36, 234), AutoScroll = true, BackColor = Color.White, Tag = "DISPATCH_PRESENTATION" };
+            card.Controls.Add(schedule);
+            schedule.Paint += (sender, args) =>
             {
-                using (var fill = new SolidBrush(Color.FromArgb(248, 250, 252)))
-                    e.Graphics.FillRectangle(fill, new Rectangle(12, 70, width - 24, 24));
+                using (var pen = new Pen(Color.FromArgb(219, 229, 241)))
+                using (var brush = new SolidBrush(SoftBlue))
+                {
+                    for (int n = 0; n < jobs.Count; n++)
+                    {
+                        int y = n * 96 + schedule.AutoScrollPosition.Y;
+                        args.Graphics.DrawLine(pen, 67, y + 15, 67, y + 94);
+                        args.Graphics.FillEllipse(brush, 63, y + 10, 8, 8);
+                        args.Graphics.DrawLine(pen, 78, y + 94, schedule.Width - 8, y + 94);
+                    }
+                }
             };
-            int partyX = (int)(width * .20), techX = (int)(width * .50), stateX = (int)(width * .72);
-            SoftText(card, "Job / Time", 18, 73, partyX - 26, 20, 8f);
-            SoftText(card, "Client & site", partyX, 73, techX - partyX - 12, 20, 8f);
-            SoftText(card, "Technician", techX, 73, stateX - techX - 12, 20, 8f);
-            SoftText(card, "Status", stateX, 73, width - stateX - 88, 20, 8f);
-            for (int i = 0; i < Math.Min(3, jobs.Count); i++)
+            for (int i = 0; i < jobs.Count; i++)
             {
-                Job job = jobs[i]; int y = 94 + i * 43;
-                SoftText(card, job.JobNumber, 18, y, partyX - 26, 20, 8.5f, true);
-                SoftText(card, job.ScheduledDate.ToString("hh:mm tt"), 18, y + 20, partyX - 26, 17, 7.8f).ForeColor = DS.Slate500;
-                SoftText(card, job.ClientName, partyX, y, techX - partyX - 12, 20, 8.5f);
-                SoftText(card, job.SiteName, partyX, y + 20, techX - partyX - 12, 17, 7.8f).ForeColor = DS.Slate500;
-                SoftText(card, Safe(job.AssignedEmployeeName, "Unassigned"), techX, y, stateX - techX - 12, 35, 8.3f);
-                SoftText(card, Safe(FirstNonEmpty(job.PipelineStatus, job.Status), "Scheduled"), stateX, y, width - stateX - 88, 36, 8f).ForeColor = SoftBlue;
-                SoftButton(card, "Open", width - 80, y, 62, () => NavigationHelper.OpenRecord(this, "Jobs", job.JobID));
+                Job job = jobs[i]; int y = i * 96;
+                int rowWidth = schedule.Width - (jobs.Count > 2 ? SystemInformation.VerticalScrollBarWidth : 0);
+                SoftText(schedule, job.ScheduledDate.ToString("HH:mm"), 0, y + 8, 62, 28, 11f, true);
+                SoftText(schedule, job.JobNumber, 86, y + 5, rowWidth - 360, 25, 10f, true);
+                SoftText(schedule, job.ClientName, 86, y + 31, rowWidth - 360, 23, 10f, true).ForeColor = SoftBlue;
+                SoftText(schedule, Safe(job.SiteName, "Site not specified"), 86, y + 60, rowWidth - 360, 22, 9f).ForeColor = DS.Slate500;
+                bool assigned = job.AssignedEmployeeID.HasValue;
+                var status = SoftText(schedule, assigned ? "Assigned" : "Unassigned", rowWidth - 265, y + 10, 110, 26, 9f, true);
+                status.Tag = "DISPATCH_PRESENTATION";
+                status.BackColor = assigned ? Color.FromArgb(221, 249, 232) : Color.FromArgb(238, 242, 247);
+                status.ForeColor = assigned ? Color.FromArgb(21, 128, 61) : DS.Slate500;
+                SoftText(schedule, assigned ? Safe(job.AssignedEmployeeName, "Assigned technician") : "Unassigned · needs dispatch", rowWidth - 265, y + 48, 160, 22, 9f).ForeColor = assigned ? SoftBlue : Color.FromArgb(180, 83, 9);
+                SoftButton(schedule, assigned ? "Open" : "Assign", rowWidth - 82, y + 22, 82, () => NavigationHelper.OpenRecord(this, "Jobs", job.JobID), !assigned);
             }
-            if (jobs.Count == 0) SoftText(card, DashboardCanView("WorkOrders") ? "No active jobs scheduled today." : "You do not have access to jobs.", 18, 115, width - 36, 35);
+            if (jobs.Count == 0) SoftText(schedule, DashboardCanView("WorkOrders") ? "No active jobs scheduled today." : "You do not have access to jobs.", 0, 30, width - 72, 40, 10f);
             Preview(card, "Today's jobs", jobs.Count + " active jobs scheduled today, ordered by scheduled time.", jobs.Select(j => j.JobNumber + " · " + j.ClientName + "\n" + j.ScheduledDate.ToString("hh:mm tt") + " · " + Safe(j.AssignedEmployeeName, "Unassigned")));
             return card;
         }
@@ -303,11 +312,16 @@ namespace HVAC_Pro_Desktop.UI
             var payments = DashboardCanView("Payments") ? _payments.Where(p => IsThisMonth(p.PaymentDate)).ToList() : new List<Payment>();
             var invoices = DashboardCanView("Invoices") ? _invoices.Where(i => IsThisMonth(i.InvoiceDate)).ToList() : new List<Invoice>();
             decimal received = payments.Sum(p => p.AmountPaid), pending = invoices.Sum(i => Math.Max(0, i.BalanceDue));
-            Panel card = SoftCard("CollectionsCard", "Collections", "This month · payments and invoice balances", width, 136);
-            SoftText(card, DashboardCanView("Payments") ? Money(received) : "Restricted", 18, 75, width / 2 - 24, 25, 12f, true);
-            SoftText(card, DashboardCanView("Invoices") ? Money(pending) : "Restricted", width / 2, 75, width / 2 - 18, 25, 12f, true);
-            SoftText(card, "Payments received", 18, 104, width / 2 - 24, 22, 8f).ForeColor = DS.Slate500;
-            SoftText(card, "Pending on this month's invoices", width / 2, 104, width / 2 - 18, 32, 8f).ForeColor = DS.Slate500;
+            Panel card = SoftCard("CollectionsCard", "Collections & receivables", "A clear view of outstanding balances and this month’s receipts", width, 156);
+            decimal overdue = DashboardCanView("Invoices") ? _invoices.Where(i => i.DueDate.Date < DateTime.Today && i.BalanceDue > 0 && !IsPaid(i.PaymentStatus)).Sum(i => i.BalanceDue) : 0;
+            int column = (width - 36) / 3;
+            string[] values = { DashboardCanView("Invoices") ? Money(overdue) : "Restricted", DashboardCanView("Payments") ? Money(received) : "Restricted", DashboardCanView("Invoices") ? Money(pending) : "Restricted" };
+            string[] captions = { "Overdue invoice balances", "Payments received this month", "Pending on this month's invoices" };
+            for (int i = 0; i < 3; i++)
+            {
+                SoftText(card, values[i], 20 + i * column, 81, column - 20, 32, 17f, true).ForeColor = i == 0 ? SoftBlue : SoftInk;
+                SoftText(card, captions[i], 20 + i * column, 119, column - 20, 24, 9f).ForeColor = DS.Slate500;
+            }
             // These are different cohorts; do not present a misleading paid/pending percentage.
             if (DashboardCanView("Invoices")) SoftButton(card, "Receivables", width - 138, 12, 120, () => OnNavigate?.Invoke(3));
             Preview(card, "Collections this month", "Payments received this month: " + Money(received) + ". Pending balances on invoices issued this month: " + Money(pending) + ".", payments.Select(p => p.PaymentNumber + " · " + p.ClientName + " · " + Money(p.AmountPaid)));
@@ -319,12 +333,15 @@ namespace HVAC_Pro_Desktop.UI
             var allowedJobIds = new HashSet<int>(DashboardJobs.Select(j => j.JobID));
             var items = BuildRecentItems().Where(i => DashboardCanView(RecentPermissionModule(i.Module)) &&
                 (i.Module != "Job" || allowedJobIds.Contains(i.RecordId))).Take(6).ToList();
-            Panel card = SoftCard("RecentActivityCard", "Recent activity", "Latest changes across your business", width, 102);
-            if (items.Count == 0) SoftText(card, "No recent activity.", 18, 73, width - 36, 22);
+            Panel card = CardPanel(width, 64);
+            card.Name = "RecentActivityCard";
+            DispatchIcon(card, ModernIconKind.Activity, 18, 18);
+            SoftText(card, "Recent activity", 56, 21, 142, 25, 10f, true);
+            if (items.Count == 0) SoftText(card, "No recent activity.", 210, 23, width - 228, 22);
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
-                var item = items[i]; int left = 18 + i * ((width - 36) / 2);
-                Label label = SoftText(card, item.Module + " · " + item.Reference + " · " + item.PartyName, left, 73, (width - 60) / 2, 28, 8.5f);
+                var item = items[i]; int left = 210 + i * ((width - 228) / 2);
+                Label label = SoftText(card, item.Module + " · " + item.Reference + " · " + item.PartyName, left, 23, (width - 252) / 2, 28, 8.5f);
                 label.Cursor = Cursors.Hand; label.Click += (s, e) => OpenRecentActivityItem(item);
             }
             Preview(card, "Recent activity", "Most recent records from the modules you can view.", items.Select(i => i.Module + " · " + i.Reference + " · " + i.Status + "\n" + i.ActivityDate.ToString("dd/MM/yyyy hh:mm tt")));

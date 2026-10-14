@@ -1,8 +1,9 @@
-param(
+﻿param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
     [ValidateSet('Policies','Screenshots','Dashboard')][string]$Mode = 'Policies',
     [string]$Database = 'HVAC_PRO_UI_20261014',
     [string]$OutputDir,
+    [switch]$IncludeSidebar,
     [int]$Width = 1710,
     [int]$Height = 1032,
     [string[]]$Pages = @('DashboardForm','TenderBidForm','InvoiceForm','PaymentForm','PurchaseForm','InventoryForm','ClientManagementForm','VendorForm','ContractManagementForm','JobManagementForm','EmployeeForm','PayrollForm','AttendanceForm','AMCPage','MasterDataForm','ReportForm','SettingsForm','GeoIntelligenceForm','UserGuideForm','ClientDetailPage','JobDetailPage','AddAMCForm','AddAMCEquipmentForm','ConnectionSetupForm')
@@ -69,7 +70,7 @@ function Pump([int]$ms) {
 }
 $lines = New-Object 'System.Collections.Generic.List[string]'
 foreach ($pageName in $Pages) {
-    $control=$null; $captureForm=$null; $bitmap=$null
+    $control=$null; $captureForm=$null; $bitmap=$null; $originalShell=$null
     try {
         $type=$assembly.GetType("HVAC_Pro_Desktop.UI.$pageName")
         if (!$type) { throw "Missing page $pageName" }
@@ -83,6 +84,12 @@ foreach ($pageName in $Pages) {
         else {
             $captureForm=New-Object Windows.Forms.Form
             $control.Dock='Fill'; $captureForm.Controls.Add($control)
+        }
+        if ($IncludeSidebar -and $pageName -eq 'DashboardForm') {
+            $originalShell=[Activator]::CreateInstance($assembly.GetType('HVAC_Pro_Desktop.UI.MainForm'))
+            $sidebar=$originalShell.GetType().GetField('_sidebar',[Reflection.BindingFlags]'Instance,NonPublic').GetValue($originalShell)
+            $originalShell.Controls.Remove($sidebar)
+            $captureForm.Controls.Add($sidebar)
         }
         $captureForm.ShowInTaskbar=$false; $captureForm.StartPosition='Manual'
         $captureForm.Location=New-Object Drawing.Point -10000,-10000
@@ -101,6 +108,7 @@ foreach ($pageName in $Pages) {
     catch { $lines.Add("FAIL $pageName : $_"); Write-Output "FAIL $pageName : $_" }
     finally {
         if ($bitmap) { $bitmap.Dispose() }
+        if ($originalShell) { $originalShell.Dispose() }
         if ($captureForm) { $captureForm.Close(); $captureForm.Dispose() }
         if ($control -and $control -ne $captureForm) { $control.Dispose() }
     }

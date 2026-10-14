@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -27,11 +27,11 @@ namespace HVAC_Pro_Desktop.UI
             var originalDock = model.Dock;
             model.Dock = DockStyle.Top;
             model.BackColor = Color.White;
-            model.Padding = new Padding(24, 30, 24, 16);
-            model.DefaultHeight = Math.Max(108, model.DefaultHeight + 22);
-            model.CompactHeight = Math.Max(152, model.CompactHeight + 22);
-            model.ActionTop = model.CenterTop = 30;
-            model.CompactCenterTop = string.IsNullOrWhiteSpace(model.StatusText) ? 96 : 112;
+            model.Padding = model.CompactUtility ? new Padding(18, 18, 18, 12) : new Padding(24, 30, 24, 16);
+            model.DefaultHeight = model.CompactUtility ? 88 : Math.Max(108, model.DefaultHeight + 22);
+            model.CompactHeight = model.CompactUtility ? 134 : Math.Max(152, model.CompactHeight + 22);
+            model.ActionTop = model.CenterTop = model.CompactUtility ? 22 : 30;
+            model.CompactCenterTop = model.CompactUtility ? 76 : (string.IsNullOrWhiteSpace(model.StatusText) ? 96 : 112);
             model.CompactActionTop = model.CompactCenterTop;
             // Wrap when the actual controls cannot fit, rather than at a page-specific legacy breakpoint.
             model.CompactBreakpoint = 1;
@@ -41,7 +41,7 @@ namespace HVAC_Pro_Desktop.UI
             { model.CenterContent.Dispose(); model.CenterContent = null; }
             if (model.RightMetaControl?.Name == "DashboardHeaderMetaPanel" || model.RightMetaControl?.Name == "SettingsHeaderMetaPanel")
             { model.RightMetaControl.Dispose(); model.RightMetaControl = null; }
-            if (model.RightMetaControl == null)
+            if (model.RightMetaControl == null && !model.CompactUtility)
                 model.RightMetaControl = new Label { Name = "WorkspaceDate", Text = DateTime.Today.ToString("dd/MM/yyyy"),
                     Width = 96, Height = 32, TextAlign = ContentAlignment.MiddleCenter,
                     Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(119, 132, 144) };
@@ -54,7 +54,7 @@ namespace HVAC_Pro_Desktop.UI
             var breadcrumb = new Label { Name = "WorkspaceBreadcrumb", Text = "Workspace  ›  " + model.Title,
                 Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Color.FromArgb(111, 123, 135), AutoEllipsis = true };
-            page.Controls.Add(breadcrumb);
+            if (!model.CompactUtility) page.Controls.Add(breadcrumb);
             result.TitleLabel.TextChanged += (s, e) => breadcrumb.Text = "Workspace  ›  " + result.TitleLabel.Text;
             var utility = new Panel { Name = "WorkspaceUtilityBar", Dock = DockStyle.Top, Height = 64,
                 BackColor = Color.White };
@@ -95,6 +95,8 @@ namespace HVAC_Pro_Desktop.UI
                 };
             }
             utility.Controls.AddRange(new[] { brand, search, notification, profile });
+            brand.Visible = !model.CompactUtility;
+            foreach (Control action in model.UtilityActions) { action.Dock = DockStyle.None; utility.Controls.Add(action); }
             utility.Paint += (s, e) => { using (var pen = new Pen(Color.FromArgb(235, 238, 240)))
                 e.Graphics.DrawLine(pen, 0, utility.Height - 1, utility.Width, utility.Height - 1); };
             wrapper.Controls.Add(page); wrapper.Controls.Add(utility);
@@ -107,16 +109,18 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     int width = wrapper.ClientSize.Width;
                     bool narrow = width < 680;
-                    utility.Height = narrow ? 108 : 64;
+                    utility.Height = narrow ? 108 : (model.CompactUtility ? 54 : 64);
                     page.Width = width;
                     page.Top = utility.Height;
-                    profile.SetBounds(Math.Max(150, width - 220), 12, 196, 40);
-                    notification.Location = new Point(Math.Max(110, profile.Left - notification.Width - 12), 14);
-                    int left = narrow ? 24 : 154;
-                    int available = narrow ? width - 48 : notification.Left - left - 24;
+                    profile.SetBounds(Math.Max(150, width - 220), model.CompactUtility ? 7 : 12, 196, 40);
+                    notification.Location = new Point(Math.Max(110, profile.Left - notification.Width - 12), model.CompactUtility ? 10 : 14);
+                    int utilityRight = notification.Left;
+                    foreach (Control action in model.UtilityActions.Reverse()) { utilityRight -= action.Width + 8; action.Location = new Point(utilityRight, model.CompactUtility ? 10 : 14); }
+                    int left = narrow ? 24 : (model.CompactUtility ? 18 : 154);
+                    int available = narrow ? width - 48 : utilityRight - left - 24;
                     int searchWidth = Math.Max(100, Math.Min(560, available));
-                    int searchLeft = narrow ? left : Math.Max(left, Math.Min((width - searchWidth) / 2, notification.Left - searchWidth - 24));
-                    search.SetBounds(searchLeft, narrow ? 60 : 13, searchWidth, 38);
+                    int searchLeft = narrow ? left : Math.Max(left, Math.Min((width - searchWidth) / 2, utilityRight - searchWidth - 24));
+                    search.SetBounds(searchLeft, narrow ? 60 : (model.CompactUtility ? 8 : 13), searchWidth, 38);
                     breadcrumb.Width = Math.Max(80, page.Width - 48);
                     int footerHeight = wrapper.Controls.Cast<Control>().Where(c => c != page && c != utility && c.Dock == DockStyle.Bottom).Sum(c => c.Height);
                     int height = utility.Height + page.Height + footerHeight;
