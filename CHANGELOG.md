@@ -1,4 +1,4 @@
-﻿# 1.1.514 — prepared 14 October 2026 (unpublished)
+﻿# 1.1.514 — 14 October 2026
 
 - Keep only the actual logo in the global header, removing the adjacent ServoERP wordmark and its reserved space. Sidebar branding remains unchanged.
 

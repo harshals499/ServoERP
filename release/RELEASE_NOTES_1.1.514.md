@@ -1,6 +1,6 @@
 ﻿# ServoERP 1.1.514
 
-Release date: Not published; prepared 14 October 2026.
+Release date: 14 October 2026.
 
 ## User-facing summary
 The global header shows only the original ServoERP logo, with no adjacent ServoERP wordmark.
@@ -26,13 +26,13 @@ None. Existing public interfaces, shortcuts, search/account/notification handler
 None. No new permissions, credentials or outbound calls.
 
 ## Deployment/update steps
-Unpublished candidate. Include in the next permitted release through the existing installer/updater. No manual configuration or database migration is required.
+Install through the existing ServoERP installer/updater. Harshal explicitly requested immediate bumped publication. No manual configuration or database migration is required.
 
 ## Validation performed
 Release build succeeded and SOURCE_CODE/bin/Release/HVAC_Pro_Desktop.exe exists. Native screenshots of Quotations, Client Detail and Add AMC Equipment were captured and inspected; the header shows only the logo and the search uses the reclaimed space. Sidebar code/artwork are unchanged. Evidence: TEST_RESULTS/header-514-logo-only and header-514-build.log. Render-capable checks use the disposable HVAC_PRO_UI_20261014 database; no customer business saves were invoked.
 
 ## Known limitations
-Not published. Representative screenshots do not exhaust every DPI, role or data length. Existing distribution remains unsigned.
+Representative screenshots do not exhaust every DPI, role or data length. Existing distribution remains unsigned.
 
 ## Rollback guidance
 Retain the verified 1.1.513 installer and normal backups. Close ServoERP and reinstall 1.1.513 if required. Do not automatically revert customer data.
