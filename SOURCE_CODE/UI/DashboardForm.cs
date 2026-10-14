@@ -436,16 +436,9 @@ namespace HVAC_Pro_Desktop.UI
             button.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                Rectangle iconBounds = new Rectangle((button.Width - 18) / 2, (button.Height - 18) / 2 + 1, 18, 18);
-                using (Pen pen = new Pen(DS.Slate700, 1.6f))
-                {
-                    e.Graphics.DrawArc(pen, iconBounds.Left + 4, iconBounds.Top + 3, 10, 10, 205, 130);
-                    e.Graphics.DrawLine(pen, iconBounds.Left + 5, iconBounds.Top + 9, iconBounds.Left + 4, iconBounds.Bottom - 4);
-                    e.Graphics.DrawLine(pen, iconBounds.Right - 5, iconBounds.Top + 9, iconBounds.Right - 4, iconBounds.Bottom - 4);
-                    e.Graphics.DrawLine(pen, iconBounds.Left + 4, iconBounds.Bottom - 4, iconBounds.Right - 4, iconBounds.Bottom - 4);
-                    e.Graphics.DrawLine(pen, iconBounds.Left + 8, iconBounds.Top + 2, iconBounds.Right - 8, iconBounds.Top + 2);
-                    e.Graphics.DrawArc(pen, iconBounds.Left + 7, iconBounds.Bottom - 6, 4, 4, 0, 180);
-                }
+                Rectangle iconBounds = new Rectangle((button.Width - 26) / 2, (button.Height - 26) / 2, 26, 26);
+                using (var bell = LucideIconService.GetIcon("bell", 26, Color.FromArgb(31, 52, 77)))
+                    e.Graphics.DrawImage(bell, iconBounds);
 
                 if (!string.IsNullOrWhiteSpace(countText))
                 {

@@ -1,4 +1,4 @@
-# Global header 1.1.513 — design QA
+﻿# Global header 1.1.513 — design QA
 
 Final result: passed for the requested global-header scope.
 
@@ -18,3 +18,5 @@ Iteration findings and fixes:
 Functional evidence: 39 CI-safe checks; nine dashboard regression groups; 21 header titles at four widths; 25 real main/detail constructors; nested editor layout/idempotence/original input/action/disabled-state tests at three widths; account-menu routing and User Guide Ctrl+K/cancel checks. Tests use the explicitly disposable HVAC_PRO_UI_20261014 connection scope and do not invoke customer business-save/delete actions. Release build succeeds and EXE exists.
 
 Scope and limits: this is native desktop implementation, not a website prototype. The selected header applies through the shared header builder and base page/form hooks. Embedded pages inherit enclosing chrome; transient alerts/search/confirmation/auth/license/document-preview dialogs retain focused layouts. No new services, packages, SQL schema or PDF header changes. Representative captures do not exhaust every DPI, role, data length or nested workflow state. No unresolved blocking defect was observed in the reviewed header states. Existing module-body layouts outside this request remain.
+
+Final correction: dashboard bell now uses the same 26px library icon as all shared headers while retaining its live count and original handler. Dashboard regressions reran successfully; the inspected final capture is TEST_RESULTS/header-513-final-dashboard/DashboardForm.png. Final distribution artifacts are artifacts/velopack-header-final-release-1.1.513; earlier candidate folders are superseded.
