@@ -116,7 +116,8 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = PageBg,
                 Padding = new Padding(22, 18, 22, 18)
             };
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 52));
+            root.MinimumSize = new Size(0, 820);
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
 

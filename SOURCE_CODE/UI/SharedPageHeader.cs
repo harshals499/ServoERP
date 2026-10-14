@@ -10,6 +10,7 @@ namespace HVAC_Pro_Desktop.UI
 	internal sealed class SharedPageHeaderModel
 	{
 		public bool CompactUtility { get; set; }
+        internal bool UtilityOnly { get; set; }
 
         public System.Collections.Generic.IList<System.Windows.Forms.Control> UtilityActions { get; set; } = new System.Collections.Generic.List<System.Windows.Forms.Control>();
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using HVAC_Pro_Desktop.UI;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -28,6 +29,7 @@ namespace ServoERP.Infrastructure
             RenderHelper.OptimiseAllGrids(this);
             base.OnLoad(e);
             ServoTheme.ApplyTo(this);
+            WorkspaceHeaderPanel.EnsureOnSurface(this);
             QuotationVisualPolicy.Apply(this);
             if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
 
@@ -37,6 +39,8 @@ namespace ServoERP.Infrastructure
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.K) && WorkspaceActionUi.Descendants(this).Any(c => c is WorkspaceHeaderPanel))
+            { WorkspaceHeaderPanel.OpenSearch(this); return true; }
             if (keyData == (Keys.Control | Keys.S))
             {
                 Button save = WorkspaceActionUi.FindSaveButton(this);

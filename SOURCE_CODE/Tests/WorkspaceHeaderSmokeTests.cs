@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -11,7 +11,8 @@ namespace HVAC_Pro_Desktop.Tests
 {
     internal static class WorkspaceHeaderSmokeTests
     {
-        internal static readonly string DirectoryPath = @"C:\HVAC_PRO_MSE\TEST_RESULTS\headers-1.1.508";
+        private sealed class HeaderTestEditor : ServoERP.Infrastructure.ServoFormBase { }
+        internal static readonly string DirectoryPath = Path.Combine(Environment.GetEnvironmentVariable("GITHUB_WORKSPACE") ?? @"C:\HVAC_PRO_MSE", "TEST_RESULTS", "headers-1.1.513");
         private static IEnumerable<Control> Children(Control root)
         {
             foreach (Control child in root.Controls)
@@ -48,6 +49,9 @@ namespace HVAC_Pro_Desktop.Tests
                                 control.Bottom <= control.Parent.ClientSize.Height + 1,
                                 title + " clipped " + control.Name + " at " + width + ": " + control.Bounds);
                         Require(Children(built.Header).Count(c => c.Name == "WorkspaceGlobalSearch") == 1, "Duplicate global search");
+                        var alert = Children(built.Header).OfType<Button>().Single(c => c.Name == "WorkspaceNotifications");
+                        UIHelper.ApplyActionButton(alert);
+                        Require(alert.FlatAppearance.BorderSize == 0, "Module styling replaced borderless global notification control");
                         var heading = built.TitleLabel.Parent;
                         Require(heading.Top >= Children(built.Header).Single(c => c.Name == "WorkspaceUtilityBar").Bottom,
                             title + " utility bar covers page title at " + width);
@@ -91,6 +95,34 @@ namespace HVAC_Pro_Desktop.Tests
                 }
                 File.WriteAllLines(Path.Combine(DirectoryPath, "smoke.txt"), results);
             }
+            foreach (int editorWidth in new[] { 430, 600, 1440 })
+            using (var editor = new HeaderTestEditor { ClientSize = new Size(editorWidth, 420),
+                ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Location = new Point(-12000, -12000) })
+            {
+                int saves = 0;
+                var original = new Panel { Dock = DockStyle.Fill };
+                var input = new TextBox { Name = "OriginalInput", Location = new Point(20, 24), Text = "Preserved" };
+                var save = new Button { Text = "Save", Location = new Point(20, 80), Size = new Size(100, 34) };
+                save.Click += (sender, args) => saves++;
+                original.Controls.Add(input); original.Controls.Add(save); editor.Controls.Add(original);
+                editor.Show(); Application.DoEvents();
+                WorkspaceHeaderPanel.EnsureOnSurface(editor); // Idempotent after OnLoad.
+                var header = Children(editor).OfType<WorkspaceHeaderPanel>().Single();
+                var body = Children(editor).Single(c => c.Name == "WorkspaceEditorBody");
+                Require(header.Bottom <= body.Top, "Editor content covers global header at " + editorWidth);
+                Require(input.Text == "Preserved" && input.FindForm() == editor, "Editor input lost during wrapping");
+                save.PerformClick(); Require(saves == 1, "Editor action handler lost during wrapping");
+                save.Enabled = false; save.PerformClick(); Require(saves == 1, "Disabled editor action invoked");
+                Require(Children(header).Count(c => c.Name == "WorkspaceGlobalSearch") == 1, "Duplicate editor chrome");
+                Require(!((Panel)body).HorizontalScroll.Visible, "Unnecessary horizontal editor scrollbar");
+                foreach (Control item in Children(header).Where(c => c.Visible))
+                    Require(item.Left >= 0 && item.Right <= item.Parent.ClientSize.Width + 1 && item.Bottom <= item.Parent.ClientSize.Height + 1,
+                        "Nested editor toolbar clipped: " + item.Name);
+                using (var bitmap = new Bitmap(editor.Width, editor.Height))
+                { editor.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size)); bitmap.Save(Path.Combine(DirectoryPath, "editor-" + editorWidth + ".png")); }
+                editor.Close();
+            }
+            results.Add("PASS Nested editors at 430/600/1440 px: one shared header, content below toolbar, original input/action/disabled states retained, no horizontal scrollbar.");
             using (var main = new MainForm())
             using (var owned = new Form { Owner = main })
             {

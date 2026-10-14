@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -1162,6 +1162,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void ApplyButtonStyle(Button button, ButtonRole role)
         {
+            if (WorkspaceHeaderPanel.Owns(button)) return;
             if (button == null || button.IsDisposed)
                 return;
             if (IsSidebarNavButton(button))

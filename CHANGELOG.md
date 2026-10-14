@@ -1,4 +1,11 @@
-﻿# 1.1.512 — 14 October 2026
+﻿# 1.1.513 — 14 October 2026
+
+- Apply the selected modern global header across main/detail pages and standalone nested workflow editors, using the original logo, broad search, keyboard capsule and readable account identity.
+- Keep existing sidebar branding, inputs, actions, shortcuts and permissions; use responsive editor chrome without duplicates.
+- Protect notification/header styling from module overrides and keep nested editor content scrollable, including the AMC heading and fields.
+- Validate with native screenshot review, responsive header/editor regressions, dashboard checks and CI-safe checks.
+
+# 1.1.512 — 14 October 2026
 
 - Build selected Daily Dispatch dashboard: compact header, unified summary band, schedule timeline and attention queue, team/followup cards, collections and activity.
 - Keep filters, pagination, permissions and existing workflow actions; stack sections at narrower widths.

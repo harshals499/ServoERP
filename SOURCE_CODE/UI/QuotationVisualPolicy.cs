@@ -90,7 +90,7 @@ namespace HVAC_Pro_Desktop.UI
         private static void Style(Control control, State state)
         {
             // Summary-strip cells intentionally share one pale surface rather than separate cards.
-            if (Convert.ToString(control.Tag).Contains("DISPATCH_PRESENTATION")) return;
+            if (WorkspaceHeaderPanel.Owns(control) || Convert.ToString(control.Tag).Contains("DISPATCH_PRESENTATION")) return;
             if (control is Form || control is UserControl || control is TabPage)
                 control.BackColor = DS.BgPage;
             var accordion = control as AccordionPanel;

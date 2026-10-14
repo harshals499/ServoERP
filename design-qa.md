@@ -1,18 +1,20 @@
-# Design QA — Daily Dispatch, option 2
+# Global header 1.1.513 — design QA
 
-Result: passed for the native desktop implementation.
+Final result: passed for the requested global-header scope.
 
-Reference: selected second image, exec-01aa1011-da23-4dfc-8940-15b27122b30c.png.
-Built evidence: TEST_RESULTS/dispatch-full/DashboardForm.png; TEST_RESULTS/dispatch-final/DashboardForm.png; TEST_RESULTS/dashboard-parity/dashboard-1440.png, dashboard-1000.png, dashboard-760.png and empty-state capture.
+Selected reference: codex-clipboard-bbea4c22-0e74-4aaa-9e4c-c1f63a7e188b.png. The user's existing logo artwork is used instead of the generated geometric symbol; sidebar logo and source remain unchanged, as explicitly requested.
 
-Reviewed reference and built images together. The implementation retains the compact utility/title hierarchy, pale four-column summary band, schedule-left/attention-right composition, team/followup row, full-width collections and shallow activity footer. Light surfaces, blue icons, thin outlines and clear title/value hierarchy replace the previous coloured header strips. Native controls use shared application typography and button primitives rather than reproducing illustration-only chrome.
+Comparison evidence: TEST_RESULTS/header-513-review/reference-and-built.png combines the density-normalized reference header and built native header in one image. Six header contact sheets cover 32 distinct surfaces. Captures are in header-513-final-all, header-513-final-extra and header-513-verified; latest verified captures supersede earlier ones for the eight listed editor/Payment surfaces. Native chrome is excluded from the focused header comparison. Narrow and editor captures live in TEST_RESULTS/headers-1.1.513. Scrolled AMC/equipment screenshots live in header-513-scrolled. Whole-app context uses the existing sidebar control in header-513-full; reflection hosting extracts the test host's executable icon, so sidebar branding preservation is additionally established by unchanged MainForm.cs and app_logo_sidebar.png source, not by that host icon.
 
-Corrections verified: attention-column overflow removed; schedule inner-panel outline removed; missing/partial icons fixed with bundled assets and SVG arc support; assignment and priority badges retain their intentional backgrounds. Narrow layout stacks the operational cards and wraps summary metrics into two columns. Buttons remain within their containers at 1440, 1000 and 760 pixels.
+Required fidelity surfaces reviewed: Segoe UI typography with larger brand/search/account text; broad horizontal search spacing and a wrapped search row at narrow widths; white/navy/pale-blue tokens and thin divider; original transparent logo at preserved aspect ratio plus library search/bell/chevron icons; exact global search prompt and Ctrl+K capsule, actual signed-in identity/role and actual module content. Existing Indian financial terminology remains; mock USD amounts are not copied.
 
-Functional checks: nine dashboard regression groups passed, including attention menu filters, pagination, callback navigation, restricted-module previews, technician ownership and empty data. Thirty-nine CI-safe checks passed. Release build succeeded with executable present. No customer business data writes were performed.
+Iteration findings and fixes:
+- Initial nested-editor content covered the header: corrected WinForms docking order; subsequent captures show content below chrome.
+- Header addition squeezed long editor fields: retain content height inside a scrolling viewport. Increased AMC local heading/field minimum space; bottom-scroll screenshot shows Notes, Save and Cancel.
+- First header typography/spacing was smaller than the target: increased sizes and search span, recaptured and compared together.
+- Payments' recursive button styling boxed the bell: protect header-owned button styles; latest Payment capture and regression show borderless notification control.
+- Scrollbar feedback caused unnecessary horizontal editor scrolling: content follows viewport width. Nested editor regressions pass at 430/600/1440px.
 
-Intentional differences: existing sidebar and standard WinForms controls remain; priority labels and amounts reflect actual calculations rather than the sample image. All eight filters and pagination remain accessible. No nonfunctional overflow buttons or invented analytics were added.
+Functional evidence: 39 CI-safe checks; nine dashboard regression groups; 21 header titles at four widths; 25 real main/detail constructors; nested editor layout/idempotence/original input/action/disabled-state tests at three widths; account-menu routing and User Guide Ctrl+K/cancel checks. Tests use the explicitly disposable HVAC_PRO_UI_20261014 connection scope and do not invoke customer business-save/delete actions. Release build succeeds and EXE exists.
 
-Scope limits: this evidence uses a disposable diagnostic database and representative fixture data; every DPI, role and data length has not been exhaustively checked. No open blocking visual defect was observed in the reviewed states.
-
-Assets: official Lucide 0.468.0 SVG icons, https://github.com/lucide-icons/lucide/tree/0.468.0/icons; license bundled in SOURCE_CODE/Resources/Icons/Lucide/LICENSE.txt. No new packages or outbound runtime services.
+Scope and limits: this is native desktop implementation, not a website prototype. The selected header applies through the shared header builder and base page/form hooks. Embedded pages inherit enclosing chrome; transient alerts/search/confirmation/auth/license/document-preview dialogs retain focused layouts. No new services, packages, SQL schema or PDF header changes. Representative captures do not exhaust every DPI, role, data length or nested workflow state. No unresolved blocking defect was observed in the reviewed header states. Existing module-body layouts outside this request remain.

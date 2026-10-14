@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using FluentValidation;
@@ -31,6 +32,7 @@ namespace ServoERP.Infrastructure
             base.OnLoad(e);
             _loaded = true;
             if (!SuppressAutomaticChildPolish) ApplySharedFrontendPolish(this);
+            WorkspaceHeaderPanel.EnsureOnSurface(this);
             QuotationVisualPolicy.Apply(this);
             if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");
@@ -60,6 +62,8 @@ namespace ServoERP.Infrastructure
         /// <summary>Closes modal forms with Escape using DialogResult.Cancel.</summary>
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            if (keyData == (Keys.Control | Keys.K) && WorkspaceActionUi.Descendants(this).Any(c => c is WorkspaceHeaderPanel))
+            { WorkspaceHeaderPanel.OpenSearch(this); return true; }
             if (keyData == (Keys.Control | Keys.S))
             {
                 Button save = WorkspaceActionUi.FindSaveButton(this);

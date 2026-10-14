@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.Linq;
+using System.IO;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 
@@ -44,22 +45,21 @@ namespace HVAC_Pro_Desktop.UI
             if (model.RightMetaControl == null && !model.CompactUtility)
                 model.RightMetaControl = new Label { Name = "WorkspaceDate", Text = DateTime.Today.ToString("dd/MM/yyyy"),
                     Width = 96, Height = 32, TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(119, 132, 144) };
-            var notification = model.RightActions.FirstOrDefault(c => c?.Name == "btnDashboardNotifications");
+                    Font = new Font("Segoe UI", 12f), ForeColor = Color.FromArgb(119, 132, 144) };
+            var notification = model.RightActions.OfType<Button>().FirstOrDefault(c => c.Name == "btnDashboardNotifications");
             if (notification != null) model.RightActions.Remove(notification);
             foreach (var button in model.RightActions.OfType<Button>()) StyleAction(button);
             var result = buildPage(model);
             var page = result.Header;
             page.Name = (model.Name ?? "Page") + "PageHeading";
             var breadcrumb = new Label { Name = "WorkspaceBreadcrumb", Text = "Workspace  ›  " + model.Title,
-                Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font("Segoe UI", 8.5f),
+                Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font("Segoe UI", 12f),
                 ForeColor = Color.FromArgb(111, 123, 135), AutoEllipsis = true };
             if (!model.CompactUtility) page.Controls.Add(breadcrumb);
             result.TitleLabel.TextChanged += (s, e) => breadcrumb.Text = "Workspace  ›  " + result.TitleLabel.Text;
             var utility = new Panel { Name = "WorkspaceUtilityBar", Dock = DockStyle.Top, Height = 64,
                 BackColor = Color.White };
-            var brand = new Label { Name = "WorkspaceBrand", Text = "ServoERP", Font = new Font("Segoe UI", 13f, FontStyle.Bold),
-                ForeColor = Color.FromArgb(43, 65, 83), Location = new Point(24, 19), Size = new Size(110, 28) };
+            var brand = new HeaderBrand { Name = "WorkspaceBrand", AccessibleName = "ServoERP", Size = new Size(210, 52) };
             var search = new HeaderSearchButton { Name = "WorkspaceGlobalSearch", AccessibleName = "Global search (Ctrl+K)",
                 Size = new Size(480, 38) };
             search.Click += (s, e) => OpenSearch(wrapper);
@@ -74,18 +74,10 @@ namespace HVAC_Pro_Desktop.UI
                 notification = MakeButton("WorkspaceNotifications", "Alerts", 64);
                 notification.Text = string.Empty;
                 notification.Width = 38;
-                notification.Paint += (sender, args) =>
-                {
-                    args.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-                    using (var pen = new Pen(Color.FromArgb(87, 106, 126), 1.6f))
-                    {
-                        args.Graphics.DrawArc(pen, 12, 8, 14, 15, 180, 180);
-                        args.Graphics.DrawLine(pen, 12, 16, 10, 27);
-                        args.Graphics.DrawLine(pen, 26, 16, 28, 27);
-                        args.Graphics.DrawLine(pen, 10, 27, 28, 27);
-                        args.Graphics.DrawArc(pen, 16, 26, 6, 5, 0, 180);
-                    }
-                };
+                var bell = LucideIconService.GetIcon("bell", 26, Color.FromArgb(31, 52, 77));
+                notification.Image = bell;
+                notification.ImageAlign = ContentAlignment.MiddleCenter;
+                notification.Disposed += (sender, args) => bell.Dispose();
                 notification.AccessibleName = "Open alerts and notifications";
                 notification.Click += (s, e) =>
                 {
@@ -94,8 +86,13 @@ namespace HVAC_Pro_Desktop.UI
                         dialog.ShowDialog(wrapper.FindForm());
                 };
             }
-            utility.Controls.AddRange(new[] { brand, search, notification, profile });
-            brand.Visible = !model.CompactUtility;
+            utility.Controls.AddRange(new Control[] { brand, search, notification, profile });
+            notification.FlatStyle = FlatStyle.Flat;
+            notification.BackColor = Color.White;
+            notification.FlatAppearance.BorderSize = 0;
+            notification.Size = new Size(44, 44);
+            brand.Visible = true;
+            if (model.UtilityOnly) { page.Visible = false; page.Height = 0; }
             foreach (Control action in model.UtilityActions) { action.Dock = DockStyle.None; utility.Controls.Add(action); }
             utility.Paint += (s, e) => { using (var pen = new Pen(Color.FromArgb(235, 238, 240)))
                 e.Graphics.DrawLine(pen, 0, utility.Height - 1, utility.Width, utility.Height - 1); };
@@ -108,22 +105,24 @@ namespace HVAC_Pro_Desktop.UI
                 try
                 {
                     int width = wrapper.ClientSize.Width;
-                    bool narrow = width < 680;
-                    utility.Height = narrow ? 108 : (model.CompactUtility ? 54 : 64);
+                    bool narrow = width < 1000;
+                    utility.Height = narrow ? 136 : 88;
                     page.Width = width;
                     page.Top = utility.Height;
-                    profile.SetBounds(Math.Max(150, width - 220), model.CompactUtility ? 7 : 12, 196, 40);
-                    notification.Location = new Point(Math.Max(110, profile.Left - notification.Width - 12), model.CompactUtility ? 10 : 14);
+                    int accountWidth = width < 760 ? 54 : 248;
+                    profile.SetBounds(Math.Max(0, width - accountWidth - 18), 16, accountWidth, 52);
+                    notification.Location = new Point(Math.Max(0, profile.Left - notification.Width - 18), 18);
                     int utilityRight = notification.Left;
-                    foreach (Control action in model.UtilityActions.Reverse()) { utilityRight -= action.Width + 8; action.Location = new Point(utilityRight, model.CompactUtility ? 10 : 14); }
-                    int left = narrow ? 24 : (model.CompactUtility ? 18 : 154);
-                    int available = narrow ? width - 48 : utilityRight - left - 24;
-                    int searchWidth = Math.Max(100, Math.Min(560, available));
-                    int searchLeft = narrow ? left : Math.Max(left, Math.Min((width - searchWidth) / 2, utilityRight - searchWidth - 24));
-                    search.SetBounds(searchLeft, narrow ? 60 : (model.CompactUtility ? 8 : 13), searchWidth, 38);
+                    foreach (Control action in model.UtilityActions.Reverse())
+                    { utilityRight -= action.Width + 8; action.Location = new Point(utilityRight, 23); }
+                    brand.SetBounds(24, 14, width < 760 ? 174 : 210, 52);
+                    int left = narrow ? 20 : brand.Right + 64;
+                    int available = narrow ? width - 40 : utilityRight - left - 28;
+                    int searchWidth = Math.Max(80, Math.Min(1000, available));
+                    search.SetBounds(left, narrow ? 82 : 20, searchWidth, 48);
                     breadcrumb.Width = Math.Max(80, page.Width - 48);
                     int footerHeight = wrapper.Controls.Cast<Control>().Where(c => c != page && c != utility && c.Dock == DockStyle.Bottom).Sum(c => c.Height);
-                    int height = utility.Height + page.Height + footerHeight;
+                    int height = utility.Height + (model.UtilityOnly ? 0 : page.Height) + footerHeight;
                     wrapper.Height = height;
                     var table = wrapper.Parent as TableLayoutPanel;
                     int row = table == null ? -1 : table.GetPositionFromControl(wrapper).Row;
@@ -142,6 +141,84 @@ namespace HVAC_Pro_Desktop.UI
             model.Dock = originalDock;
             layout();
             return result;
+        }
+
+        /// <summary>Adds the same chrome to standalone workflow editors that have no shared page header.</summary>
+        internal static void EnsureOnSurface(Control surface)
+        {
+            if (surface == null || surface.IsDisposed || SessionManager.CurrentUser == null ||
+                surface is MainForm || surface is GlobalSearchDialog || surface is NotificationCenterDialog ||
+                surface is ServoERP.Infrastructure.ServoConfirmDialog || surface is ServoERP.Infrastructure.ServoErrorDialog)
+                return;
+            string[] focusedDialogs = { "ToastNotification", "ReleaseNotesDialog", "HtmlPreviewDialog", "FormTemplatePickerDialog",
+                "WhatsAppQuickActionDialog", "LegalAgreementForm", "LicenseActivationForm", "CreateAccountForm", "ServerFirstRunSetupForm" };
+            if (focusedDialogs.Contains(surface.GetType().Name)) return;
+            if (WorkspaceActionUi.Descendants(surface).Any(c => c is WorkspaceHeaderPanel)) return;
+            // Embedded pages inherit the enclosing page/form's global chrome.
+            if (surface is UserControl)
+                for (Control ancestor = surface.Parent; ancestor != null; ancestor = ancestor.Parent)
+                    if (ancestor is ServoERP.Infrastructure.ServoPageBase || ancestor is ServoERP.Infrastructure.ServoFormBase)
+                        return;
+            var existing = surface.Controls.Cast<Control>().ToArray();
+            if (existing.Length == 0) return;
+            var model = new SharedPageHeaderModel { Name = "WorkspaceEditorHeader", Title = string.Empty,
+                UtilityOnly = true, Dock = DockStyle.Top };
+            var header = SharedPageHeader.Build(model).Header;
+            header.Width = surface.ClientSize.Width;
+            var originalSize = surface.ClientSize;
+            var originalPadding = surface.Padding;
+            surface.SuspendLayout();
+            try
+            {
+                var body = new Panel { Name = "WorkspaceEditorBody", Dock = DockStyle.Fill,
+                    BackColor = surface.BackColor, Padding = Padding.Empty,
+                    AutoScroll = true };
+                int contentHeight = Math.Max(originalSize.Height, existing.Max(c => c.MinimumSize.Height));
+                var content = new Panel { Name = "WorkspaceEditorContent", Location = Point.Empty,
+                    Size = new Size(originalSize.Width, contentHeight), BackColor = surface.BackColor, Padding = originalPadding };
+                body.Controls.Add(content);
+                body.Resize += (sender, args) => content.Size = new Size(
+                    Math.Max(1, body.ClientSize.Width), Math.Max(contentHeight, body.ClientSize.Height));
+                // Keep each control's z-order, docking and original handlers intact.
+                foreach (Control child in existing.Reverse()) { surface.Controls.Remove(child); content.Controls.Add(child); content.Controls.SetChildIndex(child, 0); }
+                surface.Padding = Padding.Empty;
+                var form = surface as Form;
+                if (form != null && form.WindowState == FormWindowState.Normal)
+                {
+                    int height = originalSize.Height + header.Height;
+                    form.ClientSize = new Size(originalSize.Width, Math.Min(height, Screen.FromControl(form).WorkingArea.Height - 48));
+                }
+                surface.Controls.Add(body); surface.Controls.Add(header);
+                surface.Controls.SetChildIndex(body, 0);
+            }
+            finally { surface.ResumeLayout(true); }
+        }
+
+        private sealed class HeaderBrand : Control
+        {
+            private readonly Image _logo;
+            internal HeaderBrand()
+            {
+                SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
+                string file = Path.Combine(Path.GetDirectoryName(typeof(WorkspaceHeaderPanel).Assembly.Location),
+                    "Resources", "Branding", "servoerp_logo_transparent.png");
+                if (File.Exists(file)) using (var source = Image.FromFile(file)) _logo = new Bitmap(source);
+            }
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                e.Graphics.Clear(Color.White);
+                if (_logo != null)
+                {
+                    e.Graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    float scale = Math.Min(48f / _logo.Width, 44f / _logo.Height);
+                    int w = (int)(_logo.Width * scale), h = (int)(_logo.Height * scale);
+                    e.Graphics.DrawImage(_logo, new Rectangle(0, (Height - h) / 2, w, h));
+                }
+                using (var font = new Font("Segoe UI", Width < 200 ? 13f : 18f, FontStyle.Bold))
+                    TextRenderer.DrawText(e.Graphics, "ServoERP", font, new Rectangle(58, 0, Width - 58, Height),
+                        Color.FromArgb(15, 35, 61), TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+            }
+            protected override void Dispose(bool disposing) { if (disposing) _logo?.Dispose(); base.Dispose(disposing); }
         }
 
         private static Button MakeButton(string name, string text, int width)
@@ -290,7 +367,7 @@ namespace HVAC_Pro_Desktop.UI
             internal HeaderSearchButton()
             {
                 FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = Color.White;
-                Cursor = Cursors.Hand; Font = new Font("Segoe UI", 9f);
+                Cursor = Cursors.Hand; Font = new Font("Segoe UI", 12f);
                 SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             }
             protected override void OnPaint(PaintEventArgs e)
@@ -301,13 +378,21 @@ namespace HVAC_Pro_Desktop.UI
                 using (var fill = new SolidBrush(Color.FromArgb(250, 251, 252)))
                 using (var pen = new Pen(Focused ? Color.FromArgb(79, 119, 157) : Color.FromArgb(220, 226, 232)))
                 { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(pen, path); }
-                using (var pen = new Pen(Color.FromArgb(109, 125, 141), 1.5f))
-                { e.Graphics.DrawEllipse(pen, 14, 11, 12, 12); e.Graphics.DrawLine(pen, 24, 22, 29, 27); }
-                TextRenderer.DrawText(e.Graphics, "Search jobs, clients, invoices…", Font,
-                    new Rectangle(40, 0, Math.Max(0, Width - 122), Height), Color.FromArgb(111, 125, 140),
-                    TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
-                TextRenderer.DrawText(e.Graphics, "Ctrl + K", Font, new Rectangle(Math.Max(36, Width - 74), 0, 66, Height),
-                    Color.FromArgb(125, 138, 153), TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
+                using (var icon = LucideIconService.GetIcon("search", 22, Color.FromArgb(83, 104, 129)))
+                    e.Graphics.DrawImage(icon, 14, (Height - 22) / 2);
+                using (var searchFont = new Font("Segoe UI", 12f))
+                    TextRenderer.DrawText(e.Graphics, "Search across ServoERP...", searchFont,
+                        new Rectangle(48, 0, Math.Max(0, Width - 144), Height), Color.FromArgb(111, 125, 140),
+                        TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+                Rectangle key = new Rectangle(Math.Max(36, Width - 88), 8, 76, Height - 16);
+                using (var path = DS.RoundedRect(key, 6))
+                using (var fill = new SolidBrush(Color.White))
+                using (var border = new Pen(Color.FromArgb(216, 225, 236)))
+                { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(border, path); }
+                using (var font = new Font("Segoe UI", 9f))
+                    TextRenderer.DrawText(e.Graphics, "Ctrl + K", font, key, Color.FromArgb(93, 112, 137),
+                        TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
+
             }
         }
 
@@ -324,16 +409,18 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.Clear(Focused ? Color.FromArgb(244, 248, 251) : Color.White);
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 string name = AccountName();
-                using (var brush = new SolidBrush(Color.FromArgb(220, 237, 248))) e.Graphics.FillEllipse(brush, 4, 3, 34, 34);
+                using (var brush = new SolidBrush(Color.FromArgb(220, 237, 248))) e.Graphics.FillEllipse(brush, 4, 4, 40, 40);
                 using (var font = new Font("Segoe UI", 9f, FontStyle.Bold))
                     TextRenderer.DrawText(e.Graphics, string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpperInvariant(), font,
-                        new Rectangle(4, 3, 34, 34), Color.FromArgb(57, 85, 110), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-                using (var font = new Font("Segoe UI", 8.5f))
+                        new Rectangle(4, 4, 40, 40), Color.FromArgb(57, 85, 110), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                if (Width < 100) return;
+                using (var font = new Font("Segoe UI", 12f))
                 {
-                    TextRenderer.DrawText(e.Graphics, name, font, new Rectangle(48, 2, Width - 70, 20), Color.FromArgb(43, 60, 78), TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+                    TextRenderer.DrawText(e.Graphics, name, font, new Rectangle(56, 2, Width - 78, 25), Color.FromArgb(43, 60, 78), TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
                     TextRenderer.DrawText(e.Graphics, SessionManager.CurrentUser?.RoleName ?? "Account", font,
-                        new Rectangle(48, 22, Width - 70, 18), Color.FromArgb(121, 134, 148), TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
-                    TextRenderer.DrawText(e.Graphics, "⌄", font, new Rectangle(Width - 20, 8, 18, 24), Color.FromArgb(107, 123, 139));
+                        new Rectangle(56, 27, Width - 78, 24), Color.FromArgb(121, 134, 148), TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+                    using (var chevron = LucideIconService.GetIcon("chevron-down", 16, Color.FromArgb(73, 94, 119)))
+                        e.Graphics.DrawImage(chevron, Width - 18, 16);
                 }
             }
         }

@@ -1,9 +1,10 @@
 ﻿param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
-    [ValidateSet('Policies','Screenshots','Dashboard')][string]$Mode = 'Policies',
+    [ValidateSet('Policies','Screenshots','Dashboard','Headers')][string]$Mode = 'Policies',
     [string]$Database = 'HVAC_PRO_UI_20261014',
     [string]$OutputDir,
     [switch]$IncludeSidebar,
+    [switch]$ScrollEditorsToBottom,
     [int]$Width = 1710,
     [int]$Height = 1032,
     [string[]]$Pages = @('DashboardForm','TenderBidForm','InvoiceForm','PaymentForm','PurchaseForm','InventoryForm','ClientManagementForm','VendorForm','ContractManagementForm','JobManagementForm','EmployeeForm','PayrollForm','AttendanceForm','AMCPage','MasterDataForm','ReportForm','SettingsForm','GeoIntelligenceForm','UserGuideForm','ClientDetailPage','JobDetailPage','AddAMCForm','AddAMCEquipmentForm','ConnectionSetupForm')
@@ -63,6 +64,11 @@ $user = [Activator]::CreateInstance($assembly.GetType('HVAC_Pro_Desktop.Models.A
 $user.UserId=1; $user.Username='ui-test-admin'; $user.DisplayName='UI Test Admin'; $user.RoleId=1; $user.RoleName='Admin'; $user.IsActive=$true
 $session = $assembly.GetType('HVAC_Pro_Desktop.Services.SessionManager')
 $session.GetMethod('SetSession',$flags).Invoke($null,@($user,$null,$null)) | Out-Null
+if ($Mode -eq 'Headers') {
+    $assembly.GetType('HVAC_Pro_Desktop.Tests.WorkspaceHeaderSmokeTests').GetMethod('RunAll',$flags).Invoke($null,@()) | Out-Null
+    Get-Content (Join-Path $Root 'TEST_RESULTS/headers-1.1.513/smoke.txt')
+    exit
+}
 $policy = $assembly.GetType('HVAC_Pro_Desktop.UI.QuotationVisualPolicy').GetMethod('Apply',$flags)
 function Pump([int]$ms) {
     $until=[DateTime]::UtcNow.AddMilliseconds($ms)
@@ -98,6 +104,10 @@ foreach ($pageName in $Pages) {
         if ($control.PSObject.Methods["OnShellActivated"]) { $control.OnShellActivated() }
         Pump 2200
         Pump 350
+        if ($ScrollEditorsToBottom) {
+            $editorBody=$control.Controls.Find('WorkspaceEditorBody',$true) | Select-Object -First 1
+            if ($editorBody) { $editorBody.AutoScrollPosition=New-Object Drawing.Point 0,$editorBody.DisplayRectangle.Height; Pump 100 }
+        }
         $bitmap=New-Object Drawing.Bitmap $captureForm.Width,$captureForm.Height
         $captureForm.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle 0,0,$bitmap.Width,$bitmap.Height))
         $path=Join-Path $output "$pageName.png"
