@@ -133,13 +133,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control ForecastKpi(string key, string title, ModernIconKind icon, Color accent, Color iconBack)
         {
-            var card = new QuotationForecastCard { Dock = DockStyle.Fill, Margin = new Padding(0, 0, 10, 0), Padding = new Padding(70, 10, 8, 8) };
-            card.Controls.Add(new PictureBox { Location = new Point(14, 17), Size = new Size(42, 42), BackColor = iconBack, Image = ModernIconSystem.IconBitmap(icon, 22, accent), SizeMode = PictureBoxSizeMode.CenterImage });
-            Label titleLabel = new Label { Text = title, Location = new Point(70, 11), Height = 18, Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), ForeColor = QuoteText, AutoEllipsis = true };
-            Label value = new Label { Text = "—", Location = new Point(70, 31), Height = 27, Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true };
-            Label sub = new Label { Text = "Waiting for live data", Location = new Point(70, 63), Height = 17, Font = new Font("Segoe UI", 7.5f), ForeColor = QuoteMuted, AutoEllipsis = true };
-            card.Controls.Add(titleLabel); card.Controls.Add(value); card.Controls.Add(sub);
-            card.Resize += (s, e) => { int w = Math.Max(72, card.ClientSize.Width - 80); titleLabel.Width = w; value.Width = w; sub.Width = w; };
+            Label value, sub;
+            var card = DashboardVisuals.Metric(title, "—", "Waiting for live data", icon, accent, iconBack, out value, out sub);
+            card.Dock = DockStyle.Fill;
+            card.Margin = new Padding(0, 0, 10, 0);
             _forecastKpiValues[key] = value; _forecastKpiSubtitles[key] = sub;
             return card;
         }
@@ -383,13 +380,12 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddSectionHeader(Control card, string title, ModernIconKind icon, Color accent)
         {
-            card.Controls.Add(new PictureBox { Location = new Point(12, 10), Size = new Size(20, 20), Image = ModernIconSystem.IconBitmap(icon, 17, accent), SizeMode = PictureBoxSizeMode.CenterImage, BackColor = Color.Transparent });
-            card.Controls.Add(new Label { Text = title, Location = new Point(38, 8), Height = 24, Width = 240, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = QuoteText, TextAlign = ContentAlignment.MiddleLeft });
+            DashboardVisuals.Heading(card, title, icon, accent, actionWidth: Math.Max(0, card.Width - 290));
         }
 
         private static ComboBox ForecastCombo(int width) { return new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = width, Height = 30, Font = new Font("Segoe UI", 8.5f), FlatStyle = FlatStyle.Flat, BackColor = Color.White }; }
-        private static Button ForecastButton(string text, int width, Color back, Color fore) { Button b = new Button { Text = text, Width = width, Height = 30, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.2f, FontStyle.Bold), Cursor = Cursors.Hand, UseVisualStyleBackColor = false }; b.FlatAppearance.BorderColor = Color.FromArgb(214, 222, 232); return b; }
-        private static Button ForecastChip(string text, bool selected) { Button b = ForecastButton(text, Math.Max(66, TextRenderer.MeasureText(text, new Font("Segoe UI", 7.8f, FontStyle.Bold)).Width + 24), selected ? InfoBlue : Color.FromArgb(245, 248, 252), selected ? Color.White : QuoteMuted); b.Height = 27; b.Margin = new Padding(0, 0, 6, 0); b.FlatAppearance.BorderColor = selected ? InfoBlue : Color.FromArgb(226, 232, 240); return b; }
+        private static Button ForecastButton(string text, int width, Color back, Color fore) => DashboardVisuals.Action(text, width, back, fore);
+        private static Button ForecastChip(string text, bool selected) => DashboardVisuals.Chip(text, selected);
         private static void UpdateChips(IEnumerable<Button> chips, string selected) { foreach (Button b in chips) { bool active = string.Equals(Convert.ToString(b.Tag), selected, StringComparison.OrdinalIgnoreCase); b.BackColor = active ? InfoBlue : Color.FromArgb(245, 248, 252); b.ForeColor = active ? Color.White : QuoteMuted; b.FlatAppearance.BorderColor = active ? InfoBlue : Color.FromArgb(226, 232, 240); } }
         private static string CompactCurrency(decimal v) { decimal a = Math.Abs(v); if (a >= 10000000m) return "₹" + (v / 10000000m).ToString("0.##") + " Cr"; if (a >= 100000m) return "₹" + (v / 100000m).ToString("0.##") + " L"; return IndiaFormatHelper.FormatCurrency(v); }
         private static bool Contains(string value, string search) { return (value ?? "").IndexOf(search ?? "", StringComparison.OrdinalIgnoreCase) >= 0; }

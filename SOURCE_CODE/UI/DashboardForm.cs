@@ -1144,10 +1144,7 @@ namespace HVAC_Pro_Desktop.UI
         private FlowLayoutPanel RowPanel(int width, int height) => new FlowLayoutPanel { Width = width, Height = height, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, BackColor = DS.BgPage, Margin = new Padding(0, 0, 0, 10), Tag = "NO_DASHBOARD_RESIZE" };
         private Panel CardPanel(int width, int height)
         {
-            Panel panel = new Panel { Width = width, Height = height, BackColor = DS.BgCard, Margin = new Padding(0, 0, 0, 12), Tag = "NO_DASHBOARD_RESIZE" };
-            DS.Rounded(panel, 10);
-            panel.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 10)) using (Pen pen = new Pen(SoftBorder)) e.Graphics.DrawPath(pen, path); };
-            return panel;
+            return DashboardVisuals.Card(width, height);
         }
         private Button PrimaryButton(string text, int x, int y, int w, int h)
         {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -27,7 +27,7 @@ namespace HVAC_Pro_Desktop.Tests
             var previousSession = SessionManager.CurrentSessionId;
             var previousExpiry = SessionManager.ExpiresAt;
             var results = new List<string>();
-            string directory = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS", "dashboard-soft-1.1.506");
+            string directory = Path.Combine(Environment.GetEnvironmentVariable("GITHUB_WORKSPACE") ?? @"C:\HVAC_PRO_MSE", "TEST_RESULTS", "dashboard-parity");
             Directory.CreateDirectory(directory);
             try
             {
@@ -46,10 +46,31 @@ namespace HVAC_Pro_Desktop.Tests
                     }
                     results.Add("responsive layouts at 1440, 1000 and 760 pixels keep action buttons inside their containers");
                     results.Add("all ten operational cards expose descriptive live-record previews");
+                    foreach (string metricName in new[] { "JobsTodayCard", "SlaRiskCard", "ReceivablesCard", "LowStockCard" })
+                    {
+                        Control metric = Card(page, metricName);
+                        Require(metric is QuotationForecastCard, "Dashboard metric must use the quotation surface.");
+                        Label title = metric.Controls.OfType<Label>().Single(l => l.Name == "MetricTitle");
+                        Label value = metric.Controls.OfType<Label>().Single(l => l.Name == "MetricValue");
+                        PictureBox icon = metric.Controls.OfType<PictureBox>().Single();
+                        Require(title.Font.Bold && Math.Abs(title.Font.Size - 8.2f) < .01f && Math.Abs(value.Font.Size - 15f) < .01f,
+                            "Metric typography differs from quotation rules.");
+                        Require(icon.Size == new Size(42, 42), "Metric icon container differs from quotation rules.");
+                    }
+                    Require(Children(Card(page, "PriorityInboxCard")).OfType<Button>().Any(b => b.Text == "All" && b.BackColor == DashboardVisuals.Blue),
+                        "Selected inbox filter must use the quotation chip state.");
+                    results.Add("main dashboard uses quotation card types, metric typography, icon sizes and selected filter style");
                     page.Size = new Size(1440, 900); Rebuild(page);
                     string shortcut = null; page.OnShortcut = value => shortcut = value;
                     Children(page).OfType<Button>().Single(b => b.Text == "+ New job").PerformClick();
                     Require(shortcut == DashboardForm.ShortcutNewJob, "New job shortcut did not route.");
+                    Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Text == "Critical").PerformClick();
+                    Application.DoEvents();
+                    Require((string)typeof(DashboardForm).GetField("_actionFilter", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(page) == "Critical",
+                        "Quotation-style inbox chip did not update the filter.");
+                    Children(Card(page, "PriorityInboxCard")).OfType<Button>().Single(b => b.Text == "All").PerformClick();
+                    Application.DoEvents();
+                    results.Add("inbox filter buttons update the selected filter and restore the complete inbox");
                     var pager = Children(page).OfType<UI.Controls.GlobalPaginationControl>().Single();
                     pager.GoToPage(2); Application.DoEvents();
                     Require(Children(page).OfType<UI.Controls.GlobalPaginationControl>().Single().CurrentPage == 2, "Inbox next page did not persist.");
@@ -77,6 +98,8 @@ namespace HVAC_Pro_Desktop.Tests
                     Require(Card(page, "PriorityInboxCard").AccessibleDescription.Contains("No matching records"), "Empty dashboard invented actionable work.");
                     Require(Card(page, "JobsTodayCard").AccessibleDescription.Contains("0 matching jobs"), "Empty dashboard invented scheduled jobs.");
                     results.Add("empty business data remains empty with clear card preview states");
+                    using (var bitmap = new Bitmap(page.Width, page.Height))
+                    { page.DrawToBitmap(bitmap, new Rectangle(Point.Empty, bitmap.Size)); bitmap.Save(Path.Combine(directory, "dashboard-empty.png")); }
                 }
             }
             finally { SessionManager.SetSession(previous, previousSession, previousExpiry); }

@@ -548,6 +548,7 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UI\QuotationVisualPolicy.cs" />
+    <Compile Include="UI\DashboardVisuals.cs" />
     <Compile Include="UI\DesignSystem.cs" />
     <Compile Include="UI\ModernIconSystem.cs" />
     <Compile Include="UI\LucideIconService.cs" />

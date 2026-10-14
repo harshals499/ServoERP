@@ -60,14 +60,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button SoftButton(Control parent, string text, int x, int y, int width, Action click, bool primary = false)
         {
-            Button button = SecondaryButton(text, x, y, width, 34);
+            Button button = DashboardVisuals.Action(text, width, primary ? DashboardVisuals.Blue : Color.White,
+                primary ? Color.White : DashboardVisuals.Ink);
+            button.Location = new Point(x, y);
             button.Tag = "FIXED_WIDTH";
-            button.Font = new Font(LanguageManager.GetUiFontFamily(), 8.5f);
-            button.BackColor = primary ? SoftBlue : Color.White;
-            button.ForeColor = primary ? Color.White : SoftBlue;
-            button.FlatAppearance.BorderColor = primary ? SoftBlue : SoftBorder;
-            button.Padding = new Padding(5, 0, 5, 0);
-            DS.Rounded(button, 6);
             button.Click += (s, e) => click();
             parent.Controls.Add(button);
             button.BringToFront();
@@ -78,8 +74,11 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel card = CardPanel(width, height);
             card.Name = name;
-            SoftText(card, title, 18, 14, Math.Max(80, width - 180), 25, 9.5f, true);
-            SoftText(card, subtitle, 18, 42, width - 36, 20, 8.5f).ForeColor = DS.Slate500;
+            ModernIconKind icon = name == "PriorityInboxCard" ? ModernIconKind.Alert :
+                name == "TeamTodayCard" ? ModernIconKind.Technician :
+                name == "ComingUpCard" || name == "TodayJobsCard" ? ModernIconKind.Calendar :
+                name == "CollectionsCard" ? ModernIconKind.Money : ModernIconKind.Activity;
+            DashboardVisuals.Heading(card, title, icon, DashboardVisuals.Blue, subtitle, 132);
             return card;
         }
 
@@ -131,26 +130,28 @@ namespace HVAC_Pro_Desktop.UI
         private void AddSoftToolbar(int width)
         {
             var bar = new Panel { Width = width, Height = 40, BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 10) };
-            SoftText(bar, DateTime.Today.ToString("dddd, dd MMMM yyyy"), 0, 9, Math.Max(160, width - 620), 24, 9f);
+            Label dateLabel = SoftText(bar, DateTime.Today.ToString("dddd, dd MMMM yyyy"), 0, 9, Math.Max(160, width - 620), 24, 9f);
             var commands = new List<Tuple<string, string, Action>>();
             if (DashboardCan("WorkOrders", "Create")) commands.Add(Tuple.Create("+ New job", "New job", (Action)(() => OnShortcut?.Invoke(ShortcutNewJob))));
             if (DashboardCan("Quotations", "Create")) commands.Add(Tuple.Create("Quotation", "Quotation", (Action)(() => OnShortcut?.Invoke(ShortcutNewQuotation))));
             if (DashboardCan("Invoices", "Create")) commands.Add(Tuple.Create("Invoice", "Invoice", (Action)(() => OnShortcut?.Invoke(ShortcutNewInvoice))));
             if (DashboardCan("Payments", "Create")) commands.Add(Tuple.Create("Record payment", "Payment", (Action)(() => OnNavigate?.Invoke(4))));
             int x = Math.Max(210, width - commands.Count * 134);
-            foreach (var command in commands) { SoftButton(bar, command.Item1, x, 2, 126, command.Item3, command.Item2 == "New job"); x += 134; }
+            var actionButtons = new List<Button>();
+            foreach (var command in commands) { actionButtons.Add(SoftButton(bar, command.Item1, x, 2, 126, command.Item3, command.Item2 == "New job")); x += 134; }
             if (width < 800 && commands.Count > 2)
             {
                 bar.Height = 92;
+                dateLabel.Width = width;
                 int i = 0;
-                foreach (Button b in bar.Controls.OfType<Button>()) { b.Location = new Point((i++ % 4) * 142, 43); }
+                foreach (Button b in actionButtons) { b.Location = new Point((i++ % 4) * 142, 43); }
             }
             _root.Controls.Add(bar);
         }
 
         private void AddSoftMetrics(int width)
         {
-            bool twoRows = width < 850;
+            bool twoRows = width < 1050;
             int count = twoRows ? 2 : 4;
             int cardWidth = (width - (count - 1) * 12) / count;
             var row = new Panel { Width = width, Height = twoRows ? 202 : 96, BackColor = SoftCanvas, Margin = new Padding(0, 0, 0, 14) };
@@ -175,12 +176,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel SoftMetric(string name, string title, string value, string subtitle, int width, ModernIconKind icon, Action click)
         {
-            Panel card = CardPanel(width, 96); card.Name = name; card.Cursor = Cursors.Hand; card.TabStop = true;
-            Label badge = ModernIconSystem.Badge(icon, 38, Color.FromArgb(239, 244, 246), SoftBlue, 9);
-            badge.Location = new Point(16, 30); card.Controls.Add(badge);
-            SoftText(card, title, 68, 15, width - 84, 22, 8.8f).ForeColor = DS.Slate600;
-            SoftText(card, value, 68, 39, width - 84, 31, value.Length > 10 ? 16f : 19f, true);
-            SoftText(card, subtitle, 68, 71, width - 84, 20, 8.2f).ForeColor = DS.Slate500;
+            Color accent = name == "ReceivablesCard" ? Color.FromArgb(220, 38, 38) :
+                name == "SlaRiskCard" ? Color.FromArgb(234, 88, 12) :
+                name == "LowStockCard" ? Color.FromArgb(79, 70, 229) : DashboardVisuals.Blue;
+            Label valueLabel, subLabel;
+            Panel card = DashboardVisuals.Metric(title, value, subtitle, icon, accent,
+                DS.Lighten(accent, .92f), out valueLabel, out subLabel);
+            card.Size = new Size(width, 96); card.Name = name;
+            card.Tag = "NO_DASHBOARD_RESIZE"; card.Cursor = Cursors.Hand; card.TabStop = true;
             foreach (Control child in card.Controls) child.Click += (s, e) => click();
             card.Click += (s, e) => click();
             card.KeyDown += (s, e) => { if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Space) { e.Handled = true; click(); } };
@@ -194,12 +197,10 @@ namespace HVAC_Pro_Desktop.UI
             int x = 18;
             foreach (string filter in filters)
             {
-                Label chip = FilterChip(filter, x, 66, filter == _actionFilter);
-                chip.BackColor = filter == _actionFilter ? Color.FromArgb(230, 239, 245) : Color.White;
-                chip.ForeColor = filter == _actionFilter ? SoftBlue : DS.Slate600;
-                chip.Height = 28;
+                Button chip = DashboardVisuals.Chip(filter, filter == _actionFilter);
+                chip.Location = new Point(x, 66);
                 chip.Click += (s, e) => { _actionFilter = filter; _inboxPage = 1; BeginInvoke((Action)BuildShell); };
-                card.Controls.Add(chip); x += chip.Width + 3;
+                card.Controls.Add(chip); x += chip.Width + 6;
             }
             var actions = FilterActions(_actionSnapshot.Items).OrderByDescending(i => i.PriorityScore).ThenBy(i => i.DueAt ?? DateTime.MaxValue).ToList();
             var pager = new Controls.GlobalPaginationControl { Location = new Point(18, 273), Width = width - 36 };
@@ -271,6 +272,11 @@ namespace HVAC_Pro_Desktop.UI
             var jobs = DashboardJobs.Where(j => j.ScheduledDate.Date == DateTime.Today && ActiveJob(j)).OrderBy(j => j.ScheduledDate).ToList();
             Panel card = SoftCard("TodayJobsCard", "Today's jobs", "Scheduled work for today", width, 230);
             if (DashboardCanView("WorkOrders")) SoftButton(card, "View all jobs", width - 138, 16, 120, () => OnNavigate?.Invoke(15));
+            card.Paint += (s, e) =>
+            {
+                using (var fill = new SolidBrush(Color.FromArgb(248, 250, 252)))
+                    e.Graphics.FillRectangle(fill, new Rectangle(12, 70, width - 24, 24));
+            };
             int partyX = (int)(width * .20), techX = (int)(width * .50), stateX = (int)(width * .72);
             SoftText(card, "Job / Time", 18, 73, partyX - 26, 20, 8f);
             SoftText(card, "Client & site", partyX, 73, techX - partyX - 12, 20, 8f);

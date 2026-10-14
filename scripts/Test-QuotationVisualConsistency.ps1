@@ -1,7 +1,10 @@
 param(
     [string]$Root = (Split-Path $PSScriptRoot -Parent),
-    [ValidateSet('Policies','Screenshots')][string]$Mode = 'Policies',
+    [ValidateSet('Policies','Screenshots','Dashboard')][string]$Mode = 'Policies',
     [string]$Database = 'HVAC_PRO_UI_20261014',
+    [string]$OutputDir,
+    [int]$Width = 1710,
+    [int]$Height = 1032,
     [string[]]$Pages = @('DashboardForm','TenderBidForm','InvoiceForm','PaymentForm','PurchaseForm','InventoryForm','ClientManagementForm','VendorForm','ContractManagementForm','JobManagementForm','EmployeeForm','PayrollForm','AttendanceForm','AMCPage','MasterDataForm','ReportForm','SettingsForm','GeoIntelligenceForm','UserGuideForm','ClientDetailPage','JobDetailPage','AddAMCForm','AddAMCEquipmentForm','ConnectionSetupForm')
 )
 $ErrorActionPreference = 'Stop'
@@ -37,8 +40,13 @@ $factory = $assembly.GetType('HVAC_Pro_Desktop.DAL.DatabaseConnectionFactory')
 $factory.GetProperty('DiagnosticConnectionString',$flags).SetValue($null,"Data Source=.\SQLEXPRESS;Initial Catalog=$Database;Integrated Security=True;TrustServerCertificate=True", $null)
 [Windows.Forms.Application]::EnableVisualStyles()
 $assembly.GetType('ServoERP.Infrastructure.ServoTheme').GetMethod('Initialize',$flags).Invoke($null,@()) | Out-Null
-$output = Join-Path $Root 'TEST_RESULTS/quotation-consistency'
+$output = if ($OutputDir) { if ([IO.Path]::IsPathRooted($OutputDir)) { $OutputDir } else { Join-Path $Root $OutputDir } } else { Join-Path $Root 'TEST_RESULTS/quotation-consistency' }
 New-Item -ItemType Directory -Force -Path $output | Out-Null
+if ($Mode -eq 'Dashboard') {
+    $results = $assembly.GetType('HVAC_Pro_Desktop.Tests.DashboardSoftSmokeTests').GetMethod('RunAll',$flags).Invoke($null,@())
+    $results | ForEach-Object { "PASS $_" } | Tee-Object -FilePath (Join-Path $output 'dashboard-regression.txt')
+    exit
+}
 if ($Mode -eq 'Policies') {
     $program = $assembly.GetType('HVAC_Pro_Desktop.Program')
     $method = $program.GetMethods($flags) | Where-Object { $_.Name -eq 'WriteCiSmokeReport' }
@@ -78,7 +86,7 @@ foreach ($pageName in $Pages) {
         }
         $captureForm.ShowInTaskbar=$false; $captureForm.StartPosition='Manual'
         $captureForm.Location=New-Object Drawing.Point -10000,-10000
-        if ($control -isnot [Windows.Forms.Form]) { $captureForm.ClientSize=New-Object Drawing.Size 1710,1032 }
+        if ($control -isnot [Windows.Forms.Form]) { $captureForm.ClientSize=New-Object Drawing.Size $Width,$Height }
         $captureForm.Show();
         if ($control.PSObject.Methods["OnShellActivated"]) { $control.OnShellActivated() }
         Pump 2200

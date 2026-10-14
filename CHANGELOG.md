@@ -1,4 +1,10 @@
-﻿# 1.1.511 — 14 October 2026
+﻿# 1.1.512 — prepared 14 October 2026 (unpublished)
+
+- Main My Work dashboard now shares actual Quotations card, metric, heading, button and filter primitives.
+- Match metric typography/icon sizes, add table heading tint, reserve subtitle/action space and improve narrow metric layout.
+- Preserve dashboard routing, pagination and permissions; add visual parity regression coverage.
+
+# 1.1.511 — 14 October 2026
 
 - Apply Quotations dashboard card, canvas, action and table visual rules across shared pages, details and nested dialogs.
 - Fix nested appearance inheritance, dark-button contrast and My Work heading/action overlap.
