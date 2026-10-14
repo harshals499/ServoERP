@@ -59,7 +59,7 @@ namespace HVAC_Pro_Desktop.UI
             result.TitleLabel.TextChanged += (s, e) => breadcrumb.Text = "Workspace  ›  " + result.TitleLabel.Text;
             var utility = new Panel { Name = "WorkspaceUtilityBar", Dock = DockStyle.Top, Height = 64,
                 BackColor = Color.White };
-            var brand = new HeaderBrand { Name = "WorkspaceBrand", AccessibleName = "ServoERP", Size = new Size(210, 52) };
+            var brand = new HeaderBrand { Name = "WorkspaceBrand", AccessibleName = "ServoERP", Size = new Size(48, 52) };
             var search = new HeaderSearchButton { Name = "WorkspaceGlobalSearch", AccessibleName = "Global search (Ctrl+K)",
                 Size = new Size(480, 38) };
             search.Click += (s, e) => OpenSearch(wrapper);
@@ -115,7 +115,7 @@ namespace HVAC_Pro_Desktop.UI
                     int utilityRight = notification.Left;
                     foreach (Control action in model.UtilityActions.Reverse())
                     { utilityRight -= action.Width + 8; action.Location = new Point(utilityRight, 23); }
-                    brand.SetBounds(24, 14, width < 760 ? 174 : 210, 52);
+                    brand.SetBounds(24, 14, 48, 52);
                     int left = narrow ? 20 : brand.Right + 64;
                     int available = narrow ? width - 40 : utilityRight - left - 28;
                     int searchWidth = Math.Max(80, Math.Min(1000, available));
@@ -214,9 +214,7 @@ namespace HVAC_Pro_Desktop.UI
                     int w = (int)(_logo.Width * scale), h = (int)(_logo.Height * scale);
                     e.Graphics.DrawImage(_logo, new Rectangle(0, (Height - h) / 2, w, h));
                 }
-                using (var font = new Font("Segoe UI", Width < 200 ? 13f : 18f, FontStyle.Bold))
-                    TextRenderer.DrawText(e.Graphics, "ServoERP", font, new Rectangle(58, 0, Width - 58, Height),
-                        Color.FromArgb(15, 35, 61), TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine);
+
             }
             protected override void Dispose(bool disposing) { if (disposing) _logo?.Dispose(); base.Dispose(disposing); }
         }

@@ -1,4 +1,8 @@
-﻿# 1.1.513 — 14 October 2026
+﻿# 1.1.514 — prepared 14 October 2026 (unpublished)
+
+- Keep only the actual logo in the global header, removing the adjacent ServoERP wordmark and its reserved space. Sidebar branding remains unchanged.
+
+# 1.1.513 — 14 October 2026
 
 - Apply the selected modern global header across main/detail pages and standalone nested workflow editors, using the original logo, broad search, keyboard capsule and readable account identity.
 - Keep existing sidebar branding, inputs, actions, shortcuts and permissions; use responsive editor chrome without duplicates.
