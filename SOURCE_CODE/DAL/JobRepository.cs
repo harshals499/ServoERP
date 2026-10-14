@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.Models;
+using HVAC_Pro_Desktop.Services;
+using Dapper;
 
 namespace HVAC_Pro_Desktop.DAL
 {
@@ -22,7 +24,7 @@ namespace HVAC_Pro_Desktop.DAL
                        THEN CAST(1 AS bit)
                        ELSE CAST(0 AS bit)
                    END AS IsOverdueComputed
-            FROM Jobs j
+            FROM dbo.ActiveJobs j
             LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
             LEFT JOIN ClientSites s ON j.SiteID = s.SiteID
             LEFT JOIN Employees e ON j.AssignedEmployeeID = e.EmployeeID";
@@ -50,7 +52,7 @@ namespace HVAC_Pro_Desktop.DAL
                        THEN CAST(1 AS bit)
                        ELSE CAST(0 AS bit)
                    END AS IsOverdueComputed
-            FROM Jobs j
+            FROM dbo.ActiveJobs j
             LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
             LEFT JOIN ClientSites s ON j.SiteID = s.SiteID
             LEFT JOIN Employees e ON j.AssignedEmployeeID = e.EmployeeID
@@ -72,7 +74,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand(BaseSelect + " WHERE j.JobID=@id", conn))
+                using (SqlCommand cmd = new SqlCommand(BaseSelect.Replace("dbo.ActiveJobs", "dbo.Jobs") + " WHERE j.JobID=@id", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
                     using (SqlDataReader r = cmd.ExecuteReader())
@@ -179,7 +181,7 @@ namespace HVAC_Pro_Desktop.DAL
                             ) * 100.0
                               / NULLIF((CASE WHEN ISNULL(j.QuotedRevenue, 0) = 0 THEN ISNULL(j.Revenue, 0) ELSE j.QuotedRevenue END), 0), 2)
                         END AS EstimatedMarginPct
-                    FROM Jobs j
+                    FROM dbo.ActiveJobs j
                     LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON j.SiteID = s.SiteID
                     LEFT JOIN Employees e ON j.AssignedEmployeeID = e.EmployeeID
@@ -654,37 +656,7 @@ namespace HVAC_Pro_Desktop.DAL
 
         public void Delete(int jobId)
         {
-            using (SqlConnection conn = _db.GetConnection())
-            {
-                conn.Open();
-                using (SqlTransaction tx = conn.BeginTransaction())
-                {
-                    try
-                    {
-                        ExecuteDelete(conn, tx, "DELETE FROM PendingCharges WHERE WorkOrderId=@id", jobId);
-                        ExecuteDelete(conn, tx, "UPDATE PurchaseLineItems SET LinkedWorkOrderId=NULL WHERE LinkedWorkOrderId=@id", jobId);
-                        ExecuteDelete(conn, tx, "DELETE FROM JobActivityLog WHERE JobId=@id", jobId);
-                        ExecuteDelete(conn, tx, "DELETE FROM JobPartsUsed WHERE JobId=@id", jobId);
-                        ExecuteDelete(conn, tx, "DELETE FROM JobChecklistItems WHERE JobId=@id", jobId);
-                        ExecuteDelete(conn, tx, "DELETE FROM Jobs WHERE JobID=@id", jobId);
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                }
-            }
-        }
-
-        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
-        {
-            using (SqlCommand cmd = new SqlCommand(sql, conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@id", id);
-                cmd.ExecuteNonQuery();
-            }
+            FinancialRecordProtection.ArchiveJob(jobId);
         }
 
         public int GetCountByStatus(string status)
@@ -692,7 +664,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE ISNULL(NULLIF(PipelineStatus, ''), Status)=@status", conn))
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM dbo.ActiveJobs WHERE ISNULL(NULLIF(PipelineStatus, ''), Status)=@status", conn))
                 {
                     cmd.Parameters.AddWithValue("@status", status ?? string.Empty);
                     return Convert.ToInt32(cmd.ExecuteScalar());
@@ -707,7 +679,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT ISNULL(SUM(CASE WHEN ActualRevenue > 0 THEN ActualRevenue ELSE ISNULL(NULLIF(QuotedRevenue, 0), Revenue) END), 0)
-                    FROM Jobs
+                    FROM dbo.Jobs
                     WHERE ISNULL(NULLIF(PipelineStatus, ''), Status) IN ('Closed','Invoiced','Completed')
                       AND YEAR(ISNULL(ClosedDate, ISNULL(CompletedDate, ScheduledDate))) = @year
                       AND MONTH(ISNULL(ClosedDate, ISNULL(CompletedDate, ScheduledDate))) = @month", conn))
@@ -726,7 +698,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT ISNULL(SUM(EstimatedCost), 0)
-                    FROM Jobs
+                    FROM dbo.Jobs
                     WHERE YEAR(ScheduledDate) = @year
                       AND MONTH(ScheduledDate) = @month", conn))
                 {
@@ -744,7 +716,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT COUNT(*)
-                    FROM Jobs
+                    FROM dbo.ActiveJobs
                     WHERE AssignedEmployeeID = @employeeId
                       AND ScheduledDate >= @weekStartDate
                       AND ScheduledDate < DATEADD(day, 7, @weekStartDate)
@@ -762,7 +734,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM Jobs WHERE JobNumber LIKE @prefix", conn))
+                using (SqlCommand cmd = new SqlCommand("SELECT COUNT(*) FROM dbo.Jobs WHERE JobNumber LIKE @prefix", conn))
                 {
                     cmd.Parameters.AddWithValue("@prefix", (prefix ?? string.Empty) + "%");
                     return Convert.ToInt32(cmd.ExecuteScalar());
@@ -777,7 +749,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (SqlCommand cmd = new SqlCommand(@"
                     SELECT TOP 1 1
-                    FROM Jobs
+                    FROM dbo.Jobs
                     WHERE JobID <> @excludeJobId
                       AND JobNumber = @jobNumber", conn))
                 {
@@ -874,6 +846,7 @@ namespace HVAC_Pro_Desktop.DAL
                 ModifiedByUserId = GetNullableInt(r, "ModifiedByUserId"),
                 ModifiedByName = GetString(r, "ModifiedByName"),
                 ModifiedDate = GetNullableDateTime(r, "ModifiedDate"),
+                IsDeleted = HasColumn(r, "IsDeleted") && GetBool(r, "IsDeleted"),
                 CreatedDate = GetNullableDateTime(r, "CreatedDate") ?? DateTime.Now
             };
         }

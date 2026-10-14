@@ -10,6 +10,15 @@ namespace HVAC_Pro_Desktop.Models
         public int RecordId { get; set; }
         public string PageKey { get; set; }
         public DateTime? RecordDate { get; set; }
+        public string ClientName { get; set; }
+        public string SiteName { get; set; }
+        public string Technician { get; set; }
+        public string Status { get; set; }
+        public string JobType { get; set; }
+        public decimal? Amount { get; set; }
+        public decimal? BalanceDue { get; set; }
+        public DateTime? DueDate { get; set; }
+        public override string ToString() => Module + " · " + Title + " · " + Detail;
     }
 
     public sealed class FoundationNotification

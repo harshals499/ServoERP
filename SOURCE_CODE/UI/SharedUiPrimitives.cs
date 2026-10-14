@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -27,6 +27,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Applies shared visual primitives to an existing control tree.</summary>
         public static void ApplyToTree(Control root)
         {
+            if (root is Controls.GlobalPaginationControl) return;
             if (root == null || root.IsDisposed)
                 return;
 
@@ -38,6 +39,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Applies shared visual primitives to a single control.</summary>
         public static void ApplyToControl(Control control)
         {
+            if (DashboardForm.OwnsDashboardPresentation(control)) return;
             if (control == null || control.IsDisposed)
                 return;
 

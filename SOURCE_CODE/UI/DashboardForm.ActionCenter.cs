@@ -584,6 +584,7 @@ namespace HVAC_Pro_Desktop.UI
             switch ((_actionFilter ?? "All").Trim())
             {
                 case "Mine": return query.Where(item => item.IsMine);
+                case "SLA risk": return query.Where(item => item.SourceModule == "ServiceDesk" && item.SlaDeadline.HasValue && item.Priority >= ActionCenterPriority.Urgent);
                 case "Critical": return query.Where(item => item.Priority == ActionCenterPriority.Critical);
                 case "Today": return query.Where(item => item.Bucket == ActionCenterBucket.Today || (item.DueAt.HasValue && item.DueAt.Value.Date == DateTime.Today));
                 case "Overdue": return query.Where(item => item.IsOverdue);

@@ -9,6 +9,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 $source = Resolve-Path $BuildOutput
+$releaseVersion = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $source 'HVAC_Pro_Desktop.exe')).Version
+$releaseVersion = '{0}.{1}.{2}' -f $releaseVersion.Major,$releaseVersion.Minor,$releaseVersion.Build
+& (Join-Path $PSScriptRoot 'Assert-ServoReleaseNotes.ps1') -Version $releaseVersion -ForPackaging
+
 if (Test-Path -LiteralPath $PublishDir) {
     Remove-Item -LiteralPath $PublishDir -Recurse -Force
 }
@@ -42,6 +46,10 @@ foreach ($dir in $clientMutableDirs) {
 }
 
 $sampleConfig = Join-Path $PublishDir "HVACPro.sample.config"
-Copy-Item -LiteralPath (Join-Path $source "HVACPro.config") -Destination $sampleConfig -Force -ErrorAction SilentlyContinue
+Get-ChildItem -LiteralPath $PublishDir -Filter 'official_invoice_header.png' -Recurse -File |
+    Remove-Item -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "ClientClean.config") -Destination $sampleConfig -Force
 
 "PUBLISH_DIR=$PublishDir"
+
+Copy-Item -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent) "release\RELEASE_NOTES_$releaseVersion.md") -Destination $PublishDir -Force

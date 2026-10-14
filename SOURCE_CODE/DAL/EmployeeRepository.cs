@@ -352,7 +352,7 @@ namespace HVAC_Pro_Desktop.DAL
                             WHEN j.ClosedDate IS NULL THEN DATEDIFF(DAY, ISNULL(j.ModifiedDate, j.CreatedDate), GETDATE())
                             ELSE DATEDIFF(DAY, ISNULL(j.ModifiedDate, j.CreatedDate), j.ClosedDate)
                         END AS ClosureDays
-                    FROM Jobs j
+                    FROM dbo.ActiveJobs j
                     LEFT JOIN ClientSites cs ON cs.SiteID = j.SiteID
                     WHERE j.AssignedEmployeeID = @employeeId
                     ORDER BY ISNULL(j.ModifiedDate, j.CreatedDate) DESC, j.JobID DESC;", conn))

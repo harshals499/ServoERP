@@ -10,6 +10,8 @@ namespace HVAC_Pro_Desktop.DAL
     /// <summary>Creates short-lived pooled SQL Server connections from one normalized ServoERP connection string.</summary>
     public static class DatabaseConnectionFactory
     {
+        private static readonly System.Threading.AsyncLocal<string> _diagnosticConnectionString = new System.Threading.AsyncLocal<string>();
+        internal static string DiagnosticConnectionString { get => _diagnosticConnectionString.Value; set => _diagnosticConnectionString.Value = value; }
         public const int DefaultMaxPoolSize = 100;
         public const int DefaultMinPoolSize = 0;
         public const int DefaultConnectTimeoutSeconds = 15;
@@ -18,13 +20,19 @@ namespace HVAC_Pro_Desktop.DAL
         /// <summary>Creates a closed pooled connection using the configured ServoERP SQL connection string.</summary>
         public static SqlConnection CreateConnection()
         {
-            return CreateConnection(DatabaseManager.RequireConfiguredConnectionString());
+            return CreateConnection(DiagnosticConnectionString ?? DatabaseManager.RequireConfiguredConnectionString());
         }
 
         /// <summary>Creates a closed pooled connection using the supplied SQL connection string.</summary>
         public static SqlConnection CreateConnection(string connectionString)
         {
-            return new SqlConnection(NormalizeConnectionString(connectionString));
+            var connection = new SqlConnection(NormalizeConnectionString(DiagnosticConnectionString ?? connectionString));
+            connection.StateChange += (sender, state) =>
+            {
+                if (state.CurrentState == System.Data.ConnectionState.Open)
+                    FinancialRecordProtection.StampActor(connection);
+            };
+            return connection;
         }
 
         /// <summary>Opens a configured SQL Server connection asynchronously for Task-based database flows.</summary>

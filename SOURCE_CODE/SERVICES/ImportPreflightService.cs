@@ -51,7 +51,7 @@ namespace HVAC_Pro_Desktop.Services
                 ClientNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.B2BClients','U') IS NOT NULL SELECT CompanyName FROM B2BClients ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
                 VendorNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Vendors','U') IS NOT NULL SELECT VendorName FROM Vendors ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
                 EmployeeNames = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Employees','U') IS NOT NULL SELECT Name FROM Employees ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
-                InvoiceNumbers = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Invoices','U') IS NOT NULL SELECT InvoiceNumber FROM Invoices ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
+                InvoiceNumbers = QueryStrings(conn, transaction, "IF OBJECT_ID('dbo.Invoices','U') IS NOT NULL SELECT InvoiceNumber FROM dbo.FinancialInvoices ELSE SELECT CAST(NULL AS NVARCHAR(255)) WHERE 1=0"),
                 ClientSiteKeys = QueryStrings(conn, transaction, @"
 IF OBJECT_ID('dbo.ClientSites','U') IS NOT NULL AND OBJECT_ID('dbo.B2BClients','U') IS NOT NULL
     SELECT c.CompanyName + N'||' + s.SiteName

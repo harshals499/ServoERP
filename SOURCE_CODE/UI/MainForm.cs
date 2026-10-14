@@ -41,6 +41,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button _btnAiCopilot;
         private AiAssistantForm _aiAssistantForm;
         private System.Windows.Forms.Timer _backupScheduleTimer;
+        private System.Windows.Forms.Timer _automaticUpdateTimer;
         private Label _lblExitBackupStatus;
         private bool _scheduledBackupRunning;
         private bool _closeBackupAttempted;
@@ -75,7 +76,6 @@ namespace HVAC_Pro_Desktop.UI
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
         private const int UserGuidePageIndex = 23;
-        private const int PorterDeliveriesPageIndex = 24;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -126,12 +126,11 @@ namespace HVAC_Pro_Desktop.UI
             ("AMC", "A"),
             ("Attendance", "A"),
             ("User Guide", "U"),
-            ("Porter Deliveries", "P"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, PorterDeliveriesPageIndex, 11, 1, 9, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -164,6 +163,9 @@ namespace HVAC_Pro_Desktop.UI
                 AgentSimulationService.Instance.ProgressChanged -= AgentSimulationProgressChanged;
                 DatabaseConnectionStateService.StateChanged -= DatabaseConnectionStateChanged;
                 DatabaseConnectionStateService.StopBackgroundMonitor();
+                _automaticUpdateTimer?.Stop();
+                _automaticUpdateTimer?.Dispose();
+                _automaticUpdateTimer = null;
             };
             UIHelper.ApplyInputStyles(Controls);
             UIHelper.ApplyGlobalScrollAndResize(this);
@@ -176,6 +178,13 @@ namespace HVAC_Pro_Desktop.UI
                 ApplyRBAC();
                 AppWarmupService.StartBackgroundWarmup();
                 BeginVersionCheck();
+                _automaticUpdateTimer = new System.Windows.Forms.Timer { Interval = 60000 };
+                _automaticUpdateTimer.Tick += (sender, args) =>
+                {
+                    if (SessionManager.IsLoggedIn)
+                        UpdateService.StartSilentBackgroundUpdateCheck(this, ShowDownloadedUpdateReadyBanner);
+                };
+                _automaticUpdateTimer.Start();
                 RefreshLicenseBanner();
                 DatabaseConnectionStateService.StartBackgroundMonitor();
                 StartBackupScheduler();
@@ -189,65 +198,12 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Shows English release notes once after the installed updater restarts ServoERP.</summary>
         private void ShowPostUpdateWhatsNew()
         {
-            if (!UpdateService.TryConsumePostUpdateNotice(out string version, out string text))
+            if (!UpdateService.TryGetPostUpdateNotice(out string version, out string text))
                 return;
 
-            using (var dialog = new WhatsNewDialog())
-            {
-                dialog.Text = BrandingService.WindowTitle("What's New");
-                dialog.StartPosition = FormStartPosition.CenterParent;
-                dialog.FormBorderStyle = FormBorderStyle.FixedDialog;
-                dialog.MaximizeBox = false;
-                dialog.MinimizeBox = false;
-                dialog.ClientSize = new Size(570, 360);
-                dialog.BackColor = DS.BgPage;
-
-                Label title = new Label
-                {
-                    Text = "ServoERP was updated successfully",
-                    Dock = DockStyle.Top,
-                    Height = 48,
-                    Padding = new Padding(22, 16, 22, 0),
-                    Font = new Font("Segoe UI", 15f, FontStyle.Bold),
-                    ForeColor = DS.Slate900
-                };
-                Label subtitle = new Label
-                {
-                    Text = "Version " + version,
-                    Dock = DockStyle.Top,
-                    Height = 28,
-                    Padding = new Padding(24, 0, 24, 0),
-                    Font = new Font("Segoe UI", 9f),
-                    ForeColor = DS.Slate600
-                };
-                TextBox notes = new TextBox
-                {
-                    Dock = DockStyle.Fill,
-                    Margin = new Padding(22),
-                    Multiline = true,
-                    ReadOnly = true,
-                    ScrollBars = ScrollBars.Vertical,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    BackColor = Color.White,
-                    ForeColor = DS.Slate800,
-                    Font = new Font("Segoe UI", 10f),
-                    Text = text
-                };
-                Button close = DS.PrimaryBtn("Got it", 112, 34);
-                close.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-                close.DialogResult = DialogResult.OK;
-                FlowLayoutPanel footer = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 56, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(0, 10, 22, 10), BackColor = DS.BgPage };
-                footer.Controls.Add(close);
-
-                Panel body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(22, 8, 22, 8), BackColor = DS.BgPage };
-                body.Controls.Add(notes);
-                dialog.Controls.Add(body);
-                dialog.Controls.Add(footer);
-                dialog.Controls.Add(subtitle);
-                dialog.Controls.Add(title);
-                dialog.AcceptButton = close;
+            using (var dialog = new ReleaseNotesDialog(version, text))
                 dialog.ShowDialog(this);
-            }
+            UpdateService.AcknowledgePostUpdateNotice(version);
         }
 
         /// <summary>Offers the optional private-server storage setup once without blocking normal work.</summary>
@@ -1404,12 +1360,15 @@ namespace HVAC_Pro_Desktop.UI
         {
             _btnGlobalRefresh = new Button
             {
+                Name = "SidebarRefreshPage",
+                Tag = "SidebarAction",
                 Text = LanguageManager.Get("Refresh Page"),
                 Dock = DockStyle.Top,
                 Height = _compactShell ? 32 : 36,
                 Width = Math.Max(1, GetSidebarWidth() - (_compactShell ? 28 : 36)),
                 Margin = new Padding(_compactShell ? 10 : 14, 0, _compactShell ? 10 : 14, 8),
-                BackColor = Color.FromArgb(34, 255, 255, 255),
+                BackColor = SbBg,
+                UseVisualStyleBackColor = false,
                 ForeColor = SbActiveText,
                 Font = new Font("Segoe UI", _compactShell ? 8.1f : 8.7f, FontStyle.Bold),
                 FlatStyle = FlatStyle.Flat,
@@ -1417,10 +1376,10 @@ namespace HVAC_Pro_Desktop.UI
                 Cursor = Cursors.Hand,
                 TabStop = false
             };
-            _btnGlobalRefresh.FlatAppearance.BorderColor = Color.FromArgb(72, 255, 255, 255);
-            _btnGlobalRefresh.FlatAppearance.BorderSize = 1;
-            _btnGlobalRefresh.FlatAppearance.MouseOverBackColor = Color.FromArgb(54, 255, 255, 255);
-            _btnGlobalRefresh.FlatAppearance.MouseDownBackColor = Color.FromArgb(82, 255, 255, 255);
+            _btnGlobalRefresh.FlatAppearance.BorderColor = SbBg;
+            _btnGlobalRefresh.FlatAppearance.BorderSize = 0;
+            _btnGlobalRefresh.FlatAppearance.MouseOverBackColor = DS.Primary600;
+            _btnGlobalRefresh.FlatAppearance.MouseDownBackColor = SbBgDeep;
             ModernIconSystem.AddButtonIcon(_btnGlobalRefresh, ModernIconKind.Refresh);
             _btnGlobalRefresh.Click += async (s, e) => await RefreshCurrentPageAsync();
             DS.Rounded(_btnGlobalRefresh, 8);
@@ -1712,7 +1671,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
                 case UserGuidePageIndex: return "\uE8A5"; // User Guide
-                case PorterDeliveriesPageIndex: return "\uE7C3"; // Delivery truck
                 default: return "\uE10F";
             }
         }
@@ -2329,7 +2287,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
                 case 18: page = new WhatsAppHubForm(); break;
-                case PorterDeliveriesPageIndex: page = new PorterDeliveriesForm(); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
                         _amcPage = new AMCPage();
@@ -2449,7 +2406,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
-            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex || index == PorterDeliveriesPageIndex
+            return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
                 || page is PaymentForm
@@ -3086,9 +3043,6 @@ namespace HVAC_Pro_Desktop.UI
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
-                case "PORTER":
-                case "PORTERDELIVERIES":
-                case "PORTER DELIVERIES": return PorterDeliveriesPageIndex;
                 default: return 0;
             }
         }
@@ -3118,7 +3072,6 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "MasterData";
                 case 18: return "Dashboard";
                 case UserGuidePageIndex: return "Dashboard";
-                case PorterDeliveriesPageIndex: return "WorkOrders";
                 case AMCPageIndex: return "Contracts";
                 default: return "Dashboard";
             }
@@ -3151,7 +3104,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BeginVersionCheck()
         {
-            if (!SessionManager.IsLoggedIn || _hideUpdateBannerForSession)
+            if (!SessionManager.IsLoggedIn)
                 return;
 
             UpdateService.EnsureSilentAutoUpdateDefaults();
@@ -3162,6 +3115,9 @@ namespace HVAC_Pro_Desktop.UI
                     ShowDownloadedUpdateReadyBanner);
                 return;
             }
+
+            if (_hideUpdateBannerForSession)
+                return;
 
             Task.Run(async () =>
             {
@@ -3386,13 +3342,6 @@ namespace HVAC_Pro_Desktop.UI
                 };
 
                 progressForm.ShowDialog(this);
-            }
-        }
-
-        private sealed class WhatsNewDialog : ServoERP.Infrastructure.ServoFormBase
-        {
-            public WhatsNewDialog()
-            {
             }
         }
 

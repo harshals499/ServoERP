@@ -520,7 +520,7 @@ namespace HVAC_Pro_Desktop.Services
                     FROM PurchaseLineItems pli
                     INNER JOIN PurchaseOrders p ON pli.POID = p.POID
                     INNER JOIN Vendors v ON p.VendorID = v.VendorID
-                    LEFT JOIN Jobs j ON pli.LinkedWorkOrderId = j.JobID
+                    LEFT JOIN dbo.ActiveJobs j ON pli.LinkedWorkOrderId = j.JobID
                     WHERE ISNULL(v.IsActive, 1) = 1
                       AND ISNULL(v.IsArchived, 0) = 0
                       AND ISNULL(v.IsSupplier, 1) = 1
@@ -801,7 +801,7 @@ namespace HVAC_Pro_Desktop.Services
                         END) AS FulfilmentPct
                     FROM PurchaseOrders p
                     LEFT JOIN PurchaseLineItems pli ON pli.POID = p.POID
-                    LEFT JOIN Jobs j ON pli.LinkedWorkOrderId = j.JobID
+                    LEFT JOIN dbo.ActiveJobs j ON pli.LinkedWorkOrderId = j.JobID
                     WHERE p.VendorID = @vendorId;", conn))
                 {
                     cmd.Parameters.AddWithValue("@vendorId", vendorId);

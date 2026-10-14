@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
@@ -46,7 +47,7 @@ namespace HVAC_Pro_Desktop.Services
 
     public static class UpdateService
     {
-        public const string DefaultGitHubRepositoryUrl = "https://github.com/harshals499/ServoERP";
+        public const string DefaultGitHubRepositoryUrl = "https://github.com/harshals499/ServoERP-Releases";
         private const string UpdatesFolder = @"C:\HVAC_PRO_MSE\UPDATES";
         private const string LogContext = "Velopack update";
         private const string PendingWhatsNewVersionKey = "PendingWhatsNewVersion";
@@ -54,17 +55,20 @@ namespace HVAC_Pro_Desktop.Services
         private const string LegacyPendingWhatsNewTextKey = "PendingWhatsNewTextMr";
         private const string SilentAutoUpdateModeKey = "SilentAutoUpdateMode";
         private const string AutomaticUpdatePolicyVersionKey = "AutomaticUpdatePolicyVersion";
-        private const string CurrentAutomaticUpdatePolicyVersion = "1";
+        private const string CurrentAutomaticUpdatePolicyVersion = "2";
         private const string SilentAutoUpdateAutomaticMode = "Automatic";
         private const string SilentAutoUpdateDisabledMode = "Disabled";
         private static readonly object SilentUpdateSync = new object();
         private static bool _silentUpdateWorkerRunning;
+        private static DateTime _lastSilentUpdateCheckUtc = DateTime.MinValue;
         private static UpdateCheckResult _downloadedSilentUpdate;
 
         public static string GetGitHubRepositoryUrl()
         {
             string configured = ConfigService.Get("App", "GitHubRepositoryUrl", DefaultGitHubRepositoryUrl);
-            return string.IsNullOrWhiteSpace(configured) ? DefaultGitHubRepositoryUrl : configured.Trim().TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(configured) || string.Equals(configured.Trim().TrimEnd('/'), "https://github.com/harshals499/ServoERP", StringComparison.OrdinalIgnoreCase))
+                return DefaultGitHubRepositoryUrl;
+            return configured.Trim().TrimEnd('/');
         }
 
         public static string GetCurrentAssemblyVersion()
@@ -103,18 +107,13 @@ namespace HVAC_Pro_Desktop.Services
                 return;
             }
 
-            if (!ShouldRunSilentUpdateCheck())
-            {
-                AppLogger.LogInfo(LogContext + " silent check skipped: interval not reached.");
-                return;
-            }
-
             lock (SilentUpdateSync)
             {
-                if (_silentUpdateWorkerRunning)
+                if (_silentUpdateWorkerRunning || !ShouldRunSilentUpdateCheck())
                     return;
 
                 _silentUpdateWorkerRunning = true;
+                _lastSilentUpdateCheckUtc = DateTime.UtcNow;
             }
 
             Task.Run(async () =>
@@ -122,12 +121,11 @@ namespace HVAC_Pro_Desktop.Services
                 UpdateCheckResult result = null;
                 try
                 {
-                    result = RunSilentUpdateCheckAndDownload();
+                    result = await RunSilentUpdateCheckAndDownloadAsync().ConfigureAwait(false);
                     if (result != null && result.IsUpdateAvailable && result.CanApplyUpdate)
                     {
                         SaveLastStatus("Update v" + result.LatestVersion + " downloaded in the background and will install when ServoERP closes.");
                         ServoERP.Infrastructure.UIThread.Post(owner, () => downloadedNotification?.Invoke(result));
-                        await Task.CompletedTask.ConfigureAwait(false);
                     }
                 }
                 catch (Exception ex)
@@ -247,7 +245,7 @@ namespace HVAC_Pro_Desktop.Services
                 LatestVersion = currentVersion,
                 DownloadUrl = GetGitHubRepositoryUrl() + "/releases/latest",
                 PackageUrl = string.Empty,
-                ChangelogText = string.Empty,
+                ChangelogText = GetInstalledReleaseNotesText(),
                 StatusMessage = "No update checked yet.",
                 IsUpdateAvailable = false,
                 CanApplyUpdate = false
@@ -316,16 +314,23 @@ namespace HVAC_Pro_Desktop.Services
             }
         }
 
-        /// <summary>Runs the silent update check and download on a BackgroundWorker thread.</summary>
-        private static UpdateCheckResult RunSilentUpdateCheckAndDownload()
+        /// <summary>Checks and downloads without blocking the UI thread.</summary>
+        private static async Task<UpdateCheckResult> RunSilentUpdateCheckAndDownloadAsync()
         {
             MarkSilentUpdateCheckAttempt();
-            UpdateCheckResult result = CheckForUpdatesAsync(CancellationToken.None).GetAwaiter().GetResult();
+            UpdateCheckResult result = await CheckForUpdatesAsync(CancellationToken.None).ConfigureAwait(false);
             if (result == null || !result.IsUpdateAvailable || !result.CanApplyUpdate)
                 return result;
 
+            lock (SilentUpdateSync)
+            {
+                if (_downloadedSilentUpdate != null &&
+                    string.Equals(_downloadedSilentUpdate.LatestVersion, result.LatestVersion, StringComparison.OrdinalIgnoreCase))
+                    return null;
+            }
+
             AppLogger.LogInfo(LogContext + " silent download starting. latest=" + result.LatestVersion);
-            DownloadUpdatePackageAsync(result, null, CancellationToken.None).GetAwaiter().GetResult();
+            await DownloadUpdatePackageAsync(result, null, CancellationToken.None).ConfigureAwait(false);
             BackupConfigurationFiles(result.LatestVersion);
 
             lock (SilentUpdateSync)
@@ -342,13 +347,9 @@ namespace HVAC_Pro_Desktop.Services
         /// <summary>Checks the configured silent update interval.</summary>
         private static bool ShouldRunSilentUpdateCheck()
         {
-            string raw = ConfigService.Get("App", "LastSilentUpdateCheckUtc", string.Empty);
-            DateTime lastCheckUtc;
-            if (!DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out lastCheckUtc))
-                return true;
-
-            int intervalHours = ConfigService.GetVersionCheckIntervalHours();
-            return DateTime.UtcNow.Subtract(lastCheckUtc).TotalHours >= intervalHours;
+            // Check immediately in every new process, then retry every five minutes.
+            // Persisted 24-hour checks must not suppress discovery of a newly published release.
+            return DateTime.UtcNow.Subtract(_lastSilentUpdateCheckUtc).TotalMinutes >= 5;
         }
 
         /// <summary>Records a silent update check attempt before network work starts.</summary>
@@ -413,18 +414,69 @@ namespace HVAC_Pro_Desktop.Services
         /// <summary>Returns the English What's New notice once after a successful Velopack restart.</summary>
         public static bool TryConsumePostUpdateNotice(out string version, out string text)
         {
-            version = ConfigService.Get("App", PendingWhatsNewVersionKey, string.Empty).Trim();
-            text = ConfigService.Get("App", PendingWhatsNewTextKey, string.Empty).Trim();
-            if (string.IsNullOrWhiteSpace(text) && !string.IsNullOrWhiteSpace(ConfigService.Get("App", LegacyPendingWhatsNewTextKey, string.Empty)))
-                text = BuildEnglishWhatsNewText(version, string.Empty);
-            string current = GetCurrentAssemblyVersion();
-            if (string.IsNullOrWhiteSpace(version) || string.IsNullOrWhiteSpace(text) || !string.Equals(version, current, StringComparison.OrdinalIgnoreCase))
-                return false;
-
-            ConfigService.Set("App", PendingWhatsNewVersionKey, string.Empty);
-            ConfigService.Set("App", PendingWhatsNewTextKey, string.Empty);
-            ConfigService.Set("App", LegacyPendingWhatsNewTextKey, string.Empty);
+            if (!TryGetPostUpdateNotice(out version, out text)) return false;
+            AcknowledgePostUpdateNotice(version);
             return true;
+        }
+
+        internal static bool TryGetPostUpdateNotice(out string version, out string text)
+        {
+            version = GetCurrentAssemblyVersion();
+            string pendingVersion = ConfigService.Get("App", PendingWhatsNewVersionKey, string.Empty);
+            string seenVersion = ConfigService.Get("App", "LastSeenReleaseNotesVersion", string.Empty);
+            if (!ShouldShowReleaseNotice(version, seenVersion, pendingVersion))
+            {
+                text = string.Empty;
+                return false;
+            }
+            // Bundled notes are authoritative for the installed binary, even after a manual update.
+            text = GetInstalledReleaseNotesText();
+            return true;
+        }
+
+        internal static bool ShouldShowReleaseNotice(string current, string seen, string pending)
+        {
+            return !AreReleaseVersionsEqual(current, seen) || AreReleaseVersionsEqual(current, pending);
+        }
+
+        internal static bool AreReleaseVersionsEqual(string first, string second)
+        {
+            Version firstVersion;
+            Version secondVersion;
+            return TryParseComparableVersion(first, out firstVersion) &&
+                TryParseComparableVersion(second, out secondVersion) && firstVersion == secondVersion;
+        }
+
+        internal static void AcknowledgePostUpdateNotice(string version)
+        {
+            if (!AreReleaseVersionsEqual(version, GetCurrentAssemblyVersion())) return;
+            ConfigService.SetValues("App", new Dictionary<string, string>
+            {
+                { "LastSeenReleaseNotesVersion", GetCurrentAssemblyVersion() },
+                { PendingWhatsNewVersionKey, string.Empty },
+                { PendingWhatsNewTextKey, string.Empty },
+                { LegacyPendingWhatsNewTextKey, string.Empty }
+            });
+        }
+
+        internal static string GetInstalledReleaseNotesText()
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("ServoERP.ReleaseNotes.Current.md"))
+            {
+                if (stream == null)
+                    throw new InvalidOperationException("This ServoERP build is missing its required release notes.");
+                using (var reader = new StreamReader(stream))
+                {
+                    string notes = reader.ReadToEnd();
+                    if (string.IsNullOrWhiteSpace(notes))
+                        throw new InvalidOperationException("This ServoERP build contains empty release notes.");
+                    // Display the customer-facing summary and changes; the published file has deployment details.
+                    int start = notes.IndexOf("## User-facing summary", StringComparison.OrdinalIgnoreCase);
+                    int end = notes.IndexOf("## Affected modules", StringComparison.OrdinalIgnoreCase);
+                    if (start >= 0 && end > start) notes = notes.Substring(start, end - start);
+                    return BuildEnglishWhatsNewText(GetCurrentAssemblyVersion(), notes);
+                }
+            }
         }
 
         public static void StartPackageUpdater(string packagePath)
@@ -606,6 +658,7 @@ namespace HVAC_Pro_Desktop.Services
 
         private static void BackupConfigurationFiles(string version)
         {
+            ConfigService.EnsureLocalConfigFile();
             try
             {
                 string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture);
@@ -614,6 +667,10 @@ namespace HVAC_Pro_Desktop.Services
                 Directory.CreateDirectory(backupDir);
 
                 CopyIfExists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config"), Path.Combine(backupDir, "HVACPro.config"));
+                string persistentConfig = ConfigService.ResolveConfigPath();
+                if (!File.Exists(persistentConfig))
+                    throw new InvalidOperationException("Persistent ServoERP configuration is missing. Open ServoERP before applying this update.");
+                CopyIfExists(persistentConfig, Path.Combine(backupDir, "HVACPro.persistent.config"));
                 CopyIfExists(@"C:\HVAC_PRO_MSE\HVACPro.config", Path.Combine(backupDir, "HVACPro.root.config"));
                 CopyIfExists(AppDomain.CurrentDomain.SetupInformation.ConfigurationFile, Path.Combine(backupDir, "HVAC_Pro_Desktop.exe.config"));
                 AppLogger.LogInfo(LogContext + " config backup created: " + backupDir);
@@ -637,14 +694,14 @@ namespace HVAC_Pro_Desktop.Services
         private static string BuildChangelogText(UpdateInfo update)
         {
             if (update == null || update.TargetFullRelease == null)
-                return "No release notes were provided for this version.";
+                return "Release details are available from the ServoERP GitHub Releases page.";
 
             string notes = update.TargetFullRelease.NotesMarkdown;
             if (string.IsNullOrWhiteSpace(notes))
                 notes = update.TargetFullRelease.NotesHTML;
 
             return string.IsNullOrWhiteSpace(notes)
-                ? "No release notes were provided for this version."
+                ? "Release details for version " + update.TargetFullRelease.Version + " are available from the ServoERP GitHub Releases page."
                 : notes.Trim();
         }
 
@@ -652,9 +709,12 @@ namespace HVAC_Pro_Desktop.Services
         {
             try
             {
-                ConfigService.Set("App", PendingWhatsNewVersionKey, version ?? string.Empty);
-                ConfigService.Set("App", PendingWhatsNewTextKey, BuildEnglishWhatsNewText(version, releaseNotes));
-                ConfigService.Set("App", LegacyPendingWhatsNewTextKey, string.Empty);
+                ConfigService.SetValues("App", new Dictionary<string, string>
+                {
+                    { PendingWhatsNewVersionKey, version ?? string.Empty },
+                    { PendingWhatsNewTextKey, BuildEnglishWhatsNewText(version, releaseNotes) },
+                    { LegacyPendingWhatsNewTextKey, string.Empty }
+                });
             }
             catch (Exception ex)
             {
@@ -680,13 +740,14 @@ namespace HVAC_Pro_Desktop.Services
                 .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(line => line.Trim())
                 .Where(line => line.Length > 0 && !ContainsDevanagari(line))
+                .Select(line => line.TrimStart('#').Trim().Replace("**", string.Empty))
                 .ToArray();
             notes = string.Join("\r\n", englishLines);
 
             if (string.IsNullOrWhiteSpace(notes))
-                notes = "- Performance, stability, and security improvements.";
+                notes = "Release details are available from the ServoERP GitHub Releases page.";
 
-            return "ServoERP version " + (version ?? string.Empty) + " was updated successfully.\r\n\r\nWhat's new:\r\n" + notes;
+            return "ServoERP version " + (version ?? string.Empty) + "\r\n\r\nWhat's new:\r\n" + notes;
         }
 
         private static bool ContainsDevanagari(string value)

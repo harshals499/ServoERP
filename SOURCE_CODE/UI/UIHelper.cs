@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -63,6 +63,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void ApplyInputStyle(Control ctrl)
         {
+            if (DashboardForm.OwnsDashboardPresentation(ctrl)) return;
             if (IsInsideCustomInputShell(ctrl))
                 return;
 
@@ -189,6 +190,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ConfigureButtonAlignment(Control control)
         {
+            if (DashboardForm.OwnsDashboardPresentation(control)) return;
+            // Pagination owns its responsive geometry and current-page appearance.
+            if (control is Controls.GlobalPaginationControl) return;
             if (control == null || control.IsDisposed)
                 return;
 
@@ -1458,7 +1462,8 @@ namespace HVAC_Pro_Desktop.UI
             if (button == null)
                 return false;
 
-            return string.Equals(button.GetType().Name, "SidebarNavButton", StringComparison.Ordinal) ||
+            return string.Equals(button.Tag as string, "SidebarAction", StringComparison.Ordinal) ||
+                   string.Equals(button.GetType().Name, "SidebarNavButton", StringComparison.Ordinal) ||
                    button.Tag is int && button.Parent != null && button.Parent.GetType().Name.IndexOf("Panel", StringComparison.OrdinalIgnoreCase) >= 0 &&
                    button.AccessibleName != null;
         }

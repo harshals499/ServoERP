@@ -145,11 +145,11 @@ SELECT
 FROM dbo.Jobs j
 LEFT JOIN dbo.B2BClients c ON c.ClientID = j.ClientID
 LEFT JOIN dbo.ClientSites s ON s.SiteID = j.SiteID
-LEFT JOIN dbo.Invoices i ON i.InvoiceID = j.InvoiceId
+LEFT JOIN dbo.FinancialInvoices i ON i.InvoiceID = j.InvoiceId
 OUTER APPLY (
     SELECT SUM(li.Amount) AS Amount
     FROM dbo.InvoiceLineItems li
-    INNER JOIN dbo.Invoices linkedInvoice ON linkedInvoice.InvoiceID = li.InvoiceID
+    INNER JOIN dbo.FinancialInvoices linkedInvoice ON linkedInvoice.InvoiceID = li.InvoiceID
     WHERE li.JobID = j.JobID
       AND linkedInvoice.PaymentStatus <> 'Cancelled'
 ) lineRevenue
@@ -203,7 +203,7 @@ SELECT
     COALESCE(generalPurchases.Amount, 0) + COALESCE(manualOpex.Amount, 0) AS OperatingExpenses
 FROM Months m
 OUTER APPLY (
-    SELECT SUM(i.SubTotal) AS Amount FROM dbo.Invoices i
+    SELECT SUM(i.SubTotal) AS Amount FROM dbo.FinancialInvoices i
     WHERE i.InvoiceDate >= m.MonthStart AND i.InvoiceDate < DATEADD(MONTH, 1, m.MonthStart)
       AND i.PaymentStatus <> 'Cancelled'
 ) revenue

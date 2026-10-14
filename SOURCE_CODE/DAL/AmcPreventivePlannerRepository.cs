@@ -66,7 +66,7 @@ FROM (
     GROUP BY CAST(ScheduledDate AS date)
     UNION ALL
     SELECT CAST(ScheduledDate AS date) AS WorkDate, COUNT(1) AS ItemCount
-    FROM Jobs
+    FROM dbo.ActiveJobs
     WHERE ScheduledDate BETWEEN @fromDate AND @toDate
       AND ISNULL(NULLIF(PipelineStatus,''),Status) NOT IN ('Cancelled','Closed','Completed','Invoiced')
     GROUP BY CAST(ScheduledDate AS date)

@@ -101,6 +101,17 @@ namespace HVAC_Pro_Desktop.Services
             if (invoice == null)
                 return Fail("Invoice record was not found.");
 
+            if (invoice.IsDeleted) return Fail("This invoice is archived. Restore it before changing its status.");
+            if (!invoice.IsPosted && !string.Equals(choice.StoredValue, "Draft", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.Equals(choice.StoredValue, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                {
+                    new InvoiceService().CancelInvoice(invoiceId);
+                    return Success(choice);
+                }
+                new InvoiceService().FinalizeInvoice(invoiceId);
+                invoice = _invoiceRepo.GetById(invoiceId);
+            }
             decimal paidAmount = invoice.PaidAmount;
             if (string.Equals(choice.StoredValue, "Paid", StringComparison.OrdinalIgnoreCase))
                 paidAmount = invoice.TotalAmount;

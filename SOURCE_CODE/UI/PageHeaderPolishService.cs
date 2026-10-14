@@ -41,6 +41,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ApplyRecursive(Control control, int depth)
         {
+            if (WorkspaceHeaderPanel.Owns(control)) return;
             if (control == null || control.IsDisposed)
                 return;
 

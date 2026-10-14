@@ -167,6 +167,7 @@ VALUES (@vendor, @number, GETDATE(), GETDATE(), 0, 0, 'Fully Received', @notes);
                 using (SqlConnection conn = new SqlConnection(DatabaseManager.RequireConfiguredConnectionString()))
                 {
                     conn.Open();
+                    FinancialRecordProtection.SetMaintenance(conn);
                     Execute(conn, "DELETE FROM Payments WHERE ReferenceNumber LIKE @token OR InvoiceID=@invoiceId", token + "%", invoiceId);
                     Execute(conn, "DELETE FROM InvoiceLineItems WHERE InvoiceID=@invoiceId", token, invoiceId);
                     Execute(conn, "DELETE FROM Invoices WHERE InvoiceID=@invoiceId", token, invoiceId);

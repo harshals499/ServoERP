@@ -144,7 +144,7 @@ if (-not [Version]::TryParse($Version, [ref]$parsedVersion)) {
 }
 
 $semVersion = "{0}.{1}.{2}" -f $parsedVersion.Major, $parsedVersion.Minor, $parsedVersion.Build
-$githubPackageUrl = "https://github.com/harshals499/ServoERP/releases/download/v$semVersion/ServoERP.Desktop-$semVersion-full.nupkg"
+$githubPackageUrl = "https://github.com/harshals499/ServoERP-Releases/releases/download/v$semVersion/ServoERP.Desktop-$semVersion-full.nupkg"
 
 Write-Host "Preparing ServoERP release $Version"
 

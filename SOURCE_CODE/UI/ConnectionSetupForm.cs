@@ -1,5 +1,6 @@
 using System;
-using System.Configuration;
+using System.Collections.Generic;
+using System.IO;
 using System.Data.SqlClient;
 using System.Drawing;
 using System.Windows.Forms;
@@ -384,6 +385,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SaveConnection()
         {
+            string configPath = ConfigService.ResolveConfigPath();
+            byte[] previousConfig = null;
+            bool settingsWritten = false;
+            bool settingsVerified = false;
             try
             {
                 string connectionString = BuildConnectionString();
@@ -394,23 +399,10 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 }
 
-                Configuration config = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
-                ConnectionStringSettings setting = config.ConnectionStrings.ConnectionStrings[ConnectionStringName];
-                if (setting == null)
-                {
-                    config.ConnectionStrings.ConnectionStrings.Add(
-                        new ConnectionStringSettings(ConnectionStringName, connectionString, "System.Data.SqlClient"));
-                }
-                else
-                {
-                    setting.ConnectionString = connectionString;
-                    setting.ProviderName = "System.Data.SqlClient";
-                }
-
-                config.Save(ConfigurationSaveMode.Modified);
-                ConfigurationManager.RefreshSection("connectionStrings");
+                ConfigService.EnsureLocalConfigFile();
+                previousConfig = File.Exists(configPath) ? File.ReadAllBytes(configPath) : null;
+                settingsWritten = true;
                 SaveInstallerDatabaseConfig(connectionString);
-                ConfigService.Set("Database", "ServerRole", _rbPrivateServer.Checked ? "ClientPC" : "LocalSqlServer");
 
                 string persistedConnectionString = DatabaseManager.GetConfiguredConnectionString();
                 DatabaseConnectionTestResult persistedResult = DatabaseConnectionFactory
@@ -420,6 +412,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!persistedResult.Success)
                     throw new InvalidOperationException("The connection tested successfully, but the saved credentials could not be verified. " + persistedResult.Message);
 
+                settingsVerified = true;
                 OfficeDatabaseHandshakeService.VerifyAndPin(persistedConnectionString);
                 NodeIdentityService.EnsureRegistered();
                 AppRuntime.LogConnection("Connection string saved and verified.");
@@ -434,6 +427,32 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
+                if (settingsWritten && !settingsVerified)
+                {
+                    try
+                    {
+                        if (previousConfig == null)
+                            File.Delete(configPath);
+                        else
+                        {
+                            string rollbackPath = configPath + ".rollback-" + Guid.NewGuid().ToString("N");
+                            try
+                            {
+                                File.WriteAllBytes(rollbackPath, previousConfig);
+                                File.Replace(rollbackPath, configPath, null);
+                            }
+                            finally
+                            {
+                                if (File.Exists(rollbackPath)) File.Delete(rollbackPath);
+                            }
+                        }
+                    }
+                    catch (Exception rollbackError)
+                    {
+                        AppRuntime.LogException("ConnectionSetupForm.RestoreConnection", rollbackError);
+                        ex = new InvalidOperationException(ex.Message + " Previous settings could not be restored; review Database Connection Setup.", rollbackError);
+                    }
+                }
                 _lblStatus.ForeColor = Color.Firebrick;
                 _lblStatus.Text = "Save failed: " + ex.Message;
                 AppRuntime.LogException("ConnectionSetupForm.SaveConnection", ex);
@@ -507,16 +526,19 @@ namespace HVAC_Pro_Desktop.UI
                 "Enter the server name and SQL instance separately. Example: Server IP / Name = PC-5, Instance = SQLEXPRESS.");
         }
 
-        private static void SaveInstallerDatabaseConfig(string connectionString)
+        private void SaveInstallerDatabaseConfig(string connectionString)
         {
             var builder = new SqlConnectionStringBuilder(connectionString);
-            ConfigService.Set("Database", "Server", builder.DataSource ?? string.Empty);
-            ConfigService.Set("Database", "DatabaseName", builder.InitialCatalog ?? string.Empty);
-            ConfigService.Set("Database", "UseWindowsAuth", builder.IntegratedSecurity ? "true" : "false");
-            ConfigService.Set("Database", "Username", builder.IntegratedSecurity ? string.Empty : builder.UserID ?? string.Empty);
-            ConfigService.Set("Database", "Password", builder.IntegratedSecurity ? string.Empty : HVAC_Pro_Desktop.Helpers.SecureStorageHelper.ProtectMachineText(builder.Password ?? string.Empty));
-            DatabaseConnectionFactory.SetConfiguredMaxPoolSize(builder.MaxPoolSize);
-            ConfigService.Set("Database", "ServerRole", "AlwaysOnOfficeServer");
+            ConfigService.SetValues("Database", new Dictionary<string, string>
+            {
+                { "Server", builder.DataSource ?? string.Empty },
+                { "DatabaseName", builder.InitialCatalog ?? string.Empty },
+                { "UseWindowsAuth", builder.IntegratedSecurity ? "true" : "false" },
+                { "Username", builder.IntegratedSecurity ? string.Empty : builder.UserID ?? string.Empty },
+                { "Password", builder.IntegratedSecurity ? string.Empty : HVAC_Pro_Desktop.Helpers.SecureStorageHelper.ProtectMachineText(builder.Password ?? string.Empty) },
+                { "MaxPoolSize", builder.MaxPoolSize.ToString(System.Globalization.CultureInfo.InvariantCulture) },
+                { "ServerRole", _rbPrivateServer.Checked ? "ClientPC" : "LocalSqlServer" }
+            });
             ConfigService.Set("Fallback", "Mode", "LocalSQLiteDiagnostics");
             ConfigService.Set("Fallback", "SqlitePath", LocalSqliteFallbackStore.GetDatabasePath());
             ConfigService.Set("Fallback", "AllowBusinessWrites", "false");

@@ -262,13 +262,13 @@ END");
                     sql = "SELECT CONVERT(varchar(30), BidID) RecordID, QuotationNumber, QuotationNumber DisplayName FROM Quotations q WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Quotations' AND a.DuplicateRecordID=CONVERT(varchar(30),q.BidID))";
                     break;
                 case ExcelImportModule.Invoices:
-                    sql = "SELECT CONVERT(varchar(30), InvoiceID) RecordID, InvoiceNumber, InvoiceNumber DisplayName FROM Invoices i WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Invoices' AND a.DuplicateRecordID=CONVERT(varchar(30),i.InvoiceID))";
+                    sql = "SELECT CONVERT(varchar(30), InvoiceID) RecordID, InvoiceNumber, InvoiceNumber DisplayName FROM dbo.FinancialInvoices i WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Invoices' AND a.DuplicateRecordID=CONVERT(varchar(30),i.InvoiceID))";
                     break;
                 case ExcelImportModule.Payments:
                     sql = @"SELECT CONVERT(varchar(30), p.PaymentID) RecordID, p.PaymentDate, i.InvoiceNumber,
                                    p.AmountPaid, p.ReferenceNumber
                             , ISNULL(NULLIF(p.ReferenceNumber,''),'Payment #'+CONVERT(varchar(30),p.PaymentID)) DisplayName
-                            FROM Payments p LEFT JOIN Invoices i ON i.InvoiceID=p.InvoiceID
+                            FROM Payments p LEFT JOIN dbo.FinancialInvoices i ON i.InvoiceID=p.InvoiceID
                             WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Payments' AND a.DuplicateRecordID=CONVERT(varchar(30),p.PaymentID))";
                     break;
                 case ExcelImportModule.Purchases:
@@ -282,7 +282,7 @@ END");
                 case ExcelImportModule.Jobs:
                     sql = @"SELECT CONVERT(varchar(30), j.JobID) RecordID, c.CompanyName ClientName,
                                    s.SiteName, j.ScheduledDate, j.Description, ISNULL(NULLIF(j.Description,''),'Job #'+CONVERT(varchar(30),j.JobID)) DisplayName
-                            FROM Jobs j
+                            FROM dbo.ActiveJobs j
                             LEFT JOIN B2BClients c ON c.ClientID=j.ClientID
                             LEFT JOIN ClientSites s ON s.SiteID=j.SiteID
                             WHERE NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Jobs' AND a.DuplicateRecordID=CONVERT(varchar(30),j.JobID))";
@@ -471,6 +471,10 @@ END");
             string normalized = Normalize(name);
             return !name.Any(char.IsLetter) || IsPlaceholder(normalized)
                 || normalized.StartsWith("QUOTATIONISVALID", StringComparison.Ordinal)
+                || normalized.StartsWith("QUOTATIONVALID", StringComparison.Ordinal)
+                || normalized.StartsWith("QUOTEISVALID", StringComparison.Ordinal)
+                || normalized.StartsWith("VALIDITYOFQUOTATION", StringComparison.Ordinal)
+                || normalized.StartsWith("TERMSANDCONDITIONS", StringComparison.Ordinal)
                 || normalized == "TERMSANDCONDITIONS" || normalized == "GRANDTOTAL"
                 || normalized == "SUBTOTAL" || normalized == "CLIENTNAME";
         }

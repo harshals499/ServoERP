@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
@@ -23,11 +23,19 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DataGridView _records = new DataGridView();
         private readonly ComboBox _target = new ComboBox();
         private readonly Button _repair = new Button();
+        private readonly Button _archive = new Button();
+        private readonly CheckBox _showAll = new CheckBox { Text = "Show all clients for manual review", AutoSize = true, Dock = DockStyle.Left };
+        private sealed class LinkedCounts
+        {
+            public int ClientID { get; set; }
+            public int Invoices { get; set; }
+            public int Jobs { get; set; }
+        }
         public bool ChangesApplied { get; private set; }
 
         public ClientImportRepairDialog()
         {
-            Text = "Review Client Import Records";
+            Text = "Review Unknown Client Names";
             Size = new Size(960, 600);
             MinimumSize = new Size(800, 480);
             StartPosition = FormStartPosition.CenterParent;
@@ -36,7 +44,7 @@ namespace HVAC_Pro_Desktop.UI
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            root.Controls.Add(new Label { Dock = DockStyle.Fill, Text = "Review suspected numeric rows, workbook headings and quotation terms imported as clients. Select records, then choose the correct client. Linked documents move together; quotation numbers and amounts are preserved. No record is changed automatically." }, 0, 0);
+            root.Controls.Add(new Label { Dock = DockStyle.Fill, Text = "Review numbers, quotation text and clients missing contact details. These are suggestions, not proof of an invalid client. Select unwanted names to delete from client lists; existing invoices and jobs stay linked. Nothing is deleted automatically." }, 0, 0);
             _records.Dock = DockStyle.Fill;
             _records.ReadOnly = true;
             _records.AllowUserToAddRows = false;
@@ -46,8 +54,14 @@ namespace HVAC_Pro_Desktop.UI
             _records.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             _records.Columns.Add("ClientId", "ID");
             _records.Columns.Add("Name", "Suspected client");
+            _records.Columns.Add("Reason", "Review reason");
+            _records.Columns.Add("Invoices", "Invoices");
+            _records.Columns.Add("Jobs", "Jobs");
             _records.Columns.Add("Quotes", "Linked quotations / amounts (INR)");
-            _records.Columns["Quotes"].FillWeight = 220;
+            _records.Columns["Quotes"].FillWeight = 150;
+            _records.Columns["ClientId"].FillWeight = 35;
+            _records.Columns["Invoices"].FillWeight = 45;
+            _records.Columns["Jobs"].FillWeight = 45;
             var selectionPanel = new Panel { Dock = DockStyle.Fill };
             selectionPanel.Controls.Add(_records);
             selectionPanel.Controls.Add(WorkspaceActionUi.CreateSelectionActions(_records));
@@ -66,6 +80,10 @@ namespace HVAC_Pro_Desktop.UI
                     row.Visible = string.IsNullOrEmpty(query) || row.Cells.Cast<DataGridViewCell>().Any(cell => Convert.ToString(cell.Value).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0);
             };
             selectionPanel.Controls.Add(filterBar);
+            var reviewOptions = new Panel { Dock = DockStyle.Top, Height = 30 };
+            reviewOptions.Controls.Add(_showAll);
+            selectionPanel.Controls.Add(reviewOptions);
+            _showAll.CheckedChanged += async (sender, args) => await ReloadAsync();
             root.Controls.Add(selectionPanel, 0, 1);
             _target.DropDownStyle = ComboBoxStyle.DropDownList;
             _target.Dock = DockStyle.Fill;
@@ -83,11 +101,15 @@ namespace HVAC_Pro_Desktop.UI
             _repair.Dock = DockStyle.Right;
             _repair.Width = 290;
             _repair.Click += async (sender, args) => await RepairAsync();
+            _archive.Text = "Delete selected names";
+            _archive.Dock = DockStyle.Right;
+            _archive.Width = 190;
+            _archive.Click += async (sender, args) => await ArchiveAsync();
             var actionBar = new Panel { Dock = DockStyle.Fill };
             var close = DS.GhostBtn("Close", 100, 34);
             close.Dock = DockStyle.Left;
             close.Click += (sender, args) => Close();
-            actionBar.Controls.Add(close); actionBar.Controls.Add(_repair);
+            actionBar.Controls.Add(close); actionBar.Controls.Add(_repair); actionBar.Controls.Add(_archive);
             root.Controls.Add(actionBar, 0, 3);
             Controls.Add(root);
             Shown += async (sender, args) => await ReloadAsync();
@@ -96,6 +118,8 @@ namespace HVAC_Pro_Desktop.UI
         private async Task ReloadAsync()
         {
             _repair.Enabled = false;
+            _archive.Enabled = false;
+            _showAll.Enabled = false;
             try
             {
                 var payload = await Task.Run(() =>
@@ -107,24 +131,72 @@ namespace HVAC_Pro_Desktop.UI
                         var clients = connection.Query<B2BClient>(@"SELECT * FROM B2BClients c WHERE NOT EXISTS
 (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Clients' AND a.DuplicateRecordID=CONVERT(varchar(30),c.ClientID)) ORDER BY CompanyName").ToList();
                         var quotations = connection.Query<QuoteIdentity>(@"SELECT ClientID, QuotationNumber, BidValue FROM Quotations").ToList();
-                        return new { clients, quotations };
+                        var counts = connection.Query<LinkedCounts>(@"SELECT c.ClientID,
+(SELECT COUNT(*) FROM dbo.FinancialInvoices i WHERE i.ClientID=c.ClientID) Invoices,
+(SELECT COUNT(*) FROM dbo.ActiveJobs j WHERE j.ClientID=c.ClientID) Jobs FROM B2BClients c").ToDictionary(c => c.ClientID);
+                        return new { clients, quotations, counts };
                     }
                 });
                 if (IsDisposed) return;
                 _records.Rows.Clear();
-                foreach (var client in payload.clients.Where(c => SmartImportDuplicateDetector.IsSuspectClientName(c.CompanyName)))
+                foreach (var client in payload.clients.Where(c => _showAll.Checked || ReviewReason(c) != null))
                 {
                     string quotes = string.Join("; ", payload.quotations.Where(q => q.ClientID != null && (int)q.ClientID == client.ClientID)
                         .Select(q => (string)q.QuotationNumber + " / " + Convert.ToDecimal(q.BidValue ?? 0m).ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("en-IN"))));
-                    _records.Rows.Add(client.ClientID, client.CompanyName, quotes.Length == 0 ? "No linked quotations" : quotes);
+                    LinkedCounts counts;
+                    payload.counts.TryGetValue(client.ClientID, out counts);
+                    _records.Rows.Add(client.ClientID, client.CompanyName, ReviewReason(client) ?? "Manual review", counts == null ? 0 : counts.Invoices, counts == null ? 0 : counts.Jobs, quotes.Length == 0 ? "No linked quotations" : quotes);
                 }
                 _records.ClearSelection();
                 _target.DataSource = payload.clients.Where(c => !SmartImportDuplicateDetector.IsSuspectClientName(c.CompanyName) && c.IsActive).ToList();
                 _target.SelectedIndex = -1;
-                _status.Text = _records.Rows.Count == 0 ? "No suspected quotation artifacts found in this database." : _records.Rows.Count + " suspected client records. Choose the correct client below:";
+                _status.Text = _records.Rows.Count + " client(s) for review. Delete selected names, or choose a correct client below to relink:";
                 _repair.Enabled = _records.Rows.Count > 0;
+                _archive.Enabled = _records.Rows.Count > 0;
             }
             catch (Exception ex) { AppRuntime.ShowRecoverableError(Text, "Loading client import review", ex); }
+            finally { if (!IsDisposed) _showAll.Enabled = true; }
+        }
+
+        private static string ReviewReason(B2BClient client)
+        {
+            if (SmartImportDuplicateDetector.IsSuspectClientName(client.CompanyName))
+                return "Number, heading or quotation text";
+            if (string.IsNullOrWhiteSpace(client.PrimaryContact) && string.IsNullOrWhiteSpace(client.Phone)
+                && string.IsNullOrWhiteSpace(client.Email) && string.IsNullOrWhiteSpace(client.GSTNumber))
+                return "No contact, phone, email or GSTIN";
+            return null;
+        }
+
+        private async Task ArchiveAsync()
+        {
+            var rows = _records.SelectedRows.Cast<DataGridViewRow>().Where(row => row.Visible).ToList();
+            if (rows.Count == 0)
+            {
+                MessageBox.Show(this, "Select the unwanted client names first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            string names = string.Join("\n", rows.Take(12).Select(row => Convert.ToString(row.Cells["Name"].Value)));
+            if (rows.Count > 12) names += "\nAnd " + (rows.Count - 12) + " more selected names.";
+            if (!ServoConfirmDialog.Show(this, "Delete " + rows.Count + " selected client name(s) from client lists?",
+                names + "\n\nThe clients will be archived. Existing invoices, jobs, payments, sites and contracts keep their original client links and amounts.")) return;
+            _archive.Enabled = _repair.Enabled = _showAll.Enabled = false;
+            try
+            {
+                SessionManager.DemandPermission("Clients", "Delete");
+                var ids = rows.Select(row => Convert.ToInt32(row.Cells["ClientId"].Value)).ToList();
+                await Task.Run(() =>
+                {
+                    var service = new ClientService();
+                    foreach (int id in ids) { service.DeleteClient(id); ChangesApplied = true; }
+                });
+                await ReloadAsync();
+            }
+            catch (Exception ex)
+            {
+                AppRuntime.ShowRecoverableError(Text, "Archiving selected client names", ex);
+                await ReloadAsync();
+            }
         }
 
         private async Task RepairAsync()
@@ -138,7 +210,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (!ServoConfirmDialog.Show(this, "Relink " + ids.Count + " suspected client record(s) to " + client.CompanyName + " and archive them?",
                 "All linked business records move to this client. Quotation numbers and amounts remain unchanged. Review the selected documents before confirming.")) return;
-            _repair.Enabled = false;
+            _repair.Enabled = _archive.Enabled = _showAll.Enabled = false;
             try
             {
                 SessionManager.DemandPermission("Clients", "Edit");
@@ -147,7 +219,7 @@ namespace HVAC_Pro_Desktop.UI
                 AppDataCache.RemovePrefix("clients:");
                 await ReloadAsync();
             }
-            catch (Exception ex) { AppRuntime.ShowRecoverableError(Text, "Repairing client links", ex); _repair.Enabled = true; }
+            catch (Exception ex) { AppRuntime.ShowRecoverableError(Text, "Repairing client links", ex); await ReloadAsync(); }
         }
     }
 }

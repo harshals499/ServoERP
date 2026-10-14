@@ -1,7 +1,13 @@
 /*
-  X-Robots-Tag: noindex, nofollow
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 /version.txt
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 /latest.json
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+/assets/forms/*
+  X-Robots-Tag: noindex, noimageindex
+/404.html
+  X-Robots-Tag: noindex
+
+/assets/pdf-previews/*
+  X-Robots-Tag: noindex, noimageindex

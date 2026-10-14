@@ -392,6 +392,7 @@ namespace HVAC_Pro_Desktop.DAL
                 catch (Exception ex)
                 {
                     AppRuntime.LogException("DatabaseManager.LoadInstallerDatabaseConfig", ex);
+                    throw new InvalidOperationException("ServoERP could not read the saved database configuration on this PC. Review Database Connection Setup or restore the local configuration backup.", ex);
                 }
             }
 
@@ -400,8 +401,8 @@ namespace HVAC_Pro_Desktop.DAL
 
         private static IEnumerable<string> GetInstallerConfigCandidates()
         {
-            yield return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "HVACPro.config");
-            yield return @"C:\HVAC_PRO_MSE\HVACPro.config";
+            ConfigService.EnsureLocalConfigFile();
+            yield return ConfigService.ResolveConfigPath();
         }
 
         private static string ReadConfigValue(XmlDocument document, string xpath)
@@ -627,8 +628,7 @@ namespace HVAC_Pro_Desktop.DAL
                     Exec(conn, BuildCreateDatabaseSql());
                 }
 
-                CreateBaseTables();
-                MigrateSchema();
+                RunVerifiedSchemaUpgrade();
             }
             catch (SqlException ex)
             {
@@ -642,8 +642,7 @@ namespace HVAC_Pro_Desktop.DAL
                         Exec(retryConn, BuildCreateDatabaseSql());
                     }
 
-                    CreateBaseTables();
-                    MigrateSchema();
+                    RunVerifiedSchemaUpgrade();
                     return;
                 }
                 catch
@@ -656,10 +655,22 @@ namespace HVAC_Pro_Desktop.DAL
                     $"SQL Error {ex.Number}: {ex.Message}\n\n" +
                     BuildSqlDiagnostics());
             }
+            catch (DatabaseUpgradeException) { throw; }
             catch (Exception ex)
             {
-                throw new Exception("Database initialization failed: " + ex.Message);
+                throw new Exception("Database initialization failed: " + ex.Message, ex);
             }
+        }
+
+        private void RunVerifiedSchemaUpgrade()
+        {
+            DatabaseUpgradeService.Upgrade(_connectionString, () =>
+            {
+                CreateBaseTables();
+                MigrateSchema();
+                DbHelper.EnsureQuotationSchemaMigration();
+                DbHelper.EnsureAMCSchema();
+            });
         }
 
         private void CreateBaseTables()
@@ -3034,6 +3045,8 @@ THEN 1 ELSE 0 END";
 
         private void ResetCoreSeed(SqlConnection conn)
         {
+            // Existing development seed reset retains its destructive behaviour.
+            FinancialRecordProtection.SetMaintenance(conn);
             Exec(conn, @"
                 DELETE FROM Payments;
                 DELETE FROM InvoiceLineItems;
@@ -3063,6 +3076,8 @@ THEN 1 ELSE 0 END";
 
         private void ResetOpsSeed(SqlConnection conn)
         {
+            // Existing development seed reset retains its destructive behaviour.
+            FinancialRecordProtection.SetMaintenance(conn);
             Exec(conn, @"
                 IF OBJECT_ID('dbo.PendingCharges', 'U') IS NOT NULL DELETE FROM PendingCharges;
                 IF OBJECT_ID('dbo.InvoiceInventoryReservations', 'U') IS NOT NULL DELETE FROM InvoiceInventoryReservations;

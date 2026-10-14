@@ -84,6 +84,8 @@ namespace HVAC_Pro_Desktop.Services
             using (SqlConnection conn = _db.GetConnection())
             {
                 conn.Open();
+                // Preserve the existing authorized Fresh Start reset; protection applies to ordinary edits.
+                FinancialRecordProtection.SetMaintenance(conn, true);
                 using (SqlTransaction tx = conn.BeginTransaction())
                 {
                     try

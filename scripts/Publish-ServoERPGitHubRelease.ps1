@@ -1,6 +1,6 @@
 param(
-    [string]$Version = "1.1.228",
-    [string]$Repository = "harshals499/ServoERP",
+    [string]$Version,
+    [string]$Repository = "harshals499/ServoERP-Releases",
     [string]$ArtifactsDir,
     [string]$Token,
     [string]$Target = "main"
@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+if ([string]::IsNullOrWhiteSpace($Version)) { $Version = (Get-Content (Join-Path $repoRoot "VERSION") -Raw).Trim() }
 if ([string]::IsNullOrWhiteSpace($ArtifactsDir)) {
     $ArtifactsDir = Join-Path $repoRoot "artifacts\velopack-local-$Version"
 }
@@ -22,7 +23,8 @@ $assetNames = @(
     "ServoERP.Desktop-win-Portable.zip",
     "RELEASES",
     "releases.win.json",
-    "assets.win.json"
+    "assets.win.json",
+    "RELEASE_NOTES_$Version.md"
 )
 
 $assetPaths = New-Object System.Collections.Generic.List[string]
@@ -62,12 +64,11 @@ if ([string]::IsNullOrWhiteSpace($resolvedToken)) {
     throw "No GitHub token found. Sign in with GitHub Desktop/gh, or set GITHUB_TOKEN in this PowerShell window."
 }
 
-$body = @"
-ServoERP client update $Version
-
-- Restores Attendance as its own HR & Payroll sidebar page.
-- Keeps Attendance available under existing HR/Payroll license entitlements.
-"@
+$notesPath = Join-Path $repoRoot "release\RELEASE_NOTES_$Version.md"
+if (-not (Test-Path -LiteralPath $notesPath)) { throw "Release notes are required: $notesPath" }
+& (Join-Path $PSScriptRoot 'Assert-ServoReleaseNotes.ps1') -Version $Version -NotesPath $notesPath -ForPackaging
+& (Join-Path $PSScriptRoot 'Test-VelopackReleaseArtifacts.ps1') -OutputDir $artifactsRoot -ExpectedVersion $Version
+$body = Get-Content -LiteralPath $notesPath -Raw
 
 $env:GITHUB_TOKEN = $resolvedToken
 node $nodeScript `

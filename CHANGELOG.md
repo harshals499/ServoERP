@@ -1,4 +1,125 @@
-﻿# Changelog
+## 1.1.509 - 11/10/2026
+
+## 1.1.510 - 11/10/2026
+- Lock posted invoice document fields, totals, GST and lines; retain payments and credit-note workflows.
+- Archive invoices/jobs with children, stock issues and links preserved; retain archived posted receivables in financial reports.
+- Add transactional old/new audit snapshots, actor history and archive/restore screens.
+- Save draft headers/lines and stock/posting atomically; prevent posted Excel reimports.
+- Add verified transactional migration 0004 and protection diagnostics. No packages added.
+
+- Require a checksum-verified SQL Server backup before startup database upgrades.
+- Add numbered migrations, durable migration history, script integrity checks and serialized office upgrades.
+- Block failed/interrupted upgrades and database downgrades; provide controlled retry and backup-based administrator recovery.
+
+## 1.1.508 - 2026-10-11
+- Applied option 2's softer two-level header across module pages, custom headers and detail views. Sidebar exactly unchanged.
+- Added consistent global search, account menus, notifications, page hierarchy, dates and responsive action rows; retained existing handlers, permissions, local filters and status updates.
+- Added dashboard refresh with overlapping-request protection, corrected Site Monitor's Filters action and enabled User Guide-wide Ctrl+K search.
+- Release build, 84 shared-header layout cases, 25-view coverage, search/dashboard regressions, read-only SQL search checks and native header/action review passed. No migrations or new packages.
+
+## Website privacy update - 2026-10-11
+- Restored the previously reviewed privacy edits to 18 populated website screenshots, obscuring identifying and confidential details in the gallery, homepage, workflow explorer and module pages.
+- Updated screenshot cache references and privacy captions. Verified all 18 production image hashes, live customer-preview rendering, 758 staged links, four website tests and the desktop Release build. Website revision: snapshots-1.1.499-privacy-20261011; no desktop installer release.
+
+## 1.1.507 - 2026-10-11
+- Replaced global search with a softer split results and record-preview dialog; sidebar unchanged.
+- Added category filters, status/date/amount summaries, job and invoice details, and Ctrl+K, arrow, Enter and Escape keyboard controls.
+- Added debounced asynchronous search, stale-result protection, permission checks and technician job scoping. Standard searches now use parameterized Dapper.
+- Release build, keyboard/preview smoke tests, native visual review and read-only SQL query validation passed. No schema changes or new packages.
+
+## 1.1.506 - 2026-10-11
+- Redesigned My Work with softer operational cards, priority inbox, jobs, assignments, upcoming obligations, collections and activity. Sidebar unchanged.
+- Added permission-aware hover previews, keyboard F1 previews and responsive layouts; preserved shared pagination and action routing.
+- Release build, seven dashboard checks, six action-center checks and native visual review passed. No database migration or new packages.
+
+## 1.1.505.0 - 2026-10-11
+- Applied the balanced numbered pagination design across shared list footers, with a blue current page, clear record ranges, rows-per-page selection, Previous/Next, tooltips and keyboard navigation.
+- Added responsive two-row footers and corrected footer docking and spacing across Clients, Contracts, Jobs, Inventory, Payments, Purchases and Suppliers.
+- Unified notification pagination and fixed page-size/scrollbar synchronization; replaced payroll placeholder buttons with real row paging.
+- Preserved pagination public APIs and existing data access. No database migration or additional packages.
+- Corrected generated website package links to the public ServoERP-Releases repository.
+
+## 1.1.504 - 2026-10-11
+- Polished the Settings directory with wider responsive sections, readable wrapped descriptions, full-row navigation, and consistent alignment.
+- Removed directory resize grips and wrapped frequently used shortcuts on narrow screens. Sidebar and app shell unchanged.
+
+## 1.1.503 - 2026-10-11
+- Replaced the Settings card wall with a searchable directory grouped into Business, Administration, and System & Support.
+- Wired related editors, user management, audit history, and frequently used links; retained unsaved inputs and administrator restrictions.
+- Application sidebar and shell remain unchanged by this Settings redesign.
+
+## 1.1.502 - 2026-10-11
+- Automatically check at startup and every five minutes while logged in, download published updates without a click, and retain installation on exit.
+- Banner dismissal no longer suppresses automatic downloads; existing clients receive automatic update policy v2 once.
+
+## 1.1.501.0 - 2026-10-10
+- Deleted clients remain archived after refresh, with invoices and jobs preserved.
+- Expanded spreadsheet rejection of numeric client names and quotation terms.
+
+## 1.1.500 - 2026-10-10
+- Added a Company Header upload and preview card at the top of Settings.
+- Applied uploaded letterheads across business PDFs and printable document formats, including generic branding.
+
+## [Website snapshot refresh] - 2026-10-06
+- Replaced 25 application overview and entry/detail images using captures from desktop version 1.1.499.
+- Publishes original, unblurred captures as requested by the owner; current version and capture date are identified on the website.
+- Removed the retired standalone Porter Deliveries gallery card and refreshed screenshot cache references across the homepage, gallery and module pages.
+- Website deployment only; desktop version, database and updater feeds unchanged.
+
+## [1.1.498] - 2026-10-06
+- Refresh Page blends with the blue sidebar and retains that styling after global theme application.
+- Release notes are embedded per version, shown once after a version change, and available from Settings > Updates.
+- Builds and packaging reject missing/blank notes; local releases include notes in the updater feed.
+
+## [1.1.497] - 2026-10-06
+- Database connection settings now use a single persistent per-PC configuration outside update installation folders.
+- Existing configuration is migrated once; updates back up and preserve the persistent configuration.
+- Connection setup saves SQL settings atomically, encrypts the password locally, verifies the saved connection and restores previous settings on verification failure.
+
+## [1.1.496] - 2026-10-06
+- Adds the ServoERP Engineer Android MVP: assigned jobs, visit stages, reports, checklists, provisional van parts, photos and customer sign-off.
+- Adds a durable account-scoped offline queue with retained errors/conflicts, secure mobile sessions and idempotent company/engineer-scoped API commands.
+- Adds an explicitly applied guarded mobile schema; mobile routes remain disabled by default. Field completion does not close or invoice office jobs.
+- Development-signed prerelease; QR camera/history, iOS validation and isolated SQL integration validation remain outstanding. See release/RELEASE_NOTES_1.1.496.md.
+
+## [1.1.495] - 2026-10-06
+- Updates and installers use the public ServoERP-Releases repository while source code stays private.
+- Existing private update URL is migrated; local and CI publication target the public release repository.
+
+## [1.1.494] - 2026-10-05
+- Client installers use a clean sample configuration with business-data seeding disabled and a separate client database.
+- Signed Trial license generation accepts a seven-day duration. Start Trial cannot replace an existing license.
+
+## [1.1.493] - 2026-10-05
+- Website: replaced Madhusuman PDF-preview branding with Your Company Header; fixed gallery hero and creator vision-card contrast; added creator contact harshals499@gmail.com.
+
+## [1.1.492] - 2026-10-05
+- Website: introduced navy, teal and amber styling across homepage, modules and galleries; added interactive workflow tabs, office-PC plan comparison, card motion and reading progress with reduced-motion support.
+
+## [1.1.491] - 2026-10-05
+- Website: added six generated-PDF preview images to the gallery and relevant document examples to every module page. Madhusuman company identity is blurred in document previews; actual application headers remain unchanged.
+
+## 1.1.490 - 2026-10-05
+- Added twelve individual module pages with original screenshots and relevant workflow views. Quotation, invoice, purchase and inventory entry forms plus supplier-rate and receivable-detail dialogs are now visible on the website.
+- Added six original archival form captures to the gallery, clearly labelled as earlier application examples. Updated homepage/module links and sitemap.
+- No business-data writes, dependencies, pricing or licensing changes.
+
+## 1.1.489 - 2026-10-05
+- Rebuilt the website around a clear sales journey: product explanation, business problems, four connected workflows, real application views, team outcomes, unchanged annual plans, rollout guidance, buyer FAQs and demo enquiry.
+- Preserved creator content and original screenshots; added responsive sales styling, accessible navigation/focus behavior, lazy images and lightbox focus containment. Fixed module showcase links.
+- Added public-page discovery metadata, sitemap and robots controls. No new dependencies, pricing changes, licensing changes or database writes.
+
+## 1.1.488 - 2026-10-05
+- Restored all twenty original website screenshots at the owner's explicit request. Updated gallery wording and asset cache keys. Creator section preserved.
+- No database, pricing, licensing, dependency or desktop functional changes.
+
+# Changelog
+
+## 1.1.487 - 2026-10-05
+
+- Refreshed the ServoERP website with 20 privacy-redacted product views; updated homepage and module imagery and replaced the gallery’s unverified demo-data claim with a clear redaction notice.
+- Added About the Creator with Harshal Sonawane’s original portrait, supplied first-person product story, philosophy and responsive founder profile. Replaced representative testimonial copy with this authentic section.
+- Website deployment excludes unredacted captures and unused legacy screenshots. Desktop version metadata increments for release tracking; no desktop business behaviour, database, licence plans or pricing changed.
 
 ## 1.1.486 - 2026-10-05
 
@@ -2474,3 +2595,8 @@
 - Hardened ServoERP update flow so background update checks/downloads do not restart the app without user confirmation.
 - Added Settings controls for current version, update checks, automatic update download preference, and last update status.
 - Added CI/CD and auto-update operating documentation.
+
+
+
+## [1.1.499] - 2026-10-06
+- Removed the Porter Deliveries page from navigation and page routes. Existing delivery records are retained.

@@ -349,6 +349,8 @@ namespace HVAC_Pro_Desktop.UI
 
         public static void ApplyTheme(Control root)
         {
+            if (DashboardForm.OwnsDashboardPresentation(root)) return;
+            if (root is Controls.GlobalPaginationControl) return;
             if (root == null)
                 return;
 

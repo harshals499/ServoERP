@@ -27,7 +27,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = @"
                     SELECT TOP (@maxRows) p.*, i.InvoiceNumber, c.CompanyName AS ClientName
                     FROM Payments p
-                    JOIN Invoices i ON p.InvoiceID = i.InvoiceID
+                    JOIN dbo.FinancialInvoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
                     ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
@@ -49,7 +49,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = @"
                     SELECT p.*, i.InvoiceNumber, c.CompanyName AS ClientName
                     FROM Payments p
-                    JOIN Invoices i ON p.InvoiceID = i.InvoiceID
+                    JOIN dbo.FinancialInvoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
                     WHERE p.InvoiceID = @id ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
@@ -71,7 +71,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = @"
                     SELECT p.*, i.InvoiceNumber, c.CompanyName AS ClientName
                     FROM Payments p
-                    JOIN Invoices i ON p.InvoiceID = i.InvoiceID
+                    JOIN dbo.FinancialInvoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
                     WHERE p.ClientID = @id ORDER BY p.PaymentDate DESC, p.PaymentID DESC";
                 using (var cmd = new SqlCommand(sql, conn))
@@ -92,7 +92,7 @@ namespace HVAC_Pro_Desktop.DAL
                 const string sql = @"
                     SELECT p.*, i.InvoiceNumber, c.CompanyName AS ClientName
                     FROM Payments p
-                    JOIN Invoices i ON p.InvoiceID = i.InvoiceID
+                    JOIN dbo.FinancialInvoices i ON p.InvoiceID = i.InvoiceID
                     JOIN B2BClients c ON p.ClientID = c.ClientID
                     WHERE p.PaymentID = @id";
                 using (var cmd = new SqlCommand(sql, conn))

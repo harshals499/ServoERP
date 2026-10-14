@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HVAC_Pro_Desktop.Services;
 
@@ -77,7 +77,7 @@ namespace HVAC_Pro_Desktop.Tests
                 Row("ClientName", "Alpha", "SiteName", "Old name", "Address", "42 Industrial Road"),
                 Row("ClientName", "Alpha", "SiteName", "New name", "Address", "42 Industrial Road") }).UploadDuplicateRows == 1,
                 "renamed sites sharing a client and address need review");
-            foreach (string invalid in new[] { "1", "1.1", "218", "• Quotation Is Valid Upto 07 Days .", "Grand Total" })
+            foreach (string invalid in new[] { "1", "1.1", "218", "₹1,200.00", "Quotation valid for 7 days", "Quote is valid for 5 days", "Validity of quotation: 30 days", "Terms and conditions: payment in advance", "• Quotation Is Valid Upto 07 Days .", "Grand Total" })
                 Expect(SmartImportDuplicateDetector.IsSuspectClientName(invalid), "quotation artifact should be flagged: " + invalid);
             foreach (string valid in new[] { "3M India", "Atul", "Bluejet-Shahad", "218 Industries" })
                 Expect(!SmartImportDuplicateDetector.IsSuspectClientName(valid), "real client must remain valid: " + valid);

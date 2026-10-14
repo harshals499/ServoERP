@@ -707,6 +707,7 @@ namespace HVAC_Pro_Desktop.Services
         private void DeleteTrackedRecords(SqlConnection conn, SqlTransaction tx)
         {
             DeleteByIds(conn, tx, "DELETE FROM Payments WHERE PaymentID IN ({0})", Ids("Payments"));
+            FinancialRecordProtection.SetMaintenance(conn);
             DeleteByIds(conn, tx, "DELETE FROM InvoiceInventoryReservations WHERE InvoiceID IN ({0})", Ids("Invoices"));
             DeleteByIds(conn, tx, "DELETE FROM InvoiceLineItems WHERE InvoiceID IN ({0})", Ids("Invoices"));
             DeleteByIds(conn, tx, "DELETE FROM Invoices WHERE InvoiceID IN ({0})", Ids("Invoices"));

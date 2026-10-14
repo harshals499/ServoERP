@@ -16,7 +16,7 @@ namespace HVAC_Pro_Desktop.DAL
         {
             const string sql = @"
 SELECT TOP (300) j.*, c.CompanyName AS ClientName, s.SiteName, e.Name AS AssignedEmployeeName
-FROM dbo.Jobs j
+FROM dbo.ActiveJobs j
 LEFT JOIN dbo.B2BClients c ON c.ClientID=j.ClientID
 LEFT JOIN dbo.ClientSites s ON s.SiteID=j.SiteID
 LEFT JOIN dbo.Employees e ON e.EmployeeID=j.AssignedEmployeeID
@@ -44,7 +44,7 @@ WHERE q.Status IN ('Draft','Sent','Submitted','Won','Accepted','Approved')
 ORDER BY q.DueDate, q.BidID DESC;
 
 SELECT TOP (250) i.*, c.CompanyName AS ClientName, s.SiteName
-FROM dbo.Invoices i
+FROM dbo.FinancialInvoices i
 LEFT JOIN dbo.B2BClients c ON c.ClientID=i.ClientID
 LEFT JOIN dbo.ClientSites s ON s.SiteID=i.SiteID
 WHERE ISNULL(i.BalanceDue,0)>0.01 AND ISNULL(i.PaymentStatus,'') NOT IN ('Paid','Cancelled')
@@ -67,7 +67,7 @@ ORDER BY (ISNULL(s.CurrentStock,0)-ISNULL(s.ReservedStock,0)), s.ItemID;
 
 SELECT TOP (250) p.*, i.InvoiceNumber, c.CompanyName AS ClientName
 FROM dbo.Payments p
-INNER JOIN dbo.Invoices i ON i.InvoiceID=p.InvoiceID
+INNER JOIN dbo.FinancialInvoices i ON i.InvoiceID=p.InvoiceID
 INNER JOIN dbo.B2BClients c ON c.ClientID=p.ClientID
 WHERE ISNULL(p.ReconciliationStatus,'Unreconciled')<>'Reconciled'
 ORDER BY p.PaymentDate, p.PaymentID;
@@ -77,7 +77,7 @@ SELECT TOP (250) v.VisitID, v.AMCID AS ContractId, v.JobID, v.VisitNumber, v.Sch
        a.ClientID, a.SiteID, c.CompanyName AS ClientName, s.SiteName
 FROM dbo.AMCVisits v
 INNER JOIN dbo.AMCContracts a ON a.ContractID=v.AMCID
-LEFT JOIN dbo.Jobs j ON j.JobID=v.JobID
+LEFT JOIN dbo.ActiveJobs j ON j.JobID=v.JobID
 LEFT JOIN dbo.Employees e ON e.EmployeeID=j.AssignedEmployeeID
 LEFT JOIN dbo.B2BClients c ON c.ClientID=a.ClientID
 LEFT JOIN dbo.ClientSites s ON s.SiteID=a.SiteID
@@ -90,7 +90,7 @@ SELECT TOP (250) p.PartUsedId, p.JobId, j.JobNumber, p.ItemDescription,
        p.Unit, p.StockStatus, j.AssignedEmployeeID, e.Name AS AssignedEmployeeName,
        j.ClientID, j.SiteID, c.CompanyName AS ClientName, s.SiteName, j.ScheduledDate
 FROM dbo.JobPartsUsed p
-INNER JOIN dbo.Jobs j ON j.JobID=p.JobId
+INNER JOIN dbo.ActiveJobs j ON j.JobID=p.JobId
 LEFT JOIN dbo.StockItems si ON si.ItemID=p.InventoryItemId
 LEFT JOIN dbo.Employees e ON e.EmployeeID=j.AssignedEmployeeID
 LEFT JOIN dbo.B2BClients c ON c.ClientID=j.ClientID

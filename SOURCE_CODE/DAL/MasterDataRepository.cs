@@ -380,13 +380,13 @@ namespace HVAC_Pro_Desktop.DAL
                 case "Purchases":
                     return "SELECT COUNT(*) FROM dbo.PurchaseOrders;";
                 case "Invoices":
-                    return "SELECT COUNT(*) FROM dbo.Invoices;";
+                    return "SELECT COUNT(*) FROM dbo.FinancialInvoices;";
                 case "Payments":
                     return "SELECT COUNT(*) FROM dbo.Payments;";
                 case "Quotations":
                     return "SELECT COUNT(*) FROM dbo.Quotations;";
                 case "Jobs":
-                    return "SELECT COUNT(*) FROM dbo.Jobs;";
+                    return "SELECT COUNT(*) FROM dbo.ActiveJobs;";
                 case "Employees":
                     return "SELECT COUNT(*) FROM dbo.Employees;";
                 default:

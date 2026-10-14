@@ -5,6 +5,7 @@ namespace HVAC_Pro_Desktop.Models
 {
     public class Job
     {
+        public bool IsDeleted { get; set; }
         public int JobID { get; set; }
         public Guid? SyncPublicId { get; set; }
         public Guid? OriginNodeId { get; set; }

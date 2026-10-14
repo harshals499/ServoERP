@@ -140,6 +140,7 @@ namespace HVAC_Pro_Desktop.Services
                 if (string.IsNullOrEmpty(inv.PaymentStatus))
                     inv.PaymentStatus = "Pending";
                 int id = _invoiceRepo.Create(inv);
+                inv.IsPosted = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
                 if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
                 {
                     _invoiceInventorySvc.SyncDraftReservations(id, inv.LineItems);
@@ -187,8 +188,7 @@ namespace HVAC_Pro_Desktop.Services
                     inv.ModifiedDate = DateTime.Now;
                 }
                 inv.BalanceDue = inv.TotalAmount - inv.PaidAmount;
-                _invoiceRepo.Update(inv);
-                _invoiceRepo.SaveLineItems(inv.InvoiceID, inv.LineItems ?? new List<InvoiceLineItem>());
+                _invoiceRepo.UpdateWithLineItems(inv);
                 if (string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase))
                 {
                     _invoiceInventorySvc.SyncDraftReservations(inv.InvoiceID, inv.LineItems);
@@ -262,6 +262,8 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null)
                 throw new Exception("Invoice not found.");
 
+            if (inv.IsDeleted) throw new InvalidOperationException("Archived invoices cannot be posted.");
+            if (inv.IsPosted) return;
             inv.PaymentStatus = ResolveFinalStatus(inv);
             if (IsPreventiveInvoice(inv))
             {
@@ -269,9 +271,8 @@ namespace HVAC_Pro_Desktop.Services
                 inv.NextServiceDueDate = CalculateNextServiceDueDate(inv.InvoiceDate, inv.ContractID > 0 ? _contractRepo.GetById(inv.ContractID) : null, inv.WorkflowType);
             }
 
-            _invoiceInventorySvc.FinalizeReservations(invoiceId);
             inv.InventoryReservationStatus = "Issued";
-            _invoiceRepo.Update(inv);
+            _invoiceInventorySvc.FinalizeInvoice(inv);
             AppDataCache.RemovePrefix("invoices:");
         }
 
@@ -282,6 +283,7 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null)
                 throw new Exception("Invoice not found.");
 
+            if (inv.IsPosted) throw new InvalidOperationException("Posted invoices cannot be cancelled. Use a credit note for financial corrections.");
             _invoiceInventorySvc.CancelReservations(invoiceId);
             inv.PaymentStatus = "Cancelled";
             inv.InventoryReservationStatus = "Restored";
@@ -297,12 +299,11 @@ namespace HVAC_Pro_Desktop.Services
             if (inv == null)
                 throw new Exception("Invoice not found.");
 
-            _invoiceInventorySvc.CancelReservations(invoiceId);
             _invoiceRepo.Delete(invoiceId);
             AppDataCache.RemovePrefix("invoices:");
             AppDataCache.RemovePrefix("jobs:");
-            SessionManager.LogAction("DELETE", "Invoices", invoiceId, "Invoice deleted");
-            _audit.Record("DELETE", "Invoices", invoiceId, "Invoice and child records deleted");
+            SessionManager.LogAction("ARCHIVE", "Invoices", invoiceId, "Invoice archived; financial records and links preserved");
+            _audit.Record("ARCHIVE", "Invoices", invoiceId, "Invoice archived; payments, line items, stock issues and links preserved");
         }
 
         public Invoice CreateCreditNoteForInvoice(int invoiceId, decimal creditAmount, string reason)
@@ -1152,7 +1153,7 @@ namespace HVAC_Pro_Desktop.Services
                         pc.CreatedDate AS [Date Added],
                         CASE WHEN pc.IsBilled = 1 THEN 'Y' ELSE 'N' END AS [Billed]
                     FROM PendingCharges pc
-                    INNER JOIN Jobs j ON pc.WorkOrderId = j.JobID
+                    INNER JOIN dbo.ActiveJobs j ON pc.WorkOrderId = j.JobID
                     LEFT JOIN B2BClients c ON j.ClientID = c.ClientID
                     LEFT JOIN PurchaseOrders po ON pc.SourcePoId = po.POID
                     WHERE (@unbilledOnly = 0 OR pc.IsBilled = 0)

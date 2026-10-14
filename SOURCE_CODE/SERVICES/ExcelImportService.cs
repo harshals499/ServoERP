@@ -76,6 +76,7 @@ namespace HVAC_Pro_Desktop.Services
         public ExcelImportResult Import(ExcelImportModule module, string filePath, ExcelImportExecutionOptions options = null)
         {
             options = options ?? new ExcelImportExecutionOptions();
+            if (module == ExcelImportModule.Invoices) options.UseTransaction = true;
             SessionManager.DemandPermission(ModuleKey(module), "Create");
             if (module == ExcelImportModule.AMC)
                 DbHelper.EnsureAMCSchema();
@@ -86,6 +87,8 @@ namespace HVAC_Pro_Desktop.Services
             {
                 conn.Open();
                 SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
+                if (module == ExcelImportModule.Invoices)
+                    Execute(conn, null, "CREATE TABLE #ImportedInvoiceProtection(InvoiceID int PRIMARY KEY);");
                 SqlTransaction transaction = options.UseTransaction ? conn.BeginTransaction() : null;
                 var sheet = package.Workbook.Worksheets.FirstOrDefault();
                 if (sheet == null || sheet.Dimension == null)
@@ -111,7 +114,9 @@ namespace HVAC_Pro_Desktop.Services
                     if (module == ExcelImportModule.SupplierItemPrices)
                     {
                         ImportSupplierItemPriceWorkbook(conn, transaction, sheet, map, result, options);
-                        transaction?.Commit();
+                        if (module == ExcelImportModule.Invoices)
+                        Execute(conn, transaction, "UPDATE i SET IsPosted=1,PostedUtc=COALESCE(PostedUtc,SYSUTCDATETIME()) FROM dbo.Invoices i JOIN #ImportedInvoiceProtection t ON t.InvoiceID=i.InvoiceID WHERE i.IsPosted=0 AND ISNULL(i.PaymentStatus,'Draft')<>'Draft';");
+                    transaction?.Commit();
                         InvalidateModuleCaches(module);
                         AppLogger.LogInfo("Excel import completed for " + module + " | success=" + result.SuccessCount + " | skipped=" + result.SkippedCount);
                         return result;
@@ -178,6 +183,8 @@ namespace HVAC_Pro_Desktop.Services
                         }
                     }
 
+                    if (module == ExcelImportModule.Invoices)
+                        Execute(conn, transaction, "UPDATE i SET IsPosted=1,PostedUtc=COALESCE(PostedUtc,SYSUTCDATETIME()) FROM dbo.Invoices i JOIN #ImportedInvoiceProtection t ON t.InvoiceID=i.InvoiceID WHERE i.IsPosted=0 AND ISNULL(i.PaymentStatus,'Draft')<>'Draft';");
                     transaction?.Commit();
                 }
                 catch
@@ -1306,6 +1313,7 @@ END");
             int? siteId = string.IsNullOrWhiteSpace(siteName) ? (int?)null : EnsureSiteId(conn, transaction, clientId, clientName, siteName, null, null, null, null, null, null, options);
 
             int? existingId = GetScalarInt(conn, transaction, "SELECT TOP 1 InvoiceID FROM Invoices WHERE InvoiceNumber=@number", new SqlParameter("@number", invoiceNumber));
+            if (existingId.HasValue) FinancialRecordProtection.EnsureDraft(conn, transaction, existingId.Value);
             int invoiceId;
             if (existingId.HasValue)
             {
@@ -1343,6 +1351,7 @@ SELECT CAST(SCOPE_IDENTITY() AS INT);",
                     new SqlParameter("@status", status));
             }
 
+            Execute(conn, transaction, "IF NOT EXISTS(SELECT 1 FROM #ImportedInvoiceProtection WHERE InvoiceID=@id) INSERT #ImportedInvoiceProtection VALUES(@id)", new SqlParameter("@id", invoiceId));
             ImportInvoiceLineItem(conn, transaction, sheet, map, row, invoiceId, options);
             return true;
         }

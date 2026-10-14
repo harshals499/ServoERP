@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -703,9 +703,10 @@ namespace HVAC_Pro_Desktop.UI
                 list.Size = new Size(rowHost.Width - 24, rowHost.Height - 54);
                 foreach (Control item in list.Controls)
                     item.Width = Math.Max(240, list.ClientSize.Width - 6);
-                pager.Location = new Point(card.Width - 576, card.Height - 40);
+                rowHost.Height = Math.Max(100, card.ClientSize.Height - card.Padding.Bottom - pager.Height - rowHost.Top - 8);
             };
             card.Resize += (s, e) => layoutCard();
+            pager.SizeChanged += (s, e) => layoutCard();
             rowHost.Resize += (s, e) =>
             {
                 rowHeader.Width = rowHost.Width - 24;
@@ -725,12 +726,13 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Location = new Point(card.Width - 576, 402),
                 Size = new Size(560, 34),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
                 BackColor = White
             };
             pager.PageChanged += (s, e) => { _dashboardPage = pager.CurrentPage; RefreshAllJobsDashboardCard(); };
             pager.PageSizeChanged += (s, e) => { _dashboardPageSize = pager.PageSize; _dashboardPage = 1; RefreshAllJobsDashboardCard(); };
             pager.SetState(_dashboardPage, totalRows, pageSize);
+            pager.Dock = DockStyle.Bottom;
             return pager;
         }
 
@@ -993,6 +995,8 @@ namespace HVAC_Pro_Desktop.UI
                 string command = action.Item2;
                 menu.Items.Add(action.Item1, null, async (s, e) => await HandleDashboardQuickAction(command));
             }
+            menu.Items.Add("Audit history", null, (s, e) => { using (var history = new FinancialRecordHistoryDialog("Jobs")) history.ShowDialog(FindForm()); });
+            menu.Items.Add("Archived records", null, async (s, e) => { using (var history = new FinancialRecordHistoryDialog("Jobs", null, true)) history.ShowDialog(FindForm()); _allJobs = await Task.Run(() => GetCachedJobSummaries(true)); RenderJobsDashboard(); });
             menu.Show(anchor, new Point(0, anchor.Height));
         }
 
@@ -1328,7 +1332,8 @@ namespace HVAC_Pro_Desktop.UI
             menu.Items.Add("Smart Dispatch...", null, async (s, e) => await OpenSmartDispatchAsync(job.JobId));
             menu.Items.Add("Change Status", null, (s, e) => ShowDashboardMessage("Change Status", "Open the job and update its status."));
             menu.Items.Add("Duplicate", null, (s, e) => ShowDashboardMessage("Duplicate Job", "Open the job and save it as a new work order."));
-            RecordDeletionUi.AddDeleteMenuItem(menu, async (s, e) => await DeleteDashboardJobAsync(job));
+            menu.Items.Add("Audit history", null, (s, e) => { using (var history = new FinancialRecordHistoryDialog("Jobs", job.JobId)) history.ShowDialog(FindForm()); });
+            menu.Items.Add("Archive", null, async (s, e) => await DeleteDashboardJobAsync(job));
             menu.Show(anchor, new Point(0, anchor.Height));
         }
 
@@ -1338,17 +1343,11 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             string jobLabel = string.IsNullOrWhiteSpace(job.JobNumber) ? "this job" : job.JobNumber;
-            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
-                FindForm(),
-                "Job",
-                jobLabel,
-                "Checklist items, parts, and pending charges for this job will also be removed.");
-            if (confirm != DialogResult.Yes)
-                return;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show((Control)this, "Archive job " + jobLabel, "The record will leave active lists. Existing lines, payments, stock movements and linked records are preserved. You can restore it from Archived records.")) return;
 
             try
             {
-                SetListStatus("Deleting job...");
+                SetListStatus("Archiving job...");
                 await Task.Run(() => _jobSvc.Delete(job.JobId));
                 if (_selectedJobId == job.JobId)
                     _selectedJobId = 0;
@@ -1363,7 +1362,7 @@ namespace HVAC_Pro_Desktop.UI
                     RenderFilterChips();
                     ApplyFilters();
                 }
-                SetListStatus("Job deleted.");
+                SetListStatus("Job archived.");
             }
             catch (Exception ex)
             {
@@ -1861,7 +1860,7 @@ namespace HVAC_Pro_Desktop.UI
             btnWhatsApp.Click += (s, e) => ShowJobWhatsAppAction();
             _btnCloseJob = MakeHeaderButton("Close Job", Red, White, 96);
             _btnCloseJob.Click += async (s, e) => await CloseJobAsync();
-            Button btnDelete = MakeHeaderButton("Delete", Red, White, 82);
+            Button btnDelete = MakeHeaderButton("Archive", Red, White, 82);
             btnDelete.Click += async (s, e) => await DeleteCurrentJobAsync();
             Button[] headerButtons = { btnBackToDashboard, _btnSave, _btnPrintReport, btnCalendar, btnForms, btnWhatsApp, _btnCloseJob, btnDelete };
             for (int i = 0; i < headerButtons.Length; i++)
@@ -2878,17 +2877,11 @@ namespace HVAC_Pro_Desktop.UI
 
             Job job = _currentDetail.Job;
             string jobLabel = string.IsNullOrWhiteSpace(job.JobNumber) ? "this job" : job.JobNumber;
-            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
-                FindForm(),
-                "Job",
-                jobLabel,
-                "Checklist items, parts, and pending charges for this job will also be removed.");
-            if (confirm != DialogResult.Yes)
-                return;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show((Control)this, "Archive job " + jobLabel, "The record will leave active lists. Existing lines, payments, stock movements and linked records are preserved. You can restore it from Archived records.")) return;
 
             try
             {
-                SetListStatus("Deleting job...");
+                SetListStatus("Archiving job...");
                 await Task.Run(() => _jobSvc.Delete(job.JobID));
                 _currentDetail = null;
                 _selectedJobId = 0;
@@ -2896,7 +2889,7 @@ namespace HVAC_Pro_Desktop.UI
                 RenderFilterChips();
                 ApplyFilters();
                 ShowEmptyJobState();
-                SetListStatus("Job deleted.");
+                SetListStatus("Job archived.");
             }
             catch (Exception ex)
             {

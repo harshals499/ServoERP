@@ -94,7 +94,7 @@ namespace HVAC_Pro_Desktop.DAL
                     SELECT i.InvoiceID, i.InvoiceNumber, i.InvoiceDate, i.TotalAmount, i.PaymentStatus,
                            ISNULL(i.TallyExportStatus, 'Pending') AS TallyExportStatus,
                            c.CompanyName, c.GSTNumber, c.TallyLedgerName
-                    FROM Invoices i
+                    FROM dbo.FinancialInvoices i
                     LEFT JOIN B2BClients c ON c.ClientID = i.ClientID
                     WHERE i.InvoiceDate >= @fromDate
                       AND i.InvoiceDate < @toDate
@@ -126,7 +126,7 @@ namespace HVAC_Pro_Desktop.DAL
                            c.CompanyName, c.TallyLedgerName, i.InvoiceNumber
                     FROM Payments p
                     INNER JOIN B2BClients c ON c.ClientID = p.ClientID
-                    INNER JOIN Invoices i ON i.InvoiceID = p.InvoiceID
+                    INNER JOIN dbo.FinancialInvoices i ON i.InvoiceID = p.InvoiceID
                     WHERE p.PaymentDate >= @fromDate
                       AND p.PaymentDate < @toDate
                       AND (@includeExported = 1 OR ISNULL(p.TallyExportStatus, '') <> 'Exported')

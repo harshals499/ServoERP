@@ -177,8 +177,8 @@ namespace HVAC_Pro_Desktop.Services
             AppDataCache.RemovePrefix("jobs:");
             AppDataCache.RemovePrefix("purchases:");
             AppDataCache.RemovePrefix("invoices:");
-            SessionManager.LogAction("DELETE", "WorkOrders", jobId, "Work order deleted");
-            _audit.Record("DELETE", "WorkOrders", jobId, "Work order and child records deleted");
+            SessionManager.LogAction("ARCHIVE", "WorkOrders", jobId, "Work order archived; financial records and links preserved");
+            _audit.Record("ARCHIVE", "WorkOrders", jobId, "Work order archived; child records and links preserved");
         }
 
         public int CreateJobFromContract(int contractId, string visitType)

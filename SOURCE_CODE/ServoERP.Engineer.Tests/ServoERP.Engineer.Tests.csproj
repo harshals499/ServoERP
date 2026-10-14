@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+ <PropertyGroup><TargetFramework>net9.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><IsTestProject>true</IsTestProject><IsPackable>false</IsPackable></PropertyGroup>
+ <ItemGroup><PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0"/><PackageReference Include="xunit" Version="2.9.2"/><PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/><ProjectReference Include="../ServoERP.Engineer.Core/ServoERP.Engineer.Core.csproj"/><ProjectReference Include="../ServoERP.Api/ServoERP.Api.csproj"/></ItemGroup>
+ <ItemGroup><None Include="../ServoERP.Api/Mobile/MobileSchema.sql" Link="MobileSchema.sql" CopyToOutputDirectory="PreserveNewest"/></ItemGroup>
+ <ItemGroup><PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.16"/></ItemGroup>
+</Project>

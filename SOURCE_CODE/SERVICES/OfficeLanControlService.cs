@@ -980,7 +980,11 @@ $results = foreach ($target in $targets) {
             param($installerPath, $packageKind, $server, $database, $useWindowsAuth, $sqlCred, $remoteReadiness)
             $ErrorActionPreference = 'Stop'
             $installRoot = 'C:\HVAC_PRO_MSE'
-            $configPath = Join-Path $installRoot 'HVACPro.config'
+            $configDirectory = Join-Path $env:ProgramData 'ServoERP\Configuration'
+            New-Item -ItemType Directory -Path $configDirectory -Force | Out-Null
+            & icacls.exe $configDirectory /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw 'Could not grant client configuration access.' }
+            $configPath = Join-Path $configDirectory 'HVACPro.config'
             New-Item -ItemType Directory -Path $installRoot -Force | Out-Null
 
             [xml]$config = if (Test-Path -LiteralPath $configPath) { Get-Content -LiteralPath $configPath } else { '<HVACProConfig />' }

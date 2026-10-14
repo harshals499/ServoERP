@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -516,7 +516,7 @@ namespace HVAC_Pro_Desktop.UI
                 ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
                 menu.Items.Add("Add Client", null, (mi, ev) => OpenClientEditor(null, "New Client"));
                 menu.Items.Add("Import Clients", null, (mi, ev) => ImportUiHelper.RunImport(ExcelImportModule.Clients, FindForm(), result => RefreshClientsAfterImport()));
-                menu.Items.Add("Review Imported Client Records", null, (mi, ev) =>
+                menu.Items.Add("Review Unknown Names", null, (mi, ev) =>
                 {
                     using (var review = new ClientImportRepairDialog())
                     {
@@ -527,11 +527,20 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Items.Add("Add Contact", null, (mi, ev) => ShowActionModal("Add Contact", "Open a client record first, then add contact details.", "Contact name", ""));
                 menu.Show(add, new Point(0, add.Height));
             };
+            Button reviewNames = DashboardButton("Review Unknown Names", Color.White, DS.Slate900, 170, true);
+            reviewNames.Click += (sender, args) =>
+            {
+                using (var review = new ClientImportRepairDialog())
+                {
+                    review.ShowDialog(FindForm());
+                    if (review.ChangesApplied) RefreshClientsAfterImport();
+                }
+            };
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "ClientsDashboardHeader",
                 "Clients Management",
                 "Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready.",
-                new List<Control> { filters, WorkspaceActionUi.CreateClearFilters(ClearClientDashboardFilters), add },
+                new List<Control> { reviewNames, filters, WorkspaceActionUi.CreateClearFilters(ClearClientDashboardFilters), add },
                 SharedPageHeader.CreateSearchInputShell("ClientsDashboardSearchHost", _dashboardSearch, 340),
                 null,
                 DS.BgPage,
@@ -696,8 +705,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Location = new Point(card.Width - 576, 304),
                 Size = new Size(560, 34),
-                Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                BackColor = Color.White
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
+                Dock = DockStyle.Bottom, BackColor = Color.White
             };
             _dashboardClientsPager.PageChanged += (s, e) =>
             {
@@ -711,16 +720,19 @@ namespace HVAC_Pro_Desktop.UI
                 PopulateDashboardClientsGrid();
             };
             card.Controls.Add(_dashboardClientsGrid);
+            _dashboardClientsShowingLabel.Visible = false; // The shared footer owns the record summary.
             card.Controls.Add(_dashboardClientsShowingLabel);
             card.Controls.Add(_dashboardClientsPager);
-            card.Resize += (s, e) =>
+            Action layoutPagination = () =>
             {
                 toolbar.Width = Math.Max(120, card.ClientSize.Width - 32);
                 _dashboardClientsGrid.Size = new Size(Math.Max(120, card.ClientSize.Width - 32), Math.Max(140, card.ClientSize.Height - 146));
                 _dashboardClientsShowingLabel.Location = new Point(16, Math.Max(300, card.ClientSize.Height - 42));
-                _dashboardClientsPager.Width = Math.Max(360, Math.Min(560, card.ClientSize.Width - 420));
-                _dashboardClientsPager.Location = new Point(card.ClientSize.Width - _dashboardClientsPager.Width - 16, Math.Max(298, card.ClientSize.Height - 44));
+                _dashboardClientsGrid.Height = Math.Max(100, card.ClientSize.Height - card.Padding.Bottom - _dashboardClientsPager.Height - _dashboardClientsGrid.Top - 8);
             };
+            card.Resize += (s, e) => layoutPagination();
+            _dashboardClientsPager.SizeChanged += (s, e) => layoutPagination();
+            layoutPagination();
             PopulateDashboardClientsGrid();
             return card;
         }
@@ -1550,7 +1562,7 @@ namespace HVAC_Pro_Desktop.UI
                 FindForm(),
                 "Client",
                 Safe(client.CompanyName, "selected client"),
-                "The client will be marked inactive. Existing jobs, invoices, payments, contracts, and sites remain preserved.");
+                "The client will be archived and hidden from client lists after refresh. Existing jobs, invoices, payments, contracts, and sites remain preserved.");
             if (confirm != DialogResult.Yes)
                 return false;
 

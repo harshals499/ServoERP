@@ -149,6 +149,8 @@ namespace HVAC_Pro_Desktop
 
             try
             {
+                foreach (string result in ReleaseNotesSmokeTests.RunAll())
+                    lines.Add("PASS " + result);
                 foreach (string result in UiPolicyTests.RunAll())
                     lines.Add(result);
                 lines.Add("PASS " + LanControlManagementSmokeTests.RunAll());
@@ -300,6 +302,28 @@ namespace HVAC_Pro_Desktop
                 LayoutAuditService.AttachGlobalFormAuditor();
                 InputOutlineService.InstallGlobalApplicationWatcher();
 
+                if (HasArg(args, "/releasenotesvisualtest"))
+                {
+                    ReleaseNotesVisualTest.Run();
+                    return;
+                }
+
+                if (HasArg(args, "/financialrecordsmoketest"))
+                {
+                    string result = FinancialRecordProtectionSmokeTests.RunAll();
+                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-record-smoke.txt", result);
+                    return;
+                }
+                if (HasArg(args, "/databaseupgradesmoketest"))
+                {
+                    string result = DatabaseUpgradeSmokeTests.RunAll();
+                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\database-upgrade-smoke.txt", result);
+                    Console.WriteLine(result);
+                    return;
+                }
+
                 if (HasArg(args, "/cismoketest"))
                 {
                     string reportPath = WriteCiSmokeReport();
@@ -373,6 +397,49 @@ namespace HVAC_Pro_Desktop
                         }
                     }
                     AppRuntime.LogTiming("ActionCenterVisualTest", 0, outputPath);
+                    return;
+                }
+
+                if (HasArg(args, "/globalsearchdatasmoketest"))
+                {
+                    GlobalSearchSmokeTests.RunDataRead();
+                    return;
+                }
+                if (HasArg(args, "/headersmoketest"))
+                {
+                    try { WorkspaceHeaderSmokeTests.RunAll(); }
+                    catch (Exception ex)
+                    {
+                        Directory.CreateDirectory(WorkspaceHeaderSmokeTests.DirectoryPath);
+                        File.WriteAllText(Path.Combine(WorkspaceHeaderSmokeTests.DirectoryPath, "failure.txt"), ex.ToString());
+                        Environment.ExitCode = 1;
+                    }
+                    return;
+                }
+                if (HasArg(args, "/headerpreview"))
+                {
+                    WorkspaceHeaderSmokeTests.RunPreview();
+                    return;
+                }
+                if (HasArg(args, "/globalsearchsmoketest"))
+                {
+                    GlobalSearchSmokeTests.RunAll();
+                    return;
+                }
+                if (HasArg(args, "/globalsearchpreview"))
+                {
+                    GlobalSearchSmokeTests.RunPreview();
+                    return;
+                }
+                if (HasArg(args, "/dashboardsoftsmoketest"))
+                {
+                    DashboardSoftSmokeTests.RunAll();
+                    return;
+                }
+                if (HasArg(args, "/dashboardsoftpreview"))
+                {
+                    using (var fixture = new DashboardForm()) fixture.LoadActionCenterPreviewForVisualTest();
+                    DashboardSoftSmokeTests.RunPreview();
                     return;
                 }
 
@@ -861,6 +928,7 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                DatabaseUpgradeService.RetryFailedUpgrade = HasArg(args, "/retrydatabaseupgrade");
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 Stopwatch stageWatch = Stopwatch.StartNew();
                 Exception sqlStartupError;
@@ -903,6 +971,19 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
+                if (HasArg(args, "/financialstartupsmoketest"))
+                {
+                    SessionManager.SetSession(new AppUserDto { UserId = 1, Username = "startup-qa", DisplayName = "Startup QA", RoleId = 1, RoleName = "Admin", IsActive = true });
+                    new HVAC_Pro_Desktop.DAL.InvoiceRepository().GetRecent(10);
+                    new HVAC_Pro_Desktop.DAL.InvoiceRepository().GetPendingBalanceTotal();
+                    new HVAC_Pro_Desktop.DAL.JobRepository().GetRecent(10);
+                    using (var page = new InvoiceForm()) { page.Size = new System.Drawing.Size(1366, 768); page.CreateControl(); page.PerformLayout(); }
+                    using (var page = new JobManagementForm()) { page.Size = new System.Drawing.Size(1366, 768); page.CreateControl(); page.PerformLayout(); }
+                    using (var history = new FinancialRecordHistoryDialog("Invoices")) history.LoadForVisualTest();
+                    using (var history = new FinancialRecordHistoryDialog("Jobs")) history.LoadForVisualTest();
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-startup-smoke.txt", "PASS verified database startup, active invoice/job lists, retained financial balances, invoice/job form construction and both history/archive data paths.");
+                    return;
+                }
                 if (HasArg(args, "/smoketest"))
                 {
                     string reportPath = EnterpriseUiSmokeTests.WriteReport();
@@ -1260,6 +1341,24 @@ namespace HVAC_Pro_Desktop
                 Log.Fatal(ex, "ServoERP startup failed");
                 AppRuntime.LogException("Application startup", ex);
 
+                if (HasArg(args, "/financialrecordsmoketest"))
+                {
+                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-record-smoke.txt", "FAIL " + ex);
+                    Environment.ExitCode = 1; return;
+                }
+                if (HasArg(args, "/databaseupgradesmoketest"))
+                {
+                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\database-upgrade-smoke.txt", "FAIL " + ex);
+                    Environment.ExitCode = 1;
+                    return;
+                }
+                if (HasArg(args, "/financialstartupsmoketest"))
+                {
+                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-startup-smoke.txt", "FAIL " + ex);
+                    Environment.ExitCode = 1; return;
+                }
                 if (HasArg(args, "/smoketest"))
                 {
                     WriteStartupSmokeFailure(ex);
@@ -1294,8 +1393,6 @@ namespace HVAC_Pro_Desktop
                 AppRuntime.LogTiming("Startup.InitializeDatabase", stageWatch.ElapsedMilliseconds, "schema verified");
                 AppRuntime.LogConnection("Office database handshake verified: " + officeDatabaseId.ToString("D"));
                 dbManager.EnsureOperationalSeedData();
-                DbHelper.EnsureQuotationSchemaMigration();
-                DbHelper.EnsureAMCSchema();
                 NodeIdentityService.EnsureRegistered();
                 NodeIdentityService.StartHeartbeat();
 
@@ -1333,6 +1430,11 @@ namespace HVAC_Pro_Desktop
 
         private static bool TryRecoverDatabaseStartup(Stopwatch stageWatch, Exception startupError)
         {
+            if (startupError is DatabaseUpgradeException)
+            {
+                MessageBox.Show(startupError.Message, BrandingService.WindowTitle("Database Upgrade Recovery"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
             bool authenticationFailure = IsSqlAuthenticationFailure(startupError);
             bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(startupError);
             string message = handshakeFailure
@@ -1401,6 +1503,11 @@ namespace HVAC_Pro_Desktop
 
         private static void ShowFriendlyStartupFailure(Exception ex)
         {
+            if (ex is DatabaseUpgradeException)
+            {
+                MessageBox.Show(ex.Message, BrandingService.WindowTitle("Database Upgrade Recovery"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             bool authenticationFailure = IsSqlAuthenticationFailure(ex);
             bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(ex);
             string message = handshakeFailure

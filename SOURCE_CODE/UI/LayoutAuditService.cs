@@ -39,6 +39,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Audits and fixes a root control once per app session.</summary>
         public static void AuditAndFix(Control root)
         {
+            if (root?.FindForm() is GlobalSearchDialog) return;
             if (root == null || root.IsDisposed)
                 return;
             if (root.Controls.Count == 0 && !(root is DataGridView))
@@ -115,6 +116,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static int TightenControl(Control control)
         {
+            if (WorkspaceHeaderPanel.Owns(control)) return 0;
             if (control == null || control.IsDisposed)
                 return 0;
 

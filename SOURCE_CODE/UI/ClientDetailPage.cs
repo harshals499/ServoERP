@@ -117,9 +117,11 @@ namespace HVAC_Pro_Desktop.UI
             print.Click += (s, e) => PrintClientProfile();
             actions.Controls.Add(save);
             actions.Controls.Add(print);
-            top.Controls.Add(_titleLabel);
-            top.Controls.Add(actions);
-            top.Controls.Add(nav);
+            var heading = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceEditor("ClientDetailHeader", "Client",
+                "Client profile and sites", new List<Control> { dashboard, back, print, save }));
+            top.Dispose();
+            top = heading.Header;
+            _titleLabel = heading.TitleLabel;
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 40, BackColor = Color.White, Padding = new Padding(8, 5, 12, 5) };
             footer.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, 0, footer.Width, 0);
@@ -485,7 +487,7 @@ table{width:100%;border-collapse:collapse;margin-top:8px}th,td{border:1px solid 
 .kv{display:grid;grid-template-columns:180px 1fr;gap:8px;font-size:13px}.kv div{padding:5px 0;border-bottom:1px solid #f1f5f9}
 li{margin:0 0 10px}li span{float:right;color:#64748b;font-size:12px}p{margin:4px 0 0;color:#475569}
 @media print{button{display:none}body{margin:18px}}
-</style></head><body>
+</style><style>" + DocumentBranding.BuildOfficialHeaderCss() + @"</style></head><body>" + DocumentBranding.BuildOfficialHeaderHtml() + @"
 <div class='header'><div><h1>" + H(_client.CompanyName) + @"</h1><div class='muted'>" + H(_client.IndustryType) + " - " + H(_client.City) + @"</div></div><div class='badge'>" + H(NormalizeStage(_client.RelationshipStage)) + @"</div></div>
 <div class='grid'><div class='metric'><span>Open jobs</span><b>" + H(stats.OpenJobs) + @"</b><small>" + H(stats.OverdueJobs > 0 ? stats.OverdueJobs + " overdue" : "None overdue") + @"</small></div><div class='metric'><span>Active contracts</span><b>" + H(stats.ActiveContracts) + @"</b></div><div class='metric'><span>Outstanding</span><b>" + H(stats.Outstanding) + @"</b></div></div>
 <h2>Company</h2><div class='kv'><div>GSTIN</div><div>" + H(_client.GSTNumber) + @"</div><div>PAN</div><div>" + H(_client.PANNumber) + @"</div><div>Phone</div><div>" + H(_client.Phone) + @"</div><div>Email</div><div>" + H(_client.Email) + @"</div><div>Billing address</div><div>" + H(_client.BillingAddress) + @"</div></div>

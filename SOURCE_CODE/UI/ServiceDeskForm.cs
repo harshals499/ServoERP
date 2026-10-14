@@ -119,6 +119,8 @@ namespace HVAC_Pro_Desktop.UI
             _workspace.Controls.Add(leftHost, 0, 0);
             _workspace.Controls.Add(rightHost, 1, 0);
             Controls.Add(_workspace);
+            Controls.Add(SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceEditor("ServiceDeskHeader", "Service Desk",
+                "Incidents and service follow-up", new List<Control>())).Header);
         }
 
         private void BuildLeft(Control parent)

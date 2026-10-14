@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using Dapper;
 using HVAC_Pro_Desktop.Models;
+using HVAC_Pro_Desktop.Services;
 
 namespace HVAC_Pro_Desktop.DAL
 {
@@ -14,7 +15,7 @@ namespace HVAC_Pro_Desktop.DAL
         private const int DefaultRecentRows = 1000;
         private const string InvoiceSelect = @"
             SELECT i.*, c.CompanyName AS ClientName, s.SiteName
-            FROM Invoices i
+            FROM dbo.FinancialInvoices i
             LEFT JOIN B2BClients c ON i.ClientID = c.ClientID
             LEFT JOIN ClientSites s ON i.SiteID = s.SiteID";
 
@@ -41,7 +42,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 const string sql = @"
             SELECT TOP (@maxRows) i.*, c.CompanyName AS ClientName, s.SiteName
-            FROM Invoices i
+            FROM dbo.ActiveInvoices i
             LEFT JOIN B2BClients c ON i.ClientID = c.ClientID
             LEFT JOIN ClientSites s ON i.SiteID = s.SiteID
             ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC";
@@ -62,7 +63,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (var cmd = new SqlCommand(@"
                     SELECT ISNULL(SUM(BalanceDue), 0)
-                    FROM Invoices
+                    FROM dbo.FinancialInvoices
                     WHERE PaymentStatus IN ('Pending','Overdue','Partial','Draft')", conn))
                 {
                     return Convert.ToDecimal(cmd.ExecuteScalar());
@@ -77,7 +78,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 using (var cmd = new SqlCommand(@"
                     SELECT TOP 1 1
-                    FROM Invoices
+                    FROM dbo.Invoices
                     WHERE InvoiceID <> @excludeInvoiceId
                       AND InvoiceNumber = @invoiceNumber", conn))
                 {
@@ -93,7 +94,7 @@ namespace HVAC_Pro_Desktop.DAL
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                const string sql = InvoiceSelect + " WHERE i.InvoiceID = @id";
+                string sql = InvoiceSelect.Replace("dbo.FinancialInvoices", "dbo.Invoices") + " WHERE i.InvoiceID = @id";
                 using (var cmd = new SqlCommand(sql, conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
@@ -215,48 +216,64 @@ namespace HVAC_Pro_Desktop.DAL
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                using (SqlTransaction tx = conn.BeginTransaction())
+                using (var tx = conn.BeginTransaction())
                 {
-                    try
-                    {
-                        conn.Execute("DELETE FROM InvoiceLineItems WHERE InvoiceID = @id", new { id = invoiceId }, tx);
-
-                        foreach (var item in CleanInvoiceLineItems(items))
-                        {
-                            conn.Execute(@"
-                                INSERT INTO InvoiceLineItems
-                                    (InvoiceID,JobID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
-                                VALUES
-                                    (@inv,@jobId,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
-                                new
-                            {
-                                inv = invoiceId,
-                                jobId = item.JobID,
-                                stockItemId = item.StockItemID,
-                                desc = item.Description ?? "",
-                                hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),
-                                category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim(),
-                                unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim(),
-                                qty = item.Quantity,
-                                rate = item.Rate,
-                                discount = item.DiscountPercent,
-                                gst = item.GSTPercent,
-                                taxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim(),
-                                tax = item.TaxAmount,
-                                isStockItem = item.IsStockItem,
-                                isBillable = item.IsBillable,
-                                coverageNote = string.IsNullOrWhiteSpace(item.CoverageNote) ? null : item.CoverageNote.Trim(),
-                                amt = item.Amount
-                            }, tx);
-                        }
-                        tx.Commit();
-                    }
-                    catch { tx.Rollback(); throw; }
+                    FinancialRecordProtection.EnsureDraft(conn, tx, invoiceId);
+                    ReplaceLineItems(conn, tx, invoiceId, items);
+                    tx.Commit();
                 }
             }
         }
 
-        // ── CREATE (with line items in transaction) ──────────
+        private static void ReplaceLineItems(SqlConnection conn, SqlTransaction tx, int invoiceId, List<InvoiceLineItem> items)
+        {
+            conn.Execute("DELETE FROM InvoiceLineItems WHERE InvoiceID = @id", new { id = invoiceId }, tx);
+
+            foreach (var item in CleanInvoiceLineItems(items))
+            {
+                conn.Execute(@"
+                    INSERT INTO InvoiceLineItems
+                        (InvoiceID,JobID,StockItemID,Description,HSNCode,Category,Unit,Quantity,Rate,DiscountPercent,GSTPercent,TaxType,TaxAmount,IsStockItem,IsBillable,CoverageNote,Amount)
+                    VALUES
+                        (@inv,@jobId,@stockItemId,@desc,@hsn,@category,@unit,@qty,@rate,@discount,@gst,@taxType,@tax,@isStockItem,@isBillable,@coverageNote,@amt)",
+                    new
+                {
+                    inv = invoiceId,
+                    jobId = item.JobID,
+                    stockItemId = item.StockItemID,
+                    desc = item.Description ?? "",
+                    hsn = string.IsNullOrWhiteSpace(item.HSNCode) ? null : item.HSNCode.Trim(),
+                    category = string.IsNullOrWhiteSpace(item.Category) ? "Service" : item.Category.Trim(),
+                    unit = string.IsNullOrWhiteSpace(item.Unit) ? "Nos" : item.Unit.Trim(),
+                    qty = item.Quantity,
+                    rate = item.Rate,
+                    discount = item.DiscountPercent,
+                    gst = item.GSTPercent,
+                    taxType = string.IsNullOrWhiteSpace(item.TaxType) ? "Taxable" : item.TaxType.Trim(),
+                    tax = item.TaxAmount,
+                    isStockItem = item.IsStockItem,
+                    isBillable = item.IsBillable,
+                    coverageNote = string.IsNullOrWhiteSpace(item.CoverageNote) ? null : item.CoverageNote.Trim(),
+                    amt = item.Amount
+                }, tx);
+            }
+        }
+
+        public void UpdateWithLineItems(Invoice inv)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    FinancialRecordProtection.EnsureDraft(conn, tx, inv.InvoiceID);
+                    ReplaceLineItems(conn, tx, inv.InvoiceID, inv.LineItems ?? new List<InvoiceLineItem>());
+                    ExecuteInvoiceUpdate(conn, tx, inv);
+                    tx.Commit();
+                }
+            }
+        }
+
         public int Create(Invoice inv)
         {
             using (var conn = _db.GetConnection())
@@ -363,6 +380,7 @@ namespace HVAC_Pro_Desktop.DAL
                             }
                         }
 
+                        conn.Execute("UPDATE dbo.Invoices SET IsPosted=CASE WHEN PaymentStatus='Draft' THEN 0 ELSE 1 END,PostedUtc=CASE WHEN PaymentStatus='Draft' THEN NULL ELSE SYSUTCDATETIME() END WHERE InvoiceID=@Id", new { Id = newId }, tx);
                         tx.Commit();
                         return newId;
                     }
@@ -376,6 +394,16 @@ namespace HVAC_Pro_Desktop.DAL
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    ExecuteInvoiceUpdate(conn, tx, inv);
+                    tx.Commit();
+                }
+            }
+        }
+
+        internal static void ExecuteInvoiceUpdate(SqlConnection conn, SqlTransaction tx, Invoice inv)
+        {
                 const string sql = @"
                     UPDATE Invoices SET
                         ContractID = @cid,
@@ -418,59 +446,57 @@ namespace HVAC_Pro_Desktop.DAL
                         InventoryReservationStatus = @inventoryReservationStatus,
                         ModifiedByUserId = @modifiedByUserId,
                         ModifiedByName = @modifiedByName,
-                        ModifiedDate = @modifiedDate
+                        ModifiedDate = @modifiedDate,
+                        IsPosted=CASE WHEN @status='Draft' THEN IsPosted ELSE 1 END,
+                        PostedUtc=CASE WHEN IsPosted=0 AND @status<>'Draft' THEN SYSUTCDATETIME() ELSE PostedUtc END
                     WHERE InvoiceID = @id";
 
-                using (var cmd = new SqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@id", inv.InvoiceID);
-                    cmd.Parameters.AddWithValue("@cid", inv.ContractID > 0 ? (object)inv.ContractID : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@clientId", inv.ClientID > 0 ? (object)inv.ClientID : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@siteId", inv.SiteID > 0 ? (object)inv.SiteID : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@quotationBidId", inv.QuotationBidID.HasValue ? (object)inv.QuotationBidID.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@num", inv.InvoiceNumber ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@date", inv.InvoiceDate);
-                    cmd.Parameters.AddWithValue("@due", inv.DueDate);
-                    cmd.Parameters.AddWithValue("@sub", inv.SubTotal);
-                    cmd.Parameters.AddWithValue("@gst", inv.GSTPercent);
-                    cmd.Parameters.AddWithValue("@tax", inv.TaxAmount);
-                    cmd.Parameters.AddWithValue("@total", inv.TotalAmount);
-                    cmd.Parameters.AddWithValue("@paid", inv.PaidAmount);
-                    cmd.Parameters.AddWithValue("@bal", inv.BalanceDue);
-                    cmd.Parameters.AddWithValue("@status", inv.PaymentStatus ?? "Draft");
-                    cmd.Parameters.AddWithValue("@notes", string.IsNullOrWhiteSpace(inv.Notes) ? (object)DBNull.Value : inv.Notes.Trim());
-                    cmd.Parameters.AddWithValue("@title", string.IsNullOrWhiteSpace(inv.InvoiceTitle) ? "TAX INVOICE" : inv.InvoiceTitle.Trim());
-                    cmd.Parameters.AddWithValue("@subject", string.IsNullOrWhiteSpace(inv.Subject) ? (object)DBNull.Value : inv.Subject.Trim());
-                    cmd.Parameters.AddWithValue("@poNumber", string.IsNullOrWhiteSpace(inv.PONumber) ? (object)DBNull.Value : inv.PONumber.Trim());
-                    cmd.Parameters.AddWithValue("@poDate", inv.PODate.HasValue ? (object)inv.PODate.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@sendInvoiceTo", string.IsNullOrWhiteSpace(inv.SendInvoiceTo) ? (object)DBNull.Value : inv.SendInvoiceTo.Trim());
-                    cmd.Parameters.AddWithValue("@certificationNote", string.IsNullOrWhiteSpace(inv.CertificationNote) ? (object)DBNull.Value : inv.CertificationNote.Trim());
-                    cmd.Parameters.AddWithValue("@templateCode", string.IsNullOrWhiteSpace(inv.TemplateCode) ? (object)DBNull.Value : inv.TemplateCode.Trim());
-                    cmd.Parameters.AddWithValue("@workflowType", string.IsNullOrWhiteSpace(inv.WorkflowType) ? (object)DBNull.Value : inv.WorkflowType.Trim());
-                    cmd.Parameters.AddWithValue("@gstMode", string.IsNullOrWhiteSpace(inv.GSTMode) ? "IGST" : inv.GSTMode.Trim());
-                    cmd.Parameters.AddWithValue("@paymentTerms", string.IsNullOrWhiteSpace(inv.PaymentTerms) ? (object)DBNull.Value : inv.PaymentTerms.Trim());
-                    cmd.Parameters.AddWithValue("@placeOfSupply", string.IsNullOrWhiteSpace(inv.PlaceOfSupply) ? (object)DBNull.Value : inv.PlaceOfSupply.Trim());
-                    cmd.Parameters.AddWithValue("@roundOff", inv.RoundOff);
-                    cmd.Parameters.AddWithValue("@cgst", inv.CGSTAmount);
-                    cmd.Parameters.AddWithValue("@sgst", inv.SGSTAmount);
-                    cmd.Parameters.AddWithValue("@igst", inv.IGSTAmount);
-                    cmd.Parameters.AddWithValue("@coverageType", string.IsNullOrWhiteSpace(inv.ContractCoverageType) ? (object)DBNull.Value : inv.ContractCoverageType.Trim());
-                    cmd.Parameters.AddWithValue("@checklist", string.IsNullOrWhiteSpace(inv.ServiceChecklist) ? (object)DBNull.Value : inv.ServiceChecklist.Trim());
-                    cmd.Parameters.AddWithValue("@assetDetails", string.IsNullOrWhiteSpace(inv.AssetDetails) ? (object)DBNull.Value : inv.AssetDetails.Trim());
-                    cmd.Parameters.AddWithValue("@warrantyStatus", string.IsNullOrWhiteSpace(inv.WarrantyStatus) ? (object)DBNull.Value : inv.WarrantyStatus.Trim());
-                    cmd.Parameters.AddWithValue("@warrantyExpiry", inv.WarrantyExpiry.HasValue ? (object)inv.WarrantyExpiry.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@preventiveVisitDate", inv.PreventiveVisitDate.HasValue ? (object)inv.PreventiveVisitDate.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@nextServiceDueDate", inv.NextServiceDueDate.HasValue ? (object)inv.NextServiceDueDate.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@inventoryReservationStatus", string.IsNullOrWhiteSpace(inv.InventoryReservationStatus) ? "None" : inv.InventoryReservationStatus.Trim());
-                    cmd.Parameters.AddWithValue("@modifiedByUserId", inv.ModifiedByUserId.HasValue ? (object)inv.ModifiedByUserId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@modifiedByName", string.IsNullOrWhiteSpace(inv.ModifiedByName) ? (object)DBNull.Value : inv.ModifiedByName);
-                    cmd.Parameters.AddWithValue("@modifiedDate", inv.ModifiedDate.HasValue ? (object)inv.ModifiedDate.Value : DBNull.Value);
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            var parameters = new DynamicParameters();
+                    parameters.Add("@id", inv.InvoiceID);
+                    parameters.Add("@cid", inv.ContractID > 0 ? (object)inv.ContractID : null);
+                    parameters.Add("@clientId", inv.ClientID > 0 ? (object)inv.ClientID : null);
+                    parameters.Add("@siteId", inv.SiteID > 0 ? (object)inv.SiteID : null);
+                    parameters.Add("@quotationBidId", inv.QuotationBidID.HasValue ? (object)inv.QuotationBidID.Value : null);
+                    parameters.Add("@num", inv.InvoiceNumber ?? string.Empty);
+                    parameters.Add("@date", inv.InvoiceDate);
+                    parameters.Add("@due", inv.DueDate);
+                    parameters.Add("@sub", inv.SubTotal);
+                    parameters.Add("@gst", inv.GSTPercent);
+                    parameters.Add("@tax", inv.TaxAmount);
+                    parameters.Add("@total", inv.TotalAmount);
+                    parameters.Add("@paid", inv.PaidAmount);
+                    parameters.Add("@bal", inv.BalanceDue);
+                    parameters.Add("@status", inv.PaymentStatus ?? "Draft");
+                    parameters.Add("@notes", string.IsNullOrWhiteSpace(inv.Notes) ? (object)null : inv.Notes.Trim());
+                    parameters.Add("@title", string.IsNullOrWhiteSpace(inv.InvoiceTitle) ? "TAX INVOICE" : inv.InvoiceTitle.Trim());
+                    parameters.Add("@subject", string.IsNullOrWhiteSpace(inv.Subject) ? (object)null : inv.Subject.Trim());
+                    parameters.Add("@poNumber", string.IsNullOrWhiteSpace(inv.PONumber) ? (object)null : inv.PONumber.Trim());
+                    parameters.Add("@poDate", inv.PODate.HasValue ? (object)inv.PODate.Value : null);
+                    parameters.Add("@sendInvoiceTo", string.IsNullOrWhiteSpace(inv.SendInvoiceTo) ? (object)null : inv.SendInvoiceTo.Trim());
+                    parameters.Add("@certificationNote", string.IsNullOrWhiteSpace(inv.CertificationNote) ? (object)null : inv.CertificationNote.Trim());
+                    parameters.Add("@templateCode", string.IsNullOrWhiteSpace(inv.TemplateCode) ? (object)null : inv.TemplateCode.Trim());
+                    parameters.Add("@workflowType", string.IsNullOrWhiteSpace(inv.WorkflowType) ? (object)null : inv.WorkflowType.Trim());
+                    parameters.Add("@gstMode", string.IsNullOrWhiteSpace(inv.GSTMode) ? "IGST" : inv.GSTMode.Trim());
+                    parameters.Add("@paymentTerms", string.IsNullOrWhiteSpace(inv.PaymentTerms) ? (object)null : inv.PaymentTerms.Trim());
+                    parameters.Add("@placeOfSupply", string.IsNullOrWhiteSpace(inv.PlaceOfSupply) ? (object)null : inv.PlaceOfSupply.Trim());
+                    parameters.Add("@roundOff", inv.RoundOff);
+                    parameters.Add("@cgst", inv.CGSTAmount);
+                    parameters.Add("@sgst", inv.SGSTAmount);
+                    parameters.Add("@igst", inv.IGSTAmount);
+                    parameters.Add("@coverageType", string.IsNullOrWhiteSpace(inv.ContractCoverageType) ? (object)null : inv.ContractCoverageType.Trim());
+                    parameters.Add("@checklist", string.IsNullOrWhiteSpace(inv.ServiceChecklist) ? (object)null : inv.ServiceChecklist.Trim());
+                    parameters.Add("@assetDetails", string.IsNullOrWhiteSpace(inv.AssetDetails) ? (object)null : inv.AssetDetails.Trim());
+                    parameters.Add("@warrantyStatus", string.IsNullOrWhiteSpace(inv.WarrantyStatus) ? (object)null : inv.WarrantyStatus.Trim());
+                    parameters.Add("@warrantyExpiry", inv.WarrantyExpiry.HasValue ? (object)inv.WarrantyExpiry.Value : null);
+                    parameters.Add("@preventiveVisitDate", inv.PreventiveVisitDate.HasValue ? (object)inv.PreventiveVisitDate.Value : null);
+                    parameters.Add("@nextServiceDueDate", inv.NextServiceDueDate.HasValue ? (object)inv.NextServiceDueDate.Value : null);
+                    parameters.Add("@inventoryReservationStatus", string.IsNullOrWhiteSpace(inv.InventoryReservationStatus) ? "None" : inv.InventoryReservationStatus.Trim());
+                    parameters.Add("@modifiedByUserId", inv.ModifiedByUserId.HasValue ? (object)inv.ModifiedByUserId.Value : null);
+                    parameters.Add("@modifiedByName", string.IsNullOrWhiteSpace(inv.ModifiedByName) ? (object)null : inv.ModifiedByName);
+                    parameters.Add("@modifiedDate", inv.ModifiedDate.HasValue ? (object)inv.ModifiedDate.Value : null);
+            conn.Execute(sql, parameters, tx);
         }
 
-        // ── UPDATE STATUS / PAYMENT ──────────────────────────
         public void UpdatePaymentStatus(int invoiceId, decimal paidAmount, string status)
         {
             using (var conn = _db.GetConnection())
@@ -481,52 +507,18 @@ namespace HVAC_Pro_Desktop.DAL
                         PaidAmount    = @paid,
                         BalanceDue    = TotalAmount - @paid,
                         PaymentStatus = @status,
+                        IsPosted = CASE WHEN @status = 'Draft' THEN IsPosted ELSE 1 END,
+                        PostedUtc = CASE WHEN IsPosted=0 AND @status<>'Draft' THEN SYSUTCDATETIME() ELSE PostedUtc END,
                         PaymentDate   = CASE WHEN @status = 'Paid' THEN GETDATE() ELSE PaymentDate END
                     WHERE InvoiceID = @id";
-                using (var cmd = new SqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@paid",   paidAmount);
-                    cmd.Parameters.AddWithValue("@status", status);
-                    cmd.Parameters.AddWithValue("@id",     invoiceId);
-                    cmd.ExecuteNonQuery();
-                }
+                conn.Execute(sql, new { paid = paidAmount, status, id = invoiceId });
             }
         }
 
         // ── INVOICE NUMBER GENERATION ────────────────────────
         public void Delete(int invoiceId)
         {
-            using (var conn = _db.GetConnection())
-            {
-                conn.Open();
-                using (SqlTransaction tx = conn.BeginTransaction())
-                {
-                    try
-                    {
-                        ExecuteDelete(conn, tx, "DELETE FROM Payments WHERE InvoiceID=@id", invoiceId);
-                        ExecuteDelete(conn, tx, "DELETE FROM InvoiceInventoryReservations WHERE InvoiceID=@id", invoiceId);
-                        ExecuteDelete(conn, tx, "UPDATE InventoryUsageLog SET InvoiceID=NULL WHERE InvoiceID=@id", invoiceId);
-                        ExecuteDelete(conn, tx, "UPDATE Jobs SET InvoiceId=NULL WHERE InvoiceId=@id", invoiceId);
-                        ExecuteDelete(conn, tx, "DELETE FROM InvoiceLineItems WHERE InvoiceID=@id", invoiceId);
-                        ExecuteDelete(conn, tx, "DELETE FROM Invoices WHERE InvoiceID=@id", invoiceId);
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                }
-            }
-        }
-
-        private static void ExecuteDelete(SqlConnection conn, SqlTransaction tx, string sql, int id)
-        {
-            using (var cmd = new SqlCommand(sql, conn, tx))
-            {
-                cmd.Parameters.AddWithValue("@id", id);
-                cmd.ExecuteNonQuery();
-            }
+            FinancialRecordProtection.ArchiveInvoice(invoiceId);
         }
 
         public string GenerateInvoiceNumber()
@@ -536,7 +528,7 @@ namespace HVAC_Pro_Desktop.DAL
                 conn.Open();
                 string prefix = "INV-" + DateTime.Now.ToString("yyyy-MM");
                 using (var cmd = new SqlCommand(
-                    "SELECT COUNT(*) FROM Invoices WHERE InvoiceNumber LIKE @p", conn))
+                    "SELECT COUNT(*) FROM dbo.Invoices WHERE InvoiceNumber LIKE @p", conn))
                 {
                     cmd.Parameters.AddWithValue("@p", prefix + "-%");
                     int count = (int)cmd.ExecuteScalar();
@@ -566,7 +558,7 @@ namespace HVAC_Pro_Desktop.DAL
                         END AS Bucket,
                         COUNT(*) AS Cnt,
                         SUM(BalanceDue) AS Amt
-                    FROM Invoices
+                    FROM dbo.FinancialInvoices
                     WHERE PaymentStatus IN ('Pending','Overdue','Partial')
                     AND DueDate < GETDATE()
                     GROUP BY
@@ -636,6 +628,8 @@ namespace HVAC_Pro_Desktop.DAL
             inv.ModifiedByUserId = GetNullableInt32(r, "ModifiedByUserId");
             inv.ModifiedByName = GetNullableString(r, "ModifiedByName");
             inv.ModifiedDate = GetNullableDate(r, "ModifiedDate");
+            inv.IsPosted = HasColumn(r, "IsPosted") && r["IsPosted"] != DBNull.Value && Convert.ToBoolean(r["IsPosted"]);
+            inv.IsDeleted = HasColumn(r, "IsDeleted") && r["IsDeleted"] != DBNull.Value && Convert.ToBoolean(r["IsDeleted"]);
             inv.ClientName = GetString(r, "ClientName");
             inv.SiteName = GetString(r, "SiteName");
             return inv;

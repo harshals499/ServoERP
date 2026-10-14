@@ -173,7 +173,11 @@ namespace ServoERP.Infrastructure
             IndiaCompanySettings company = DocumentBranding.GetConfiguredCompanySettings();
             container.Column(col =>
             {
-                col.Item().Text(Safe(company.CompanyName, DocumentBranding.DefaultCompanyName)).FontSize(18).Bold();
+                string headerPath = DocumentBranding.GetCompanyHeaderPath();
+                if (!string.IsNullOrWhiteSpace(headerPath))
+                    col.Item().MaxHeight(140).Image(File.ReadAllBytes(headerPath)).FitArea();
+                else
+                    col.Item().Text(Safe(company.CompanyName, DocumentBranding.DefaultCompanyName)).FontSize(18).Bold();
                 col.Item().Text(Safe(title)).FontSize(13).FontColor(Colors.Grey.Darken2);
                 if (!string.IsNullOrWhiteSpace(company.Address))
                     col.Item().PaddingTop(3).Text("Registered office: " + company.Address.Trim()).FontSize(9);

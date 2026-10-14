@@ -5,6 +5,8 @@ namespace HVAC_Pro_Desktop.Models
 {
     public class Invoice
     {
+        public bool IsPosted { get; set; }
+        public bool IsDeleted { get; set; }
         public int    InvoiceID     { get; set; }
         public int    ContractID    { get; set; }
         public int    ClientID      { get; set; }   // direct FK for fast queries

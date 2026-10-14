@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -550,18 +550,20 @@ namespace HVAC_Pro_Desktop.UI
             _txnTable = new TableLayoutPanel { ColumnCount = 9, RowCount = 9, Location = new Point(14, 76), Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right | AnchorStyles.Bottom, BackColor = Color.White };
             int[] widths = { 10, 11, 13, 16, 13, 10, 10, 10, 7 };
             foreach (int width in widths) _txnTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, width));
-            _txnPager = new GlobalPaginationControl { Height = 34, Width = 560, BackColor = Color.Transparent };
+            _txnPager = new GlobalPaginationControl { Height = 34, Width = 560, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom, Dock = DockStyle.Bottom, BackColor = Color.Transparent };
             _txnPager.PageChanged += (s, e) => { _overviewPage = _txnPager.CurrentPage; RefreshTransactionsTable(); };
             _txnPager.PageSizeChanged += (s, e) => { _overviewPageSize = _txnPager.PageSize; _overviewPage = 1; RefreshTransactionsTable(); };
             card.Controls.AddRange(new Control[] { txnTypeHost, txnSearchHost, export, _txnTable, _txnPager });
-            card.Resize += (s, e) =>
+            Action layoutPagination = () =>
             {
                 export.Location = new Point(card.Width - 92, 44);
                 txnSearchHost.Location = new Point(export.Left - 220, 42);
                 txnTypeHost.Location = new Point(txnSearchHost.Left - 120, 42);
-                _txnTable.Size = new Size(card.Width - 28, card.Height - 126);
-                _txnPager.Location = new Point(card.Width - _txnPager.Width - 16, card.Height - 40);
+                _txnTable.Size = new Size(card.Width - 28, Math.Max(60, card.ClientSize.Height - card.Padding.Bottom - _txnPager.Height - _txnTable.Top - 8));
             };
+            card.Resize += (s, e) => layoutPagination();
+            _txnPager.SizeChanged += (s, e) => layoutPagination();
+            layoutPagination();
             return card;
         }
 

@@ -373,7 +373,7 @@ try {
     Invoke-LoggedStage -Report $report -Name "prepare-velopack" -Action {
         & (Join-Path $PSScriptRoot "Prepare-VelopackPublish.ps1") -BuildOutput (Join-Path $sourceRoot "bin\Release") -PublishDir $publishDir | Out-Null
         if (-not $SkipGitHubDownload) {
-            vpk download github --repoUrl "https://github.com/harshals499/ServoERP" --outputDir $velopackDir
+            vpk download github --repoUrl "https://github.com/harshals499/ServoERP-Releases" --outputDir $velopackDir
             if ($LASTEXITCODE -ne 0) {
                 throw "vpk download github failed with exit code $LASTEXITCODE."
             }
@@ -384,6 +384,7 @@ try {
             --packTitle "ServoERP" `
             --packAuthors "Harshal Sonawane" `
             --packVersion $versionInfo.SemVersion `
+            --releaseNotes (Join-Path $repoRoot "release\RELEASE_NOTES_$($versionInfo.SemVersion).md") `
             --packDir $publishDir `
             --outputDir $velopackDir `
             --mainExe "HVAC_Pro_Desktop.exe" `
@@ -398,6 +399,7 @@ try {
         $report.artifacts.velopackFull = Join-Path $velopackDir ("ServoERP.Desktop-{0}-full.nupkg" -f $versionInfo.SemVersion)
         Assert-FileExists -Path $report.artifacts.velopackSetup
         Assert-FileExists -Path $report.artifacts.velopackFull
+        & (Join-Path $PSScriptRoot "Test-VelopackReleaseArtifacts.ps1") -OutputDir $velopackDir -ExpectedVersion $versionInfo.SemVersion
     }
 
     Invoke-LoggedStage -Report $report -Name "build-update-package" -Action {
@@ -426,7 +428,7 @@ try {
                 }
 
                 vpk upload github `
-                    --repoUrl "https://github.com/harshals499/ServoERP" `
+                    --repoUrl "https://github.com/harshals499/ServoERP-Releases" `
                     --token $env:GITHUB_TOKEN `
                     --outputDir $velopackDir `
                     --publish `
@@ -434,7 +436,7 @@ try {
                     --tag ("v{0}" -f $versionInfo.SemVersion) `
                     --targetCommitish "main"
 
-                $report.artifacts.githubRelease = "https://github.com/harshals499/ServoERP/releases/tag/v{0}" -f $versionInfo.SemVersion
+                $report.artifacts.githubRelease = "https://github.com/harshals499/ServoERP-Releases/releases/tag/v{0}" -f $versionInfo.SemVersion
             }
         }
 

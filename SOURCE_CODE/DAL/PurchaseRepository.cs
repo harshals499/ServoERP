@@ -30,7 +30,7 @@ namespace HVAC_Pro_Desktop.DAL
                     LEFT JOIN Vendors v ON p.VendorID = v.VendorID
                     LEFT JOIN B2BClients c ON p.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON p.SiteID = s.SiteID
-                    LEFT JOIN Jobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
+                    LEFT JOIN dbo.ActiveJobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
                     ORDER BY CASE WHEN ISNULL(p.Status,'') IN ('Fully Received','Received','Paid','Closed') OR p.PaidAmount >= p.TotalAmount THEN 1 ELSE 0 END,
                              p.PayByDate ASC,
                              p.PODate DESC", conn))
@@ -58,7 +58,7 @@ namespace HVAC_Pro_Desktop.DAL
                     LEFT JOIN Vendors v ON p.VendorID = v.VendorID
                     LEFT JOIN B2BClients c ON p.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON p.SiteID = s.SiteID
-                    LEFT JOIN Jobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
+                    LEFT JOIN dbo.ActiveJobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
                     WHERE p.POID = @id", conn))
                 {
                     cmd.Parameters.AddWithValue("@id", id);
@@ -97,7 +97,7 @@ namespace HVAC_Pro_Desktop.DAL
                     LEFT JOIN Vendors v ON p.VendorID = v.VendorID
                     LEFT JOIN B2BClients c ON p.ClientID = c.ClientID
                     LEFT JOIN ClientSites s ON p.SiteID = s.SiteID
-                    LEFT JOIN Jobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
+                    LEFT JOIN dbo.ActiveJobs j ON p.LinkedToType = 'WorkOrder' AND p.LinkedToId = j.JobID
                     WHERE p.VendorID = @vid ORDER BY p.PayByDate ASC, p.PODate DESC", conn))
                 {
                     cmd.Parameters.AddWithValue("@vid", vendorId);

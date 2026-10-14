@@ -649,44 +649,20 @@ namespace HVAC_Pro_Desktop.UI
             grid.Dock = DockStyle.Fill;
             card.Controls.Add(grid);
             if (withPager)
-                card.Controls.Add(BuildPagerFooter());
+                card.Controls.Add(BuildPagerFooter(grid));
             if (!string.IsNullOrWhiteSpace(title))
                 card.Controls.Add(heading);
             return card;
         }
 
-        private Panel BuildPagerFooter()
+        private Panel BuildPagerFooter(DataGridView grid)
         {
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 44, BackColor = Color.White };
-            Label showing = new Label { Text = "Showing 1 to 1 of 1 entries", Location = new Point(0, 15), Size = new Size(180, 18), Font = DS.Small, ForeColor = DS.Slate600, AutoEllipsis = true };
-            Button prev = NewPagerButton("<");
-            Button page = NewPagerButton("1");
-            Button next = NewPagerButton(">");
-            ComboBox perPage = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = DS.Small, Width = 86, Height = 28 };
-            perPage.Items.AddRange(new object[] { "10 / page", "25 / page", "50 / page" });
-            perPage.SelectedIndex = 0;
-            footer.Resize += (s, e) =>
-            {
-                const int gap = 6;
-                int pagerWidth = prev.Width + page.Width + next.Width + perPage.Width + gap * 3;
-                int start = Math.Max(0, footer.ClientSize.Width - pagerWidth);
-                prev.Location = new Point(start, 8);
-                page.Location = new Point(prev.Right + gap, 8);
-                next.Location = new Point(page.Right + gap, 8);
-                perPage.Location = new Point(next.Right + gap, 8);
-                showing.Width = Math.Max(0, start - 10);
-                showing.Visible = showing.Width >= 90;
-            };
-            footer.Controls.AddRange(new Control[] { showing, prev, page, next, perPage });
+            var pager = new Controls.GlobalPaginationControl { Dock = DockStyle.Top };
+            footer.Controls.Add(pager);
+            HVAC_Pro_Desktop.UI.Controls.PaginationFooterLayout.Bind(pager, () => footer.Height = pager.Height);
+            HVAC_Pro_Desktop.UI.Controls.GridPaginationBinding.Attach(grid, pager);
             return footer;
-        }
-
-        private Button NewPagerButton(string text)
-        {
-            Button button = new Button { Text = text, Size = new Size(34, 28), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate600, Font = DS.SmallBold, TextAlign = ContentAlignment.MiddleCenter, UseVisualStyleBackColor = false };
-            button.FlatAppearance.BorderColor = DS.BorderStrong;
-            DS.Rounded(button, 6);
-            return button;
         }
 
         private TabPage BuildModernGridTab(string title, DataGridView grid, bool withPager)

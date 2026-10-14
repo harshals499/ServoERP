@@ -601,7 +601,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnHeaderPreview.ForeColor = InfoBlue;
             _btnHeaderPreview.FlatAppearance.BorderColor = DS.BorderStrong;
             _btnHeaderPreview.Visible = false;
-            Button btnDeleteInvoice = MakeBtn("Delete", Color.White, 86);
+            Button btnDeleteInvoice = MakeBtn("Archive", Color.White, 86);
             Color deleteRed = Color.FromArgb(220, 38, 38);
             btnDeleteInvoice.ForeColor = deleteRed;
             btnDeleteInvoice.FlatAppearance.BorderColor = deleteRed;
@@ -1345,7 +1345,7 @@ namespace HVAC_Pro_Desktop.UI
             grid.Columns.Add("Amount", "Amount");
             grid.Columns.Add("Status", "Status");
             grid.Columns.Add(new DataGridViewButtonColumn { Name = "Pdf", HeaderText = "", Text = "PDF", UseColumnTextForButtonValue = true, FillWeight = 45 });
-            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Delete", UseColumnTextForButtonValue = true, FillWeight = 55 });
+            grid.Columns.Add(new DataGridViewButtonColumn { Name = "Delete", HeaderText = "", Text = "Archive", UseColumnTextForButtonValue = true, FillWeight = 55 });
             foreach (InvoiceRecentRow row in _invoiceDashboardSnapshot.RecentInvoices.Take(5))
                 grid.Rows.Add(row.InvoiceId, row.InvoiceNumber, row.ClientName, row.InvoiceDate.ToString("dd/MM/yyyy"), IndiaFormatHelper.FormatCurrency(row.Amount), row.Status);
             GridTheme.Apply(grid);
@@ -1822,7 +1822,9 @@ namespace HVAC_Pro_Desktop.UI
             AddInvoiceActionMenuItem(menu, "Create Credit Note", (s, e) => BtnCreateCreditNote_Click(s, e));
             AddInvoiceActionMenuItem(menu, "WhatsApp Reminder", (s, e) => ShowInvoiceWhatsAppAction());
             menu.Items.Add(new ToolStripSeparator());
-            AddInvoiceActionMenuItem(menu, "Delete Invoice", (s, e) => DeleteCurrentInvoice());
+            AddInvoiceActionMenuItem(menu, "Archive Invoice", (s, e) => DeleteCurrentInvoice());
+            AddInvoiceActionMenuItem(menu, "Audit history", (s, e) => { using (var history = new FinancialRecordHistoryDialog("Invoices", _current?.InvoiceID > 0 ? (int?)_current.InvoiceID : null)) history.ShowDialog(FindForm()); });
+            AddInvoiceActionMenuItem(menu, "Archived records", (s, e) => { using (var history = new FinancialRecordHistoryDialog("Invoices", null, true)) history.ShowDialog(FindForm()); LoadInvoiceList(true); });
             menu.Show(anchor, new Point(0, anchor.Height));
         }
 
@@ -1875,17 +1877,11 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             string invoiceNo = string.IsNullOrWhiteSpace(target.InvoiceNumber) ? "this invoice" : "invoice " + target.InvoiceNumber;
-            DialogResult confirm = RecordDeletionUi.ConfirmPermanentDelete(
-                FindForm(),
-                "Invoice",
-                invoiceNo,
-                "Line items, payments, inventory reservations, and record links for this invoice will also be removed.");
-            if (confirm != DialogResult.Yes)
-                return;
+            if (!ServoERP.Infrastructure.ServoConfirmDialog.Show((Control)this, "Archive invoice " + invoiceNo, "The record will leave active lists. Existing lines, payments, stock movements and linked records are preserved. You can restore it from Archived records.")) return;
 
             try
             {
-                SetBusy("Deleting invoice...");
+                SetBusy("Archiving invoice...");
                 int deletedId = target.InvoiceID;
                 _invSvc.DeleteInvoice(deletedId);
                 if (clearIfCurrent || (_current != null && _current.InvoiceID == deletedId))
@@ -1893,7 +1889,7 @@ namespace HVAC_Pro_Desktop.UI
                 LoadInvoiceList(true);
                 if (_invoiceDashboardPanel != null)
                     RefreshInvoiceModuleDashboard(_invoiceDashboardPanel);
-                ShowStatus("Invoice deleted.", DS.Red600);
+                ShowStatus("Invoice archived.", DS.Red600);
             }
             catch (Exception ex)
             {
@@ -3666,6 +3662,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool IsInvoiceLocked()
         {
+            if (_current != null && (_current.IsPosted || _current.IsDeleted)) return true;
             string status = _cmbStatus?.SelectedItem?.ToString() ?? _current?.PaymentStatus ?? "Pending";
             return string.Equals(status, "Approved", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(status, "Paid", StringComparison.OrdinalIgnoreCase);
@@ -3680,6 +3677,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             bool locked = IsInvoiceLocked();
+            if (_btnSaveInvoice != null) _btnSaveInvoice.Enabled = !locked;
             foreach (DataGridView grid in new[] { _gridChecklist, _gridAssets, _grid })
             {
                 if (grid == null)
@@ -4192,6 +4190,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BtnSave_Click(object sender, EventArgs e)
         {
+            if (_current != null && (_current.IsPosted || _current.IsDeleted)) { ShowStatus("Posted or archived invoices are locked. Use a credit note for corrections.", OrangeCol); return; }
             try
             {
                 if (!ValidateInvoiceForm(true))
@@ -4253,6 +4252,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_current == null || _current.InvoiceID == 0)
             { MessageBox.Show("Save the invoice first.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            if (_current.IsPosted || _current.IsDeleted) { ShowStatus("This invoice is already posted or archived and locked.", OrangeCol); return; }
             try
             {
                 if (!ValidateInvoiceForm(true))
@@ -4262,6 +4262,7 @@ namespace HVAC_Pro_Desktop.UI
                 invoice.InvoiceID = _current.InvoiceID;
                 invoice.InvoiceNumber = _current.InvoiceNumber;
                 invoice.PaidAmount = _current.PaidAmount;
+                invoice.PaymentStatus = "Draft";
                 _invSvc.UpdateInvoiceWithLineItems(invoice);
                 _invSvc.FinalizeInvoice(_current.InvoiceID);
                 _current = _invSvc.GetInvoiceById(_current.InvoiceID);
@@ -4733,7 +4734,7 @@ namespace HVAC_Pro_Desktop.UI
             if (busy)
                 ShowStatus(message, DS.Slate600);
             if (_btnSaveInvoice != null)
-                _btnSaveInvoice.Enabled = !busy;
+                _btnSaveInvoice.Enabled = !busy && !IsInvoiceLocked();
             if (_btnNewInvoice != null)
                 _btnNewInvoice.Enabled = !busy;
             Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
@@ -4995,7 +4996,8 @@ namespace HVAC_Pro_Desktop.UI
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
             menu.Items.Add("Open Preview", null, (s, e) => SelectInvoice(invoice, card));
             menu.Items.Add("Edit", null, (s, e) => EditInvoice(invoice, card));
-            RecordDeletionUi.AddDeleteMenuItem(menu, (s, e) => DeleteInvoice(invoice, _current != null && _current.InvoiceID == invoice.InvoiceID));
+            menu.Items.Add("Audit history", null, (s, e) => { using (var history = new FinancialRecordHistoryDialog("Invoices", invoice.InvoiceID)) history.ShowDialog(FindForm()); });
+            menu.Items.Add("Archive", null, (s, e) => DeleteInvoice(invoice, _current != null && _current.InvoiceID == invoice.InvoiceID));
             card.ContextMenuStrip = menu;
             foreach (Control control in new Control[] { lblNumber, lblClient, lblAmount, lblStatus })
                 control.ContextMenuStrip = menu;

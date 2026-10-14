@@ -6,4 +6,3 @@
 /updates /404.html 404
 /updates/* /updates/:splat 200
 / /index.html 200
-/* /404.html 404

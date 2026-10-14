@@ -40,8 +40,6 @@ namespace HVAC_Pro_Desktop.Services
                 AppLogger.LogInfo("Post-update maintenance started for v" + version + ".");
                 var manager = new DatabaseManager();
                 manager.InitializeDatabase();
-                DbHelper.EnsureQuotationSchemaMigration();
-                DbHelper.EnsureAMCSchema();
                 NodeIdentityService.EnsureRegistered();
 
                 ConfigService.Set("App", CompletedVersionKey, version);

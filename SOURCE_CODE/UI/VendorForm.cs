@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -829,6 +829,14 @@ namespace HVAC_Pro_Desktop.UI
             pager.PageSizeChanged += (s, e) => { _dashboardPageSize = pager.PageSize; _dashboardPage = 1; RenderRecentVendorsCardOnly(); };
             pager.SetState(_dashboardPage, totalRows, pageSize);
             content.Controls.Add(pager);
+            Action layoutPagination = () =>
+            {
+                pager.Width = Math.Max(280, content.ClientSize.Width);
+                tableHost.Height = Math.Max(60, Math.Min(220, content.ClientSize.Height - pager.Height - 6));
+                pager.Location = new Point(0, tableHost.Bottom + 6);
+            };
+            content.Resize += (s, e) => layoutPagination();
+            pager.SizeChanged += (s, e) => layoutPagination();
             return content;
         }
 
@@ -3740,6 +3748,9 @@ namespace HVAC_Pro_Desktop.UI
                     page.Header().Column(column =>
                     {
                         column.Spacing(3);
+                        string headerPath = DocumentBranding.GetCompanyHeaderPath();
+                        if (!string.IsNullOrWhiteSpace(headerPath))
+                            column.Item().MaxHeight(140).Image(File.ReadAllBytes(headerPath)).FitArea();
                         column.Item().Text("ServoERP Supplier Performance Report").Bold().FontSize(18).FontColor(Colors.Blue.Medium);
                         column.Item().Text(vendor?.VendorName ?? "Supplier").Bold().FontSize(14);
                         if (!string.IsNullOrWhiteSpace(address))

@@ -1,4 +1,4 @@
-﻿const DEMO_REQUEST_ENDPOINT = "/api/demo-request";
+const DEMO_REQUEST_ENDPOINT = "/api/demo-request";
 const DEMO_SUCCESS_MESSAGE = "Thank you! Our team will contact you shortly.";
 const DEMO_REQUEST_EMAIL = "support@servoerp.in";
 
@@ -6,7 +6,7 @@ const header = document.querySelector(".site-header");
 const navToggle = document.querySelector(".nav-toggle");
 const leadForm = document.querySelector("[data-lead-form]");
 const revealItems = document.querySelectorAll(".reveal");
-const screenshotImages = document.querySelectorAll('img[src*="assets/screenshots"], img[src*="assets/forms"]');
+const screenshotImages = document.querySelectorAll('img[src*="assets/screenshots"], img[src*="assets/forms"], img[src*="assets/pdf-previews"]');
 
 navToggle?.addEventListener("click", () => {
   const expanded = navToggle.getAttribute("aria-expanded") === "true";
@@ -40,6 +40,9 @@ if ("IntersectionObserver" in window) {
 if (screenshotImages.length) {
   const lightbox = document.createElement("div");
   lightbox.className = "image-lightbox";
+  lightbox.setAttribute("role", "dialog");
+  lightbox.setAttribute("aria-modal", "true");
+  lightbox.setAttribute("aria-label", "Document and application preview");
   lightbox.hidden = true;
   lightbox.innerHTML = `
     <div class="lightbox-bar">
@@ -68,8 +71,7 @@ if (screenshotImages.length) {
   };
 
   screenshotImages.forEach((image) => {
-    image.loading = "eager";
-    image.decoding = "sync";
+    image.decoding = "async";
     image.tabIndex = 0;
     image.setAttribute("role", "button");
     image.setAttribute("aria-label", `View full image: ${image.alt || "ServoERP screenshot"}`);
@@ -92,7 +94,7 @@ if (screenshotImages.length) {
     });
   });
 
-  document.querySelectorAll('a[href*="assets/screenshots"], a[href*="assets/forms"]').forEach((link) => {
+  document.querySelectorAll('a[href*="assets/screenshots"], a[href*="assets/forms"], a[href*="assets/pdf-previews"]').forEach((link) => {
     link.addEventListener("click", (event) => {
       event.preventDefault();
       if (event.target?.tagName === "IMG") {
@@ -109,6 +111,10 @@ if (screenshotImages.length) {
     }
   });
   window.addEventListener("keydown", (event) => {
+    if (event.key === "Tab" && !lightbox.hidden) {
+      event.preventDefault();
+      closeButton.focus();
+    }
     if (event.key === "Escape" && !lightbox.hidden) {
       closeLightbox();
     }
@@ -213,3 +219,8 @@ leadForm?.addEventListener("submit", async (event) => {
     submitButton.textContent = originalButtonText;
   }
 });
+
+
+
+
+

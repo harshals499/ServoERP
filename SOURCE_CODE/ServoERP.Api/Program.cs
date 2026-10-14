@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Data.SqlClient;
+using ServoERP.Api.Mobile;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration.GetSection("ServoERP");
@@ -10,6 +12,8 @@ if (string.IsNullOrWhiteSpace(connectionString) || string.IsNullOrWhiteSpace(api
     throw new InvalidOperationException("Set SERVOERP_DATABASE_CONNECTION and SERVOERP_API_KEY before starting ServoERP.Api.");
 
 builder.Services.AddSingleton(new ApiOptions(connectionString, apiKey));
+builder.Host.UseSerilog((context, logger) => logger.WriteTo.Console().WriteTo.File(Path.Combine(AppContext.BaseDirectory, "logs", "api-.log"), rollingInterval: RollingInterval.Day, retainedFileCountLimit: 14));
+builder.AddEngineerMobile(connectionString);
 builder.Services.AddSingleton<BusinessWriteService>();
 builder.Services.AddHealthChecks().AddCheck<SqlHealthCheck>("sql-server");
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
@@ -22,8 +26,11 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 var app = builder.Build();
 app.UseHttpsRedirection();
 app.UseCors();
+app.UseRateLimiter();
+app.Use((http, next) => MobileEndpoints.Middleware(http, next, app.Configuration));
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/api/v1/mobile")) { await next(); return; }
     if (context.Request.Path.StartsWithSegments("/api") && !ApiKeyAuth.IsAuthorized(context, apiKey))
     {
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
@@ -50,7 +57,7 @@ app.MapGet("/api/v1/health", async (ApiOptions options, CancellationToken ct) =>
     string databaseName = reader.IsDBNull(0) ? "HVAC_PRO" : reader.GetString(0);
     await reader.NextResultAsync(ct);
     string schemaVersion = await reader.ReadAsync(ct) && !reader.IsDBNull(0) ? reader.GetString(0) : "0";
-    return Results.Ok(new { api = "online", database = "connected", databaseName, server = connection.DataSource, version = "1.1.435.0", companyIsolationSchemaVersion = schemaVersion, minimumDesktopVersion = "1.1.435.0" });
+    return Results.Ok(new { api = "online", database = "connected", databaseName, server = connection.DataSource, version = "1.1.496.0", companyIsolationSchemaVersion = schemaVersion, minimumDesktopVersion = "1.1.435.0" });
 });
 app.MapGet("/api/v1/companies", async (HttpContext http, ApiOptions options, CancellationToken ct) =>
 {
@@ -78,7 +85,17 @@ app.MapPost("/api/v1/inventory/{itemId:int}/movements", async (HttpContext http,
 app.MapPost("/api/v1/purchase-orders/{poId:int}/receive", async (HttpContext http, int poId, BusinessWriteService service, CancellationToken ct) =>
     Results.Ok(await service.ReceivePurchaseOrderAsync(poId, CompanyContext.Require(http), ct)));
 
+app.MapEngineerMobile(connectionString);
+app.MapGet("/api/v1/jobs/{jobId:int}/engineer-report", async (int jobId, HttpContext http, MobileJobService jobs, CancellationToken ct) =>
+{
+    if (!MobileEndpoints.Enabled(app.Configuration)) return Results.NotFound();
+    var company = CompanyContext.Require(http);
+    var report = await jobs.OfficeReport(company.UserId, company.CompanyId, jobId, ct);
+    return report is null ? Results.NotFound() : Results.Ok(report);
+});
 app.Run();
+
+public partial class Program { }
 
 sealed record ApiOptions(string ConnectionString, string ApiKey);
 sealed record RecordPaymentRequest(int InvoiceId, decimal AmountPaid, DateTime PaymentDate, string? PaymentMode, string? ReferenceNumber, string? Notes, string? RequestedBy);

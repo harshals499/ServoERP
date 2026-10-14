@@ -102,7 +102,9 @@ namespace HVAC_Pro_Desktop.Tests
         {
             if (!UpdateService.ShouldUpgradeAutomaticUpdatePolicy(string.Empty))
                 throw new InvalidOperationException("Existing clients must be migrated to automatic background update downloads.");
-            if (UpdateService.ShouldUpgradeAutomaticUpdatePolicy("1"))
+            if (!UpdateService.ShouldUpgradeAutomaticUpdatePolicy("1"))
+                throw new InvalidOperationException("Policy v1 clients must receive the periodic automatic-download fix.");
+            if (UpdateService.ShouldUpgradeAutomaticUpdatePolicy("2"))
                 throw new InvalidOperationException("A completed automatic-update policy migration must preserve later user preference changes.");
 
             MethodInfo startup = typeof(MainForm).GetMethod("BeginVersionCheck", BindingFlags.Instance | BindingFlags.NonPublic);

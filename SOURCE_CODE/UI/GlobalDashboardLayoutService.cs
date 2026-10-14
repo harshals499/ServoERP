@@ -19,6 +19,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Attaches global drag, resize, persistence, reflow, and reset behavior to card-like controls.</summary>
         public static void ApplyToTree(Control root)
         {
+            if (root?.FindForm() is GlobalSearchDialog) return;
             if (root == null || root.IsDisposed)
                 return;
 
@@ -386,6 +387,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsCardCandidate(Control control)
         {
+            if (WorkspaceHeaderPanel.Owns(control)) return false;
             return CardSurfacePolicy.IsDashboardLayoutCard(control);
         }
 

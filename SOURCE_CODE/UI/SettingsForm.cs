@@ -97,6 +97,46 @@ namespace HVAC_Pro_Desktop.UI
         private ComboBox _cmbUnitMeasurementSystem;
         private TextBox _txtUnitAliases;
         private Panel _generalFlow;
+        private Panel _settingsDirectory;
+        private Panel _settingsNavigation;
+        private Label _settingsSectionTitle;
+        private TextBox _settingsSearch;
+        private string[] _selectedSettingsCards;
+        private readonly Dictionary<Panel, string> _settingsCardTitles = new Dictionary<Panel, string>();
+        private readonly List<Panel> _directoryGroups = new List<Panel>();
+
+        private sealed class SettingsDestination
+        {
+            public string Title;
+            public string Description;
+            public string[] Cards;
+            public string Tab;
+            public bool AdminOnly;
+        }
+
+        private sealed class SettingsDirectoryButton : Button
+        {
+            private bool _hovered;
+            protected override void OnMouseEnter(EventArgs e) { _hovered = true; Invalidate(); base.OnMouseEnter(e); }
+            protected override void OnMouseLeave(EventArgs e) { _hovered = false; Invalidate(); base.OnMouseLeave(e); }
+            protected override void OnPaint(PaintEventArgs e)
+            {
+                Color surface = _hovered || Focused ? DS.Slate50 : Color.White;
+                e.Graphics.Clear(surface);
+                using (Font font = new Font("Segoe UI", 10.5f, FontStyle.Bold))
+                using (Font descriptionFont = new Font("Segoe UI", 9f))
+                {
+                    TextRenderer.DrawText(e.Graphics, Text, font, new Rectangle(54, 12, Math.Max(0, Width - 84), 28), DS.Slate900,
+                        TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
+                    TextRenderer.DrawText(e.Graphics, AccessibleDescription, descriptionFont, new Rectangle(54, 42, Math.Max(0, Width - 84), Height - 46), DS.Slate500,
+                        TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+                    TextRenderer.DrawText(e.Graphics, "›", font, new Rectangle(Width - 28, 14, 24, 28), DS.Primary600,
+                        TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+                }
+                using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawLine(pen, 10, Height - 1, Width - 10, Height - 1);
+                if (Focused) ControlPaint.DrawFocusRectangle(e.Graphics, new Rectangle(3, 3, Width - 6, Height - 6));
+            }
+        }
         private Label _lblUserTotal;
         private Label _lblUserActive;
         private Label _lblUserAdmins;
@@ -340,6 +380,7 @@ namespace HVAC_Pro_Desktop.UI
                     UIHelper.ApplyInputStyles(_generalFlow.Controls);
                     UIHelper.ApplyButtonAlignment(_generalFlow);
                     GlobalCardContextMenu.ApplyToTree(_generalFlow);
+                    ReflowSettingsCards();
                     AppRuntime.LogTiming("Settings.DeferredPolish.Complete", watch.ElapsedMilliseconds);
                 }
                 catch (Exception ex)
@@ -478,9 +519,247 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(header);
         }
 
+        private void BuildCompanyHeaderCard(Panel parent)
+        {
+            Panel body = AddModernSettingsCard(parent, "Company Header", "Upload your company letterhead once for generated PDFs, documents and print previews.", 310);
+            body.Parent.Parent.Name = "CompanyHeaderCard";
+            var preview = new PictureBox { Name = "CompanyHeaderPreview", Location = new Point(0, 0),
+                Size = new Size(500, 110), SizeMode = PictureBoxSizeMode.Zoom, BackColor = DS.Slate50 };
+            var status = new Label { Location = new Point(0, 118), Size = new Size(500, 42), Font = DS.Small, ForeColor = DS.Slate600 };
+            Button upload = MakeBtn("Upload Header", InfoBlue, 146);
+            upload.Name = "UploadCompanyHeader";
+            upload.Location = new Point(0, 166);
+            upload.Enabled = IsAdminUser();
+            Action refresh = () =>
+            {
+                Image old = preview.Image;
+                preview.Image = null;
+                old?.Dispose();
+                string path = DocumentBranding.GetCompanyHeaderPath();
+                if (!string.IsNullOrWhiteSpace(path))
+                    using (Image image = Image.FromFile(path)) preview.Image = new Bitmap(image);
+                status.Text = string.IsNullOrWhiteSpace(path)
+                    ? "No uploaded header. Select a wide PNG, JPG or BMP image, up to 10 MB."
+                    : "Company header applied. Upload another image to replace it for future documents.";
+            };
+            upload.Click += (s, e) =>
+            {
+                using (var dialog = new OpenFileDialog { Title = "Select company header", Filter = "Header images|*.png;*.jpg;*.jpeg;*.bmp", CheckFileExists = true })
+                {
+                    if (dialog.ShowDialog(FindForm()) != DialogResult.OK) return;
+                    try { DocumentBranding.UploadCompanyHeader(dialog.FileName); refresh(); }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogError("SettingsForm.UploadCompanyHeader", ex);
+                        MessageBox.Show(FindForm(), "ServoERP could not apply the company header. " + ex.Message, "Company Header", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+            };
+            body.Controls.Add(preview); body.Controls.Add(status); body.Controls.Add(upload);
+            body.Resize += (s, e) => { preview.Width = Math.Max(260, body.ClientSize.Width); status.Width = preview.Width; };
+            preview.Disposed += (s, e) => preview.Image?.Dispose();
+            refresh();
+        }
+
+        private void BuildSettingsDirectory(Panel parent)
+        {
+            _directoryGroups.Clear();
+            _selectedSettingsCards = null;
+            _settingsDirectory = new Panel { Name = "SettingsDirectory", BackColor = DS.BgPage, Tag = "NO_CARD_SURFACE NO_DASHBOARD_RESIZE" };
+            _settingsNavigation = new Panel { Name = "SettingsSectionNavigation", Height = 48, Visible = false, BackColor = DS.BgPage };
+            Button back = MakeBtn("Back to Settings", Color.White, 160);
+            back.Name = "SettingsBack";
+            back.ForeColor = DS.Primary600;
+            back.Click += (s, e) => ShowSettingsHome();
+            _settingsNavigation.Controls.Add(back);
+            _settingsSectionTitle = new Label { Location = new Point(178, 8), Size = new Size(600, 30), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            _settingsNavigation.Controls.Add(_settingsSectionTitle);
+            parent.Controls.Add(_settingsNavigation);
+            parent.Controls.Add(_settingsDirectory);
+            Label introduction = new Label { Name = "SettingsIntroduction", Text = "Find and manage related settings.", Location = new Point(0, 8), Size = new Size(500, 28), Font = new Font("Segoe UI", 10f), ForeColor = DS.Slate500 };
+            _settingsDirectory.Controls.Add(introduction);
+            _settingsSearch = new TextBox { Name = "SettingsDirectorySearch", Font = new Font("Segoe UI", 10f), Size = new Size(290, 30), AccessibleName = "Search settings" };
+            _settingsSearch.TextChanged += (s, e) => LayoutSettingsDirectory();
+            _settingsDirectory.Controls.Add(_settingsSearch);
+            _toolTip.SetToolTip(_settingsSearch, "Search settings by name or description");
+            Label searchLabel = new Label { Text = "Search settings", Name = "SettingsSearchLabel", Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate500, Size = new Size(290, 20) };
+            _settingsDirectory.Controls.Add(searchLabel);
+            AddSettingsDirectoryGroup("BUSINESS", new[] {
+                Destination("Company profile", "Business identity, contact details and office location", "Company Information"),
+                Destination("Letterhead & documents", "Company header for PDFs and print previews", "Company Header"),
+                Destination("GST & financial defaults", "Tax, invoice and payment preferences", "India Defaults"),
+                Destination("HSN / SAC & units", "Codes, tax rates and units of measure", "HSN / SAC Master", "Unit Management") });
+            AddSettingsDirectoryGroup("ADMINISTRATION", new[] {
+                new SettingsDestination { Title = "Users & permissions", Description = "Manage staff logins and access", Tab = "Users & Logins", AdminOnly = true },
+                new SettingsDestination { Title = "Audit log", Description = "Review recorded user activity", Tab = "Audit Log", AdminOnly = true },
+                Destination("Backup & recovery", "Backup destinations, schedules and recovery", "Backup & Recovery", true),
+                Destination("Data management", "Fresh Start and data reset tools", "Data Management", true) });
+            AddSettingsDirectoryGroup("SYSTEM & SUPPORT", new[] {
+                Destination("Display & layout", "Screen fit and interface scale", "Display & Layout"),
+                Destination("Database & connections", "Connection setup, health and layout recovery", "System Tools"),
+                new SettingsDestination { Title = "License & updates", Description = "Activation, renewal and application updates", Cards = IsAdminUser() ? new[] { "License Management", "About & Updates" } : new[] { "About & Updates" } },
+                Destination("Help & diagnostics", "Support, health checks and error logs", "Help & Support", "Diagnostics & Error Log"),
+                Destination("Legal & compliance", "Policies, component licenses and export pack", "Legal Agreements", "Open Source & Licenses", "Module Catalog", "Compliance Export Pack") });
+            Panel shortcuts = new Panel { Name = "SettingsShortcuts", Height = 60, BackColor = Color.White, Tag = "NO_CARD_SURFACE NO_DASHBOARD_RESIZE" };
+            shortcuts.Controls.Add(new Label { Text = "Frequently used", AutoSize = true, Location = new Point(18, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            int x = 170;
+            foreach (string title in new[] { "Company profile", "Backup & recovery", "Users & permissions" })
+            {
+                SettingsDestination target = _directoryGroups.SelectMany(g => g.Controls.OfType<Panel>()).Select(r => r.Tag as SettingsDestination).FirstOrDefault(d => d != null && d.Title == title);
+                if (target == null) continue;
+                Button shortcut = MakeBtn(title, Color.White, 170);
+                shortcut.Location = new Point(x, 12);
+                shortcut.ForeColor = DS.Primary600;
+                shortcut.Click += (s, e) => OpenSettingsDestination(target);
+                shortcuts.Controls.Add(shortcut);
+                x += 184;
+            }
+            _settingsDirectory.Controls.Add(shortcuts);
+        }
+
+        private SettingsDestination Destination(string title, string description, params string[] cards)
+        {
+            return new SettingsDestination { Title = title, Description = description, Cards = cards };
+        }
+
+        private SettingsDestination Destination(string title, string description, string card, bool adminOnly)
+        {
+            return new SettingsDestination { Title = title, Description = description, Cards = new[] { card }, AdminOnly = adminOnly };
+        }
+
+        private void AddSettingsDirectoryGroup(string title, SettingsDestination[] destinations)
+        {
+            Panel group = new Panel { Name = "SettingsDirectorySection", BackColor = Color.White, Padding = new Padding(18), AccessibleName = title, Tag = "NO_CARD_SURFACE NO_DASHBOARD_RESIZE" };
+            group.Paint += (s, e) => { using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawRectangle(pen, 0, 0, group.Width - 1, group.Height - 1); };
+            group.Controls.Add(new Label { Text = title, UseMnemonic = false, Location = new Point(18, 20), Size = new Size(300, 24), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate500 });
+            foreach (SettingsDestination destination in destinations)
+            {
+                if (destination.AdminOnly && !IsAdminUser()) continue;
+                Panel row = new Panel { Name = "SettingsDirectoryRow", Tag = destination, Height = 88, BackColor = Color.White };
+                Button link = new SettingsDirectoryButton { Name = "SettingsLink_" + destination.Title.Replace(" ", ""), Text = destination.Title, UseMnemonic = false, FlatStyle = FlatStyle.Flat, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = DS.Primary600, BackColor = Color.White, Location = new Point(4, 8), Height = 34, Cursor = Cursors.Hand, AccessibleDescription = destination.Description };
+                link.FlatAppearance.BorderSize = 0;
+                link.Location = Point.Empty;
+                link.Dock = DockStyle.Fill;
+                link.Height = 88;
+                link.Click += (s, e) => OpenSettingsDestination(destination);
+                Label icon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(destination.Title), 32, DS.Indigo50, DS.Primary600, 6);
+                icon.Location = new Point(10, 18);
+                icon.Cursor = Cursors.Hand;
+                icon.Click += (s, e) => link.PerformClick();
+                link.Controls.Add(icon);
+                row.Controls.Add(link);
+                row.Resize += (s, e) => { link.MinimumSize = Size.Empty; link.SetBounds(0, 0, row.Width, row.Height); };
+                group.Controls.Add(row);
+            }
+            _directoryGroups.Add(group);
+            _settingsDirectory.Controls.Add(group);
+        }
+
+        private void OpenSettingsDestination(SettingsDestination destination)
+        {
+            if (destination.AdminOnly && !IsAdminUser()) return;
+            if (destination.Tab != null)
+            {
+                TabPage tab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(t => t.Text == destination.Tab);
+                if (tab != null) _tabs.SelectedTab = tab;
+                return;
+            }
+            if (!_secondarySettingsCardsBuilt)
+            {
+                BuildDeferredSettingsCards(_generalFlow);
+                _secondarySettingsCardsBuilt = true;
+                UIHelper.ApplyInputStyles(_generalFlow.Controls);
+            }
+            _selectedSettingsCards = destination.Cards;
+            _settingsSectionTitle.Text = destination.Title;
+            ReflowSettingsCards();
+            Panel scroll = _generalCanvas.Parent as Panel;
+            if (scroll != null) scroll.AutoScrollPosition = Point.Empty;
+            if (destination.Cards.Contains("HSN / SAC Master")) BeginLoadHsnSacGrid();
+        }
+
+        private void ShowSettingsHome()
+        {
+            _selectedSettingsCards = null;
+            ReflowSettingsCards();
+            Panel scroll = _generalCanvas.Parent as Panel;
+            if (scroll != null) scroll.AutoScrollPosition = Point.Empty;
+        }
+
+        private void LayoutSettingsDirectory()
+        {
+            if (_settingsDirectory == null) return;
+            int width = Math.Max(360, _generalCanvas.Width - 4);
+            _settingsDirectory.Width = width;
+            _settingsSearch.Location = new Point(Math.Max(0, width - 292), 26);
+            _settingsDirectory.Controls["SettingsSearchLabel"].Location = new Point(Math.Max(0, width - 292), 4);
+            _settingsDirectory.Controls["SettingsIntroduction"].Width = Math.Max(120, width - 330);
+            string query = _settingsSearch.Text.Trim();
+            int matchingGroups = _directoryGroups.Count(g => g.Controls.OfType<Panel>().Any(r => {
+                SettingsDestination d = (SettingsDestination)r.Tag;
+                return query.Length == 0 || (d.Title + " " + d.Description).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+            }));
+            int columns = Math.Max(1, Math.Min(matchingGroups, width >= 1100 ? 3 : width >= 740 ? 2 : 1));
+            int groupWidth = (width - (columns - 1) * 16) / columns;
+            int y = 80;
+            int column = 0;
+            int rowHeight = 0;
+            int matches = 0;
+            foreach (Panel group in _directoryGroups)
+            {
+                int rowY = 58;
+                foreach (Panel row in group.Controls.OfType<Panel>())
+                {
+                    SettingsDestination destination = (SettingsDestination)row.Tag;
+                    bool match = query.Length == 0 || (destination.Title + " " + destination.Description).IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+                    row.Visible = match;
+                    if (!match) continue;
+                    row.Padding = Padding.Empty;
+                    row.SetBounds(14, rowY, groupWidth - 28, 88);
+                    Button link = row.Controls.OfType<Button>().Single();
+                    link.MinimumSize = Size.Empty;
+                    link.SetBounds(0, 0, row.Width, row.Height);
+                    rowY += 88;
+                    matches++;
+                }
+                group.Visible = rowY > 58;
+                if (rowY == 58) continue;
+                group.SetBounds(column * (groupWidth + 16), y, groupWidth, rowY + 20);
+                rowHeight = Math.Max(rowHeight, group.Height);
+                if (++column == columns)
+                {
+                    foreach (Panel peer in _directoryGroups.Where(g => g.Top == y)) peer.Height = rowHeight;
+                    y += rowHeight + 20; column = 0; rowHeight = 0;
+                }
+            }
+            if (column > 0) y += rowHeight + 16;
+            Panel shortcuts = (Panel)_settingsDirectory.Controls["SettingsShortcuts"];
+            int shortcutX = width < 740 ? 16 : 170;
+            int shortcutY = width < 740 ? 46 : 12;
+            foreach (Button shortcut in shortcuts.Controls.OfType<Button>())
+            {
+                if (shortcutX + 170 > width - 16) { shortcutX = 16; shortcutY += 48; }
+                shortcut.SetBounds(shortcutX, shortcutY, 170, 36);
+                shortcutX += 184;
+            }
+            int shortcutsHeight = shortcutY + 52;
+            shortcuts.SetBounds(0, y, width, shortcutsHeight);
+            shortcuts.AutoScroll = false;
+            shortcuts.Visible = query.Length == 0;
+            Label empty = _settingsDirectory.Controls["SettingsSearchEmpty"] as Label;
+            if (empty == null) { empty = new Label { Name = "SettingsSearchEmpty", Text = "No settings found. Try another search.", Font = new Font("Segoe UI", 10f), ForeColor = DS.Slate500 }; _settingsDirectory.Controls.Add(empty); }
+            empty.SetBounds(18, 86, width - 36, 36);
+            empty.Visible = matches == 0;
+            _settingsDirectory.Height = y + (shortcuts.Visible ? shortcutsHeight + 16 : 16);
+            if (_selectedSettingsCards == null) { _generalFlow.Height = _settingsDirectory.Height; _generalCanvas.Height = Math.Max(_generalFlow.Height + 32, _generalCanvas.Parent.ClientSize.Height - 40); }
+        }
+
         private void BuildForm(Panel parent, bool includeDeferredCards)
         {
             parent.Controls.Clear();
+            _settingsCardTitles.Clear();
+            BuildSettingsDirectory(parent);
+            BuildCompanyHeaderCard(parent);
 
             if (IsAdminUser())
                 BuildLoginAccessSection(parent);
@@ -1171,6 +1450,16 @@ namespace HVAC_Pro_Desktop.UI
             btnCheckNow.Location = new Point(0, 246);
             btnCheckNow.Click += async (s, e) => await CheckVersionNowAsync();
             updatesBody.Controls.Add(btnCheckNow);
+
+            Button btnReleaseNotes = MakeBtn("Release Notes", InfoBlue, 150);
+            btnReleaseNotes.Name = "ViewInstalledReleaseNotes";
+            btnReleaseNotes.Location = new Point(182, 246);
+            btnReleaseNotes.Click += (sender, args) =>
+            {
+                using (var dialog = new ReleaseNotesDialog(UpdateService.GetCurrentAssemblyVersion(), UpdateService.GetInstalledReleaseNotesText()))
+                    dialog.ShowDialog(FindForm());
+            };
+            updatesBody.Controls.Add(btnReleaseNotes);
         }
 
         private void BuildUnitManagementCard(Panel parent)
@@ -1809,7 +2098,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private bool IsAdminUser()
         {
-            return SessionManager.CurrentUser != null;
+            return SessionManager.CurrentUser != null && string.Equals(SessionManager.CurrentUser.RoleName, "Admin", StringComparison.OrdinalIgnoreCase);
         }
 
         private void SettingsTabs_SelectedIndexChanged(object sender, EventArgs e)
@@ -2837,6 +3126,8 @@ namespace HVAC_Pro_Desktop.UI
             wrapper.Size = new Size(560, height);
             wrapper.Margin = Padding.Empty;
             wrapper.Tag = "settings-card";
+            _settingsCardTitles[wrapper] = title;
+            wrapper.Visible = _selectedSettingsCards != null && _selectedSettingsCards.Contains(title);
             wrapper.Paint += (s, e) =>
             {
                 using (Pen pen = new Pen(DS.BorderStrong))
@@ -2959,7 +3250,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ReflowSettingsCards()
         {
-            if (_generalFlow == null || _generalCanvas == null)
+            if (_generalFlow == null || _generalCanvas == null || _settingsDirectory == null)
                 return;
             if (_reflowingSettingsCards)
                 return;
@@ -2968,51 +3259,34 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 int viewportWidth = _generalCanvas.Parent == null ? GeneralCanvasWidth : _generalCanvas.Parent.ClientSize.Width;
-                int canvasWidth = Math.Min(GeneralCanvasWidth, Math.Max(420, viewportWidth - 42));
+                int canvasWidth = _selectedSettingsCards == null
+                    ? Math.Min(1600, Math.Max(360, viewportWidth - 48))
+                    : Math.Min(GeneralCanvasWidth, Math.Max(360, viewportWidth - 48));
+                _generalCanvas.Left = Math.Max(24, (viewportWidth - canvasWidth) / 2);
                 if (_generalCanvas.Width != canvasWidth)
                     _generalCanvas.Width = canvasWidth;
                 if (_generalFlow.Width != canvasWidth)
                     _generalFlow.Width = canvasWidth;
-                int columns = canvasWidth >= 920 ? 2 : 1;
-                int gap = 14;
-                int cardWidth = columns == 1 ? canvasWidth - 4 : (canvasWidth - (gap * (columns - 1))) / columns;
-                int[] columnHeights = new int[columns];
-                Panel[] cards = _generalFlow.Controls
-                    .OfType<Panel>()
-                    .Where(p => Equals(p.Tag, "settings-card"))
-                    .ToArray();
-
-                _generalFlow.SuspendLayout();
-                foreach (Panel card in cards)
+                bool home = _selectedSettingsCards == null;
+                _settingsDirectory.Visible = home;
+                _settingsNavigation.Visible = !home;
+                _settingsNavigation.Width = canvasWidth;
+                int y = 56;
+                foreach (var entry in _settingsCardTitles)
                 {
-                    int targetWidth = Math.Max(360, cardWidth);
-                    if (card.Width != targetWidth)
-                        card.Width = targetWidth;
-                    if (card.Margin != Padding.Empty)
-                        card.Margin = Padding.Empty;
-
-                    int column = 0;
-                    for (int i = 1; i < columns; i++)
-                    {
-                        if (columnHeights[i] < columnHeights[column])
-                            column = i;
-                    }
-
-                    Point targetLocation = new Point(column * (card.Width + gap), columnHeights[column]);
-                    if (card.Location != targetLocation)
-                        card.Location = targetLocation;
-                    columnHeights[column] += card.Height + gap;
+                    bool selected = !home && _selectedSettingsCards.Contains(entry.Value);
+                    entry.Key.Visible = selected;
+                    if (!selected) continue;
+                    entry.Key.Width = canvasWidth - 4;
+                    entry.Key.Location = new Point(0, y);
+                    y += entry.Key.Height + 14;
                 }
-                _generalFlow.ResumeLayout(false);
-
-                int contentHeight = columnHeights.Length == 0 ? 0 : columnHeights.Max();
-                if (contentHeight > 0)
-                    contentHeight -= gap;
-                if (_generalFlow.Height != contentHeight)
-                    _generalFlow.Height = contentHeight;
-                int canvasHeight = Math.Max(_generalCanvas.Parent == null ? 0 : _generalCanvas.Parent.ClientSize.Height - 40, _generalFlow.Height + 32);
-                if (_generalCanvas.Height != canvasHeight)
-                    _generalCanvas.Height = canvasHeight;
+                if (home) LayoutSettingsDirectory();
+                else
+                {
+                    _generalFlow.Height = y;
+                    _generalCanvas.Height = Math.Max(_generalCanvas.Parent.ClientSize.Height - 40, y + 32);
+                }
             }
             finally
             {
@@ -4105,6 +4379,3 @@ namespace HVAC_Pro_Desktop.UI
         }
     }
 }
-
-
-

@@ -13,13 +13,14 @@ namespace HVAC_Pro_Desktop.Services
         public const string OfficialHeaderFileName = "official_invoice_header.png";
         public const string PreferredLetterheadPath = @"C:\Users\Administrator\Pictures\LETTERHEAD.png";
         public const string AuthorizedSignaturePath = @"C:\HVAC_PRO_MSE\Resources\Branding\authorized_signature.png";
-        public const string DefaultCompanyName = "Madhusuman Enterprises";
-        public const string DefaultShopLicense = "12612200000003717626.";
-        public const string DefaultPfNumber = "TH/THA/0205548/000/01/25.";
-        public const string DefaultEsicNumber = "34000284380001001.";
-        public const string DefaultProfTaxNumber = "99752039470P.";
-        public const string DefaultPanNumber = "AMTPS9540G";
-        public const string DefaultGstNumber = "27AMTPS9540G1ZA";
+        private static bool UseGenericCompanyBranding => string.Equals(ConfigService.Get("Tenant", "GenericCompanyBranding", "false"), "true", StringComparison.OrdinalIgnoreCase);
+        public static string DefaultCompanyName => UseGenericCompanyBranding ? "Your Company Header" : "Madhusuman Enterprises";
+        public static string DefaultShopLicense => UseGenericCompanyBranding ? "" : "12612200000003717626.";
+        public static string DefaultPfNumber => UseGenericCompanyBranding ? "" : "TH/THA/0205548/000/01/25.";
+        public static string DefaultEsicNumber => UseGenericCompanyBranding ? "" : "34000284380001001.";
+        public static string DefaultProfTaxNumber => UseGenericCompanyBranding ? "" : "99752039470P.";
+        public static string DefaultPanNumber => UseGenericCompanyBranding ? "" : "AMTPS9540G";
+        public static string DefaultGstNumber => UseGenericCompanyBranding ? "" : "27AMTPS9540G1ZA";
         public const string DefaultMsmeNumber = "";
 
         public static string BuildOfficialHeaderCss()
@@ -106,6 +107,10 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
         public static string BuildOfficialHeaderHtml(IndiaCompanySettings company)
         {
             company = company ?? new IndiaCompanySettings { CompanyName = DefaultCompanyName };
+            if (UseGenericCompanyBranding && string.IsNullOrWhiteSpace(GetCompanyHeaderPath()))
+                return "<div class='mse-official-header'><div class='mse-official-header-logo-fallback'><span class='company'>"
+                    + Html(FirstNonEmpty(company.CompanyName, DefaultCompanyName)) + "</span><div class='contact'>"
+                    + Html(BuildContactLine(company)) + "</div></div></div>";
             string imageDataUri = TryBuildImageDataUri(ResolveOfficialHeaderPath());
             string logoHtml = !string.IsNullOrWhiteSpace(imageDataUri)
                 ? "<img src='" + imageDataUri + "' alt='Company invoice header' />"
@@ -278,6 +283,8 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
         {
             string userPath = GetUserSignaturePath();
             string dataUri = TryBuildImageDataUri(userPath);
+            if (UseGenericCompanyBranding)
+                return dataUri;
             return string.IsNullOrWhiteSpace(dataUri) ? TryBuildImageDataUri(AuthorizedSignaturePath) : dataUri;
         }
 
@@ -342,7 +349,7 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
 
         private static string ResolveOfficialHeaderPath()
         {
-            string templatePath = TryResolveDefaultLetterheadPath();
+            string templatePath = GetCompanyHeaderPath();
             if (!string.IsNullOrWhiteSpace(templatePath))
                 return templatePath;
 
@@ -361,19 +368,52 @@ body{font-family:'Times New Roman',serif;color:#000;margin:0;background:#fff;}
             return Path.Combine(@"C:\HVAC_PRO_MSE\SOURCE_CODE\Resources\Branding", OfficialHeaderFileName);
         }
 
-        private static string TryResolveDefaultLetterheadPath()
+        public static string GetCompanyHeaderPath()
         {
             try
             {
                 CompanyDocumentTemplate template = new TemplateStorageService().GetDefault(CompanyDocumentTemplateType.Letterhead);
                 if (template != null && IsImageFile(template.StoredFilePath) && File.Exists(template.StoredFilePath))
-                    return template.StoredFilePath;
+                {
+                    using (var image = System.Drawing.Image.FromFile(template.StoredFilePath))
+                        if (image.Width > 0 && image.Height > 0) return template.StoredFilePath;
+                }
             }
-            catch
-            {
-            }
-
+            catch (Exception ex) { AppLogger.LogError("DocumentBranding.GetCompanyHeaderPath", ex); }
             return string.Empty;
+        }
+
+        public static void UploadCompanyHeader(string sourcePath)
+        {
+            if (!IsImageFile(sourcePath) || !File.Exists(sourcePath))
+                throw new InvalidOperationException("Please select a PNG, JPG or BMP company header image.");
+            if (new FileInfo(sourcePath).Length > 10 * 1024 * 1024)
+                throw new InvalidOperationException("The company header must be 10 MB or smaller.");
+            byte[] normalized;
+            using (var image = System.Drawing.Image.FromFile(sourcePath))
+            {
+                if (image.Width > 12000 || image.Height > 4000 || image.Width < image.Height * 2)
+                    throw new InvalidOperationException("Please select a wide header (at least twice as wide as its height), up to 12000 x 4000 pixels.");
+                using (var bitmap = new System.Drawing.Bitmap(image))
+                using (var stream = new MemoryStream())
+                {
+                    bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+                    normalized = stream.ToArray();
+                }
+            }
+            var storage = new TemplateStorageService();
+            string id = Guid.NewGuid().ToString("N");
+            string folder = Path.Combine(storage.RootFolder, id);
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder, "company-header.png");
+            File.WriteAllBytes(path, normalized);
+            storage.Save(new CompanyDocumentTemplate
+            {
+                TemplateId = id, TemplateName = "Company header", DocumentType = CompanyDocumentTemplateType.Letterhead,
+                OriginalFileName = Path.GetFileName(sourcePath), StoredFilePath = path, FileExtension = ".png",
+                IsDefault = true, UseForInvoices = true, UseForQuotations = true, UseForPurchaseOrders = true,
+                UseForReports = true, UploadedAt = DateTime.Now, RecognitionStatus = "Company header"
+            });
         }
 
         private static bool IsImageFile(string path)

@@ -427,23 +427,25 @@ namespace HVAC_Pro_Desktop.UI
 
             _pagination = new GlobalPaginationControl
             {
-                Anchor = AnchorStyles.Bottom,
+                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom,
                 Height = 38,
                 Width = 560,
-                BackColor = Color.Transparent
+                Dock = DockStyle.Bottom, BackColor = Color.Transparent
             };
             _pagination.PageChanged += (s, e) => { _tablePage = _pagination.CurrentPage; RefreshDashboardTablesOnly(); };
             _pagination.PageSizeChanged += (s, e) => { _tablePageSize = _pagination.PageSize; _tablePage = 1; RefreshDashboardTablesOnly(); };
             card.Controls.Add(_pagination);
 
-            card.Resize += (s, e) =>
+            Action layoutPagination = () =>
             {
                 tableStatusHost.Location = new Point(card.ClientSize.Width - 250, 12);
                 export.Location = new Point(card.ClientSize.Width - 104, 12);
                 _recentTable.Size = new Size(card.ClientSize.Width - 36, Math.Max(205, card.ClientSize.Height - 112));
-                _pagination.Width = Math.Min(560, Math.Max(360, card.ClientSize.Width - 36));
-                _pagination.Location = new Point((card.ClientSize.Width - _pagination.Width) / 2, card.ClientSize.Height - 44);
+                _recentTable.Height = Math.Max(100, card.ClientSize.Height - card.Padding.Bottom - _pagination.Height - _recentTable.Top - 8);
             };
+            card.Resize += (s, e) => layoutPagination();
+            _pagination.SizeChanged += (s, e) => layoutPagination();
+            layoutPagination();
             return card;
         }
 

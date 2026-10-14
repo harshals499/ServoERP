@@ -4,7 +4,7 @@ param(
     [Parameter(Mandatory=$true)][ValidateSet("Trial","Standard","Enterprise")][string]$Plan,
     [Parameter(Mandatory=$true)][string]$CompanyName,
     [Parameter(Mandatory=$true)][string]$MachineFingerprintHash,
-    [int]$Days = 365,
+    [ValidateRange(1, 3650)][int]$Days = 365,
     [int]$MaxDevices = 3,
     [int]$GracePeriodDays = 3
 )
@@ -17,7 +17,7 @@ $modulesByPlan = @{
     Enterprise = @("Dashboard","Clients","Contracts","Invoices","Payments","Quotations","Reports","Settings","Vendors","Purchases","Inventory","Employees","Payroll","GeoIntelligence","WorkOrders","ServiceDesk","MasterData")
 }
 
-if ($Plan -eq "Trial") { $Days = 14; $MaxDevices = 1 }
+if ($Plan -eq "Trial") { $MaxDevices = 1 }
 if ($Plan -eq "Enterprise" -and $MaxDevices -lt 10) { $MaxDevices = 10 }
 
 $payload = @{

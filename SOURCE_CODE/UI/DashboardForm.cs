@@ -16,6 +16,10 @@ namespace HVAC_Pro_Desktop.UI
     public partial class DashboardForm : DeferredPageControl
     {
         protected override bool EnableAutoSaveRecovery => false;
+        // This page owns its responsive layout and approved palette; global card resizing
+        // and automatic button normalization would distort its compact operational rows.
+        protected override bool SuppressAutomaticChildPolish => true;
+        protected override bool EnableMainScrollCanvas => false;
 
         private sealed class DashboardRecentItem
         {
@@ -103,6 +107,7 @@ namespace HVAC_Pro_Desktop.UI
                 _clockTimer?.Stop();
                 _clockTimer?.Dispose();
                 _clockTimer = null;
+                _dashboardPreview?.Dispose();
             }
 
             base.Dispose(disposing);
@@ -187,11 +192,16 @@ namespace HVAC_Pro_Desktop.UI
             BeginInvoke((Action)(async () => await RefreshDashboardDataAsync()));
         }
 
+        private bool _headerRefreshInProgress;
+
         private async Task RefreshDashboardDataAsync()
         {
-            if (IsDisposed || _buildingShell)
+            if (IsDisposed || _buildingShell || _headerRefreshInProgress)
                 return;
 
+            _headerRefreshInProgress = true;
+            foreach (Button button in WorkspaceActionUi.Descendants(this).OfType<Button>().Where(b => b.Name == "WorkspaceDashboardRefresh"))
+                button.Enabled = false;
             try
             {
                 await Task.Run((Action)LoadActionCenterProjection);
@@ -204,6 +214,16 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("DashboardForm.RefreshDashboardDataAsync", ex);
+                if (!IsDisposed)
+                    MessageBox.Show(this, "Unable to refresh My Work. Please check your office database connection and try again.",
+                        "ServoERP - My Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _headerRefreshInProgress = false;
+                if (!IsDisposed)
+                    foreach (Button button in WorkspaceActionUi.Descendants(this).OfType<Button>().Where(b => b.Name == "WorkspaceDashboardRefresh"))
+                        button.Enabled = true;
             }
         }
 
@@ -217,10 +237,12 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
             DisposeDashboardControls();
+            _dashboardPreview?.Dispose();
+            _dashboardPreview = new DashboardHoverPreview();
             _clockTimer?.Stop();
             _clockTimer?.Dispose();
 
-            _host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = DS.BgPage };
+            _host = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = SoftCanvas };
             _root = new FlowLayoutPanel
             {
                 Dock = DockStyle.Top,
@@ -228,18 +250,14 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
                 FlowDirection = FlowDirection.TopDown,
                 WrapContents = false,
-                Padding = new Padding(10, 8, 14, 24),
-                BackColor = DS.BgPage
+                Padding = new Padding(18, 14, 18, 24),
+                BackColor = SoftCanvas
             };
             _host.Controls.Add(_root);
             Controls.Add(_host);
             AddTopBar();
-            AddActionCenter();
-            AddShortcutActionsRow();
-            AddAlertsBar();
-            AddDepartmentRows();
-            AddRecentActivityRow();
-            AddFinancialOverviewRow();
+            AddSoftDashboard();
+            if (_visualFinanceSnapshot != null) AddFinancialOverviewRow();
 
             _clockTimer = new Timer { Interval = 60000 };
             if (_nextActionRefreshAt == default(DateTime))
@@ -287,7 +305,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddTopBar()
         {
-            Panel bar = CardPanel(Math.Min(ContentWidth(), Math.Max(1, ClientSize.Width - SystemInformation.VerticalScrollBarWidth - 34)), 96);
+            Panel bar = CardPanel(ContentWidth(), 82);
             bar.Name = "DashboardTopHeaderHost";
             bar.Tag = "custom-header-actions no-global-actions";
             bar.BackColor = Color.White;
@@ -315,23 +333,29 @@ namespace HVAC_Pro_Desktop.UI
                 });
                 menu.Show(customize, new Point(0, customize.Height));
             };
+            Button refresh = SecondaryButton("", 0, 0, 38, 34);
+            refresh.Name = "WorkspaceDashboardRefresh";
+            refresh.Enabled = !_headerRefreshInProgress;
+            refresh.AccessibleName = "Refresh dashboard";
+            ModernIconSystem.AddButtonIcon(refresh, ModernIconKind.Refresh);
+            refresh.Click += async (sender, args) => await RefreshDashboardDataAsync();
             SharedPageHeaderModel model = SharedPageHeader.CreateWorkspaceDashboard(
                 "DashboardTopHeader",
                 "My Work",
-                "Prioritized actions for today",
-                new List<Control> { notifications, customize },
-                SharedPageHeader.CreateSearchCommand("DashboardGlobalSearch", 300, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
-                BuildDashboardHeaderMetaPanel(),
+                "A clear view of your day",
+                new List<Control> { notifications, customize, refresh },
+                null,
+                null,
                 Color.White,
                 new Padding(22, 12, 22, 12));
             model.Dock = DockStyle.Fill;
             model.DrawBottomBorder = false;
-            model.DefaultHeight = 82;
+            model.DefaultHeight = 70;
             model.CompactHeight = 118;
             Panel header = SharedPageHeader.Build(model).Header;
-            header.SizeChanged += (sender, args) => bar.Height = Math.Max(96, header.Height);
+            header.SizeChanged += (sender, args) => bar.Height = Math.Max(82, header.Height);
             bar.Controls.Add(header);
-            bar.Height = Math.Max(96, header.Height);
+            bar.Height = Math.Max(82, header.Height);
             _root.Controls.Add(bar);
         }
 
@@ -340,7 +364,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel meta = new Panel
             {
                 Name = "DashboardHeaderMetaPanel",
-                Size = new Size(184, 38),
+                Size = new Size(248, 38),
                 BackColor = Color.Transparent
             };
 
@@ -360,7 +384,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = CurrentUserName(),
                 Location = new Point(40, 2),
-                Size = new Size(72, 16),
+                Size = new Size(130, 16),
                 Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
@@ -370,7 +394,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Text = DateTime.Today.ToString("dd/MM/yyyy"),
                 Location = new Point(40, 20),
-                Size = new Size(72, 14),
+                Size = new Size(100, 14),
                 Font = new Font("Segoe UI", 7.8f, FontStyle.Bold),
                 ForeColor = DS.Slate700,
                 AutoEllipsis = true
@@ -379,7 +403,7 @@ namespace HVAC_Pro_Desktop.UI
             _clockLabel = new Label
             {
                 Text = DateTime.Now.ToString("hh:mm tt"),
-                Location = new Point(118, 10),
+                Location = new Point(182, 10),
                 Size = new Size(60, 16),
                 Font = new Font("Segoe UI", 8f),
                 ForeColor = DS.Slate500,
@@ -1121,7 +1145,8 @@ namespace HVAC_Pro_Desktop.UI
         private Panel CardPanel(int width, int height)
         {
             Panel panel = new Panel { Width = width, Height = height, BackColor = DS.BgCard, Margin = new Padding(0, 0, 0, 12), Tag = "NO_DASHBOARD_RESIZE" };
-            panel.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 10)) using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawPath(pen, path); };
+            DS.Rounded(panel, 10);
+            panel.Paint += (s, e) => { e.Graphics.SmoothingMode = SmoothingMode.AntiAlias; using (GraphicsPath path = DS.RoundedRect(new Rectangle(0, 0, panel.Width - 1, panel.Height - 1), 10)) using (Pen pen = new Pen(SoftBorder)) e.Graphics.DrawPath(pen, path); };
             return panel;
         }
         private Button PrimaryButton(string text, int x, int y, int w, int h)
@@ -1149,8 +1174,8 @@ namespace HVAC_Pro_Desktop.UI
             if (sourceWidth < 900 && _host != null && !_host.IsDisposed && _host.ClientSize.Width > sourceWidth)
                 sourceWidth = _host.ClientSize.Width;
 
-            int available = sourceWidth > 0 ? sourceWidth - SystemInformation.VerticalScrollBarWidth - 34 : 1160;
-            return Math.Max(1160, available);
+            int available = sourceWidth > 0 ? sourceWidth - SystemInformation.VerticalScrollBarWidth - 40 : 1160;
+            return Math.Max(620, available);
         }
         private int OverdueJobs() => _jobs.Count(j => j.ScheduledDate.Date < DateTime.Today && !IsAny(j.Status, "Completed", "Cancelled"));
         private static bool IsThisMonth(DateTime d) => d.Month == DateTime.Today.Month && d.Year == DateTime.Today.Year;

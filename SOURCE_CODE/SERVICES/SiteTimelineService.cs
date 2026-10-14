@@ -30,12 +30,12 @@ namespace HVAC_Pro_Desktop.Services
 
         private void AddJobs(int siteId, List<SiteTimelineItem> items)
         {
-            AddRows(@"SELECT JobID AS Id, ScheduledDate AS EventDate, ISNULL(JobNumber,'') + ' - ' + ISNULL(JobTitle, Title) AS Title, ISNULL(PipelineStatus, Status) AS Detail FROM Jobs WHERE SiteID=@siteId", siteId, "Job", "Jobs", items);
+            AddRows(@"SELECT JobID AS Id, ScheduledDate AS EventDate, ISNULL(JobNumber,'') + ' - ' + ISNULL(JobTitle, Title) AS Title, ISNULL(PipelineStatus, Status) AS Detail FROM dbo.ActiveJobs WHERE SiteID=@siteId", siteId, "Job", "Jobs", items);
         }
 
         private void AddInvoices(int siteId, List<SiteTimelineItem> items)
         {
-            AddRows(@"SELECT InvoiceID AS Id, InvoiceDate AS EventDate, InvoiceNumber AS Title, PaymentStatus + ' | Total ' + CONVERT(NVARCHAR(40), TotalAmount) AS Detail FROM Invoices WHERE SiteID=@siteId", siteId, "Invoice", "Invoices", items);
+            AddRows(@"SELECT InvoiceID AS Id, InvoiceDate AS EventDate, InvoiceNumber AS Title, PaymentStatus + ' | Total ' + CONVERT(NVARCHAR(40), TotalAmount) AS Detail FROM dbo.FinancialInvoices WHERE SiteID=@siteId", siteId, "Invoice", "Invoices", items);
         }
 
         private void AddPurchases(int siteId, List<SiteTimelineItem> items)

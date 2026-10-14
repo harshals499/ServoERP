@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -305,9 +305,12 @@ namespace HVAC_Pro_Desktop.UI
             };
             actions.Controls.Add(_lblStatus);
 
-            header.Controls.Add(copy, 0, 0);
-            header.Controls.Add(actions, 1, 0);
-            return header;
+            var model = SharedPageHeader.CreateWorkspaceDashboard("SiteMonitorHeader", "Site Monitor",
+                "Real-time overview of all customer sites and operations", new List<Control> { filters, _chkAutoRefresh, porterDelivery });
+            model.StatusText = "Site Monitor ready.";
+            var built = SharedPageHeader.Build(model);
+            _lblStatus = built.StatusLabel;
+            return built.Header;
         }
 
         private Control BuildSiteMonitorKpis()
@@ -3405,6 +3408,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private void OpenDispatchFilters()
         {
+            if (_siteMonitorLayout && _cmbSiteRegion != null)
+            {
+                for (Control parent = _cmbSiteRegion.Parent; parent != null; parent = parent.Parent)
+                    if (parent is ScrollableControl scroll && scroll.AutoScroll) scroll.ScrollControlIntoView(_cmbSiteRegion);
+                _cmbSiteRegion.Focus();
+                _cmbSiteRegion.DroppedDown = true;
+                return;
+            }
             if (_cmbType != null && _cmbType.Enabled)
             {
                 _cmbType.Focus();

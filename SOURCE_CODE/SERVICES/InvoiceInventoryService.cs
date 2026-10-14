@@ -8,6 +8,7 @@ using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.Services
 {
+    // ADO.NET is retained here for multiple dependent stock/reservation statements in SqlTransaction.
     public class InvoiceInventoryService
     {
         private readonly DatabaseManager _db = new DatabaseManager();
@@ -28,6 +29,7 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 using (var tx = conn.BeginTransaction())
                 {
+                    FinancialRecordProtection.EnsureDraft(conn, tx, invoiceId);
                     var existing = new Dictionary<int, decimal>();
                     using (var cmd = new SqlCommand("SELECT StockItemID, QuantityReserved FROM InvoiceInventoryReservations WHERE InvoiceID = @invoiceId AND Status = 'DraftReserved'", conn, tx))
                     {
@@ -114,7 +116,35 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 using (var tx = conn.BeginTransaction())
                 {
-                    var reservations = GetReservations(conn, tx, invoiceId, "DraftReserved");
+                    FinancialRecordProtection.EnsureDraft(conn, tx, invoiceId);
+                    FinalizeReservations(conn, tx, invoiceId);
+
+                    tx.Commit();
+                }
+            }
+
+            AppDataCache.RemovePrefix("inventory:");
+        }
+
+        // Existing ADO.NET statements share one transaction because stock and posting must commit together.
+        internal void FinalizeInvoice(Invoice invoice)
+        {
+            using (var conn = _db.GetConnection())
+            {
+                conn.Open();
+                using (var tx = conn.BeginTransaction())
+                {
+                    FinancialRecordProtection.EnsureDraft(conn, tx, invoice.InvoiceID);
+                    FinalizeReservations(conn, tx, invoice.InvoiceID);
+                    InvoiceRepository.ExecuteInvoiceUpdate(conn, tx, invoice);
+                    tx.Commit();
+                }
+            }
+            AppDataCache.RemovePrefix("inventory:");
+        }
+        private void FinalizeReservations(SqlConnection conn, SqlTransaction tx, int invoiceId)
+        {
+            var reservations = GetReservations(conn, tx, invoiceId, "DraftReserved");
                     foreach (var reservation in reservations)
                     {
                         using (var stockCmd = new SqlCommand(@"
@@ -144,11 +174,6 @@ namespace HVAC_Pro_Desktop.Services
                         LogUsage(conn, tx, invoiceId, reservation.StockItemID, reservation.QuantityReserved, "Issued", "Stock deducted on invoice finalisation.");
                     }
 
-                    tx.Commit();
-                }
-            }
-
-            AppDataCache.RemovePrefix("inventory:");
         }
 
         public void CancelReservations(int invoiceId)
@@ -161,6 +186,7 @@ namespace HVAC_Pro_Desktop.Services
                 conn.Open();
                 using (var tx = conn.BeginTransaction())
                 {
+                    FinancialRecordProtection.EnsureDraft(conn, tx, invoiceId);
                     var reservations = GetReservations(conn, tx, invoiceId, null);
                     foreach (var reservation in reservations)
                     {

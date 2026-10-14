@@ -71,3 +71,13 @@ Write-Host "Velopack artifact check passed."
 Write-Host "Setup: $setupPath"
 Write-Host "Full package: $($fullPackage.Name)"
 Write-Host "Release versions in feed: $releaseVersionCount"
+
+$feed = Get-Content -LiteralPath (Join-Path $resolvedOutputDir 'releases.win.json') -Raw | ConvertFrom-Json
+$release = @($feed.Assets | Where-Object { $_.Version -eq $ExpectedVersion -and $_.Type -eq 'Full' })[0]
+if (!$release -or [string]::IsNullOrWhiteSpace($release.NotesMarkdown)) {
+    throw "The updater feed must include Markdown release notes for $ExpectedVersion."
+}
+if ($release.NotesMarkdown -notmatch ([regex]::Escape("# ServoERP $ExpectedVersion"))) {
+    throw 'Updater feed notes do not match the packaged version.'
+}
+Write-Host 'Updater feed release notes are nonblank and version-matched.'

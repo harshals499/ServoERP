@@ -18,6 +18,7 @@ env:
   BUILD_CONFIGURATION: Release
   PLATFORM: "Any CPU"
   VPK_VERSION: 1.2.0
+  RELEASE_REPOSITORY: harshals499/ServoERP-Releases
 
 jobs:
   build-package-release:
@@ -50,12 +51,21 @@ jobs:
         shell: pwsh
         run: |
           .\scripts\Assert-GitHubReleaseVersion.ps1 `
-            -Repository "${{ github.repository }}" `
+            -Repository "$env:RELEASE_REPOSITORY" `
             -CandidateVersion "$env:SERVO_VERSION" `
-            -Token "${{ secrets.GITHUB_TOKEN }}" `
+            -Token "${{ secrets.RELEASES_TOKEN }}" `
             -CurrentCommit "${{ github.sha }}" `
             -GitHubEnvPath "$env:GITHUB_ENV" `
             -AllowAlreadyPublishedCurrentCommit
+
+      - name: Validate Release Notes and Publishing Credential
+        if: env.RELEASE_SHOULD_PUBLISH == 'true'
+        shell: pwsh
+        env:
+          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:RELEASES_TOKEN)) { throw "Configure RELEASES_TOKEN with contents read/write access to ServoERP-Releases." }
+          if (-not (Test-Path "release/RELEASE_NOTES_$env:SERVO_VERSION.md")) { throw "Versioned release notes are required." }
 
       - name: Restore NuGet Packages
         if: env.RELEASE_SHOULD_PUBLISH == 'true'
@@ -127,8 +137,8 @@ jobs:
         continue-on-error: true
         run: >
           vpk download github
-          --repoUrl "https://github.com/${{ github.repository }}"
-          --token "${{ secrets.GITHUB_TOKEN }}"
+          --repoUrl "https://github.com/$env:RELEASE_REPOSITORY"
+          --token "${{ secrets.RELEASES_TOKEN }}"
           --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
 
       - name: Pack Installer and Updates
@@ -140,6 +150,7 @@ jobs:
           --packTitle "$env:APP_TITLE"
           --packAuthors "Harshal Sonawane"
           --packVersion "$env:SERVO_VERSION"
+          --releaseNotes "$env:GITHUB_WORKSPACE\release\RELEASE_NOTES_$env:SERVO_VERSION.md"
           --packDir "$env:GITHUB_WORKSPACE\artifacts\publish"
           --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
           --mainExe "$env:MAIN_EXE"
@@ -169,10 +180,10 @@ jobs:
         shell: pwsh
         run: >
           vpk upload github
-          --repoUrl "https://github.com/${{ github.repository }}"
-          --token "${{ secrets.GITHUB_TOKEN }}"
+          --repoUrl "https://github.com/$env:RELEASE_REPOSITORY"
+          --token "${{ secrets.RELEASES_TOKEN }}"
           --outputDir "$env:GITHUB_WORKSPACE\artifacts\velopack"
           --publish
           --releaseName "ServoERP $env:SERVO_VERSION"
           --tag "v$env:SERVO_VERSION"
-          --targetCommitish "${{ github.sha }}"
+          --targetCommitish "main"

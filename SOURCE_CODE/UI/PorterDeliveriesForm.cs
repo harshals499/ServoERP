@@ -47,22 +47,13 @@ namespace HVAC_Pro_Desktop.UI
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             Controls.Add(root);
 
-            var header = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2 };
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 404));
-            var titles = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, WrapContents = false };
-            titles.Controls.Add(new Label { Text = "Porter Deliveries", AutoSize = true, Font = new Font("Segoe UI Semibold", 18f), ForeColor = DS.Slate900 });
-            titles.Controls.Add(new Label { Text = "Book with Porter, then record and track the delivery in ServoERP.", AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate600 });
-            header.Controls.Add(titles, 0, 0);
-            var actions = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, Padding = new Padding(0, 8, 0, 20) };
-            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
-            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34));
-            actions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 28));
-            var bookButton = ActionButton("Book on Porter", true, BookOnPorter); bookButton.Dock = DockStyle.Fill;
-            var newButton = ActionButton("New Delivery", false, (s, e) => ClearEditor()); newButton.Dock = DockStyle.Fill;
-            var refreshButton = ActionButton("Refresh", false, (s, e) => LoadData()); refreshButton.Dock = DockStyle.Fill;
-            actions.Controls.Add(bookButton, 0, 0); actions.Controls.Add(newButton, 1, 0); actions.Controls.Add(refreshButton, 2, 0);
-            header.Controls.Add(actions, 1, 0);
+            var bookButton = ActionButton("Book on Porter", true, BookOnPorter);
+            var newButton = ActionButton("New Delivery", false, (sender, args) => ClearEditor());
+            var refreshButton = ActionButton("Refresh", false, (sender, args) => LoadData());
+            bookButton.Size = new Size(150, 36); newButton.Size = new Size(130, 36); refreshButton.Size = new Size(100, 36);
+            var header = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceDashboard("PorterPageHeader",
+                "Porter Deliveries", "Book with Porter, then record and track the delivery in ServoERP.",
+                new List<Control> { bookButton, newButton, refreshButton })).Header;
             root.Controls.Add(header, 0, 0);
 
             var kpis = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 4, Padding = new Padding(0, 6, 0, 8) };

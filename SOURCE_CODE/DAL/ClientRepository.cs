@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -17,7 +17,11 @@ namespace HVAC_Pro_Desktop.DAL
         public List<B2BClient> GetAll()
         {
             using (var conn = _db.GetConnection())
-                return conn.Query<B2BClient>("SELECT * FROM B2BClients WHERE IsActive = 1 ORDER BY CompanyName").ToList();
+            {
+                conn.Open();
+                HVAC_Pro_Desktop.Services.SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
+                return conn.Query<B2BClient>("SELECT * FROM B2BClients c WHERE IsActive = 1 AND NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive a WHERE a.ModuleName='Clients' AND a.DuplicateRecordID=CONVERT(varchar(30),c.ClientID)) ORDER BY CompanyName").ToList();
+            }
         }
 
         public List<B2BClient> GetAllIncludingInactive()
@@ -125,7 +129,21 @@ namespace HVAC_Pro_Desktop.DAL
         {
             using (var conn = _db.GetConnection())
             {
-                conn.Execute("UPDATE B2BClients SET IsActive = 0 WHERE ClientID = @id", new { id });
+                conn.Open();
+                HVAC_Pro_Desktop.Services.SmartImportDuplicateDetector.EnsureArchiveSchema(conn);
+                // Retain the client and every linked business record. A self archive marks
+                // deletion separately from ordinary inactive status, using the existing archive filter.
+                using (var transaction = conn.BeginTransaction(IsolationLevel.Serializable))
+                {
+                    conn.Execute(@"UPDATE B2BClients SET IsActive = 0 WHERE ClientID = @id;
+INSERT INTO DuplicateMergeArchive
+    (ModuleName, TableName, PrimaryKeyName, SurvivorRecordID, DuplicateRecordID, MergedBy)
+SELECT 'Clients', 'B2BClients', 'ClientID', CONVERT(nvarchar(50), @id), CONVERT(nvarchar(50), @id), 'Client deletion'
+WHERE EXISTS (SELECT 1 FROM B2BClients WHERE ClientID = @id)
+  AND NOT EXISTS (SELECT 1 FROM DuplicateMergeArchive WHERE ModuleName='Clients' AND DuplicateRecordID=CONVERT(nvarchar(50), @id));",
+                        new { id }, transaction);
+                    transaction.Commit();
+                }
             }
         }
 

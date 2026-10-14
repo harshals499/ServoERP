@@ -139,9 +139,11 @@ namespace HVAC_Pro_Desktop.UI
             btnClose.Click += (s, e) => CloseJob();
             actions.Controls.AddRange(new Control[] { btnClose, btnPrint, btnSave });
 
-            top.Controls.Add(_lblJobNumber);
-            top.Controls.Add(actions);
-            top.Controls.Add(btnBack);
+            var heading = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceEditor("JobDetailHeader", "JOB",
+                "Job progress and service details", new List<Control> { btnBack, btnSave, btnPrint, btnClose }));
+            top.Dispose();
+            top = heading.Header;
+            _lblJobNumber = heading.TitleLabel;
 
             _pipeline = new FlowLayoutPanel
             {
@@ -526,7 +528,7 @@ namespace HVAC_Pro_Desktop.UI
             Job job = _detail.Job;
             return "<html><head><meta charset='utf-8'><title>" + Html(job.JobNumber) + "</title>"
                 + "<style>body{font-family:Segoe UI,Arial;margin:32px;color:#111827}h1{margin:0 0 4px}table{border-collapse:collapse;width:100%;margin-top:18px}td,th{border:1px solid #d1d5db;padding:8px;text-align:left}.muted{color:#64748b}.num{text-align:right}</style>"
-                + "</head><body><h1>" + Html(job.JobNumber) + "</h1><div class='muted'>" + Html(job.JobTitle ?? job.Title) + "</div>"
+                + "<style>" + DocumentBranding.BuildOfficialHeaderCss() + "</style></head><body>" + DocumentBranding.BuildOfficialHeaderHtml() + "<h1>" + Html(job.JobNumber) + "</h1><div class='muted'>" + Html(job.JobTitle ?? job.Title) + "</div>"
                 + "<table><tr><th>Status</th><td>" + Html(GetPipelineLabel(job.PipelineStatus)) + "</td><th>Scheduled</th><td>" + Html(IndiaFormatHelper.FormatDate(job.ScheduledDate)) + "</td></tr>"
                 + "<tr><th>Client</th><td>" + Html(_detail.Client?.CompanyName) + "</td><th>Site</th><td>" + Html(_detail.Site?.SiteName) + "</td></tr>"
                 + "<tr><th>Technician</th><td>" + Html(_detail.Technician?.Name ?? "Unassigned") + "</td><th>Priority</th><td>" + Html(job.Priority) + "</td></tr></table>"

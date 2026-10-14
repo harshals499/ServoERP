@@ -642,7 +642,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 46, BackColor = DS.Slate50, Padding = new Padding(16, 8, 16, 8) };
             _inventoryPager = new GlobalPaginationControl
             {
-                Dock = DockStyle.Right,
+                Dock = DockStyle.Top,
                 Width = 560,
                 Height = 34,
                 BackColor = DS.Slate50
@@ -660,6 +660,8 @@ namespace HVAC_Pro_Desktop.UI
             };
             _inventoryPager.SetState(_inventoryPage, 0, _inventoryPageSize);
             footer.Controls.Add(_inventoryPager);
+            HVAC_Pro_Desktop.UI.Controls.PaginationFooterLayout.Bind(_inventoryPager, () => footer.Height = _inventoryPager.Height + footer.Padding.Vertical);
+            footer.Height = _inventoryPager.Height + footer.Padding.Vertical;
             return footer;
         }
 
@@ -2943,7 +2945,9 @@ namespace HVAC_Pro_Desktop.UI
             var sb = new StringBuilder();
             sb.Append("<html><head><style>");
             sb.Append("body{font-family:Segoe UI,Arial,sans-serif;color:#0f172a;margin:28px}h1{font-size:24px;margin:0 0 6px}.meta{color:#64748b;margin-bottom:18px}.cards{display:flex;gap:12px;margin-bottom:18px}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px 16px;min-width:150px}.label{color:#64748b;font-size:12px}.value{font-size:20px;font-weight:700}table{border-collapse:collapse;width:100%;font-size:12px}th{background:#f1f5f9;text-align:left}th,td{border:1px solid #e2e8f0;padding:8px}.right{text-align:right}.low{color:#d97706;font-weight:700}.out{color:#dc2626;font-weight:700}.ok{color:#16a34a;font-weight:700}");
+            sb.Append(DocumentBranding.BuildOfficialHeaderCss());
             sb.Append("</style></head><body>");
+            sb.Append(DocumentBranding.BuildOfficialHeaderHtml());
             sb.Append("<h1>").Append(Html(title)).Append("</h1>");
             sb.Append("<div class='meta'>Generated ").Append(DateTime.Now.ToString("dd MMM yyyy HH:mm")).Append("</div>");
             sb.Append("<div class='cards'>");

@@ -68,7 +68,6 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblSavedView;
         private Label _lblSchedule;
         private Button _btnResetExplorer;
-        private FlowLayoutPanel _headerActions;
         private readonly HashSet<string> _selectedColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private Timer _reportScheduleTimer;
         private string _scheduledExportFolder;
@@ -140,8 +139,6 @@ namespace HVAC_Pro_Desktop.UI
             UIHelper.ApplyInputStyles(Controls);
             if (_btnResetExplorer != null)
                 UIHelper.ApplyButtonStyle(_btnResetExplorer, ButtonRole.Neutral);
-            if (_headerActions != null)
-                _headerActions.WrapContents = false;
             RegisterFirstPaintTiming("Reports.FirstPaint", ctorWatch);
             EnableDeferredLoad(
                 (Func<Task>)(async () => await RefreshAllAsync()),
@@ -1595,64 +1592,15 @@ namespace HVAC_Pro_Desktop.UI
             importProfit.Click += (s, e) => ImportProfitabilityWorkbook();
             addExpense.Click += (s, e) => AddExpense();
 
-            _lblStatus = new Label
-            {
-                Text = "Loading reports...",
-                Location = new Point(490, 28),
-                Width = 148,
-                Height = 22,
-                Font = new Font("Segoe UI", 8.5f),
-                ForeColor = Green,
-                TextAlign = ContentAlignment.MiddleRight,
-                AutoEllipsis = true,
-                Anchor = AnchorStyles.Top | AnchorStyles.Left
-            };
-
-            Panel header = new Panel { Name = "ReportsPageHeader", Tag = "custom-header-actions no-global-actions", Dock = DockStyle.Fill, Height = 88, BackColor = PageBg, Padding = Padding.Empty };
-            header.Paint += (s, e) =>
-            {
-                using (Pen pen = new Pen(DS.Slate200))
-                    e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
-            };
-            Label title = new Label { Text = "Reports Command Center", Location = new Point(10, 9), Size = new Size(286, 30), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = TextDark, AutoEllipsis = true };
-            Label subtitle = new Label { Text = "Real-time insights and analytics across your business.", Location = new Point(10, 42), Size = new Size(286, 20), Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true };
-            Control search = SharedPageHeader.CreateSearchCommand("ReportsHeaderSearch", 180, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this));
-            search.Location = new Point(302, 22);
-
-            FlowLayoutPanel actions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Right,
-                Width = 770,
-                Height = 72,
-                Padding = new Padding(0, 20, 0, 0),
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                AutoScroll = false,
-                BackColor = PageBg
-            };
-            _headerActions = actions;
-            foreach (Control action in new Control[] { refresh, addExpense, importProfit, forms, pnl, export })
-            {
-                action.Tag = "FIXED_WIDTH";
-                action.Margin = new Padding(4, 0, 0, 0);
-                actions.Controls.Add(action);
-            }
-            header.Controls.Add(title);
-            header.Controls.Add(subtitle);
-            header.Controls.Add(search);
-            header.Controls.Add(_lblStatus);
-            header.Controls.Add(actions);
-            actions.BringToFront();
-            header.Resize += (s, e) =>
-            {
-                bool roomy = header.ClientSize.Width >= 1280;
-                search.Visible = roomy;
-                _lblStatus.Visible = roomy;
-                actions.Width = Math.Min(770, Math.Max(560, header.ClientSize.Width - (roomy ? 664 : 310)));
-            };
-            header.Dock = DockStyle.Top;
-            header.Height = 88;
-            return header;
+            var model = SharedPageHeader.CreateWorkspaceDashboard("ReportsPageHeader", "Reports Command Center",
+                "Real-time insights and analytics across your business.",
+                new List<Control> { refresh, addExpense, importProfit, forms, pnl, export });
+            model.Dock = DockStyle.Top;
+            model.StatusText = "Loading reports...";
+            model.StatusColor = Green;
+            var built = SharedPageHeader.Build(model);
+            _lblStatus = built.StatusLabel;
+            return built.Header;
         }
 
         private TableLayoutPanel BuildKpiStrip()

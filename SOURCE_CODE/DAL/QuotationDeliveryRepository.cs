@@ -30,7 +30,7 @@ SELECT TOP 1
        (SELECT COUNT(*) FROM PurchaseRequirements p WHERE p.DeliveryBatchId=b.DeliveryBatchId) AS PurchaseRequirementCount,
        (SELECT COUNT(*) FROM JobBillingSchedules s WHERE s.DeliveryBatchId=b.DeliveryBatchId) AS BillingMilestoneCount
 FROM QuotationDeliveryBatches b
-LEFT JOIN Jobs j ON j.JobID=b.JobId
+LEFT JOIN dbo.ActiveJobs j ON j.JobID=b.JobId
 WHERE b.QuotationBidId=@quotationId AND b.Status='Completed';", new { quotationId });
             }
         }
@@ -73,7 +73,7 @@ VALUES (@quotationId, 'Pending', @createdByName);",
 
                 string marker = "[DeliveryBatch:" + deliveryBatchId + "]";
                 return connection.QuerySingleOrDefault<int?>(
-                    "SELECT TOP 1 JobID FROM Jobs WHERE Notes LIKE @marker ORDER BY JobID DESC;",
+                    "SELECT TOP 1 JobID FROM dbo.ActiveJobs WHERE Notes LIKE @marker ORDER BY JobID DESC;",
                     new { marker = "%" + marker + "%" });
             }
         }

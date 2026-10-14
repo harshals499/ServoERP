@@ -11,13 +11,12 @@ namespace HVAC_Pro_Desktop.UI
 {
     public sealed class NotificationCenterDialog : ServoERP.Infrastructure.ServoFormBase
     {
-        private const int PageSize = 10;
+        private int _pageSize = 10;
 
         private readonly Action<string> _navigate;
         private readonly NotificationCenterService _service = new NotificationCenterService();
         private readonly DataGridView _grid;
-        private readonly Label _summary;
-        private readonly FlowLayoutPanel _pager;
+        private readonly Controls.GlobalPaginationControl _pager;
         private readonly VScrollBar _scrollBar;
         private readonly Button _openButton;
         private readonly Button _dismissButton;
@@ -25,6 +24,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private List<FoundationNotification> _notifications = new List<FoundationNotification>();
         private int _pageIndex;
+        private bool _syncingScrollBar;
 
         public NotificationCenterDialog(Action<string> navigate)
         {
@@ -53,34 +53,16 @@ namespace HVAC_Pro_Desktop.UI
             };
             _scrollBar.ValueChanged += (s, e) =>
             {
-                if (_scrollBar.Value != _pageIndex)
+                if (!_syncingScrollBar && _scrollBar.Value != _pageIndex)
                 {
                     _pageIndex = _scrollBar.Value;
                     RenderPage(false);
                 }
             };
 
-            _summary = new Label
-            {
-                AutoSize = false,
-                Dock = DockStyle.Left,
-                Width = 330,
-                Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f),
-                ForeColor = DS.Slate700,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-
-            _pager = new FlowLayoutPanel
-            {
-                AutoSize = true,
-                AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                FlowDirection = FlowDirection.LeftToRight,
-                WrapContents = false,
-                Dock = DockStyle.None,
-                Anchor = AnchorStyles.None,
-                BackColor = Color.White,
-                Margin = new Padding(0)
-            };
+_pager = new Controls.GlobalPaginationControl { Dock = DockStyle.Top, BackColor = Color.White };
+            _pager.PageChanged += (s, e) => { _pageIndex = _pager.CurrentPage - 1; RenderPage(); };
+            _pager.PageSizeChanged += (s, e) => { _pageSize = _pager.PageSize; _pageIndex = 0; RenderPage(); };
 
             _refreshButton = MakeActionButton("Refresh", (s, e) => LoadNotifications());
             _dismissButton = MakeActionButton("Dismiss", (s, e) => DismissSelected());
@@ -143,19 +125,14 @@ namespace HVAC_Pro_Desktop.UI
             var bottom = new Panel
             {
                 Dock = DockStyle.Bottom,
-                Height = 76,
+                Height = 92,
                 BackColor = Color.White,
                 Padding = new Padding(0, 8, 0, 4)
             };
 
-            Panel top = new Panel { Dock = DockStyle.Top, Height = 32, BackColor = Color.White };
-            Panel pagerHost = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-            pagerHost.Controls.Add(_pager);
-            pagerHost.Resize += (s, e) => CenterPager(pagerHost);
-            top.Controls.Add(pagerHost);
-            top.Controls.Add(_summary);
+            HVAC_Pro_Desktop.UI.Controls.PaginationFooterLayout.Bind(_pager, () => bottom.Height = _pager.Height + 48);
 
-            FlowLayoutPanel actions = new FlowLayoutPanel
+FlowLayoutPanel actions = new FlowLayoutPanel
             {
                 Dock = DockStyle.Bottom,
                 Height = 36,
@@ -169,7 +146,7 @@ namespace HVAC_Pro_Desktop.UI
             actions.Controls.Add(_refreshButton);
 
             bottom.Controls.Add(actions);
-            bottom.Controls.Add(top);
+            bottom.Controls.Add(_pager);
             return bottom;
         }
 
@@ -186,7 +163,8 @@ namespace HVAC_Pro_Desktop.UI
                 AppLogger.LogError("NotificationCenterDialog.LoadNotifications", ex);
                 _notifications = new List<FoundationNotification>();
                 _grid.Rows.Clear();
-                _summary.Text = "Notifications could not be loaded.";
+                _pager.SetState(1, 0, _pageSize);
+                _pageIndex = 0;
                 MessageBox.Show(this, "Notifications could not be loaded. Please try Refresh again.", BrandingService.WindowTitle("Notifications"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -195,8 +173,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             _grid.Rows.Clear();
             List<FoundationNotification> page = _notifications
-                .Skip(_pageIndex * PageSize)
-                .Take(PageSize)
+                .Skip(_pageIndex * _pageSize)
+                .Take(_pageSize)
                 .ToList();
 
             foreach (FoundationNotification n in page)
@@ -213,7 +191,6 @@ namespace HVAC_Pro_Desktop.UI
             if (_grid.Rows.Count > 0)
                 _grid.Rows[0].Selected = true;
 
-            UpdateSummary();
             BuildPager();
             SyncScrollBar(syncScrollBar);
             UpdateActionState();
@@ -221,103 +198,21 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SyncScrollBar(bool syncValue)
         {
-            int pages = PageCount();
-            _scrollBar.Maximum = Math.Max(0, pages - 1);
-            _scrollBar.Enabled = pages > 1;
-
-            if (syncValue)
-                _scrollBar.Value = Math.Min(_scrollBar.Maximum, Math.Max(_scrollBar.Minimum, _pageIndex));
-        }
-
-        private void UpdateSummary()
-        {
-            if (_notifications.Count == 0)
+            _syncingScrollBar = true;
+            try
             {
-                _summary.Text = "No active notifications.";
-                return;
+                int pages = PageCount();
+                _scrollBar.Maximum = Math.Max(0, pages - 1);
+                _scrollBar.Enabled = pages > 1;
+                if (syncValue)
+                    _scrollBar.Value = Math.Min(_scrollBar.Maximum, Math.Max(_scrollBar.Minimum, _pageIndex));
             }
-
-            int start = (_pageIndex * PageSize) + 1;
-            int end = Math.Min(_notifications.Count, start + PageSize - 1);
-            _summary.Text = "Showing " + start.ToString() + " to " + end.ToString() + " of " + _notifications.Count.ToString() + " notifications";
+            finally { _syncingScrollBar = false; }
         }
 
         private void BuildPager()
         {
-            _pager.SuspendLayout();
-            try
-            {
-                _pager.Controls.Clear();
-                int pages = PageCount();
-                if (pages <= 1)
-                    return;
-
-                _pager.Controls.Add(MakePageButton("<", Math.Max(0, _pageIndex - 1), _pageIndex > 0));
-                for (int i = 0; i < pages; i++)
-                {
-                    if (i >= 4 && i < pages - 1)
-                    {
-                        if (i == 4)
-                            _pager.Controls.Add(MakeEllipsis());
-                        continue;
-                    }
-
-                    _pager.Controls.Add(MakePageButton((i + 1).ToString(), i, true));
-                }
-                _pager.Controls.Add(MakePageButton(">", Math.Min(pages - 1, _pageIndex + 1), _pageIndex < pages - 1));
-            }
-            finally
-            {
-                _pager.ResumeLayout(true);
-                if (_pager.Parent != null)
-                    CenterPager(_pager.Parent);
-            }
-        }
-
-        private void CenterPager(Control host)
-        {
-            if (host == null || _pager == null)
-                return;
-
-            _pager.Location = new Point(Math.Max(0, (host.Width - _pager.Width) / 2), 3);
-        }
-
-        private Button MakePageButton(string text, int pageIndex, bool enabled)
-        {
-            Button button = new Button
-            {
-                Text = text,
-                Width = 26,
-                Height = 26,
-                Enabled = enabled,
-                FlatStyle = FlatStyle.Flat,
-                BackColor = pageIndex == _pageIndex && text.All(char.IsDigit) ? Color.FromArgb(99, 64, 218) : Color.White,
-                ForeColor = pageIndex == _pageIndex && text.All(char.IsDigit) ? Color.White : DS.Slate700,
-                Font = new Font(LanguageManager.GetUiFontFamily(), 8.4f, FontStyle.Bold),
-                Margin = new Padding(3, 0, 3, 0),
-                Cursor = Cursors.Hand
-            };
-            button.FlatAppearance.BorderColor = DS.Border;
-            button.FlatAppearance.BorderSize = 1;
-            button.Click += (s, e) =>
-            {
-                _pageIndex = pageIndex;
-                RenderPage(true);
-            };
-            return button;
-        }
-
-        private static Label MakeEllipsis()
-        {
-            return new Label
-            {
-                Text = "...",
-                Width = 22,
-                Height = 26,
-                TextAlign = ContentAlignment.MiddleCenter,
-                ForeColor = DS.Slate500,
-                Margin = new Padding(2, 0, 2, 0)
-            };
+            _pager.SetState(_pageIndex + 1, _notifications.Count, _pageSize);
         }
 
         private void OpenSelected()
@@ -444,7 +339,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private int PageCount()
         {
-            return Math.Max(1, (int)Math.Ceiling(_notifications.Count / (double)PageSize));
+            return Math.Max(1, (int)Math.Ceiling(_notifications.Count / (double)_pageSize));
         }
 
         private static string Safe(string text, string fallback)

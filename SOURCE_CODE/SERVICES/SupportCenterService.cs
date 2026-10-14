@@ -185,7 +185,7 @@ namespace HVAC_Pro_Desktop.Services
                 List<string> missing = new List<string>();
                 string baseDir = AppDomain.CurrentDomain.BaseDirectory;
                 string exePath = Assembly.GetExecutingAssembly().Location;
-                string configPath = Path.Combine(baseDir, "HVACPro.config");
+                string configPath = ConfigService.ResolveConfigPath();
                 string iconPath = Path.Combine(baseDir, "app.ico");
 
                 if (!File.Exists(exePath)) missing.Add(Path.GetFileName(exePath));
@@ -516,7 +516,11 @@ namespace HVAC_Pro_Desktop.Services
                    "if (!(Test-Path -LiteralPath $source)) { throw 'HVACPro.config not found beside this script.' }" + Environment.NewLine +
                    "New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null" + Environment.NewLine +
                    "New-Item -ItemType Directory -Force -Path (Join-Path $InstallRoot 'DATABASE') | Out-Null" + Environment.NewLine +
-                   "$target = Join-Path $InstallRoot 'HVACPro.config'" + Environment.NewLine +
+                   "$configDirectory = Join-Path $env:ProgramData 'ServoERP\\Configuration'" + Environment.NewLine +
+                   "New-Item -ItemType Directory -Force -Path $configDirectory | Out-Null" + Environment.NewLine +
+                   "& icacls.exe $configDirectory /grant '*S-1-5-32-545:(OI)(CI)M' | Out-Null" + Environment.NewLine +
+                   "if ($LASTEXITCODE -ne 0) { throw 'Could not grant client configuration access.' }" + Environment.NewLine +
+                   "$target = Join-Path $configDirectory 'HVACPro.config'" + Environment.NewLine +
                    "if (Test-Path -LiteralPath $target) { Copy-Item -LiteralPath $target -Destination ($target + '.pre-client-connection.bak') -Force }" + Environment.NewLine +
                    "[xml]$config = Get-Content -LiteralPath $source" + Environment.NewLine +
                    "$config.HVACProConfig.Database.Server = $SqlServer" + Environment.NewLine +
@@ -535,21 +539,9 @@ namespace HVAC_Pro_Desktop.Services
                    "}" + Environment.NewLine +
                    "$config.HVACProConfig.Database.ServerRole = 'ClientPC'" + Environment.NewLine +
                    "$config.Save($target)" + Environment.NewLine +
-                   "$connectionString = $builder.ConnectionString" + Environment.NewLine +
-                   "$exeConfigs = Get-ChildItem -LiteralPath $InstallRoot -Filter 'HVAC_Pro_Desktop.exe.config' -Recurse -ErrorAction SilentlyContinue" + Environment.NewLine +
-                   "foreach ($exeConfig in $exeConfigs) {" + Environment.NewLine +
-                   "    [xml]$appConfig = Get-Content -LiteralPath $exeConfig.FullName" + Environment.NewLine +
-                   "    $node = $appConfig.configuration.connectionStrings.add | Where-Object { $_.name -eq 'HVACPro_Connection' } | Select-Object -First 1" + Environment.NewLine +
-                   "    if ($null -ne $node) {" + Environment.NewLine +
-                   "        $node.connectionString = $connectionString" + Environment.NewLine +
-                   "        $node.providerName = 'System.Data.SqlClient'" + Environment.NewLine +
-                   "        $appConfig.Save($exeConfig.FullName)" + Environment.NewLine +
-                   "    }" + Environment.NewLine +
-                   "}" + Environment.NewLine +
                    "Write-Host 'ServoERP client connection applied:' $target -ForegroundColor Green" + Environment.NewLine +
                    "Write-Host 'Always-on SQL target:' $SqlServer -ForegroundColor Cyan" + Environment.NewLine +
                    "Write-Host 'Database:' $Database -ForegroundColor Cyan" + Environment.NewLine +
-                   "Write-Host 'Updated exe configs:' ($exeConfigs.Count) -ForegroundColor DarkCyan" + Environment.NewLine +
                    "Write-Host 'Verified client configuration saved. Start ServoERP normally.' -ForegroundColor Yellow" + Environment.NewLine;
         }
 
@@ -659,11 +651,11 @@ namespace HVAC_Pro_Desktop.Services
                    "Generated: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + Environment.NewLine +
                    Environment.NewLine +
                    "Sales & Collections" + Environment.NewLine +
-                   QueryMetric("Open invoices", "SELECT COUNT(*) FROM Invoices WHERE ISNULL(PaymentStatus,'') NOT IN ('Paid','Closed')") + Environment.NewLine +
-                   QueryMoney("Invoice outstanding", "SELECT ISNULL(SUM(CASE WHEN BalanceDue IS NOT NULL THEN BalanceDue ELSE TotalAmount-ISNULL(PaidAmount,0) END),0) FROM Invoices WHERE ISNULL(PaymentStatus,'') NOT IN ('Paid','Closed')") + Environment.NewLine +
+                   QueryMetric("Open invoices", "SELECT COUNT(*) FROM dbo.FinancialInvoices WHERE ISNULL(PaymentStatus,'') NOT IN ('Paid','Closed')") + Environment.NewLine +
+                   QueryMoney("Invoice outstanding", "SELECT ISNULL(SUM(CASE WHEN BalanceDue IS NOT NULL THEN BalanceDue ELSE TotalAmount-ISNULL(PaidAmount,0) END),0) FROM dbo.FinancialInvoices WHERE ISNULL(PaymentStatus,'') NOT IN ('Paid','Closed')") + Environment.NewLine +
                    Environment.NewLine +
                    "Operations" + Environment.NewLine +
-                   QueryMetric("Open jobs", "SELECT COUNT(*) FROM Jobs WHERE ISNULL(Status,'') NOT IN ('Closed','Completed','Cancelled')") + Environment.NewLine +
+                   QueryMetric("Open jobs", "SELECT COUNT(*) FROM dbo.ActiveJobs WHERE ISNULL(Status,'') NOT IN ('Closed','Completed','Cancelled')") + Environment.NewLine +
                    QueryMetric("AMC contracts expiring in 45 days", "SELECT COUNT(*) FROM AMCContracts WHERE EndDate BETWEEN GETDATE() AND DATEADD(day,45,GETDATE())") + Environment.NewLine +
                    QueryMetric("Inventory reorder risk", "SELECT COUNT(*) FROM StockItems WHERE CurrentStock <= ReorderLevel") + Environment.NewLine +
                    Environment.NewLine +

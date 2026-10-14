@@ -58,9 +58,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            Panel header = new Panel { Dock = DockStyle.Top, Height = 118, BackColor = DS.White, Padding = new Padding(38, 24, 38, 20) };
-            header.Controls.Add(new Label { Text = "Follow the next recommended action. You can return to any step whenever you need help.", Font = DS.Body, ForeColor = DS.Slate600, Dock = DockStyle.Top, Height = 30 });
-            header.Controls.Add(new Label { Text = "ServoERP User Guide", Font = DS.H1, ForeColor = DS.Slate900, Dock = DockStyle.Top, Height = 38 });
+            Panel header = SharedPageHeader.Build(SharedPageHeader.CreateWorkspaceEditor("UserGuideHeader",
+                "ServoERP User Guide", "Follow the next recommended action. Return to any step whenever you need help.",
+                new List<Control>())).Header;
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = DS.White, Padding = new Padding(38, 16, 38, 12) };
             _progress.Dock = DockStyle.Left; _progress.Width = 300; _progress.Font = DS.BodyBold; _progress.ForeColor = DS.Slate700; _progress.TextAlign = ContentAlignment.MiddleLeft;
             _next.Dock = DockStyle.Fill; _next.Font = DS.Body; _next.ForeColor = DS.Teal600; _next.TextAlign = ContentAlignment.MiddleRight;
@@ -106,6 +106,11 @@ namespace HVAC_Pro_Desktop.UI
         private void MarkCompleteAndAdvance(GuideStep step) { ConfigService.Set("InteractiveGuide", step.Key, "true"); Advance(); }
         private void Advance() { if (_selected < _steps.Count - 1) _selected++; Render(); }
         private void OpenServerSetup() { using (var form = new ServerFirstRunSetupForm()) form.ShowDialog(this); }
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.K)) { WorkspaceHeaderPanel.OpenSearch(this); return true; }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
         private void OpenConnectionSetup() { using (var form = new ConnectionSetupForm()) form.ShowDialog(this); }
         private void OpenSharedStorage() { using (var form = new SharedStorageSettingsForm()) form.ShowDialog(this); }
         private void VerifyDatabase() { ShowResult(_support.CheckDatabase()); }

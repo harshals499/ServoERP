@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Linq;
+using Dapper;
+using System.Globalization;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
 
@@ -8,6 +11,31 @@ namespace HVAC_Pro_Desktop.Services
 {
     public sealed class GlobalSearchService
     {
+        internal static bool CanView(string pageKey)
+        {
+            string module = pageKey == "Jobs" || pageKey == "ServiceDesk" ? "WorkOrders" : pageKey == "Vendors" ? "Suppliers" : pageKey == "Contracts" ? "Contracts" : pageKey;
+            var user = SessionManager.CurrentUser;
+            RolePermissionDto permission;
+            if (user == null) return false;
+            if (user.Permissions != null && user.Permissions.Count > 0 &&
+                (!user.Permissions.TryGetValue(module, out permission) || permission == null || !permission.CanView)) return false;
+            return SessionManager.HasPermission(module, "View");
+        }
+        private sealed class SearchRow
+        {
+            public int Id { get; set; }
+            public string Title { get; set; }
+            public string Detail { get; set; }
+            public DateTime? RecordDate { get; set; }
+            public string ClientName { get; set; }
+            public string SiteName { get; set; }
+            public string Technician { get; set; }
+            public string Status { get; set; }
+            public string JobType { get; set; }
+            public decimal? Amount { get; set; }
+            public decimal? BalanceDue { get; set; }
+            public DateTime? DueDate { get; set; }
+        }
         public List<GlobalSearchResult> Search(string query, int maxResults = 50)
         {
             var results = new List<GlobalSearchResult>();
@@ -33,7 +61,9 @@ namespace HVAC_Pro_Desktop.Services
                 SearchServiceDesk(conn, like, results, maxResults);
             }
 
-            return results.Count > maxResults ? results.GetRange(0, maxResults) : results;
+            // Round-robin modules so a large client list cannot starve jobs or invoices.
+            return results.GroupBy(r => r.Module).SelectMany(g => g.Select((r, index) => new { Record = r, Index = index }))
+                .OrderBy(r => r.Index).Take(Math.Max(1, maxResults)).Select(r => r.Record).ToList();
         }
 
         private static void SearchClients(SqlConnection conn, string like, List<GlobalSearchResult> results, int max)
@@ -48,12 +78,23 @@ namespace HVAC_Pro_Desktop.Services
 
         private static void SearchJobs(SqlConnection conn, string like, List<GlobalSearchResult> results, int max)
         {
-            AddRows(conn, @"SELECT TOP (@max) JobID AS Id, ISNULL(JobNumber,'') + ' - ' + ISNULL(JobTitle, Title) AS Title, ISNULL(PipelineStatus, Status) + ' | ' + ISNULL(Description,'') AS Detail, ScheduledDate AS RecordDate FROM Jobs WHERE ISNULL(JobNumber,'') LIKE @q OR ISNULL(JobTitle, Title) LIKE @q OR ISNULL(Description,'') LIKE @q ORDER BY ScheduledDate DESC", like, max, "Jobs", "Jobs", results);
+            AddRows(conn, @"SELECT TOP (@max) j.JobID AS Id, ISNULL(j.JobNumber,'') + ' - ' + ISNULL(j.JobTitle, j.Title) AS Title,
+                ISNULL(j.Description,'') AS Detail, j.ScheduledDate AS RecordDate, c.CompanyName AS ClientName, s.SiteName,
+                ISNULL(e.Name,'Unassigned') AS Technician, ISNULL(j.PipelineStatus,j.Status) AS Status, j.JobType
+                FROM dbo.ActiveJobs j LEFT JOIN B2BClients c ON c.ClientID=j.ClientID LEFT JOIN ClientSites s ON s.SiteID=j.SiteID
+                LEFT JOIN Employees e ON e.EmployeeID=j.AssignedEmployeeID
+                WHERE (@technician=0 OR j.AssignedEmployeeID=@employee OR e.Name=@displayName OR e.Name=@username)
+                AND (ISNULL(j.JobNumber,'') LIKE @q OR ISNULL(j.JobTitle,j.Title) LIKE @q OR ISNULL(j.Description,'') LIKE @q OR c.CompanyName LIKE @q OR s.SiteName LIKE @q)
+                ORDER BY j.ScheduledDate DESC", like, max, "Jobs", "Jobs", results);
         }
 
         private static void SearchInvoices(SqlConnection conn, string like, List<GlobalSearchResult> results, int max)
         {
-            AddRows(conn, @"SELECT TOP (@max) InvoiceID AS Id, InvoiceNumber AS Title, PaymentStatus + ' | Total ' + CONVERT(NVARCHAR(40), TotalAmount) AS Detail, InvoiceDate AS RecordDate FROM Invoices WHERE ISNULL(InvoiceNumber,'') LIKE @q OR ISNULL(PaymentStatus,'') LIKE @q ORDER BY InvoiceDate DESC", like, max, "Invoices", "Invoices", results);
+            AddRows(conn, @"SELECT TOP (@max) i.InvoiceID AS Id, i.InvoiceNumber AS Title, i.PaymentStatus AS Detail,
+                i.PaymentStatus AS Status, i.TotalAmount AS Amount, i.BalanceDue, i.DueDate, i.InvoiceDate AS RecordDate,
+                c.CompanyName AS ClientName, s.SiteName FROM dbo.ActiveInvoices i LEFT JOIN B2BClients c ON c.ClientID=i.ClientID
+                LEFT JOIN ClientSites s ON s.SiteID=i.SiteID WHERE ISNULL(i.InvoiceNumber,'') LIKE @q OR ISNULL(i.PaymentStatus,'') LIKE @q
+                OR c.CompanyName LIKE @q OR s.SiteName LIKE @q ORDER BY i.InvoiceDate DESC", like, max, "Invoices", "Invoices", results);
         }
 
         private static void SearchPurchases(SqlConnection conn, string like, List<GlobalSearchResult> results, int max)
@@ -98,32 +139,24 @@ namespace HVAC_Pro_Desktop.Services
 
         private static void AddRows(SqlConnection conn, string sql, string like, int max, string module, string pageKey, List<GlobalSearchResult> results)
         {
+            if (!CanView(pageKey)) return;
             try
             {
-                using (SqlCommand cmd = new SqlCommand(sql, conn))
+                var user = SessionManager.CurrentUser;
+                foreach (var row in conn.Query<SearchRow>(sql, new { q = like, max = Math.Max(1, Math.Min(120, max)),
+                    technician = (user?.RoleName ?? "").IndexOf("technician", StringComparison.OrdinalIgnoreCase) >= 0 ? 1 : 0,
+                    employee = user?.EmployeeId, displayName = user?.DisplayName ?? "", username = user?.Username ?? "" }, commandTimeout: 15))
                 {
-                    cmd.Parameters.AddWithValue("@q", like);
-                    cmd.Parameters.AddWithValue("@max", Math.Max(1, max));
-                    using (SqlDataReader reader = cmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            results.Add(new GlobalSearchResult
-                            {
-                                Module = module,
-                                PageKey = pageKey,
-                                RecordId = reader["Id"] == DBNull.Value ? 0 : Convert.ToInt32(reader["Id"]),
-                                Title = Convert.ToString(reader["Title"]),
-                                Detail = Convert.ToString(reader["Detail"]),
-                                RecordDate = reader["RecordDate"] == DBNull.Value ? (DateTime?)null : Convert.ToDateTime(reader["RecordDate"])
-                            });
-                        }
-                    }
+                    results.Add(new GlobalSearchResult { Module = module, PageKey = pageKey, RecordId = row.Id,
+                        Title = row.Title, Detail = row.Detail + (row.Amount.HasValue ? " · Total ₹" + row.Amount.Value.ToString("N2",CultureInfo.GetCultureInfo("en-IN")) : ""), RecordDate = row.RecordDate, ClientName = row.ClientName,
+                        SiteName = row.SiteName, Technician = row.Technician, Status = row.Status, JobType = row.JobType,
+                        Amount=row.Amount, BalanceDue=row.BalanceDue, DueDate=row.DueDate });
                 }
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("GlobalSearchService." + module, ex);
+                throw;
             }
         }
     }

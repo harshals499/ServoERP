@@ -238,6 +238,7 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.Panel host = new System.Windows.Forms.Panel
 			{
 				Name = name,
+				Tag = "CUSTOM_INPUT_SHELL",
 				Size = new System.Drawing.Size(width, 36),
 				MinimumSize = new System.Drawing.Size(System.Math.Min(width, 180), 36),
 				BackColor = System.Drawing.Color.White,
@@ -262,6 +263,7 @@ namespace HVAC_Pro_Desktop.UI
 			if (input is System.Windows.Forms.TextBox textBox)
 			{
 				textBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+				textBox.MinimumSize = System.Drawing.Size.Empty;
 				textBox.BackColor = System.Drawing.Color.White;
 			}
 			System.Windows.Forms.Panel panel = new System.Windows.Forms.Panel
@@ -305,6 +307,12 @@ namespace HVAC_Pro_Desktop.UI
 		}
 
 		public static HVAC_Pro_Desktop.UI.SharedPageHeaderResult Build(HVAC_Pro_Desktop.UI.SharedPageHeaderModel model)
+		{
+            if (model == null) throw new System.ArgumentNullException("model");
+            return WorkspaceHeaderPanel.Build(model, BuildPage);
+		}
+
+        private static HVAC_Pro_Desktop.UI.SharedPageHeaderResult BuildPage(HVAC_Pro_Desktop.UI.SharedPageHeaderModel model)
 		{
 			if (model == null)
 			{
@@ -398,12 +406,13 @@ namespace HVAC_Pro_Desktop.UI
 				header.Controls.Add(model.RightMetaControl);
 			}
 			header.Controls.Add(actionHost);
+            int centerPreferredWidth = model.CenterContent == null ? 0 : model.CenterContent.Width;
 			System.Action layout = delegate
 			{
                 var list = model.RightActions.Where(action => action != null && !action.IsDisposed && action.Visible).ToList();
                 int span = SharedUiPrimitives.MeasureVisibleControlSpan(list, model.ActionGap);
                 int available = System.Math.Max(1, header.ClientSize.Width - model.Padding.Horizontal);
-                int centerSpan = model.CenterContent != null && model.CenterContent.Visible ? model.CenterContent.Width + model.SectionGap : 0;
+                int centerSpan = model.CenterContent != null && model.CenterContent.Visible ? centerPreferredWidth + model.SectionGap : 0;
                 int metaSpan = model.RightMetaControl != null && model.RightMetaControl.Visible ? model.RightMetaControl.Width + model.SectionGap : 0;
                 bool flag = model.AllowCompactWrap && (header.ClientSize.Width < model.CompactBreakpoint || available < span + centerSpan + metaSpan + model.MinTextWidth);
                 int y = flag ? model.CompactCenterTop : model.CenterTop;
@@ -456,7 +465,7 @@ namespace HVAC_Pro_Desktop.UI
 					int num4 = flag ? header.ClientSize.Width - model.Padding.Right - metaSpan : num2;
 					int val = System.Math.Max(140, num4 - num3);
 					int val2 = (flag ? System.Math.Min(model.MinTextWidth, val) : model.MinTextWidth);
-					int num5 = System.Math.Min(model.CenterContent.Width, System.Math.Max(val2, val));
+					int num5 = System.Math.Min(centerPreferredWidth, System.Math.Max(val2, val));
 					model.CenterContent.Width = num5;
 					model.CenterContent.Location = new System.Drawing.Point(HVAC_Pro_Desktop.UI.SharedUiPrimitives.CenterControlX(header.ClientSize.Width, num5, num3, num4), y);
 					num2 = System.Math.Min(num2, model.CenterContent.Left - model.SectionGap);

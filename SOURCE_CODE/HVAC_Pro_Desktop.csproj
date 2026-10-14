@@ -17,6 +17,8 @@
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ServoReleaseVersion>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\..\VERSION').Trim())</ServoReleaseVersion>
+    <ServoReleaseNotesPath>$(MSBuildProjectDirectory)\..\release\RELEASE_NOTES_$(ServoReleaseVersion).md</ServoReleaseNotesPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>x64</PlatformTarget>
@@ -566,6 +568,8 @@
     <Compile Include="UI\PageHeaderPolishService.cs" />
     <Compile Include="UI\SalesUiPolishService.cs" />
     <Compile Include="UI\SharedPageHeader.cs" />
+    <Compile Include="UI\WorkspaceHeaderPanel.cs" />
+    <Compile Include="Tests\WorkspaceHeaderSmokeTests.cs" />
     <Compile Include="UI\SharedUiPrimitives.cs" />
     <Compile Include="UI\WorkforceModuleVisuals.cs" />
     <Compile Include="UI\ServoModalForm.cs">
@@ -713,6 +717,10 @@
     <Compile Include="UI\DashboardForm.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="UI\DashboardForm.SoftDashboard.cs" />
+    <Compile Include="Tests\DashboardSoftSmokeTests.cs" />
+    <Compile Include="Tests\GlobalSearchSmokeTests.cs" />
+    <Compile Include="UI\DashboardHoverPreview.cs" />
     <Compile Include="UI\DashboardForm.ActionCenter.cs">
       <DependentUpon>DashboardForm.cs</DependentUpon>
     </Compile>
@@ -856,6 +864,30 @@
     </Content>
     <EmbeddedResource Include="Resources\GeoMap\map.html" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="SERVICES\DatabaseUpgradeService.cs" />
+    <Compile Include="SERVICES\FinancialRecordProtection.cs" />
+    <Compile Include="UI\FinancialRecordHistoryDialog.cs" />
+    <Compile Include="Tests\FinancialRecordProtectionSmokeTests.cs" />
+    <Compile Include="Tests\DatabaseUpgradeSmokeTests.cs" />
+    <EmbeddedResource Include="MIGRATIONS\Numbered\*.sql">
+      <LogicalName>ServoERP.NumberedMigrations.%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+    <Compile Include="UI\ReleaseNotesDialog.cs" />
+    <Compile Include="Tests\ReleaseNotesSmokeTests.cs" />
+    <Compile Include="Tests\ReleaseNotesVisualTest.cs" />
+    <EmbeddedResource Include="$(ServoReleaseNotesPath)">
+      <LogicalName>ServoERP.ReleaseNotes.Current.md</LogicalName>
+    </EmbeddedResource>
+    <Content Include="$(ServoReleaseNotesPath)">
+      <Link>RELEASE_NOTES_$(ServoReleaseVersion).md</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <Target Name="ValidateServoReleaseNotes" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(ServoReleaseNotesPath)')" Text="Versioned release notes are required: $(ServoReleaseNotesPath)" />
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\scripts\Assert-ServoReleaseNotes.ps1&quot; -Version &quot;$(ServoReleaseVersion)&quot; -NotesPath &quot;$(ServoReleaseNotesPath)&quot; -AssemblyInfoPath &quot;$(MSBuildProjectDirectory)\Properties\AssemblyInfo.cs&quot;" />
+  </Target>
   <Import Project="packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets" Condition="Exists('packages\Microsoft.Web.WebView2.1.0.3912.50\build\Microsoft.Web.WebView2.targets')" />
   <Import Project="packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets" Condition="Exists('packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118\build\net46\Stub.System.Data.SQLite.Core.NetFramework.targets')" />
   <Import Project="packages\QuestPDF.2026.5.0\build\QuestPDF.targets" Condition="Exists('packages\QuestPDF.2026.5.0\build\QuestPDF.targets')" />

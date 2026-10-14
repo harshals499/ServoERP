@@ -79,6 +79,14 @@ namespace HVAC_Pro_Desktop.Services.Licensing
         {
             lock (Sync)
             {
+                // Activation must not restart an existing or expired trial.
+                LicenseSnapshot existing = _cache.Load();
+                if (existing != null)
+                {
+                    _lastValidation = Evaluate(existing);
+                    return _lastValidation;
+                }
+
                 var now = DateTime.UtcNow;
                 var snapshot = new LicenseSnapshot
                 {

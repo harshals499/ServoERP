@@ -12,6 +12,7 @@ namespace ServoERP.Infrastructure
     public class ServoFormBase : Form
     {
         private bool _loaded;
+        protected virtual bool SuppressAutomaticChildPolish => false;
 
         /// <summary>Creates a low-flicker form surface and enables Escape key handling.</summary>
         protected ServoFormBase()
@@ -29,7 +30,7 @@ namespace ServoERP.Infrastructure
             RenderHelper.OptimiseAllGrids(this);
             base.OnLoad(e);
             _loaded = true;
-            ApplySharedFrontendPolish(this);
+            if (!SuppressAutomaticChildPolish) ApplySharedFrontendPolish(this);
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");
         }
 
@@ -43,7 +44,7 @@ namespace ServoERP.Infrastructure
         protected override void OnControlAdded(ControlEventArgs e)
         {
             base.OnControlAdded(e);
-            if (e.Control != null && _loaded)
+            if (e.Control != null && _loaded && !SuppressAutomaticChildPolish)
                 ApplySharedFrontendPolish(e.Control);
         }
 

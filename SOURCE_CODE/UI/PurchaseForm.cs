@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -341,9 +341,17 @@ namespace HVAC_Pro_Desktop.UI
                     _lblHeaderStatus));
             Panel header = headerResult.Header;
             _lblBreadcrumb = headerResult.StatusLabel;
+            // The hierarchy belongs above the title, leaving the lower status row for operation feedback.
+            var breadcrumb = WorkspaceActionUi.Descendants(header).OfType<Label>().First(l => l.Name == "WorkspaceBreadcrumb");
+            breadcrumb.Text = _lblBreadcrumb.Text;
+            _lblBreadcrumb.Visible = false;
+            _lblBreadcrumb.TextChanged += (s, e) => breadcrumb.Text = _lblBreadcrumb.Text;
+            _lblStatus.AutoSize = false;
+            _lblStatus.Dock = DockStyle.Bottom;
+            _lblStatus.Height = 24;
+            _lblStatus.Padding = new Padding(24, 0, 24, 0);
+            _lblStatus.AutoEllipsis = true;
             header.Controls.Add(_lblStatus);
-            header.Resize += (s, e) => LayoutPurchaseEditorStatus(header);
-            LayoutPurchaseEditorStatus(header);
 
             Panel body = new Panel { Dock = DockStyle.Fill, BackColor = DS.BgPage, Padding = new Padding(18, 0, 18, 18) };
             _leftRail = new Panel { Dock = DockStyle.Left, Width = 326, MinimumSize = new Size(326, 0), BackColor = DS.BgPage, Padding = new Padding(0, 0, 12, 0) };
@@ -374,21 +382,6 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(body);
             Controls.Add(header);
             ApplyPurchaseReferenceSkin(Controls);
-        }
-
-        private void LayoutPurchaseEditorStatus(Panel header)
-        {
-            if (header == null)
-                return;
-
-            if (_lblStatus != null)
-            {
-                _lblStatus.MaximumSize = new Size(Math.Max(120, header.ClientSize.Width - 48), 20);
-                _lblStatus.AutoEllipsis = true;
-                _lblStatus.Location = new Point(24, header.Height - 24);
-                _lblStatus.Size = new Size(Math.Max(120, header.ClientSize.Width - 48), 20);
-                _lblStatus.Visible = !string.IsNullOrWhiteSpace(_lblStatus.Text);
-            }
         }
 
         private async Task LoadPurchaseDashboardAsync()
@@ -702,7 +695,7 @@ namespace HVAC_Pro_Desktop.UI
             _poTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 11));
             _poTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 10));
             _poTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 8));
-            _poPager = new GlobalPaginationControl { Height = 34, Width = 560, Anchor = AnchorStyles.Bottom | AnchorStyles.Right, BackColor = Color.Transparent };
+            _poPager = new GlobalPaginationControl { Height = 34, Width = 560, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom, Dock = DockStyle.Bottom, BackColor = Color.Transparent };
             _poPager.PageChanged += (s, e) => { _poPage = _poPager.CurrentPage; RefreshPoTableOnly(); };
             _poPager.PageSizeChanged += (s, e) => { _poPageSize = _poPager.PageSize; _poPage = 1; RefreshPoTableOnly(); };
             _poPeriodFilterLabel.Visible = false;
@@ -714,15 +707,17 @@ namespace HVAC_Pro_Desktop.UI
             }
             filterBar.Controls.AddRange(new Control[] { _poTableSearch, _poPeriodFilter, _poStatusFilter });
             card.Controls.AddRange(new Control[] { filterBar, _poTable, _poPager });
-            card.Resize += (s, e) =>
+            Action layoutPagination = () =>
             {
                 viewAll.Location = new Point(card.Width - 92, 12);
                 filterBar.Size = new Size(card.Width - 32, 34);
                 _poTableSearchLabel.Visible = false;
                 _poTable.Size = new Size(card.Width - 32, card.Height - 140);
-                _poPager.Width = Math.Max(260, Math.Min(560, card.Width - 36));
-                _poPager.Location = new Point(card.Width - _poPager.Width - 18, card.Height - 46);
+                _poTable.Height = Math.Max(60, card.ClientSize.Height - card.Padding.Bottom - _poPager.Height - _poTable.Top - 8);
             };
+            card.Resize += (s, e) => layoutPagination();
+            _poPager.SizeChanged += (s, e) => layoutPagination();
+            layoutPagination();
             return card;
         }
 

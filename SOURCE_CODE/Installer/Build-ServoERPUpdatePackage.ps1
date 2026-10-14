@@ -74,6 +74,10 @@ if (Test-Path -LiteralPath $tenantTool) {
     Copy-Item -LiteralPath $tenantTool -Destination $toolStage -Force
 }
 
+
+$semVersion = ($version -split '\.')[0..2] -join '.'
+& (Join-Path $repoRoot 'scripts\Assert-ServoReleaseNotes.ps1') -Version $semVersion -ForPackaging
+Copy-Item -LiteralPath (Join-Path $repoRoot "release\RELEASE_NOTES_$semVersion.md") -Destination $stage -Force
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
 Remove-Item -LiteralPath $stage -Recurse -Force
 
