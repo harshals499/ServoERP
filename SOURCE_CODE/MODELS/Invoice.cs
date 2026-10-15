@@ -1,10 +1,12 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace HVAC_Pro_Desktop.Models
 {
     public class Invoice
     {
+        public Guid? OfflineDraftId { get; set; }
+
         public bool IsPosted { get; set; }
         public bool IsDeleted { get; set; }
         public int    InvoiceID     { get; set; }

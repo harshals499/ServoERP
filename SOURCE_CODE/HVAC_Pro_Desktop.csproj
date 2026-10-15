@@ -181,6 +181,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
+    <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
@@ -538,6 +539,7 @@
     <Compile Include="Tests\LanControlManagementSmokeTests.cs" />
     <Compile Include="Tests\PdfTemplateRegressionTests.cs" />
     <Compile Include="Tests\OfflineSyncPolicyTests.cs" />
+    <Compile Include="Tests\OfflineDesktopSmokeTests.cs" />
     <Compile Include="Tests\OfficeDatabaseHandshakeTests.cs" />
     <Compile Include="Tests\GuardrailEndToEndTests.cs" />
       <!-- UI -->
@@ -870,11 +872,19 @@
     <EmbeddedResource Include="Resources\GeoMap\map.html" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="OfflineDesktop\OfflineModels.cs" />
+    <Compile Include="OfflineDesktop\OfflinePresentation.cs" />
+    <Compile Include="OfflineDesktop\OfflineWorkspaceStore.cs" />
+    <Compile Include="OfflineDesktop\DesktopSyncServer.cs" />
+    <Compile Include="OfflineDesktop\DesktopSyncReview.cs" />
+    <Compile Include="OfflineDesktop\OfflineDesktopCoordinator.cs" />
+    <Compile Include="OfflineDesktop\OfflineWorkspaceForms.cs" />
+    <Compile Include="OfflineDesktop\OfflineDesktopStartup.cs" />
     <Compile Include="SERVICES\DatabaseUpgradeService.cs" />
     <Compile Include="SERVICES\FinancialRecordProtection.cs" />
     <Compile Include="UI\FinancialRecordHistoryDialog.cs" />
     <Compile Include="Tests\FinancialRecordProtectionSmokeTests.cs" />
-    <EmbeddedResource Include="MIGRATIONS\Numbered\0004_FinancialRecordProtection.sql">
+    <EmbeddedResource Include="MIGRATIONS\Numbered\0004_FinancialRecordProtection.sql;MIGRATIONS\Numbered\0005_OfflineDesktop.sql">
       <LogicalName>ServoERP.NumberedMigrations.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <Compile Include="UI\ReleaseNotesDialog.cs" />

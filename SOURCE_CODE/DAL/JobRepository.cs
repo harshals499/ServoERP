@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.Models;
@@ -286,39 +286,15 @@ namespace HVAC_Pro_Desktop.DAL
 
         public void ReplaceChecklistFromTemplate(int jobId, string jobType)
         {
-            using (SqlConnection conn = _db.GetConnection())
+            using(var connection=_db.GetConnection())
             {
-                conn.Open();
-                using (SqlTransaction tx = conn.BeginTransaction())
-                {
-                    try
-                    {
-                        using (SqlCommand deleteCmd = new SqlCommand("DELETE FROM JobChecklistItems WHERE JobId=@jobId", conn, tx))
-                        {
-                            deleteCmd.Parameters.AddWithValue("@jobId", jobId);
-                            deleteCmd.ExecuteNonQuery();
-                        }
-
-                        using (SqlCommand insertCmd = new SqlCommand(@"
-                            INSERT INTO JobChecklistItems (JobId, ItemText, IsCompleted, SortOrder)
-                            SELECT @jobId, ItemText, 0, SortOrder
-                            FROM JobChecklistTemplates
-                            WHERE JobType=@jobType", conn, tx))
-                        {
-                            insertCmd.Parameters.AddWithValue("@jobId", jobId);
-                            insertCmd.Parameters.AddWithValue("@jobType", string.IsNullOrWhiteSpace(jobType) ? "General" : jobType.Trim());
-                            insertCmd.ExecuteNonQuery();
-                        }
-
-                        tx.Commit();
-                    }
-                    catch
-                    {
-                        tx.Rollback();
-                        throw;
-                    }
-                }
+                connection.Open();using(var transaction=connection.BeginTransaction())
+                { ApplyChecklistTemplate(connection,transaction,jobId,jobType);transaction.Commit(); }
             }
+        }
+        internal static void ApplyChecklistTemplate(SqlConnection connection,SqlTransaction transaction,int jobId,string jobType)
+        {
+            connection.Execute("DELETE FROM dbo.JobChecklistItems WHERE JobId=@JobId; INSERT dbo.JobChecklistItems(JobId,ItemText,IsCompleted,SortOrder) SELECT @JobId,ItemText,0,SortOrder FROM dbo.JobChecklistTemplates WHERE JobType=@Type",new{JobId=jobId,Type=string.IsNullOrWhiteSpace(jobType)?"General":jobType.Trim()},transaction);
         }
 
         public int AddChecklistItem(int jobId, string itemText)
@@ -493,22 +469,13 @@ namespace HVAC_Pro_Desktop.DAL
             return list;
         }
 
-        public void LogActivity(int jobId, string activityText, string performedBy, string activityType)
+        public void LogActivity(int jobId,string activityText,string performedBy,string activityType)
         {
-            using (SqlConnection conn = _db.GetConnection())
-            {
-                conn.Open();
-                using (SqlCommand cmd = new SqlCommand(@"
-                    INSERT INTO JobActivityLog (JobId, ActivityText, PerformedBy, ActivityDate, ActivityType)
-                    VALUES (@jobId, @activityText, @performedBy, GETDATE(), @activityType)", conn))
-                {
-                    cmd.Parameters.AddWithValue("@jobId", jobId);
-                    cmd.Parameters.AddWithValue("@activityText", activityText ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@performedBy", string.IsNullOrWhiteSpace(performedBy) ? (object)DBNull.Value : performedBy);
-                    cmd.Parameters.AddWithValue("@activityType", string.IsNullOrWhiteSpace(activityType) ? "Info" : activityType.Trim());
-                    cmd.ExecuteNonQuery();
-                }
-            }
+            using(var connection=_db.GetConnection()) {connection.Open();AppendActivity(connection,null,jobId,activityText,performedBy,activityType);}
+        }
+        internal static void AppendActivity(SqlConnection connection,SqlTransaction transaction,int jobId,string text,string actor,string type)
+        {
+            connection.Execute("INSERT dbo.JobActivityLog(JobId,ActivityText,PerformedBy,ActivityDate,ActivityType) VALUES(@JobId,@Text,@Actor,GETDATE(),@Type)",new{JobId=jobId,Text=text??string.Empty,Actor=string.IsNullOrWhiteSpace(actor)?null:actor,Type=string.IsNullOrWhiteSpace(type)?"Info":type.Trim()},transaction);
         }
 
         public void UpdatePipeline(int jobId, string pipelineStatus, string status, DateTime? completedDate, DateTime? closedDate, int? invoiceId)

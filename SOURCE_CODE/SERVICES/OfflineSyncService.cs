@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
@@ -97,69 +97,12 @@ CREATE TABLE IF NOT EXISTS OfflineSyncQueue (
             return Queue(module, operation, payload, serverRecordId, requiresReview, reason, null);
         }
 
-        public static OfflineQueueResult Queue<T>(string module, string operation, T payload, int? serverRecordId, bool requiresReview, string reason, Guid? entitySyncPublicId)
+        public static OfflineQueueResult Queue<T>(string module,string operation,T payload,int? serverRecordId,bool requiresReview,string reason,Guid? entitySyncPublicId)
         {
-            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
-                throw new InvalidOperationException("Offline saving is not enabled for this ServoERP installation. Connect to SQL Server before saving business records.");
-
-            if (!IsOfflineSafeModule(module, operation))
-                throw new InvalidOperationException("Offline saving is available only for Clients, Sites, and Jobs. Financial, stock, and payroll entries require the SQL Server connection.");
-
-            EnsureReady();
-            string localReference = BuildLocalReference(module, operation);
-            string payloadJson = JsonConvert.SerializeObject(payload);
-            string nodePublicId = NodeIdentityService.GetOrCreateNodePublicId().ToString("D");
-            string entitySyncPublicIdText = entitySyncPublicId.HasValue && entitySyncPublicId.Value != Guid.Empty ? entitySyncPublicId.Value.ToString("D") : string.Empty;
-            string idempotencyKey = SyncOutboxService.BuildIdempotencyKey(module, entitySyncPublicId ?? Guid.Empty, operation, payloadJson);
-            long baseSyncVersion = GetSyncVersion(payload);
-            long queueId;
-            lock (Sync)
-            {
-                using (SQLiteConnection conn = OpenConnection())
-                {
-                    long existingQueueId = TryCoalescePending(conn, module, operation, entitySyncPublicIdText, payloadJson, idempotencyKey, reason);
-                    if (existingQueueId > 0)
-                    {
-                        RaisePendingChanged();
-                        return new OfflineQueueResult
-                        {
-                            QueueId = existingQueueId,
-                            LocalId = BuildLocalId(existingQueueId),
-                            Message = "Saved locally. Pending sync #" + existingQueueId.ToString("0000") + "."
-                        };
-                    }
-
-                using (SQLiteCommand cmd = new SQLiteCommand(@"
-INSERT INTO OfflineSyncQueue
-    (CreatedUtc, UpdatedUtc, MachineName, NodePublicId, Module, Operation, LocalReference, ServerRecordId, EntitySyncPublicId, IdempotencyKey, BaseSyncVersion, PayloadJson, Status, Attempts, LastError, RequiresReview)
-VALUES
-    (@created, @updated, @machine, @nodePublicId, @module, @operation, @localRef, @serverId, @entitySyncPublicId, @idempotencyKey, @baseSyncVersion, @payload, @status, 0, @reason, @review);
-SELECT last_insert_rowid();", conn))
-                {
-                    string now = DateTime.UtcNow.ToString("o");
-                    cmd.Parameters.AddWithValue("@created", now);
-                    cmd.Parameters.AddWithValue("@updated", now);
-                    cmd.Parameters.AddWithValue("@machine", Environment.MachineName);
-                    cmd.Parameters.AddWithValue("@nodePublicId", nodePublicId);
-                    cmd.Parameters.AddWithValue("@module", module ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@operation", operation ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@localRef", localReference);
-                    cmd.Parameters.AddWithValue("@serverId", serverRecordId.HasValue ? (object)serverRecordId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@entitySyncPublicId", string.IsNullOrWhiteSpace(entitySyncPublicIdText) ? (object)DBNull.Value : entitySyncPublicIdText);
-                    cmd.Parameters.AddWithValue("@idempotencyKey", string.IsNullOrWhiteSpace(idempotencyKey) ? (object)DBNull.Value : idempotencyKey);
-                    cmd.Parameters.AddWithValue("@baseSyncVersion", baseSyncVersion);
-                    cmd.Parameters.AddWithValue("@payload", payloadJson ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@status", StatusPending);
-                    cmd.Parameters.AddWithValue("@reason", reason ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@review", requiresReview ? 1 : 0);
-                    queueId = Convert.ToInt64(cmd.ExecuteScalar());
-                }
-                }
-            }
-
-            LocalSqliteFallbackStore.RecordEvent("OFFLINE_QUEUED", module + " " + operation + " " + localReference);
-            RaisePendingChanged();
-            return new OfflineQueueResult { QueueId = queueId, LocalId = BuildLocalId(queueId), Message = "Saved locally. Pending sync #" + queueId.ToString("0000") + "." };
+            if(!IsOfflineSafeModule(module,operation))throw new InvalidOperationException("Use the approved offline draft workspace for financial entries. Inventory and payroll require the office server.");
+            OfflineQueueResult approvedQueue;
+            if(HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.TryQueueLegacy(module,payload,serverRecordId,out approvedQueue))return approvedQueue;
+            throw new InvalidOperationException("Sign in online with your password once to prepare this PC's office-scoped offline workspace. Existing local work has been retained.");
         }
 
         public static int GetPendingCount()
@@ -194,37 +137,15 @@ FROM OfflineSyncQueue WHERE Status IN ('Pending','Failed','Conflict') ORDER BY Q
 
         public static int TryReplayPending()
         {
-            if (!LocalSqliteFallbackStore.IsOfflineQueueEnabled)
-                return 0;
-
-            if (IsReplaying)
-                return 0;
-            DatabaseConnectionStateSnapshot state = DatabaseConnectionStateService.CheckNow("OfflineSyncService.TryReplayPending", false);
-            if (!state.BusinessWritesAllowed)
-                return 0;
-            int synced = 0;
-            IsReplaying = true;
-            try
-            {
-                foreach (OfflineSyncItem item in GetReplayItems(100))
-                {
-                    try
-                    {
-                        int? serverRecordId = ReplayItem(item);
-                        MarkSynced(item.QueueId, serverRecordId);
-                        synced++;
-                    }
-                    catch (Exception ex) { MarkFailed(item.QueueId, ex); }
-                }
-            }
-            finally { IsReplaying = false; }
-            if (synced > 0) { LocalSqliteFallbackStore.RecordEvent("OFFLINE_SYNCED", synced + " pending operation(s) synced."); RaisePendingChanged(); }
-            return synced;
+            // Legacy queue rows have no trustworthy office/actor scope. Preserve them for office
+            // review instead of replaying them into whichever database is currently configured.
+            AppLogger.LogInfo("Legacy offline queue retained for source-office review; automatic sync uses the scoped desktop pipeline.");
+            return 0;
         }
 
         public static bool ShouldQueue(Exception ex)
         {
-            return LocalSqliteFallbackStore.IsOfflineQueueEnabled && !IsReplaying && ex != null && IsSqlConnectivityFailure(ex);
+            return !IsReplaying && ex != null && HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsConnectivityFailure(ex) && (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace() || LocalSqliteFallbackStore.IsOfflineQueueEnabled);
         }
 
         public static bool IsSupportedOperation(string module, string operation)

@@ -1,3 +1,13 @@
+# 1.1.516 - 15 October 2026
+
+- Added prepared offline sign-in/workspace, protected cached records and durable account/office-scoped local saves.
+- Added automatic reconnect/reconciliation, operation receipts and central both-copy conflict review.
+- Added provisional offline invoice/payment drafts with explicit online-only, idempotent financial finalization.
+- Reused ordinary job validation/numbering/checklist/activity and financial services; retained existing licensing/fingerprint and PDF headers.
+- Added guarded sync tables and nullable uniquely indexed source-draft IDs; no table/column drops or LicenseInfo changes.
+- Preserved unscoped legacy queues for origin review and prevented unsafe automatic replay.
+- Added and visually verified an accessible normal-shell offline workspace entry.
+
 # 1.1.515 - 15 October 2026
 
 - Removed the startup upgrade recovery gate, forced upgrade backups and original-release retry requirement; existing incomplete journal entries no longer block startup.

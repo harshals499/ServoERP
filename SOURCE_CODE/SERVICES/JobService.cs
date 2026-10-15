@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using HVAC_Pro_Desktop.DAL;
@@ -533,6 +533,8 @@ namespace HVAC_Pro_Desktop.Services
 
             return _invoiceService.CreateInvoiceWithLineItems(invoice);
         }
+
+        internal void PrepareOfflineSync(Job job, bool isNewJob) => NormalizeJob(job, isNewJob);
 
         private void NormalizeJob(Job job, bool isNewJob)
         {

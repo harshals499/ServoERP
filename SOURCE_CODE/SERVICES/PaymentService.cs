@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -71,6 +71,9 @@ namespace HVAC_Pro_Desktop.Services
         /// </summary>
         public int RecordPayment(Payment payment)
         {
+            if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsDisconnected && payment != null && !payment.OfflineDraftId.HasValue)
+                return HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.SaveFinancialDraft("PaymentDrafts", payment);
+
             SessionManager.DemandPermission("Payments", "Create");
             if (payment == null)
                 throw new Exception("Payment details are missing.");
@@ -79,7 +82,7 @@ namespace HVAC_Pro_Desktop.Services
             if (payment.AmountPaid <= 0m)
                 GuardrailService.Block("Payments", payment.InvoiceID, "Payment amount must be greater than zero.");
 
-            if (OfficeApiClient.IsEnabled)
+            if (OfficeApiClient.IsEnabled && !payment.OfflineDraftId.HasValue)
             {
                 int apiPaymentId = OfficeApiClient.RecordPayment(payment);
                 AppDataCache.RemovePrefix("payments:");
@@ -127,12 +130,9 @@ namespace HVAC_Pro_Desktop.Services
 
                 return paymentId;
             }
-            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            catch (Exception ex) when (!payment.OfflineDraftId.HasValue && OfflineSyncService.ShouldQueue(ex))
             {
-                OfflineQueueResult queued = OfflineSyncService.Queue("Payments", "RecordDraft", payment, payment.InvoiceID, true, ex.Message);
-                AppDataCache.RemovePrefix("payments:");
-                AppDataCache.RemovePrefix("invoices:");
-                return queued.LocalId;
+                throw new InvalidOperationException("The connection was interrupted before the payment could be confirmed. Reconnect and check payment history before retrying; it may already have been recorded. No duplicate offline payment was created.", ex);
             }
         }
 

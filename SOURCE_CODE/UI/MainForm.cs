@@ -158,11 +158,14 @@ namespace HVAC_Pro_Desktop.UI
             ServoERP.Infrastructure.ServoTheme.ApplyTo(this);
             AgentSimulationService.Instance.ProgressChanged += AgentSimulationProgressChanged;
             DatabaseConnectionStateService.StateChanged += DatabaseConnectionStateChanged;
+            HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Changed += OfflineWorkspaceChanged;
             Disposed += (s, e) =>
             {
                 AgentSimulationService.Instance.ProgressChanged -= AgentSimulationProgressChanged;
                 DatabaseConnectionStateService.StateChanged -= DatabaseConnectionStateChanged;
+                HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Changed -= OfflineWorkspaceChanged;
                 DatabaseConnectionStateService.StopBackgroundMonitor();
+                HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Stop();
                 _automaticUpdateTimer?.Stop();
                 _automaticUpdateTimer?.Dispose();
                 _automaticUpdateTimer = null;
@@ -176,6 +179,7 @@ namespace HVAC_Pro_Desktop.UI
                 ApplyShellLayoutMemory();
                 EnsureSessionOrClose();
                 ApplyRBAC();
+                HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Start(true);
                 AppWarmupService.StartBackgroundWarmup();
                 BeginVersionCheck();
                 _automaticUpdateTimer = new System.Windows.Forms.Timer { Interval = 60000 };
@@ -1009,8 +1013,9 @@ namespace HVAC_Pro_Desktop.UI
         {
             _pnlDatabaseStatusBanner = new Panel
             {
+                Name = "DatabaseStatusBanner",
                 Dock = DockStyle.Top,
-                Height = 36,
+                Height = 44,
                 BackColor = Color.FromArgb(255, 251, 235),
                 Visible = false
             };
@@ -1057,7 +1062,10 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(14, 0, 0, 0)
             };
 
+            var offlineWorkspace = new Button {Text="Offline workspace",Dock=DockStyle.Right,Width=146,BackColor=DS.White,ForeColor=DS.Primary700,FlatStyle=FlatStyle.Flat};
+            offlineWorkspace.Click += (s,e) => OpenOfflineWorkspace();
             _pnlDatabaseStatusBanner.Controls.Add(_lblDatabaseStatusMessage);
+            _pnlDatabaseStatusBanner.Controls.Add(offlineWorkspace);
             _pnlDatabaseStatusBanner.Controls.Add(btnSupport);
             _pnlDatabaseStatusBanner.Controls.Add(btnCheck);
             Controls.Add(_pnlDatabaseStatusBanner);
@@ -1086,6 +1094,20 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void OfflineWorkspaceChanged(object sender,EventArgs e)
+        {
+            if(!IsDisposed && IsHandleCreated)BeginInvoke((Action)(()=> { if(!IsDisposed)RefreshDatabaseStatusBanner(DatabaseConnectionStateService.GetCurrentState()); }));
+        }
+
+        private void OpenOfflineWorkspace()
+        {
+            try
+            {
+                using (var window = new HVAC_Pro_Desktop.OfflineDesktop.OfflineWorkspaceForm()) window.ShowDialog(this);
+            }
+            catch (Exception ex) { AppLogger.LogError("MainForm.OfflineWorkspace", ex); MessageBox.Show(this,ex.Message,"ServoERP",MessageBoxButtons.OK,MessageBoxIcon.Information); }
+        }
+
         private void TryRunOfflineSync(DatabaseConnectionStateSnapshot snapshot)
         {
             if (snapshot == null || !snapshot.BusinessWritesAllowed || _offlineSyncRunning)
@@ -1096,7 +1118,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 try
                 {
-                    int synced = OfflineSyncService.TryReplayPending();
+                    HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.SyncOnceAsync().GetAwaiter().GetResult();
+                    int synced = 0;
                     if (synced > 0 && !IsDisposed && IsHandleCreated)
                     {
                         BeginInvoke((Action)(() =>
@@ -1126,14 +1149,17 @@ namespace HVAC_Pro_Desktop.UI
                         snapshot.State == DatabaseConnectionStateKind.Reconnecting ||
                         snapshot.State == DatabaseConnectionStateKind.ConfigError;
 
+            show = show || SessionManager.IsLoggedIn;
             _pnlDatabaseStatusBanner.Visible = show;
             if (!show)
             {
-                ApplyResponsiveShell();
+                AdjustForScreenSize();
                 return;
             }
 
-            _lblDatabaseStatusMessage.Text = DatabaseConnectionStateService.BuildUserMessage();
+            _lblDatabaseStatusMessage.Text = HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace()
+                ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status
+                : (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status.StartsWith("Offline cache")?HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status:"Offline access is not prepared. Sign out and sign in with your password once to prepare this PC.");
             if (snapshot.State == DatabaseConnectionStateKind.ConfigError || snapshot.State == DatabaseConnectionStateKind.Offline)
             {
                 _pnlDatabaseStatusBanner.BackColor = Color.FromArgb(255, 241, 242);
@@ -1145,8 +1171,13 @@ namespace HVAC_Pro_Desktop.UI
                 _lblDatabaseStatusMessage.ForeColor = Color.FromArgb(154, 52, 18);
             }
 
+            // Keep the status strip out of the generic card padding and reserve its height
+            // in the manually positioned page host before bringing it forward.
+            _pnlDatabaseStatusBanner.Padding = Padding.Empty;
+            _pnlDatabaseStatusBanner.Margin = Padding.Empty;
+            AdjustForScreenSize();
             _pnlDatabaseStatusBanner.BringToFront();
-            ApplyResponsiveShell();
+            PerformLayout();
         }
 
         public void ShowAgentSimulationPanel()
@@ -1787,6 +1818,12 @@ namespace HVAC_Pro_Desktop.UI
 
         public void NavigateTo(int index)
         {
+            if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsDisconnected && HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace())
+            {
+                OpenOfflineWorkspace();
+                return;
+            }
+
             bool traceNavigation = index == 11 || index == 14 || index == JobsPageIndex || index == 9 || index == ClientsPageIndex;
             Stopwatch traceWatch = traceNavigation ? Stopwatch.StartNew() : null;
             EnsureSessionOrClose();

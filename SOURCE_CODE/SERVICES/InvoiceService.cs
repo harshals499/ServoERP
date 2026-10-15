@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -121,6 +121,9 @@ namespace HVAC_Pro_Desktop.Services
         /// </summary>
         public int CreateInvoiceWithLineItems(Invoice inv)
         {
+            if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsDisconnected && inv != null && !inv.OfflineDraftId.HasValue)
+                return HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.SaveFinancialDraft("InvoiceDrafts", inv);
+
             SessionManager.DemandPermission("Invoices", "Create");
             try
             {
@@ -152,15 +155,9 @@ namespace HVAC_Pro_Desktop.Services
                 _audit.Record("CREATE", "Invoices", id, "Invoice saved with data-quality validation");
                 return id;
             }
-            catch (Exception ex) when (OfflineSyncService.ShouldQueue(ex))
+            catch (Exception ex) when (!inv.OfflineDraftId.HasValue && OfflineSyncService.ShouldQueue(ex))
             {
-                if (string.IsNullOrEmpty(inv.PaymentStatus))
-                    inv.PaymentStatus = "Pending";
-                bool review = !string.Equals(inv.PaymentStatus, "Draft", StringComparison.OrdinalIgnoreCase);
-                OfflineQueueResult queued = OfflineSyncService.Queue("Invoices", "CreateDraft", inv, null, review, ex.Message);
-                AppDataCache.RemovePrefix("invoices:");
-                DashboardRefreshService.NotifyChanged("Invoices");
-                return queued.LocalId;
+                throw new InvalidOperationException("The connection was interrupted before the invoice save could be confirmed. Reconnect and check the invoice list before retrying; it may already have been recorded. No duplicate offline invoice was created.", ex);
             }
         }
 

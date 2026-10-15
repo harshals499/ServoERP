@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -156,31 +156,15 @@ WHERE PaymentID=@paymentId AND RowVersion=@expectedRowVersion
             using (var conn = _db.GetConnection())
             {
                 conn.Open();
-                const string sql = @"
-                    INSERT INTO Payments
-                        (PaymentNumber,InvoiceID,ClientID,AmountPaid,PaymentDate,
-                         PaymentMode,ReferenceNumber,Notes,CreatedDate,CreatedByUserId,CreatedByName)
-                    VALUES
-                        (@num,@inv,@client,@amt,@date,
-                         @mode,@ref,@notes,GETDATE(),@createdByUserId,@createdByName);
-                    SELECT SCOPE_IDENTITY();";
-                using (var cmd = new SqlCommand(sql, conn))
-                {
-                    cmd.Parameters.AddWithValue("@num",    p.PaymentNumber ?? GeneratePaymentNumber());
-                    cmd.Parameters.AddWithValue("@inv",    p.InvoiceID);
-                    cmd.Parameters.AddWithValue("@client", p.ClientID);
-                    SqlParameter amountParameter = cmd.Parameters.Add("@amt", SqlDbType.Decimal);
-                    amountParameter.Precision = 12;
-                    amountParameter.Scale = 2;
-                    amountParameter.Value = p.AmountPaid;
-                    cmd.Parameters.AddWithValue("@date",   p.PaymentDate);
-                    cmd.Parameters.AddWithValue("@mode",   p.PaymentMode ?? "Bank Transfer");
-                    cmd.Parameters.AddWithValue("@ref",    p.ReferenceNumber ?? "");
-                    cmd.Parameters.AddWithValue("@notes",  p.Notes ?? "");
-                    cmd.Parameters.AddWithValue("@createdByUserId", p.CreatedByUserId.HasValue ? (object)p.CreatedByUserId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@createdByName", string.IsNullOrWhiteSpace(p.CreatedByName) ? (object)DBNull.Value : p.CreatedByName);
-                    return Convert.ToInt32(cmd.ExecuteScalar());
-                }
+                var parameters = new DynamicParameters();
+                parameters.Add("Number", p.PaymentNumber ?? GeneratePaymentNumber());
+                parameters.Add("InvoiceId",p.InvoiceID);parameters.Add("ClientId",p.ClientID);
+                parameters.Add("Amount",p.AmountPaid,DbType.Decimal,precision:12,scale:2);
+                parameters.Add("Date",p.PaymentDate);parameters.Add("Mode",p.PaymentMode ?? "Bank Transfer");
+                parameters.Add("Reference",p.ReferenceNumber ?? "");parameters.Add("Notes",p.Notes ?? "");
+                parameters.Add("UserId",p.CreatedByUserId);parameters.Add("Name",p.CreatedByName);parameters.Add("OfflineDraftId",p.OfflineDraftId);
+                return conn.QuerySingle<int>(@"INSERT dbo.Payments(PaymentNumber,InvoiceID,ClientID,AmountPaid,PaymentDate,PaymentMode,ReferenceNumber,Notes,CreatedDate,CreatedByUserId,CreatedByName,OfflineDraftId)
+VALUES(@Number,@InvoiceId,@ClientId,@Amount,@Date,@Mode,@Reference,@Notes,GETDATE(),@UserId,@Name,@OfflineDraftId);SELECT CAST(SCOPE_IDENTITY() AS int)",parameters);
             }
         }
 

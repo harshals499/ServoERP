@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 using HVAC_Pro_Desktop.DAL;
 using HVAC_Pro_Desktop.Models;
@@ -350,6 +350,8 @@ namespace HVAC_Pro_Desktop.Services.Licensing
 
         private void PersistState(LicenseSnapshot s)
         {
+            // Offline workspace uses the same validation policy; defer only unavailable SQL telemetry.
+            if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsDisconnected) return;
             if (s == null || string.IsNullOrWhiteSpace(s.LicenseKey))
                 return;
 
@@ -531,6 +533,11 @@ UPDATE ActivatedDevices SET LastSeenUtc=GETUTCDATE(), Status='Active' WHERE Lice
 
         private void LogEvent(LicenseSnapshot s, string eventType, string message)
         {
+            if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.IsDisconnected)
+            {
+                AppLogger.LogInfo("Offline license event: " + eventType + " | " + message);
+                return;
+            }
             try
             {
                 _db.Execute("INSERT INTO LicenseEvents (LicenseKey, EventType, Message, DeviceFingerprintHash, CreatedUtc) VALUES (@LicenseKey, @EventType, @Message, @DeviceFingerprintHash, GETUTCDATE())",

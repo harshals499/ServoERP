@@ -14,6 +14,7 @@ namespace ServoERP.Infrastructure
     {
         private bool _loaded;
         protected virtual bool SuppressAutomaticChildPolish => false;
+        protected virtual bool EnableWorkspaceHeader => true;
 
         /// <summary>Creates a low-flicker form surface and enables Escape key handling.</summary>
         protected ServoFormBase()
@@ -32,7 +33,7 @@ namespace ServoERP.Infrastructure
             base.OnLoad(e);
             _loaded = true;
             if (!SuppressAutomaticChildPolish) ApplySharedFrontendPolish(this);
-            WorkspaceHeaderPanel.EnsureOnSurface(this);
+            if (EnableWorkspaceHeader) WorkspaceHeaderPanel.EnsureOnSurface(this);
             QuotationVisualPolicy.Apply(this);
             if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");

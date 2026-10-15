@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 
 namespace HVAC_Pro_Desktop.Models
 {
     public class Payment
     {
+        public Guid? OfflineDraftId { get; set; }
+
         public int    PaymentID       { get; set; }
         public string PaymentNumber   { get; set; }   // PAY-2025-04-00001
         public int    InvoiceID       { get; set; }

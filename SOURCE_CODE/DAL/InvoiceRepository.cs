@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
@@ -290,19 +290,21 @@ namespace HVAC_Pro_Desktop.DAL
                                  BalanceDue,PaymentStatus,Notes,InvoiceTitle,Subject,PONumber,PODate,SendInvoiceTo,CertificationNote,
                                  TemplateCode,WorkflowType,GSTMode,PaymentTerms,PlaceOfSupply,RoundOff,CGSTAmount,SGSTAmount,IGSTAmount,
                                  ContractCoverageType,ServiceChecklist,AssetDetails,WarrantyStatus,WarrantyExpiry,PreventiveVisitDate,NextServiceDueDate,InventoryReservationStatus,
-                                 CreatedByUserId,CreatedByName)
+                                 CreatedByUserId,CreatedByName,OfflineDraftId)
                             VALUES
                                 (@cid,@clientId,@siteId,@quotationBidId,@num,@date,@due,
                                  @sub,@gst,@tax,@total,@paid,
                                  @bal,@status,@notes,@title,@subject,@poNumber,@poDate,@sendInvoiceTo,@certificationNote,
                                  @templateCode,@workflowType,@gstMode,@paymentTerms,@placeOfSupply,@roundOff,@cgst,@sgst,@igst,
                                  @coverageType,@checklist,@assetDetails,@warrantyStatus,@warrantyExpiry,@preventiveVisitDate,@nextServiceDueDate,@inventoryReservationStatus,
-                                 @createdByUserId,@createdByName);
+                                 @createdByUserId,@createdByName,@offlineDraftId);
                             SELECT SCOPE_IDENTITY();";
 
                         int newId;
+                        // ADO.NET is retained for this dependent invoice-header/line-item transaction.
                         using (var cmd = new SqlCommand(sql, conn, tx))
                         {
+                            cmd.Parameters.AddWithValue("@offlineDraftId", (object)inv.OfflineDraftId ?? DBNull.Value);
                             cmd.Parameters.AddWithValue("@cid",     inv.ContractID > 0 ? (object)inv.ContractID : DBNull.Value);
                             cmd.Parameters.AddWithValue("@clientId",inv.ClientID);
                             cmd.Parameters.AddWithValue("@siteId",  inv.SiteID > 0 ? (object)inv.SiteID : DBNull.Value);

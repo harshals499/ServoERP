@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
@@ -33,6 +33,8 @@ namespace HVAC_Pro_Desktop.Services
                     return Fail("Invalid username or password");
 
                 var credentials = _repo.GetCredentialRecord(safeUsername);
+                if (credentials.HasValue)
+                    HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.InvalidateKnownCredentials(safeUsername, credentials.Value.PasswordHash, credentials.Value.PasswordSalt, credentials.Value.IsActive, credentials.Value.ForcePasswordChange);
                 if (!credentials.HasValue || !credentials.Value.IsActive)
                 {
                     if (credentials.HasValue && !credentials.Value.IsActive)
@@ -97,6 +99,8 @@ namespace HVAC_Pro_Desktop.Services
                 SessionManager.SetSession(user, sessionId, expiresAt);
                 SessionManager.LogAction("LOGIN", null, null, "Login successful");
                 _repo.InsertLoginAudit(user.UserId, user.Username, true, null, GetLocalIpAddress(), Environment.MachineName);
+
+                HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.RecordOnlineLogin(user, password);
 
                 return new LoginResultDto
                 {

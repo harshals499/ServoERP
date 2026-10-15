@@ -923,9 +923,11 @@ namespace HVAC_Pro_Desktop
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 Stopwatch stageWatch = Stopwatch.StartNew();
                 Exception sqlStartupError;
+                if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopStartup.TryRunBeforeSqlStartup()) return;
                 bool sqlStartupReady = TryInitializeSqlStartup(stageWatch, out sqlStartupError);
                 if (!sqlStartupReady)
                 {
+                    if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopStartup.TryRunAfterFailure(sqlStartupError)) return;
                     sqlStartupReady = TryRecoverDatabaseStartup(stageWatch, sqlStartupError);
                     if (!sqlStartupReady)
                         return;

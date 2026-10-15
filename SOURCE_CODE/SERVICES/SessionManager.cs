@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -30,6 +30,7 @@ namespace HVAC_Pro_Desktop.Services
 
         public static void ClearSession()
         {
+            HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Stop();
             _currentUser = null;
             _currentSessionId = null;
             _expiresAt = null;
