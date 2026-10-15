@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Drawing;
@@ -29,7 +29,7 @@ namespace HVAC_Pro_Desktop.Tests
                 string backup = Path.Combine(directory, name + ".bak");
                 // Backup/restore and metadata are intentionally SQL DDL. Restore never replaces the authoritative database.
                 connection.Execute("BACKUP DATABASE [" + source.Replace("]", "]]") + "] TO DISK=@Backup WITH COPY_ONLY,CHECKSUM", new { Backup = backup }, commandTimeout: 600);
-                DatabaseUpgradeService.VerifyBackup(connection, backup);
+                VerifyBackup(connection, backup);
                 string restore = "RESTORE DATABASE [" + name + "] FROM DISK=@Backup WITH ";
                 var parameters = new DynamicParameters(new { Backup = backup });
                 int index = 0;
@@ -186,6 +186,29 @@ namespace HVAC_Pro_Desktop.Tests
             catch (InvalidOperationException ex) { if (ex.Message.Contains("posted") || ex.Message.Contains("archived")) return; throw; }
             throw new InvalidOperationException(message);
         }
+        private static void VerifyBackup(SqlConnection connection, string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("The QA backup path is missing.");
+            // Verify the backup identity and checksum metadata as well as physical readability.
+            using (var header = new SqlCommand("RESTORE HEADERONLY FROM DISK=@Path", connection))
+            {
+                header.Parameters.AddWithValue("@Path", path);
+                header.CommandTimeout = 600;
+                using (var reader = header.ExecuteReader())
+                {
+                    if (!reader.Read() || !string.Equals(Convert.ToString(reader["DatabaseName"]), connection.Database, StringComparison.OrdinalIgnoreCase)
+                        || Convert.ToInt32(reader["BackupType"]) != 1 || !Convert.ToBoolean(reader["HasBackupChecksums"]) || !Convert.ToBoolean(reader["IsCopyOnly"]))
+                        throw new InvalidOperationException("The recovery file is not a checksum-protected full COPY_ONLY backup of this office database.");
+                }
+            }
+            using (var command = new SqlCommand("RESTORE VERIFYONLY FROM DISK=@Path WITH CHECKSUM", connection))
+            {
+                command.Parameters.AddWithValue("@Path", path);
+                command.CommandTimeout = 600;
+                command.ExecuteNonQuery();
+            }
+        }
+
     }
 }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -313,14 +313,6 @@ namespace HVAC_Pro_Desktop
                     string result = FinancialRecordProtectionSmokeTests.RunAll();
                     Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
                     File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-record-smoke.txt", result);
-                    return;
-                }
-                if (HasArg(args, "/databaseupgradesmoketest"))
-                {
-                    string result = DatabaseUpgradeSmokeTests.RunAll();
-                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
-                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\database-upgrade-smoke.txt", result);
-                    Console.WriteLine(result);
                     return;
                 }
 
@@ -928,7 +920,6 @@ namespace HVAC_Pro_Desktop
                     return;
                 }
 
-                DatabaseUpgradeService.RetryFailedUpgrade = HasArg(args, "/retrydatabaseupgrade");
                 Stopwatch startupWatch = Stopwatch.StartNew();
                 Stopwatch stageWatch = Stopwatch.StartNew();
                 Exception sqlStartupError;
@@ -1347,13 +1338,6 @@ namespace HVAC_Pro_Desktop
                     File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-record-smoke.txt", "FAIL " + ex);
                     Environment.ExitCode = 1; return;
                 }
-                if (HasArg(args, "/databaseupgradesmoketest"))
-                {
-                    Directory.CreateDirectory(@"C:\HVAC_PRO_MSE\TEST_RESULTS");
-                    File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\database-upgrade-smoke.txt", "FAIL " + ex);
-                    Environment.ExitCode = 1;
-                    return;
-                }
                 if (HasArg(args, "/financialstartupsmoketest"))
                 {
                     File.WriteAllText(@"C:\HVAC_PRO_MSE\TEST_RESULTS\financial-startup-smoke.txt", "FAIL " + ex);
@@ -1430,11 +1414,6 @@ namespace HVAC_Pro_Desktop
 
         private static bool TryRecoverDatabaseStartup(Stopwatch stageWatch, Exception startupError)
         {
-            if (startupError is DatabaseUpgradeException)
-            {
-                MessageBox.Show(startupError.Message, BrandingService.WindowTitle("Database Upgrade Recovery"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
             bool authenticationFailure = IsSqlAuthenticationFailure(startupError);
             bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(startupError);
             string message = handshakeFailure
@@ -1503,11 +1482,6 @@ namespace HVAC_Pro_Desktop
 
         private static void ShowFriendlyStartupFailure(Exception ex)
         {
-            if (ex is DatabaseUpgradeException)
-            {
-                MessageBox.Show(ex.Message, BrandingService.WindowTitle("Database Upgrade Recovery"), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
             bool authenticationFailure = IsSqlAuthenticationFailure(ex);
             bool handshakeFailure = IsOfficeDatabaseHandshakeFailure(ex);
             string message = handshakeFailure

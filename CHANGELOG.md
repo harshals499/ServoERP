@@ -1,4 +1,10 @@
-﻿# 1.1.514 — 14 October 2026
+# 1.1.515 - 15 October 2026
+
+- Removed the startup upgrade recovery gate, forced upgrade backups and original-release retry requirement; existing incomplete journal entries no longer block startup.
+- Prevented schema-maintenance backfills from replaying business audit history. Normal financial protection/auditing remains active.
+- Existing business data, journal records and backups are preserved.
+
+# 1.1.514 — 14 October 2026
 
 - Keep only the actual logo in the global header, removing the adjacent ServoERP wordmark and its reserved space. Sidebar branding remains unchanged.
 

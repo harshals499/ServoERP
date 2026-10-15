@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.SqlClient;
 using Dapper;
 using HVAC_Pro_Desktop.DAL;
@@ -13,9 +13,11 @@ namespace HVAC_Pro_Desktop.Services
             connection.Execute(@"EXEC sys.sp_set_session_context @key=N'ServoERP.UserId', @value=@UserId;
 EXEC sys.sp_set_session_context @key=N'ServoERP.UserName', @value=@UserName;
 EXEC sys.sp_set_session_context @key=N'ServoERP.Maintenance', @value=@Maintenance;
-EXEC sys.sp_set_session_context @key=N'ServoERP.SkipAudit', @value=NULL;",
+EXEC sys.sp_set_session_context @key=N'ServoERP.SkipAudit', @value=@SkipAudit;",
                 new { UserId = (int?)SessionManager.CurrentUser?.UserId, UserName = SessionManager.CurrentUser?.DisplayName ?? Environment.UserName,
-                    Maintenance = DatabaseUpgradeService.IsLegacyUpgrade ? 1 : 0 });
+                    Maintenance = DatabaseUpgradeService.IsLegacyUpgrade ? 1 : 0,
+                    // Schema backfills must not replay business audit history on every startup.
+                    SkipAudit = DatabaseUpgradeService.IsLegacyUpgrade ? (int?)1 : null });
         }
         internal static void SetMaintenance(SqlConnection connection, bool skipAudit = false)
         {

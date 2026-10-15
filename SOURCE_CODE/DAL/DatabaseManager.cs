@@ -631,7 +631,7 @@ namespace HVAC_Pro_Desktop.DAL
                     Exec(conn, BuildCreateDatabaseSql());
                 }
 
-                RunVerifiedSchemaUpgrade();
+                RunSchemaGuards();
             }
             catch (SqlException ex)
             {
@@ -645,7 +645,7 @@ namespace HVAC_Pro_Desktop.DAL
                         Exec(retryConn, BuildCreateDatabaseSql());
                     }
 
-                    RunVerifiedSchemaUpgrade();
+                    RunSchemaGuards();
                     return;
                 }
                 catch
@@ -658,14 +658,13 @@ namespace HVAC_Pro_Desktop.DAL
                     $"SQL Error {ex.Number}: {ex.Message}\n\n" +
                     BuildSqlDiagnostics());
             }
-            catch (DatabaseUpgradeException) { throw; }
             catch (Exception ex)
             {
                 throw new Exception("Database initialization failed: " + ex.Message, ex);
             }
         }
 
-        private void RunVerifiedSchemaUpgrade()
+        private void RunSchemaGuards()
         {
             DatabaseUpgradeService.Upgrade(_connectionString, () =>
             {

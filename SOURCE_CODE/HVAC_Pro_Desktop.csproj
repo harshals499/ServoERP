@@ -874,8 +874,7 @@
     <Compile Include="SERVICES\FinancialRecordProtection.cs" />
     <Compile Include="UI\FinancialRecordHistoryDialog.cs" />
     <Compile Include="Tests\FinancialRecordProtectionSmokeTests.cs" />
-    <Compile Include="Tests\DatabaseUpgradeSmokeTests.cs" />
-    <EmbeddedResource Include="MIGRATIONS\Numbered\*.sql">
+    <EmbeddedResource Include="MIGRATIONS\Numbered\0004_FinancialRecordProtection.sql">
       <LogicalName>ServoERP.NumberedMigrations.%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
     <Compile Include="UI\ReleaseNotesDialog.cs" />
