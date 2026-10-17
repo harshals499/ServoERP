@@ -91,7 +91,7 @@ public sealed class JobListPage : ContentPage
         {
             var card = new VerticalStackLayout { Padding = 16, Spacing = 8, BackgroundColor = Colors.White };
             var priority = FieldUi.Text(job.Priority.ToUpperInvariant() + " · " + job.ScheduledDate.ToString("dd/MM/yyyy HH:mm"), 13, true); if (job.Priority.Equals("Urgent", StringComparison.OrdinalIgnoreCase) || job.Priority.Equals("High", StringComparison.OrdinalIgnoreCase)) priority.TextColor = Color.FromArgb("#A43B18");
-            card.Add(priority); card.Add(FieldUi.Text(job.Number, 22, true)); card.Add(FieldUi.Text(job.Customer, 19, true)); card.Add(FieldUi.Text(job.Site)); card.Add(FieldUi.Text(job.Fault)); card.Add(FieldUi.Text(job.Report.State.ToString(), 14));
+            card.Add(priority); card.Add(FieldUi.Text(job.Number, 22, true)); card.Add(FieldUi.Text(job.Customer, 19, true)); card.Add(FieldUi.Text(job.Site)); card.Add(FieldUi.Text(job.Fault)); card.Add(FieldUi.Text(job.Report.ActiveHandoff is { } handoff ? "OFFICE HANDOFF · " + FollowUpUi.Reason(handoff.Reason) : job.Report.State.ToString(), 14));
             card.Add(FieldUi.Button("OPEN JOB", () => Navigation.PushAsync(new JobPage(_session, job.PublicId))));
             _stack.Add(new Border { Content = card, Stroke = Colors.LightGray, StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 14 } });
         }
@@ -101,7 +101,8 @@ public sealed class JobPage : ContentPage
 {
     private readonly MobileSession _session; private readonly Guid _id; private readonly VerticalStackLayout _stack = FieldUi.Stack();
     public JobPage(MobileSession session, Guid id) { _session = session; _id = id; Title = "Service visit"; BackgroundColor = Colors.White; Content = new ScrollView { Content = _stack }; }
-    protected override void OnAppearing() { base.OnAppearing(); Refresh(); }
+    protected override void OnAppearing() { base.OnAppearing(); _session.Changed -= Refresh; _session.Changed += Refresh; Refresh(); }
+    protected override void OnDisappearing() { _session.Changed -= Refresh; base.OnDisappearing(); }
     private void Refresh()
     {
         var job = _session.Workspace!.Job(_id); var r = job.Report;
@@ -110,20 +111,32 @@ public sealed class JobPage : ContentPage
         if (!string.IsNullOrWhiteSpace(job.Address)) _stack.Add(FieldUi.Button("NAVIGATE TO SITE", async () => await Launcher.Default.OpenAsync("https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(job.Address)), true));
         _stack.Add(FieldUi.Text("REPORTED FAULT", 13, true)); _stack.Add(FieldUi.Text(job.Fault, 20, true)); _stack.Add(FieldUi.Text("STATUS · " + r.State, 16, true));
         _stack.Add(FieldUi.Text(_session.Training ? "TRAINING · Local practice only" : "Saved on device · Server confirms stock and completion", 13));
-        if (r.State < FieldState.AwaitingSignature)
+        if (r.State >= FieldState.Accepted)
+            _stack.Add(FieldUi.Button("FINDINGS & RETURN VISITS", () => Navigation.PushAsync(new FindingsPage(_session, _id)), true));
+        if (r.ActiveHandoff is { } active)
+        {
+            _stack.Add(FieldUi.Text("OFFICE HANDOFF · " + FollowUpUi.Reason(active.Reason), 18, true));
+            _stack.Add(FieldUi.Text(active.Detail + "\nNext: " + active.NextAction));
+            if (active.RequestedReturnDate.HasValue) _stack.Add(FieldUi.Text("Return requested " + active.RequestedReturnDate.Value.ToString("dd/MM/yyyy") + " · Office must confirm the schedule."));
+            _stack.Add(FieldUi.Text(_session.Workspace.Queue().Any(q => q.JobId == _id.ToString() && q.State != QueueState.Synced) ? "Pending synchronization · not yet confirmed by office" : _session.Training ? "Training · saved on device only" : "Synchronized · office scheduling remains separate", 13));
+            _stack.Add(FieldUi.Button("RESUME AFTER OFFICE INSTRUCTION", () => Navigation.PushAsync(new ResumeVisitPage(_session, _id)), true));
+        }
+        else if (r.State < FieldState.AwaitingSignature)
         {
             var next = (FieldState)((int)r.State + 1);
             string label = next switch { FieldState.Accepted => "ACCEPT JOB", FieldState.Travelling => "START TRAVEL", FieldState.Arrived => "ARRIVED", FieldState.WorkStarted => "START WORK", FieldState.Diagnosis => "BEGIN DIAGNOSIS", FieldState.Repair => "BEGIN REPAIR", FieldState.Testing => "BEGIN TESTING", _ => "READY FOR CUSTOMER SIGN-OFF" };
             _stack.Add(FieldUi.Button(label, () => { _session.Save(new() { JobPublicId = _id, Type = OperationType.Transition, TargetState = next }); Refresh(); return Task.CompletedTask; }));
         }
-        if (r.State >= FieldState.WorkStarted && r.State != FieldState.Completed)
+        if (r.State >= FieldState.Accepted && r.State != FieldState.Completed && r.ActiveHandoff is null)
+            _stack.Add(FieldUi.Button("RECORD EXCEPTION / RETURN VISIT", () => Navigation.PushAsync(new ExceptionPage(_session, _id)), true));
+        if (r.State >= FieldState.WorkStarted && r.State != FieldState.Completed && r.ActiveHandoff is null)
         {
             _stack.Add(FieldUi.Button("DIAGNOSIS & WORK REPORT", () => Navigation.PushAsync(new ReportPage(_session, job)), true));
             _stack.Add(FieldUi.Button("OPEN CHECKLIST", () => Navigation.PushAsync(new ChecklistPage(_session, job)), true));
             _stack.Add(FieldUi.Button("USE PART", () => Navigation.PushAsync(new PartsPage(_session, job)), true));
         }
-        if (r.State >= FieldState.Arrived && r.State != FieldState.Completed) _stack.Add(FieldUi.Button("ADD PHOTO", () => Navigation.PushAsync(new PhotoPage(_session, _id)), true));
-        if (r.State == FieldState.AwaitingSignature)
+        if (r.State >= FieldState.Arrived && r.State != FieldState.Completed && r.ActiveHandoff is null) _stack.Add(FieldUi.Button("ADD PHOTO", () => Navigation.PushAsync(new PhotoPage(_session, _id)), true));
+        if (r.State == FieldState.AwaitingSignature && r.ActiveHandoff is null)
         {
             _stack.Add(FieldUi.Button("CUSTOMER SIGNATURE / EXCEPTION", () => Navigation.PushAsync(new SignOffPage(_session, job)), true));
             var issues = FieldRules.CompletionIssues(r); _stack.Add(FieldUi.Text(issues.Count == 0 ? "✓ Required service information complete" : string.Join("\n", issues.Select(i => "• " + i)), 14));

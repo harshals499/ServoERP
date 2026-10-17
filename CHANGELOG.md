@@ -1,3 +1,12 @@
+# 1.1.517 - 17 October 2026
+
+- Added tracked mobile findings with checklist links and resolution evidence.
+- Added exception handoffs, return-visit requests and retained resume history without automatic office closure or booking.
+- Reused existing report/outbox/SQL receipt transactions and exposed field activity in job details.
+- Added real SQL and restart/retry/conflict regressions and restored missing clean-checkout mobile assets.
+- Replaced ImageSharp with free SkiaSharp photo normalization, added image security regressions and patched the transitive Pkcs dependency.
+- Desktop updater, Office API deployment ZIP and development-signed Android APK share version 1.1.517; validation and signing limitations are recorded in the release notes.
+
 # 1.1.516 - 15 October 2026
 
 - Added prepared offline sign-in/workspace, protected cached records and durable account/office-scoped local saves.

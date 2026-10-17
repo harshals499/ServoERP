@@ -7,15 +7,15 @@ namespace ServoERP.Engineer.Tests;
 
 public sealed class SqlIntegrationTests
 {
-    // This test can only use the dedicated LocalDB test instance. It never accepts an office connection.
+    // Uses the dedicated test instance or explicit SQLEXPRESS test opt-in. Never accepts an office database.
     [SqlIntegrationFact] public async Task AuthenticationStockIdempotencyConflictsAndCompletionUseRealSqlTransactions()
     {
         string database = "EngineerTests_" + Guid.NewGuid().ToString("N");
-        string master = "Server=(localdb)\\ServoEngineerTests;Database=master;Integrated Security=true;Encrypt=false";
+        string master = SqlTestHost.Master;
         await using (var c = new SqlConnection(master))
         {
             await c.OpenAsync();
-            // DDL is deliberately limited to a generated test-only identifier on a test-only LocalDB instance.
+            // DDL is deliberately limited to a generated test-only database identifier.
             await c.ExecuteAsync($"CREATE DATABASE [{database}]");
         }
         string connection = new SqlConnectionStringBuilder(master) { InitialCatalog = database }.ConnectionString;
@@ -83,7 +83,7 @@ public sealed class SqlIntegrationTests
         // Retain the isolated fixture for inspection. No production database or destructive cleanup is used.
     }
     private static MobileOperation Clone(MobileOperation op) => System.Text.Json.JsonSerializer.Deserialize<MobileOperation>(System.Text.Json.JsonSerializer.Serialize(op))!;
-    private const string FixtureSchema = """
+    internal const string FixtureSchema = """
 CREATE TABLE Companies(CompanyId int PRIMARY KEY,IsActive bit); INSERT Companies VALUES(1,1);
 CREATE TABLE Employees(EmployeeID int PRIMARY KEY,CompanyId int); INSERT Employees VALUES(1,1),(2,1);
 CREATE TABLE AppUsers(UserId int PRIMARY KEY,Username nvarchar(50),Email nvarchar(255),DisplayName nvarchar(100),EmployeeID int,RoleId int,PasswordHash nvarchar(256),PasswordSalt nvarchar(64),IsActive bit,ForcePasswordChange bit,FailedAttempts int,LockoutUntil datetime,LastLoginDate datetime);
@@ -110,7 +110,24 @@ public sealed class SqlIntegrationFactAttribute : FactAttribute
     public SqlIntegrationFactAttribute()
     {
         var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Microsoft SQL Server");
-        if (Environment.GetEnvironmentVariable("SERVOERP_RUN_SQL_TESTS") != "1" || !new[] { "160", "170", "150" }.Any(version => File.Exists(Path.Combine(root, version, "Tools", "Binn", "SqlLocalDB.exe"))))
-            Skip = "Requires the isolated ServoEngineerTests LocalDB instance. Office/production SQL is deliberately never used.";
+        if (Environment.GetEnvironmentVariable("SERVOERP_RUN_SQL_TESTS") != "1" || (Environment.GetEnvironmentVariable("SERVOERP_USE_SQLEXPRESS_TESTS") != "1" && !new[] { "160", "170", "150" }.Any(version => File.Exists(Path.Combine(root, version, "Tools", "Binn", "SqlLocalDB.exe")))))
+            Skip = "Requires explicit test opt-in and the ServoEngineerTests LocalDB instance or SQLEXPRESS test-host flag. Office/customer databases are never used.";
+    }
+}
+
+internal static class SqlTestHost
+{
+    // Explicit test opt-in only. No supplied connection string or customer database is accepted.
+    internal static string Master => Environment.GetEnvironmentVariable("SERVOERP_USE_SQLEXPRESS_TESTS") == "1"
+        ? "Server=.\\SQLEXPRESS;Database=master;Integrated Security=true;Encrypt=false"
+        : "Server=(localdb)\\ServoEngineerTests;Database=master;Integrated Security=true;Encrypt=false";
+    internal static async Task<string> Create()
+    {
+        var name = "EngineerTests_" + Guid.NewGuid().ToString("N");
+        Console.WriteLine("Disposable SQL database: " + name);
+        await using var master = new SqlConnection(Master); await master.OpenAsync();
+        // DDL is restricted to a generated test-only identifier; retained for inspection, never dropped automatically.
+        await master.ExecuteAsync($"CREATE DATABASE [{name}]");
+        return new SqlConnectionStringBuilder(Master) { InitialCatalog = name }.ConnectionString;
     }
 }

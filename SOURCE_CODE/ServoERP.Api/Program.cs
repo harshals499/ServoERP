@@ -57,7 +57,7 @@ app.MapGet("/api/v1/health", async (ApiOptions options, CancellationToken ct) =>
     string databaseName = reader.IsDBNull(0) ? "HVAC_PRO" : reader.GetString(0);
     await reader.NextResultAsync(ct);
     string schemaVersion = await reader.ReadAsync(ct) && !reader.IsDBNull(0) ? reader.GetString(0) : "0";
-    return Results.Ok(new { api = "online", database = "connected", databaseName, server = connection.DataSource, version = "1.1.496.0", companyIsolationSchemaVersion = schemaVersion, minimumDesktopVersion = "1.1.435.0" });
+    return Results.Ok(new { api = "online", database = "connected", databaseName, server = connection.DataSource, version = typeof(Program).Assembly.GetName().Version!.ToString(), companyIsolationSchemaVersion = schemaVersion, minimumDesktopVersion = "1.1.435.0" });
 });
 app.MapGet("/api/v1/companies", async (HttpContext http, ApiOptions options, CancellationToken ct) =>
 {

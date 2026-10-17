@@ -107,10 +107,11 @@ WHERE ChecklistItemId=@Id AND JobId=@JobId", new { op.Checklist!.Id, op.Checklis
         await c.ExecuteAsync(new CommandDefinition(@"UPDATE EngineerReports SET Revision=@Revision,ReportJson=@json,UpdatedUtc=SYSUTCDATETIME() WHERE JobId=@JobId AND CompanyId=@CompanyId;
 IF @@ROWCOUNT=0 INSERT EngineerReports(JobId,CompanyId,Revision,ReportJson,UpdatedUtc) VALUES(@JobId,@CompanyId,@Revision,@json,SYSUTCDATETIME());", new { row.JobId, identity.CompanyId, report.Revision, json }, tx, cancellationToken: ct));
         var action = op.Type == OperationType.Transition ? op.TargetState.ToString() : op.Type.ToString();
+        var activity = FollowUpActivity(op);
         await c.ExecuteAsync(new CommandDefinition(@"INSERT EngineerAudit(CompanyId,UserId,JobId,OperationId,DeviceId,Action,CapturedUtc,ReceivedUtc,BeforeState,AfterState)
 VALUES(@CompanyId,@UserId,@JobId,@OperationId,@DeviceId,@action,@captured,SYSUTCDATETIME(),@before,@after);
 INSERT JobActivityLog(JobId,ActivityText,PerformedBy,ActivityDate,ActivityType) VALUES(@JobId,@text,@actor,GETDATE(),'Info');
-INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@UserId,@actor,@action,'WorkOrders',@JobId,@text);", new { identity.CompanyId, identity.UserId, row.JobId, op.OperationId, op.DeviceId, action, captured = op.CreatedUtc.UtcDateTime, before = before.ToString(), after = report.State.ToString(), text = $"Engineer {action}; operation {op.OperationId}", actor = identity.DisplayName }, tx, cancellationToken: ct));
+INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@UserId,@actor,@action,'WorkOrders',@JobId,@text);", new { identity.CompanyId, identity.UserId, row.JobId, op.OperationId, op.DeviceId, action, captured = op.CreatedUtc.UtcDateTime, before = before.ToString(), after = report.State.ToString(), text = activity.Length > 480 ? activity[..480] + "…" : activity, actor = identity.DisplayName }, tx, cancellationToken: ct));
         if (op.Type == OperationType.Complete)
         {
             foreach (var summary in new[] { "Diagnosis: " + report.Diagnosis, "Work performed: " + report.WorkPerformed, "Test results: " + report.TestResults })
@@ -120,6 +121,17 @@ INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@U
         await c.ExecuteAsync(new CommandDefinition("INSERT EngineerReceipts(OperationId,CompanyId,UserId,JobId,RequestHash,ReceiptJson,CommittedUtc) VALUES(@OperationId,@CompanyId,@UserId,@JobId,@requestHash,@receipt,SYSUTCDATETIME())", new { op.OperationId, identity.CompanyId, identity.UserId, row.JobId, requestHash, receipt = JsonSerializer.Serialize(receipt) }, tx, cancellationToken: ct));
         await tx.CommitAsync(ct); return receipt;
     }
+    private static string FollowUpActivity(MobileOperation op) => op.Type switch
+    {
+        OperationType.AddFinding => $"Finding: {op.Finding!.Title}. Next: {op.Finding.NextAction}. Owner: {op.Finding.Owner}. ID {op.Finding.Id}",
+        OperationType.ResolveFinding => $"Finding {op.Resolution!.FindingId} resolved: {op.Resolution.Note}",
+        OperationType.RecordException => $"Engineer handoff: {op.Handoff!.Reason}." +
+            (op.Handoff.RequestedReturnDate.HasValue ? $" Return requested {op.Handoff.RequestedReturnDate:dd/MM/yyyy}; dispatch must schedule through Jobs." : "") +
+            $" Office next: {Brief(op.Handoff.NextAction, 180)} Reason: {Brief(op.Handoff.Detail, 140)} Full detail: engineer report.",
+        OperationType.ResumeVisit => $"Engineer resumed handoff {op.Resume!.HandoffId}: {op.Resume.Note}",
+        _ => $"Engineer {op.Type}; operation {op.OperationId}"
+    };
+    private static string Brief(string text, int length) => text.Length <= length ? text : text[..length] + "…";
     private static async Task DemandPermission(SqlConnection c, SqlTransaction tx, EngineerIdentity identity, string module, CancellationToken ct)
     {
         if (await c.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(1) FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey=@module AND CanEdit=1", new { identity.RoleId, module }, tx, cancellationToken: ct)) == 0) throw new MobileHttpException(403, "Your account cannot perform this action. Contact the office.");

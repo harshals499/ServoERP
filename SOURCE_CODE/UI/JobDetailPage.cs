@@ -50,6 +50,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblBilledRevenue;
         private Label _lblDirectCost;
         private Label _lblCostStatus;
+        private TextBox _fieldActivity;
         private DataGridView _gridChecklist;
         private DataGridView _gridParts;
         private AccordionPanel _checklistAccordion;
@@ -270,6 +271,11 @@ namespace HVAC_Pro_Desktop.UI
             _rightStack.Controls.Add(tech);
             _rightStack.Controls.Add(priority);
             _rightStack.Controls.Add(cost);
+            Panel fieldBody;
+            Control field = MakeCard("Field handoff & activity", out fieldBody, 220);
+            _fieldActivity = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = White };
+            fieldBody.Controls.Add(_fieldActivity);
+            _rightStack.Controls.Add(field);
         }
 
         private void BindJob()
@@ -318,6 +324,10 @@ namespace HVAC_Pro_Desktop.UI
             RenderPipeline(job.PipelineStatus);
             RenderChecklist();
             RenderParts();
+            _fieldActivity.Text = _detail.ActivityLog == null || _detail.ActivityLog.Count == 0
+                ? "No field activity received. Return visits are scheduled using this job's Scheduled Date and Technician."
+                : "Review field handoffs below. Confirm return work using Scheduled Date and Technician above." + Environment.NewLine + Environment.NewLine +
+                    string.Join(Environment.NewLine + Environment.NewLine, _detail.ActivityLog.Select(a => a.ActivityDate.ToString("dd/MM/yyyy HH:mm") + " · " + a.PerformedBy + Environment.NewLine + a.ActivityText));
         }
 
         private JobProfitabilityRow LoadProfitability(int jobId)

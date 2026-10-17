@@ -6,8 +6,6 @@ using FluentValidation;
 using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.RateLimiting;
 using ServoERP.Engineer;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Processing;
 
 namespace ServoERP.Api.Mobile;
 
@@ -100,8 +98,8 @@ public static class MobileEndpoints
             if (file is null || file.Length is <= 0 or > 10 * 1024 * 1024) throw new MobileHttpException(400, "Choose a JPEG or PNG photo under 10 MB.");
             using var stream = new MemoryStream(); await file.CopyToAsync(stream, ct); var bytes = stream.ToArray();
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
-            var format = Image.DetectFormat(bytes); if (format.Name is not ("JPEG" or "PNG")) throw new MobileHttpException(400, "Only JPEG and PNG photos are supported.");
-            var info = Image.Identify(bytes); if (info.Width > 10000 || info.Height > 10000 || (long)info.Width * info.Height > 30_000_000) throw new MobileHttpException(400, "This photo is too large. Choose a smaller image.");
+            var normalizedPhoto = MobilePhotoProcessor.Normalize(bytes);
+
             var root = app.Configuration["ServoERP:EngineerMediaDirectory"];
             if (string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root)) throw new InvalidOperationException("Configure an absolute private EngineerMediaDirectory.");
             Directory.CreateDirectory(root);
@@ -113,9 +111,7 @@ public static class MobileEndpoints
                 await tx.CommitAsync(ct); return Results.Ok(existing);
             }
             var id = operation; var storageName = Guid.NewGuid().ToString("N") + ".jpg"; var target = Path.Combine(root, storageName);
-            using var image = Image.Load(bytes); image.Mutate(x => x.AutoOrient().Resize(new ResizeOptions { Size = new Size(1600, 1600), Mode = ResizeMode.Max }));
-            image.Metadata.ExifProfile = null; image.Metadata.IptcProfile = null; image.Metadata.XmpProfile = null;
-            await image.SaveAsJpegAsync(target, new SixLabors.ImageSharp.Formats.Jpeg.JpegEncoder { Quality = 82 }, ct);
+            await File.WriteAllBytesAsync(target, normalizedPhoto, ct);
             try
             {
                 await c.ExecuteAsync(new CommandDefinition("INSERT EngineerAttachments(AttachmentId,OperationId,CompanyId,UserId,JobId,SourceHash,StorageName,CreatedUtc) VALUES(@id,@operation,@CompanyId,@UserId,@jobId,@hash,@storageName,SYSUTCDATETIME())", new { id, operation, identity.CompanyId, identity.UserId, jobId, hash, storageName }, tx, cancellationToken: ct));
