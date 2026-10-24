@@ -18,7 +18,6 @@ $trial=New-Object HVAC_Pro_Desktop.Models.LicenseSnapshot
 $trial.PlanType=[HVAC_Pro_Desktop.Models.LicensePlanType]::Trial
 if($catalog::IsModuleEnabled($trial,'WorkOrders')){throw 'Default trial entitlements expanded'}
 $shell=Get-Content (Join-Path $root 'SOURCE_CODE/UI/MainForm.cs') -Raw
-if($shell -notmatch 'JobsItems = \{ JobsPageIndex \}'){throw 'Dedicated Jobs group missing'}
-if($shell -notmatch 'AddNavGroup\(LanguageManager.Get\("Jobs"\), JobsItems, true\)'){throw 'Jobs group not rendered'}
-if($shell -match 'OperationsItems = \{[^}]*JobsPageIndex'){throw 'Jobs still nested in Operations'}
-'PASS: dedicated Jobs group and all paid-plan Jobs entitlements with incomplete caches; missing/tampered/trial restrictions retained.'
+if($shell -notmatch 'OperationsItems = \{[^}]*JobsPageIndex'){throw 'Jobs missing from Operations'}
+if($shell -match 'JobsItems|AddNavGroup\(LanguageManager.Get\("Jobs"\)'){throw 'Standalone Jobs group must be removed'}
+'PASS: Jobs in Operations and all paid-plan Jobs entitlements with incomplete caches; missing/tampered/trial restrictions retained.'

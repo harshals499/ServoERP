@@ -1,3 +1,6 @@
+## 1.1.520 - 2026-10-24
+- Move Jobs into Operations and remove the standalone Jobs section; preserve the existing Add New Job workflow and paid-plan access.
+
 ## 1.1.519 - 2026-10-24
 - Add a separate Jobs sidebar section immediately below Dashboard, reusing the existing Jobs page and Add New Job workflow.
 - Restore paid-plan Jobs access when old module lists omit WorkOrders.

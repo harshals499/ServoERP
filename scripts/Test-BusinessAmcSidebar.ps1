@@ -42,13 +42,14 @@ function Get-Descendants($control) {
  foreach($child in $control.Controls) { $child; Get-Descendants $child }
 }
 $all=@(Get-Descendants $sidebar)
-$heading=@($all | Where-Object {$_ -is [Windows.Forms.Label] -and $_.Text -eq 'Jobs'})
+$heading=@($all | Where-Object {$_ -is [Windows.Forms.Label] -and $_.Text -eq 'Operations'})
 $button=@($all | Where-Object {$_ -is [Windows.Forms.Button] -and $_.AccessibleName -eq 'Jobs'})
-if($heading.Count -ne 1 -or $button.Count -ne 1){throw 'Exactly one dedicated Jobs heading and entry are required'}
+$standalone=@($all | Where-Object {$_ -is [Windows.Forms.Label] -and $_.Text -eq 'Jobs'})
+if($heading.Count -ne 1 -or $button.Count -ne 1 -or $standalone.Count){throw 'Exactly one Jobs entry in Operations and no standalone Jobs section are required'}
 $headingTop=$heading[0].PointToScreen([Drawing.Point]::Empty).Y
 $buttonTop=$button[0].PointToScreen([Drawing.Point]::Empty).Y
-$dashboard=@($all | Where-Object {$_ -is [Windows.Forms.Button] -and $_.AccessibleName -eq 'Dashboard'})
-if($headingTop -ge $buttonTop -or $headingTop -le $dashboard[0].PointToScreen([Drawing.Point]::Empty).Y){throw 'Jobs section must follow Dashboard'}
+$following=@($all | Where-Object {$_ -is [Windows.Forms.Label] -and $_.Text -in @('HR & Payroll','Data & Compliance','Reports','Settings & Support') -and $_.PointToScreen([Drawing.Point]::Empty).Y -gt $headingTop} | Sort-Object { $_.PointToScreen([Drawing.Point]::Empty).Y })
+if($headingTop -ge $buttonTop -or ($following.Count -and $buttonTop -ge $following[0].PointToScreen([Drawing.Point]::Empty).Y)){throw 'Jobs is not inside Operations'}
 if(!$hostForm.RectangleToScreen($hostForm.ClientRectangle).Contains($button[0].RectangleToScreen($button[0].ClientRectangle))){throw 'Jobs entry is clipped from the visible sidebar'}
 $bitmap=New-Object Drawing.Bitmap($hostForm.Width,$hostForm.Height)
 $hostForm.DrawToBitmap($bitmap,(New-Object Drawing.Rectangle(0,0,$hostForm.Width,$hostForm.Height)))
