@@ -48,6 +48,10 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                 || string.Equals(moduleKey, "Dashboard", StringComparison.OrdinalIgnoreCase))
                 return true;
 
+            // Business AMC includes the complete product catalog, including modules
+            // omitted from older server responses or cached entitlement lists.
+            if (snapshot.PlanType == LicensePlanType.Enterprise)
+                return Array.Exists(AllModules, m => string.Equals(m, moduleKey, StringComparison.OrdinalIgnoreCase));
             List<string> modules = snapshot.EnabledModules == null || snapshot.EnabledModules.Count == 0
                 ? GetModulesForPlan(snapshot.PlanType)
                 : snapshot.EnabledModules;

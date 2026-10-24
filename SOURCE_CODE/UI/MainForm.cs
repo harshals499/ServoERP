@@ -130,7 +130,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, JobsPageIndex, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };

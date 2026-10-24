@@ -1,3 +1,7 @@
+## 1.1.518 - 2026-10-24
+- Business AMC includes all Pro/highest-tier catalog modules despite incomplete cached entitlements.
+- Keep Jobs in Operations using the shared navigation index.
+
 # 1.1.517 - 17 October 2026
 
 - Added tracked mobile findings with checklist links and resolution evidence.
