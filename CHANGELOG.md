@@ -1,3 +1,7 @@
+## 1.1.519 - 2026-10-24
+- Add a separate Jobs sidebar section immediately below Dashboard, reusing the existing Jobs page and Add New Job workflow.
+- Restore paid-plan Jobs access when old module lists omit WorkOrders.
+
 ## 1.1.518 - 2026-10-24
 - Business AMC includes all Pro/highest-tier catalog modules despite incomplete cached entitlements.
 - Keep Jobs in Operations using the shared navigation index.

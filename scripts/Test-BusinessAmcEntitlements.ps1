@@ -17,6 +17,6 @@ if ($catalog::IsModuleEnabled($snapshot, 'Payroll')) { throw 'Restricted Basic c
 if ($catalog::IsModuleEnabled($null, 'WorkOrders')) { throw 'Missing license granted Jobs' }
 if ([HVAC_Pro_Desktop.Services.Licensing.LicensePlanCatalog]::ParsePlan('Business AMC') -ne $plan::Enterprise) { throw 'Business AMC mapping changed' }
 $shell = Get-Content (Join-Path $root 'SOURCE_CODE/UI/MainForm.cs') -Raw
-if ($shell -notmatch 'OperationsItems = \{[^}]*JobsPageIndex') { throw 'Jobs missing from Operations' }
+if ($shell -notmatch 'JobsItems = \{ JobsPageIndex') { throw 'Dedicated Jobs section missing' }
 if ($shell -notmatch 'case 15: return "WorkOrders"') { throw 'Jobs entitlement mapping changed' }
 'PASS: Business AMC includes all Pro modules with partial cache; unknown/lower-tier/missing-license checks; Jobs sidebar registration.'

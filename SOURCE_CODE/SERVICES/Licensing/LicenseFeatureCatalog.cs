@@ -48,6 +48,12 @@ namespace HVAC_Pro_Desktop.Services.Licensing
                 || string.Equals(moduleKey, "Dashboard", StringComparison.OrdinalIgnoreCase))
                 return true;
 
+            // Jobs is already included in every paid plan. Older entitlement caches
+            // must not hide the workspace or its existing New Job workflow.
+            if (string.Equals(moduleKey, "WorkOrders", StringComparison.OrdinalIgnoreCase)
+                && (snapshot.PlanType == LicensePlanType.Basic || snapshot.PlanType == LicensePlanType.Standard
+                    || snapshot.PlanType == LicensePlanType.Pro || snapshot.PlanType == LicensePlanType.Enterprise))
+                return snapshot.Status != LicenseStatus.Missing && snapshot.Status != LicenseStatus.Tampered;
             // Business AMC includes the complete product catalog, including modules
             // omitted from older server responses or cached entitlement lists.
             if (snapshot.PlanType == LicensePlanType.Enterprise)
