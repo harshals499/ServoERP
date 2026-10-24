@@ -1,3 +1,6 @@
+## 1.1.521 - 2026-10-24
+- Hide completed Last sync notifications after five seconds and reclaim the page space. Keep offline and sync-failure warnings visible.
+
 ## 1.1.520 - 2026-10-24
 - Move Jobs into Operations and remove the standalone Jobs section; preserve the existing Add New Job workflow and paid-plan access.
 
