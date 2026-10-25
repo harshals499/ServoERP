@@ -24,17 +24,17 @@ public sealed class MobileJobService(string connectionString)
         var allowed = await c.ExecuteScalarAsync<int>(new CommandDefinition(@"SELECT COUNT(1) FROM AppUsers u JOIN UserCompanies uc ON uc.UserId=u.UserId AND uc.CompanyId=@companyId AND uc.IsActive=1
 JOIN RolePermissions p ON p.RoleId=ISNULL(uc.RoleId,u.RoleId) AND p.ModuleKey='WorkOrders' AND p.CanView=1 WHERE u.UserId=@userId AND u.IsActive=1", new { userId, companyId }, cancellationToken: ct));
         if (allowed == 0) throw new BadHttpRequestException("Your account cannot view this work-order report.", 403);
-        var json = await c.QuerySingleOrDefaultAsync<string>(new CommandDefinition("SELECT r.ReportJson FROM EngineerReports r JOIN Jobs j ON j.JobID=r.JobId AND j.CompanyId=r.CompanyId WHERE r.JobId=@jobId AND r.CompanyId=@companyId", new { jobId, companyId }, cancellationToken: ct));
+        var json = await c.QuerySingleOrDefaultAsync<string>(new CommandDefinition("SELECT r.ReportJson FROM EngineerReports r JOIN Jobs j ON j.JobID=r.JobId JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=r.CompanyId WHERE r.JobId=@jobId AND r.CompanyId=@companyId", new { jobId, companyId }, cancellationToken: ct));
         return json is null ? null : JsonSerializer.Deserialize<FieldReport>(json);
     }
     private const string SelectJobs = @"SELECT j.JobID JobId,j.SyncPublicId PublicId,ISNULL(j.SyncVersion,0) OfficeVersion,j.JobNumber Number,j.Priority,
 c.CompanyName Customer,s.SiteName Site,s.Address,c.PrimaryContact Contact,c.Phone,j.Description Fault,j.ScheduledDate,
 ISNULL(j.PipelineStatus,j.Status) OfficeStatus,r.ReportJson,j.EngineerRequiredPhotos,j.ClientID,j.SiteID,j.AssignedEmployeeID,j.ModifiedDate,j.Notes InternalNotes
 FROM Jobs j WITH(UPDLOCK,HOLDLOCK)
-JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=j.CompanyId
-JOIN ClientSites s ON s.SiteID=j.SiteID AND s.CompanyId=j.CompanyId
-LEFT JOIN EngineerReports r ON r.JobId=j.JobID AND r.CompanyId=j.CompanyId
-WHERE j.CompanyId=@CompanyId AND j.AssignedEmployeeID=@EmployeeId AND j.DeletedUtc IS NULL AND j.SyncPublicId IS NOT NULL";
+JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=@CompanyId
+LEFT JOIN ClientSites s ON s.SiteID=j.SiteID AND s.ClientID=j.ClientID
+LEFT JOIN EngineerReports r ON r.JobId=j.JobID AND r.CompanyId=c.CompanyId
+WHERE c.CompanyId=@CompanyId AND j.AssignedEmployeeID=@EmployeeId AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanView=1) AND j.DeletedUtc IS NULL AND j.SyncPublicId IS NOT NULL";
     public async Task<List<JobSnapshot>> Jobs(EngineerIdentity identity, CancellationToken ct)
     {
         await using var c = new SqlConnection(connectionString); await c.OpenAsync(ct);
@@ -54,7 +54,7 @@ WHERE v.CompanyId=@CompanyId AND v.EmployeeId=@EmployeeId AND s.IsActive=1 ORDER
     public async Task<int> AuthorizedJob(EngineerIdentity identity, Guid publicId, CancellationToken ct)
     {
         await using var c = new SqlConnection(connectionString);
-        var id = await c.QuerySingleOrDefaultAsync<int?>(new CommandDefinition("SELECT JobID FROM Jobs WHERE SyncPublicId=@publicId AND CompanyId=@CompanyId AND AssignedEmployeeID=@EmployeeId AND DeletedUtc IS NULL AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanEdit=1)", new { publicId, identity.CompanyId, identity.EmployeeId, identity.RoleId }, cancellationToken: ct));
+        var id = await c.QuerySingleOrDefaultAsync<int?>(new CommandDefinition("SELECT j.JobID FROM Jobs j JOIN B2BClients c ON c.ClientID=j.ClientID WHERE j.SyncPublicId=@publicId AND c.CompanyId=@CompanyId AND AssignedEmployeeID=@EmployeeId AND DeletedUtc IS NULL AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanEdit=1)", new { publicId, identity.CompanyId, identity.EmployeeId, identity.RoleId }, cancellationToken: ct));
         return id ?? throw new MobileHttpException(403, "This job is not assigned to your account.");
     }
     public async Task<OperationReceipt> Submit(EngineerIdentity identity, MobileOperation op, UploadReceipt? upload, CancellationToken ct)

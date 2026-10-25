@@ -60,6 +60,18 @@ public sealed class SyncService(LocalWorkspace workspace, IEngineerTransport tra
 public sealed class EngineerTransport(HttpClient http, Func<Task<SessionTokens?>> readTokens, Func<SessionTokens, Task> saveTokens) : IEngineerTransport
 {
     private readonly SemaphoreSlim _refresh = new(1, 1);
+    public async Task<T> ReadAsync<T>(string path, CancellationToken ct = default) => await Get<T>(path,ct);
+    public async Task<T> WriteAsync<T>(string path, object value, CancellationToken ct = default)
+    {
+        using var response = await Send(() => new(HttpMethod.Post,path) { Content = JsonContent.Create(value) },ct);
+        return (await response.Content.ReadFromJsonAsync<T>(Json,ct))!;
+    }
+    public async Task<byte[]> ReadBytesAsync(string path,CancellationToken ct = default)
+    {
+        using var response = await Send(() => new(HttpMethod.Get,path),ct); return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+    public async Task RevokeSession(CancellationToken ct=default)
+    {using var response=await Send(()=>new(HttpMethod.Post,"auth/logout"),ct);}
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     public Task<List<JobSnapshot>> Jobs(CancellationToken ct) => Get<List<JobSnapshot>>("jobs", ct);
     public Task<List<PartStock>> Stock(CancellationToken ct) => Get<List<PartStock>>("inventory/van", ct);

@@ -87,11 +87,12 @@ FROM AppUsers u WITH(UPDLOCK,HOLDLOCK) WHERE u.Username=@Username OR u.Email=@Us
         var user = await c.QuerySingleOrDefaultAsync<User>(new CommandDefinition(@"SELECT u.UserId,@companyId CompanyId,u.EmployeeID EmployeeId,ISNULL(uc.RoleId,u.RoleId) RoleId,u.DisplayName
 FROM AppUsers u JOIN UserCompanies uc ON uc.UserId=u.UserId AND uc.CompanyId=@companyId AND uc.IsActive=1
 JOIN Companies co ON co.CompanyId=uc.CompanyId AND co.IsActive=1
-JOIN Employees e ON e.EmployeeID=u.EmployeeID AND e.CompanyId=@companyId
 WHERE u.UserId=@userId AND u.IsActive=1 AND u.ForcePasswordChange=0", new { userId, companyId }, tx, cancellationToken: ct));
-        if (user is null) throw new MobileHttpException(403, "Your account is not enabled as an engineer for this company. Contact the office.");
-        if (!await c.ExecuteScalarAsync<bool>(new CommandDefinition("SELECT CAST(CASE WHEN EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanView=1) THEN 1 ELSE 0 END AS bit)", user, tx, cancellationToken: ct)))
-            throw new MobileHttpException(403, "Your account does not have service-job access.");
+        if (user is null) throw new MobileHttpException(403, "Your account does not have active access to this company. Contact the office.");
+        if (!await c.ExecuteScalarAsync<bool>(new CommandDefinition("SELECT CAST(CASE WHEN EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey IN ('WorkOrders','GeoIntelligence','Attendance','Inventory','Employees','Payroll','ServiceDesk','Purchases') AND CanView=1) THEN 1 ELSE 0 END AS bit)", user, tx, cancellationToken: ct)))
+            throw new MobileHttpException(403, "Your account does not have access to the mobile modules.");
+        if(user.EmployeeId>0&&await c.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM Employees t WHERE t.EmployeeID=@EmployeeId AND "+OfficeWorkspaceService.EmployeeScope,user,tx,cancellationToken:ct))!=1)
+            user.EmployeeId=0; // Office managers can sign in; field actions require a company-scoped employee mapping.
         return new(user.UserId, companyId, user.EmployeeId, user.RoleId, user.DisplayName);
     }
     private static async Task<SessionTokens> Issue(SqlConnection c, SqlTransaction tx, EngineerIdentity identity, Guid family, string device, CancellationToken ct)

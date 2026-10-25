@@ -183,6 +183,15 @@ namespace HVAC_Pro_Desktop.UI
             RegisterFirstPaintTiming("Jobs.FirstPaint", ctorWatch);
             RecordDeletionUi.BindDeleteShortcut(this, () => DeleteCurrentJobAsync(), () => !_showDashboard && !_isNewMode && _currentDetail != null && _currentDetail.Job != null);
             Load += (s, e) => QueueInitialJobsLoad();
+            LiveOfficeDataRefresh.Attach(this, () => SessionManager.IsLoggedIn && _showDashboard && _initialJobsLoadTimer == null, RefreshOfficeJobsAsync);
+        }
+
+        private async Task RefreshOfficeJobsAsync()
+        {
+            AppDataCache.RemovePrefix("jobs:"); AppDataCache.RemovePrefix("clients:"); AppDataCache.RemovePrefix("employees:");
+            var jobs = await Task.Run(() => GetCachedJobSummaries(true));
+            if (IsDisposed || !Visible || !_showDashboard) return;
+            CaptureDashboardFilterState(); _allJobs = jobs; RenderJobsDashboard();
         }
 
         private void QueueInitialJobsLoad()

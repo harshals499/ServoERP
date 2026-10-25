@@ -25,6 +25,11 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _pnlLicenseBanner;
         private Panel _pnlAgentSimulationBanner;
         private Panel _pnlDatabaseStatusBanner;
+        private const int LastSyncNotificationDurationMilliseconds = 5000;
+        private System.Windows.Forms.Timer _lastSyncNotificationTimer;
+        private string _lastSyncNotificationStatus;
+        private bool _lastSyncNotificationExpired;
+        private DatabaseConnectionStateSnapshot _databaseBannerSnapshot;
         private Label _lblUpdateMessage;
         private Label _lblLicenseMessage;
         private Label _lblAgentSimulationMessage;
@@ -130,7 +135,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
-        private static readonly int[] OperationsItems = { 14, 11, 1, 9, 15, AMCPageIndex };
+        private static readonly int[] OperationsItems = { 14, 11, 1, 9, JobsPageIndex, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
         private static readonly int[] DataComplianceItems = { 17, 2 };
         private static readonly int[] ReportsItems = { 7 };
@@ -169,6 +174,9 @@ namespace HVAC_Pro_Desktop.UI
                 _automaticUpdateTimer?.Stop();
                 _automaticUpdateTimer?.Dispose();
                 _automaticUpdateTimer = null;
+                _lastSyncNotificationTimer?.Stop();
+                _lastSyncNotificationTimer?.Dispose();
+                _lastSyncNotificationTimer = null;
             };
             UIHelper.ApplyInputStyles(Controls);
             UIHelper.ApplyGlobalScrollAndResize(this);
@@ -1096,7 +1104,22 @@ namespace HVAC_Pro_Desktop.UI
 
         private void OfflineWorkspaceChanged(object sender,EventArgs e)
         {
-            if(!IsDisposed && IsHandleCreated)BeginInvoke((Action)(()=> { if(!IsDisposed)RefreshDatabaseStatusBanner(DatabaseConnectionStateService.GetCurrentState()); }));
+            if (IsDisposed || !IsHandleCreated)
+                return;
+
+            BeginInvoke((Action)(() =>
+            {
+                if (IsDisposed)
+                    return;
+                // A new completion deserves its own five seconds, even when the
+                // minute-level timestamp and pending counts have not changed.
+                if (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status.StartsWith("Last sync ", StringComparison.Ordinal))
+                {
+                    _lastSyncNotificationStatus = null;
+                    _lastSyncNotificationExpired = false;
+                }
+                RefreshDatabaseStatusBanner(DatabaseConnectionStateService.GetCurrentState());
+            }));
         }
 
         private void OpenOfflineWorkspace()
@@ -1144,12 +1167,47 @@ namespace HVAC_Pro_Desktop.UI
             if (_pnlDatabaseStatusBanner == null || _lblDatabaseStatusMessage == null || snapshot == null)
                 return;
 
+            _databaseBannerSnapshot = snapshot.Clone();
+            string message = HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace()
+                ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status
+                : (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status.StartsWith("Offline cache") ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status : "Offline access is not prepared. Sign out and sign in with your password once to prepare this PC.");
+            bool transientSyncNotice = SessionManager.IsLoggedIn
+                && snapshot.State == DatabaseConnectionStateKind.Online && snapshot.BusinessWritesAllowed
+                && message.StartsWith("Last sync ", StringComparison.Ordinal);
+
+            if (transientSyncNotice)
+            {
+                if (!string.Equals(_lastSyncNotificationStatus, message, StringComparison.Ordinal))
+                {
+                    _lastSyncNotificationTimer?.Stop();
+                    _lastSyncNotificationStatus = message;
+                    _lastSyncNotificationExpired = false;
+                }
+                if (!_lastSyncNotificationExpired)
+                {
+                    if (_lastSyncNotificationTimer == null)
+                    {
+                        _lastSyncNotificationTimer = new System.Windows.Forms.Timer { Interval = LastSyncNotificationDurationMilliseconds };
+                        _lastSyncNotificationTimer.Tick += LastSyncNotificationElapsed;
+                    }
+                    // Database health refreshes must not extend the current notice.
+                    if (!_lastSyncNotificationTimer.Enabled)
+                        _lastSyncNotificationTimer.Start();
+                }
+            }
+            else
+            {
+                _lastSyncNotificationTimer?.Stop();
+                _lastSyncNotificationStatus = null;
+                _lastSyncNotificationExpired = false;
+            }
+
             bool show = snapshot.State == DatabaseConnectionStateKind.Degraded ||
                         snapshot.State == DatabaseConnectionStateKind.Offline ||
                         snapshot.State == DatabaseConnectionStateKind.Reconnecting ||
-                        snapshot.State == DatabaseConnectionStateKind.ConfigError;
-
-            show = show || SessionManager.IsLoggedIn;
+                        snapshot.State == DatabaseConnectionStateKind.ConfigError || SessionManager.IsLoggedIn;
+            if (transientSyncNotice && _lastSyncNotificationExpired)
+                show = false;
             _pnlDatabaseStatusBanner.Visible = show;
             if (!show)
             {
@@ -1157,9 +1215,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            _lblDatabaseStatusMessage.Text = HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace()
-                ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status
-                : (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status.StartsWith("Offline cache")?HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status:"Offline access is not prepared. Sign out and sign in with your password once to prepare this PC.");
+            _lblDatabaseStatusMessage.Text = message;
             if (snapshot.State == DatabaseConnectionStateKind.ConfigError || snapshot.State == DatabaseConnectionStateKind.Offline)
             {
                 _pnlDatabaseStatusBanner.BackColor = Color.FromArgb(255, 241, 242);
@@ -1180,6 +1236,13 @@ namespace HVAC_Pro_Desktop.UI
             PerformLayout();
         }
 
+        private void LastSyncNotificationElapsed(object sender, EventArgs e)
+        {
+            _lastSyncNotificationTimer?.Stop();
+            _lastSyncNotificationExpired = true;
+            if (!IsDisposed)
+                RefreshDatabaseStatusBanner(_databaseBannerSnapshot);
+        }
         public void ShowAgentSimulationPanel()
         {
             if (_agentSimulationPanel == null || _agentSimulationPanel.IsDisposed)

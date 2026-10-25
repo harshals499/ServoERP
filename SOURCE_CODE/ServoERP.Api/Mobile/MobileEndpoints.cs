@@ -32,6 +32,7 @@ public static class MobileEndpoints
     {
         builder.Services.AddSingleton(new MobileAuthService(connectionString));
         builder.Services.AddSingleton(new MobileJobService(connectionString));
+        builder.Services.AddSingleton(new OfficeWorkspaceService(connectionString));
         builder.Services.AddSingleton<MobileSubmissionValidator>();
         builder.Services.AddRateLimiter(o =>
         {
@@ -58,10 +59,12 @@ public static class MobileEndpoints
         catch (MobileHttpException ex) { await Error(http, ex.Status, ex.Message); }
         catch (FieldRuleException ex) { await Error(http, 422, ex.Message); }
         catch (BadHttpRequestException) { await Error(http, 400, "Check the information and attachment size before trying again."); }
+        catch(SqlException ex) when(ex.Number is 2601 or 2627 or 547 or 2628 or 8152 or 8115)
+        { await Error(http,422,"Review the field lengths, numbers and linked records, then refresh before saving. A duplicate reference or an office data constraint prevented this save."); }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("EngineerMobile").LogError(ex, "Mobile request failed {CorrelationId}", http.TraceIdentifier);
-            await Error(http, 500, "Unable to sync right now. Your work is saved on this device and can be retried.");
+            await Error(http, 500, "Unable to complete the request. Keep this screen open and retry; check the record before submitting a new save.");
         }
     }
     private static Task Error(HttpContext http, int status, string message)
@@ -76,6 +79,11 @@ public static class MobileEndpoints
     public static void MapEngineerMobile(this WebApplication app, string connectionString)
     {
         var group = app.MapGroup("/api/v1/mobile");
+        group.MapGet("/workspace/employees/{id:int}/photo",async(int id,HttpContext http,OfficeWorkspaceService workspace,CancellationToken ct)=>Results.File(await workspace.EmployeePhoto(Identity(http),id,ct),"application/octet-stream"));
+        group.MapGet("/workspace/documents/{id:int}", async (int id,HttpContext http,OfficeWorkspaceService workspace,CancellationToken ct) => {var file=await workspace.Document(Identity(http),id,ct);return Results.File(file.Bytes,"application/octet-stream",file.Name);});
+        group.MapGet("/workspace", async (HttpContext http, OfficeWorkspaceService workspace, CancellationToken ct) => Results.Ok(await workspace.Read(Identity(http), ct)));
+        group.MapPost("/workspace/records", async (OfficeSaveRequest request, HttpContext http, OfficeWorkspaceService workspace, CancellationToken ct) => Results.Ok(await workspace.Save(Identity(http), request, ct)));
+        group.MapPost("/workspace/receive", async (OfficeSaveRequest request, HttpContext http, OfficeWorkspaceService workspace, CancellationToken ct) => Results.Ok(await workspace.Receive(Identity(http), request, ct)));
         group.MapPost("/auth/login", async (LoginRequest request, MobileAuthService auth, CancellationToken ct) => Results.Ok(await auth.Login(request, ct))).RequireRateLimiting("engineer-auth");
         group.MapPost("/auth/refresh", async (RefreshRequest request, MobileAuthService auth, CancellationToken ct) => Results.Ok(await auth.Refresh(request, ct))).RequireRateLimiting("engineer-auth");
         group.MapPost("/auth/logout", async (HttpContext http, MobileAuthService auth, CancellationToken ct) => { await auth.Logout(Bearer(http), ct); return Results.NoContent(); });
@@ -98,8 +106,7 @@ public static class MobileEndpoints
             if (file is null || file.Length is <= 0 or > 10 * 1024 * 1024) throw new MobileHttpException(400, "Choose a JPEG or PNG photo under 10 MB.");
             using var stream = new MemoryStream(); await file.CopyToAsync(stream, ct); var bytes = stream.ToArray();
             var hash = Convert.ToHexString(SHA256.HashData(bytes));
-            var normalizedPhoto = MobilePhotoProcessor.Normalize(bytes);
-
+            var normalized = MobilePhoto.Normalize(bytes);
             var root = app.Configuration["ServoERP:EngineerMediaDirectory"];
             if (string.IsNullOrWhiteSpace(root) || !Path.IsPathFullyQualified(root)) throw new InvalidOperationException("Configure an absolute private EngineerMediaDirectory.");
             Directory.CreateDirectory(root);
@@ -111,7 +118,7 @@ public static class MobileEndpoints
                 await tx.CommitAsync(ct); return Results.Ok(existing);
             }
             var id = operation; var storageName = Guid.NewGuid().ToString("N") + ".jpg"; var target = Path.Combine(root, storageName);
-            await File.WriteAllBytesAsync(target, normalizedPhoto, ct);
+            await File.WriteAllBytesAsync(target,normalized,ct);
             try
             {
                 await c.ExecuteAsync(new CommandDefinition("INSERT EngineerAttachments(AttachmentId,OperationId,CompanyId,UserId,JobId,SourceHash,StorageName,CreatedUtc) VALUES(@id,@operation,@CompanyId,@UserId,@jobId,@hash,@storageName,SYSUTCDATETIME())", new { id, operation, identity.CompanyId, identity.UserId, jobId, hash, storageName }, tx, cancellationToken: ct));

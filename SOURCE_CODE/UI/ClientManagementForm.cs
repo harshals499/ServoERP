@@ -84,6 +84,7 @@ namespace HVAC_Pro_Desktop.UI
             Font = new Font("Segoe UI", 9f);
             DoubleBuffered = true;
             ConfigureSearchTimers();
+            LiveOfficeDataRefresh.Attach(this, () => SessionManager.IsLoggedIn && _showDashboard && _dashboardClientsLoaded && !_bindingDashboardClientStatus, RefreshOfficeClientsAsync);
             BuildShell();
             if (!_showDashboard)
                 RenderClientCards();
@@ -298,6 +299,15 @@ namespace HVAC_Pro_Desktop.UI
             _footer.Width = width;
             foreach (Control control in _kpiGrid.Controls)
                 control.Margin = new Padding(0, 0, 10, 0);
+        }
+
+        private async Task RefreshOfficeClientsAsync()
+        {
+            AppDataCache.RemovePrefix("clients:");
+            var loaded = await Task.Run(() => _clientService.GetAllClientsIncludingInactive().OrderBy(c => c.CompanyName).ToList());
+            if (IsDisposed || !Visible || !_showDashboard) return;
+            _clients.Clear(); _clients.AddRange(loaded); _metricsCache.Clear();
+            RenderClientsDashboard();
         }
 
         private async Task LoadClientsAsync()

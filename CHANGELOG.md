@@ -1,3 +1,26 @@
+## 1.1.523 - 2026-10-25
+- Automatically refresh shared office clients, employees and jobs across desktop/mobile; preserve open mobile drafts and support permitted client creation/editing.
+- Keep active company links on desktop client/employee creation, and retain the published Mobile Connection settings.
+
+## 1.1.522 - 2026-10-25
+- Add Settings > Mobile Connection with office HTTPS/company/certificate setup, credential-free QR, connection code and profile import/export.
+- Reuse office user IDs and passwords through Users & Logins; restrict connection changes to administrators and explain manual mobile sign-in.
+- Clear stale QR details when editing, route Save Settings to the selected mobile connection, and keep all QR generation local. Existing office HTTPS service and compatible mobile pairing screen are required; no service deployment or account provisioning is included.
+
+## 1.1.521 - 2026-10-24
+- Hide completed Last sync notifications after five seconds and reclaim the page space. Keep offline and sync-failure warnings visible.
+
+## 1.1.520 - 2026-10-24
+- Move Jobs into Operations and remove the standalone Jobs section; preserve the existing Add New Job workflow and paid-plan access.
+
+## 1.1.519 - 2026-10-24
+- Add a separate Jobs sidebar section immediately below Dashboard, reusing the existing Jobs page and Add New Job workflow.
+- Restore paid-plan Jobs access when old module lists omit WorkOrders.
+
+## 1.1.518 - 2026-10-24
+- Business AMC includes all Pro/highest-tier catalog modules despite incomplete cached entitlements.
+- Keep Jobs in Operations using the shared navigation index.
+
 # 1.1.517 - 17 October 2026
 
 - Added tracked mobile findings with checklist links and resolution evidence.

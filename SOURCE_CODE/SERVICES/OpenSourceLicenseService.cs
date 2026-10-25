@@ -27,6 +27,13 @@ namespace HVAC_Pro_Desktop.Services
             var list = new List<OpenSourceComponent>
             {
                 Component(
+                    "QRCoder",
+                    VersionOf(versions, "QRCoder", "1.8.0"),
+                    "MIT",
+                    "Local office connection QR generation in Settings.",
+                    "https://github.com/Shane32/QRCoder",
+                    "No external QR service. Copyright notice is included in Licenses/QRCoder.txt."),
+                Component(
                     "EPPlus",
                     VersionOf(versions, "EPPlus", "4.5.3.3"),
                     "LGPL for EPPlus 4.x",
