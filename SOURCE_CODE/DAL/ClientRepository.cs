@@ -74,14 +74,19 @@ namespace HVAC_Pro_Desktop.DAL
                     INSERT INTO B2BClients
                         (CompanyName,IndustryType,TotalAnnualValue,PrimaryContact,SecondaryContact,
                          Phone,CustomerSince,Email,GSTNumber,PANNumber,PaymentTermsDays,
-                         CreditLimit,BillingAddress,City,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,RelationshipStage,Tags,HealthScore,Notes,AssignedTo,LeadSource,IsActive,SyncPublicId)
+                         CreditLimit,BillingAddress,City,GeoLatitude,GeoLongitude,GeocodeAddress,GeocodeStatus,GeocodeUpdatedOn,RelationshipStage,Tags,HealthScore,Notes,AssignedTo,LeadSource,IsActive,SyncPublicId,CompanyId)
                     VALUES
                         (@name,@industry,@value,@contact1,@contact2,
                          @phone,@since,@email,@gst,@pan,@terms,
-                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive,@syncPublicId);
+                         @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive,@syncPublicId,@companyId);
                     SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
-                return conn.QuerySingle<int>(sql, ToClientParams(c));
+                int companyId;
+                if (!int.TryParse(HVAC_Pro_Desktop.Services.ConfigService.Get("OfficeApi", "ActiveCompanyId", "1"), out companyId) || companyId <= 0)
+                    throw new InvalidOperationException("Choose a valid active office company before creating a client.");
+                var parameters = new DynamicParameters(ToClientParams(c));
+                parameters.Add("companyId", companyId);
+                return conn.QuerySingle<int>(sql, parameters);
             }
         }
 

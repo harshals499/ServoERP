@@ -182,6 +182,7 @@ namespace HVAC_Pro_Desktop.UI
             _employeeSearchDebounceTimer.Interval = 280;
             _employeeSearchDebounceTimer.Tick += EmployeeSearchDebounceTimer_Tick;
             BuildLayout();
+            LiveOfficeDataRefresh.Attach(this, () => SessionManager.IsLoggedIn && !_initialLoadInProgress && _dashboardSurface != null && _dashboardSurface.Visible, RefreshOfficeEmployeesAsync);
             UIHelper.ApplyInputStyles(Controls);
             ApplyPermissions();
             EnableDeferredLoad(() => FormLoadSafe(), ex =>
@@ -189,6 +190,16 @@ namespace HVAC_Pro_Desktop.UI
                 AppLogger.LogError("EmployeeForm.Load", ex);
                 SetStatus("Employee load failed: " + ex.Message, Red);
             });
+        }
+
+        private async Task RefreshOfficeEmployeesAsync()
+        {
+            AppDataCache.RemovePrefix("employees:"); AppDataCache.RemovePrefix("sites:");
+            var payload = await Task.Run(() => LoadInitialPayload());
+            if (IsDisposed || !Visible || _dashboardSurface == null || !_dashboardSurface.Visible || _initialLoadInProgress) return;
+            _expiringSkills = payload.ExpiringSkills; _checkedInTodayEmployeeIds = payload.CheckedInTodayEmployeeIds;
+            BindEmployeeTable(payload.EmployeeTable, string.Empty, "All", "All");
+            UpdateEmployeeDashboard(payload.Stats, payload.EmployeeTable);
         }
 
         private void FormLoadSafe()

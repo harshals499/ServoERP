@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
+using Dapper;
+using HVAC_Pro_Desktop.Services;
 using HVAC_Pro_Desktop.Models;
 
 namespace HVAC_Pro_Desktop.DAL
@@ -101,7 +103,26 @@ namespace HVAC_Pro_Desktop.DAL
                     SELECT CAST(SCOPE_IDENTITY() AS INT);", conn))
                 {
                     AddEmployeeParameters(cmd, employee, false);
-                    return Convert.ToInt32(cmd.ExecuteScalar());
+                    // Reuse the established parameter mapping while Dapper executes the atomic save.
+                    var parameters = new DynamicParameters();
+                    foreach (SqlParameter parameter in cmd.Parameters)
+                        parameters.Add(parameter.ParameterName, parameter.Value == DBNull.Value ? null : parameter.Value, parameter.DbType);
+                    using (var transaction = conn.BeginTransaction())
+                    {
+                        int id = conn.QuerySingle<int>(cmd.CommandText, parameters, transaction);
+                        // Legacy employee rows have no CompanyId. Link new rows to the same
+                        // active company used by the desktop Office API configuration.
+                        // Older desktop-only databases do not have the optional mobile table.
+                        if (conn.ExecuteScalar<int>("SELECT CASE WHEN OBJECT_ID('dbo.MobileEmployeeCompanies','U') IS NULL THEN 0 ELSE 1 END", transaction: transaction) == 1)
+                        {
+                            int companyId;
+                            if (!int.TryParse(ConfigService.Get("OfficeApi", "ActiveCompanyId", "1"), out companyId) || companyId <= 0)
+                                throw new InvalidOperationException("Choose a valid active office company before creating an employee.");
+                            conn.Execute("INSERT INTO MobileEmployeeCompanies(CompanyId,EmployeeId) SELECT CompanyId,@id FROM Companies WHERE CompanyId=@companyId AND IsActive=1; IF @@ROWCOUNT<>1 THROW 51000, 'The active office company is unavailable. Review Office API settings.', 1;", new { companyId, id }, transaction);
+                        }
+                        transaction.Commit();
+                        return id;
+                    }
                 }
             }
         }

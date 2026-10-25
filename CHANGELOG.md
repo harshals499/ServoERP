@@ -1,3 +1,8 @@
+## 1.1.522 - 25 October 2026 (candidate)
+
+- Automatically refresh shared client, employee and job data without replacing unsaved forms.
+- Add matching Office API client creation/editing and confirmed-save refresh recovery.
+
 ## 1.1.521 - 2026-10-24
 - Hide completed Last sync notifications after five seconds and reclaim the page space. Keep offline and sync-failure warnings visible.
 

@@ -4,8 +4,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ServoERP.Api</AssemblyName>
-    <Version>1.1.504</Version>
-    <FileVersion>1.1.504.0</FileVersion>
+    <Version>1.1.506</Version>
+    <FileVersion>1.1.506.0</FileVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.21" />
@@ -15,6 +15,7 @@
     <PackageReference Include="FluentValidation" Version="11.11.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="3.119.4" />
     <ProjectReference Include="../ServoERP.Engineer.Contracts/ServoERP.Engineer.Contracts.csproj" />
     <ProjectReference Include="../ServoERP.Engineer.Core/ServoERP.Engineer.Core.csproj" />
   </ItemGroup>

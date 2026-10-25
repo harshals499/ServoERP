@@ -351,6 +351,7 @@
     <Compile Include="SERVICES\SLAService.cs" />
     <Compile Include="SERVICES\ReportService.cs" />
     <Compile Include="SERVICES\AppDataCache.cs" />
+    <Compile Include="SERVICES\LiveOfficeDataRefresh.cs" />
     <Compile Include="SERVICES\AppWarmupService.cs" />
     <Compile Include="SERVICES\VendorService.cs" />
     <Compile Include="SERVICES\SupplierItemPriceService.cs" />
