@@ -14,6 +14,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         internal bool MobileConnectionPreviewOnly { get; set; }
         private Button _saveMobileConnection;
+        internal const string MobileAppDownloadUrl = "https://github.com/harshals499/ServoERP-Releases/releases/download/mobile-v1.1.506/ServoERP-Engineer-1.1.506.apk";
 
         private Control BuildMobileConnectionContent()
         {
@@ -27,7 +28,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Body, ForeColor = DS.Slate600, Margin = new Padding(0, 0, 0, 12), Height = 52 };
             var heading = text("Mobile Connection"); heading.Font = new Font("Segoe UI", 18, FontStyle.Bold); heading.ForeColor = DS.Slate900; heading.Height = 42;
             layout.Controls.Add(heading);
-            var intro = text("Connect ServoERP Mobile to your office. Scan the QR or enter the office details, then sign in with your office user ID and password. The QR does not sign anyone in.");
+            var intro = text("First scan Download Mobile App with your phone camera and install the Android app. Then scan Sync App inside ServoERP Mobile to connect to your office and sign in.");
             layout.Controls.Add(intro);
             var columns = new FlowLayoutPanel { AutoSize = true, WrapContents = true, BackColor = DS.BgPage, Margin = Padding.Empty };
             layout.Controls.Add(columns);
@@ -37,7 +38,17 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSize = true, Padding = new Padding(18), Margin = new Padding(0, 0, 0, 16), BackColor = Color.White, Width = 390 };
             columns.Controls.Add(setup); columns.Controls.Add(pairing);
             Action<FlowLayoutPanel, string> label = (panel, value) => { var item = text(value); item.Height = 26; panel.Controls.Add(item); };
-            label(setup, "1. Office connection details");
+            label(setup, "1. Download Mobile App");
+            var downloadQr = new PictureBox { Name = "MobileDownloadQr", Size = new Size(240, 240), SizeMode = PictureBoxSizeMode.CenterImage,
+                BackColor = Color.White, AccessibleName = "Download ServoERP Mobile Android app QR code", Margin = new Padding(0, 0, 0, 12), Tag = MobileAppDownloadUrl };
+            using (var generator = new QRCodeGenerator())
+            using (var data = generator.CreateQrCode(MobileAppDownloadUrl, QRCodeGenerator.ECCLevel.M))
+            using (var renderer = new QRCode(data))
+                downloadQr.Image = renderer.GetGraphic(Math.Max(1, 240 / data.ModuleMatrix.Count));
+            setup.Controls.Add(downloadQr);
+            var downloadHelp = text("Scan with your phone camera to download the Android APK from ServoERP's official releases. Open the downloaded file and approve Android's installation prompt.");
+            downloadHelp.Height = 76; setup.Controls.Add(downloadHelp);
+            label(setup, "Office connection details");
             var note = text("An administrator supplies these details from the existing office HTTPS service. Saving here does not install a server or open network ports."); note.Height = 66; setup.Controls.Add(note);
             label(setup, "Office HTTPS addresses (one per line)");
             var addresses = new TextBox { Name = "MobileOfficeAddresses", Multiline = true, Height = 72,
@@ -52,7 +63,7 @@ namespace HVAC_Pro_Desktop.UI
             var trust = text("Use the exact fingerprint for a private certificate. Leave blank only for a publicly trusted certificate. Verify these details with your office administrator."); trust.Height = 66; setup.Controls.Add(trust);
             var actions = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = Padding.Empty };
             setup.Controls.Add(actions);
-            var preview = MakeBtn("Show QR", InfoBlue, 116); preview.Name = "ShowMobileQr";
+            var preview = MakeBtn("Show sync QR", InfoBlue, 132); preview.Name = "ShowMobileQr";
             var save = MakeBtn("Save connection", InfoBlue, 152); save.Enabled = admin; save.Name = "SaveMobileConnection";
             _saveMobileConnection = save;
             var import = MakeBtn("Import profile", Color.White, 140); import.Enabled = admin;
@@ -60,11 +71,12 @@ namespace HVAC_Pro_Desktop.UI
             var status = text(admin ? "Enter your office details or import its connection profile." : "Your administrator manages these details. Contact the office if no connection is configured.");
             status.Name = "MobileConnectionStatus"; status.Height = 76; setup.Controls.Add(status);
 
-            label(pairing, "2. Scan or use your office login");
+            label(pairing, "2. Sync App");
             var qr = new PictureBox { Name = "MobileConnectionQr", Size = new Size(320, 320), SizeMode = PictureBoxSizeMode.CenterImage,
-                BackColor = Color.White, AccessibleName = "Office connection QR code", Margin = new Padding(0, 0, 0, 12) };
+                BackColor = Color.White, AccessibleName = "Sync app with office QR code", Margin = new Padding(0, 0, 0, 12) };
             pairing.Controls.Add(qr);
-            var steps = text("In ServoERP Mobile, open Connect to desktop > Photograph office QR. Review the office details, then enter your office user ID and password. You can also import the profile or paste its connection code."); steps.Height = 100; pairing.Controls.Add(steps);
+            var steps = text("After installing, open Connect to desktop > Photograph office QR in ServoERP Mobile and scan this Sync App code. Review the office details, then sign in with your office user ID and password."); steps.Height = 100; pairing.Controls.Add(steps);
+            var syncHelp = text("This QR connects the app; it does not download or sign in. Office details must be configured first. Shared records sync through the office service while connected."); syncHelp.Height = 82; pairing.Controls.Add(syncHelp);
             var code = new TextBox { Name = "MobileConnectionCode", ReadOnly = true, Multiline = true,
                 Height = 58, ScrollBars = ScrollBars.Vertical, Font = DS.Small, AccessibleName = "Office connection code" }; pairing.Controls.Add(code);
             var sharing = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = Padding.Empty };
@@ -134,6 +146,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
             };
             qr.Disposed += (s, e) => { var image = qr.Image; qr.Image = null; image?.Dispose(); };
+            downloadQr.Disposed += (s, e) => { var image = downloadQr.Image; downloadQr.Image = null; image?.Dispose(); };
             Action resize = () => {
                 int width = Math.Max(350, scroll.ClientSize.Width - 56);
                 layout.MaximumSize = columns.MaximumSize = new Size(width, 0);
@@ -143,7 +156,7 @@ namespace HVAC_Pro_Desktop.UI
                 setup.MaximumSize = new Size(setup.Width, 0); pairing.MaximumSize = new Size(pairing.Width, 0);
                 foreach (Control item in layout.Controls) if (item != columns) item.Width = width;
                 foreach (var panel in new[] { setup, pairing })
-                    foreach (Control item in panel.Controls) if (item != qr) item.Width = panel.Width - panel.Padding.Horizontal;
+                    foreach (Control item in panel.Controls) if (item != qr && item != downloadQr) item.Width = panel.Width - panel.Padding.Horizontal;
             };
             scroll.Resize += (s, e) => resize(); resize();
             scroll.HandleCreated += async (s, e) => {
