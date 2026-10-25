@@ -20,7 +20,7 @@ using HVAC_Pro_Desktop.UI.Helpers;
 
 namespace HVAC_Pro_Desktop.UI
 {
-    public class SettingsForm : DeferredPageControl
+    public partial class SettingsForm : DeferredPageControl
     {
         protected override bool EnableAutomaticLayoutScaling => false;
 
@@ -437,7 +437,10 @@ namespace HVAC_Pro_Desktop.UI
             Button btnSave = MakeBtn("Save Settings", SaveGreen, 146);
             btnSave.Location = new Point(0, 0);
             ModernIconSystem.AddButtonIcon(btnSave, ModernIconKind.Save);
-            btnSave.Click += (s, e) => Save();
+            btnSave.Click += (s, e) => {
+                if (_tabs?.SelectedTab?.Text == "Mobile Connection") _saveMobileConnection?.PerformClick();
+                else Save();
+            };
             Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 184);
             btnResetDefaults.ForeColor = DS.Slate700;
             btnResetDefaults.FlatAppearance.BorderSize = 1;
@@ -506,6 +509,7 @@ namespace HVAC_Pro_Desktop.UI
             CenterCanvas(body, _generalCanvas);
             generalTab.Controls.Add(body);
             _tabs.TabPages.Add(generalTab);
+            _tabs.TabPages.Add(CreateLazySettingsTab("Mobile Connection", BuildMobileConnectionContent));
             if (IsAdminUser())
             {
                 _usersTab = CreateLazySettingsTab("Users & Logins", BuildUsersTabContent);
@@ -595,6 +599,7 @@ namespace HVAC_Pro_Desktop.UI
                 Destination("Backup & recovery", "Backup destinations, schedules and recovery", "Backup & Recovery", true),
                 Destination("Data management", "Fresh Start and data reset tools", "Data Management", true) });
             AddSettingsDirectoryGroup("SYSTEM & SUPPORT", new[] {
+                new SettingsDestination { Title = "Mobile Connection", Description = "Connect phones by QR code or office user ID and password", Tab = "Mobile Connection" },
                 Destination("Display & layout", "Screen fit and interface scale", "Display & Layout"),
                 Destination("Database & connections", "Connection setup, health and layout recovery", "System Tools"),
                 new SettingsDestination { Title = "License & updates", Description = "Activation, renewal and application updates", Cards = IsAdminUser() ? new[] { "License Management", "About & Updates" } : new[] { "About & Updates" } },
