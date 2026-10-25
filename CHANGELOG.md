@@ -1,3 +1,7 @@
+## 1.1.525 - 25 October 2026
+
+- Mobile Connection now has separate Download Mobile App and Sync App QR codes, with installation and office sign-in instructions.
+
 ## 1.1.524 - 2026-10-25
 - Preserve desktop-only client creation when the optional mobile CompanyId column is absent, while retaining company links on mobile-enabled databases.
 - Forward compatibility patch; includes all shared mobile data refresh and Mobile Connection improvements.

@@ -65,6 +65,9 @@ namespace HVAC_Pro_Desktop.Tests
                     var fingerprint = (TextBox)Find(tab, "MobileCertificateFingerprint");
                     Assert(addresses.ReadOnly == !admin && company.ReadOnly == !admin, "Role-specific fields");
                     Assert(Find(tab, "SaveMobileConnection").Enabled == admin && Find(tab, "ManageMobileOfficeUsers").Enabled == admin, "Role-specific actions");
+                    var downloadQr = (PictureBox)Find(tab, "MobileDownloadQr");
+                    Assert(downloadQr.Image != null && (string)downloadQr.Tag == SettingsForm.MobileAppDownloadUrl, "Download QR available without office setup");
+                    downloadQr.Image.Save(Path.Combine(output, "download-qr-" + (admin ? "admin" : "user") + ".png"), ImageFormat.Png);
                     addresses.Text = parsed.Addresses[0]; company.Text = "42"; fingerprint.Text = parsed.CertificateSha256;
                     ((Button)Find(tab, "ShowMobileQr")).PerformClick(); Application.DoEvents();
                     var qr = (PictureBox)Find(tab, "MobileConnectionQr");
@@ -74,17 +77,20 @@ namespace HVAC_Pro_Desktop.Tests
                     form.ClientSize = new Size(760, 900); Application.DoEvents();
                     Capture(form, Path.Combine(output, "mobile-connection-" + (admin ? "admin" : "user") + "-narrow.png"));
                     var scroll = (Panel)Find(tab, "MobileConnectionPage");
+                    scroll.ScrollControlIntoView(qr); Application.DoEvents();
+                    Capture(form, Path.Combine(output, "mobile-connection-" + (admin ? "admin" : "user") + "-narrow-sync.png"));
                     scroll.AutoScrollPosition = new Point(0, scroll.DisplayRectangle.Height); Application.DoEvents();
                     Capture(form, Path.Combine(output, "mobile-connection-" + (admin ? "admin" : "user") + "-narrow-bottom.png"));
                     addresses.Text = "http://invalid.invalid"; Application.DoEvents();
                     Assert(qr.Image == null && Find(tab, "MobileConnectionCode").Text.Length == 0, "Edited details invalidate stale QR");
+                    Assert(downloadQr.Image != null, "Editing office details preserves download QR");
                     ((Button)Find(tab, "ShowMobileQr")).PerformClick();
                     Assert(qr.Image == null && Find(tab, "MobileConnectionStatus").Text.Contains("HTTPS"), "Invalid configuration never generates QR");
                     form.Close();
                 }
             }
             SessionManager.ClearSession();
-            File.WriteAllText(Path.Combine(output, "desktop-tests.txt"), "PASS: profile round trip/normalization; 15 invalid/credential-bearing profiles rejected; non-admin save denied before SQL; admin/user UI permissions; generated QR/code equality; wide/narrow native render; edited profile clears QR; invalid HTTPS blocked. No database operations or account changes performed.");
+            File.WriteAllText(Path.Combine(output, "desktop-tests.txt"), "PASS: profile round trip/normalization; 15 invalid/credential-bearing profiles rejected; non-admin save denied before SQL; admin/user UI permissions; download QR available before office configuration; generated sync QR/code equality; wide/narrow native render; edited profile clears sync QR and preserves download QR; invalid HTTPS blocked. No database operations or account changes performed.");
         }
         private static void Assert(bool condition, string label) { if (!condition) throw new InvalidOperationException(label); }
         private static Control Find(Control root, string name) {
