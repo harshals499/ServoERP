@@ -81,6 +81,10 @@ namespace HVAC_Pro_Desktop.DAL
                          @credit,@address,@city,@geoLat,@geoLon,@geoAddress,@geoStatus,@geoUpdatedOn,@relationshipStage,@tags,@healthScore,@notes,@assignedTo,@leadSource,@isActive,@syncPublicId,@companyId);
                     SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
+                // Metadata guard: desktop-only databases may not have the optional Office API company column.
+                bool hasCompany = conn.ExecuteScalar<int>("SELECT CASE WHEN COL_LENGTH('dbo.B2BClients','CompanyId') IS NULL THEN 0 ELSE 1 END") == 1;
+                if (!hasCompany)
+                    return conn.QuerySingle<int>(sql.Replace(",CompanyId)", ")").Replace(",@companyId)", ")"), ToClientParams(c));
                 int companyId;
                 if (!int.TryParse(HVAC_Pro_Desktop.Services.ConfigService.Get("OfficeApi", "ActiveCompanyId", "1"), out companyId) || companyId <= 0)
                     throw new InvalidOperationException("Choose a valid active office company before creating a client.");
