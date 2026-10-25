@@ -1,7 +1,11 @@
-## 1.1.522 - 25 October 2026 (candidate)
+## 1.1.523 - 2026-10-25
+- Automatically refresh shared office clients, employees and jobs across desktop/mobile; preserve open mobile drafts and support permitted client creation/editing.
+- Keep active company links on desktop client/employee creation, and retain the published Mobile Connection settings.
 
-- Automatically refresh shared client, employee and job data without replacing unsaved forms.
-- Add matching Office API client creation/editing and confirmed-save refresh recovery.
+## 1.1.522 - 2026-10-25
+- Add Settings > Mobile Connection with office HTTPS/company/certificate setup, credential-free QR, connection code and profile import/export.
+- Reuse office user IDs and passwords through Users & Logins; restrict connection changes to administrators and explain manual mobile sign-in.
+- Clear stale QR details when editing, route Save Settings to the selected mobile connection, and keep all QR generation local. Existing office HTTPS service and compatible mobile pairing screen are required; no service deployment or account provisioning is included.
 
 ## 1.1.521 - 2026-10-24
 - Hide completed Last sync notifications after five seconds and reclaim the page space. Keep offline and sync-failure warnings visible.

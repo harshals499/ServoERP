@@ -1,6 +1,6 @@
 # Automatic desktop/mobile office data
 
-Candidates: desktop 1.1.522, Office API 1.1.506, Android 1.1.506 (528). Not deployed or published.
+Candidates: desktop 1.1.523, Office API 1.1.506, Android 1.1.506 (528). Not deployed or published.
 
 The office SQL Server database remains authoritative. Mobile client, employee and job forms use the same rows and real relationship IDs as desktop repositories. There is no separate business workspace or SQLite business-write store. Existing field-service queues remain unchanged.
 
