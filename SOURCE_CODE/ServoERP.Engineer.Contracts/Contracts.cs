@@ -5,7 +5,7 @@ using System.Text.Json;
 namespace ServoERP.Engineer;
 
 public enum FieldState { Assigned, Accepted, Travelling, Arrived, WorkStarted, Diagnosis, Repair, Testing, AwaitingSignature, Completed }
-public enum OperationType { Transition, Report, Checklist, Part, Photo, Signature, Complete, PartsReviewed, AddFinding, ResolveFinding, RecordException, ResumeVisit }
+public enum OperationType { Transition, Report, Checklist, Part, Photo, Signature, Complete, PartsReviewed }
 public enum QueueState { Pending, Syncing, Synced, Failed, Conflict }
 public record LoginRequest(string Username, string Password, int CompanyId, string DeviceId);
 public record RefreshRequest(string RefreshToken);
@@ -49,10 +49,6 @@ public class FieldReport
     public CustomerSignOff? SignOff { get; set; }
     public DateTimeOffset? CompletedUtc { get; set; }
     public List<FieldEvent> Events { get; set; } = [];
-    public List<FieldFinding> Findings { get; set; } = [];
-    public List<VisitHandoff> Handoffs { get; set; } = [];
-    public List<ReturnVisitRequest> ReturnVisits { get; set; } = [];
-    public VisitHandoff? ActiveHandoff => Handoffs.LastOrDefault(h => h.ResumedUtc is null);
 }
 public class JobSnapshot
 {
@@ -94,35 +90,18 @@ public class MobileOperation
     public string PartName { get; set; } = "";
     public PhotoRecord? Photo { get; set; }
     public CustomerSignOff? SignOff { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public FieldFinding? Finding { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public FindingResolution? Resolution { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public VisitHandoff? Handoff { get; set; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
-    public VisitResume? Resume { get; set; }
 }
 public record OperationReceipt(Guid OperationId, long Revision, FieldReport Report);
 public record UploadReceipt(Guid AttachmentId, string Hash);
 public class FieldRuleException(string message) : Exception(message);
-public static partial class FieldRules
+public static class FieldRules
 {
-    public static string ContentHash(FieldReport report)
-    {
-        // Preserve acknowledgement hashes for legacy reports until priority-1 content is recorded.
-        var content = JsonSerializer.Serialize(new { report.JobPublicId, report.Diagnosis, report.WorkPerformed, report.TestResults, report.Notes, report.Checklist, report.Parts, report.PartsReviewed, report.Photos });
-        if (report.Findings.Count > 0 || report.Handoffs.Count > 0)
-            content += JsonSerializer.Serialize(new { report.Findings, report.Handoffs,
-                ReturnVisits = report.ReturnVisits.Select(v => new { v.Id, v.RequestedDate, v.NextAction, v.ResumedUtc }) });
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(content)));
-    }
+    public static string ContentHash(FieldReport report) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+    { report.JobPublicId, report.Diagnosis, report.WorkPerformed, report.TestResults, report.Notes, report.Checklist, report.Parts, report.PartsReviewed, report.Photos }))));
 
     public static List<string> CompletionIssues(FieldReport r)
     {
         var issues = new List<string>();
-        if (r.ActiveHandoff is not null) issues.Add("This visit is handed to the office. Resume it before successful completion.");
-        if (r.Findings.Any(f => f.ResolvedUtc is null)) issues.Add("Resolve outstanding findings or record an exception handoff.");
         if (string.IsNullOrWhiteSpace(r.Diagnosis)) issues.Add("Diagnosis is required.");
         if (string.IsNullOrWhiteSpace(r.WorkPerformed)) issues.Add("Work performed is required.");
         if (string.IsNullOrWhiteSpace(r.TestResults)) issues.Add("Test results are required.");
@@ -141,17 +120,9 @@ public static partial class FieldRules
         if (r.JobPublicId != Guid.Empty && r.JobPublicId != op.JobPublicId) throw new FieldRuleException("This action does not belong to this service report.");
         r.JobPublicId = op.JobPublicId;
         if (r.State == FieldState.Completed) throw new FieldRuleException("This service report is already completed.");
-        if (r.ActiveHandoff is not null && op.Type is not (OperationType.ResumeVisit or OperationType.ResolveFinding))
-            throw new FieldRuleException("This visit is handed to the office. Resume after office instruction before recording more work.");
         bool changesContent = false;
         switch (op.Type)
         {
-            case OperationType.AddFinding:
-            case OperationType.ResolveFinding:
-            case OperationType.RecordException:
-            case OperationType.ResumeVisit:
-                ApplyFollowUp(r, op, actorId); changesContent = true;
-                break;
             case OperationType.Transition:
                 if (!Enum.IsDefined(op.TargetState) || (int)op.TargetState != (int)r.State + 1 || op.TargetState == FieldState.Completed)
                     throw new FieldRuleException("This job action is not available at the current stage.");
@@ -195,8 +166,6 @@ public static partial class FieldRules
                 if (r.State != FieldState.AwaitingSignature) throw new FieldRuleException("Finish the service workflow before completion.");
                 var issues = CompletionIssues(r); if (issues.Count > 0) throw new FieldRuleException(string.Join(" ", issues));
                 r.State = FieldState.Completed; r.CompletedUtc = op.CreatedUtc;
-                foreach (var visit in r.ReturnVisits.Where(v => v.ResumedUtc.HasValue && !v.CompletedUtc.HasValue))
-                    visit.CompletedUtc = op.CreatedUtc;
                 break;
             default: throw new FieldRuleException("Unsupported mobile operation.");
         }

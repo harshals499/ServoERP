@@ -24,17 +24,17 @@ public sealed class MobileJobService(string connectionString)
         var allowed = await c.ExecuteScalarAsync<int>(new CommandDefinition(@"SELECT COUNT(1) FROM AppUsers u JOIN UserCompanies uc ON uc.UserId=u.UserId AND uc.CompanyId=@companyId AND uc.IsActive=1
 JOIN RolePermissions p ON p.RoleId=ISNULL(uc.RoleId,u.RoleId) AND p.ModuleKey='WorkOrders' AND p.CanView=1 WHERE u.UserId=@userId AND u.IsActive=1", new { userId, companyId }, cancellationToken: ct));
         if (allowed == 0) throw new BadHttpRequestException("Your account cannot view this work-order report.", 403);
-        var json = await c.QuerySingleOrDefaultAsync<string>(new CommandDefinition("SELECT r.ReportJson FROM EngineerReports r JOIN Jobs j ON j.JobID=r.JobId AND j.CompanyId=r.CompanyId WHERE r.JobId=@jobId AND r.CompanyId=@companyId", new { jobId, companyId }, cancellationToken: ct));
+        var json = await c.QuerySingleOrDefaultAsync<string>(new CommandDefinition("SELECT r.ReportJson FROM EngineerReports r JOIN Jobs j ON j.JobID=r.JobId JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=r.CompanyId WHERE r.JobId=@jobId AND r.CompanyId=@companyId", new { jobId, companyId }, cancellationToken: ct));
         return json is null ? null : JsonSerializer.Deserialize<FieldReport>(json);
     }
     private const string SelectJobs = @"SELECT j.JobID JobId,j.SyncPublicId PublicId,ISNULL(j.SyncVersion,0) OfficeVersion,j.JobNumber Number,j.Priority,
 c.CompanyName Customer,s.SiteName Site,s.Address,c.PrimaryContact Contact,c.Phone,j.Description Fault,j.ScheduledDate,
 ISNULL(j.PipelineStatus,j.Status) OfficeStatus,r.ReportJson,j.EngineerRequiredPhotos,j.ClientID,j.SiteID,j.AssignedEmployeeID,j.ModifiedDate,j.Notes InternalNotes
 FROM Jobs j WITH(UPDLOCK,HOLDLOCK)
-JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=j.CompanyId
-JOIN ClientSites s ON s.SiteID=j.SiteID AND s.CompanyId=j.CompanyId
-LEFT JOIN EngineerReports r ON r.JobId=j.JobID AND r.CompanyId=j.CompanyId
-WHERE j.CompanyId=@CompanyId AND j.AssignedEmployeeID=@EmployeeId AND j.DeletedUtc IS NULL AND j.SyncPublicId IS NOT NULL";
+JOIN B2BClients c ON c.ClientID=j.ClientID AND c.CompanyId=@CompanyId
+LEFT JOIN ClientSites s ON s.SiteID=j.SiteID AND s.ClientID=j.ClientID
+LEFT JOIN EngineerReports r ON r.JobId=j.JobID AND r.CompanyId=c.CompanyId
+WHERE c.CompanyId=@CompanyId AND j.AssignedEmployeeID=@EmployeeId AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanView=1) AND j.DeletedUtc IS NULL AND j.SyncPublicId IS NOT NULL";
     public async Task<List<JobSnapshot>> Jobs(EngineerIdentity identity, CancellationToken ct)
     {
         await using var c = new SqlConnection(connectionString); await c.OpenAsync(ct);
@@ -49,12 +49,12 @@ WHERE j.CompanyId=@CompanyId AND j.AssignedEmployeeID=@EmployeeId AND j.DeletedU
         return (await c.QueryAsync<PartStock>(new CommandDefinition(@"SELECT s.ItemID ItemId,s.ItemName Name,s.Unit,
 CASE WHEN v.Quantity < s.CurrentStock-ISNULL(s.ReservedStock,0) THEN v.Quantity ELSE s.CurrentStock-ISNULL(s.ReservedStock,0) END Available
 FROM EngineerVanStock v JOIN StockItems s ON s.ItemID=v.ItemId AND s.CompanyId=v.CompanyId
-WHERE v.CompanyId=@CompanyId AND v.EmployeeId=@EmployeeId AND s.IsActive=1 ORDER BY s.ItemName", identity, cancellationToken: ct))).ToList();
+WHERE v.CompanyId=@CompanyId AND v.EmployeeId=@EmployeeId AND s.IsActive=1 AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='Inventory' AND CanView=1) ORDER BY s.ItemName", identity, cancellationToken: ct))).ToList();
     }
     public async Task<int> AuthorizedJob(EngineerIdentity identity, Guid publicId, CancellationToken ct)
     {
         await using var c = new SqlConnection(connectionString);
-        var id = await c.QuerySingleOrDefaultAsync<int?>(new CommandDefinition("SELECT JobID FROM Jobs WHERE SyncPublicId=@publicId AND CompanyId=@CompanyId AND AssignedEmployeeID=@EmployeeId AND DeletedUtc IS NULL AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanEdit=1)", new { publicId, identity.CompanyId, identity.EmployeeId, identity.RoleId }, cancellationToken: ct));
+        var id = await c.QuerySingleOrDefaultAsync<int?>(new CommandDefinition("SELECT j.JobID FROM Jobs j JOIN B2BClients c ON c.ClientID=j.ClientID WHERE j.SyncPublicId=@publicId AND c.CompanyId=@CompanyId AND AssignedEmployeeID=@EmployeeId AND DeletedUtc IS NULL AND EXISTS(SELECT 1 FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey='WorkOrders' AND CanEdit=1)", new { publicId, identity.CompanyId, identity.EmployeeId, identity.RoleId }, cancellationToken: ct));
         return id ?? throw new MobileHttpException(403, "This job is not assigned to your account.");
     }
     public async Task<OperationReceipt> Submit(EngineerIdentity identity, MobileOperation op, UploadReceipt? upload, CancellationToken ct)
@@ -107,11 +107,10 @@ WHERE ChecklistItemId=@Id AND JobId=@JobId", new { op.Checklist!.Id, op.Checklis
         await c.ExecuteAsync(new CommandDefinition(@"UPDATE EngineerReports SET Revision=@Revision,ReportJson=@json,UpdatedUtc=SYSUTCDATETIME() WHERE JobId=@JobId AND CompanyId=@CompanyId;
 IF @@ROWCOUNT=0 INSERT EngineerReports(JobId,CompanyId,Revision,ReportJson,UpdatedUtc) VALUES(@JobId,@CompanyId,@Revision,@json,SYSUTCDATETIME());", new { row.JobId, identity.CompanyId, report.Revision, json }, tx, cancellationToken: ct));
         var action = op.Type == OperationType.Transition ? op.TargetState.ToString() : op.Type.ToString();
-        var activity = FollowUpActivity(op);
         await c.ExecuteAsync(new CommandDefinition(@"INSERT EngineerAudit(CompanyId,UserId,JobId,OperationId,DeviceId,Action,CapturedUtc,ReceivedUtc,BeforeState,AfterState)
 VALUES(@CompanyId,@UserId,@JobId,@OperationId,@DeviceId,@action,@captured,SYSUTCDATETIME(),@before,@after);
 INSERT JobActivityLog(JobId,ActivityText,PerformedBy,ActivityDate,ActivityType) VALUES(@JobId,@text,@actor,GETDATE(),'Info');
-INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@UserId,@actor,@action,'WorkOrders',@JobId,@text);", new { identity.CompanyId, identity.UserId, row.JobId, op.OperationId, op.DeviceId, action, captured = op.CreatedUtc.UtcDateTime, before = before.ToString(), after = report.State.ToString(), text = activity.Length > 480 ? activity[..480] + "…" : activity, actor = identity.DisplayName }, tx, cancellationToken: ct));
+INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@UserId,@actor,@action,'WorkOrders',@JobId,@text);", new { identity.CompanyId, identity.UserId, row.JobId, op.OperationId, op.DeviceId, action, captured = op.CreatedUtc.UtcDateTime, before = before.ToString(), after = report.State.ToString(), text = $"Engineer {action}; operation {op.OperationId}", actor = identity.DisplayName }, tx, cancellationToken: ct));
         if (op.Type == OperationType.Complete)
         {
             foreach (var summary in new[] { "Diagnosis: " + report.Diagnosis, "Work performed: " + report.WorkPerformed, "Test results: " + report.TestResults })
@@ -121,17 +120,6 @@ INSERT AuditLog(UserId,Username,Action,ModuleKey,RecordId,Description) VALUES(@U
         await c.ExecuteAsync(new CommandDefinition("INSERT EngineerReceipts(OperationId,CompanyId,UserId,JobId,RequestHash,ReceiptJson,CommittedUtc) VALUES(@OperationId,@CompanyId,@UserId,@JobId,@requestHash,@receipt,SYSUTCDATETIME())", new { op.OperationId, identity.CompanyId, identity.UserId, row.JobId, requestHash, receipt = JsonSerializer.Serialize(receipt) }, tx, cancellationToken: ct));
         await tx.CommitAsync(ct); return receipt;
     }
-    private static string FollowUpActivity(MobileOperation op) => op.Type switch
-    {
-        OperationType.AddFinding => $"Finding: {op.Finding!.Title}. Next: {op.Finding.NextAction}. Owner: {op.Finding.Owner}. ID {op.Finding.Id}",
-        OperationType.ResolveFinding => $"Finding {op.Resolution!.FindingId} resolved: {op.Resolution.Note}",
-        OperationType.RecordException => $"Engineer handoff: {op.Handoff!.Reason}." +
-            (op.Handoff.RequestedReturnDate.HasValue ? $" Return requested {op.Handoff.RequestedReturnDate:dd/MM/yyyy}; dispatch must schedule through Jobs." : "") +
-            $" Office next: {Brief(op.Handoff.NextAction, 180)} Reason: {Brief(op.Handoff.Detail, 140)} Full detail: engineer report.",
-        OperationType.ResumeVisit => $"Engineer resumed handoff {op.Resume!.HandoffId}: {op.Resume.Note}",
-        _ => $"Engineer {op.Type}; operation {op.OperationId}"
-    };
-    private static string Brief(string text, int length) => text.Length <= length ? text : text[..length] + "…";
     private static async Task DemandPermission(SqlConnection c, SqlTransaction tx, EngineerIdentity identity, string module, CancellationToken ct)
     {
         if (await c.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(1) FROM RolePermissions WHERE RoleId=@RoleId AND ModuleKey=@module AND CanEdit=1", new { identity.RoleId, module }, tx, cancellationToken: ct)) == 0) throw new MobileHttpException(403, "Your account cannot perform this action. Contact the office.");
@@ -161,3 +149,4 @@ INSERT JobPartsUsed(JobId,InventoryItemId,ItemDescription,QuantityUsed,Unit,Unit
 VALUES(@jobId,@ItemId,@PartName,@Quantity,@unit,@rate,@rate*@Quantity,1,'Consumed');", new { identity.CompanyId, identity.EmployeeId, identity.UserId, op.ItemId, op.Quantity, op.PartName, before, after = before - op.Quantity, van = $"Engineer van {identity.EmployeeId}", job = $"Job {jobId}", reference = op.OperationId.ToString(), actor = identity.DisplayName, jobId, unit = (string)stock.Unit, rate = (decimal)stock.LastPurchaseRate }, tx, cancellationToken: ct));
     }
 }
+

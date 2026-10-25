@@ -94,9 +94,6 @@ public sealed class LocalWorkspace : IDisposable
     public void Update(PendingOperation op) { lock (_gate) _db.Update(op); }
     public void Acknowledge(PendingOperation pending, OperationReceipt receipt)
     {
-        if (receipt.OperationId.ToString() != pending.Id || receipt.Report.JobPublicId.ToString() != pending.JobId ||
-            receipt.Revision != receipt.Report.Revision)
-            throw new TransportException(System.Net.HttpStatusCode.Conflict, "The office receipt does not match this action. Your draft is retained for review.");
         lock (_gate) _db.RunInTransaction(() =>
         {
             pending.State = QueueState.Synced; pending.Error = ""; pending.ReceiptJson = JsonSerializer.Serialize(receipt); _db.Update(pending);

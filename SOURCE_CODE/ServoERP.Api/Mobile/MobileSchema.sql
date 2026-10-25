@@ -1,7 +1,20 @@
 -- Explicit deployment only. Never executed automatically by API startup.
 -- Existing Jobs/AppUsers/Companies/StockItems remain authoritative.
+IF OBJECT_ID('dbo.MobileEmployeeCompanies','U') IS NULL
+CREATE TABLE dbo.MobileEmployeeCompanies (
+ CompanyId int NOT NULL REFERENCES dbo.Companies(CompanyId),
+ EmployeeId int NOT NULL REFERENCES dbo.Employees(EmployeeID),
+ CONSTRAINT PK_MobileEmployeeCompanies PRIMARY KEY(CompanyId,EmployeeId)
+);
+IF OBJECT_ID('dbo.MobileWorkspaceReceipts','U') IS NULL
+CREATE TABLE dbo.MobileWorkspaceReceipts (
+ CompanyId int NOT NULL,UserId int NOT NULL,OperationId uniqueidentifier NOT NULL,
+ RequestHash varchar(64) NOT NULL,RecordJson nvarchar(max) NOT NULL,
+ CreatedUtc datetime2 NOT NULL DEFAULT SYSUTCDATETIME(),
+ CONSTRAINT PK_MobileWorkspaceReceipts PRIMARY KEY(CompanyId,UserId,OperationId)
+);
 IF OBJECT_ID('dbo.Companies','U') IS NULL OR OBJECT_ID('dbo.UserCompanies','U') IS NULL
- OR COL_LENGTH('dbo.Jobs','CompanyId') IS NULL OR COL_LENGTH('dbo.Jobs','SyncPublicId') IS NULL
+ OR COL_LENGTH('dbo.B2BClients','CompanyId') IS NULL OR COL_LENGTH('dbo.Jobs','SyncPublicId') IS NULL
  OR COL_LENGTH('dbo.Jobs','SyncVersion') IS NULL OR COL_LENGTH('dbo.StockItems','CompanyId') IS NULL
  THROW 51000, 'Install and verify the existing office API company-isolation and sync schema before enabling engineer mobile.', 1;
 IF OBJECT_ID('dbo.EngineerSessions','U') IS NULL
@@ -76,3 +89,4 @@ BEGIN
  IF EXISTS(SELECT 1 FROM inserted i WHERE NOT EXISTS(SELECT 1 FROM dbo.StockItems s WHERE s.ItemID=i.ItemId AND s.CompanyId=i.CompanyId))
  THROW 51003, ''Cross-company stock allocation blocked.'', 1;
 END');
+
