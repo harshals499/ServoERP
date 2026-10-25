@@ -1,12 +1,12 @@
 #Requires -Version 7.4
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$PackageRoot)
+param([Parameter(Mandatory)][string]$PackageRoot,[switch]$ResumeStaged)
 $ErrorActionPreference='Stop'
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 if(!([Security.Principal.WindowsPrincipal]::new($identity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'Windows elevation is required to update the existing office startup task.'}
-$version='1.1.504'
+$version='1.1.506'
 $taskName='ServoERP-MobileOffice-1.1.499'
-$old=Join-Path $env:LOCALAPPDATA 'ServoERP/MobileOffice/1.1.499'
+$old=Join-Path $env:LOCALAPPDATA 'ServoERP/MobileOffice/1.1.504'
 $next=Join-Path $env:LOCALAPPDATA "ServoERP/MobileOffice/$version"
 $deadline=[DateTime]::UtcNow.AddSeconds(60)
 $stageLock=$null
@@ -24,7 +24,13 @@ foreach($file in $manifest.Files){
  if(!$path.StartsWith($payload,[StringComparison]::OrdinalIgnoreCase) -or !(Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path).Hash -ne $file.SHA256){throw 'Office payload verification failed.'}
 }
 if(!(Test-Path (Join-Path $payload 'ServoERP.Api.exe'))){throw 'Office executable is missing.'}
-if(Test-Path $next){throw 'This office version is already staged. Inspect its deployment record before retrying.'}
+$resumeExisting=Test-Path $next
+if($resumeExisting){
+ if(!$ResumeStaged){throw 'This office version is already staged. Inspect its deployment record before retrying.'}
+ $prior=Get-Content (Join-Path $next 'OFFICE_CONNECTION.json') -Raw | ConvertFrom-Json
+ if($prior.Version -ne $version -or $prior.PreviousVersion -ne '1.1.504' -or $prior.Status -notlike 'Prior startup task restored*'){throw 'The staged record is not an identified failed activation.'}
+ foreach($file in $manifest.Files){$path=Join-Path $next $file.Path;if(!(Test-Path -LiteralPath $path) -or (Get-FileHash -LiteralPath $path).Hash -ne $file.SHA256){throw 'Staged payload identity changed; preserve the current service.'}}
+}
 $task=Get-ScheduledTask -TaskName $taskName
 if($task.Actions.Count -ne 1 -or $task.Actions[0].Arguments -notlike ('*'+$old+'*')){throw 'The existing task does not identify the expected office companion.'}
 $configuration=Get-Content (Join-Path $old 'appsettings.Production.json') -Raw | ConvertFrom-Json
@@ -35,31 +41,33 @@ $pin=$cert.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256)
 if($pin -ne 'D2005E8ABBE89FC9B8B15B6B691C46ECB00759B1828BAD213A368B12669995B9' -or $cert.NotAfter -le (Get-Date)){throw 'The existing office certificate does not match the paired mobile authority.'}
 $listeners=@(Get-NetTCPConnection -LocalPort 18446 -State Listen)
 $hostIds=@($listeners.OwningProcess | Sort-Object -Unique)
-if($hostIds.Count -ne 1 -or (Get-Process -Id $hostIds[0]).Path -ne (Join-Path $old 'ServoERP.Api.exe')){throw 'Office port belongs to an unexpected process.'}
+if($hostIds.Count -ne 1 -or (Get-Process -Id $hostIds[0]).Path -notin @((Join-Path $old 'ServoERP.Api.exe'),$(if($resumeExisting){Join-Path $next 'ServoERP.Api.exe'}else{''}))){throw 'Office port belongs to an unexpected process.'}
 # COPY_ONLY backup is deployment protection, not a business-save test. No migration runs here.
 $backupRoot=(& sqlcmd -S .\SQLEXPRESS -d master -E -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT CONVERT(nvarchar(4000),SERVERPROPERTY('InstanceDefaultBackupPath'))") -join ''
 if($LASTEXITCODE -or [string]::IsNullOrWhiteSpace($backupRoot)){throw 'SQL backup directory unavailable.'}
-$backup=Join-Path $backupRoot.Trim() ('HVAC_PRO_before_mobile_1_1_504_'+(Get-Date -Format 'yyyyMMdd_HHmmss')+'.bak')
+$backup=Join-Path $backupRoot.Trim() ('HVAC_PRO_before_mobile_1_1_506_'+(Get-Date -Format 'yyyyMMdd_HHmmss')+'.bak')
 $literal=$backup.Replace("'","''")
 & sqlcmd -S .\SQLEXPRESS -d master -E -C -b -Q "BACKUP DATABASE [HVAC_PRO] TO DISK=N'$literal' WITH COPY_ONLY,CHECKSUM; RESTORE VERIFYONLY FROM DISK=N'$literal' WITH CHECKSUM;"
 if($LASTEXITCODE){throw 'Backup verification failed; office task was preserved.'}
+if(!$resumeExisting){
 New-Item -ItemType Directory -Path $next | Out-Null
 $acl=[Security.AccessControl.DirectorySecurity]::new();$acl.SetAccessRuleProtection($true,$false)
 foreach($principal in @($identity.Name,'NT AUTHORITY\SYSTEM')){$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($principal,'FullControl','ContainerInherit,ObjectInherit','None','Allow'))}
 Set-Acl -LiteralPath $next -AclObject $acl
 Get-ChildItem -LiteralPath $payload | Copy-Item -Destination $next -Recurse
 Copy-Item -LiteralPath (Join-Path $old 'appsettings.Production.json') -Destination $next
+}
 $taskXml=Export-ScheduledTask -TaskName $taskName
 $taskXml | Set-Content (Join-Path $next 'previous-task.xml')
 # Reuse the established launcher and its singleton mutex; only its directory changes.
 Copy-Item -LiteralPath (Join-Path $old 'Start-MobileOffice.ps1') -Destination $next
-$record=[ordered]@{Version=$version;PreviousVersion='1.1.499';Folder=$next;Task=$taskName;Addresses=@('https://192.168.2.5:18446','https://100.97.226.80:18446');CertificateSHA256=$pin;VerifiedBackup=$backup;BackupSHA256=(Get-FileHash -LiteralPath $backup).Hash;Migration='None';BusinessWriteTests='Disposable database only';Status='Staged'}
+$record=[ordered]@{Version=$version;PreviousVersion='1.1.504';Folder=$next;Task=$taskName;Addresses=@('https://192.168.2.5:18446','https://100.97.226.80:18446');CertificateSHA256=$pin;VerifiedBackup=$backup;BackupSHA256=(Get-FileHash -LiteralPath $backup).Hash;Migration='None';BusinessWriteTests='Disposable database only';Status='Staged'}
 $recordPath=Join-Path $next 'OFFICE_CONNECTION.json'
 $record | ConvertTo-Json -Depth 5 | Set-Content $recordPath
 try{
  Set-Content (Join-Path $old 'stop.requested') 'Companion binary upgrade'
  Stop-ScheduledTask -TaskName $taskName
- if((Get-Process -Id $hostIds[0] -ErrorAction SilentlyContinue).Path -eq (Join-Path $old 'ServoERP.Api.exe')){Stop-Process -Id $hostIds[0]}
+ if((Get-Process -Id $hostIds[0] -ErrorAction SilentlyContinue).Path -in @((Join-Path $old 'ServoERP.Api.exe'),(Join-Path $next 'ServoERP.Api.exe'))){Stop-Process -Id $hostIds[0]}
  $launcherMutex=[Threading.Mutex]::new($false,'Local\ServoERP.MobileOffice.1.1.499');$ownsMutex=$false
  try{
   try{$ownsMutex=$launcherMutex.WaitOne([TimeSpan]::FromSeconds(15))}catch [Threading.AbandonedMutexException]{$ownsMutex=$true}
@@ -67,9 +75,13 @@ try{
  }finally{if($ownsMutex){$launcherMutex.ReleaseMutex()};$launcherMutex.Dispose()}
  $action=New-ScheduledTaskAction -Execute (Get-Command pwsh).Source -Argument "-NoProfile -WindowStyle Hidden -File `"$(Join-Path $next 'Start-MobileOffice.ps1')`"" -WorkingDirectory $next
  Set-ScheduledTask -TaskName $taskName -Action $action | Out-Null
+ Remove-Item -LiteralPath (Join-Path $next 'stop.requested') -ErrorAction SilentlyContinue
  Start-ScheduledTask -TaskName $taskName
- Start-Sleep -Seconds 5
- & (Join-Path $PSScriptRoot 'Test-MobileOfficeConnection.ps1') -ConnectionRecord $recordPath | Set-Content (Join-Path $next 'HTTPS_READINESS.json')
+ $ready=$false;$readyDeadline=[DateTime]::UtcNow.AddSeconds(90)
+ do {
+  try { & (Join-Path $PSScriptRoot 'Test-MobileOfficeConnection.ps1') -ConnectionRecord $recordPath | Set-Content (Join-Path $next 'HTTPS_READINESS.json');$ready=$true }
+  catch { if([DateTime]::UtcNow -ge $readyDeadline){throw};Start-Sleep -Seconds 2 }
+ }while(!$ready)
  $record.Status='Verified HTTPS/SQL readiness';$record.InstalledUtc=[DateTime]::UtcNow.ToString('o')
  $record | ConvertTo-Json -Depth 5 | Set-Content $recordPath
  Copy-Item -LiteralPath $recordPath -Destination (Join-Path $PackageRoot 'OFFICE_CONNECTION.json')

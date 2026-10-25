@@ -25,6 +25,7 @@ internal static class OfficeSyncDesktopChecks
         {
             if (args.Length != 6 || !System.Text.RegularExpressions.Regex.IsMatch(args[0], "^EngineerTests_[a-f0-9]{32}$")) throw new Exception("Disposable database and three record IDs, mode and output folder required.");
             int clientId = int.Parse(args[1]), employeeId = int.Parse(args[2]), jobId = int.Parse(args[3]); string mode = args[4], output = Path.GetFullPath(args[5]); Directory.CreateDirectory(output);
+            Application.SetUnhandledExceptionMode(UnhandledExceptionMode.ThrowException);
             var assembly = typeof(DatabaseManager).Assembly;
             var factory = assembly.GetType("HVAC_Pro_Desktop.DAL.DatabaseConnectionFactory", true);
             factory.GetProperty("DiagnosticConnectionString", BindingFlags.Static | BindingFlags.NonPublic).SetValue(null, "Server=.\\SQLEXPRESS;Database=" + args[0] + ";Integrated Security=True;TrustServerCertificate=True", null);

@@ -1,6 +1,6 @@
 # Automatic desktop/mobile office data
 
-Candidates: desktop 1.1.523, Office API 1.1.506, Android 1.1.506 (528). Not deployed or published.
+Candidates: desktop 1.1.523, Office API 1.1.506, Android 1.1.506 (528). Publication is tracked in the release artifact evidence; the desktop and mobile/API use separate activation gates.
 
 The office SQL Server database remains authoritative. Mobile client, employee and job forms use the same rows and real relationship IDs as desktop repositories. There is no separate business workspace or SQLite business-write store. Existing field-service queues remain unchanged.
 
@@ -12,7 +12,7 @@ The phone and desktop must connect to the same office database/company. Existing
 
 ## Evidence and limits
 
-87 standalone mobile/core tests pass. Android Release build and both ABI assembly-store checks pass. Office API and desktop Release builds pass. SQL integration tests use only EngineerTests_f7fe0dfae9fb4ccebcda63b7914c24df, cloned from synthetic MobileE2E data. Actual desktop repositories create/read/edit the mobile records, and API refresh returns desktop changes. Stale edits and cross-company client edits are rejected. Native desktop Clients/Employees/Jobs screenshots and refresh-gate checks are recorded under artifacts/mobile-sync. The final APK native test additionally created job 16 using newly refreshed desktop client 7 and employee 22, and SQL verified those exact IDs. A repeat offscreen desktop render run stalled during page-load dispatch and was stopped; it is not counted as a passing rerun. Earlier native desktop screenshots and the 13 passing checks remain the recorded visual evidence. Native Android evidence is under artifacts/1.1.506/screenshots in the mobile worktree.
+87 standalone mobile/core tests pass. Android Release build and both ABI assembly-store checks pass. Office API and desktop Release builds pass. SQL integration tests use only EngineerTests_f7fe0dfae9fb4ccebcda63b7914c24df, cloned from synthetic MobileE2E data. Actual desktop repositories create/read/edit the mobile records, and API refresh returns desktop changes. Stale edits and cross-company client edits are rejected. Native desktop Clients/Employees/Jobs screenshots and refresh-gate checks are recorded under artifacts/mobile-sync. The final APK native test additionally created job 16 using newly refreshed desktop client 7 and employee 22, and SQL verified those exact IDs. The stalled offscreen desktop harness was diagnosed as a missing EXE binding configuration; rerunning with the actual desktop config passed all 13 native checks on 1.1.523. Native Android evidence is under artifacts/1.1.506/screenshots in the mobile worktree.
 
 Production HVAC_PRO was not used for write tests. Test-only missing legacy fixture objects are isolated in ServoERP.OfficeSync.Checks/DesktopTestSchema.sql. No customer migration, closed-app background guarantee, production deployment or public updater campaign is claimed. Full update-install validation and release packaging remain separate release gates.
 
