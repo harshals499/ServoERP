@@ -1,3 +1,7 @@
+## 1.1.524 - 2026-10-25
+- Preserve desktop-only client creation when the optional mobile CompanyId column is absent, while retaining company links on mobile-enabled databases.
+- Forward compatibility patch; includes all shared mobile data refresh and Mobile Connection improvements.
+
 ## 1.1.523 - 2026-10-25
 - Automatically refresh shared office clients, employees and jobs across desktop/mobile; preserve open mobile drafts and support permitted client creation/editing.
 - Keep active company links on desktop client/employee creation, and retain the published Mobile Connection settings.
