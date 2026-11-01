@@ -48,10 +48,11 @@ namespace HVAC_Pro_Desktop.Tests
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.Invoices WHERE IsPosted=0 AND PaymentStatus='Draft' AND PaidAmount=0 AND BalanceDue=1180")==1,"Invoice not unposted/unpaid draft");
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.InvoiceLineItems WHERE InvoiceID=@invoice",new{invoice})==1,"Invoice lines missing");
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.ClientDocuments WHERE FilePath=@path",new{path})==1,"Original attachment registration missing");passes.Add("PASS invoice + lines + attachment + metadata atomic save / idempotent retry");
+                    Assert(new TenderService().GetAll().Count==0,"Quotation list must be empty before the service/cache visibility test");
                     foreach(var type in new[]{ImportDocumentType.Quotation,ImportDocumentType.PurchaseInvoice})
                     {
                         var other=Draft(type,fixture,(int)type+10);DocumentImportService.ValidateModuleMapping(other);
-                        using(var tx=c.BeginTransaction()){DocumentImportRepository.Save(c,tx,other,path);tx.Commit();}
+                        DocumentImportService.Save(other,CancellationToken.None,Path.Combine(Path.GetDirectoryName(fixture),"test-vault"));
                     }
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.Quotations WHERE Status='Draft' AND TotalWithGST=1180")==1,"Quotation missing");
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.PurchaseOrders WHERE Status='Pending' AND PaidAmount=0 AND VendorInvoiceNumber LIKE 'QA-%'")==1,"Purchase marked received/paid");

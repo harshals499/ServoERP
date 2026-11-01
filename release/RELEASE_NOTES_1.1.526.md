@@ -11,6 +11,7 @@ Review business PDFs and images locally, correct their extracted contents, and s
 - PDF, scanned PDF, JPG, PNG and verified Madhusuman XLSX input, up to 20 MB and 40 PDF pages. Each page is proposed separately; merge continuation pages and review document boundaries before saving.
 - FluentValidation required-field, exact total, GST, date and line arithmetic checks plus existing module business/calculation validators. Missing or conflicting values remain unresolved.
 - SQL transaction covers header, lines, import metadata and attachment registration. File hashes, page overlap checks, business duplicate checks and a database application lock protect retries, including concurrent retries.
+- All affected module caches, including a preloaded quotation list, are invalidated after commit so reviewed imports appear immediately.
 - Originals use the existing client upload vault convention. Module card menus include Original imported document; the import dialog also exposes saved import history.
 - Async extraction/save with cancellation, safe error messages and progress. Imports remain draft/unpaid; no automatic accounting posting, inventory reservation/issue, receipt or payment action.
 

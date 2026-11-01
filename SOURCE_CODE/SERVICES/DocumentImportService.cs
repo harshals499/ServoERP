@@ -99,7 +99,7 @@ namespace HVAC_Pro_Desktop.Services
                         int id=DocumentImportRepository.Save(c,tx,d,attachment);
                         token.ThrowIfCancellationRequested();
                         tx.Commit(); // Cancellation after this point must report success, never invite a duplicate save.
-                        AppDataCache.RemovePrefix("invoices:"); AppDataCache.RemovePrefix("purchases:"); AppDataCache.RemovePrefix("masterdata:");
+                        AppDataCache.RemovePrefix("invoices:"); AppDataCache.RemovePrefix("purchases:"); AppDataCache.RemovePrefix("tenders:"); AppDataCache.RemovePrefix("masterdata:");
                         DashboardRefreshService.NotifyChanged(DocumentImportRepository.Module(d.DocumentType));
                         Serilog.Log.Information("Document import {AttemptId} saved to {Module} record {RecordId}",attempt,DocumentImportRepository.Module(d.DocumentType),id);
                         return id;
