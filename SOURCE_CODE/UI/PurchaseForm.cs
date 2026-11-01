@@ -1393,6 +1393,7 @@ namespace HVAC_Pro_Desktop.UI
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
             menu.Items.Add("View", null, (a, b2) => OpenPurchaseOrderPdfFromDashboard(po));
             menu.Items.Add("Summary", null, (a, b2) => ShowPurchaseOrderSummary(po));
+            menu.Items.Add("Original imported document", null, async (a, b2) => await ImportUiHelper.OpenImportedOriginalAsync("Purchases", po.POID, FindForm()));
             menu.Items.Add("Download / Print", null, (a, b2) => DownloadDashboardPurchaseOrder(po));
             menu.Items.Add("Edit", null, (a, b2) => ShowPurchaseOrderSummary(po));
             menu.Items.Add("Duplicate", null, (a, b2) => DuplicateDashboardPurchaseOrder(po));

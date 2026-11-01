@@ -60,7 +60,7 @@ foreach ($pattern in $filePatterns) {
         Copy-Item -Destination $stage -Force
 }
 
-foreach ($folder in @('Resources', 'runtimes')) {
+foreach ($folder in @('Resources', 'runtimes', 'SERVICES')) {
     $source = Join-Path $releaseDir $folder
     if (Test-Path -LiteralPath $source) {
         Copy-Item -LiteralPath $source -Destination (Join-Path $stage $folder) -Recurse -Force

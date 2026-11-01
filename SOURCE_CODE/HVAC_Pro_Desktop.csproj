@@ -228,6 +228,16 @@
     <Compile Include="Validators\AMCContractValidator.cs" />
     <Compile Include="Validators\B2BClientValidator.cs" />
     <Compile Include="Validators\EmployeeValidator.cs" />
+    <Compile Include="MODELS\DocumentImportModels.cs" />
+    <Compile Include="Tests\DocumentImportRegressionTests.cs" />
+    <Compile Include="Tests\MseHistoricalImportTests.cs" />
+    <Compile Include="Validators\DocumentImportValidator.cs" />
+    <Compile Include="DAL\DocumentImportRepository.cs" />
+    <Compile Include="SERVICES\DocumentImportExtractionService.cs" />
+    <Compile Include="SERVICES\MseHistoricalDocumentProfile.cs" />
+    <Compile Include="SERVICES\DocumentImportService.cs" />
+    <Compile Include="UI\DocumentImportDialog.cs" />
+    <Content Include="SERVICES\DocumentImport.LocalOcr.ps1"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Compile Include="Validators\FluentValidationGuard.cs" />
     <Compile Include="Validators\JobValidator.cs" />
     <Compile Include="Validators\PaymentValidator.cs" />

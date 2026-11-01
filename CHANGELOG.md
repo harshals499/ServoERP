@@ -1,3 +1,10 @@
+## 1.1.526 - 1 November 2026
+
+- Add local PDF/image document review and draft import for sales quotations, sales invoices and vendor invoices, with original attachments, explicit party/item matching and GST reconciliation.
+- Prevent partial imports and concurrent retry duplicates; keep imported records unpaid and unposted without changing stock.
+- Add verified Madhusuman quotation XLSX/PDF, Sales/Purchases register and Tally e-invoice mappings with source-cell evidence; retain exact historical tax totals and flag inconsistencies for review.
+- Retain existing workbook imports. Local OCR requires an installed Windows recognizer; extracted fields and page boundaries require review.
+
 ## 1.1.525 - 25 October 2026
 
 - Mobile Connection now has separate Download Mobile App and Sync App QR codes, with installation and office sign-in instructions.

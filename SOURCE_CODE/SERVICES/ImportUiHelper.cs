@@ -44,6 +44,7 @@ namespace HVAC_Pro_Desktop.Services
             }
 
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
+            menu.Items.Add("Review PDF / image / MSE workbook", null, (s, e) => ReviewDocument(owner));
             AddDirectionalImportItem(menu, module, owner, "Sent to Suppliers");
             AddDirectionalImportItem(menu, module, owner, "Received from Suppliers");
             AddDirectionalImportItem(menu, module, owner, "Sent to Clients");
@@ -62,6 +63,32 @@ namespace HVAC_Pro_Desktop.Services
                 else
                     RunImport(module, owner);
             });
+        }
+
+        public static void ReviewDocument(IWin32Window owner = null)
+        {
+            using (var dialog = new HVAC_Pro_Desktop.UI.DocumentImportDialog()) dialog.ShowDialog(owner);
+        }
+
+        public static async System.Threading.Tasks.Task OpenImportedOriginalAsync(string module, int recordId, IWin32Window owner = null)
+        {
+            try
+            {
+                string path = await System.Threading.Tasks.Task.Run(() => new DocumentImportService().GetOriginal(module, recordId));
+                if (string.IsNullOrEmpty(path) || !File.Exists(path))
+                {
+                    MessageBox.Show(owner, "No imported original is available on this PC for this record.", "ServoERP · Original document", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+                if (!new[] { ".pdf", ".jpg", ".jpeg", ".png", ".xlsx" }.Contains(Path.GetExtension(path).ToLowerInvariant()))
+                    throw new InvalidOperationException("Unsupported original document format.");
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(path) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Warning("Opening imported original failed with {ErrorType}", ex.GetType().Name);
+                MessageBox.Show(owner, "The original document could not be opened. Check your module access and attachment storage.", "ServoERP · Original document", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         public static void RunMappedImport(ExcelImportModule module, IWin32Window owner = null)

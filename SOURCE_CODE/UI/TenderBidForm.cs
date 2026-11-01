@@ -459,6 +459,7 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowQuotationImportMenu(Control owner)
         {
             ContextMenuStrip menu = new ContextMenuStrip();
+            menu.Items.Add("Review PDF / image / MSE workbook", null, (s, e) => ImportUiHelper.ReviewDocument(FindForm()));
             AddQuotationImportMenuItem(menu, "Received from Suppliers");
             AddQuotationImportMenuItem(menu, "Sent to Suppliers");
             AddQuotationImportMenuItem(menu, "Sent to Clients");
@@ -1878,6 +1879,7 @@ namespace HVAC_Pro_Desktop.UI
 
             ContextMenuStrip menu = new ContextMenuStrip { ShowImageMargin = false };
             menu.Items.Add("Open Preview", null, async (s, e) => await SelectQuoteAsync(quote, card));
+            menu.Items.Add("Original imported document", null, async (s, e) => await ImportUiHelper.OpenImportedOriginalAsync("Quotations", quote.BidID, FindForm()));
             menu.Items.Add("Edit", null, async (s, e) => await EditQuoteAsync(quote, card));
             menu.Items.Add("Delete Quote", null, async (s, e) =>
             {

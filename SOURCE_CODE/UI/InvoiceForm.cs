@@ -4997,6 +4997,7 @@ namespace HVAC_Pro_Desktop.UI
             menu.Items.Add("Open Preview", null, (s, e) => SelectInvoice(invoice, card));
             menu.Items.Add("Edit", null, (s, e) => EditInvoice(invoice, card));
             menu.Items.Add("Audit history", null, (s, e) => { using (var history = new FinancialRecordHistoryDialog("Invoices", invoice.InvoiceID)) history.ShowDialog(FindForm()); });
+            menu.Items.Add("Original imported document", null, async (s, e) => await ImportUiHelper.OpenImportedOriginalAsync("Invoices", invoice.InvoiceID, FindForm()));
             menu.Items.Add("Archive", null, (s, e) => DeleteInvoice(invoice, _current != null && _current.InvoiceID == invoice.InvoiceID));
             card.ContextMenuStrip = menu;
             foreach (Control control in new Control[] { lblNumber, lblClient, lblAmount, lblStatus })
