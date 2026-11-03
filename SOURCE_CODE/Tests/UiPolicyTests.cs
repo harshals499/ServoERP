@@ -24,6 +24,7 @@ namespace HVAC_Pro_Desktop.Tests
             EnsureActionStyleResolverMapsCoreLabels();
             EnsureActionButtonAppliesSecondaryBorder();
             EnsureModernButtonInteractionStates();
+            EnsureSharedButtonEnableTransitionsRestorePalette();
             EnsureSoftBorderDesignTokens();
             EnsureQuotationVisualInheritance();
             EnsureInactiveInputsDoNotKeepBlueSelection();
@@ -385,6 +386,32 @@ namespace HVAC_Pro_Desktop.Tests
                     throw new InvalidOperationException("Secondary action buttons must have a visible border.");
                 if (button.FlatAppearance.BorderColor.ToArgb() != DS.Slate300.ToArgb())
                     throw new InvalidOperationException("Secondary action button border must use the elevated shared slate border token.");
+            }
+        }
+
+        private static void EnsureSharedButtonEnableTransitionsRestorePalette()
+        {
+            using (var parent = new Panel())
+            using (var save = new Button { Text = "Save Selection & Next", Enabled = false })
+            using (var select = new Button { Text = "Select all" })
+            using (var expectedSave = new Button { Text = "Save Selection & Next" })
+            {
+                parent.Controls.Add(save);
+                parent.Controls.Add(select);
+                UIHelper.ApplyActionButton(expectedSave);
+                SharedUiPrimitives.ApplyToTree(parent);
+                save.Enabled = true;
+                if (save.BackColor.ToArgb() != expectedSave.BackColor.ToArgb() || save.ForeColor.ToArgb() != expectedSave.ForeColor.ToArgb())
+                    throw new InvalidOperationException("Initially disabled Save must regain its enabled action palette through shared styling.");
+                Color selectBack = select.BackColor, selectFore = select.ForeColor, selectBorder = select.FlatAppearance.BorderColor;
+                for (int cycle = 0; cycle < 3; cycle++)
+                {
+                    parent.Enabled = false;
+                    parent.Enabled = true;
+                    if (save.BackColor.ToArgb() != expectedSave.BackColor.ToArgb() || save.ForeColor.ToArgb() != expectedSave.ForeColor.ToArgb() ||
+                        select.BackColor.ToArgb() != selectBack.ToArgb() || select.ForeColor.ToArgb() != selectFore.ToArgb() || select.FlatAppearance.BorderColor.ToArgb() != selectBorder.ToArgb())
+                        throw new InvalidOperationException("Parent disable/re-enable must restore primary and secondary button colours; enabled controls must not look disabled.");
+                }
             }
         }
 

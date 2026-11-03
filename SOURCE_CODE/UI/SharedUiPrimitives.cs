@@ -13,8 +13,8 @@ namespace HVAC_Pro_Desktop.UI
         public const int FormMargin = DS.Space2;
         public const int HeaderActionGap = 12;
         private static readonly HashSet<Button> DisabledStateButtons = new HashSet<Button>();
-        private static readonly Dictionary<Button, Tuple<Color, Color, Color, Cursor>> ButtonEnabledState =
-            new Dictionary<Button, Tuple<Color, Color, Color, Cursor>>();
+        private static readonly Dictionary<Button, Cursor> ButtonEnabledState =
+            new Dictionary<Button, Cursor>();
         private static readonly ToolTip SharedToolTip = new ToolTip
         {
             AutomaticDelay = 350,
@@ -356,24 +356,20 @@ namespace HVAC_Pro_Desktop.UI
 
             if (button.Enabled)
             {
-                Tuple<Color, Color, Color, Cursor> state;
+                Cursor state;
                 if (ButtonEnabledState.TryGetValue(button, out state))
                 {
-                    button.BackColor = state.Item1;
-                    button.ForeColor = state.Item2;
-                    button.FlatAppearance.BorderColor = state.Item3;
-                    button.Cursor = state.Item4;
+                    // UIHelper owns the enabled palette. Its handler runs first, including
+                    // parent enable changes; restoring cached muted colours here hides live actions.
+                    button.Cursor = state;
+                    ButtonEnabledState.Remove(button);
                 }
                 return;
             }
 
             if (!ButtonEnabledState.ContainsKey(button))
             {
-                ButtonEnabledState[button] = Tuple.Create(
-                    button.BackColor,
-                    button.ForeColor,
-                    button.FlatAppearance.BorderColor,
-                    button.Cursor);
+                ButtonEnabledState[button] = button.Cursor;
             }
 
             button.BackColor = DS.InputDisabledBack;

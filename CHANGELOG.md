@@ -1,3 +1,9 @@
+## 1.1.529 - 3 November 2026
+
+- Restore the normal enabled appearance of Save/Next, PDF navigation/zoom and selection controls after initial loading and folder scanning.
+- Prevent shared disabled-state styling from replacing enabled button palettes with cached muted colours.
+- Add regression coverage for repeated disable/re-enable cycles and multi-file PDF review navigation without import writes.
+
 ## 1.1.528 - 3 November 2026
 
 - Add PDF Import in the sidebar with recursive scanning, local PDF preview and manual categorisation.

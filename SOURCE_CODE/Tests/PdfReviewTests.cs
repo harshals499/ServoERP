@@ -70,6 +70,7 @@ namespace HVAC_Pro_Desktop.Tests
                     SqlChecks(connection,fixtureRoot,service,passes);
                 }
                 UiChecks(fixtureRoot,passes);
+                NavigationChecks(fixtureRoot,passes);
                 File.WriteAllLines(Path.Combine(fixtureRoot,"results.txt"),passes);
             }
             catch(Exception ex) {File.WriteAllLines(Path.Combine(fixtureRoot,"results.txt"),passes.Concat(new[]{"FAIL "+ex}));Environment.ExitCode=1;}
@@ -161,6 +162,56 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                 host.Close();
             }
             passes.Add("PASS native built review/category/save-next/summary, wide+narrow screenshots, sidebar PDF Import, module library actions");
+        }
+        private static void NavigationChecks(string root,List<string> passes)
+        {
+            string folder=Path.Combine(root,"navigation");Directory.CreateDirectory(folder);
+            for(int index=0;index<5;index++)WritePdf(Path.Combine(folder,"invoice-"+index+".pdf"),"NAVIGATION SAMPLE "+index,2);
+            List<string> warnings;var batch=PdfReviewService.Scan(folder,null,CancellationToken.None,out warnings);
+            Assert(batch.Files.Count==5&&warnings.Count==0,"Navigation fixture scan failed");
+            int registrations;using(var c=DatabaseConnectionFactory.CreateConnection()){c.Open();registrations=c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.ClientDocuments");}
+            using(var page=new PdfImportPage())
+            using(var host=new Form {ClientSize=new Size(1440,940),StartPosition=FormStartPosition.CenterScreen})
+            {
+                host.Controls.Add(page);host.Show();Application.DoEvents();
+                // Exercise the actual parent-disable cycle used while scanning, not just a preloaded idle page.
+                typeof(PdfImportPage).GetMethod("BeginOperation",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(page,new object[]{"Scanning synthetic QA PDFs…"});
+                typeof(PdfImportPage).GetMethod("EndOperation",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(page,null);
+                page.LoadForTest(batch);
+                var viewer=Descendants(page).OfType<PdfReviewViewer>().Single();
+                var save=FindButton(page,"Save Selection & Next");
+                for(int index=0;index<5;index++)
+                {
+                    int expected=index;
+                    PumpUntil(()=>viewer.CurrentFile==batch.Files[expected]&&batch.Files[expected].Previewed&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                    Assert(FindButton(viewer,"+").Enabled&&FindButton(viewer,"+").ForeColor.ToArgb()!=DS.Slate500.ToArgb(),"Live PDF toolbar still looks disabled after scanning");
+                    if(index==0)
+                    {
+                        FindButton(viewer,"›").PerformClick();PumpUntil(()=>!viewer.Loading,TimeSpan.FromSeconds(55));
+                        Assert(Descendants(viewer).OfType<Label>().Any(label=>label.Text=="Page 2 of 2"),"Next page did not advance");
+                        FindButton(viewer,"+").PerformClick();Application.DoEvents();
+                        Assert(Descendants(viewer).OfType<Label>().Any(label=>label.Text.Contains("125%")),"Zoom did not respond");
+                        FindButton(viewer,"Fit to width").PerformClick();
+                    }
+                    FindButton(page,"Invoice").PerformClick();Application.DoEvents();
+                    Assert(save.Enabled&&save.BackColor.ToArgb()==DS.Primary600.ToArgb()&&save.ForeColor.ToArgb()==Color.White.ToArgb(),"Ready Save/Next must be visibly enabled in the established primary palette");
+                    if(index==0)Capture(host,Path.Combine(root,"controls-ready.png"));
+                    save.PerformClick();Application.DoEvents();
+                    Assert(batch.Files[index].Category==PdfCategory.Invoice,"Save/Next did not retain the current category");
+                }
+                Assert(batch.Ready==5&&Descendants(page).OfType<Button>().Any(button=>button.Text=="Confirm & Import — 5 PDFs"&&button.Enabled),"Last document did not reach a correct import summary");
+                Capture(host,Path.Combine(root,"navigation-summary.png"));FindButton(page,"Back to review").PerformClick();
+                FindButton(page,"Previous").PerformClick();PumpUntil(()=>viewer.CurrentFile==batch.Files[3]&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                FindButton(page,"Quotation").PerformClick();save.PerformClick();Application.DoEvents();Assert(batch.Files[3].Category==PdfCategory.Quotation,"Earlier category could not be changed");
+                PumpUntil(()=>viewer.CurrentFile==batch.Files[4]&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                var grid=Descendants(page).OfType<DataGridView>().First(control=>control.Columns.Cast<DataGridViewColumn>().Any(column=>column.DataPropertyName=="FileName"));
+                grid.CurrentCell=grid.Rows[0].Cells[1];grid.CurrentCell=grid.Rows[4].Cells[1];
+                PumpUntil(()=>viewer.CurrentFile==batch.Files[4]&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                Assert(save.Enabled,"Rapid selection/cancel left Save stranded");
+                host.Close();
+            }
+            using(var c=DatabaseConnectionFactory.CreateConnection()){c.Open();Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.ClientDocuments")==registrations,"Categorisation/navigation wrote document registrations before import confirmation");}
+            passes.Add("PASS scan enable cycle restores button colours; 5-file Save/Next, multipage/zoom, Previous/reclassification, rapid selection/cancel, final summary; categorising writes no records");
         }
         private static IEnumerable<Control> Descendants(Control root) {yield return root;foreach(Control child in root.Controls)foreach(var c in Descendants(child))yield return c;}
         private static Button FindButton(Control root,string text)=>Descendants(root).OfType<Button>().First(b=>b.Text==text);
