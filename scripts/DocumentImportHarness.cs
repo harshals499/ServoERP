@@ -24,6 +24,20 @@ internal static class DocumentImportHarness
     {
         Thread.CurrentThread.CurrentCulture=System.Globalization.CultureInfo.GetCultureInfo("en-IN");
         Thread.CurrentThread.CurrentUICulture=Thread.CurrentThread.CurrentCulture;
+        if(args[1]=="discovery") {Console.WriteLine(LocalDocumentDiscoveryTests.Run(args[2]));return 0;}
+        if(args[1]=="uidiscovery")
+        {
+            Application.EnableVisualStyles();Application.SetCompatibleTextRenderingDefault(false);
+            var result=new LocalDocumentScanResult{RootPath=Path.GetPathRoot(args[2]),FoldersVisited=3,FilesVisited=8,LinksSkipped=1,SystemFoldersSkipped=true,SystemFoldersSkippedCount=1};
+            foreach(string file in Directory.GetFiles(args[2],"*.pdf")) {var info=new FileInfo(file);result.Files.Add(new LocalDocumentCandidate{FileName=info.Name,FullPath=info.FullName,SizeBytes=info.Length,ModifiedUtc=info.LastWriteTimeUtc,Format="PDF",CanReview=info.Length>0&&info.Length<=20*1024*1024,Status=info.Length==0?"Empty file":info.Length>20*1024*1024?"Over 20 MB limit":"Not analysed — select for review"});}
+            using(var discovery=new LocalDocumentDiscoveryDialog(result))
+            {
+                discovery.Text+=" · QA fixture results (not a real drive scan)";
+                var timer=new System.Windows.Forms.Timer{Interval=1800};timer.Tick+=(s,e)=>{timer.Stop();using(var bitmap=new Bitmap(discovery.Width,discovery.Height)){discovery.DrawToBitmap(bitmap,new Rectangle(Point.Empty,discovery.Size));bitmap.Save(args[3]);}timer.Dispose();};discovery.Shown+=(s,e)=>timer.Start();
+                discovery.ShowDialog();
+            }
+            return 0;
+        }
         if(args[1]=="historical") {Console.WriteLine(MseHistoricalImportTests.Run(args[2],args[3]));return 0;}
         if(args[1]=="ci")
         {

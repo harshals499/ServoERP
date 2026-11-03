@@ -1,3 +1,9 @@
+## 1.1.527 - 3 November 2026
+
+- Detect supported business-document files across an explicitly selected local drive, with filename filtering, cancellable discovery, skipped-location counts and partial-scan reporting.
+- Select discovered files in batches for the existing local extraction/review workflow; retain successes when another file fails and avoid duplicate review entries.
+- Preserve explicit review/save requirements; scanning does not change documents, create masters, post accounting, move stock or record payments.
+
 ## 1.1.526 - 1 November 2026
 
 - Add local PDF/image document review and draft import for sales quotations, sales invoices and vendor invoices, with original attachments, explicit party/item matching and GST reconciliation.
@@ -2687,3 +2693,4 @@
 
 ## [1.1.499] - 2026-10-06
 - Removed the Porter Deliveries page from navigation and page routes. Existing delivery records are retained.
+

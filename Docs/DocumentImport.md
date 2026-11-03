@@ -25,3 +25,9 @@ The active Sales and Purchases register tabs map invoice numbers/dates, parties,
 Madhusuman Tally e-invoices distinguish seller GST from Buyer (Bill to), preserve HSN, service quantity/UOM/rate/amount, source dates and signed round-off. A separate printable PDF quotation profile handles the historical Total Rs. (taxable) / Total Amount (grand total) variant; workbook meanings differ. Exact source GST rounding and price precision are retained. Any mismatch with line arithmetic remains a review blocker.
 
 Original XLSX review shows cached cells beside editable fields, with Open selected original available for the complete unchanged workbook layout. Register summary imports require actual item detail. Other supplier invoice layouts continue through conservative local extraction and human review; no universal exact-layout claim is made.
+
+## Detect files on a local drive
+
+Choose **Scan local drive**, select a fixed or removable drive, and click **Scan selected drive**. The scan checks metadata across that drive; it does not save business records. System/cache folders are skipped by default; links and cloud placeholders are always skipped. Use the filename filter to narrow large scans. Cancel stops discovery safely; a capped scan is labelled partial.
+
+Choose **Select next 50** or tick individual eligible files, then **Extract selected for review**. Classification happens locally at this point. Review and correct each document in the existing import screen before saving. Reopen **Scan local drive** for the retained results and another batch. Failed files can be selected manually for retry. Empty files and files over 20 MB cannot be extracted. Network drives, automatic watching and CSV discovery are not supported.

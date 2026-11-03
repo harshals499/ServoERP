@@ -229,8 +229,13 @@
     <Compile Include="Validators\B2BClientValidator.cs" />
     <Compile Include="Validators\EmployeeValidator.cs" />
     <Compile Include="MODELS\DocumentImportModels.cs" />
+    <Compile Include="MODELS\LocalDocumentDiscoveryModels.cs" />
+    <Compile Include="SERVICES\LocalDocumentDiscoveryService.cs" />
+    <Compile Include="SERVICES\LocalDocumentBatchLoader.cs" />
+    <Compile Include="UI\LocalDocumentDiscoveryDialog.cs" />
     <Compile Include="Tests\DocumentImportRegressionTests.cs" />
     <Compile Include="Tests\MseHistoricalImportTests.cs" />
+    <Compile Include="Tests\LocalDocumentDiscoveryTests.cs" />
     <Compile Include="Validators\DocumentImportValidator.cs" />
     <Compile Include="DAL\DocumentImportRepository.cs" />
     <Compile Include="SERVICES\DocumentImportExtractionService.cs" />

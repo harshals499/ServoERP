@@ -33,6 +33,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ProgressBar _progress = new ProgressBar { Dock=DockStyle.Fill,Style=ProgressBarStyle.Marquee,Visible=false };
         private CancellationTokenSource _operation;
         private bool _busy;
+        private LocalDocumentScanResult _lastDriveScan;
         private DocumentImportDraft Selected => _documents.SelectedItem as DocumentImportDraft;
         protected override bool EnableWorkspaceHeader => false;
 
@@ -44,6 +45,7 @@ namespace HVAC_Pro_Desktop.UI
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,104)); root.RowStyles.Add(new RowStyle(SizeType.Percent,100)); root.RowStyles.Add(new RowStyle(SizeType.Absolute,48)); root.RowStyles.Add(new RowStyle(SizeType.Absolute,8));
             Controls.Add(root); root.Controls.Add(_actions,0,0); root.Controls.Add(_status,0,2); root.Controls.Add(_progress,0,3);
             AddAction("Upload document",async()=>await Upload());
+            AddAction("Scan local drive",async()=>await DiscoverDrive());
             AddAction("Match party",async()=>await MatchParty());
             AddAction("Match selected item",async()=>await MatchItem());
             AddAction("Merge next page",()=> { Merge(); return Task.CompletedTask; });
@@ -104,9 +106,33 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if(picker.ShowDialog(this)!=DialogResult.OK)return;
                 var drafts=await _extractor.ExtractAsync(picker.FileName,new Progress<string>(s=>_status.Text=s),_operation.Token);
-                foreach(var draft in drafts)_drafts.Add(draft); if(_drafts.Count>0)_documents.SelectedIndex=_drafts.Count-drafts.Count;
-                _status.Text="Review every source field, item, tax and document boundary. Workbook display rounding and cached numeric values can differ; no business records have been saved.";
+                int count=StageDrafts(drafts);
+                _status.Text=count==0?"This source is already in the review queue. Review the existing entry; no records were saved.":"Review every source field, item, tax and document boundary. Workbook display rounding and cached numeric values can differ; no business records have been saved.";
             }
+        }
+        private int StageDrafts(List<DocumentImportDraft> drafts)
+        {
+            if(drafts.Count==0)return 0;
+            string hash=drafts[0].FileHash;
+            if(!string.IsNullOrEmpty(hash)&&_drafts.Any(d=>d.FileHash==hash))return 0;
+            if(_drafts.Count+drafts.Count>5000)throw new InvalidOperationException("The review queue is limited to 5,000 documents. Finish this batch before adding another source.");
+            int start=_drafts.Count;foreach(var draft in drafts)_drafts.Add(draft);_documents.SelectedIndex=start;
+            return drafts.Count;
+        }
+        private async Task DiscoverDrive()
+        {
+            List<LocalDocumentCandidate> selected;
+            using(var discovery=new LocalDocumentDiscoveryDialog(_lastDriveScan))
+            {
+                var choice=discovery.ShowDialog(this);_lastDriveScan=discovery.Result;
+                if(choice!=DialogResult.OK)return;
+                selected=discovery.SelectedFiles;
+            }
+            LocalDocumentBatchResult batch;bool loading=true;
+            try{batch=await LocalDocumentBatchLoader.LoadAsync(selected,_extractor.ExtractAsync,StageDrafts,new Progress<string>(s=>{if(loading)_status.Text=s;}),_operation.Token);}
+            finally{loading=false;}
+            _status.Text=batch.ReadyDocuments+" documents ready for review; "+batch.DuplicateSources+" queued-source duplicates skipped; "+batch.Errors.Count+" files need attention. No business records saved. Reopen Scan local drive for remaining results.";
+            if(batch.Errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,batch.Errors.Take(8))+(batch.Errors.Count>8?Environment.NewLine+"See the retained detection list for other files.":""),"ServoERP · Some files need attention",MessageBoxButtons.OK,MessageBoxIcon.Warning);
         }
         private void ShowSelected()
         {
