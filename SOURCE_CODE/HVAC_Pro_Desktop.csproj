@@ -229,6 +229,15 @@
     <Compile Include="Validators\B2BClientValidator.cs" />
     <Compile Include="Validators\EmployeeValidator.cs" />
     <Compile Include="MODELS\DocumentImportModels.cs" />
+    <Compile Include="MODELS\PdfReviewModels.cs" />
+    <Compile Include="Validators\PdfReviewFileValidator.cs" />
+    <Compile Include="SERVICES\PdfReviewService.cs" />
+    <Compile Include="DAL\PdfReviewRepository.cs" />
+    <Compile Include="UI\PdfReviewViewer.cs" />
+    <Compile Include="UI\PdfImportPage.cs" />
+    <Compile Include="UI\PdfLibraryDialog.cs" />
+    <Compile Include="Tests\PdfReviewTests.cs" />
+    <Content Include="SERVICES\PdfReview.Render.ps1"><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></Content>
     <Compile Include="MODELS\LocalDocumentDiscoveryModels.cs" />
     <Compile Include="SERVICES\LocalDocumentDiscoveryService.cs" />
     <Compile Include="SERVICES\LocalDocumentBatchLoader.cs" />

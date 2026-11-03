@@ -302,6 +302,12 @@ namespace HVAC_Pro_Desktop
                 LayoutAuditService.AttachGlobalFormAuditor();
                 InputOutlineService.InstallGlobalApplicationWatcher();
 
+                if (HasArg(args, "/pdfreviewtest"))
+                {
+                    PdfReviewTests.Run(GetArgValue(args, "/pdfreviewtest"));
+                    return;
+                }
+
                 if (HasArg(args, "/releasenotesvisualtest"))
                 {
                     ReleaseNotesVisualTest.Run();

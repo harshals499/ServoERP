@@ -81,6 +81,7 @@ namespace HVAC_Pro_Desktop.UI
         private const int AMCPageIndex = 21;
         private const int AttendancePageIndex = 22;
         private const int UserGuidePageIndex = 23;
+        private const int PdfImportPageIndex = 24;
         private static readonly HashSet<Type> StatefulHeavyPageTypes = new HashSet<Type>
         {
             typeof(PurchaseForm),
@@ -131,13 +132,14 @@ namespace HVAC_Pro_Desktop.UI
             ("AMC", "A"),
             ("Attendance", "A"),
             ("User Guide", "U"),
+            ("PDF Import", "P"),
         };
 
         private static readonly int[] DashboardItems = { 0 };
         private static readonly int[] SalesItems = { 6, 3, 10, 4 };
         private static readonly int[] OperationsItems = { 14, 11, 1, 9, JobsPageIndex, AMCPageIndex };
         private static readonly int[] HrPayrollItems = { 12, AttendancePageIndex, 13 };
-        private static readonly int[] DataComplianceItems = { 17, 2 };
+        private static readonly int[] DataComplianceItems = { 17, PdfImportPageIndex, 2 };
         private static readonly int[] ReportsItems = { 7 };
         private static readonly int[] SettingsSupportItems = { UserGuidePageIndex, 8, 18 };
 
@@ -1765,6 +1767,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 17: return "\uE8A5"; // Master Data
                 case 18: return "\uE717"; // WhatsApp Hub
                 case UserGuidePageIndex: return "\uE8A5"; // User Guide
+                case PdfImportPageIndex: return "\uE8A5"; // PDF Import
                 default: return "\uE10F";
             }
         }
@@ -1809,6 +1812,11 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_pageCache.TryGetValue(index, out UserControl cachedPage))
             {
+                if (cachedPage is PdfImportPage pdfReview && pdfReview.HasPendingReview)
+                {
+                    pdfReview.RefreshData();
+                    return;
+                }
                 _pageCache.Remove(index);
                 LinkedListNode<int> node = _pageUsage.Find(index);
                 if (node != null)
@@ -1864,6 +1872,9 @@ namespace HVAC_Pro_Desktop.UI
                     continue;
 
                 if (!_pageCache.TryGetValue(index, out UserControl cachedPage))
+                    continue;
+
+                if (cachedPage is PdfImportPage pdfReview && pdfReview.HasPendingReview)
                     continue;
 
                 _pageCache.Remove(index);
@@ -2386,6 +2397,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 14: page = new GeoIntelligenceForm(); break;
                 case 15: page = new JobManagementForm(); break;
                 case 17: page = new MasterDataForm(); break;
+                case PdfImportPageIndex: page = new PdfImportPage(); break;
                 case 18: page = new WhatsAppHubForm(); break;
                 case AMCPageIndex:
                     if (_amcPage == null || _amcPage.IsDisposed)
@@ -2506,6 +2518,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsLightFirstOpenPage(int index, Control page)
         {
+            if (index == PdfImportPageIndex) return true;
             return index == 2 || index == 3 || index == 4 || index == 6 || index == 7 || index == 8 || index == 9 || index == 10 || index == 11 || index == 12 || index == 14 || index == 15 || index == 17 || index == 18 || index == AMCPageIndex || index == AttendancePageIndex
                 || page is ContractManagementForm
                 || page is InvoiceForm
@@ -2631,6 +2644,12 @@ namespace HVAC_Pro_Desktop.UI
                     continue;
 
                 if (heavyPagesOnly && !IsHeavyShellPage(cachedPage))
+                {
+                    _pageUsage.AddLast(candidate);
+                    continue;
+                }
+
+                if (cachedPage is PdfImportPage pdfReview && pdfReview.HasPendingReview)
                 {
                     _pageUsage.AddLast(candidate);
                     continue;
@@ -3140,6 +3159,8 @@ namespace HVAC_Pro_Desktop.UI
                 case "DATA UPLOAD":
                 case "CLIENTSETUP":
                 case "CLIENT SETUP": return MasterDataPageIndex;
+                case "PDFIMPORT":
+                case "PDF IMPORT": return PdfImportPageIndex;
                 case "WHATSAPP":
                 case "WHATSAPPHUB":
                 case "WHATSAPP HUB": return WhatsAppHubPageIndex;
@@ -3170,6 +3191,7 @@ namespace HVAC_Pro_Desktop.UI
                 case 15: return "WorkOrders";
                 case 16: return "WorkOrders";
                 case 17: return "MasterData";
+                case PdfImportPageIndex: return "MasterData";
                 case 18: return "Dashboard";
                 case UserGuidePageIndex: return "Dashboard";
                 case AMCPageIndex: return "Contracts";

@@ -1,3 +1,9 @@
+## 1.1.528 - 3 November 2026
+
+- Add PDF Import in the sidebar with recursive scanning, local PDF preview and manual categorisation.
+- Review destination counts and unresolved files before explicit confirmation; import attachments without creating business transactions.
+- Add module Imported PDFs access, content duplicate checks, password handling and independent file recovery.
+
 ## 1.1.527 - 3 November 2026
 
 - Detect supported business-document files across an explicitly selected local drive, with filename filtering, cancellable discovery, skipped-location counts and partial-scan reporting.
@@ -2693,4 +2699,3 @@
 
 ## [1.1.499] - 2026-10-06
 - Removed the Porter Deliveries page from navigation and page routes. Existing delivery records are retained.
-

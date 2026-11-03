@@ -23,6 +23,7 @@ namespace HVAC_Pro_Desktop.UI
         internal static SharedPageHeaderResult Build(SharedPageHeaderModel model,
             Func<SharedPageHeaderModel, SharedPageHeaderResult> buildPage)
         {
+            PdfLibraryDialog.AddModuleAction(model);
             var wrapper = new WorkspaceHeaderPanel { Name = model.Name, Dock = model.Dock,
                 BackColor = Color.White, Tag = "custom-header-actions no-global-actions" };
             var originalDock = model.Dock;
