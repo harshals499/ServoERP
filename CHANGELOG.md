@@ -1,4 +1,4 @@
-## 1.1.530 - Next release candidate
+## 1.1.530 - 3 November 2026
 
 - Improve PDF preview with a filename/folder header, compact toolbar, centred pages, Fit page and an expanded reading view.
 - Show the actual zoom scale and zoom from the displayed size; disable page arrows at document boundaries.
