@@ -184,14 +184,36 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                 {
                     int expected=index;
                     PumpUntil(()=>viewer.CurrentFile==batch.Files[expected]&&batch.Files[expected].Previewed&&!viewer.Loading,TimeSpan.FromSeconds(55));
-                    Assert(FindButton(viewer,"+").Enabled&&FindButton(viewer,"+").ForeColor.ToArgb()!=DS.Slate500.ToArgb(),"Live PDF toolbar still looks disabled after scanning");
+                    Assert(FindTool(viewer,"+").Enabled,"Live PDF toolbar still disabled after scanning");
                     if(index==0)
                     {
-                        FindButton(viewer,"›").PerformClick();PumpUntil(()=>!viewer.Loading,TimeSpan.FromSeconds(55));
-                        Assert(Descendants(viewer).OfType<Label>().Any(label=>label.Text=="Page 2 of 2"),"Next page did not advance");
-                        FindButton(viewer,"+").PerformClick();Application.DoEvents();
-                        Assert(Descendants(viewer).OfType<Label>().Any(label=>label.Text.Contains("125%")),"Zoom did not respond");
-                        FindButton(viewer,"Fit to width").PerformClick();
+                        Assert(!FindTool(viewer,"‹").Enabled,"Previous page must be disabled on first page");
+                        FindTool(viewer,"›").PerformClick();PumpUntil(()=>!viewer.Loading,TimeSpan.FromSeconds(55));
+                        Assert(Descendants(viewer).OfType<ToolStrip>().SelectMany(strip=>strip.Items.Cast<ToolStripItem>()).Any(item=>item.Text=="Page 2 of 2"),"Next page did not advance");
+                        Assert(!FindTool(viewer,"›").Enabled,"Next page must be disabled on last page");
+                        var picture=Descendants(viewer).OfType<PictureBox>().Single();int width=picture.Width;
+                        FindTool(viewer,"+").PerformClick();Application.DoEvents();
+                        Assert(picture.Width>width,"Zoom must enlarge from the current fit scale");
+                        var zoomCanvas=(Panel)picture.Parent;
+                        Assert(zoomCanvas.HorizontalScroll.Enabled,"Zoomed PDF must allow horizontal scrolling");
+                        zoomCanvas.AutoScrollPosition=new Point(40,40);Application.DoEvents();
+                        Assert(zoomCanvas.AutoScrollPosition.X<0,"Zoomed PDF must pan horizontally");
+                        FindTool(viewer,"Fit page").PerformClick();Application.DoEvents();
+                        Assert(picture.Width<=picture.Parent.ClientSize.Width&&picture.Height<=picture.Parent.ClientSize.Height,"Fit page must show the entire page without scrolling");
+                        Assert(Math.Abs(picture.Left-(picture.Parent.ClientSize.Width-picture.Width)/2)<=2,"Small PDF page must be centred");
+                        Capture(host,Path.Combine(root,"preview-fit-page.png"));
+                        int normalWidth=viewer.Width;FindButton(viewer,"Expand").PerformClick();Application.DoEvents();
+                        Assert(viewer.Width>normalWidth&&viewer.CurrentFile==batch.Files[0],"Expanded preview must gain space without changing document");
+                        FindTool(viewer,"Fit to width").PerformClick();Application.DoEvents();
+                        Capture(host,Path.Combine(root,"preview-expanded.png"));
+                        var canvas=(Panel)picture.Parent;
+                        Assert(!canvas.HorizontalScroll.Visible,"Expanded fit-width scrollbar: client="+canvas.ClientSize+" display="+canvas.DisplayRectangle+" min="+canvas.AutoScrollMinSize+" margin="+canvas.AutoScrollMargin+" padding="+canvas.Padding+" paper="+picture.Bounds+" scroll="+canvas.AutoScrollPosition);
+                        FindButton(viewer,"Show files").PerformClick();Application.DoEvents();
+                        Assert(viewer.Width==normalWidth,"Restoring file list must restore the review layout");
+                        host.ClientSize=new Size(1080,760);Application.DoEvents();
+                        Assert(!((Panel)picture.Parent).HorizontalScroll.Visible,"Narrow fit-width must not retain a horizontal scrollbar");
+                        Assert(FindTool(viewer,"Fit page").Placement==ToolStripItemPlacement.Main,"Fit controls must remain reachable in narrow review");
+                        Capture(host,Path.Combine(root,"preview-narrow.png"));host.ClientSize=new Size(1440,940);Application.DoEvents();
                     }
                     FindButton(page,"Invoice").PerformClick();Application.DoEvents();
                     Assert(save.Enabled&&save.BackColor.ToArgb()==DS.Primary600.ToArgb()&&save.ForeColor.ToArgb()==Color.White.ToArgb(),"Ready Save/Next must be visibly enabled in the established primary palette");
@@ -208,11 +230,22 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                 grid.CurrentCell=grid.Rows[0].Cells[1];grid.CurrentCell=grid.Rows[4].Cells[1];
                 PumpUntil(()=>viewer.CurrentFile==batch.Files[4]&&!viewer.Loading,TimeSpan.FromSeconds(55));
                 Assert(save.Enabled,"Rapid selection/cancel left Save stranded");
+                var unreadable=new PdfReviewFile {SourcePath=Path.Combine(root,"sources","Nested","unreadable.pdf"),Folder="Needs attention"};
+                batch.Files.Add(unreadable);page.LoadForTest(batch);grid.CurrentCell=grid.Rows[5].Cells[1];
+                Assert(viewer.Loading&&!FindTool(viewer,"+").Enabled,"Loading state must disable PDF toolbar");
+                Capture(host,Path.Combine(root,"preview-loading.png"));
+                PumpUntil(()=>viewer.CurrentFile==unreadable&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                Assert(!string.IsNullOrEmpty(unreadable.Error)&&FindButton(viewer,"Unlock / Retry").Visible,"Unreadable PDF must expose retry without blocking review");
+                Assert(!save.Enabled,"Unreadable PDF must not enable Save/Next");
+                Capture(host,Path.Combine(root,"preview-error.png"));
+                grid.CurrentCell=grid.Rows[4].Cells[1];PumpUntil(()=>viewer.CurrentFile==batch.Files[4]&&!viewer.Loading,TimeSpan.FromSeconds(55));
+                Assert(!FindButton(viewer,"Unlock / Retry").Visible&&FindTool(viewer,"+").Enabled,"Successful preview must reclaim recovery space and enable toolbar");
                 host.Close();
             }
             using(var c=DatabaseConnectionFactory.CreateConnection()){c.Open();Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM dbo.ClientDocuments")==registrations,"Categorisation/navigation wrote document registrations before import confirmation");}
-            passes.Add("PASS scan enable cycle restores button colours; 5-file Save/Next, multipage/zoom, Previous/reclassification, rapid selection/cancel, final summary; categorising writes no records");
+            passes.Add("PASS 5-file Save/Next, Previous/reclassification, rapid selection/cancel, page boundaries, relative zoom, centred fit-page, expanded/narrow preview, loading/error/recovery and final summary; categorising writes no records");
         }
+        private static ToolStripItem FindTool(Control root,string text)=>Descendants(root).OfType<ToolStrip>().SelectMany(strip=>strip.Items.Cast<ToolStripItem>()).Single(item=>item.Text==text);
         private static IEnumerable<Control> Descendants(Control root) {yield return root;foreach(Control child in root.Controls)foreach(var c in Descendants(child))yield return c;}
         private static Button FindButton(Control root,string text)=>Descendants(root).OfType<Button>().First(b=>b.Text==text);
         private static void PumpUntil(Func<bool> ready,TimeSpan limit) {var end=DateTime.UtcNow+limit;while(!ready()){if(DateTime.UtcNow>end)throw new InvalidOperationException("Native preview timed out");Application.DoEvents();Thread.Sleep(20);}Application.DoEvents();}

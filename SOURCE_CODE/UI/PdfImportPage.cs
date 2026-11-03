@@ -93,6 +93,16 @@ namespace HVAC_Pro_Desktop.UI
             _files.DataError+=(s,e)=> {e.ThrowException=false;_status.Text="The selection could not be changed. Select the file again.";};
             _search.TextChanged+=(s,e)=>ApplyFilter();_filter.SelectedIndexChanged+=(s,e)=>ApplyFilter();
             body.Controls.Add(list,0,0);body.Controls.Add(_viewer,1,0);body.Controls.Add(_categories,2,0);
+            _viewer.ExpandedChanged+=expanded=>
+            {
+                body.SuspendLayout();
+                list.Visible=!expanded;_categories.Visible=!expanded;
+                body.ColumnStyles[0].SizeType=expanded?SizeType.Absolute:SizeType.Percent;
+                body.ColumnStyles[0].Width=expanded?0:32;
+                body.ColumnStyles[1].Width=expanded?100:68;
+                body.ColumnStyles[2].Width=expanded?0:232;
+                body.ResumeLayout(true);
+            };
             _categories.Controls.Add(new Label {Text="Assign category",Font=DS.H3,Width=210,Height=34});
             foreach(var category in PdfCategories.All)
             {
@@ -100,6 +110,11 @@ namespace HVAC_Pro_Desktop.UI
             }
             _categories.Controls.Add(_destination);
             _categories.Controls.Add(ActionButton("Keep this duplicate copy",()=> {KeepCopy();return Task.CompletedTask;}));
+            _categories.SizeChanged+=(s,e)=>
+            {
+                int width=Math.Max(150,_categories.ClientSize.Width-_categories.Padding.Horizontal-8);
+                foreach(Control control in _categories.Controls){control.AutoSize=false;control.Width=width;}
+            };
             _actions.Controls.Add(ActionButton("Previous",async()=>await MoveDocument(-1)));
             _actions.Controls.Add(ActionButton("Skip",async()=> {if(Selected!=null&&!Selected.Imported){Selected.Skipped=true;Selected.Category=null;await MoveDocument(1);RefreshReview();}}));
             _save=ActionButton("Save Selection & Next",async()=>await SaveNext(),true);_save.Width=192;_save.Enabled=false;_actions.Controls.Add(_save);

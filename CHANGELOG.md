@@ -1,3 +1,9 @@
+## 1.1.530 - Next release candidate
+
+- Improve PDF preview with a filename/folder header, compact toolbar, centred pages, Fit page and an expanded reading view.
+- Show the actual zoom scale and zoom from the displayed size; disable page arrows at document boundaries.
+- Reclaim unused recovery space and show loading/error guidance within the preview.
+
 ## 1.1.529 - 3 November 2026
 
 - Restore the normal enabled appearance of Save/Next, PDF navigation/zoom and selection controls after initial loading and folder scanning.

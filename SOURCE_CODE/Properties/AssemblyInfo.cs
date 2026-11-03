@@ -7,5 +7,5 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyProduct("ServoERP")]
 [assembly: AssemblyCopyright("Copyright (c) Harshal Sonawane 2026")]
 [assembly: ComVisible(false)]
-[assembly: AssemblyVersion("1.1.529.0")]
-[assembly: AssemblyFileVersion("1.1.529.0")]
+[assembly: AssemblyVersion("1.1.530.0")]
+[assembly: AssemblyFileVersion("1.1.530.0")]
