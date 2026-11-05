@@ -39,6 +39,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DataGridView _destinations = new DataGridView { Dock=DockStyle.Fill, ReadOnly=true, AutoGenerateColumns=true, AllowUserToAddRows=false, AllowUserToDeleteRows=false, RowHeadersVisible=false, BackgroundColor=Color.White, AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill };
         private readonly PdfReviewViewer _viewer;
         private PdfReviewBatch _batch = new PdfReviewBatch();
+        private readonly PdfCategoryPicker _categoryPicker = new PdfCategoryPicker();
         private PdfCategory? _pendingCategory;
         private PdfReviewFile _shown;
         private CancellationTokenSource _operation;
@@ -104,10 +105,8 @@ namespace HVAC_Pro_Desktop.UI
                 body.ResumeLayout(true);
             };
             _categories.Controls.Add(new Label {Text="Assign category",Font=DS.H3,Width=210,Height=34});
-            foreach(var category in PdfCategories.All)
-            {
-                var value=category;var button=ActionButton(PdfCategories.Label(value),()=> {SelectCategory(value);return Task.CompletedTask;});button.Tag=value;button.Size=new Size(207,42);button.AutoSize=false;_categories.Controls.Add(button);
-            }
+            _categoryPicker.TextChanged += (s, e) => SelectCategory(_categoryPicker.Category);
+            _categories.Controls.Add(_categoryPicker);
             _categories.Controls.Add(_destination);
             _categories.Controls.Add(ActionButton("Keep this duplicate copy",()=> {KeepCopy();return Task.CompletedTask;}));
             _categories.SizeChanged+=(s,e)=>
@@ -182,7 +181,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if(_closing||IsDisposed||Disposing||!IsHandleCreated)return;
             if(InvokeRequired) {RunOnUI(async()=>await ShowSelected());return;}
-            var file=Selected;if(file==_shown)return;_shown=file;_pendingCategory=file?.Category;PaintCategories();RefreshReview();
+            var file=Selected;if(file==_shown)return;_shown=file;_categoryPicker.Category=file?.Category;_pendingCategory=file?.Category;PaintCategories();RefreshReview();
             await _viewer.ShowAsync(file);
             if(_closing||IsDisposed||Disposing)return;
             if(file?.Hash!=null && !_checkedHashes.ContainsKey(file.Hash))
@@ -192,14 +191,12 @@ namespace HVAC_Pro_Desktop.UI
             }
             if(!IsDisposed)RefreshReview();
         }
-        private void SelectCategory(PdfCategory value)
+        private void SelectCategory(PdfCategory? value)
         {
             _pendingCategory=value;PaintCategories();RefreshReview();
         }
         private void PaintCategories()
         {
-            foreach(Control control in _categories.Controls)
-                if(control is Button button&&button.Tag is PdfCategory value) {bool active=_pendingCategory==value;button.BackColor=active?DS.Primary600:Color.White;button.ForeColor=active?Color.White:DS.Slate900;}
             _destination.Text=(_pendingCategory.HasValue?"Destination:\r\n"+PdfCategories.Destination(_pendingCategory.Value):"Choose a category after reading the PDF.")+"\r\n\r\nDocument attachment only. No transaction created.";
         }
         private void RefreshReview()

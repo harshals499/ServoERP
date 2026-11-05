@@ -94,6 +94,17 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                     int id=repo.Import(file,CancellationToken.None,Path.Combine(root,"vault"));Assert(id>0&&repo.Exists(file.Hash),"Missing imported attachment");
                     Assert(repo.List(category).Any(r=>r.DocumentId==id&&File.Exists(r.FilePath)),"Destination library missing attachment");
                     int before=c.ExecuteScalar<int>("SELECT COUNT(*) FROM ClientDocuments");Expect<InvalidOperationException>(()=>repo.Import(file,CancellationToken.None,Path.Combine(root,"vault")));Assert(before==c.ExecuteScalar<int>("SELECT COUNT(*) FROM ClientDocuments"),"Duplicate changed rows");
+                    if (category == PdfCategory.Other)
+                    {
+                        var original = repo.List(category).Single(r => r.DocumentId == id);
+                        repo.ChangeCategory(id, category, PdfCategory.AmcContract);
+                        var reopened = new PdfReviewRepository().List(PdfCategory.AmcContract).Single(r => r.DocumentId == id);
+                        Assert(reopened.FilePath == original.FilePath && File.Exists(reopened.FilePath), "Recategorization changed the stored PDF");
+                        Assert(!repo.List(category).Any(r => r.DocumentId == id), "Old category still lists the PDF");
+                        Assert(c.ExecuteScalar<string>("SELECT DocumentType FROM dbo.ClientDocuments WHERE DocumentId=@id", new { id }) == "AMC Contract", "Master Data type did not persist");
+                        Expect<InvalidOperationException>(() => repo.ChangeCategory(id, category, PdfCategory.Warranty));
+                        passes.Add("PASS recategorization persists across library reload with the original PDF and matching Master Data type");
+                    }
                     if(category==PdfCategory.Invoice)
                     {
                         c.Execute("DELETE dbo.ClientDocuments WHERE DocumentId=@id",new{id});
@@ -101,10 +112,10 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                         Assert(repo.Import(file,CancellationToken.None,Path.Combine(root,"vault"))>0,"Removed registration cannot be imported again");
                     }
                 }
-                Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM ClientDocuments")==initial+5,"Unexpected attachment count");
+                Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM ClientDocuments")==initial+PdfCategories.All.Count(),"Unexpected attachment count");
                 foreach(string table in new[]{"Invoices","PurchaseOrders","Quotations","StockItems","Payments"})
                     Assert(c.ExecuteScalar<int>("SELECT COUNT(*) FROM sys.tables WHERE name=@table",new{table})==0,"Attachment import created a business table");
-                passes.Add("PASS additive/idempotent schema, all 5 category libraries, content duplicates blocked, registration-removal metadata cleanup, no business tables/transactions created");
+                passes.Add("PASS additive/idempotent schema, all category libraries, content duplicates blocked, registration-removal metadata cleanup, no business tables/transactions created");
                 c.Execute(@"CREATE TRIGGER dbo.PdfReviewQA_ForceRollback ON dbo.PdfReviewDocuments AFTER INSERT AS BEGIN IF EXISTS(SELECT 1 FROM inserted WHERE SourceFolder='force-failure') THROW 51000,'QA forced failure',1; END");
                 string rollback=Path.Combine(root,"rollback.pdf");WritePdf(rollback,"ROLLBACK QA",1);
                 var failing=new PdfReviewFile {SourcePath=rollback,Folder="force-failure",Category=PdfCategory.Other,Previewed=true};service.PrepareAsync(failing,CancellationToken.None).GetAwaiter().GetResult();
@@ -126,7 +137,7 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
             {
                 host.Controls.Add(page);host.Show();page.LoadForTest(batch);
                 PumpUntil(()=>batch.Files[0].Previewed,TimeSpan.FromSeconds(55));
-                FindButton(page,"Purchase Order (PO)").PerformClick();Application.DoEvents();
+                Descendants(page).OfType<PdfCategoryPicker>().Single().Category = PdfCategory.PurchaseOrder;Application.DoEvents();
                 Capture(host,Path.Combine(root,"review-wide.png"));
                 Assert(FindButton(page,"Save Selection & Next").Enabled,"Save not enabled after preview/category choice");
                 FindButton(page,"Save Selection & Next").PerformClick();Application.DoEvents();Assert(batch.Files[0].Category==PdfCategory.PurchaseOrder,"Native Save Selection failed");
@@ -215,7 +226,7 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                         Assert(FindTool(viewer,"Fit page").Placement==ToolStripItemPlacement.Main,"Fit controls must remain reachable in narrow review");
                         Capture(host,Path.Combine(root,"preview-narrow.png"));host.ClientSize=new Size(1440,940);Application.DoEvents();
                     }
-                    FindButton(page,"Invoice").PerformClick();Application.DoEvents();
+                    Descendants(page).OfType<PdfCategoryPicker>().Single().Category = PdfCategory.Invoice;Application.DoEvents();
                     Assert(save.Enabled&&save.BackColor.ToArgb()==DS.Primary600.ToArgb()&&save.ForeColor.ToArgb()==Color.White.ToArgb(),"Ready Save/Next must be visibly enabled in the established primary palette");
                     if(index==0)Capture(host,Path.Combine(root,"controls-ready.png"));
                     save.PerformClick();Application.DoEvents();
@@ -224,7 +235,7 @@ CREATE TABLE dbo.ClientDocuments(DocumentId int IDENTITY PRIMARY KEY,DocumentTyp
                 Assert(batch.Ready==5&&Descendants(page).OfType<Button>().Any(button=>button.Text=="Confirm & Import — 5 PDFs"&&button.Enabled),"Last document did not reach a correct import summary");
                 Capture(host,Path.Combine(root,"navigation-summary.png"));FindButton(page,"Back to review").PerformClick();
                 FindButton(page,"Previous").PerformClick();PumpUntil(()=>viewer.CurrentFile==batch.Files[3]&&!viewer.Loading,TimeSpan.FromSeconds(55));
-                FindButton(page,"Quotation").PerformClick();save.PerformClick();Application.DoEvents();Assert(batch.Files[3].Category==PdfCategory.Quotation,"Earlier category could not be changed");
+                Descendants(page).OfType<PdfCategoryPicker>().Single().Category = PdfCategory.Quotation;save.PerformClick();Application.DoEvents();Assert(batch.Files[3].Category==PdfCategory.Quotation,"Earlier category could not be changed");
                 PumpUntil(()=>viewer.CurrentFile==batch.Files[4]&&!viewer.Loading,TimeSpan.FromSeconds(55));
                 var grid=Descendants(page).OfType<DataGridView>().First(control=>control.Columns.Cast<DataGridViewColumn>().Any(column=>column.DataPropertyName=="FileName"));
                 grid.CurrentCell=grid.Rows[0].Cells[1];grid.CurrentCell=grid.Rows[4].Cells[1];

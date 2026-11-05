@@ -1,3 +1,7 @@
+## 1.1.531 (05/11/2026)
+
+- PDF Imports now includes the document types used in Master Data plus Proforma Invoice, Credit Note, Debit Note, Payment Receipt, Work Order and Service Report. It also supports changing the category of an imported PDF.
+
 ## 1.1.530 - 3 November 2026
 
 - Improve PDF preview with a filename/folder header, compact toolbar, centred pages, Fit page and an expanded reading view.

@@ -4,19 +4,28 @@ using System.Linq;
 
 namespace HVAC_Pro_Desktop.Models
 {
-    internal enum PdfCategory { PurchaseOrder, Invoice, Quotation, Challan, Other }
+    internal enum PdfCategory { PurchaseOrder, Invoice, Quotation, Challan, Other, AmcContract, License, Insurance, TaxDocument, Warranty, Manual, Drawing, Certificate, ProformaInvoice, CreditNote, DebitNote, PaymentReceipt, WorkOrder, ServiceReport }
 
     internal static class PdfCategories
     {
         internal static string Label(PdfCategory value)
-            => value == PdfCategory.PurchaseOrder ? "Purchase Order (PO)" : value.ToString();
+            => value == PdfCategory.PurchaseOrder ? "Purchase Order" :
+               value == PdfCategory.AmcContract ? "AMC Contract" :
+               value == PdfCategory.TaxDocument ? "Tax Document" :
+               value == PdfCategory.ProformaInvoice ? "Proforma Invoice" :
+               value == PdfCategory.CreditNote ? "Credit Note" :
+               value == PdfCategory.DebitNote ? "Debit Note" :
+               value == PdfCategory.PaymentReceipt ? "Payment Receipt" :
+               value == PdfCategory.WorkOrder ? "Work Order" :
+               value == PdfCategory.ServiceReport ? "Service Report" : value.ToString();
         internal static string Module(PdfCategory value)
             => value == PdfCategory.PurchaseOrder ? "Purchases" : value == PdfCategory.Invoice ? "Invoices" : value == PdfCategory.Quotation ? "Quotations" : "MasterData";
         internal static string DocumentType(PdfCategory value)
-            => value == PdfCategory.PurchaseOrder ? "Purchase Order" : value == PdfCategory.Challan ? "Delivery Note" : value.ToString();
+            => value == PdfCategory.Challan ? "Delivery Note" : Label(value);
         internal static string Destination(PdfCategory value)
-            => value == PdfCategory.Challan ? "Master Data / Documents / Delivery Note" : value == PdfCategory.Other ? "Master Data / Documents / Other" : Module(value) + " / Imported PDFs";
-        internal static IEnumerable<PdfCategory> All => Enum.GetValues(typeof(PdfCategory)).Cast<PdfCategory>();
+            => Module(value) == "MasterData" ? "Master Data / Documents / " + DocumentType(value) : Module(value) + " / Imported PDFs";
+        internal static IEnumerable<PdfCategory> All => Enum.GetValues(typeof(PdfCategory)).Cast<PdfCategory>()
+                .OrderBy(value => value == PdfCategory.Other).ThenBy(Label);
     }
 
     internal sealed class PdfReviewFile

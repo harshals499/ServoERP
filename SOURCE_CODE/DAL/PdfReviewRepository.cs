@@ -46,6 +46,40 @@ FROM dbo.PdfReviewDocuments p INNER JOIN dbo.ClientDocuments d ON d.DocumentId=p
 WHERE @category IS NULL OR p.Category=@category ORDER BY p.ImportedUtc DESC,p.DocumentId DESC", new { category = category?.ToString() }).ToList();
             }
         }
+        internal void ChangeCategory(int documentId, PdfCategory current, PdfCategory target)
+        {
+            if (!Enum.IsDefined(typeof(PdfCategory), current) || !Enum.IsDefined(typeof(PdfCategory), target))
+                throw new ArgumentOutOfRangeException(nameof(target));
+
+            SessionManager.DemandPermission("MasterData", "Edit");
+            SessionManager.DemandPermission(PdfCategories.Module(current), "Edit");
+            SessionManager.DemandPermission(PdfCategories.Module(target), "Edit");
+
+            using (var connection = DatabaseConnectionFactory.CreateConnection())
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    var args = new
+                    {
+                        documentId,
+                        Current = current.ToString(),
+                        Target = target.ToString(),
+                        Type = PdfCategories.DocumentType(target),
+                        Notes = "Reviewed PDF attachment only. No transaction created. Destination: " + PdfCategories.Destination(target)
+                    };
+                    if (connection.Execute(@"UPDATE dbo.PdfReviewDocuments SET Category=@Target
+WHERE DocumentId=@documentId AND Category=@Current", args, transaction) != 1)
+                        throw new InvalidOperationException("The PDF category changed. Reopen Imported PDFs and try again.");
+
+                    connection.Execute(@"UPDATE dbo.ClientDocuments SET DocumentType=@Type, Notes=@Notes
+WHERE DocumentId=@documentId", args, transaction);
+                    transaction.Commit();
+                }
+            }
+            AppDataCache.RemovePrefix("masterdata:");
+        }
+
         internal int Import(PdfReviewFile file, CancellationToken token, string testVault = null)
         {
             new ServoERP.Validators.PdfReviewFileValidator().ValidateAndThrow(file);
