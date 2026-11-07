@@ -29,7 +29,9 @@ namespace ServoERP.Infrastructure
         /// <summary>Creates a confirmation dialog with action and detail text.</summary>
         private ServoConfirmDialog(string action, string detail)
         {
-            Text = "Confirm - ServoERP";
+            action = HVAC_Pro_Desktop.Services.LanguageManager.GetMessage(action);
+            detail = HVAC_Pro_Desktop.Services.LanguageManager.GetMessage(detail);
+            Text = HVAC_Pro_Desktop.Services.LanguageManager.Get("Confirm - ServoERP");
             ClientSize = new Size(440, 206);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -47,9 +49,9 @@ namespace ServoERP.Infrastructure
             };
             int actionHeight;
             int detailHeight;
-            using (var actionFont = new Font("Segoe UI", 11f, FontStyle.Bold))
+            using (var actionFont = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold))
                 actionHeight = Math.Max(34, TextRenderer.MeasureText(action ?? string.Empty, actionFont, new Size(400, 0), TextFormatFlags.WordBreak).Height + 4);
-            using (var detailFont = new Font("Segoe UI", 9f))
+            using (var detailFont = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f))
                 detailHeight = Math.Max(90, TextRenderer.MeasureText(detail ?? string.Empty, detailFont, new Size(400, 0), TextFormatFlags.WordBreak).Height + 8);
             ClientSize = new Size(440, Math.Min(Screen.FromControl(this).WorkingArea.Height - 80, actionHeight + detailHeight + 82));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, actionHeight));
@@ -59,7 +61,7 @@ namespace ServoERP.Infrastructure
             var lblAction = new Label
             {
                 Text = action,
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                Font = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold),
                 Dock = DockStyle.Fill,
                 ForeColor = Color.FromArgb(180, 30, 30),
                 AutoEllipsis = false,
@@ -69,7 +71,7 @@ namespace ServoERP.Infrastructure
             var lblDetail = new Label
             {
                 Text = detail,
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 Dock = DockStyle.Top,
                 AutoSize = true,
                 MaximumSize = new Size(400, 0),

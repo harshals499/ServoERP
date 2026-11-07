@@ -89,6 +89,7 @@ namespace HVAC_Pro_Desktop
                 return;
             }
 
+            LanguageManager.SetLanguage(LanguagePreferenceService.Load(), false);
             ServoERP.Infrastructure.AppExceptionHandler.Register();
             ServoERP.Infrastructure.AppIconService.InitializeProcessIdentity();
             VelopackApp.Build().SetAutoApplyOnStartup(false).Run();
@@ -941,7 +942,7 @@ namespace HVAC_Pro_Desktop
 
                 stageWatch.Restart();
                 DbSettings.EnsureUserSettingsTable();
-                LanguageManager.SetLanguage(DbSettings.Get("Language", LanguageManager.English), false);
+                LanguageManager.SetLanguage(LanguagePreferenceService.Load(DbSettings.Get("Language", LanguageManager.English)), false);
                 new BackupService().EnsureBackupInfrastructure();
                 SharedStorageService.StartAutomaticConnection();
                 AppRuntime.LogTiming("Startup.Language", stageWatch.ElapsedMilliseconds, LanguageManager.CurrentLanguage);

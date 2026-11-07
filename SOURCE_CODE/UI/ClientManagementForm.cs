@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -1847,11 +1848,11 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             TabPage page = _tabs.SelectedTab ?? _tabs.TabPages[0];
             page.Controls.Clear();
-            if (page.Text == "Details")
+            if (LanguageManager.GetSourceText(page, page.Text) == "Details")
                 BuildDetailsTab(page);
-            else if (page.Text == "Notes")
+            else if (LanguageManager.GetSourceText(page, page.Text) == "Notes")
                 BuildNotesTab(page);
-            else if (page.Text == "Financials")
+            else if (LanguageManager.GetSourceText(page, page.Text) == "Financials")
                 BuildFinancialsTab(page);
             else
                 BuildDocumentsTab(page);

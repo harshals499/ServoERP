@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Windows.Forms;
 
@@ -50,7 +50,7 @@ namespace HVAC_Pro_Desktop.UI
 
         internal static Button FindSaveButton(Control root)
         {
-            var candidates = Descendants(root).OfType<Button>().Where(button => button.Visible && button.Enabled && IsSaveAction(button.Text)).ToList();
+            var candidates = Descendants(root).OfType<Button>().Where(button => button.Visible && button.Enabled && IsSaveAction(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(button, button.Text))).ToList();
             return candidates.Count == 1 ? candidates[0] : null;
         }
 

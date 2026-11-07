@@ -1,0 +1,1740 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="AI Copilot" xml:space="preserve">
+    <value>AI Copilot</value>
+  </data>
+  <data name="Account Number" xml:space="preserve">
+    <value>Account Number</value>
+  </data>
+  <data name="Actions" xml:space="preserve">
+    <value>Actions</value>
+  </data>
+  <data name="Active Clients" xml:space="preserve">
+    <value>Active Clients</value>
+  </data>
+  <data name="Active Employees" xml:space="preserve">
+    <value>Active Employees</value>
+  </data>
+  <data name="Active Vendors" xml:space="preserve">
+    <value>Active Vendors</value>
+  </data>
+  <data name="Activity" xml:space="preserve">
+    <value>Activity</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="Add Client" xml:space="preserve">
+    <value>Add Client</value>
+  </data>
+  <data name="Add Job" xml:space="preserve">
+    <value>Add Job</value>
+  </data>
+  <data name="Add New" xml:space="preserve">
+    <value>Add New</value>
+  </data>
+  <data name="Add New Job" xml:space="preserve">
+    <value>Add New Job</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="Alerts" xml:space="preserve">
+    <value>Alerts</value>
+  </data>
+  <data name="Alerts &amp; Notifications" xml:space="preserve">
+    <value>Alerts &amp; Notifications</value>
+  </data>
+  <data name="All Jobs" xml:space="preserve">
+    <value>All Jobs</value>
+  </data>
+  <data name="All settings" xml:space="preserve">
+    <value>All settings</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="An autosaved draft exists for this screen from {0}. Restore it?" xml:space="preserve">
+    <value>An autosaved draft exists for this screen from {0}. Restore it?</value>
+  </data>
+  <data name="Application language" xml:space="preserve">
+    <value>Application language</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Approve" xml:space="preserve">
+    <value>Approve</value>
+  </data>
+  <data name="Assigned To" xml:space="preserve">
+    <value>Assigned To</value>
+  </data>
+  <data name="Attachments" xml:space="preserve">
+    <value>Attachments</value>
+  </data>
+  <data name="Attendance" xml:space="preserve">
+    <value>Attendance</value>
+  </data>
+  <data name="Audit Log" xml:space="preserve">
+    <value>Audit Log</value>
+  </data>
+  <data name="Autosave" xml:space="preserve">
+    <value>Autosave</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Back to settings" xml:space="preserve">
+    <value>Back to settings</value>
+  </data>
+  <data name="Backup" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="Backup &amp; Recovery" xml:space="preserve">
+    <value>Backup &amp; Recovery</value>
+  </data>
+  <data name="Backup Log" xml:space="preserve">
+    <value>Backup Log</value>
+  </data>
+  <data name="Backup Now" xml:space="preserve">
+    <value>Backup Now</value>
+  </data>
+  <data name="Backup completed - saved to {0}" xml:space="preserve">
+    <value>Backup completed - saved to {0}</value>
+  </data>
+  <data name="Backup failed - please check settings" xml:space="preserve">
+    <value>Backup failed - please check settings</value>
+  </data>
+  <data name="Backup failed: {0}" xml:space="preserve">
+    <value>Backup failed: {0}</value>
+  </data>
+  <data name="Backup log cleared." xml:space="preserve">
+    <value>Backup log cleared.</value>
+  </data>
+  <data name="Backup settings saved." xml:space="preserve">
+    <value>Backup settings saved.</value>
+  </data>
+  <data name="Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in." xml:space="preserve">
+    <value>Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in.</value>
+  </data>
+  <data name="Balance" xml:space="preserve">
+    <value>Balance</value>
+  </data>
+  <data name="Bank Details" xml:space="preserve">
+    <value>Bank Details</value>
+  </data>
+  <data name="Bank Name" xml:space="preserve">
+    <value>Bank Name</value>
+  </data>
+  <data name="Branch" xml:space="preserve">
+    <value>Branch</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>Browse</value>
+  </data>
+  <data name="BusinessToday" xml:space="preserve">
+    <value>Here's what's happening across your business today.</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="Change Password" xml:space="preserve">
+    <value>Change Password</value>
+  </data>
+  <data name="Choose English or Marathi. Your business data and number formats stay unchanged." xml:space="preserve">
+    <value>Choose English or Marathi. Your business data and number formats stay unchanged.</value>
+  </data>
+  <data name="City" xml:space="preserve">
+    <value>City</value>
+  </data>
+  <data name="Clear" xml:space="preserve">
+    <value>Clear</value>
+  </data>
+  <data name="Clear Log" xml:space="preserve">
+    <value>Clear Log</value>
+  </data>
+  <data name="Clear Logs" xml:space="preserve">
+    <value>Clear Logs</value>
+  </data>
+  <data name="Clear local crash logs?" xml:space="preserve">
+    <value>Clear local crash logs?</value>
+  </data>
+  <data name="Client" xml:space="preserve">
+    <value>Client</value>
+  </data>
+  <data name="Client Name" xml:space="preserve">
+    <value>Client Name</value>
+  </data>
+  <data name="Clients" xml:space="preserve">
+    <value>Clients</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Close Support" xml:space="preserve">
+    <value>Close Support</value>
+  </data>
+  <data name="Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="Company Information" xml:space="preserve">
+    <value>Company Information</value>
+  </data>
+  <data name="Company Name" xml:space="preserve">
+    <value>Company Name</value>
+  </data>
+  <data name="Company profile" xml:space="preserve">
+    <value>Company profile</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>Completed</value>
+  </data>
+  <data name="Compliance Export Pack" xml:space="preserve">
+    <value>Compliance Export Pack</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="Contact" xml:space="preserve">
+    <value>Contact</value>
+  </data>
+  <data name="Contracts" xml:space="preserve">
+    <value>Contracts</value>
+  </data>
+  <data name="Could not open backup folder: {0}" xml:space="preserve">
+    <value>Could not open backup folder: {0}</value>
+  </data>
+  <data name="Create Invoice" xml:space="preserve">
+    <value>Create Invoice</value>
+  </data>
+  <data name="Create Quotation" xml:space="preserve">
+    <value>Create Quotation</value>
+  </data>
+  <data name="Created On" xml:space="preserve">
+    <value>Created On</value>
+  </data>
+  <data name="Creating manual backup..." xml:space="preserve">
+    <value>Creating manual backup...</value>
+  </data>
+  <data name="Customer Name" xml:space="preserve">
+    <value>Customer Name</value>
+  </data>
+  <data name="Customize" xml:space="preserve">
+    <value>Customize</value>
+  </data>
+  <data name="Daily Backup Time" xml:space="preserve">
+    <value>Daily Backup Time</value>
+  </data>
+  <data name="Daily Dispatch" xml:space="preserve">
+    <value>Daily Dispatch</value>
+  </data>
+  <data name="Dashboard" xml:space="preserve">
+    <value>Dashboard</value>
+  </data>
+  <data name="Data &amp; Compliance" xml:space="preserve">
+    <value>DATA &amp; COMPLIANCE</value>
+  </data>
+  <data name="Database &amp; connections" xml:space="preserve">
+    <value>Database &amp; connections</value>
+  </data>
+  <data name="Date" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="Delete Selected" xml:space="preserve">
+    <value>Delete Selected</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Details" xml:space="preserve">
+    <value>Details</value>
+  </data>
+  <data name="Discount" xml:space="preserve">
+    <value>Discount</value>
+  </data>
+  <data name="Display &amp; Layout" xml:space="preserve">
+    <value>Display &amp; Layout</value>
+  </data>
+  <data name="Display fit mode" xml:space="preserve">
+    <value>Display fit mode</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="Due Date" xml:space="preserve">
+    <value>Due Date</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Edit Client" xml:space="preserve">
+    <value>Edit Client</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>Employees</value>
+  </data>
+  <data name="Enable automatic backups" xml:space="preserve">
+    <value>Enable automatic backups</value>
+  </data>
+  <data name="End Date" xml:space="preserve">
+    <value>End Date</value>
+  </data>
+  <data name="Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Error Logs" xml:space="preserve">
+    <value>Error Logs</value>
+  </data>
+  <data name="Expenses" xml:space="preserve">
+    <value>Expenses</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>Export</value>
+  </data>
+  <data name="Export Excel" xml:space="preserve">
+    <value>Export Excel</value>
+  </data>
+  <data name="Export PDF" xml:space="preserve">
+    <value>Export PDF</value>
+  </data>
+  <data name="External Drive" xml:space="preserve">
+    <value>External Drive</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>Failed</value>
+  </data>
+  <data name="Filter" xml:space="preserve">
+    <value>Filter</value>
+  </data>
+  <data name="Filters" xml:space="preserve">
+    <value>Filters</value>
+  </data>
+  <data name="Financial Overview (This Month)" xml:space="preserve">
+    <value>Financial Overview (This Month)</value>
+  </data>
+  <data name="Finish" xml:space="preserve">
+    <value>Finish</value>
+  </data>
+  <data name="First page" xml:space="preserve">
+    <value>First page</value>
+  </data>
+  <data name="Forgot password?" xml:space="preserve">
+    <value>Forgot password?</value>
+  </data>
+  <data name="From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="GSTIN" xml:space="preserve">
+    <value>GSTIN</value>
+  </data>
+  <data name="General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Global UI scale" xml:space="preserve">
+    <value>Global UI scale</value>
+  </data>
+  <data name="Good" xml:space="preserve">
+    <value>Good</value>
+  </data>
+  <data name="Grand Total" xml:space="preserve">
+    <value>Grand Total</value>
+  </data>
+  <data name="Gross Profit" xml:space="preserve">
+    <value>Gross Profit</value>
+  </data>
+  <data name="HR &amp; Payroll" xml:space="preserve">
+    <value>HR &amp; PAYROLL</value>
+  </data>
+  <data name="Help &amp; Support" xml:space="preserve">
+    <value>Help &amp; Support</value>
+  </data>
+  <data name="Help &amp; diagnostics" xml:space="preserve">
+    <value>Help &amp; diagnostics</value>
+  </data>
+  <data name="High Priority" xml:space="preserve">
+    <value>High Priority</value>
+  </data>
+  <data name="High Priority Tickets" xml:space="preserve">
+    <value>High Priority Tickets</value>
+  </data>
+  <data name="History" xml:space="preserve">
+    <value>History</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>Import</value>
+  </data>
+  <data name="In Progress" xml:space="preserve">
+    <value>In Progress</value>
+  </data>
+  <data name="Information" xml:space="preserve">
+    <value>Information</value>
+  </data>
+  <data name="Install update" xml:space="preserve">
+    <value>Install update</value>
+  </data>
+  <data name="Inventory" xml:space="preserve">
+    <value>Inventory</value>
+  </data>
+  <data name="Invoice Date" xml:space="preserve">
+    <value>Invoice Date</value>
+  </data>
+  <data name="Invoice No" xml:space="preserve">
+    <value>Invoice No</value>
+  </data>
+  <data name="Invoices" xml:space="preserve">
+    <value>Invoices</value>
+  </data>
+  <data name="Job Number" xml:space="preserve">
+    <value>Job Number</value>
+  </data>
+  <data name="Job Title" xml:space="preserve">
+    <value>Job Title</value>
+  </data>
+  <data name="Jobs" xml:space="preserve">
+    <value>Jobs</value>
+  </data>
+  <data name="Jobs / Projects" xml:space="preserve">
+    <value>Jobs / Projects</value>
+  </data>
+  <data name="Keep backups for" xml:space="preserve">
+    <value>Keep backups for</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Language saved. Reopen ServoERP to apply the language to all screens." xml:space="preserve">
+    <value>Language saved. Reopen ServoERP to apply the language to all screens.</value>
+  </data>
+  <data name="Last Month" xml:space="preserve">
+    <value>Last Month</value>
+  </data>
+  <data name="Last backup: no successful backup found" xml:space="preserve">
+    <value>Last backup: no successful backup found</value>
+  </data>
+  <data name="Last backup: {0} to {1}" xml:space="preserve">
+    <value>Last backup: {0} to {1}</value>
+  </data>
+  <data name="Last page" xml:space="preserve">
+    <value>Last page</value>
+  </data>
+  <data name="Leave blank to skip network backup" xml:space="preserve">
+    <value>Leave blank to skip network backup</value>
+  </data>
+  <data name="Legal Agreements" xml:space="preserve">
+    <value>Legal Agreements</value>
+  </data>
+  <data name="License &amp; updates" xml:space="preserve">
+    <value>License &amp; updates</value>
+  </data>
+  <data name="Loading..." xml:space="preserve">
+    <value>Loading...</value>
+  </data>
+  <data name="Local Backup Folder" xml:space="preserve">
+    <value>Local Backup Folder</value>
+  </data>
+  <data name="Local Folder" xml:space="preserve">
+    <value>Local Folder</value>
+  </data>
+  <data name="Login" xml:space="preserve">
+    <value>Login</value>
+  </data>
+  <data name="Logout" xml:space="preserve">
+    <value>Logout</value>
+  </data>
+  <data name="Manual Backup &amp; Status" xml:space="preserve">
+    <value>Manual Backup &amp; Status</value>
+  </data>
+  <data name="Manual backup failed. Please check backup settings." xml:space="preserve">
+    <value>Manual backup failed. Please check backup settings.</value>
+  </data>
+  <data name="Master Data" xml:space="preserve">
+    <value>Master Data</value>
+  </data>
+  <data name="Materials / Procurement" xml:space="preserve">
+    <value>Materials / Procurement</value>
+  </data>
+  <data name="Materials To Order" xml:space="preserve">
+    <value>Materials To Order</value>
+  </data>
+  <data name="Mobile" xml:space="preserve">
+    <value>Mobile</value>
+  </data>
+  <data name="Mobile Connection" xml:space="preserve">
+    <value>Mobile Connection</value>
+  </data>
+  <data name="Module Catalog" xml:space="preserve">
+    <value>Module Catalog</value>
+  </data>
+  <data name="My Work" xml:space="preserve">
+    <value>My Work</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Net Cash Flow" xml:space="preserve">
+    <value>Net Cash Flow</value>
+  </data>
+  <data name="Net Profit" xml:space="preserve">
+    <value>Net Profit</value>
+  </data>
+  <data name="Network Server" xml:space="preserve">
+    <value>Network Server</value>
+  </data>
+  <data name="Network Server Connection" xml:space="preserve">
+    <value>Network Server Connection</value>
+  </data>
+  <data name="Network Server Path (UNC)" xml:space="preserve">
+    <value>Network Server Path (UNC)</value>
+  </data>
+  <data name="Network backup skipped." xml:space="preserve">
+    <value>Network backup skipped.</value>
+  </data>
+  <data name="New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="New Client" xml:space="preserve">
+    <value>New Client</value>
+  </data>
+  <data name="New Invoice" xml:space="preserve">
+    <value>New Invoice</value>
+  </data>
+  <data name="New Job" xml:space="preserve">
+    <value>New Job</value>
+  </data>
+  <data name="New Quotation" xml:space="preserve">
+    <value>New Quotation</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="Next page" xml:space="preserve">
+    <value>Next page</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="No crash logs found." xml:space="preserve">
+    <value>No crash logs found.</value>
+  </data>
+  <data name="No records found" xml:space="preserve">
+    <value>No records found</value>
+  </data>
+  <data name="No records found." xml:space="preserve">
+    <value>No records found.</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="On Leave Today" xml:space="preserve">
+    <value>On Leave Today</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="Open Backup Folder" xml:space="preserve">
+    <value>Open Backup Folder</value>
+  </data>
+  <data name="Open Jobs" xml:space="preserve">
+    <value>Open Jobs</value>
+  </data>
+  <data name="Open POs" xml:space="preserve">
+    <value>Open POs</value>
+  </data>
+  <data name="Open Purchase Orders" xml:space="preserve">
+    <value>Open Purchase Orders</value>
+  </data>
+  <data name="Open Quotations" xml:space="preserve">
+    <value>Open Quotations</value>
+  </data>
+  <data name="Open Service Tickets" xml:space="preserve">
+    <value>Open Service Tickets</value>
+  </data>
+  <data name="Open Source &amp; Licenses" xml:space="preserve">
+    <value>Open Source &amp; Licenses</value>
+  </data>
+  <data name="Operations" xml:space="preserve">
+    <value>OPERATIONS</value>
+  </data>
+  <data name="Outstanding" xml:space="preserve">
+    <value>Outstanding</value>
+  </data>
+  <data name="Overdue" xml:space="preserve">
+    <value>Overdue</value>
+  </data>
+  <data name="Overdue Amount" xml:space="preserve">
+    <value>Overdue Amount</value>
+  </data>
+  <data name="Overdue Invoices" xml:space="preserve">
+    <value>Overdue Invoices</value>
+  </data>
+  <data name="Overdue Payables" xml:space="preserve">
+    <value>Overdue Payables</value>
+  </data>
+  <data name="Overview" xml:space="preserve">
+    <value>Overview</value>
+  </data>
+  <data name="PAN" xml:space="preserve">
+    <value>PAN</value>
+  </data>
+  <data name="PIN Code" xml:space="preserve">
+    <value>PIN Code</value>
+  </data>
+  <data name="Paid" xml:space="preserve">
+    <value>Paid</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="Payments" xml:space="preserve">
+    <value>Payments</value>
+  </data>
+  <data name="Payroll" xml:space="preserve">
+    <value>Payroll</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>Pending</value>
+  </data>
+  <data name="Pending Payables" xml:space="preserve">
+    <value>Pending Payables</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>Phone</value>
+  </data>
+  <data name="Please wait..." xml:space="preserve">
+    <value>Please wait...</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Previous page" xml:space="preserve">
+    <value>Previous page</value>
+  </data>
+  <data name="Priced Items" xml:space="preserve">
+    <value>Priced Items</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>Print</value>
+  </data>
+  <data name="Priority" xml:space="preserve">
+    <value>Priority</value>
+  </data>
+  <data name="Processing..." xml:space="preserve">
+    <value>Processing...</value>
+  </data>
+  <data name="Purchase Orders" xml:space="preserve">
+    <value>Purchase Orders</value>
+  </data>
+  <data name="Purchases" xml:space="preserve">
+    <value>Purchases</value>
+  </data>
+  <data name="Quantity" xml:space="preserve">
+    <value>Quantity</value>
+  </data>
+  <data name="Quick Action" xml:space="preserve">
+    <value>Quick Action</value>
+  </data>
+  <data name="Quotation No" xml:space="preserve">
+    <value>Quotation No</value>
+  </data>
+  <data name="Quotations" xml:space="preserve">
+    <value>Quotations</value>
+  </data>
+  <data name="Rate" xml:space="preserve">
+    <value>Rate</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="Refresh Page" xml:space="preserve">
+    <value>Refresh Page</value>
+  </data>
+  <data name="Reject" xml:space="preserve">
+    <value>Reject</value>
+  </data>
+  <data name="Remarks" xml:space="preserve">
+    <value>Remarks</value>
+  </data>
+  <data name="Remember me" xml:space="preserve">
+    <value>Remember me</value>
+  </data>
+  <data name="Remind me later" xml:space="preserve">
+    <value>Remind me later</value>
+  </data>
+  <data name="Renew license" xml:space="preserve">
+    <value>Renew license</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>Reports</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Retention" xml:space="preserve">
+    <value>Retention</value>
+  </data>
+  <data name="Retired" xml:space="preserve">
+    <value>Retired</value>
+  </data>
+  <data name="Run backup when app closes (if not already run today)" xml:space="preserve">
+    <value>Run backup when app closes (if not already run today)</value>
+  </data>
+  <data name="SLA Dashboard" xml:space="preserve">
+    <value>SLA Dashboard</value>
+  </data>
+  <data name="SYSTEM &amp; SUPPORT" xml:space="preserve">
+    <value>SYSTEM &amp; SUPPORT</value>
+  </data>
+  <data name="Sales" xml:space="preserve">
+    <value>SALES</value>
+  </data>
+  <data name="Sales / Quotations" xml:space="preserve">
+    <value>Sales / Quotations</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="Save Changes" xml:space="preserve">
+    <value>Save Changes</value>
+  </data>
+  <data name="Save Display" xml:space="preserve">
+    <value>Save Display</value>
+  </data>
+  <data name="Save Language" xml:space="preserve">
+    <value>Save Language</value>
+  </data>
+  <data name="Save Settings" xml:space="preserve">
+    <value>Save Settings</value>
+  </data>
+  <data name="Schedule" xml:space="preserve">
+    <value>Schedule</value>
+  </data>
+  <data name="Scheduled Date" xml:space="preserve">
+    <value>Scheduled Date</value>
+  </data>
+  <data name="Screen fit, interface scale and language" xml:space="preserve">
+    <value>Screen fit, interface scale and language</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Search settings" xml:space="preserve">
+    <value>Search settings</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Select All" xml:space="preserve">
+    <value>Select All</value>
+  </data>
+  <data name="Select the local ServoERP backup folder" xml:space="preserve">
+    <value>Select the local ServoERP backup folder</value>
+  </data>
+  <data name="Service Operations" xml:space="preserve">
+    <value>Service Operations</value>
+  </data>
+  <data name="ServoERP - Backup &amp; Recovery" xml:space="preserve">
+    <value>ServoERP - Backup &amp; Recovery</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Settings &amp; Support" xml:space="preserve">
+    <value>SETTINGS &amp; SUPPORT</value>
+  </data>
+  <data name="Settings home" xml:space="preserve">
+    <value>Settings home</value>
+  </data>
+  <data name="Showing {0} to {1} of {2}" xml:space="preserve">
+    <value>Showing {0} to {1} of {2}</value>
+  </data>
+  <data name="Sign in" xml:space="preserve">
+    <value>Sign In</value>
+  </data>
+  <data name="Site Monitor" xml:space="preserve">
+    <value>Site Monitor</value>
+  </data>
+  <data name="Start Date" xml:space="preserve">
+    <value>Start Date</value>
+  </data>
+  <data name="State" xml:space="preserve">
+    <value>State</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>Status</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>Submit</value>
+  </data>
+  <data name="Subtotal" xml:space="preserve">
+    <value>Subtotal</value>
+  </data>
+  <data name="Success" xml:space="preserve">
+    <value>Success</value>
+  </data>
+  <data name="Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="Supplier Name" xml:space="preserve">
+    <value>Supplier Name</value>
+  </data>
+  <data name="System Tools" xml:space="preserve">
+    <value>System Tools</value>
+  </data>
+  <data name="Tax" xml:space="preserve">
+    <value>Tax</value>
+  </data>
+  <data name="Test Connection" xml:space="preserve">
+    <value>Test Connection</value>
+  </data>
+  <data name="This Month" xml:space="preserve">
+    <value>This Month</value>
+  </data>
+  <data name="This Quarter" xml:space="preserve">
+    <value>This Quarter</value>
+  </data>
+  <data name="This Year" xml:space="preserve">
+    <value>This Year</value>
+  </data>
+  <data name="To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="To Order Items" xml:space="preserve">
+    <value>To Order Items</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Total Active Jobs" xml:space="preserve">
+    <value>Total Active Jobs</value>
+  </data>
+  <data name="Total Revenue" xml:space="preserve">
+    <value>Total Revenue</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Unable to save the language preference. Please try again." xml:space="preserve">
+    <value>Unable to save the language preference. Please try again.</value>
+  </data>
+  <data name="Unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="Unknown backup failure." xml:space="preserve">
+    <value>Unknown backup failure.</value>
+  </data>
+  <data name="Unreachable - check path or network" xml:space="preserve">
+    <value>Unreachable - check path or network</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="Updated On" xml:space="preserve">
+    <value>Updated On</value>
+  </data>
+  <data name="Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="Username" xml:space="preserve">
+    <value>Username</value>
+  </data>
+  <data name="Users" xml:space="preserve">
+    <value>Users</value>
+  </data>
+  <data name="Validation" xml:space="preserve">
+    <value>Validation</value>
+  </data>
+  <data name="Value (MTD)" xml:space="preserve">
+    <value>Value (MTD)</value>
+  </data>
+  <data name="Vendor Name" xml:space="preserve">
+    <value>Vendor Name</value>
+  </data>
+  <data name="Vendors" xml:space="preserve">
+    <value>Vendors</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="View All" xml:space="preserve">
+    <value>View All</value>
+  </data>
+  <data name="Warning" xml:space="preserve">
+    <value>Warning</value>
+  </data>
+  <data name="Website" xml:space="preserve">
+    <value>Website</value>
+  </data>
+  <data name="WhatsApp Hub" xml:space="preserve">
+    <value>WhatsApp Hub</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="afternoon" xml:space="preserve">
+    <value>afternoon</value>
+  </data>
+  <data name="backup destination" xml:space="preserve">
+    <value>backup destination</value>
+  </data>
+  <data name="days (older backups will be deleted automatically)" xml:space="preserve">
+    <value>days (older backups will be deleted automatically)</value>
+  </data>
+  <data name="evening" xml:space="preserve">
+    <value>evening</value>
+  </data>
+  <data name="morning" xml:space="preserve">
+    <value>morning</value>
+  </data>
+  <data name="of" xml:space="preserve">
+    <value>of</value>
+  </data>
+  <data name="Customize how dense data is displayed across the system." xml:space="preserve">
+    <value>Customize how dense data is displayed across the system.</value>
+  </data>
+  <data name="Use global UI scale for all pages. 90% fits more cards on small screens; 110% or 125% improves readability on large displays." xml:space="preserve">
+    <value>Use global UI scale for all pages. 90% fits more cards on small screens; 110% or 125% improves readability on large displays.</value>
+  </data>
+  <data name="Display fit controls responsive layout rules; UI scale controls font, spacing, card, and control sizing." xml:space="preserve">
+    <value>Display fit controls responsive layout rules; UI scale controls font, spacing, card, and control sizing.</value>
+  </data>
+  <data name="Auto detect laptop screens" xml:space="preserve">
+    <value>Auto detect laptop screens</value>
+  </data>
+  <data name="IdeaPad / compact laptop" xml:space="preserve">
+    <value>IdeaPad / compact laptop</value>
+  </data>
+  <data name="Standard desktop" xml:space="preserve">
+    <value>Standard desktop</value>
+  </data>
+  <data name="Display settings saved. Reopen ServoERP to apply global UI scale everywhere." xml:space="preserve">
+    <value>Display settings saved. Reopen ServoERP to apply global UI scale everywhere.</value>
+  </data>
+  <data name="Company Header" xml:space="preserve">
+    <value>Company Header</value>
+  </data>
+  <data name="India-first Defaults" xml:space="preserve">
+    <value>India-first Defaults</value>
+  </data>
+  <data name="Frequently used" xml:space="preserve">
+    <value>Frequently used</value>
+  </data>
+  <data name="Users &amp; permissions" xml:space="preserve">
+    <value>Users &amp; permissions</value>
+  </data>
+  <data name="Business defaults" xml:space="preserve">
+    <value>Business defaults</value>
+  </data>
+  <data name="Tax &amp; compliance" xml:space="preserve">
+    <value>Tax &amp; compliance</value>
+  </data>
+  <data name="Units &amp; measurements" xml:space="preserve">
+    <value>Units &amp; measurements</value>
+  </data>
+  <data name="Data management" xml:space="preserve">
+    <value>Data management</value>
+  </data>
+  <data name="Legal &amp; compliance" xml:space="preserve">
+    <value>Legal &amp; compliance</value>
+  </data>
+  <data name="Display" xml:space="preserve">
+    <value>Display</value>
+  </data>
+  <data name="Ready" xml:space="preserve">
+    <value>Ready</value>
+  </data>
+  <data name="Checking" xml:space="preserve">
+    <value>Checking</value>
+  </data>
+  <data name="Review" xml:space="preserve">
+    <value>Review</value>
+  </data>
+  <data name="Release" xml:space="preserve">
+    <value>Release</value>
+  </data>
+  <data name="Database" xml:space="preserve">
+    <value>Database</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="Database Health" xml:space="preserve">
+    <value>Database Health</value>
+  </data>
+  <data name="Unit Management" xml:space="preserve">
+    <value>Unit Management</value>
+  </data>
+  <data name="Phone / Mobile" xml:space="preserve">
+    <value>Phone / Mobile</value>
+  </data>
+  <data name="Email Address" xml:space="preserve">
+    <value>Email Address</value>
+  </data>
+  <data name="State / UT" xml:space="preserve">
+    <value>State / UT</value>
+  </data>
+  <data name="GST Registration Type" xml:space="preserve">
+    <value>GST Registration Type</value>
+  </data>
+  <data name="Authorised Signatory (PDF)" xml:space="preserve">
+    <value>Authorised Signatory (PDF)</value>
+  </data>
+  <data name="Upload Header" xml:space="preserve">
+    <value>Upload Header</value>
+  </data>
+  <data name="Office Latitude" xml:space="preserve">
+    <value>Office Latitude</value>
+  </data>
+  <data name="Office Longitude" xml:space="preserve">
+    <value>Office Longitude</value>
+  </data>
+  <data name="Locate Office" xml:space="preserve">
+    <value>Locate Office</value>
+  </data>
+  <data name="Financial Year" xml:space="preserve">
+    <value>Financial Year</value>
+  </data>
+  <data name="Currency" xml:space="preserve">
+    <value>Currency</value>
+  </data>
+  <data name="Default GST %" xml:space="preserve">
+    <value>Default GST %</value>
+  </data>
+  <data name="Payment Terms (Days)" xml:space="preserve">
+    <value>Payment Terms (Days)</value>
+  </data>
+  <data name="Default Markup %" xml:space="preserve">
+    <value>Default Markup %</value>
+  </data>
+  <data name="Invoice Prefix" xml:space="preserve">
+    <value>Invoice Prefix</value>
+  </data>
+  <data name="Annual Turnover (INR)" xml:space="preserve">
+    <value>Annual Turnover (INR)</value>
+  </data>
+  <data name="E-Invoice Threshold (INR)" xml:space="preserve">
+    <value>E-Invoice Threshold (INR)</value>
+  </data>
+  <data name="E-Invoice Eligible" xml:space="preserve">
+    <value>E-Invoice Eligible</value>
+  </data>
+  <data name="HSN / SAC Master" xml:space="preserve">
+    <value>HSN / SAC Master</value>
+  </data>
+  <data name="Company, tax identity and contact information" xml:space="preserve">
+    <value>Company, tax identity and contact information</value>
+  </data>
+  <data name="Screen fit and interface scale" xml:space="preserve">
+    <value>Screen fit and interface scale</value>
+  </data>
+  <data name="Detected working area: {0} x {1} px. Recommended for IdeaPad laptops: IdeaPad / compact laptop." xml:space="preserve">
+    <value>Detected working area: {0} x {1} px. Recommended for IdeaPad laptops: IdeaPad / compact laptop.</value>
+  </data>
+  <data name="Use your ServoERP account to continue." xml:space="preserve">
+    <value>Use your ServoERP account to continue.</value>
+  </data>
+  <data name="Username / Email" xml:space="preserve">
+    <value>Username / Email</value>
+  </data>
+  <data name="Enter your username or email" xml:space="preserve">
+    <value>Enter your username or email</value>
+  </data>
+  <data name="Enter your password" xml:space="preserve">
+    <value>Enter your password</value>
+  </data>
+  <data name="Welcome Back!" xml:space="preserve">
+    <value>Welcome Back!</value>
+  </data>
+  <data name="Sign in to your ServoERP account" xml:space="preserve">
+    <value>Sign in to your ServoERP account</value>
+  </data>
+  <data name="   Signing In..." xml:space="preserve">
+    <value>   Signing In...</value>
+  </data>
+  <data name="Secure encrypted local connection" xml:space="preserve">
+    <value>Secure encrypted local connection</value>
+  </data>
+  <data name="Enter username and password." xml:space="preserve">
+    <value>Enter username and password.</value>
+  </data>
+  <data name="Invalid username or password" xml:space="preserve">
+    <value>Invalid username or password</value>
+  </data>
+  <data name="Resuming secure session..." xml:space="preserve">
+    <value>Resuming secure session...</value>
+  </data>
+  <data name="Signing in securely..." xml:space="preserve">
+    <value>Signing in securely...</value>
+  </data>
+  <data name="Password change is required before continuing." xml:space="preserve">
+    <value>Password change is required before continuing.</value>
+  </data>
+  <data name="Account created. Enter the password to sign in." xml:space="preserve">
+    <value>Account created. Enter the password to sign in.</value>
+  </data>
+  <data name="Password reset. Sign in with your new password." xml:space="preserve">
+    <value>Password reset. Sign in with your new password.</value>
+  </data>
+  <data name="Manage every service call, contract, and invoice. Built for India." xml:space="preserve">
+    <value>Manage every service call, contract, and invoice. Built for India.</value>
+  </data>
+  <data name="Secure local sign-in for clients, service jobs, billing and field operations." xml:space="preserve">
+    <value>Secure local sign-in for clients, service jobs, billing and field operations.</value>
+  </data>
+  <data name="Manage Clients &amp; Sites" xml:space="preserve">
+    <value>Manage Clients &amp; Sites</value>
+  </data>
+  <data name="Dispatch Technicians" xml:space="preserve">
+    <value>Dispatch Technicians</value>
+  </data>
+  <data name="GST Invoicing &amp; Quotations" xml:space="preserve">
+    <value>GST Invoicing &amp; Quotations</value>
+  </data>
+  <data name="AMC &amp; Service Tracking" xml:space="preserve">
+    <value>AMC &amp; Service Tracking</value>
+  </data>
+  <data name="Create Account" xml:space="preserve">
+    <value>Create Account</value>
+  </data>
+  <data name="Create ServoERP Account" xml:space="preserve">
+    <value>Create ServoERP Account</value>
+  </data>
+  <data name="New accounts are created locally on this workstation." xml:space="preserve">
+    <value>New accounts are created locally on this workstation.</value>
+  </data>
+  <data name="Change Password Required" xml:space="preserve">
+    <value>Change Password Required</value>
+  </data>
+  <data name="Reset Password" xml:space="preserve">
+    <value>Reset Password</value>
+  </data>
+  <data name="Save Password" xml:space="preserve">
+    <value>Save Password</value>
+  </data>
+  <data name="Set a new password for your ServoERP account." xml:space="preserve">
+    <value>Set a new password for your ServoERP account.</value>
+  </data>
+  <data name="Set a new password before continuing." xml:space="preserve">
+    <value>Set a new password before continuing.</value>
+  </data>
+  <data name="Update your account password." xml:space="preserve">
+    <value>Update your account password.</value>
+  </data>
+  <data name="Current Password" xml:space="preserve">
+    <value>Current Password</value>
+  </data>
+  <data name="New Password" xml:space="preserve">
+    <value>New Password</value>
+  </data>
+  <data name="Confirm Password" xml:space="preserve">
+    <value>Confirm Password</value>
+  </data>
+  <data name="New password and confirm password do not match." xml:space="preserve">
+    <value>New password and confirm password do not match.</value>
+  </data>
+  <data name="Password must be 8+ chars with 1 uppercase and 1 number." xml:space="preserve">
+    <value>Password must be 8+ chars with 1 uppercase and 1 number.</value>
+  </data>
+  <data name="Password change failed. Check your current password." xml:space="preserve">
+    <value>Password change failed. Check your current password.</value>
+  </data>
+  <data name="Password reset." xml:space="preserve">
+    <value>Password reset.</value>
+  </data>
+  <data name="Password changed." xml:space="preserve">
+    <value>Password changed.</value>
+  </data>
+  <data name="Strength: Weak" xml:space="preserve">
+    <value>Strength: Weak</value>
+  </data>
+  <data name="Strength: Strong" xml:space="preserve">
+    <value>Strength: Strong</value>
+  </data>
+  <data name="Strength: Fair" xml:space="preserve">
+    <value>Strength: Fair</value>
+  </data>
+  <data name="Continue as Demo" xml:space="preserve">
+    <value>Continue as Demo</value>
+  </data>
+  <data name="Demo access can be enabled from administrator settings." xml:space="preserve">
+    <value>Demo access can be enabled from administrator settings.</value>
+  </data>
+  <data name="Show password" xml:space="preserve">
+    <value>Show password</value>
+  </data>
+  <data name="Hide password" xml:space="preserve">
+    <value>Hide password</value>
+  </data>
+  <data name="Minimize window" xml:space="preserve">
+    <value>Minimize window</value>
+  </data>
+  <data name="Maximize window" xml:space="preserve">
+    <value>Maximize window</value>
+  </data>
+  <data name="Restore window" xml:space="preserve">
+    <value>Restore window</value>
+  </data>
+  <data name="Close window" xml:space="preserve">
+    <value>Close window</value>
+  </data>
+  <data name="This account is temporarily locked. Try again later or contact administrator." xml:space="preserve">
+    <value>This account is temporarily locked. Try again later or contact administrator.</value>
+  </data>
+  <data name="AMC annual value cannot be negative." xml:space="preserve">
+    <value>AMC annual value cannot be negative.</value>
+  </data>
+  <data name="AMC end date must be after the start date." xml:space="preserve">
+    <value>AMC end date must be after the start date.</value>
+  </data>
+  <data name="AMC site selection is not valid." xml:space="preserve">
+    <value>AMC site selection is not valid.</value>
+  </data>
+  <data name="AMC start date is required." xml:space="preserve">
+    <value>AMC start date is required.</value>
+  </data>
+  <data name="Basic salary cannot be negative." xml:space="preserve">
+    <value>Basic salary cannot be negative.</value>
+  </data>
+  <data name="CGST and SGST do not agree." xml:space="preserve">
+    <value>CGST and SGST do not agree.</value>
+  </data>
+  <data name="Category must be 100 characters or less." xml:space="preserve">
+    <value>Category must be 100 characters or less.</value>
+  </data>
+  <data name="Choose one of the available document categories." xml:space="preserve">
+    <value>Choose one of the available document categories.</value>
+  </data>
+  <data name="Client company name is required." xml:space="preserve">
+    <value>Client company name is required.</value>
+  </data>
+  <data name="Client company name must be 200 characters or less." xml:space="preserve">
+    <value>Client company name must be 200 characters or less.</value>
+  </data>
+  <data name="Client email address is not valid." xml:space="preserve">
+    <value>Client email address is not valid.</value>
+  </data>
+  <data name="Client phone must be a valid Indian business contact number." xml:space="preserve">
+    <value>Client phone must be a valid Indian business contact number.</value>
+  </data>
+  <data name="Confirm sales or purchase direction." xml:space="preserve">
+    <value>Confirm sales or purchase direction.</value>
+  </data>
+  <data name="Confirm that you reviewed all fields against the source." xml:space="preserve">
+    <value>Confirm that you reviewed all fields against the source.</value>
+  </data>
+  <data name="Credit limit cannot be negative." xml:space="preserve">
+    <value>Credit limit cannot be negative.</value>
+  </data>
+  <data name="Current stock cannot be negative." xml:space="preserve">
+    <value>Current stock cannot be negative.</value>
+  </data>
+  <data name="Default credit days cannot be negative." xml:space="preserve">
+    <value>Default credit days cannot be negative.</value>
+  </data>
+  <data name="Due date cannot be before document date." xml:space="preserve">
+    <value>Due date cannot be before document date.</value>
+  </data>
+  <data name="Employee code must be 50 characters or less." xml:space="preserve">
+    <value>Employee code must be 50 characters or less.</value>
+  </data>
+  <data name="Employee name is required." xml:space="preserve">
+    <value>Employee name is required.</value>
+  </data>
+  <data name="Employee name must be 150 characters or less." xml:space="preserve">
+    <value>Employee name must be 150 characters or less.</value>
+  </data>
+  <data name="Employee phone must be a valid Indian mobile or landline number." xml:space="preserve">
+    <value>Employee phone must be a valid Indian mobile or landline number.</value>
+  </data>
+  <data name="Enter a valid document date (DD/MM/YYYY)." xml:space="preserve">
+    <value>Enter a valid document date (DD/MM/YYYY).</value>
+  </data>
+  <data name="Estimated cost cannot be negative." xml:space="preserve">
+    <value>Estimated cost cannot be negative.</value>
+  </data>
+  <data name="GST number must be a valid 15-character Indian GSTIN." xml:space="preserve">
+    <value>GST number must be a valid 15-character Indian GSTIN.</value>
+  </data>
+  <data name="GST rate must be between 0% and 28%." xml:space="preserve">
+    <value>GST rate must be between 0% and 28%.</value>
+  </data>
+  <data name="Gross salary cannot be negative." xml:space="preserve">
+    <value>Gross salary cannot be negative.</value>
+  </data>
+  <data name="IGST cannot be combined with CGST/SGST." xml:space="preserve">
+    <value>IGST cannot be combined with CGST/SGST.</value>
+  </data>
+  <data name="Import supports at most 500 lines per document." xml:space="preserve">
+    <value>Import supports at most 500 lines per document.</value>
+  </data>
+  <data name="Item name is required." xml:space="preserve">
+    <value>Item name is required.</value>
+  </data>
+  <data name="Item name must be 200 characters or less." xml:space="preserve">
+    <value>Item name must be 200 characters or less.</value>
+  </data>
+  <data name="Job site selection is not valid." xml:space="preserve">
+    <value>Job site selection is not valid.</value>
+  </data>
+  <data name="Job title is required." xml:space="preserve">
+    <value>Job title is required.</value>
+  </data>
+  <data name="Line GST amount disagrees with its rate." xml:space="preserve">
+    <value>Line GST amount disagrees with its rate.</value>
+  </data>
+  <data name="Line taxable amounts do not match document taxable amount." xml:space="preserve">
+    <value>Line taxable amounts do not match document taxable amount.</value>
+  </data>
+  <data name="Line taxes do not match document tax amounts." xml:space="preserve">
+    <value>Line taxes do not match document tax amounts.</value>
+  </data>
+  <data name="Line values must use at most two decimal places." xml:space="preserve">
+    <value>Line values must use at most two decimal places.</value>
+  </data>
+  <data name="Maintenance frequency is required." xml:space="preserve">
+    <value>Maintenance frequency is required.</value>
+  </data>
+  <data name="Match and select an existing customer or supplier." xml:space="preserve">
+    <value>Match and select an existing customer or supplier.</value>
+  </data>
+  <data name="Mixed GST rates on sales invoices require the normal invoice workflow in version one." xml:space="preserve">
+    <value>Mixed GST rates on sales invoices require the normal invoice workflow in version one.</value>
+  </data>
+  <data name="Money values must use at most two decimal places; no rounding is applied silently." xml:space="preserve">
+    <value>Money values must use at most two decimal places; no rounding is applied silently.</value>
+  </data>
+  <data name="Only included, reviewed PDFs with a category and no unresolved issue can be imported." xml:space="preserve">
+    <value>Only included, reviewed PDFs with a category and no unresolved issue can be imported.</value>
+  </data>
+  <data name="Open the PDF preview before importing." xml:space="preserve">
+    <value>Open the PDF preview before importing.</value>
+  </data>
+  <data name="Payment amount must be greater than zero." xml:space="preserve">
+    <value>Payment amount must be greater than zero.</value>
+  </data>
+  <data name="Payment date is required." xml:space="preserve">
+    <value>Payment date is required.</value>
+  </data>
+  <data name="Payment mode is required." xml:space="preserve">
+    <value>Payment mode is required.</value>
+  </data>
+  <data name="Payment terms cannot be negative." xml:space="preserve">
+    <value>Payment terms cannot be negative.</value>
+  </data>
+  <data name="Purchase rate cannot be negative." xml:space="preserve">
+    <value>Purchase rate cannot be negative.</value>
+  </data>
+  <data name="Purchase rate is outside the supported range." xml:space="preserve">
+    <value>Purchase rate is outside the supported range.</value>
+  </data>
+  <data name="Quantity, rate, discount and taxable amount disagree." xml:space="preserve">
+    <value>Quantity, rate, discount and taxable amount disagree.</value>
+  </data>
+  <data name="Quotation due date is required." xml:space="preserve">
+    <value>Quotation due date is required.</value>
+  </data>
+  <data name="Quotation line item description is required." xml:space="preserve">
+    <value>Quotation line item description is required.</value>
+  </data>
+  <data name="Quotation line item quantity must be greater than zero." xml:space="preserve">
+    <value>Quotation line item quantity must be greater than zero.</value>
+  </data>
+  <data name="Quotation line item sell price cannot be negative." xml:space="preserve">
+    <value>Quotation line item sell price cannot be negative.</value>
+  </data>
+  <data name="Quotation title is required." xml:space="preserve">
+    <value>Quotation title is required.</value>
+  </data>
+  <data name="Quotation title must be 200 characters or less." xml:space="preserve">
+    <value>Quotation title must be 200 characters or less.</value>
+  </data>
+  <data name="Quotation value cannot be negative." xml:space="preserve">
+    <value>Quotation value cannot be negative.</value>
+  </data>
+  <data name="Quotation/purchase mappings currently require zero round-off and zero discounts. Use the normal module for other cases." xml:space="preserve">
+    <value>Quotation/purchase mappings currently require zero round-off and zero discounts. Use the normal module for other cases.</value>
+  </data>
+  <data name="Reopen this PDF to verify its contents before importing." xml:space="preserve">
+    <value>Reopen this PDF to verify its contents before importing.</value>
+  </data>
+  <data name="Reorder level cannot be negative." xml:space="preserve">
+    <value>Reorder level cannot be negative.</value>
+  </data>
+  <data name="Review and enter a due date; no payment terms are inferred." xml:space="preserve">
+    <value>Review and enter a due date; no payment terms are inferred.</value>
+  </data>
+  <data name="SLA response time cannot be negative." xml:space="preserve">
+    <value>SLA response time cannot be negative.</value>
+  </data>
+  <data name="Scheduled date is required." xml:space="preserve">
+    <value>Scheduled date is required.</value>
+  </data>
+  <data name="Select a client for the AMC." xml:space="preserve">
+    <value>Select a client for the AMC.</value>
+  </data>
+  <data name="Select a client for the job." xml:space="preserve">
+    <value>Select a client for the job.</value>
+  </data>
+  <data name="Select a client for the payment." xml:space="preserve">
+    <value>Select a client for the payment.</value>
+  </data>
+  <data name="Select a client for the quotation." xml:space="preserve">
+    <value>Select a client for the quotation.</value>
+  </data>
+  <data name="Select an invoice for the payment." xml:space="preserve">
+    <value>Select an invoice for the payment.</value>
+  </data>
+  <data name="Site selection is not valid." xml:space="preserve">
+    <value>Site selection is not valid.</value>
+  </data>
+  <data name="Source totals conflict. Correct or reconcile the source; totals will not be silently changed." xml:space="preserve">
+    <value>Source totals conflict. Correct or reconcile the source; totals will not be silently changed.</value>
+  </data>
+  <data name="The selected type and direction disagree. Version one supports sales quotations only." xml:space="preserve">
+    <value>The selected type and direction disagree. Version one supports sales quotations only.</value>
+  </data>
+  <data name="This type cannot yet be saved by document import. Choose quotation, sales invoice or purchase invoice." xml:space="preserve">
+    <value>This type cannot yet be saved by document import. Choose quotation, sales invoice or purchase invoice.</value>
+  </data>
+  <data name="Unit is required." xml:space="preserve">
+    <value>Unit is required.</value>
+  </data>
+  <data name="Unit must be 30 characters or less." xml:space="preserve">
+    <value>Unit must be 30 characters or less.</value>
+  </data>
+  <data name="Vendor email address is not valid." xml:space="preserve">
+    <value>Vendor email address is not valid.</value>
+  </data>
+  <data name="Vendor name is required." xml:space="preserve">
+    <value>Vendor name is required.</value>
+  </data>
+  <data name="Vendor name must be 200 characters or less." xml:space="preserve">
+    <value>Vendor name must be 200 characters or less.</value>
+  </data>
+  <data name="Vendor phone must be a valid Indian business contact number." xml:space="preserve">
+    <value>Vendor phone must be a valid Indian business contact number.</value>
+  </data>
+  <data name="Version one supports quantities with up to two decimal places." xml:space="preserve">
+    <value>Version one supports quantities with up to two decimal places.</value>
+  </data>
+  <data name="ServoERP - Unexpected Error" xml:space="preserve">
+    <value>ServoERP - Unexpected Error</value>
+  </data>
+  <data name="Something went wrong" xml:space="preserve">
+    <value>Something went wrong</value>
+  </data>
+  <data name="Open Log File" xml:space="preserve">
+    <value>Open Log File</value>
+  </data>
+  <data name="No log file found for this month." xml:space="preserve">
+    <value>No log file found for this month.</value>
+  </data>
+  <data name="Confirm - ServoERP" xml:space="preserve">
+    <value>Confirm - ServoERP</value>
+  </data>
+  <data name="Yes, confirm" xml:space="preserve">
+    <value>Yes, confirm</value>
+  </data>
+  <data name="Version {0}  |  Licensed workstation" xml:space="preserve">
+    <value>Version {0}  |  Licensed workstation</value>
+  </data>
+  <data name="Loading Settings..." xml:space="preserve">
+    <value>Loading Settings...</value>
+  </data>
+  <data name="Find and manage related settings." xml:space="preserve">
+    <value>Find and manage related settings.</value>
+  </data>
+  <data name="No settings found. Try another search." xml:space="preserve">
+    <value>No settings found. Try another search.</value>
+  </data>
+  <data name="Layout Recovery" xml:space="preserve">
+    <value>Layout Recovery</value>
+  </data>
+  <data name="Reset saved card layouts for specific workspaces when dashboards look broken, cramped, or out of place." xml:space="preserve">
+    <value>Reset saved card layouts for specific workspaces when dashboards look broken, cramped, or out of place.</value>
+  </data>
+  <data name="Error log location:" xml:space="preserve">
+    <value>Error log location:</value>
+  </data>
+  <data name="This workspace is strongest when it answers three questions quickly: is the build healthy, is the client protected, and what should the admin do next?" xml:space="preserve">
+    <value>This workspace is strongest when it answers three questions quickly: is the build healthy, is the client protected, and what should the admin do next?</value>
+  </data>
+  <data name="Suggested order: company profile, India defaults, display fit, backups, then risk controls and updates." xml:space="preserve">
+    <value>Suggested order: company profile, India defaults, display fit, backups, then risk controls and updates.</value>
+  </data>
+  <data name="Need help with ServoERP?" xml:space="preserve">
+    <value>Need help with ServoERP?</value>
+  </data>
+  <data name="Use this for guided help, database checks, diagnostics export, update verification, and support handover information." xml:space="preserve">
+    <value>Use this for guided help, database checks, diagnostics export, update verification, and support handover information.</value>
+  </data>
+  <data name="Add new usernames, reset passwords, assign roles, and deactivate access." xml:space="preserve">
+    <value>Add new usernames, reset passwords, assign roles, and deactivate access.</value>
+  </data>
+  <data name="Use this for admin-controlled staff access without leaving Settings." xml:space="preserve">
+    <value>Use this for admin-controlled staff access without leaving Settings.</value>
+  </data>
+  <data name="Check for updates automatically" xml:space="preserve">
+    <value>Check for updates automatically</value>
+  </data>
+  <data name="Automatically download updates and install when ServoERP closes" xml:space="preserve">
+    <value>Automatically download updates and install when ServoERP closes</value>
+  </data>
+  <data name="Enter aliases separated by commas, for example: meter, metres, mtr" xml:space="preserve">
+    <value>Enter aliases separated by commas, for example: meter, metres, mtr</value>
+  </data>
+  <data name="Available Units" xml:space="preserve">
+    <value>Available Units</value>
+  </data>
+  <data name="Review the legal agreements accepted during first launch. This viewer is read-only and does not change acceptance status." xml:space="preserve">
+    <value>Review the legal agreements accepted during first launch. This viewer is read-only and does not change acceptance status.</value>
+  </data>
+  <data name="Enterprise clients often ask which open-source components are bundled. Use this disclosure for procurement, compliance, and IT review." xml:space="preserve">
+    <value>Enterprise clients often ask which open-source components are bundled. Use this disclosure for procurement, compliance, and IT review.</value>
+  </data>
+  <data name="Use this catalog as the client-facing module map: what is installed today, what pattern inspired it, and what can be extended next." xml:space="preserve">
+    <value>Use this catalog as the client-facing module map: what is installed today, what pattern inspired it, and what can be extended next.</value>
+  </data>
+  <data name="Create a local handover pack for client IT, procurement, and audit review. No passwords, license keys, or database records are uploaded." xml:space="preserve">
+    <value>Create a local handover pack for client IT, procurement, and audit review. No passwords, license keys, or database records are uploaded.</value>
+  </data>
+  <data name="Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Short" xml:space="preserve">
+    <value>Short</value>
+  </data>
+  <data name="Display Name" xml:space="preserve">
+    <value>Display Name</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="System" xml:space="preserve">
+    <value>System</value>
+  </data>
+  <data name="Click Load Audit to view the latest 100 audit events." xml:space="preserve">
+    <value>Click Load Audit to view the latest 100 audit events.</value>
+  </data>
+  <data name="Last Login" xml:space="preserve">
+    <value>Last Login</value>
+  </data>
+  <data name="Log Date" xml:space="preserve">
+    <value>Log Date</value>
+  </data>
+  <data name="Module" xml:space="preserve">
+    <value>Module</value>
+  </data>
+  <data name="User is active" xml:space="preserve">
+    <value>User is active</value>
+  </data>
+  <data name="Role" xml:space="preserve">
+    <value>Role</value>
+  </data>
+  <data name="Linked Employee (for My Work assignment)" xml:space="preserve">
+    <value>Linked Employee (for My Work assignment)</value>
+  </data>
+  <data name="India settings and HSN/SAC master saved." xml:space="preserve">
+    <value>India settings and HSN/SAC master saved.</value>
+  </data>
+  <data name="Database: checking office SQL Server..." xml:space="preserve">
+    <value>Database: checking office SQL Server...</value>
+  </data>
+  <data name="Database: status unavailable." xml:space="preserve">
+    <value>Database: status unavailable.</value>
+  </data>
+  <data name="Database: repairing schema and sync metadata..." xml:space="preserve">
+    <value>Database: repairing schema and sync metadata...</value>
+  </data>
+  <data name="Connection settings saved. Please restart the app to use the new database connection." xml:space="preserve">
+    <value>Connection settings saved. Please restart the app to use the new database connection.</value>
+  </data>
+  <data name="Default" xml:space="preserve">
+    <value>Default</value>
+  </data>
+  <data name="Active" xml:space="preserve">
+    <value>Active</value>
+  </data>
+  <data name="Defaults restored in the form. Click Save Settings to persist them." xml:space="preserve">
+    <value>Defaults restored in the form. Click Save Settings to persist them.</value>
+  </data>
+  <data name="Scroll" xml:space="preserve">
+    <value>Scroll</value>
+  </data>
+  <data name="Extend" xml:space="preserve">
+    <value>Extend</value>
+  </data>
+  <data name="WORKSPACE LAYOUTS" xml:space="preserve">
+    <value>WORKSPACE LAYOUTS</value>
+  </data>
+  <data name="Restore a dashboard or analysis page to its original arrangement." xml:space="preserve">
+    <value>Restore a dashboard or analysis page to its original arrangement.</value>
+  </data>
+  <data name="All card layouts reset to default." xml:space="preserve">
+    <value>All card layouts reset to default.</value>
+  </data>
+  <data name="Warning: this permanently removes transactional records, clients, employees, vendors, sites, contracts, salary, and settings. Users, roles, and permissions stay intact." xml:space="preserve">
+    <value>Warning: this permanently removes transactional records, clients, employees, vendors, sites, contracts, salary, and settings. Users, roles, and permissions stay intact.</value>
+  </data>
+  <data name="Type CONFIRM in the next dialog to unlock the delete action." xml:space="preserve">
+    <value>Type CONFIRM in the next dialog to unlock the delete action.</value>
+  </data>
+  <data name="Backups stay on the client network, local PC, or external drive. Restore first creates a safety backup and then restores the selected .bak." xml:space="preserve">
+    <value>Backups stay on the client network, local PC, or external drive. Restore first creates a safety backup and then restores the selected .bak.</value>
+  </data>
+  <data name="Frozen Mode allows login, read-only data access, reports export, backup export, and license renewal only." xml:space="preserve">
+    <value>Frozen Mode allows login, read-only data access, reports export, backup export, and license renewal only.</value>
+  </data>
+  <data name="License status refreshed." xml:space="preserve">
+    <value>License status refreshed.</value>
+  </data>
+  <data name="Device fingerprint copied for license issuance." xml:space="preserve">
+    <value>Device fingerprint copied for license issuance.</value>
+  </data>
+  <data name="Issue" xml:space="preserve">
+    <value>Issue</value>
+  </data>
+  <data name="Fresh Start complete." xml:space="preserve">
+    <value>Fresh Start complete.</value>
+  </data>
+  <data name="Locating office address..." xml:space="preserve">
+    <value>Locating office address...</value>
+  </data>
+  <data name="Office coordinates updated from OpenStreetMap." xml:space="preserve">
+    <value>Office coordinates updated from OpenStreetMap.</value>
+  </data>
+  <data name="Update checks are turned off in Settings." xml:space="preserve">
+    <value>Update checks are turned off in Settings.</value>
+  </data>
+  <data name="Downloading ServoERP update" xml:space="preserve">
+    <value>Downloading ServoERP update</value>
+  </data>
+  <data name="Downloading update package..." xml:space="preserve">
+    <value>Downloading update package...</value>
+  </data>
+  <data name="Company Name *" xml:space="preserve">
+    <value>Company Name *</value>
+  </data>
+  <data name="Address / City" xml:space="preserve">
+    <value>Address / City</value>
+  </data>
+  <data name="India Defaults" xml:space="preserve">
+    <value>India Defaults</value>
+  </data>
+  <data name="Annual Turnover" xml:space="preserve">
+    <value>Annual Turnover</value>
+  </data>
+  <data name="E-Invoice Threshold" xml:space="preserve">
+    <value>E-Invoice Threshold</value>
+  </data>
+  <data name="License Management" xml:space="preserve">
+    <value>License Management</value>
+  </data>
+  <data name="Diagnostics &amp; Error Log" xml:space="preserve">
+    <value>Diagnostics &amp; Error Log</value>
+  </data>
+  <data name="Settings Control Center" xml:space="preserve">
+    <value>Settings Control Center</value>
+  </data>
+  <data name="User Logins" xml:space="preserve">
+    <value>User Logins</value>
+  </data>
+  <data name="About &amp; Updates" xml:space="preserve">
+    <value>About &amp; Updates</value>
+  </data>
+  <data name="GitHub Releases Repository" xml:space="preserve">
+    <value>GitHub Releases Repository</value>
+  </data>
+  <data name="Unit Code *" xml:space="preserve">
+    <value>Unit Code *</value>
+  </data>
+  <data name="Short Code" xml:space="preserve">
+    <value>Short Code</value>
+  </data>
+  <data name="Display Name *" xml:space="preserve">
+    <value>Display Name *</value>
+  </data>
+  <data name="Measurement System" xml:space="preserve">
+    <value>Measurement System</value>
+  </data>
+  <data name="Aliases" xml:space="preserve">
+    <value>Aliases</value>
+  </data>
+  <data name="No errors logged this month." xml:space="preserve">
+    <value>No errors logged this month.</value>
+  </data>
+  <data name="Unable to update user." xml:space="preserve">
+    <value>Unable to update user.</value>
+  </data>
+  <data name="Unable to change active state. You cannot deactivate your own account." xml:space="preserve">
+    <value>Unable to change active state. You cannot deactivate your own account.</value>
+  </data>
+  <data name="Username, display name, and role are required." xml:space="preserve">
+    <value>Username, display name, and role are required.</value>
+  </data>
+  <data name="Fresh Start failed. No data was removed." xml:space="preserve">
+    <value>Fresh Start failed. No data was removed.</value>
+  </data>
+  <data name="Shared Office Storage" xml:space="preserve">
+    <value>Shared Office Storage</value>
+  </data>
+  <data name="Connect ServoERP to your private office server" xml:space="preserve">
+    <value>Connect ServoERP to your private office server</value>
+  </data>
+  <data name="Enable shared office storage" xml:space="preserve">
+    <value>Enable shared office storage</value>
+  </data>
+  <data name="Private server share (UNC path)" xml:space="preserve">
+    <value>Private server share (UNC path)</value>
+  </data>
+  <data name="Use Office API for payments, stock movements, and purchase receiving" xml:space="preserve">
+    <value>Use Office API for payments, stock movements, and purchase receiving</value>
+  </data>
+  <data name="Office API connection" xml:space="preserve">
+    <value>Office API connection</value>
+  </data>
+  <data name="Private office API" xml:space="preserve">
+    <value>Private office API</value>
+  </data>
+  <data name="API address (HTTPS)" xml:space="preserve">
+    <value>API address (HTTPS)</value>
+  </data>
+  <data name="API key" xml:space="preserve">
+    <value>API key</value>
+  </data>
+  <data name="Signed-in user API token (issued by IT)" xml:space="preserve">
+    <value>Signed-in user API token (issued by IT)</value>
+  </data>
+  <data name="Authorized company" xml:space="preserve">
+    <value>Authorized company</value>
+  </data>
+  <data name="Test" xml:space="preserve">
+    <value>Test</value>
+  </data>
+  <data name="Restore autosaved draft?" xml:space="preserve">
+    <value>Restore autosaved draft?</value>
+  </data>
+  <data name="An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values." xml:space="preserve">
+    <value>An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values.</value>
+  </data>
+</root>

@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -2164,7 +2165,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void MoveLabel(Control parent, string text, int x, int y, int width)
         {
-            Label label = parent.Controls.OfType<Label>().FirstOrDefault(l => string.Equals(l.Text, text, StringComparison.Ordinal));
+            Label label = parent.Controls.OfType<Label>().FirstOrDefault(l => string.Equals(LanguageManager.GetSourceText(l, l.Text), text, StringComparison.Ordinal));
             if (label != null)
             {
                 label.AutoSize = false;
@@ -2358,8 +2359,8 @@ namespace HVAC_Pro_Desktop.UI
                 ComboItem candidate = item as ComboItem;
                 if (candidate == null)
                     continue;
-                if (string.Equals(candidate.Text, text, StringComparison.OrdinalIgnoreCase) ||
-                    candidate.Text.StartsWith(text, StringComparison.OrdinalIgnoreCase) ||
+                if (string.Equals(LanguageManager.GetSourceText(candidate, candidate.Text), text, StringComparison.OrdinalIgnoreCase) ||
+                    LanguageManager.GetSourceText(candidate, candidate.Text).StartsWith(text, StringComparison.OrdinalIgnoreCase) ||
                     text.StartsWith(candidate.Text, StringComparison.OrdinalIgnoreCase))
                     return candidate;
             }

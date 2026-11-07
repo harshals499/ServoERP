@@ -906,6 +906,11 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <EmbeddedResource Include="Resources\GeoMap\map.html" />
+    <EmbeddedResource Include="Resources\Localization\Strings.resx" />
+    <EmbeddedResource Include="Resources\Localization\Strings.mr-IN.resx" />
+    <EmbeddedResource Include="Resources\Localization\Strings.hi-IN.resx" />
+    <Compile Include="SERVICES\LanguagePreferenceService.cs" />
+    <Compile Include="SERVICES\LocalizedMessageBox.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="OfflineDesktop\OfflineModels.cs" />

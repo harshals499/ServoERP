@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Reflection;
@@ -92,6 +92,7 @@ namespace HVAC_Pro_Desktop.UI
             ResumeLayout(true);
             WireEvents();
             LoadSavedLoginState();
+            LanguageManager.ApplyControlTree(this);
 
             _spinnerTimer.Interval = 120;
             _spinnerTimer.Tick += (s, e) =>
@@ -202,7 +203,7 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.Transparent,
                 ForeColor = Color.FromArgb(15, 23, 42),
-                AccessibleName = accessibleName,
+                AccessibleName = LanguageManager.Get(accessibleName),
                 AccessibleDescription = accessibleName,
                 TabStop = false,
                 Tag = kind
@@ -731,7 +732,7 @@ namespace HVAC_Pro_Desktop.UI
             });
             _footer.Controls.Add(new Label
             {
-                Text = "Version " + Assembly.GetExecutingAssembly().GetName().Version + "  |  Licensed workstation",
+                Text = string.Format(LanguageManager.Get("Version {0}  |  Licensed workstation"), Assembly.GetExecutingAssembly().GetName().Version),
                 Dock = DockStyle.Right,
                 Width = 420,
                 Padding = new Padding(0, 0, 36, 0),
@@ -958,7 +959,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.UseSystemPasswordChar = !_passwordVisible;
             if (_btnPasswordToggle != null)
             {
-                _btnPasswordToggle.AccessibleName = _passwordVisible ? "Hide password" : "Show password";
+                _btnPasswordToggle.AccessibleName = LanguageManager.Get(_passwordVisible ? "Hide password" : "Show password");
                 _btnPasswordToggle.AccessibleDescription = _btnPasswordToggle.AccessibleName;
                 _btnPasswordToggle.Invalidate();
             }
@@ -971,8 +972,8 @@ namespace HVAC_Pro_Desktop.UI
 
             button.Text = string.Empty;
             button.TabStop = false;
-            button.AccessibleName = "Show password";
-            button.AccessibleDescription = "Show password";
+            button.AccessibleName = LanguageManager.Get("Show password");
+            button.AccessibleDescription = LanguageManager.Get("Show password");
             button.MouseEnter += (s, e) => button.Invalidate();
             button.MouseLeave += (s, e) => button.Invalidate();
             button.Paint += (s, e) => DrawPasswordVisibilityIcon(e.Graphics, button.ClientRectangle, !_passwordVisible, button.ClientRectangle.Contains(button.PointToClient(Cursor.Position)));
@@ -1083,7 +1084,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             bool maximized = WindowState == FormWindowState.Maximized;
-            _btnMaximizeToggle.AccessibleName = maximized ? "Restore window" : "Maximize window";
+            _btnMaximizeToggle.AccessibleName = LanguageManager.Get(maximized ? "Restore window" : "Maximize window");
             _btnMaximizeToggle.AccessibleDescription = _btnMaximizeToggle.AccessibleName;
             _btnMaximizeToggle.Invalidate();
         }
@@ -1574,18 +1575,22 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void DrawCentered(Graphics g, string text, Font font, Rectangle bounds, Color color)
         {
+            if (LanguageManager.IsDevanagariLanguage() && font.FontFamily.Name == "Segoe UI")
+            { var localized = new Font(LanguageManager.GetUiFontFamily(), font.Size, font.Style); font.Dispose(); font = localized; }
             using (font)
             using (Brush brush = new SolidBrush(color))
             using (StringFormat format = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
-                g.DrawString(text, font, brush, bounds, format);
+                g.DrawString(LanguageManager.Get(text), font, brush, bounds, format);
         }
 
         private static void DrawLeftAligned(Graphics g, string text, Font font, Rectangle bounds, Color color)
         {
+            if (LanguageManager.IsDevanagariLanguage() && font.FontFamily.Name == "Segoe UI")
+            { var localized = new Font(LanguageManager.GetUiFontFamily(), font.Size, font.Style); font.Dispose(); font = localized; }
             using (font)
             using (Brush brush = new SolidBrush(color))
             using (StringFormat format = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Near, Trimming = StringTrimming.Word })
-                g.DrawString(text, font, brush, bounds, format);
+                g.DrawString(LanguageManager.Get(text), font, brush, bounds, format);
         }
 
         private static GraphicsPath Rounded(Rectangle bounds, int radius)

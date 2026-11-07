@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
+using System;
 using System.Data.SqlClient;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.DAL;

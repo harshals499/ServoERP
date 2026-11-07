@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -35,6 +36,7 @@ namespace ServoERP.Infrastructure
             if (!SuppressAutomaticChildPolish) ApplySharedFrontendPolish(this);
             if (EnableWorkspaceHeader) WorkspaceHeaderPanel.EnsureOnSurface(this);
             QuotationVisualPolicy.Apply(this);
+            LanguageManager.ApplyControlTree(this);
             if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
             ExceptionLogger.Log("Form opened: " + GetType().Name, "Navigation");
         }

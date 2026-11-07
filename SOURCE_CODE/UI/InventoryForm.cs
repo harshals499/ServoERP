@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -1928,7 +1929,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             button.BackColor = selected ? InfoBlue : Color.White;
-            button.ForeColor = selected ? Color.White : (button.Text == "Needs Supplier" ? DelRed : button.Text == "Procurement Required" ? WarnOrange : SaveGreen);
+            button.ForeColor = selected ? Color.White : (LanguageManager.GetSourceText(button, button.Text) == "Needs Supplier" ? DelRed : LanguageManager.GetSourceText(button, button.Text) == "Procurement Required" ? WarnOrange : SaveGreen);
             button.FlatAppearance.BorderColor = selected ? InfoBlue : DS.BorderStrong;
         }
 

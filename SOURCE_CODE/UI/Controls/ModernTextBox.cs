@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -94,7 +94,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             {
                 using (Brush brush = new SolidBrush(DS.InputMutedText))
                 using (StringFormat format = new StringFormat { Alignment = StringAlignment.Near, LineAlignment = StringAlignment.Center, Trimming = StringTrimming.EllipsisCharacter })
-                    e.Graphics.DrawString(_placeholder, _inner.Font, brush, new RectangleF(Padding.Left, 0, Width - Padding.Left - Padding.Right, Height), format);
+                    e.Graphics.DrawString(HVAC_Pro_Desktop.Services.LanguageManager.Get(_placeholder), _inner.Font, brush, new RectangleF(Padding.Left, 0, Width - Padding.Left - Padding.Right, Height), format);
             }
         }
 

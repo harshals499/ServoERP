@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System.Drawing;
 
 namespace HVAC_Pro_Desktop.UI
@@ -1083,7 +1084,7 @@ namespace HVAC_Pro_Desktop.UI
 				_lblSaveProof.Text = "Unsaved changes - save before payroll";
 				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Amber600;
 			}
-			else if (string.IsNullOrWhiteSpace(_lblSaveProof.Text) || _lblSaveProof.Text.StartsWith("Unsaved", System.StringComparison.OrdinalIgnoreCase))
+			else if (string.IsNullOrWhiteSpace(_lblSaveProof.Text) || HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(_lblSaveProof, _lblSaveProof.Text).StartsWith("Unsaved", System.StringComparison.OrdinalIgnoreCase))
 			{
 				_lblSaveProof.Text = "No unsaved changes";
 				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;

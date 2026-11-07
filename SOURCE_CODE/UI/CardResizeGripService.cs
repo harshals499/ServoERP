@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -501,7 +501,7 @@ namespace HVAC_Pro_Desktop.UI
                 foreach (Control control in _card.Controls)
                 {
                     Label label = control as Label;
-                    if (label != null && string.Equals(label.Text, "Quote Summary", StringComparison.Ordinal))
+                    if (label != null && string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(label, label.Text), "Quote Summary", StringComparison.Ordinal))
                     {
                         _card.Controls.SetChildIndex(label, 0);
                         return;

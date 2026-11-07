@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
+using System;
 using System.ComponentModel;
 using System.Collections.Generic;
 using System.Drawing;
@@ -548,8 +549,20 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 string selected = _languageCombo.SelectedItem.ToString();
-                LanguageManager.SetLanguage(selected);
-                DbSettings.Set("Language", LanguageManager.CurrentLanguage);
+                try
+                {
+                    LanguagePreferenceService.Save(selected);
+                    LanguageManager.SetLanguage(selected);
+                }
+                catch (Exception ex)
+                {
+                    Serilog.Log.Error(ex, "Dashboard.SaveApplicationLanguage");
+                    _languageSelectionChanging = true;
+                    try { _languageCombo.SelectedItem = LanguageManager.CurrentLanguage; }
+                    finally { _languageSelectionChanging = false; }
+                    MessageBox.Show(this, LanguageManager.Get("Unable to save the language preference. Please try again."),
+                        LanguageManager.Get("Settings"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             };
 
             if (height > 32)

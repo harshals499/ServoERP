@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Diagnostics;
 using System.Threading.Tasks;
@@ -353,7 +353,7 @@ namespace HVAC_Pro_Desktop.UI
                 foreach (TabPage tab in tabs.TabPages)
                 {
                     if (string.Equals(tab.Name, tabKey, StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(tab.Text, tabKey, StringComparison.OrdinalIgnoreCase))
+                        string.Equals(LanguageManager.GetSourceText(tab, tab.Text), tabKey, StringComparison.OrdinalIgnoreCase))
                     {
                         tabs.SelectedTab = tab;
                         return;

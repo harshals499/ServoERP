@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -641,7 +641,7 @@ namespace HVAC_Pro_Desktop.UI
         private void RefreshMenuChecks()
         {
             foreach (ToolStripMenuItem item in _presetItems)
-                item.Checked = string.Equals(item.Text, SizePreset, StringComparison.OrdinalIgnoreCase);
+                item.Checked = string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), SizePreset, StringComparison.OrdinalIgnoreCase);
         }
 
         private void ShowCardMenu(Point point)
@@ -673,7 +673,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             else
             {
-                if (string.Equals(_savedLabel.Text, "Locked", StringComparison.Ordinal))
+                if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(_savedLabel, _savedLabel.Text), "Locked", StringComparison.Ordinal))
                 {
                     _savedLabel.Text = "Saved";
                     _savedLabel.ForeColor = SavedColor;

@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Diagnostics;
 using System.Drawing;
@@ -20,7 +21,8 @@ namespace ServoERP.Infrastructure
         public ServoErrorDialog(string userMessage, Exception ex = null)
         {
             AppIconService.Apply(this);
-            InitializeLayout(userMessage, ex);
+            InitializeLayout(HVAC_Pro_Desktop.Services.LanguageManager.GetMessage(userMessage), ex);
+            HVAC_Pro_Desktop.Services.LanguageManager.ApplyControlTree(this);
         }
 
         /// <summary>Builds the error dialog layout.</summary>

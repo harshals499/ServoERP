@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -2384,7 +2385,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             foreach (Control control in parent.Controls.Cast<Control>().ToList())
             {
-                if (control is Label label && label.Text == "Supplier details")
+                if (control is Label label && LanguageManager.GetSourceText(label, label.Text) == "Supplier details")
                     continue;
                 control.Location = new Point(control.Left + dx, control.Top + dy);
             }
@@ -2839,7 +2840,7 @@ namespace HVAC_Pro_Desktop.UI
                 searchWrap.Invalidate();
             }
 
-            Button filterButton = _searchSection.Controls.OfType<Button>().FirstOrDefault(b => b.Text == "Filter");
+            Button filterButton = _searchSection.Controls.OfType<Button>().FirstOrDefault(b => LanguageManager.GetSourceText(b, b.Text) == "Filter");
             if (filterButton != null && searchWrap != null)
                 filterButton.Location = new Point(searchWrap.Right + 8, 48);
 

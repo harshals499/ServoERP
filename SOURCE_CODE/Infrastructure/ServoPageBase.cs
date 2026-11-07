@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
+using System;
 using System.Linq;
 using HVAC_Pro_Desktop.UI;
 using System.Threading.Tasks;
@@ -31,6 +32,7 @@ namespace ServoERP.Infrastructure
             ServoTheme.ApplyTo(this);
             WorkspaceHeaderPanel.EnsureOnSurface(this);
             QuotationVisualPolicy.Apply(this);
+            LanguageManager.ApplyControlTree(this);
             if (IsHandleCreated) BeginInvoke((Action)(() => QuotationVisualPolicy.Apply(this)));
 
             double elapsed = (DateTime.Now - _loadStart).TotalMilliseconds;

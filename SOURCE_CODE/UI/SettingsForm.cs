@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -90,6 +91,7 @@ namespace HVAC_Pro_Desktop.UI
         private Label _lblUnitSummary;
         private ComboBox _cmbDisplayFitMode;
         private ComboBox _cmbUiScale;
+        private ComboBox _cmbLanguage;
         private TextBox _txtUnitCode;
         private TextBox _txtUnitShortCode;
         private TextBox _txtUnitDisplayName;
@@ -123,12 +125,12 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Color surface = _hovered || Focused ? DS.Slate50 : Color.White;
                 e.Graphics.Clear(surface);
-                using (Font font = new Font("Segoe UI", 10.5f, FontStyle.Bold))
-                using (Font descriptionFont = new Font("Segoe UI", 9f))
+                using (Font font = new Font(LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold))
+                using (Font descriptionFont = new Font(LanguageManager.GetUiFontFamily(), 9f))
                 {
                     TextRenderer.DrawText(e.Graphics, Text, font, new Rectangle(54, 12, Math.Max(0, Width - 84), 28), DS.Slate900,
                         TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPrefix);
-                    TextRenderer.DrawText(e.Graphics, AccessibleDescription, descriptionFont, new Rectangle(54, 42, Math.Max(0, Width - 84), Height - 46), DS.Slate500,
+                    TextRenderer.DrawText(e.Graphics, LanguageManager.Get(AccessibleDescription), descriptionFont, new Rectangle(54, 42, Math.Max(0, Width - 84), Height - 46), DS.Slate500,
                         TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
                     TextRenderer.DrawText(e.Graphics, "›", font, new Rectangle(Width - 28, 14, 24, 28), DS.Primary600,
                         TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
@@ -438,7 +440,7 @@ namespace HVAC_Pro_Desktop.UI
             btnSave.Location = new Point(0, 0);
             ModernIconSystem.AddButtonIcon(btnSave, ModernIconKind.Save);
             btnSave.Click += (s, e) => {
-                if (_tabs?.SelectedTab?.Text == "Mobile Connection") _saveMobileConnection?.PerformClick();
+                if (LanguageManager.GetSourceText(_tabs?.SelectedTab, _tabs?.SelectedTab?.Text) == "Mobile Connection") _saveMobileConnection?.PerformClick();
                 else Save();
             };
             Button btnResetDefaults = MakeBtn("Reset to Defaults", Color.White, 184);
@@ -600,7 +602,7 @@ namespace HVAC_Pro_Desktop.UI
                 Destination("Data management", "Fresh Start and data reset tools", "Data Management", true) });
             AddSettingsDirectoryGroup("SYSTEM & SUPPORT", new[] {
                 new SettingsDestination { Title = "Mobile Connection", Description = "Connect phones by QR code or office user ID and password", Tab = "Mobile Connection" },
-                Destination("Display & layout", "Screen fit and interface scale", "Display & Layout"),
+                Destination("Display & layout", "Screen fit, interface scale and language", "Display & Layout"),
                 Destination("Database & connections", "Connection setup, health and layout recovery", "System Tools"),
                 new SettingsDestination { Title = "License & updates", Description = "Activation, renewal and application updates", Cards = IsAdminUser() ? new[] { "License Management", "About & Updates" } : new[] { "About & Updates" } },
                 Destination("Help & diagnostics", "Support, health checks and error logs", "Help & Support", "Diagnostics & Error Log"),
@@ -815,7 +817,7 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Settings.BuildForm.Company.Complete", 0);
 
             AppRuntime.LogTiming("Settings.BuildForm.Display.Start", 0);
-            Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 340);
+            Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 480);
             _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
             _cmbDisplayFitMode.Items.AddRange(new object[]
             {
@@ -869,6 +871,28 @@ namespace HVAC_Pro_Desktop.UI
             };
             currentScreen.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             displayBody.Controls.Add(currentScreen);
+
+            _cmbLanguage = new ComboBox
+            {
+                Name = "ApplicationLanguage",
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                AccessibleName = LanguageManager.Get("Application language")
+            };
+            _cmbLanguage.Items.AddRange(new object[] { LanguageManager.English, LanguageManager.Marathi });
+            _cmbLanguage.SelectedItem = LanguageManager.CurrentLanguage;
+            if (_cmbLanguage.SelectedIndex < 0) _cmbLanguage.SelectedIndex = 0;
+            PlaceLabeledControl(displayBody, "Application language", _cmbLanguage, 0, 280, 220);
+            Button saveLanguage = MakeBtn(LanguageManager.Get("Save Language"), InfoBlue, 180);
+            saveLanguage.Name = "SaveApplicationLanguage";
+            saveLanguage.Location = new Point(248, 300);
+            saveLanguage.Click += (s, e) => SaveApplicationLanguage();
+            displayBody.Controls.Add(saveLanguage);
+            displayBody.Controls.Add(new Label
+            {
+                Text = LanguageManager.Get("Choose English or Marathi. Your business data and number formats stay unchanged."),
+                Location = new Point(0, 348), Size = new Size(530, 56),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            });
 
             AppRuntime.LogTiming("Settings.BuildForm.Display.Complete", 0);
 
@@ -2115,12 +2139,12 @@ namespace HVAC_Pro_Desktop.UI
             if (lazyTab != null)
                 lazyTab.EnsureBuilt();
 
-            if (string.Equals(_tabs.SelectedTab.Text, "Users & Logins", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(LanguageManager.GetSourceText(_tabs.SelectedTab, _tabs.SelectedTab.Text), "Users & Logins", StringComparison.OrdinalIgnoreCase))
             {
                 EnsureUsersTabBuilt();
                 BeginRefreshSecurityTabs();
             }
-            else if (string.Equals(_tabs.SelectedTab.Text, "Audit Log", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(LanguageManager.GetSourceText(_tabs.SelectedTab, _tabs.SelectedTab.Text), "Audit Log", StringComparison.OrdinalIgnoreCase))
             {
                 EnsureAuditTabBuilt();
                 RefreshAuditLog();
@@ -2158,7 +2182,7 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (TabPage tab in _tabs.TabPages)
             {
-                if (string.Equals(tab.Text, "Users & Logins", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(LanguageManager.GetSourceText(tab, tab.Text), "Users & Logins", StringComparison.OrdinalIgnoreCase))
                 {
                     _tabs.SelectedTab = tab;
                     break;
@@ -2556,6 +2580,25 @@ namespace HVAC_Pro_Desktop.UI
             }
         }
 
+        private void SaveApplicationLanguage()
+        {
+            if (_cmbLanguage?.SelectedItem == null) return;
+            try
+            {
+                string language = _cmbLanguage.SelectedItem.ToString();
+                LanguagePreferenceService.Save(language);
+                LanguageManager.SetLanguage(language);
+                _lblStatus.Text = LanguageManager.Get("Language saved. Reopen ServoERP to apply the language to all screens.");
+                _lblStatus.ForeColor = SaveGreen;
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Error(ex, "Settings.SaveApplicationLanguage");
+                MessageBox.Show(this, LanguageManager.Get("Unable to save the language preference. Please try again."),
+                    LanguageManager.Get("Settings"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         private void LoadDisplayFitSetting()
         {
             if (_cmbDisplayFitMode == null)
@@ -2610,7 +2653,7 @@ namespace HVAC_Pro_Desktop.UI
             Rectangle workArea = Screen.PrimaryScreen != null
                 ? Screen.PrimaryScreen.WorkingArea
                 : SystemInformation.WorkingArea;
-            return "Detected working area: " + workArea.Width + " x " + workArea.Height + " px. Recommended for IdeaPad laptops: IdeaPad / compact laptop.";
+            return string.Format(CultureInfo.CurrentCulture, LanguageManager.Get("Detected working area: {0} x {1} px. Recommended for IdeaPad laptops: IdeaPad / compact laptop."), workArea.Width, workArea.Height);
         }
 
         /// <summary>Checks SQL Server health on a worker thread so opening Settings never freezes the shell.</summary>
@@ -4113,7 +4156,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label labelControl = parent.Controls
                 .OfType<Label>()
-                .FirstOrDefault(l => string.Equals(l.Text, label, StringComparison.Ordinal));
+                .FirstOrDefault(l => string.Equals(LanguageManager.GetSourceText(l, l.Text), label, StringComparison.Ordinal));
             if (labelControl != null)
             {
                 labelControl.Location = new Point(x, y);

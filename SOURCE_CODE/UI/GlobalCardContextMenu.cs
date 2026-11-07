@@ -1,3 +1,4 @@
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -512,13 +513,13 @@ namespace HVAC_Pro_Desktop.UI
 
             foreach (ToolStripMenuItem item in menu.Items.OfType<ToolStripMenuItem>())
             {
-                if (string.Equals(item.Text, "Lock Card", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(item.Text, "Unlock Card", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Lock Card", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Unlock Card", StringComparison.OrdinalIgnoreCase))
                 {
                     item.Text = locked ? "Unlock Card" : "Lock Card";
                 }
-                else if (string.Equals(item.Text, "Add to Favorites", StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(item.Text, "Remove from Favorites", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Add to Favorites", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Remove from Favorites", StringComparison.OrdinalIgnoreCase))
                 {
                     item.Text = favorite ? "Remove from Favorites" : "Add to Favorites";
                 }

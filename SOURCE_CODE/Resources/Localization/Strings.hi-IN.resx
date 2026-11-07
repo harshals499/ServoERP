@@ -1,0 +1,624 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="AI Copilot" xml:space="preserve">
+    <value>AI सहायक</value>
+  </data>
+  <data name="Actions" xml:space="preserve">
+    <value>कार्य</value>
+  </data>
+  <data name="Active Clients" xml:space="preserve">
+    <value>सक्रिय ग्राहक</value>
+  </data>
+  <data name="Active Employees" xml:space="preserve">
+    <value>सक्रिय कर्मचारी</value>
+  </data>
+  <data name="Active Vendors" xml:space="preserve">
+    <value>सक्रिय वेंडर</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>जोड़ें</value>
+  </data>
+  <data name="Add New" xml:space="preserve">
+    <value>नया जोड़ें</value>
+  </data>
+  <data name="Add New Job" xml:space="preserve">
+    <value>नया जॉब जोड़ें</value>
+  </data>
+  <data name="Address" xml:space="preserve">
+    <value>पता</value>
+  </data>
+  <data name="Alerts" xml:space="preserve">
+    <value>अलर्ट</value>
+  </data>
+  <data name="Alerts &amp; Notifications" xml:space="preserve">
+    <value>अलर्ट और सूचनाएं</value>
+  </data>
+  <data name="All Jobs" xml:space="preserve">
+    <value>सभी जॉब्स</value>
+  </data>
+  <data name="Amount" xml:space="preserve">
+    <value>राशि</value>
+  </data>
+  <data name="An autosaved draft exists for this screen from {0}. Restore it?" xml:space="preserve">
+    <value>TODO(hi): An autosaved draft exists for this screen from {0}. Restore it?</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>लागू करें</value>
+  </data>
+  <data name="Approve" xml:space="preserve">
+    <value>स्वीकृत</value>
+  </data>
+  <data name="Assigned To" xml:space="preserve">
+    <value>असाइन किया गया</value>
+  </data>
+  <data name="Attendance" xml:space="preserve">
+    <value>उपस्थिति</value>
+  </data>
+  <data name="Autosave" xml:space="preserve">
+    <value>TODO(hi): Autosave</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>पीछे</value>
+  </data>
+  <data name="Backup &amp; Recovery" xml:space="preserve">
+    <value>TODO(hi): Backup &amp; Recovery</value>
+  </data>
+  <data name="Backup Log" xml:space="preserve">
+    <value>TODO(hi): Backup Log</value>
+  </data>
+  <data name="Backup Now" xml:space="preserve">
+    <value>TODO(hi): Backup Now</value>
+  </data>
+  <data name="Backup completed - saved to {0}" xml:space="preserve">
+    <value>TODO(hi): Backup completed - saved to {0}</value>
+  </data>
+  <data name="Backup failed - please check settings" xml:space="preserve">
+    <value>TODO(hi): Backup failed - please check settings</value>
+  </data>
+  <data name="Backup failed: {0}" xml:space="preserve">
+    <value>TODO(hi): Backup failed: {0}</value>
+  </data>
+  <data name="Backup log cleared." xml:space="preserve">
+    <value>TODO(hi): Backup log cleared.</value>
+  </data>
+  <data name="Backup settings saved." xml:space="preserve">
+    <value>TODO(hi): Backup settings saved.</value>
+  </data>
+  <data name="Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in." xml:space="preserve">
+    <value>TODO(hi): Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in.</value>
+  </data>
+  <data name="Balance" xml:space="preserve">
+    <value>बाकी</value>
+  </data>
+  <data name="Browse" xml:space="preserve">
+    <value>ब्राउज</value>
+  </data>
+  <data name="BusinessToday" xml:space="preserve">
+    <value>आज आपके व्यवसाय में क्या हो रहा है, यह यहां दिखता है.</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>रद्द करें</value>
+  </data>
+  <data name="Change Password" xml:space="preserve">
+    <value>पासवर्ड बदलें</value>
+  </data>
+  <data name="City" xml:space="preserve">
+    <value>शहर</value>
+  </data>
+  <data name="Clear" xml:space="preserve">
+    <value>साफ करें</value>
+  </data>
+  <data name="Clear Log" xml:space="preserve">
+    <value>TODO(hi): Clear Log</value>
+  </data>
+  <data name="Clear Logs" xml:space="preserve">
+    <value>TODO(hi): Clear Logs</value>
+  </data>
+  <data name="Clear local crash logs?" xml:space="preserve">
+    <value>TODO(hi): Clear local crash logs?</value>
+  </data>
+  <data name="Client" xml:space="preserve">
+    <value>ग्राहक</value>
+  </data>
+  <data name="Clients" xml:space="preserve">
+    <value>ग्राहक</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>बंद करें</value>
+  </data>
+  <data name="Columns" xml:space="preserve">
+    <value>कॉलम</value>
+  </data>
+  <data name="Company Information" xml:space="preserve">
+    <value>कंपनी जानकारी</value>
+  </data>
+  <data name="Completed" xml:space="preserve">
+    <value>पूर्ण</value>
+  </data>
+  <data name="Compliance Export Pack" xml:space="preserve">
+    <value>अनुपालन निर्यात पैक</value>
+  </data>
+  <data name="Connected" xml:space="preserve">
+    <value>TODO(hi): Connected</value>
+  </data>
+  <data name="Contracts" xml:space="preserve">
+    <value>AMC अनुबंध</value>
+  </data>
+  <data name="Could not open backup folder: {0}" xml:space="preserve">
+    <value>TODO(hi): Could not open backup folder: {0}</value>
+  </data>
+  <data name="Creating manual backup..." xml:space="preserve">
+    <value>TODO(hi): Creating manual backup...</value>
+  </data>
+  <data name="Customize" xml:space="preserve">
+    <value>कस्टमाइज</value>
+  </data>
+  <data name="Daily Backup Time" xml:space="preserve">
+    <value>TODO(hi): Daily Backup Time</value>
+  </data>
+  <data name="Dashboard" xml:space="preserve">
+    <value>डैशबोर्ड</value>
+  </data>
+  <data name="Data &amp; Compliance" xml:space="preserve">
+    <value>डेटा और अनुपालन</value>
+  </data>
+  <data name="Date" xml:space="preserve">
+    <value>दिनांक</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>हटाएं</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>एडिट करें</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>ईमेल</value>
+  </data>
+  <data name="Employees" xml:space="preserve">
+    <value>कर्मचारी</value>
+  </data>
+  <data name="Enable automatic backups" xml:space="preserve">
+    <value>TODO(hi): Enable automatic backups</value>
+  </data>
+  <data name="Error Logs" xml:space="preserve">
+    <value>TODO(hi): Error Logs</value>
+  </data>
+  <data name="Expenses" xml:space="preserve">
+    <value>खर्च</value>
+  </data>
+  <data name="Export" xml:space="preserve">
+    <value>निर्यात</value>
+  </data>
+  <data name="External Drive" xml:space="preserve">
+    <value>TODO(hi): External Drive</value>
+  </data>
+  <data name="Failed" xml:space="preserve">
+    <value>TODO(hi): Failed</value>
+  </data>
+  <data name="Filter" xml:space="preserve">
+    <value>फिल्टर</value>
+  </data>
+  <data name="Filters" xml:space="preserve">
+    <value>फिल्टर</value>
+  </data>
+  <data name="Financial Overview (This Month)" xml:space="preserve">
+    <value>आर्थिक सारांश (यह महीना)</value>
+  </data>
+  <data name="Finish" xml:space="preserve">
+    <value>समाप्त</value>
+  </data>
+  <data name="First page" xml:space="preserve">
+    <value>TODO(hi): First page</value>
+  </data>
+  <data name="From" xml:space="preserve">
+    <value>से</value>
+  </data>
+  <data name="GSTIN" xml:space="preserve">
+    <value>GSTIN</value>
+  </data>
+  <data name="Good" xml:space="preserve">
+    <value>शुभ</value>
+  </data>
+  <data name="Gross Profit" xml:space="preserve">
+    <value>सकल लाभ</value>
+  </data>
+  <data name="HR &amp; Payroll" xml:space="preserve">
+    <value>HR और वेतन</value>
+  </data>
+  <data name="Help &amp; Support" xml:space="preserve">
+    <value>मदद और सपोर्ट</value>
+  </data>
+  <data name="High Priority" xml:space="preserve">
+    <value>उच्च प्राथमिकता</value>
+  </data>
+  <data name="High Priority Tickets" xml:space="preserve">
+    <value>उच्च प्राथमिकता टिकट</value>
+  </data>
+  <data name="Import" xml:space="preserve">
+    <value>आयात</value>
+  </data>
+  <data name="In Progress" xml:space="preserve">
+    <value>प्रगति में</value>
+  </data>
+  <data name="Install update" xml:space="preserve">
+    <value>अपडेट इंस्टॉल करें</value>
+  </data>
+  <data name="Inventory" xml:space="preserve">
+    <value>सामग्री</value>
+  </data>
+  <data name="Invoices" xml:space="preserve">
+    <value>GST इनवॉइस</value>
+  </data>
+  <data name="Job Number" xml:space="preserve">
+    <value>जॉब नंबर</value>
+  </data>
+  <data name="Job Title" xml:space="preserve">
+    <value>जॉब शीर्षक</value>
+  </data>
+  <data name="Jobs" xml:space="preserve">
+    <value>जॉब्स</value>
+  </data>
+  <data name="Jobs / Projects" xml:space="preserve">
+    <value>जॉब्स / प्रोजेक्ट</value>
+  </data>
+  <data name="Keep backups for" xml:space="preserve">
+    <value>TODO(hi): Keep backups for</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>भाषा</value>
+  </data>
+  <data name="Last Month" xml:space="preserve">
+    <value>पिछला महीना</value>
+  </data>
+  <data name="Last backup: no successful backup found" xml:space="preserve">
+    <value>TODO(hi): Last backup: no successful backup found</value>
+  </data>
+  <data name="Last backup: {0} to {1}" xml:space="preserve">
+    <value>TODO(hi): Last backup: {0} to {1}</value>
+  </data>
+  <data name="Last page" xml:space="preserve">
+    <value>TODO(hi): Last page</value>
+  </data>
+  <data name="Leave blank to skip network backup" xml:space="preserve">
+    <value>TODO(hi): Leave blank to skip network backup</value>
+  </data>
+  <data name="Legal Agreements" xml:space="preserve">
+    <value>कानूनी समझौते</value>
+  </data>
+  <data name="Local Backup Folder" xml:space="preserve">
+    <value>TODO(hi): Local Backup Folder</value>
+  </data>
+  <data name="Local Folder" xml:space="preserve">
+    <value>TODO(hi): Local Folder</value>
+  </data>
+  <data name="Logout" xml:space="preserve">
+    <value>लॉगआउट</value>
+  </data>
+  <data name="Manual Backup &amp; Status" xml:space="preserve">
+    <value>TODO(hi): Manual Backup &amp; Status</value>
+  </data>
+  <data name="Manual backup failed. Please check backup settings." xml:space="preserve">
+    <value>TODO(hi): Manual backup failed. Please check backup settings.</value>
+  </data>
+  <data name="Master Data" xml:space="preserve">
+    <value>मास्टर डेटा</value>
+  </data>
+  <data name="Materials / Procurement" xml:space="preserve">
+    <value>सामग्री / खरीद</value>
+  </data>
+  <data name="Materials To Order" xml:space="preserve">
+    <value>ऑर्डर हेतु सामग्री</value>
+  </data>
+  <data name="Module Catalog" xml:space="preserve">
+    <value>मॉड्यूल कैटलॉग</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>नाम</value>
+  </data>
+  <data name="Net Cash Flow" xml:space="preserve">
+    <value>नेट कैश फ्लो</value>
+  </data>
+  <data name="Net Profit" xml:space="preserve">
+    <value>नेट लाभ</value>
+  </data>
+  <data name="Network Server" xml:space="preserve">
+    <value>TODO(hi): Network Server</value>
+  </data>
+  <data name="Network Server Connection" xml:space="preserve">
+    <value>TODO(hi): Network Server Connection</value>
+  </data>
+  <data name="Network Server Path (UNC)" xml:space="preserve">
+    <value>TODO(hi): Network Server Path (UNC)</value>
+  </data>
+  <data name="Network backup skipped." xml:space="preserve">
+    <value>TODO(hi): Network backup skipped.</value>
+  </data>
+  <data name="New" xml:space="preserve">
+    <value>नया</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>आगे</value>
+  </data>
+  <data name="Next page" xml:space="preserve">
+    <value>TODO(hi): Next page</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>नहीं</value>
+  </data>
+  <data name="No crash logs found." xml:space="preserve">
+    <value>TODO(hi): No crash logs found.</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>ठीक है</value>
+  </data>
+  <data name="On Leave Today" xml:space="preserve">
+    <value>आज छुट्टी पर</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>खोलें</value>
+  </data>
+  <data name="Open Backup Folder" xml:space="preserve">
+    <value>TODO(hi): Open Backup Folder</value>
+  </data>
+  <data name="Open Jobs" xml:space="preserve">
+    <value>ओपन जॉब्स</value>
+  </data>
+  <data name="Open POs" xml:space="preserve">
+    <value>ओपन PO</value>
+  </data>
+  <data name="Open Purchase Orders" xml:space="preserve">
+    <value>ओपन खरीद ऑर्डर</value>
+  </data>
+  <data name="Open Quotations" xml:space="preserve">
+    <value>ओपन कोटेशन</value>
+  </data>
+  <data name="Open Service Tickets" xml:space="preserve">
+    <value>ओपन सेवा टिकट</value>
+  </data>
+  <data name="Open Source &amp; Licenses" xml:space="preserve">
+    <value>ओपन सोर्स और लाइसेंस</value>
+  </data>
+  <data name="Operations" xml:space="preserve">
+    <value>ऑपरेशन्स</value>
+  </data>
+  <data name="Outstanding" xml:space="preserve">
+    <value>बकाया</value>
+  </data>
+  <data name="Overdue" xml:space="preserve">
+    <value>मुदत पार</value>
+  </data>
+  <data name="Overdue Amount" xml:space="preserve">
+    <value>बकाया राशि</value>
+  </data>
+  <data name="Overdue Invoices" xml:space="preserve">
+    <value>मुदत पार इनवॉइस</value>
+  </data>
+  <data name="Overdue Payables" xml:space="preserve">
+    <value>बकाया देय</value>
+  </data>
+  <data name="PAN" xml:space="preserve">
+    <value>PAN</value>
+  </data>
+  <data name="Paid" xml:space="preserve">
+    <value>भुगतान</value>
+  </data>
+  <data name="Payments" xml:space="preserve">
+    <value>भुगतान</value>
+  </data>
+  <data name="Payroll" xml:space="preserve">
+    <value>वेतन</value>
+  </data>
+  <data name="Pending" xml:space="preserve">
+    <value>लंबित</value>
+  </data>
+  <data name="Pending Payables" xml:space="preserve">
+    <value>देय बाकी</value>
+  </data>
+  <data name="Phone" xml:space="preserve">
+    <value>फोन</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>पूर्वावलोकन</value>
+  </data>
+  <data name="Previous page" xml:space="preserve">
+    <value>TODO(hi): Previous page</value>
+  </data>
+  <data name="Priced Items" xml:space="preserve">
+    <value>दर वाले आइटम</value>
+  </data>
+  <data name="Print" xml:space="preserve">
+    <value>प्रिंट</value>
+  </data>
+  <data name="Priority" xml:space="preserve">
+    <value>प्राथमिकता</value>
+  </data>
+  <data name="Purchase Orders" xml:space="preserve">
+    <value>खरीद ऑर्डर</value>
+  </data>
+  <data name="Purchases" xml:space="preserve">
+    <value>खरीद</value>
+  </data>
+  <data name="Quick Action" xml:space="preserve">
+    <value>त्वरित कार्य</value>
+  </data>
+  <data name="Quotations" xml:space="preserve">
+    <value>कोटेशन</value>
+  </data>
+  <data name="Refresh" xml:space="preserve">
+    <value>रिफ्रेश</value>
+  </data>
+  <data name="Reject" xml:space="preserve">
+    <value>अस्वीकार</value>
+  </data>
+  <data name="Remind me later" xml:space="preserve">
+    <value>बाद में याद दिलाएं</value>
+  </data>
+  <data name="Renew license" xml:space="preserve">
+    <value>लाइसेंस रिन्यू करें</value>
+  </data>
+  <data name="Reports" xml:space="preserve">
+    <value>रिपोर्ट</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>रीसेट</value>
+  </data>
+  <data name="Retention" xml:space="preserve">
+    <value>TODO(hi): Retention</value>
+  </data>
+  <data name="Retired" xml:space="preserve">
+    <value>रिटायर्ड</value>
+  </data>
+  <data name="Run backup when app closes (if not already run today)" xml:space="preserve">
+    <value>TODO(hi): Run backup when app closes (if not already run today)</value>
+  </data>
+  <data name="SLA Dashboard" xml:space="preserve">
+    <value>SLA डैशबोर्ड</value>
+  </data>
+  <data name="Sales" xml:space="preserve">
+    <value>बिक्री</value>
+  </data>
+  <data name="Sales / Quotations" xml:space="preserve">
+    <value>बिक्री / कोटेशन</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>सेव करें</value>
+  </data>
+  <data name="Save Settings" xml:space="preserve">
+    <value>सेटिंग्स सेव करें</value>
+  </data>
+  <data name="Schedule" xml:space="preserve">
+    <value>TODO(hi): Schedule</value>
+  </data>
+  <data name="Scheduled Date" xml:space="preserve">
+    <value>निर्धारित दिनांक</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>खोज</value>
+  </data>
+  <data name="SearchPlaceholder" xml:space="preserve">
+    <value>Search</value>
+  </data>
+  <data name="Select the local ServoERP backup folder" xml:space="preserve">
+    <value>TODO(hi): Select the local ServoERP backup folder</value>
+  </data>
+  <data name="Service Operations" xml:space="preserve">
+    <value>सेवा ऑपरेशन्स</value>
+  </data>
+  <data name="ServoERP - Backup &amp; Recovery" xml:space="preserve">
+    <value>TODO(hi): ServoERP - Backup &amp; Recovery</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>सेटिंग्स</value>
+  </data>
+  <data name="Settings &amp; Support" xml:space="preserve">
+    <value>सेटिंग्स और सपोर्ट</value>
+  </data>
+  <data name="Showing {0} to {1} of {2}" xml:space="preserve">
+    <value>TODO(hi): Showing {0} to {1} of {2}</value>
+  </data>
+  <data name="Site Monitor" xml:space="preserve">
+    <value>साइट मॉनिटर</value>
+  </data>
+  <data name="State" xml:space="preserve">
+    <value>राज्य</value>
+  </data>
+  <data name="Status" xml:space="preserve">
+    <value>स्थिति</value>
+  </data>
+  <data name="Submit" xml:space="preserve">
+    <value>सबमिट</value>
+  </data>
+  <data name="Success" xml:space="preserve">
+    <value>TODO(hi): Success</value>
+  </data>
+  <data name="System Tools" xml:space="preserve">
+    <value>सिस्टम टूल्स</value>
+  </data>
+  <data name="Test Connection" xml:space="preserve">
+    <value>TODO(hi): Test Connection</value>
+  </data>
+  <data name="This Month" xml:space="preserve">
+    <value>यह महीना</value>
+  </data>
+  <data name="This Quarter" xml:space="preserve">
+    <value>यह तिमाही</value>
+  </data>
+  <data name="This Year" xml:space="preserve">
+    <value>यह वर्ष</value>
+  </data>
+  <data name="To" xml:space="preserve">
+    <value>तक</value>
+  </data>
+  <data name="To Order Items" xml:space="preserve">
+    <value>ऑर्डर करने वाले आइटम</value>
+  </data>
+  <data name="Total" xml:space="preserve">
+    <value>कुल</value>
+  </data>
+  <data name="Total Active Jobs" xml:space="preserve">
+    <value>कुल सक्रिय जॉब्स</value>
+  </data>
+  <data name="Total Revenue" xml:space="preserve">
+    <value>कुल आय</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>प्रकार</value>
+  </data>
+  <data name="Unknown backup failure." xml:space="preserve">
+    <value>TODO(hi): Unknown backup failure.</value>
+  </data>
+  <data name="Unreachable - check path or network" xml:space="preserve">
+    <value>TODO(hi): Unreachable - check path or network</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>अपडेट करें</value>
+  </data>
+  <data name="Value (MTD)" xml:space="preserve">
+    <value>मूल्य (MTD)</value>
+  </data>
+  <data name="Vendors" xml:space="preserve">
+    <value>वेंडर</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>देखें</value>
+  </data>
+  <data name="View All" xml:space="preserve">
+    <value>सभी देखें</value>
+  </data>
+  <data name="WhatsApp Hub" xml:space="preserve">
+    <value>WhatsApp केंद्र</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>हाँ</value>
+  </data>
+  <data name="afternoon" xml:space="preserve">
+    <value>दोपहर</value>
+  </data>
+  <data name="backup destination" xml:space="preserve">
+    <value>TODO(hi): backup destination</value>
+  </data>
+  <data name="days (older backups will be deleted automatically)" xml:space="preserve">
+    <value>TODO(hi): days (older backups will be deleted automatically)</value>
+  </data>
+  <data name="evening" xml:space="preserve">
+    <value>शाम</value>
+  </data>
+  <data name="morning" xml:space="preserve">
+    <value>सुबह</value>
+  </data>
+  <data name="of" xml:space="preserve">
+    <value>TODO(hi): of</value>
+  </data>
+</root>

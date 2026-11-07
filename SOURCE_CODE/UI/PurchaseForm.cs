@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessageBox = HVAC_Pro_Desktop.Services.LocalizedMessageBox;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
