@@ -38,37 +38,37 @@ namespace HVAC_Pro_Desktop.UI
         internal GlobalSearchDialog(Action<string> navigate, Func<string,List<GlobalSearchResult>> search, Action<GlobalSearchResult> open)
         {
             _navigate = navigate; _search = search; _openRecord = open;
-            Text = BrandingService.WindowTitle("Global Search"); StartPosition = FormStartPosition.CenterParent;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Global Search")); StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1160, 760); MinimumSize = new Size(820, 560);
-            BackColor = Color.White; ForeColor = Ink; Font = new Font("Segoe UI",9f);
+            BackColor = Color.White; ForeColor = Ink; Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(),9f);
             var header = new Panel { Dock = DockStyle.Top, Height = 118, BackColor = Color.White };
             var input = new Panel { Name="SearchInput", Tag="CUSTOM_INPUT_SHELL", Location=new Point(18,18), Size=new Size(690,46), BackColor=Color.FromArgb(248,250,251) };
             DS.Rounded(input,6);
             input.Paint += (s,e) => {using(var path=DS.RoundedRect(new Rectangle(0,0,input.Width-1,input.Height-1),6))using(var pen=new Pen(Blue))e.Graphics.DrawPath(pen,path);};
-            var icon=ModernIconSystem.Icon(ModernIconKind.Search,18,Blue);icon.SetBounds(12,8,30,30);icon.AccessibleName="Search";input.Controls.Add(icon);
-            _searchBox = new TextBox { Name="SearchQuery", Tag="CUSTOM_INPUT_SHELL", BorderStyle=BorderStyle.None, Location=new Point(49,12), Width=590, Font=new Font("Segoe UI",12f), BackColor=input.BackColor, AccessibleName="Global search query" };
+            var icon=ModernIconSystem.Icon(ModernIconKind.Search,18,Blue);icon.SetBounds(12,8,30,30);icon.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search");input.Controls.Add(icon);
+            _searchBox = new TextBox { Name="SearchQuery", Tag="CUSTOM_INPUT_SHELL", BorderStyle=BorderStyle.None, Location=new Point(49,12), Width=590, Font=new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(),12f), BackColor=input.BackColor, AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Global search query") };
             input.Controls.Add(_searchBox);
-            var clear = ButtonAt(input,"×",642,6,38,34,()=>{_searchBox.Clear();_searchBox.Focus();}); clear.AccessibleName="Clear search";
+            var clear = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ButtonAt(input,"×",642,6,38,34,()=>{_searchBox.Clear();_searchBox.Focus();})); clear.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Clear search");
             header.Controls.Add(input);
-            var hints=TextLabel(header,"Ctrl + K  Focus search\n↑ ↓  Navigate    Enter  Open    Esc  Close",726,22,370,44,8.5f);
+            var hints=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(TextLabel(header,"Ctrl + K  Focus search\n↑ ↓  Navigate    Enter  Open    Esc  Close",726,22,370,44,8.5f));
             _filters = new FlowLayoutPanel { Name="SearchFilters", Location=new Point(18,77), Size=new Size(1080,37), WrapContents=false, AutoScroll=true };
             header.Controls.Add(_filters);
             var footer = new Panel { Dock=DockStyle.Bottom,Height=35, BackColor=Color.FromArgb(248,249,247) };
-            _count=TextLabel(footer,"Type at least 2 characters to search",18,9,650,22,8.5f);
+            _count=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(TextLabel(footer,"Type at least 2 characters to search",18,9,650,22,8.5f));
             _body=new Panel { Dock=DockStyle.Fill,Padding=new Padding(18,10,18,12) };
             _preview=new Panel { Name="RecordPreview",Dock=DockStyle.Right,Width=410,Padding=new Padding(22,0,0,0),BackColor=Color.White };
             _preview.Paint+=(s,e)=>{using(var pen=new Pen(Line))e.Graphics.DrawLine(pen,0,0,0,_preview.Height);};
-            _results=new ListBox { Name="SearchResults", Dock=DockStyle.Fill, BorderStyle=BorderStyle.None, IntegralHeight=false, DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=88,Font=Font,AccessibleName="Search results" };
-            _state = new Label { Name="SearchState", Dock=DockStyle.Fill, Text="Find a client, job, invoice or other record.\nSearch by name, number or description.",TextAlign=ContentAlignment.MiddleCenter,ForeColor=Color.FromArgb(100,116,128),BackColor=Color.White };
+            _results=new ListBox { Name="SearchResults", Dock=DockStyle.Fill, BorderStyle=BorderStyle.None, IntegralHeight=false, DrawMode=DrawMode.OwnerDrawFixed,ItemHeight=88,Font=Font,AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search results") };
+            _state = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Name="SearchState", Dock=DockStyle.Fill, Text="Find a client, job, invoice or other record.\nSearch by name, number or description.",TextAlign=ContentAlignment.MiddleCenter,ForeColor=Color.FromArgb(100,116,128),BackColor=Color.White });
             _body.Controls.Add(_results); _body.Controls.Add(_state); _body.Controls.Add(_preview);
             _details = new Panel { Dock=DockStyle.Fill, AutoScroll=true, Name="PreviewDetails" };
             var actionBar=new Panel {Dock=DockStyle.Bottom,Height=54};
             _preview.Controls.Add(_details);_preview.Controls.Add(actionBar);
-            _open=ButtonAt(actionBar,"Open record",0,6,316,40,OpenSelected,true); _open.Name="OpenSearchRecord";
+            _open=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ButtonAt(actionBar,"Open record",0,6,316,40,OpenSelected,true)); _open.Name="OpenSearchRecord";
             Controls.Add(_body);Controls.Add(footer);Controls.Add(header);
-            _body.AccessibleName="Search workspace";_preview.AccessibleName="Record preview";_details.AccessibleName="Record details";
-            header.AccessibleName="Search tools";footer.AccessibleName="Result count";input.AccessibleName="Global search input";
-            _filters.AccessibleName="Search categories";actionBar.AccessibleName="Open selected record";
+            _body.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search workspace");_preview.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Record preview");_details.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Record details");
+            header.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search tools");footer.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Result count");input.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Global search input");
+            _filters.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search categories");actionBar.AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open selected record");
             _searchBox.TextChanged+=(s,e)=>{_revision++;_debounce.Stop();_all.Clear();ApplyFilter();if(_searchBox.Text.Trim().Length<2){SetState("Type at least 2 characters to search.");return;}SetState("Searching…");_debounce.Start();};
             _debounce.Tick+=async(s,e)=>{_debounce.Stop();await RunSearchAsync();};
             _results.DrawItem+=DrawResult; _results.SelectedIndexChanged+=(s,e)=>RenderPreview();
@@ -78,9 +78,9 @@ namespace HVAC_Pro_Desktop.UI
             BuildFilters();RenderPreview();CrashProtectionService.AttachToTree(this);
         }
         private static Label TextLabel(Control parent,string text,int x,int y,int w,int h,float size=9,bool bold=false)
-        { var label=new Label {Text=text,Location=new Point(x,y),Size=new Size(w,h),Font=new Font("Segoe UI",size,bold?FontStyle.Bold:FontStyle.Regular),ForeColor=Ink,BackColor=Color.Transparent,AutoEllipsis=true,UseMnemonic=false};parent.Controls.Add(label);return label; }
+        { var label=global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label {Text=text,Location=new Point(x,y),Size=new Size(w,h),Font=new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(),size,bold?FontStyle.Bold:FontStyle.Regular),ForeColor=Ink,BackColor=Color.Transparent,AutoEllipsis=true,UseMnemonic=false});parent.Controls.Add(label);return label; }
         private static Button ButtonAt(Control parent,string text,int x,int y,int w,int h,Action click,bool primary=false)
-        { var b=new Button {Text=text,Location=new Point(x,y),Size=new Size(w,h),FlatStyle=FlatStyle.Flat,BackColor=primary?Blue:Color.White,ForeColor=primary?Color.White:Blue,UseVisualStyleBackColor=false};b.FlatAppearance.BorderColor=Line;b.Click+=(s,e)=>click();parent.Controls.Add(b);DS.Rounded(b,6);b.BringToFront();return b; }
+        { var b=global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button {Text=text,Location=new Point(x,y),Size=new Size(w,h),FlatStyle=FlatStyle.Flat,BackColor=primary?Blue:Color.White,ForeColor=primary?Color.White:Blue,UseVisualStyleBackColor=false});b.FlatAppearance.BorderColor=Line;b.Click+=(s,e)=>click();parent.Controls.Add(b);DS.Rounded(b,6);b.BringToFront();return b; }
         private void BuildFilters()
         {
             foreach(Control c in _filters.Controls.Cast<Control>().ToArray()) c.Dispose();
@@ -102,10 +102,10 @@ namespace HVAC_Pro_Desktop.UI
         private void ApplyFilter()
         {
             _current=_all.Where(r=>_filter=="All"||r.Module==_filter).ToList();_results.BeginUpdate();_results.Items.Clear();foreach(var r in _current)_results.Items.Add(r);_results.EndUpdate();
-            _state.Visible=_current.Count==0;_state.Text=_all.Count==0?"No matching records. Try a name, number or description.":"No results in this category. Choose All or another category.";
-            _count.Text=_current.Count+" results"+(_all.Count>=120?" · Showing the first 120 matches; refine your search.":"");if(_current.Count>0)_results.SelectedIndex=0;RenderPreview();
+            _state.Visible=_current.Count==0;global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_state, _all.Count==0?"No matching records. Try a name, number or description.":"No results in this category. Choose All or another category.");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_count, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} results{1}", _current.Count, (_all.Count>=120?" · Showing the first 120 matches; refine your search.":"")));if(_current.Count>0)_results.SelectedIndex=0;RenderPreview();
         }
-        private void SetState(string text){_state.Text=text;_state.Visible=true;_count.Text=text;RenderPreview();}
+        private void SetState(string text){global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_state, text);_state.Visible=true;global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_count, text);RenderPreview();}
         private void DrawResult(object sender,DrawItemEventArgs e)
         {
             if(e.Index<0||e.Index>=_current.Count)return;var r=_current[e.Index];bool selected=(e.State&DrawItemState.Selected)!=0;
@@ -113,7 +113,7 @@ namespace HVAC_Pro_Desktop.UI
             var rect=e.Bounds;var kind=r.Module=="Jobs"?ModernIconKind.Job:r.Module=="Clients"?ModernIconKind.Client:r.Module=="Invoices"?ModernIconKind.Invoice:r.Module=="Sites"?ModernIconKind.Location:r.Module=="Service Desk"?ModernIconKind.Service:ModernIconKind.Document;
             using(var icon=ModernIconSystem.Icon(kind,18,Blue)) { TextRenderer.DrawText(e.Graphics,icon.Text,icon.Font,new Rectangle(rect.X+18,rect.Y+26,30,30),Blue,TextFormatFlags.HorizontalCenter);icon.Font.Dispose(); }
             TextRenderer.DrawText(e.Graphics,r.Module,Font,new Rectangle(rect.X+60,rect.Y+10,rect.Width-80,18),Blue,TextFormatFlags.EndEllipsis);
-            using(var bold=new Font("Segoe UI",10.5f,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,r.Title??"Record",bold,new Rectangle(rect.X+60,rect.Y+30,rect.Width-206,24),Ink,TextFormatFlags.EndEllipsis);
+            using(var bold=new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(),10.5f,FontStyle.Bold))TextRenderer.DrawText(e.Graphics,r.Title??"Record",bold,new Rectangle(rect.X+60,rect.Y+30,rect.Width-206,24),Ink,TextFormatFlags.EndEllipsis);
             string right=r.Amount.HasValue?"₹"+r.Amount.Value.ToString("N2",CultureInfo.GetCultureInfo("en-IN")):r.RecordDate?.ToString("dd/MM/yyyy");
             TextRenderer.DrawText(e.Graphics,right??"",Font,new Rectangle(rect.Right-148,rect.Y+11,130,20),Ink,TextFormatFlags.Right|TextFormatFlags.EndEllipsis);
             TextRenderer.DrawText(e.Graphics,r.Status??"",Font,new Rectangle(rect.Right-148,rect.Y+32,130,20),Blue,TextFormatFlags.Right|TextFormatFlags.EndEllipsis);
@@ -126,12 +126,12 @@ namespace HVAC_Pro_Desktop.UI
         {
             foreach(Control c in _details.Controls.Cast<Control>().ToArray())c.Dispose();
             var r=_results.SelectedIndex>=0&&_results.SelectedIndex<_current.Count?_current[_results.SelectedIndex]:null;_open.Enabled=r!=null;LayoutPreviewButton();
-            if(r==null){TextLabel(_details,"Record preview",0,12,310,28,12,true);TextLabel(_details,"Select a result to see its details.",0,58,310,70);return;}
+            if(r==null){global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(TextLabel(_details,"Record preview",0,12,310,28,12,true));global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(TextLabel(_details,"Select a result to see its details.",0,58,310,70));return;}
             TextLabel(_details,r.Module,0,10,310,22,9);TextLabel(_details,r.Title,0,38,310,64,16,true);
             int y=112;var fields=new[]{Tuple.Create("Client",r.ClientName),Tuple.Create("Site",r.SiteName),Tuple.Create("Job type",r.JobType),Tuple.Create("Technician",r.Technician),Tuple.Create("Status",r.Status),Tuple.Create(r.Module=="Jobs"?"Scheduled":"Record date",r.RecordDate?.ToString("dd/MM/yyyy")),Tuple.Create("Due date",r.DueDate?.ToString("dd/MM/yyyy")),Tuple.Create("Total",r.Amount.HasValue?"₹"+r.Amount.Value.ToString("N2",CultureInfo.GetCultureInfo("en-IN")):null),Tuple.Create("Balance due",r.BalanceDue.HasValue?"₹"+r.BalanceDue.Value.ToString("N2",CultureInfo.GetCultureInfo("en-IN")):null),Tuple.Create("Record ID",r.RecordId.ToString())};
             foreach(var f in fields.Where(f=>!string.IsNullOrWhiteSpace(f.Item2))){TextLabel(_details,f.Item1,0,y,100,22,8.5f);TextLabel(_details,f.Item2,108,y,202,35,9);y+=38;}
-            TextLabel(_details,"Details",0,y,310,24,9,true);var detail=TextLabel(_details,string.IsNullOrWhiteSpace(r.Detail)?"No additional details recorded.":r.Detail,0,y+28,310,40,9);detail.Height=Math.Max(40,TextRenderer.MeasureText(detail.Text,detail.Font,new Size(310,0),TextFormatFlags.WordBreak).Height+12);
-            _open.Text="Open "+(r.Module=="Jobs"?"job":r.Module=="Clients"?"client":r.Module=="Invoices"?"invoice":"record");_open.BringToFront();
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(TextLabel(_details,"Details",0,y,310,24,9,true));var detail=TextLabel(_details,(string.IsNullOrWhiteSpace(r.Detail) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No additional details recorded.") : r.Detail),0,y+28,310,40,9);detail.Height=Math.Max(40,TextRenderer.MeasureText(detail.Text,detail.Font,new Size(310,0),TextFormatFlags.WordBreak).Height+12);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_open, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Open {0}", (r.Module=="Jobs"?"job":r.Module=="Clients"?"client":r.Module=="Invoices"?"invoice":"record")));_open.BringToFront();
         }
         protected override bool ProcessCmdKey(ref Message msg,Keys keyData)
         {
@@ -143,7 +143,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             int index=_results.SelectedIndex;if(index<0||index>=_current.Count)return;var selected=_current[index];
             if(_openRecord!=null){_openRecord(selected);return;}
-            if(!GlobalSearchService.CanView(selected.PageKey)){MessageBox.Show(this,"This record is no longer available with your current permissions.",Text,MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
+            if(!GlobalSearchService.CanView(selected.PageKey)){MessageBox.Show(this,global::HVAC_Pro_Desktop.Services.LanguageManager.Get("This record is no longer available with your current permissions."),Text,MessageBoxButtons.OK,MessageBoxIcon.Information);return;}
             Hide();NavigationHelper.OpenSearchResult(this,selected,_navigate);RecordOpened=true;Close();
         }
         protected override void Dispose(bool disposing){if(disposing){_revision++;_debounce.Dispose();}base.Dispose(disposing);}

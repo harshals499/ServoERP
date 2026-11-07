@@ -30,7 +30,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public UserGuideForm()
         {
-            Text = BrandingService.WindowTitle("User Guide");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("User Guide"));
             StartPosition = FormStartPosition.CenterParent;
             WindowState = FormWindowState.Maximized;
             MinimumSize = new Size(1050, 680);
@@ -92,16 +92,16 @@ namespace HVAC_Pro_Desktop.UI
                 item.Click += (s, e) => { _selected = index; Render(); }; _rail.Controls.Add(item);
             }
             GuideStep selected = _steps[_selected]; _detail.Controls.Clear();
-            Button later = DS.GhostBtn("I will do this later", 180, 36); later.Dock = DockStyle.Top; later.Click += (s, e) => Advance(); _detail.Controls.Add(later);
+            Button later = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("I will do this later", 180, 36)); later.Dock = DockStyle.Top; later.Click += (s, e) => Advance(); _detail.Controls.Add(later);
             Button action = DS.PrimaryBtn(selected.ActionText, 210, 40); action.Dock = DockStyle.Top; action.Margin = new Padding(0, 18, 0, 8); action.Click += (s, e) => { selected.Action(); MarkCompleteAndAdvance(selected); }; _detail.Controls.Add(action);
-            _detail.Controls.Add(new Label { Text = "You are ready to continue when: " + selected.ReadyWhen, Font = DS.Body, ForeColor = DS.Slate700, Dock = DockStyle.Top, Height = 66, Padding = new Padding(0, 12, 0, 0) });
-            _detail.Controls.Add(new Label { Text = selected.Instruction, Font = DS.Body, ForeColor = DS.Slate600, Dock = DockStyle.Top, Height = 92 });
-            _detail.Controls.Add(new Label { Text = "What you should do now", Font = DS.H3, ForeColor = DS.Slate800, Dock = DockStyle.Top, Height = 48, Padding = new Padding(0, 16, 0, 0) });
-            _detail.Controls.Add(new Label { Text = selected.Title, Font = DS.H1, ForeColor = DS.Slate900, Dock = DockStyle.Top, Height = 48 });
-            _detail.Controls.Add(new Label { Text = "STEP " + (_selected + 1) + " OF " + _steps.Count, Font = DS.CaptionBold(), ForeColor = DS.Primary600, Dock = DockStyle.Top, Height = 24 });
+            _detail.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("You are ready to continue when: {0}", selected.ReadyWhen), Font = DS.Body, ForeColor = DS.Slate700, Dock = DockStyle.Top, Height = 66, Padding = new Padding(0, 12, 0, 0) }));
+            _detail.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = selected.Instruction, Font = DS.Body, ForeColor = DS.Slate600, Dock = DockStyle.Top, Height = 92 }));
+            _detail.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "What you should do now", Font = DS.H3, ForeColor = DS.Slate800, Dock = DockStyle.Top, Height = 48, Padding = new Padding(0, 16, 0, 0) }));
+            _detail.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = selected.Title, Font = DS.H1, ForeColor = DS.Slate900, Dock = DockStyle.Top, Height = 48 }));
+            _detail.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("STEP {0} OF {1}", (_selected + 1), _steps.Count), Font = DS.CaptionBold(), ForeColor = DS.Primary600, Dock = DockStyle.Top, Height = 24 }));
             int completed = 0; foreach (GuideStep step in _steps) if (IsComplete(step)) completed++;
-            _progress.Text = completed + " of " + _steps.Count + " steps completed";
-            _next.Text = _selected < _steps.Count - 1 ? "Next: " + _steps[_selected + 1].Title : "Guide complete";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_progress, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} of {1} steps completed", completed, _steps.Count));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_next, (_selected < _steps.Count - 1 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Next: {0}", _steps[_selected + 1].Title) : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Guide complete")));
         }
 
         private void MarkCompleteAndAdvance(GuideStep step) { ConfigService.Set("InteractiveGuide", step.Key, "true"); Advance(); }

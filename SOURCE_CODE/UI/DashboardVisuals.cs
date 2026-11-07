@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -67,9 +67,9 @@ namespace HVAC_Pro_Desktop.UI
 
         internal static Button Action(string text, int width, Color back, Color fore)
         {
-            var button = new Button { Text = text, Width = width, Height = 30, BackColor = back,
-                ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
-                Cursor = Cursors.Hand, UseVisualStyleBackColor = false, AutoEllipsis = true };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = width, Height = 30, BackColor = back,
+                ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
+                Cursor = Cursors.Hand, UseVisualStyleBackColor = false, AutoEllipsis = true });
             button.FlatAppearance.BorderColor = Color.FromArgb(214, 222, 232);
             return button;
         }
@@ -85,9 +85,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label Text(string text, int x, int y, int height, float size, bool bold, Color fore)
         {
-            return new Label { Text = text, Location = new Point(x, y), Height = height,
-                Font = new Font("Segoe UI", size, bold ? FontStyle.Bold : FontStyle.Regular),
-                ForeColor = fore, BackColor = Color.Transparent, AutoEllipsis = true, UseMnemonic = false };
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Height = height,
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), size, bold ? FontStyle.Bold : FontStyle.Regular),
+                ForeColor = fore, BackColor = Color.Transparent, AutoEllipsis = true, UseMnemonic = false });
         }
     }
 }

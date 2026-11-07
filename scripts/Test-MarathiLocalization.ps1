@@ -14,7 +14,7 @@ if (!(Test-Path -LiteralPath $appExe)) { throw 'Release executable is missing.' 
 $csc = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe'
 if (!(Test-Path -LiteralPath $csc)) { throw 'Visual Studio 2022 Build Tools C# compiler is required.' }
 $testExe = Join-Path $OutputDirectory 'MarathiLocalizationTests.exe'
-& $csc /nologo /target:exe /platform:x64 "/out:$testExe" "/reference:$appExe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Core.dll (Join-Path $repoRoot 'SOURCE_CODE\Tests\MarathiLocalizationTests.cs')
+& $csc /nologo /target:exe /platform:x64 "/out:$testExe" "/reference:$appExe" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll /reference:System.Core.dll /reference:System.Data.dll (Join-Path $repoRoot 'SOURCE_CODE\Tests\MarathiLocalizationTests.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Localization harness compilation failed.' }
 # Copy only assembly redirects. Never copy connection strings or invoke the normal app entry
 # point, which would stop the user's running app and initialize the business database.

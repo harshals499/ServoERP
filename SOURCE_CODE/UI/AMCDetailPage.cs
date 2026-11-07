@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -78,24 +78,24 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildHeader()
         {
             var header = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            Button back = MakeButton("< Back to AMC", Color.White, Ink, 128);
+            Button back = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("< Back to AMC", Color.White, Ink, 128));
             back.Location = new Point(0, 2);
             back.FlatAppearance.BorderSize = 1;
             back.FlatAppearance.BorderColor = DS.Border;
             back.Click += (s, e) => _backAction?.Invoke();
             header.Controls.Add(back);
 
-            _number = new Label { Text = "AMC", Location = new Point(0, 44), Size = new Size(220, 32), Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
-            _client = new Label { Text = "-", Location = new Point(230, 48), Size = new Size(260, 24), Font = new Font("Segoe UI", 10f), ForeColor = Muted, AutoEllipsis = true };
-            _status = MakeBadge("-", Grey, new Point(500, 48), 112);
-            _coverage = MakeBadge("-", Blue, new Point(620, 48), 150);
-            Button delete = MakeButton("Delete", Color.White, Red, 84);
+            _number = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "AMC", Location = new Point(0, 44), Size = new Size(220, 32), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 17f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true });
+            _client = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "-", Location = new Point(230, 48), Size = new Size(260, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f), ForeColor = Muted, AutoEllipsis = true });
+            _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBadge("-", Grey, new Point(500, 48), 112));
+            _coverage = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBadge("-", Blue, new Point(620, 48), 150));
+            Button delete = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Delete", Color.White, Red, 84));
             delete.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             delete.FlatAppearance.BorderSize = 1;
             delete.FlatAppearance.BorderColor = Red;
             delete.Location = new Point(header.Width - 200, 42);
             delete.Click += async (s, e) => await DeleteCurrentAmcAsync();
-            Button edit = MakeButton("Edit AMC", Blue, Color.White, 104);
+            Button edit = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Edit AMC", Blue, Color.White, 104));
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             edit.Location = new Point(header.Width - 104, 42);
             edit.Click += (s, e) => _editAction?.Invoke(_amcId);
@@ -159,7 +159,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Builds the tabbed detail body.</summary>
         private Control BuildTabs()
         {
-            var tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f) };
+            var tabs = new TabControl { Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f) };
             tabs.TabPages.Add(BuildEquipmentTab());
             tabs.TabPages.Add(BuildVisitsTab());
             tabs.TabPages.Add(BuildHistoryTab());
@@ -170,7 +170,7 @@ namespace HVAC_Pro_Desktop.UI
         private TabPage BuildEquipmentTab()
         {
             var tab = new TabPage("Equipment") { BackColor = Color.White };
-            var header = BuildTabHeader("Equipment Covered", "+ Add Equipment");
+            var header = BuildTabHeader(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Equipment Covered"), "+ Add Equipment");
             ((Button)header.Controls[1]).Click += (s, e) => AddEquipment();
             _equipmentGrid = MakeGrid();
             _equipmentGrid.Columns.Add("EquipmentName", "Equipment Name");
@@ -189,7 +189,7 @@ namespace HVAC_Pro_Desktop.UI
         private TabPage BuildVisitsTab()
         {
             var tab = new TabPage("Visit Schedule") { BackColor = Color.White };
-            var header = BuildTabHeader("Service Visit Schedule", "+ Mark Complete");
+            var header = BuildTabHeader(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Service Visit Schedule"), "+ Mark Complete");
             _markComplete = (Button)header.Controls[1];
             _markComplete.Enabled = false;
             _markComplete.Click += (s, e) => MarkSelectedVisitComplete();
@@ -213,14 +213,14 @@ namespace HVAC_Pro_Desktop.UI
         private TabPage BuildHistoryTab()
         {
             var tab = new TabPage("Service History") { BackColor = Color.White };
-            var title = new Label { Text = "Service History", Location = new Point(16, 14), Size = new Size(260, 28), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = Ink };
+            var title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Service History", Location = new Point(16, 14), Size = new Size(260, 28), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = Ink });
             _historyGrid = MakeGrid();
             _historyGrid.Columns.Add("VisitNumber", "Visit #");
             _historyGrid.Columns.Add("CompletedDate", "Completed Date");
             _historyGrid.Columns.Add("TechnicianName", "Technician");
             _historyGrid.Columns.Add("WorkDone", "Work Done");
             _historyGrid.Columns.Add("PartsUsed", "Parts Used");
-            _historyEmpty = new Label { Text = "No completed visits yet.", TextAlign = ContentAlignment.MiddleCenter, ForeColor = Muted, Font = new Font("Segoe UI", 11f), Visible = false };
+            _historyEmpty = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "No completed visits yet.", TextAlign = ContentAlignment.MiddleCenter, ForeColor = Muted, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f), Visible = false });
             tab.Controls.Add(_historyGrid);
             tab.Controls.Add(_historyEmpty);
             tab.Controls.Add(title);
@@ -236,7 +236,7 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildTabHeader(string title, string buttonText)
         {
             var header = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = Color.White };
-            header.Controls.Add(new Label { Text = title, Location = new Point(16, 14), Size = new Size(280, 28), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = Ink });
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(16, 14), Size = new Size(280, 28), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = Ink }));
             Button action = MakeButton(buttonText, Blue, Color.White, 140);
             action.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             header.Controls.Add(action);
@@ -412,8 +412,8 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
                 return;
             }
 
-            _number.Text = string.IsNullOrWhiteSpace(_payload.AMCNumber) ? "AMC-" + _amcId.ToString("000", CultureInfo.InvariantCulture) : _payload.AMCNumber;
-            _client.Text = _payload.ClientName;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_number, (string.IsNullOrWhiteSpace(_payload.AMCNumber) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Format("AMC-{0}", _amcId.ToString("000", CultureInfo.InvariantCulture)) : _payload.AMCNumber));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_client, _payload.ClientName);
             SetBadge(_status, _payload.Status, GetStatusColor(_payload.Status));
             SetBadge(_coverage, _payload.CoverageType, GetCoverageColor(_payload.CoverageType));
             BindHealth();
@@ -426,15 +426,15 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
         private void ShowNotFoundState()
         {
             Controls.Clear();
-            var empty = new Label
+            var empty = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Dock = DockStyle.Fill,
                 Text = "AMC contract is no longer available.",
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold),
                 ForeColor = Muted,
                 BackColor = PageBg
-            };
+            });
             Controls.Add(empty);
         }
 
@@ -458,8 +458,8 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
             var card = new Panel { Size = new Size(220, 84), BackColor = alert ? Color.FromArgb(254, 226, 226) : Color.White, Margin = new Padding(0, 0, 14, 0) };
             card.Paint += (s, e) => { using (var pen = new Pen(DS.Border)) e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1); };
             DS.Rounded(card, 8);
-            card.Controls.Add(new Label { Text = title, Location = new Point(14, 12), Size = new Size(190, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = value, Location = new Point(14, 38), Size = new Size(192, 28), Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = alert ? Red : Ink, AutoEllipsis = true });
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(14, 12), Size = new Size(190, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, Location = new Point(14, 38), Size = new Size(192, 28), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold), ForeColor = alert ? Red : Ink, AutoEllipsis = true }));
             _health.Controls.Add(card);
         }
 
@@ -558,7 +558,7 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
         /// <summary>Creates a compact button.</summary>
         private Button MakeButton(string text, Color back, Color fore, int width)
         {
-            var button = new Button { Text = text, Width = width, Height = 34, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9f, FontStyle.Bold), Cursor = Cursors.Hand };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = width, Height = 34, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), Cursor = Cursors.Hand });
             button.FlatAppearance.BorderSize = 0;
             DS.Rounded(button, 6);
             return button;
@@ -567,7 +567,7 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
         /// <summary>Creates badge label.</summary>
         private Label MakeBadge(string text, Color color, Point location, int width)
         {
-            var label = new Label { Text = text, Location = location, Size = new Size(width, 24), BackColor = color, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold), AutoEllipsis = true };
+            var label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = location, Size = new Size(width, 24), BackColor = color, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), AutoEllipsis = true });
             DS.Rounded(label, 12);
             return label;
         }
@@ -575,7 +575,7 @@ ORDER BY VisitNumber, ScheduledDate;", connection))
         /// <summary>Updates a badge label.</summary>
         private void SetBadge(Label label, string text, Color color)
         {
-            label.Text = string.IsNullOrWhiteSpace(text) ? "-" : text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(label, (string.IsNullOrWhiteSpace(text) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : text));
             label.BackColor = color;
         }
 

@@ -25,7 +25,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly ComboBox _target = new ComboBox();
         private readonly Button _repair = new Button();
         private readonly Button _archive = new Button();
-        private readonly CheckBox _showAll = new CheckBox { Text = "Show all clients for manual review", AutoSize = true, Dock = DockStyle.Left };
+        private readonly CheckBox _showAll = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Show all clients for manual review", AutoSize = true, Dock = DockStyle.Left });
         private sealed class LinkedCounts
         {
             public int ClientID { get; set; }
@@ -36,7 +36,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public ClientImportRepairDialog()
         {
-            Text = "Review Unknown Client Names";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Review Unknown Client Names");
             Size = new Size(960, 600);
             MinimumSize = new Size(800, 480);
             StartPosition = FormStartPosition.CenterParent;
@@ -45,7 +45,7 @@ namespace HVAC_Pro_Desktop.UI
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
-            root.Controls.Add(new Label { Dock = DockStyle.Fill, Text = "Review numbers, quotation text and clients missing contact details. These are suggestions, not proof of an invalid client. Select unwanted names to delete from client lists; existing invoices and jobs stay linked. Nothing is deleted automatically." }, 0, 0);
+            root.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock = DockStyle.Fill, Text = "Review numbers, quotation text and clients missing contact details. These are suggestions, not proof of an invalid client. Select unwanted names to delete from client lists; existing invoices and jobs stay linked. Nothing is deleted automatically." }), 0, 0);
             _records.Dock = DockStyle.Fill;
             _records.ReadOnly = true;
             _records.AllowUserToAddRows = false;
@@ -68,7 +68,7 @@ namespace HVAC_Pro_Desktop.UI
             selectionPanel.Controls.Add(WorkspaceActionUi.CreateSelectionActions(_records));
             var recordFilter = new TextBox { Name = "ImportedClientRecordFilter", Dock = DockStyle.Fill };
             var filterBar = new Panel { Dock = DockStyle.Top, Height = 38, Padding = new Padding(0, 3, 0, 6) };
-            var filterLabel = new Label { Text = "Filter records", Dock = DockStyle.Left, Width = 98, TextAlign = ContentAlignment.MiddleLeft };
+            var filterLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Filter records", Dock = DockStyle.Left, Width = 98, TextAlign = ContentAlignment.MiddleLeft });
             var clearFilter = WorkspaceActionUi.CreateClearFilters(() => recordFilter.Clear());
             clearFilter.Dock = DockStyle.Right;
             filterBar.Controls.Add(recordFilter); filterBar.Controls.Add(clearFilter); filterBar.Controls.Add(filterLabel);
@@ -91,23 +91,23 @@ namespace HVAC_Pro_Desktop.UI
             _target.DisplayMember = "CompanyName";
             _target.ValueMember = "ClientID";
             var targetPanel = new Panel { Dock = DockStyle.Fill };
-            _status.Text = "Loading records...";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Loading records...");
             _status.Dock = DockStyle.Top;
             _status.Height = 23;
             _target.Dock = DockStyle.Bottom;
             targetPanel.Controls.Add(_target);
             targetPanel.Controls.Add(_status);
             root.Controls.Add(targetPanel, 0, 2);
-            _repair.Text = "Relink selected records and archive";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_repair, "Relink selected records and archive");
             _repair.Dock = DockStyle.Right;
             _repair.Width = 290;
             _repair.Click += async (sender, args) => await RepairAsync();
-            _archive.Text = "Delete selected names";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_archive, "Delete selected names");
             _archive.Dock = DockStyle.Right;
             _archive.Width = 190;
             _archive.Click += async (sender, args) => await ArchiveAsync();
             var actionBar = new Panel { Dock = DockStyle.Fill };
-            var close = DS.GhostBtn("Close", 100, 34);
+            var close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Close", 100, 34));
             close.Dock = DockStyle.Left;
             close.Click += (sender, args) => Close();
             actionBar.Controls.Add(close); actionBar.Controls.Add(_repair); actionBar.Controls.Add(_archive);
@@ -151,7 +151,7 @@ namespace HVAC_Pro_Desktop.UI
                 _records.ClearSelection();
                 _target.DataSource = payload.clients.Where(c => !SmartImportDuplicateDetector.IsSuspectClientName(c.CompanyName) && c.IsActive).ToList();
                 _target.SelectedIndex = -1;
-                _status.Text = _records.Rows.Count + " client(s) for review. Delete selected names, or choose a correct client below to relink:";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} client(s) for review. Delete selected names, or choose a correct client below to relink:", _records.Rows.Count));
                 _repair.Enabled = _records.Rows.Count > 0;
                 _archive.Enabled = _records.Rows.Count > 0;
             }
@@ -174,7 +174,7 @@ namespace HVAC_Pro_Desktop.UI
             var rows = _records.SelectedRows.Cast<DataGridViewRow>().Where(row => row.Visible).ToList();
             if (rows.Count == 0)
             {
-                MessageBox.Show(this, "Select the unwanted client names first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select the unwanted client names first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             string names = string.Join("\n", rows.Take(12).Select(row => Convert.ToString(row.Cells["Name"].Value)));
@@ -206,7 +206,7 @@ namespace HVAC_Pro_Desktop.UI
             var ids = _records.SelectedRows.Cast<DataGridViewRow>().Select(row => Convert.ToString(row.Cells["ClientId"].Value)).ToList();
             if (client == null || ids.Count == 0)
             {
-                MessageBox.Show(this, "Select suspected records and the correct client first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select suspected records and the correct client first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (!ServoConfirmDialog.Show(this, "Relink " + ids.Count + " suspected client record(s) to " + client.CompanyName + " and archive them?",

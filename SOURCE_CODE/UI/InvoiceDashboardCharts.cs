@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -44,10 +44,10 @@ namespace HVAC_Pro_Desktop.UI
                     ChartHoverFormat.Currency(rows[i].TotalAmount), "sum of invoice totals issued in " + rows[i].Period);
             }
             using (Brush text = new SolidBrush(DS.Slate500))
-            using (Font labelFont = new Font("Segoe UI", 7f))
+            using (Font labelFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7f))
             {
                 DrawPeriodLabels(e.Graphics, plot, rows, labelFont, text);
-                e.Graphics.DrawString("Invoice total", labelFont, text, plot.Left, plot.Bottom + 22);
+                e.Graphics.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Invoice total"), labelFont, text, plot.Left, plot.Bottom + 22);
             }
         }
 
@@ -142,10 +142,10 @@ namespace HVAC_Pro_Desktop.UI
             using (SolidBrush white = new SolidBrush(Color.White))
                 e.Graphics.FillEllipse(white, Rectangle.Inflate(donut, -28, -28));
             using (Brush text = new SolidBrush(DS.Slate900))
-            using (Font totalFont = new Font("Segoe UI", 8f, FontStyle.Bold))
-                e.Graphics.DrawString("Total " + buckets.Sum(b => b.Count), totalFont, text, donut.Right + 22, donut.Top + 8);
+            using (Font totalFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold))
+                e.Graphics.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Total {0}", buckets.Sum(b => b.Count)), totalFont, text, donut.Right + 22, donut.Top + 8);
             using (Brush muted = new SolidBrush(DS.Slate600))
-            using (Font legendFont = new Font("Segoe UI", 7.5f))
+            using (Font legendFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f))
             {
                 int y = donut.Top + 36;
                 foreach (InvoiceStatusBucket bucket in buckets)

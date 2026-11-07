@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -56,7 +56,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Bottom,
                 Height = 26,
-                Font = new Font("Segoe UI", 8.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
                 ForeColor = DS.Slate500,
                 Padding = new Padding(10, 0, 10, 6),
                 TextAlign = ContentAlignment.MiddleLeft
@@ -242,7 +242,7 @@ namespace HVAC_Pro_Desktop.UI
                 _visibleItems.AddRange(_items.Skip((page - 1) * pageSize).Take(pageSize));
                 Grid.RowCount = _visibleItems.Count;
                 Pager.SetState(page, _items.Count, pageSize);
-                _statusLabel.Text = BuildStatusText(_visibleItems.Count, _items.Count);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_statusLabel, BuildStatusText(_visibleItems.Count, _items.Count));
                 Grid.ClearSelection();
                 SyncSelection();
                 Grid.Invalidate();

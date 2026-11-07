@@ -21,7 +21,7 @@ namespace HVAC_Pro_Desktop.UI
         internal static Button CreateClearFilters(Action reset)
         {
             if (reset == null) throw new ArgumentNullException(nameof(reset));
-            var button = DS.GhostBtn("Clear Filters", 118, 34);
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Clear Filters", 118, 34));
             button.Name = "ClearWorkspaceFiltersButton";
             button.Click += (sender, args) => reset();
             return button;
@@ -30,9 +30,9 @@ namespace HVAC_Pro_Desktop.UI
         internal static FlowLayoutPanel CreateSelectionActions(DataGridView grid)
         {
             var panel = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 38, WrapContents = false };
-            var select = DS.GhostBtn("Select all shown", 136, 32);
-            var clear = DS.GhostBtn("Clear Selection", 124, 32);
-            var count = new Label { AutoSize = true, Padding = new Padding(8), Text = "0 selected" };
+            var select = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Select all shown", 136, 32));
+            var clear = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Clear Selection", 124, 32));
+            var count = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { AutoSize = true, Padding = new Padding(8), Text = "0 selected" });
             select.Name = "SelectAllShownButton";
             clear.Name = "ClearRowSelectionButton";
             select.Click += (sender, args) =>

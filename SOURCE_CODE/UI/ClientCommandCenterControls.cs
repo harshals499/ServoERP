@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -48,16 +48,16 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(14, 16),
                 Size = new Size(42, 42),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold),
                 ForeColor = DS.Teal600,
                 BackColor = DS.Teal50
             };
             DS.Rounded(_avatar, 21);
 
-            _name = new Label { Location = new Point(68, 12), Size = new Size(178, 20), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            _type = new Label { Location = new Point(68, 32), Size = new Size(178, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate700 };
-            _city = new Label { Location = new Point(68, 49), Size = new Size(178, 16), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600 };
-            _status = new Label { Location = new Point(80, 67), Size = new Size(88, 16), Font = new Font("Segoe UI", 7.5f), ForeColor = DS.Green600 };
+            _name = new Label { Location = new Point(68, 12), Size = new Size(178, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            _type = new Label { Location = new Point(68, 32), Size = new Size(178, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate700 };
+            _city = new Label { Location = new Point(68, 49), Size = new Size(178, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate600 };
+            _status = new Label { Location = new Point(80, 67), Size = new Size(88, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = DS.Green600 };
             _progressTrack = new Panel { Location = new Point(204, 72), Size = new Size(52, 5), BackColor = DS.Slate200 };
             _progress = new Panel { Location = new Point(0, 0), Size = new Size(28, 5), BackColor = DS.Teal600 };
             DS.Rounded(_progressTrack, 3);
@@ -89,11 +89,11 @@ namespace HVAC_Pro_Desktop.UI
             ClientId = clientId;
             string value = string.IsNullOrWhiteSpace(status) ? "Inactive" : status.Trim();
             bool active = value == "Active" || value == "Prospect";
-            _avatar.Text = initials;
-            _name.Text = name;
-            _type.Text = type;
-            _city.Text = city;
-            _status.Text = "●  " + value;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_avatar, initials);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_name, name);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_type, type);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_city, city);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, "●  " + value);
             _status.ForeColor = StatusColor(value);
             _avatar.BackColor = active ? DS.Teal50 : DS.Slate100;
             _avatar.ForeColor = active ? DS.Teal600 : DS.Slate600;
@@ -144,11 +144,11 @@ namespace HVAC_Pro_Desktop.UI
             Padding = new Padding(14);
             DoubleBuffered = true;
 
-            _avatar = new Label { Location = new Point(18, 18), Size = new Size(54, 54), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Teal600, BackColor = DS.Teal50 };
+            _avatar = new Label { Location = new Point(18, 18), Size = new Size(54, 54), TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold), ForeColor = DS.Teal600, BackColor = DS.Teal50 };
             DS.Rounded(_avatar, 27);
-            _name = new Label { Location = new Point(86, 20), Size = new Size(400, 24), Font = new Font("Segoe UI", 14f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            _meta = new Label { Location = new Point(88, 48), Size = new Size(430, 18), Font = new Font("Segoe UI", 8.5f), ForeColor = DS.Slate600 };
-            _badge = new Label { Location = new Point(88, 67), Size = new Size(60, 20), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(21, 128, 61), BackColor = DS.Green50 };
+            _name = new Label { Location = new Point(86, 20), Size = new Size(400, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            _meta = new Label { Location = new Point(88, 48), Size = new Size(430, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = DS.Slate600 };
+            _badge = new Label { Location = new Point(88, 67), Size = new Size(60, 20), TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = Color.FromArgb(21, 128, 61), BackColor = DS.Green50 };
             _badge.Cursor = Cursors.Hand;
             _badge.Click += (s, e) => StatusClicked?.Invoke(this, EventArgs.Empty);
             DS.Rounded(_badge, 10);
@@ -180,10 +180,10 @@ namespace HVAC_Pro_Desktop.UI
         {
             string value = string.IsNullOrWhiteSpace(status) ? "Inactive" : status.Trim();
             bool active = value == "Active" || value == "Prospect";
-            _avatar.Text = initials;
-            _name.Text = name;
-            _meta.Text = category + " - " + city;
-            _badge.Text = value;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_avatar, initials);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_name, name);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_meta, category + " - " + city);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_badge, value);
             _badge.Width = Math.Max(68, TextRenderer.MeasureText(value, _badge.Font).Width + 20);
             _badge.BackColor = active ? DS.Green50 : (value == "Blacklisted" ? DS.Red50 : DS.Slate100);
             _badge.ForeColor = active ? DS.Green600 : (value == "Blacklisted" ? DS.Red500 : DS.Slate600);
@@ -191,7 +191,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddAction(string text, string icon, EventHandler handler)
         {
-            var button = new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = icon + "\r\n" + text,
                 Dock = DockStyle.Fill,
@@ -199,15 +199,15 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.White,
                 ForeColor = DS.Slate800,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.25f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.25f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.BorderSize = 1;
             button.FlatAppearance.MouseOverBackColor = DS.Primary50;
-            button.Text = GetActionText(text);
-            button.Font = new Font("Segoe UI", 8.25f, FontStyle.Bold);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, GetActionText(text));
+            button.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.25f, FontStyle.Bold);
             button.TextAlign = ContentAlignment.MiddleCenter;
             button.Padding = new Padding(4, 0, 4, 0);
             button.Click += handler;
@@ -231,8 +231,8 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Button button = _actions.Controls[i] as Button;
                 if (button == null) continue;
-                button.Text = compact ? small[i] : full[i];
-                button.Font = new Font("Segoe UI", compact ? 8f : 8.25f, FontStyle.Bold);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, (compact ? small[i] : full[i]));
+                button.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), compact ? 8f : 8.25f, FontStyle.Bold);
                 button.Padding = new Padding(2, 0, 2, 0);
             }
         }
@@ -271,7 +271,7 @@ namespace HVAC_Pro_Desktop.UI
             Dock = DockStyle.Top;
             BackColor = Color.White;
             DoubleBuffered = true;
-            Controls.Add(new Label { Text = "Lifecycle Pipeline", Location = new Point(18, 16), Size = new Size(240, 20), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Lifecycle Pipeline", Location = new Point(18, 16), Size = new Size(240, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = DS.Slate900 }));
             _flow = new FlowLayoutPanel { Location = new Point(18, 46), Height = 46, Width = 860, WrapContents = false, BackColor = Color.Transparent };
             Controls.Add(_flow);
             Resize += (s, e) => _flow.Width = Math.Max(420, Width - 34);
@@ -285,7 +285,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < stages.Length; i++)
             {
                 string item = stages[i];
-                Button btn = new Button
+                Button btn = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
                 {
                     Text = item,
                     Tag = item,
@@ -293,14 +293,14 @@ namespace HVAC_Pro_Desktop.UI
                     Height = 38,
                     Margin = new Padding(0, 0, 8, 0),
                     FlatStyle = FlatStyle.Flat,
-                    Font = new Font("Segoe UI", 8.5f, string.Equals(item, _stage, StringComparison.OrdinalIgnoreCase) ? FontStyle.Bold : FontStyle.Regular),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, string.Equals(item, _stage, StringComparison.OrdinalIgnoreCase) ? FontStyle.Bold : FontStyle.Regular),
                     Cursor = Cursors.Hand
-                };
+                });
                 ApplyStageStyle(btn, item);
                 btn.Click += (s, e) => StageClicked?.Invoke(this, (string)((Button)s).Tag);
                 _flow.Controls.Add(btn);
                 if (i < stages.Length - 1)
-                    _flow.Controls.Add(new Label { Text = "→", Width = 18, Height = 38, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate400, Margin = new Padding(0, 0, 8, 0) });
+                    _flow.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "→", Width = 18, Height = 38, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate400, Margin = new Padding(0, 0, 8, 0) }));
             }
         }
 
@@ -357,10 +357,10 @@ namespace HVAC_Pro_Desktop.UI
             Height = 104;
             BackColor = Color.White;
             DoubleBuffered = true;
-            _label = new Label { Location = new Point(16, 14), Size = new Size(132, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            _value = new Label { Location = new Point(16, 38), Size = new Size(150, 30), Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            _link = new LinkLabel { Location = new Point(16, 76), Size = new Size(128, 18), Font = new Font("Segoe UI", 8.5f), LinkColor = DS.Primary600, ActiveLinkColor = DS.Primary700 };
-            _icon = new Label { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(150, 18), Size = new Size(28, 28), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 15f), ForeColor = DS.Slate500 };
+            _label = new Label { Location = new Point(16, 14), Size = new Size(132, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            _value = new Label { Location = new Point(16, 38), Size = new Size(150, 30), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold), ForeColor = DS.Slate900 };
+            _link = new LinkLabel { Location = new Point(16, 76), Size = new Size(128, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), LinkColor = DS.Primary600, ActiveLinkColor = DS.Primary700 };
+            _icon = new Label { Anchor = AnchorStyles.Top | AnchorStyles.Right, Location = new Point(150, 18), Size = new Size(28, 28), TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f), ForeColor = DS.Slate500 };
             _link.Click += (s, e) => ActionClicked?.Invoke(this, EventArgs.Empty);
             Controls.Add(_label);
             Controls.Add(_value);
@@ -371,10 +371,10 @@ namespace HVAC_Pro_Desktop.UI
 
         public void Bind(string label, string value, string link, string icon, Color valueColor)
         {
-            _label.Text = label;
-            _value.Text = value;
-            _link.Text = link + " →";
-            _icon.Text = icon;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_label, label);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_value, value);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_link, link + " →");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_icon, icon);
             _value.ForeColor = valueColor;
         }
 

@@ -3,14 +3,16 @@ import re,xml.etree.ElementTree as E,json,os,argparse
 os.chdir(Path(__file__).resolve().parent.parent)
 parser=argparse.ArgumentParser();parser.add_argument("--fail-on-missing",action="store_true");args=parser.parse_args()
 base=Path('SOURCE_CODE'); resources={x.attrib['name'].casefold() for x in E.parse(base/'Resources/Localization/Strings.mr-IN.resx').findall('data')}
-patterns=[r'LanguageManager\.(?:Get|GetMessage)\(\s*"((?:[^"\\]|\\.)+)"', r'\b(?:Text|HeaderText|ToolTipText|AccessibleName|AccessibleDescription)\s*=\s*(?:\$)?"((?:[^"\\]|\\.)+)"',r'\b(?:PlaceLabeledControl|AddModernSettingsCard)\([^,\n]+,\s*"((?:[^"\\]|\\.)+)"',r'\bMessageBox\.Show\(\s*(?:this\s*,\s*)?(?:\$)?"((?:[^"\\]|\\.)+)"',r'\.WithMessage\(\s*"((?:[^"\\]|\\.)+)"']
+patterns=[r'LanguageManager\.SetCaption\([^,\n]+,\s*"((?:[^"\\]|\\.)+)"', r'LanguageManager\.(?:Get|GetMessage|Format)\(\s*"((?:[^"\\]|\\.)+)"', r'\b(?:Text|HeaderText|ToolTipText|AccessibleName|AccessibleDescription)\s*=\s*(?:\$)?"((?:[^"\\]|\\.)+)"',r'\b(?:PlaceLabeledControl|AddModernSettingsCard)\([^,\n]+,\s*"((?:[^"\\]|\\.)+)"',r'\bMessageBox\.Show\(\s*(?:this\s*,\s*)?(?:\$)?"((?:[^"\\]|\\.)+)"',r'\.WithMessage\(\s*"((?:[^"\\]|\\.)+)"']
 rows=[]
 for folder in ['UI','Infrastructure','Validators','OfflineDesktop']:
  for p in (base/folder).rglob('*.cs'):
   s=p.read_text(encoding='utf-8-sig')
   for pattern in patterns:
    for m in re.finditer(pattern,s):
-    value=m.group(1)
+    raw=m.group(1)
+    try: value=json.loads('"'+raw+'"')
+    except json.JSONDecodeError: value=raw
     if re.search('[A-Za-z]{2}',value) and value.casefold() not in resources:
      rows.append({'file':p.as_posix(),'line':s.count('\n',0,m.start())+1,'text':value})
 rows=list({(r['file'],r['line'],r['text']):r for r in rows}.values())

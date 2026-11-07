@@ -19,7 +19,7 @@ namespace HVAC_Pro_Desktop.UI
         public WhatsAppQuickActionDialog(WhatsAppQuickActionContext context)
         {
             _context = context ?? new WhatsAppQuickActionContext();
-            Text = BrandingService.WindowTitle("WhatsApp Quick Action");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("WhatsApp Quick Action"));
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = true;
@@ -29,19 +29,19 @@ namespace HVAC_Pro_Desktop.UI
             BackColor = DS.BgPage;
             Font = DS.Body;
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "WhatsApp message",
                 Location = new Point(22, 18),
                 Size = new Size(360, 28),
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
+            });
             Controls.Add(title);
 
-            Label meta = new Label
+            Label meta = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = BuildMetaText(),
                 Location = new Point(24, 50),
@@ -50,7 +50,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
+            });
             Controls.Add(meta);
 
             _message = new TextBox
@@ -60,13 +60,13 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(24, 102),
                 Size = new Size(554, 188),
                 Text = _context.Message ?? string.Empty,
-                Font = new Font("Segoe UI", 9.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f),
                 BorderStyle = BorderStyle.FixedSingle,
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(_message);
 
-            Label notice = new Label
+            Label notice = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "ServoERP opens WhatsApp with prefilled text only. Review and send manually in WhatsApp. No chats are scraped or synced.",
                 Location = new Point(24, 300),
@@ -75,10 +75,10 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700,
                 AutoEllipsis = true,
                 Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
-            };
+            });
             Controls.Add(notice);
 
-            _status = new Label
+            _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Status: Prepared",
                 Location = new Point(24, 342),
@@ -87,13 +87,13 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Teal600,
                 AutoEllipsis = true,
                 Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
-            };
+            });
             Controls.Add(_status);
 
-            Button copy = MakeButton("Copy message", DS.White, DS.Slate700, 118, true);
-            Button open = MakeButton("Open WhatsApp Chat", DS.Primary600, Color.White, 154, false);
-            Button sent = MakeButton("Mark as Sent", DS.Teal600, Color.White, 118, false);
-            Button close = MakeButton("Close", DS.White, DS.Slate700, 90, true);
+            Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Copy message", DS.White, DS.Slate700, 118, true));
+            Button open = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open WhatsApp Chat", DS.Primary600, Color.White, 154, false));
+            Button sent = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Mark as Sent", DS.Teal600, Color.White, 118, false));
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close", DS.White, DS.Slate700, 90, true));
 
             copy.Location = new Point(24, 372);
             open.Location = new Point(152, 372);
@@ -150,7 +150,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (UIHelper.TrySetClipboardText(this, _message.Text ?? string.Empty, BrandingService.WindowTitle("WhatsApp")))
             {
-                _status.Text = "Status: Prepared, copied";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Status: Prepared, copied");
                 Log("Prepared");
             }
         }
@@ -161,7 +161,7 @@ namespace HVAC_Pro_Desktop.UI
             string url = _service.BuildWhatsAppUrl(_context.Phone, _context.Message);
             Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
             _opened = true;
-            _status.Text = "Status: Opened";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Status: Opened");
             Log("Opened");
         }
 
@@ -177,9 +177,9 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             _context.Message = _message.Text ?? string.Empty;
-            _status.Text = "Status: User Confirmed Sent";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Status: User Confirmed Sent");
             Log("User Confirmed Sent");
-            MessageBox.Show(this, "WhatsApp activity marked as sent.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp activity marked as sent."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void Log(string status)
@@ -190,7 +190,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color back, Color fore, int width, bool outline)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = width,
@@ -198,10 +198,10 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = back,
                 ForeColor = fore,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.8f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.8f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = outline ? 1 : 0;
             button.FlatAppearance.BorderColor = DS.BorderStrong;
             return button;

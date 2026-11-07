@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -39,7 +39,7 @@ namespace HVAC_Pro_Desktop.UI
         private ExceptionCardDetailDialog(ExceptionCardDetail detail)
         {
             _detail = detail ?? ExceptionCardDetail.Create("Details", "No detail data available.", "Message").AddRow("No rows found.");
-            Text = _detail.Title;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, _detail.Title);
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1080, 680);
             MinimumSize = new Size(780, 520);
@@ -47,29 +47,29 @@ namespace HVAC_Pro_Desktop.UI
             Padding = new Padding(18);
 
             var header = new Panel { Dock = DockStyle.Top, Height = 72, BackColor = DS.BgPage };
-            var title = new Label
+            var title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = _detail.Title,
                 Location = new Point(0, 0),
                 Size = new Size(680, 28),
-                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
-            };
-            var subtitle = new Label
+            });
+            var subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = _detail.Subtitle,
                 Location = new Point(1, 34),
                 Size = new Size(760, 22),
-                Font = new Font("Segoe UI", 8.7f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.7f),
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true
-            };
-            var export = BuildAction("Export CSV", DS.Primary600, Color.White, DS.Primary600);
+            });
+            var export = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(BuildAction("Export CSV", DS.Primary600, Color.White, DS.Primary600));
             export.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             export.Location = new Point(header.Width - 226, 12);
             export.Click += (s, e) => ExportCsv();
-            var close = BuildAction("Close", Color.White, DS.Slate900, DS.BorderStrong);
+            var close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(BuildAction("Close", Color.White, DS.Slate900, DS.BorderStrong));
             close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             close.Location = new Point(header.Width - 108, 12);
             close.Click += (s, e) => Close();
@@ -126,16 +126,16 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label BuildAction(string text, Color backColor, Color foreColor, Color borderColor)
         {
-            var button = new Label
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = string.Empty,
                 Size = new Size(98, 34),
                 BackColor = backColor,
                 ForeColor = foreColor,
-                Font = new Font("Segoe UI", 8.3f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.3f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 TextAlign = ContentAlignment.MiddleCenter
-            };
+            });
             button.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;

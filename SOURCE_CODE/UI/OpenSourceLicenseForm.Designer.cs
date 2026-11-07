@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace HVAC_Pro_Desktop.UI
@@ -16,30 +16,30 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.BgPage;
             ClientSize = new Size(1040, 720);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            Text = "ServoERP - Open Source & Licenses";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP - Open Source & Licenses");
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Open Source & Licenses",
                 Location = new Point(24, 18),
                 Size = new Size(460, 34),
                 Font = DS.H1,
                 ForeColor = DS.Slate900
-            };
+            });
 
-            Label subtitle = new Label
+            Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Review and export third-party component disclosures for procurement, audits, and client IT review.",
                 Location = new Point(26, 52),
                 Size = new Size(920, 28),
                 Font = DS.Body,
                 ForeColor = DS.Slate600
-            };
+            });
 
             _gridComponents = new DataGridView
             {
@@ -71,27 +71,27 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate800
             };
 
-            Button export = Button("Export Disclosure", DS.Green600, Color.White, 154);
+            Button export = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Export Disclosure", DS.Green600, Color.White, 154));
             export.Location = new Point(24, 632);
             export.Click += ExportDisclosure;
 
-            Button copy = Button("Copy Text", DS.Primary600, Color.White, 112);
+            Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Copy Text", DS.Primary600, Color.White, 112));
             copy.Location = new Point(190, 632);
             copy.Click += CopyDisclosure;
 
-            Button openSource = Button("Open Source URL", Color.White, DS.Slate700, 144);
+            Button openSource = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Open Source URL", Color.White, DS.Slate700, 144));
             openSource.FlatAppearance.BorderColor = DS.Border;
             openSource.FlatAppearance.BorderSize = 1;
             openSource.Location = new Point(314, 632);
             openSource.Click += OpenSelectedSource;
 
-            Button close = Button("Close", Color.White, DS.Slate700, 96);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Close", Color.White, DS.Slate700, 96));
             close.FlatAppearance.BorderColor = DS.Border;
             close.FlatAppearance.BorderSize = 1;
             close.Location = new Point(920, 632);
             close.Click += CloseClicked;
 
-            _lblStatus = new Label
+            _lblStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Ready.",
                 Location = new Point(476, 638),
@@ -99,7 +99,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
 
             Controls.AddRange(new Control[] { title, subtitle, _gridComponents, _txtDisclosure, export, copy, openSource, _lblStatus, close });
             ResumeLayout(false);
@@ -108,7 +108,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Creates a styled command button.</summary>
         private static Button Button(string text, Color backColor, Color foreColor, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Size = new Size(width, 34),
@@ -117,7 +117,7 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 Font = DS.BodyBold,
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = backColor == Color.White ? 1 : 0;
             return button;
         }

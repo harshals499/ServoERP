@@ -51,9 +51,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label SoftText(Control parent, string text, int x, int y, int width, int height, float size = 9f, bool bold = false)
         {
-            var label = new Label { Text = text, Location = new Point(x, y), Size = new Size(Math.Max(1, width), height),
+            var label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Size = new Size(Math.Max(1, width), height),
                 Font = new Font(LanguageManager.GetUiFontFamily(), size, bold ? FontStyle.Bold : FontStyle.Regular),
-                ForeColor = SoftInk, BackColor = Color.Transparent, AutoEllipsis = true, UseMnemonic = false };
+                ForeColor = SoftInk, BackColor = Color.Transparent, AutoEllipsis = true, UseMnemonic = false });
             parent.Controls.Add(label);
             return label;
         }
@@ -150,10 +150,10 @@ namespace HVAC_Pro_Desktop.UI
             var overdue = DashboardCanView("Invoices") ? _invoices.Where(i => i.DueDate.Date < DateTime.Today && i.BalanceDue > 0 && !IsPaid(i.PaymentStatus)).ToList() : new List<Invoice>();
             var low = DashboardCanView("Inventory") ? _inventory.Where(i => i.AvailableStock <= 0 || i.IsLowStock).ToList() : new List<StockItem>();
             Panel[] cards = {
-                SoftMetric("JobsTodayCard", "Jobs today", Count(today.Count), today.Count(j => !j.AssignedEmployeeID.HasValue) + " need assignment", cardWidth, ModernIconKind.Calendar, () => OnNavigate?.Invoke(15)),
-                SoftMetric("SlaRiskCard", "SLA at risk", Count(risk.Count), "Review service priorities", cardWidth, ModernIconKind.Alert, () => { _actionFilter = "SLA risk"; _inboxPage = 1; BuildShell(); }),
-                SoftMetric("ReceivablesCard", "Overdue receivables", DashboardCanView("Invoices") ? Money(overdue.Sum(i => i.BalanceDue)) : "Restricted", overdue.Count + " invoices", cardWidth, ModernIconKind.Invoice, () => OnNavigate?.Invoke(3)),
-                SoftMetric("LowStockCard", "Low stock", DashboardCanView("Inventory") ? Count(low.Count) : "Restricted", "Review inventory", cardWidth, ModernIconKind.Inventory, () => OnNavigate?.Invoke(11)) };
+                SoftMetric("JobsTodayCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Jobs today"), Count(today.Count), global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} need assignment", today.Count(j => !j.AssignedEmployeeID.HasValue)), cardWidth, ModernIconKind.Calendar, () => OnNavigate?.Invoke(15)),
+                SoftMetric("SlaRiskCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("SLA at risk"), Count(risk.Count), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Review service priorities"), cardWidth, ModernIconKind.Alert, () => { _actionFilter = "SLA risk"; _inboxPage = 1; BuildShell(); }),
+                SoftMetric("ReceivablesCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Overdue receivables"), DashboardCanView("Invoices") ? Money(overdue.Sum(i => i.BalanceDue)) : "Restricted", global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} invoices", overdue.Count), cardWidth, ModernIconKind.Invoice, () => OnNavigate?.Invoke(3)),
+                SoftMetric("LowStockCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Low stock"), DashboardCanView("Inventory") ? Count(low.Count) : "Restricted", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Review inventory"), cardWidth, ModernIconKind.Inventory, () => OnNavigate?.Invoke(11)) };
             Preview(cards[0], "Jobs today", "Active jobs scheduled today. " + today.Count + " matching jobs.", today.Select(j => j.JobNumber + " · " + j.ClientName + " · " + Safe(j.AssignedEmployeeName, "Unassigned")));
             Preview(cards[1], "SLA at risk", "Urgent or critical service incidents with an SLA deadline. " + risk.Count + " matching incidents.", risk.Select(i => i.Reference + " · " + i.ClientName + "\n" + i.PriorityReason));
             Preview(cards[2], "Overdue receivables", "Unpaid invoice balances past their due date. Total: " + Money(overdue.Sum(i => i.BalanceDue)), overdue.Select(i => i.InvoiceNumber + " · " + i.ClientName + " · " + Money(i.BalanceDue)));
@@ -183,7 +183,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildSoftInbox(int width)
         {
-            Panel card = SoftCard("PriorityInboxCard", "Needs attention", "Your work, ranked by urgency", width, 330);
+            Panel card = SoftCard("PriorityInboxCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Needs attention"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Your work, ranked by urgency"), width, 330);
             string[] filters = { "All", "Mine", "Critical", "Today", "Overdue", "Upcoming", "Waiting", "SLA risk" };
             var filterMenu = new ContextMenuStrip();
             Button filterButton = SoftButton(card, _actionFilter + " ▾", width - 130, 16, 112, () => { });
@@ -208,7 +208,7 @@ namespace HVAC_Pro_Desktop.UI
             var rows = new Panel { Location = new Point(18, 76), Width = width - 36, Height = 191, AutoScroll = true, BackColor = Color.White, Tag = "DISPATCH_PRESENTATION" };
             card.Controls.Add(rows);
             var visibleActions = actions.Skip(pager.Skip).Take(pager.PageSize).ToList();
-            if (actions.Count == 0) SoftText(rows, "You're clear here — no matching work items.", 0, 25, rows.Width, 40);
+            if (actions.Count == 0) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(rows, "You're clear here — no matching work items.", 0, 25, rows.Width, 40));
             for (int i = 0; i < visibleActions.Count; i++)
             {
                 ActionCenterItem item = visibleActions[i];
@@ -232,7 +232,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Panel BuildSoftTeam(int width)
         {
-            Panel card = SoftCard("TeamTodayCard", "Team today", "Recorded job assignments for today", width, 151);
+            Panel card = SoftCard("TeamTodayCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Team today"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Recorded job assignments for today"), width, 151);
             var active = DashboardJobs.Where(j => ActiveJob(j) && j.ScheduledDate.Date == DateTime.Today && j.AssignedEmployeeID.HasValue).ToList();
             var groups = active.GroupBy(j => j.AssignedEmployeeID.Value).OrderBy(g => g.First().AssignedEmployeeName).ToList();
             for (int i = 0; i < Math.Min(2, groups.Count); i++)
@@ -240,10 +240,10 @@ namespace HVAC_Pro_Desktop.UI
                 string name = Safe(groups[i].First().AssignedEmployeeName, "Technician #" + groups[i].Key);
                 SoftText(card, Initials(name), 18, 69 + i * 32, 34, 27, 9f, true).ForeColor = SoftBlue;
                 SoftText(card, name, 60, 65 + i * 32, width - 78, 20, 9f, true);
-                SoftText(card, groups[i].Count() + " active job(s) · " + groups[i].First().SiteName, 60, 84 + i * 32, width - 78, 18, 8f).ForeColor = DS.Slate500;
+                SoftText(card, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} active job(s) · {1}", groups[i].Count(), groups[i].First().SiteName), 60, 84 + i * 32, width - 78, 18, 8f).ForeColor = DS.Slate500;
             }
-            if (groups.Count == 0) SoftText(card, "No recorded assignments today.", 18, 85, width - 36, 36);
-            if (DashboardCanView("GeoIntelligence")) SoftButton(card, "Open dispatch", width - 148, 16, 130, () => OnNavigate?.Invoke(14));
+            if (groups.Count == 0) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, "No recorded assignments today.", 18, 85, width - 36, 36));
+            if (DashboardCanView("GeoIntelligence")) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "Open dispatch", width - 148, 16, 130, () => OnNavigate?.Invoke(14)));
             Preview(card, "Team today", "Today's active jobs grouped by assigned technician. Attendance and availability are not inferred.", groups.Select(g => Safe(g.First().AssignedEmployeeName, "Technician #" + g.Key) + " · " + g.Count() + " jobs\n" + string.Join(", ", g.Select(j => j.JobNumber))));
             return card;
         }
@@ -251,16 +251,16 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildSoftComing(int width)
         {
             var items = _actionSnapshot.Items.Where(i => i.Bucket == ActionCenterBucket.Upcoming || i.Bucket == ActionCenterBucket.Waiting).OrderBy(i => i.DueAt ?? DateTime.MaxValue).ToList();
-            Panel card = SoftCard("ComingUpCard", "Coming up", "Next obligations and follow-ups", width, 151);
+            Panel card = SoftCard("ComingUpCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Coming up"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Next obligations and follow-ups"), width, 151);
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
                 var item = items[i]; int y = 72 + i * 37;
                 SoftText(card, item.Title, 18, y, width - 134, 20, 8.5f, true);
                 SoftText(card, FirstNonEmpty(item.ClientName, item.Reference) + " · " + (item.DueAt.HasValue ? item.DueAt.Value.ToString("dd/MM/yyyy") : "Waiting"), 18, y + 21, width - 134, 18, 8f).ForeColor = DS.Slate500;
-                Button action = SoftButton(card, "Review", width - 98, y, 80, () => { });
+                Button action = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "Review", width - 98, y, 80, () => { }));
                 action.Click += async (s, e) => await OpenActionAsync(item, action);
             }
-            if (items.Count == 0) SoftText(card, "No upcoming obligations.", 18, 85, width - 36, 32);
+            if (items.Count == 0) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, "No upcoming obligations.", 18, 85, width - 36, 32));
             Preview(card, "Coming up", items.Count + " upcoming or waiting items, ordered by due date.", items.Select(i => i.Title + " · " + ActionContext(i) + "\n" + DueText(i)));
             return card;
         }
@@ -268,8 +268,8 @@ namespace HVAC_Pro_Desktop.UI
         private Panel BuildSoftJobs(int width)
         {
             var jobs = DashboardJobs.Where(j => j.ScheduledDate.Date == DateTime.Today && ActiveJob(j)).OrderBy(j => j.ScheduledDate).ToList();
-            Panel card = SoftCard("TodayJobsCard", "Today's schedule", "Active jobs scheduled for today", width, 330);
-            if (DashboardCanView("WorkOrders")) SoftButton(card, "View all jobs", width - 138, 16, 120, () => OnNavigate?.Invoke(15));
+            Panel card = SoftCard("TodayJobsCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Today's schedule"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Active jobs scheduled for today"), width, 330);
+            if (DashboardCanView("WorkOrders")) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "View all jobs", width - 138, 16, 120, () => OnNavigate?.Invoke(15)));
             var schedule = new Panel { Location = new Point(18, 78), Size = new Size(width - 36, 234), AutoScroll = true, BackColor = Color.White, Tag = "DISPATCH_PRESENTATION" };
             card.Controls.Add(schedule);
             schedule.Paint += (sender, args) =>
@@ -295,14 +295,14 @@ namespace HVAC_Pro_Desktop.UI
                 SoftText(schedule, job.ClientName, 86, y + 31, rowWidth - 360, 23, 10f, true).ForeColor = SoftBlue;
                 SoftText(schedule, Safe(job.SiteName, "Site not specified"), 86, y + 60, rowWidth - 360, 22, 9f).ForeColor = DS.Slate500;
                 bool assigned = job.AssignedEmployeeID.HasValue;
-                var status = SoftText(schedule, assigned ? "Assigned" : "Unassigned", rowWidth - 265, y + 10, 110, 26, 9f, true);
+                var status = SoftText(schedule, (assigned ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Assigned") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unassigned")), rowWidth - 265, y + 10, 110, 26, 9f, true);
                 status.Tag = "DISPATCH_PRESENTATION";
                 status.BackColor = assigned ? Color.FromArgb(221, 249, 232) : Color.FromArgb(238, 242, 247);
                 status.ForeColor = assigned ? Color.FromArgb(21, 128, 61) : DS.Slate500;
-                SoftText(schedule, assigned ? Safe(job.AssignedEmployeeName, "Assigned technician") : "Unassigned · needs dispatch", rowWidth - 265, y + 48, 160, 22, 9f).ForeColor = assigned ? SoftBlue : Color.FromArgb(180, 83, 9);
-                SoftButton(schedule, assigned ? "Open" : "Assign", rowWidth - 82, y + 22, 82, () => NavigationHelper.OpenRecord(this, "Jobs", job.JobID), !assigned);
+                SoftText(schedule, (assigned ? Safe(job.AssignedEmployeeName, "Assigned technician") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unassigned · needs dispatch")), rowWidth - 265, y + 48, 160, 22, 9f).ForeColor = assigned ? SoftBlue : Color.FromArgb(180, 83, 9);
+                SoftButton(schedule, (assigned ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Assign")), rowWidth - 82, y + 22, 82, () => NavigationHelper.OpenRecord(this, "Jobs", job.JobID), !assigned);
             }
-            if (jobs.Count == 0) SoftText(schedule, DashboardCanView("WorkOrders") ? "No active jobs scheduled today." : "You do not have access to jobs.", 0, 30, width - 72, 40, 10f);
+            if (jobs.Count == 0) SoftText(schedule, (DashboardCanView("WorkOrders") ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No active jobs scheduled today.") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("You do not have access to jobs.")), 0, 30, width - 72, 40, 10f);
             Preview(card, "Today's jobs", jobs.Count + " active jobs scheduled today, ordered by scheduled time.", jobs.Select(j => j.JobNumber + " · " + j.ClientName + "\n" + j.ScheduledDate.ToString("hh:mm tt") + " · " + Safe(j.AssignedEmployeeName, "Unassigned")));
             return card;
         }
@@ -312,7 +312,7 @@ namespace HVAC_Pro_Desktop.UI
             var payments = DashboardCanView("Payments") ? _payments.Where(p => IsThisMonth(p.PaymentDate)).ToList() : new List<Payment>();
             var invoices = DashboardCanView("Invoices") ? _invoices.Where(i => IsThisMonth(i.InvoiceDate)).ToList() : new List<Invoice>();
             decimal received = payments.Sum(p => p.AmountPaid), pending = invoices.Sum(i => Math.Max(0, i.BalanceDue));
-            Panel card = SoftCard("CollectionsCard", "Collections & receivables", "A clear view of outstanding balances and this month’s receipts", width, 156);
+            Panel card = SoftCard("CollectionsCard", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Collections & receivables"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("A clear view of outstanding balances and this month’s receipts"), width, 156);
             decimal overdue = DashboardCanView("Invoices") ? _invoices.Where(i => i.DueDate.Date < DateTime.Today && i.BalanceDue > 0 && !IsPaid(i.PaymentStatus)).Sum(i => i.BalanceDue) : 0;
             int column = (width - 36) / 3;
             string[] values = { DashboardCanView("Invoices") ? Money(overdue) : "Restricted", DashboardCanView("Payments") ? Money(received) : "Restricted", DashboardCanView("Invoices") ? Money(pending) : "Restricted" };
@@ -323,7 +323,7 @@ namespace HVAC_Pro_Desktop.UI
                 SoftText(card, captions[i], 20 + i * column, 119, column - 20, 24, 9f).ForeColor = DS.Slate500;
             }
             // These are different cohorts; do not present a misleading paid/pending percentage.
-            if (DashboardCanView("Invoices")) SoftButton(card, "Receivables", width - 138, 12, 120, () => OnNavigate?.Invoke(3));
+            if (DashboardCanView("Invoices")) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "Receivables", width - 138, 12, 120, () => OnNavigate?.Invoke(3)));
             Preview(card, "Collections this month", "Payments received this month: " + Money(received) + ". Pending balances on invoices issued this month: " + Money(pending) + ".", payments.Select(p => p.PaymentNumber + " · " + p.ClientName + " · " + Money(p.AmountPaid)));
             return card;
         }
@@ -336,8 +336,8 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = CardPanel(width, 64);
             card.Name = "RecentActivityCard";
             DispatchIcon(card, ModernIconKind.Activity, 18, 18);
-            SoftText(card, "Recent activity", 56, 21, 142, 25, 10f, true);
-            if (items.Count == 0) SoftText(card, "No recent activity.", 210, 23, width - 228, 22);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, "Recent activity", 56, 21, 142, 25, 10f, true));
+            if (items.Count == 0) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, "No recent activity.", 210, 23, width - 228, 22));
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
                 var item = items[i]; int left = 210 + i * ((width - 228) / 2);

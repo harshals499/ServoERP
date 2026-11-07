@@ -44,42 +44,42 @@ namespace HVAC_Pro_Desktop.UI
             if (model.RightMetaControl?.Name == "DashboardHeaderMetaPanel" || model.RightMetaControl?.Name == "SettingsHeaderMetaPanel")
             { model.RightMetaControl.Dispose(); model.RightMetaControl = null; }
             if (model.RightMetaControl == null && !model.CompactUtility)
-                model.RightMetaControl = new Label { Name = "WorkspaceDate", Text = DateTime.Today.ToString("dd/MM/yyyy"),
+                model.RightMetaControl = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Name = "WorkspaceDate", Text = DateTime.Today.ToString("dd/MM/yyyy"),
                     Width = 96, Height = 32, TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new Font("Segoe UI", 12f), ForeColor = Color.FromArgb(119, 132, 144) };
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f), ForeColor = Color.FromArgb(119, 132, 144) });
             var notification = model.RightActions.OfType<Button>().FirstOrDefault(c => c.Name == "btnDashboardNotifications");
             if (notification != null) model.RightActions.Remove(notification);
             foreach (var button in model.RightActions.OfType<Button>()) StyleAction(button);
             var result = buildPage(model);
             var page = result.Header;
             page.Name = (model.Name ?? "Page") + "PageHeading";
-            var breadcrumb = new Label { Name = "WorkspaceBreadcrumb", Text = "Workspace  ›  " + model.Title,
-                Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font("Segoe UI", 12f),
-                ForeColor = Color.FromArgb(111, 123, 135), AutoEllipsis = true };
+            var breadcrumb = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Name = "WorkspaceBreadcrumb", Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace  ›  {0}", model.Title),
+                Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f),
+                ForeColor = Color.FromArgb(111, 123, 135), AutoEllipsis = true });
             if (!model.CompactUtility) page.Controls.Add(breadcrumb);
             result.TitleLabel.TextChanged += (s, e) => breadcrumb.Text = "Workspace  ›  " + result.TitleLabel.Text;
             var utility = new Panel { Name = "WorkspaceUtilityBar", Dock = DockStyle.Top, Height = 64,
                 BackColor = Color.White };
-            var brand = new HeaderBrand { Name = "WorkspaceBrand", AccessibleName = "ServoERP", Size = new Size(48, 52) };
-            var search = new HeaderSearchButton { Name = "WorkspaceGlobalSearch", AccessibleName = "Global search (Ctrl+K)",
+            var brand = new HeaderBrand { Name = "WorkspaceBrand", AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP"), Size = new Size(48, 52) };
+            var search = new HeaderSearchButton { Name = "WorkspaceGlobalSearch", AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Global search (Ctrl+K)"),
                 Size = new Size(480, 38) };
             search.Click += (s, e) => OpenSearch(wrapper);
             var profile = new HeaderAccountButton { Name = "WorkspaceAccount", Size = new Size(196, 40) };
             var user = SessionManager.CurrentUser;
             string name = AccountName();
-            profile.Text = name + "  ▾";
-            profile.AccessibleName = "Account menu for " + name;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(profile, name + "  ▾");
+            profile.AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Account menu for {0}", name);
             profile.Click += (s, e) => ShowAccount(wrapper, profile);
             if (notification == null)
             {
-                notification = MakeButton("WorkspaceNotifications", "Alerts", 64);
-                notification.Text = string.Empty;
+                notification = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("WorkspaceNotifications", "Alerts", 64));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(notification, string.Empty);
                 notification.Width = 38;
                 var bell = LucideIconService.GetIcon("bell", 26, Color.FromArgb(31, 52, 77));
                 notification.Image = bell;
                 notification.ImageAlign = ContentAlignment.MiddleCenter;
                 notification.Disposed += (sender, args) => bell.Dispose();
-                notification.AccessibleName = "Open alerts and notifications";
+                notification.AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open alerts and notifications");
                 notification.Click += (s, e) =>
                 {
                     var main = ResolveShell(wrapper);
@@ -222,9 +222,9 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string name, string text, int width)
         {
-            var button = new Button { Name = name, Text = text, Size = new Size(width, 36),
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Name = name, Text = text, Size = new Size(width, 36),
                 FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(63, 79, 96),
-                Font = new Font("Segoe UI", 9f), Cursor = Cursors.Hand, AutoEllipsis = true };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f), Cursor = Cursors.Hand, AutoEllipsis = true });
             button.FlatAppearance.BorderSize = 0;
             return button;
         }
@@ -234,7 +234,7 @@ namespace HVAC_Pro_Desktop.UI
             button.FlatStyle = FlatStyle.Flat;
             button.FlatAppearance.BorderSize = 1;
             button.FlatAppearance.BorderColor = Color.FromArgb(219, 225, 231);
-            button.Font = new Font("Segoe UI", 9f);
+            button.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             button.AutoEllipsis = true;
             if (button.BackColor.GetBrightness() > .8f)
             {
@@ -247,8 +247,8 @@ namespace HVAC_Pro_Desktop.UI
             bool settings = caption.Contains("customize") || caption.Contains("settings") || caption.Contains("⚙");
             if (button.Text.Trim() == "⚙" || button.Text.Trim() == "⚙️")
             {
-                button.Text = string.Empty;
-                if (string.IsNullOrWhiteSpace(button.AccessibleName)) button.AccessibleName = "Settings";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, string.Empty);
+                if (string.IsNullOrWhiteSpace(button.AccessibleName)) button.AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Settings");
             }
             bool transfer = caption.Contains("import") || caption.Contains("export");
             bool document = caption.Contains("forms") || caption.Contains("service") || caption.Contains("template");
@@ -326,18 +326,18 @@ namespace HVAC_Pro_Desktop.UI
         {
             var menu = new ContextMenuStrip();
             menu.Items.Add(SessionManager.CurrentUser?.RoleName ?? "Account").Enabled = false;
-            menu.Items.Add("Change password", null, (s, e) =>
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Change password", null, (s, e) =>
             {
                 if (SessionManager.CurrentUser == null) return;
                 using (var dialog = new ChangePasswordForm(SessionManager.CurrentUser.UserId, false))
                     dialog.ShowDialog(owner.FindForm());
-            }).Enabled = SessionManager.CurrentUser != null;
+            })).Enabled = SessionManager.CurrentUser != null;
             var main = ResolveShell(owner);
-            menu.Items.Add("Settings", null, (s, e) =>
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Settings", null, (s, e) =>
             {
                 main?.NavigateTo("Settings");
                 if (owner.FindForm() is UserGuideForm guide) guide.Close();
-            }).Enabled = main != null;
+            })).Enabled = main != null;
             return menu;
         }
 
@@ -366,7 +366,7 @@ namespace HVAC_Pro_Desktop.UI
             internal HeaderSearchButton()
             {
                 FlatStyle = FlatStyle.Flat; FlatAppearance.BorderSize = 0; BackColor = Color.White;
-                Cursor = Cursors.Hand; Font = new Font("Segoe UI", 12f);
+                Cursor = Cursors.Hand; Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f);
                 SetStyle(ControlStyles.UserPaint | ControlStyles.OptimizedDoubleBuffer, true);
             }
             protected override void OnPaint(PaintEventArgs e)
@@ -379,8 +379,8 @@ namespace HVAC_Pro_Desktop.UI
                 { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(pen, path); }
                 using (var icon = LucideIconService.GetIcon("search", 22, Color.FromArgb(83, 104, 129)))
                     e.Graphics.DrawImage(icon, 14, (Height - 22) / 2);
-                using (var searchFont = new Font("Segoe UI", 12f))
-                    TextRenderer.DrawText(e.Graphics, "Search across ServoERP...", searchFont,
+                using (var searchFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f))
+                    TextRenderer.DrawText(e.Graphics, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search across ServoERP..."), searchFont,
                         new Rectangle(48, 0, Math.Max(0, Width - 144), Height), Color.FromArgb(111, 125, 140),
                         TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
                 Rectangle key = new Rectangle(Math.Max(36, Width - 88), 8, 76, Height - 16);
@@ -388,8 +388,8 @@ namespace HVAC_Pro_Desktop.UI
                 using (var fill = new SolidBrush(Color.White))
                 using (var border = new Pen(Color.FromArgb(216, 225, 236)))
                 { e.Graphics.FillPath(fill, path); e.Graphics.DrawPath(border, path); }
-                using (var font = new Font("Segoe UI", 9f))
-                    TextRenderer.DrawText(e.Graphics, "Ctrl + K", font, key, Color.FromArgb(93, 112, 137),
+                using (var font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f))
+                    TextRenderer.DrawText(e.Graphics, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Ctrl + K"), font, key, Color.FromArgb(93, 112, 137),
                         TextFormatFlags.VerticalCenter | TextFormatFlags.HorizontalCenter);
 
             }
@@ -409,11 +409,11 @@ namespace HVAC_Pro_Desktop.UI
                 e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
                 string name = AccountName();
                 using (var brush = new SolidBrush(Color.FromArgb(220, 237, 248))) e.Graphics.FillEllipse(brush, 4, 4, 40, 40);
-                using (var font = new Font("Segoe UI", 9f, FontStyle.Bold))
-                    TextRenderer.DrawText(e.Graphics, string.IsNullOrEmpty(name) ? "?" : name.Substring(0, 1).ToUpperInvariant(), font,
+                using (var font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold))
+                    TextRenderer.DrawText(e.Graphics, (string.IsNullOrEmpty(name) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("?") : name.Substring(0, 1).ToUpperInvariant()), font,
                         new Rectangle(4, 4, 40, 40), Color.FromArgb(57, 85, 110), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
                 if (Width < 100) return;
-                using (var font = new Font("Segoe UI", 12f))
+                using (var font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f))
                 {
                     TextRenderer.DrawText(e.Graphics, name, font, new Rectangle(56, 2, Width - 78, 25), Color.FromArgb(43, 60, 78), TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
                     TextRenderer.DrawText(e.Graphics, SessionManager.CurrentUser?.RoleName ?? "Account", font,

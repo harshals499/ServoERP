@@ -26,14 +26,14 @@ namespace HVAC_Pro_Desktop.UI
 
         public CreateAccountForm()
         {
-            Text = BrandingService.WindowTitle("Create Account");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Create Account"));
             StartPosition = FormStartPosition.CenterParent;
             ClientSize = new Size(560, 620);
             MinimumSize = new Size(540, 600);
             MaximizeBox = false;
             MinimizeBox = false;
             BackColor = Color.FromArgb(239, 246, 255);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             Build();
             LoadRoles();
             Shown += (s, e) => _txtDisplayName.InnerTextBox.Focus();
@@ -50,36 +50,36 @@ namespace HVAC_Pro_Desktop.UI
             _card.Paint += DrawCard;
             Controls.Add(_card);
 
-            _card.Controls.Add(new Label
+            _card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Create ServoERP Account",
                 Location = new Point(34, 26),
                 Size = new Size(440, 34),
-                Font = new Font("Segoe UI", 18.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            });
+            }));
 
-            _card.Controls.Add(new Label
+            _card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "New accounts are created locally on this workstation.",
                 Location = new Point(36, 62),
                 Size = new Size(440, 36),
                 ForeColor = Color.FromArgb(71, 85, 125)
-            });
+            }));
 
             int y = 102;
-            _txtDisplayName = AddText("Display name", y, false, 0); y += 74;
-            _txtUsername = AddText("Username / email", y, false, 1); y += 74;
-            _txtPassword = AddText("Password", y, true, 2); y += 74;
-            _txtConfirmPassword = AddText("Confirm password", y, true, 3); y += 74;
+            _txtDisplayName = AddText(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Display name"), y, false, 0); y += 74;
+            _txtUsername = AddText(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Username / email"), y, false, 1); y += 74;
+            _txtPassword = AddText(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Password"), y, true, 2); y += 74;
+            _txtConfirmPassword = AddText(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Confirm password"), y, true, 3); y += 74;
 
-            _card.Controls.Add(Label("Role", y));
+            _card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Label("Role", y)));
             _cmbRole = new ComboBox
             {
                 Location = new Point(36, y + 24),
                 Size = new Size(432, 30),
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 10f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(15, 23, 42)
@@ -88,7 +88,7 @@ namespace HVAC_Pro_Desktop.UI
             _card.Controls.Add(_cmbRole);
             y += 68;
 
-            Button create = new Button
+            Button create = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Create Account",
                 Location = new Point(36, y),
@@ -96,8 +96,8 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0, 91, 224),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold)
+            });
             create.FlatAppearance.BorderSize = 0;
             create.FlatAppearance.MouseOverBackColor = Color.FromArgb(37, 99, 235);
             create.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
@@ -106,7 +106,7 @@ namespace HVAC_Pro_Desktop.UI
             _card.Controls.Add(create);
             AcceptButton = create;
 
-            Button cancel = new Button
+            Button cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Cancel",
                 Location = new Point(262, y),
@@ -114,8 +114,8 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(51, 65, 85),
-                Font = new Font("Segoe UI", 10.5f)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f)
+            });
             cancel.FlatAppearance.BorderColor = DS.Border;
             cancel.Click += (s, e) => Close();
             cancel.TabIndex = 6;
@@ -127,7 +127,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(36, y + 52),
                 Size = new Size(432, 48),
                 ForeColor = Color.FromArgb(220, 38, 38),
-                Font = new Font("Segoe UI", 9.5f)
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f)
             };
             _card.Controls.Add(_lblStatus);
         }
@@ -152,14 +152,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label Label(string text, int y)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text,
                 Location = new Point(36, y),
                 Size = new Size(250, 20),
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 41, 59)
-            };
+            });
         }
 
         private void LoadRoles()
@@ -187,7 +187,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!_hasUsers)
                 {
                     _lblStatus.ForeColor = Color.FromArgb(37, 99, 235);
-                    _lblStatus.Text = "No users found. This will create the first Admin account.";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "No users found. This will create the first Admin account.");
                 }
                 else
                 {
@@ -196,13 +196,13 @@ namespace HVAC_Pro_Desktop.UI
                         _cmbRole.SelectedItem = admin;
                     _cmbRole.Enabled = roles.Length > 1;
                     _lblStatus.ForeColor = Color.FromArgb(37, 99, 235);
-                    _lblStatus.Text = "New accounts receive full ServoERP access.";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "New accounts receive full ServoERP access.");
                 }
             }
             catch (Exception ex)
             {
                 AppRuntime.LogException("CreateAccount.LoadRoles", ex);
-                _lblStatus.Text = "Unable to load account roles.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Unable to load account roles.");
             }
         }
 
@@ -240,7 +240,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             CreatedUsername = username;
-            MessageBox.Show("Account created. You can sign in now.", BrandingService.WindowTitle("Create Account"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Account created. You can sign in now."), BrandingService.WindowTitle("Create Account"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             DialogResult = DialogResult.OK;
             Close();
         }
@@ -248,7 +248,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SetError(string message)
         {
             _lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
-            _lblStatus.Text = message ?? "Unable to create account.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, message ?? "Unable to create account.");
         }
 
         private void DrawCard(object sender, PaintEventArgs e)

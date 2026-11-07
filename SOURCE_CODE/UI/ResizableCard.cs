@@ -85,41 +85,41 @@ namespace HVAC_Pro_Desktop.UI
             _titleLabel = new Label
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 Padding = new Padding(14, 0, 0, 0),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            _savedLabel = new Label
+            _savedLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 AutoSize = false,
                 Width = 48,
                 Height = 18,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold),
                 ForeColor = SavedColor,
                 BackColor = DS.White,
                 Text = "Saved",
                 Dock = DockStyle.Right,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Visible = false
-            };
+            });
 
-            _overflowLabel = new Label
+            _overflowLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 AutoSize = false,
                 Width = 64,
                 Height = 18,
-                Font = new Font("Segoe UI", 8f, FontStyle.Regular),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Regular),
                 ForeColor = DefaultHint,
                 BackColor = DS.White,
                 Text = "Scroll",
                 Dock = DockStyle.Right,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Visible = false
-            };
+            });
 
-            _menuButton = new Button
+            _menuButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Size",
                 Width = 86,
@@ -127,11 +127,11 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = DS.White,
                 ForeColor = DS.Slate600,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 Margin = new Padding(0),
                 TextAlign = ContentAlignment.MiddleCenter
-            };
+            });
             _menuButton.FlatAppearance.BorderSize = 1;
             _menuButton.FlatAppearance.BorderColor = DefaultBorder;
             _menuButton.FlatAppearance.MouseDownBackColor = DS.Slate100;
@@ -229,7 +229,7 @@ namespace HVAC_Pro_Desktop.UI
         public string CardTitle
         {
             get { return _titleLabel.Text; }
-            set { _titleLabel.Text = value ?? string.Empty; }
+            set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_titleLabel, value ?? string.Empty); }
         }
         public bool ShowHeader { get; set; } = true;
         public bool AllowResize
@@ -666,7 +666,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_layoutLocked)
             {
                 _savedTimer.Stop();
-                _savedLabel.Text = "Locked";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_savedLabel, "Locked");
                 _savedLabel.ForeColor = DS.Primary600;
                 _savedLabel.Visible = ShowHeader;
                 BorderColor = DS.Primary600;
@@ -675,7 +675,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(_savedLabel, _savedLabel.Text), "Locked", StringComparison.Ordinal))
                 {
-                    _savedLabel.Text = "Saved";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_savedLabel, "Saved");
                     _savedLabel.ForeColor = SavedColor;
                     _savedLabel.Visible = false;
                     BorderColor = DefaultBorder;
@@ -763,7 +763,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_layoutLocked)
             {
                 _savedTimer.Stop();
-                _savedLabel.Text = "Locked";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_savedLabel, "Locked");
                 _savedLabel.ForeColor = DS.Primary600;
                 _savedLabel.Visible = ShowHeader;
                 return;
@@ -787,7 +787,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             _savedTimer.Stop();
-            _savedLabel.Text = "Saved";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_savedLabel, "Saved");
             _savedLabel.ForeColor = SavedColor;
             _savedLabel.Visible = true;
             Task.Delay(1500).ContinueWith(t =>

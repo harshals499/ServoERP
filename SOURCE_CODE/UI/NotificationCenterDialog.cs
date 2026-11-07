@@ -30,7 +30,7 @@ namespace HVAC_Pro_Desktop.UI
         public NotificationCenterDialog(Action<string> navigate)
         {
             _navigate = navigate;
-            Text = BrandingService.WindowTitle("Alerts & Notifications");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Alerts & Notifications"));
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(980, 560);
             MinimumSize = new Size(760, 420);
@@ -65,9 +65,9 @@ _pager = new Controls.GlobalPaginationControl { Dock = DockStyle.Top, BackColor 
             _pager.PageChanged += (s, e) => { _pageIndex = _pager.CurrentPage - 1; RenderPage(); };
             _pager.PageSizeChanged += (s, e) => { _pageSize = _pager.PageSize; _pageIndex = 0; RenderPage(); };
 
-            _refreshButton = MakeActionButton("Refresh", (s, e) => LoadNotifications());
-            _dismissButton = MakeActionButton("Dismiss", (s, e) => DismissSelected());
-            _openButton = MakePrimaryActionButton("Open", (s, e) => OpenSelected());
+            _refreshButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeActionButton("Refresh", (s, e) => LoadNotifications()));
+            _dismissButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeActionButton("Dismiss", (s, e) => DismissSelected()));
+            _openButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakePrimaryActionButton("Open", (s, e) => OpenSelected()));
 
             Panel bottom = BuildBottomBar();
             Panel gridHost = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(0) };
@@ -113,11 +113,11 @@ _pager = new Controls.GlobalPaginationControl { Dock = DockStyle.Top, BackColor 
             grid.DefaultCellStyle.SelectionForeColor = DS.Slate900;
             grid.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
 
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Priority", HeaderText = "Priority", Width = 98, SortMode = DataGridViewColumnSortMode.NotSortable });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", Width = 150, SortMode = DataGridViewColumnSortMode.NotSortable });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reference", HeaderText = "Reference / Description", Width = 245, SortMode = DataGridViewColumnSortMode.NotSortable });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Details", HeaderText = "Details", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, SortMode = DataGridViewColumnSortMode.NotSortable });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date", HeaderText = "Date", Width = 120, SortMode = DataGridViewColumnSortMode.NotSortable });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Priority", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Priority"), Width = 98, SortMode = DataGridViewColumnSortMode.NotSortable });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category"), Width = 150, SortMode = DataGridViewColumnSortMode.NotSortable });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Reference", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Reference / Description"), Width = 245, SortMode = DataGridViewColumnSortMode.NotSortable });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Details", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Details"), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, SortMode = DataGridViewColumnSortMode.NotSortable });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Date", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Date"), Width = 120, SortMode = DataGridViewColumnSortMode.NotSortable });
             return grid;
         }
 
@@ -166,7 +166,7 @@ FlowLayoutPanel actions = new FlowLayoutPanel
                 _grid.Rows.Clear();
                 _pager.SetState(1, 0, _pageSize);
                 _pageIndex = 0;
-                MessageBox.Show(this, "Notifications could not be loaded. Please try Refresh again.", BrandingService.WindowTitle("Notifications"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Notifications could not be loaded. Please try Refresh again."), BrandingService.WindowTitle("Notifications"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -311,7 +311,7 @@ FlowLayoutPanel actions = new FlowLayoutPanel
 
         private static Button MakeActionButton(string text, EventHandler onClick)
         {
-            var button = new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = 116,
@@ -322,7 +322,7 @@ FlowLayoutPanel actions = new FlowLayoutPanel
                 Font = new Font(LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
                 Margin = new Padding(8, 0, 0, 0),
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.BorderSize = 1;
             button.Click += onClick;

@@ -53,7 +53,7 @@ namespace HVAC_Pro_Desktop.UI
         public OfficeLanControlForm(bool autoLoad)
         {
             _autoLoad = autoLoad;
-            Text = "LAN Control Center";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "LAN Control Center");
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(1120, 700);
             Size = new Size(1440, 860);
@@ -67,12 +67,12 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLayout()
         {
             Panel header = new Panel { Dock = DockStyle.Top, Height = 82, BackColor = DS.White, Padding = new Padding(24, 14, 24, 10) };
-            header.Controls.Add(new Label { Text = "Office LAN Control Center", Font = DS.H2, ForeColor = DS.Slate900, AutoSize = true, Location = new Point(24, 12) });
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Office LAN Control Center", Font = DS.H2, ForeColor = DS.Slate900, AutoSize = true, Location = new Point(24, 12) }));
             _summary.Font = DS.Body;
             _summary.ForeColor = DS.Slate600;
             _summary.AutoSize = true;
             _summary.Location = new Point(26, 47);
-            _summary.Text = "Discover, verify, install, update, and monitor every ServoERP terminal from the office server.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_summary, "Discover, verify, install, update, and monitor every ServoERP terminal from the office server.");
             header.Controls.Add(_summary);
 
             FlowLayoutPanel cards = new FlowLayoutPanel
@@ -83,12 +83,12 @@ namespace HVAC_Pro_Desktop.UI
                 WrapContents = false,
                 BackColor = DS.BgPage
             };
-            cards.Controls.Add(CreateSummaryCard("Total", "Total PCs", DS.Primary600));
-            cards.Controls.Add(CreateSummaryCard("Online", "Online", DS.Teal600));
-            cards.Controls.Add(CreateSummaryCard("Install", "Need install", DS.Amber600));
-            cards.Controls.Add(CreateSummaryCard("Update", "Need update", DS.Primary600));
-            cards.Controls.Add(CreateSummaryCard("Installing", "Installing", DS.Indigo500));
-            cards.Controls.Add(CreateSummaryCard("Failed", "Failed", DS.Red600));
+            cards.Controls.Add(CreateSummaryCard("Total", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Total PCs"), DS.Primary600));
+            cards.Controls.Add(CreateSummaryCard("Online", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Online"), DS.Teal600));
+            cards.Controls.Add(CreateSummaryCard("Install", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Need install"), DS.Amber600));
+            cards.Controls.Add(CreateSummaryCard("Update", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Need update"), DS.Primary600));
+            cards.Controls.Add(CreateSummaryCard("Installing", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Installing"), DS.Indigo500));
+            cards.Controls.Add(CreateSummaryCard("Failed", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Failed"), DS.Red600));
 
             Panel actions = BuildActionArea();
             SplitContainer workspace = new SplitContainer
@@ -109,7 +109,7 @@ namespace HVAC_Pro_Desktop.UI
             _status.Dock = DockStyle.Fill;
             _status.Font = DS.Small;
             _status.ForeColor = DS.Slate600;
-            _status.Text = "Run readiness checks before deployment. Approved administrator access is protected on this server and supplied automatically.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Run readiness checks before deployment. Approved administrator access is protected on this server and supplied automatically.");
             footer.Controls.Add(_status);
 
             Controls.Add(workspace);
@@ -156,13 +156,13 @@ namespace HVAC_Pro_Desktop.UI
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             secondRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            Label installerLabel = new Label { Text = "Deployment payload", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 12, 0) };
+            Label installerLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Deployment payload", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(0, 8, 12, 0) });
             _installerPath.Dock = DockStyle.Fill;
             _installerPath.ReadOnly = true;
             _installerPath.BackColor = DS.White;
             _installerPath.Text = "Built-in terminal installer with prerequisites (recommended)";
             _installerPath.Margin = new Padding(0, 3, 10, 3);
-            Label filterLabel = new Label { Text = "Show", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(4, 8, 8, 0) };
+            Label filterLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Show", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(4, 8, 8, 0) });
             _filter.DropDownStyle = ComboBoxStyle.DropDownList;
             _filter.Width = 145;
             _filter.Items.AddRange(new object[] { "All terminals", "Online", "Need installation", "Update available", "Installing", "Failed", "Offline" });
@@ -189,7 +189,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildReadinessDetails()
         {
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(18, 10, 18, 12) };
-            _detailTitle.Text = "Readiness details — select a terminal";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_detailTitle, "Readiness details — select a terminal");
             _detailTitle.Dock = DockStyle.Top;
             _detailTitle.Height = 30;
             _detailTitle.Font = DS.H3;
@@ -210,8 +210,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             var card = new Panel { Width = 214, Height = 66, BackColor = DS.White, Margin = new Padding(0, 0, 12, 0), Padding = new Padding(14, 8, 12, 6) };
             var marker = new Panel { Dock = DockStyle.Left, Width = 4, BackColor = accent };
-            var value = new Label { Text = "0", Font = DS.H2, ForeColor = DS.Slate900, AutoSize = true, Location = new Point(28, 5) };
-            var caption = new Label { Text = title, Font = DS.Small, ForeColor = DS.Slate600, AutoSize = true, Location = new Point(30, 37) };
+            var value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", Font = DS.H2, ForeColor = DS.Slate900, AutoSize = true, Location = new Point(28, 5) });
+            var caption = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Font = DS.Small, ForeColor = DS.Slate600, AutoSize = true, Location = new Point(30, 37) });
             card.Controls.Add(marker);
             card.Controls.Add(value);
             card.Controls.Add(caption);
@@ -233,7 +233,7 @@ namespace HVAC_Pro_Desktop.UI
             _computers.BorderStyle = BorderStyle.None;
             _computers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
             _computers.DataSource = _rows;
-            _computers.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Select", DataPropertyName = "Selected", FillWeight = 46, MinimumWidth = 58 });
+            _computers.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select"), DataPropertyName = "Selected", FillWeight = 46, MinimumWidth = 58 });
             AddTextColumn("PC", "HostName", 110, 100);
             AddTextColumn("IP address", "IpAddress", 78, 84);
             AddTextColumn("State", "ManagementState", 92, 98);
@@ -251,7 +251,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void ConfigureButton(Button button, string text, int width)
         {
-            button.Text = text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, text);
             button.Width = width;
             button.Height = 34;
             button.Margin = new Padding(0, 0, 8, 0);
@@ -285,7 +285,7 @@ namespace HVAC_Pro_Desktop.UI
             CancellationToken token = _operationCancellation.Token;
             await RunSafeAsync("Scan office network", async () =>
             {
-                _status.Text = "Scanning routed private IPv4 subnets and matching enrolled or saved terminals...";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Scanning routed private IPv4 subnets and matching enrolled or saved terminals...");
                 IList<OfficeLanComputer> discovered = await _service.DiscoverComputersAsync(token);
                 _allRows = discovered.ToList();
                 ApplyFilter();
@@ -306,7 +306,7 @@ namespace HVAC_Pro_Desktop.UI
                 _allRows.Add(computer);
                 ApplyFilter();
                 UpdateSummary();
-                _status.Text = computer.IsReachable ? "Terminal added and detected successfully." : "Terminal saved. It will remain visible while offline.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, computer.IsReachable ? "Terminal added and detected successfully." : "Terminal saved. It will remain visible while offline.");
             }, _addTerminal, "Adding...");
         }
 
@@ -318,14 +318,14 @@ namespace HVAC_Pro_Desktop.UI
                 targets = _allRows.Where(item => item.IsReachable && !item.IsLocalComputer).ToList();
             if (targets.Count == 0)
             {
-                MessageBox.Show(this, "No reachable terminal is available for readiness checks.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No reachable terminal is available for readiness checks."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             ResetCancellation();
             await RunSafeAsync("Terminal readiness", async () =>
             {
-                _status.Text = "Checking network, WinRM, prerequisites, and the shared SQL connection...";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Checking network, WinRM, prerequisites, and the shared SQL connection...");
                 foreach (OfficeLanComputer target in targets)
                 {
                     OfficeLanReadinessResult result = await _readinessService.CheckAsync(target, _operationCancellation.Token);
@@ -338,7 +338,7 @@ namespace HVAC_Pro_Desktop.UI
                 _computers.Refresh();
                 UpdateSummary();
                 ShowSelectedDetails();
-                _status.Text = targets.Count + " terminal(s) checked. Select a row to see every result and recommended action.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} terminal(s) checked. Select a row to see every result and recommended action.", targets.Count));
             }, _preflight, "Checking...");
         }
 
@@ -348,7 +348,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (OfficeLanComputer item in _allRows)
                 item.Selected = shouldSelect && item.IsReachable && !item.IsLocalComputer;
             _computers.Refresh();
-            _selectAll.Text = shouldSelect ? "Clear selection" : "Select terminals";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_selectAll, shouldSelect ? "Clear selection" : "Select terminals");
         }
 
         private void ChooseInstaller()
@@ -375,12 +375,12 @@ namespace HVAC_Pro_Desktop.UI
             List<OfficeLanComputer> selected = _allRows.Where(item => item.Selected && item.IsReachable && !item.IsLocalComputer).ToList();
             if (selected.Count == 0)
             {
-                MessageBox.Show(this, "Select at least one reachable terminal PC first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select at least one reachable terminal PC first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             if (selected.Any(item => string.Equals(item.ReadinessStatus, "Blocked", StringComparison.OrdinalIgnoreCase)))
             {
-                MessageBox.Show(this, "One or more selected terminals have blocking readiness failures. Correct them before deployment.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("One or more selected terminals have blocking readiness failures. Correct them before deployment."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             OfficeLanDeploymentCredential deploymentCredential;
@@ -420,7 +420,7 @@ namespace HVAC_Pro_Desktop.UI
                 _cancelDeployment.Enabled = true;
                 _computers.Refresh();
                 UpdateSummary();
-                _status.Text = string.Format("Unattended deployment started for {0} PC(s). No PowerShell credential prompt is required; progress appears here automatically.", package.TargetCount);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, string.Format("Unattended deployment started for {0} PC(s). No PowerShell credential prompt is required; progress appears here automatically.", package.TargetCount));
             }, _deploy, "Preparing...");
         }
 
@@ -434,12 +434,12 @@ namespace HVAC_Pro_Desktop.UI
             if (credential.RememberOnServer)
             {
                 _service.SaveDeploymentCredential(credential);
-                _status.Text = "Administrator access saved securely for unattended LAN deployments from this Windows account.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Administrator access saved securely for unattended LAN deployments from this Windows account.");
             }
             else
             {
                 _service.ForgetSavedDeploymentCredential();
-                _status.Text = "Saved LAN deployment administrator access was removed.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Saved LAN deployment administrator access was removed.");
             }
             credential.Password = string.Empty;
             if (existing != null)
@@ -480,7 +480,7 @@ namespace HVAC_Pro_Desktop.UI
                     _deploymentMonitor.Stop();
                     _cancelDeployment.Enabled = false;
                     int failed = progress.Count(item => item.Status == "Failed");
-                    _status.Text = failed == 0 ? "Deployment completed successfully on every selected terminal." : failed + " terminal(s) failed. Select a failed row for the exact reason, correct it, and retry.";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, (failed == 0 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Deployment completed successfully on every selected terminal.") : global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} terminal(s) failed. Select a failed row for the exact reason, correct it, and retry.", failed)));
                 }
             }
             catch (Exception ex)
@@ -494,7 +494,7 @@ namespace HVAC_Pro_Desktop.UI
             List<OfficeLanComputer> failed = _allRows.Where(item => item.ManagementState == "Failed" && item.IsReachable && !item.IsLocalComputer).ToList();
             if (failed.Count == 0)
             {
-                MessageBox.Show(this, "There are no reachable failed terminals to retry.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("There are no reachable failed terminals to retry."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             foreach (OfficeLanComputer item in _allRows) item.Selected = failed.Contains(item);
@@ -511,7 +511,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 File.WriteAllText(Path.Combine(_activePackage.FolderPath, "cancel.requested"), DateTime.UtcNow.ToString("o"));
                 _cancelDeployment.Enabled = false;
-                _status.Text = "Cancellation requested. The current terminal is allowed to finish safely; remaining terminals will be marked Cancelled.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Cancellation requested. The current terminal is allowed to finish safely; remaining terminals will be marked Cancelled.");
             }
             catch (Exception ex)
             {
@@ -531,13 +531,13 @@ namespace HVAC_Pro_Desktop.UI
             }
             if (nodeIds.Count == 0)
             {
-                MessageBox.Show(this, "Select at least one enrolled ServoERP terminal first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select at least one enrolled ServoERP terminal first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             try
             {
                 int count = _service.QueueBatch(nodeIds, commandType, Environment.UserName);
-                MessageBox.Show(this, description + " queued for " + count + " terminal(s). The terminal agent processes it even when ServoERP is closed.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} queued for {1} terminal(s). The terminal agent processes it even when ServoERP is closed.", description, count), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -551,7 +551,7 @@ namespace HVAC_Pro_Desktop.UI
             List<Guid> nodeIds = _allRows.Where(item => item.Selected && item.NodePublicId.HasValue).Select(item => item.NodePublicId.Value).Distinct().ToList();
             if (nodeIds.Count == 0)
             {
-                MessageBox.Show(this, "Select one or more enrolled terminals first. The first selected terminal becomes the pilot.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select one or more enrolled terminals first. The first selected terminal becomes the pilot."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             DateTime? scheduled = PromptForSchedule(this);
@@ -593,14 +593,14 @@ namespace HVAC_Pro_Desktop.UI
             SetSummary("Failed", _allRows.Count(item => item.ManagementState == "Failed"));
             int ready = _allRows.Count(item => item.ReadinessStatus == "Ready" && !item.IsLocalComputer);
             int preparation = _allRows.Count(item => item.ReadinessStatus == "Needs preparation" && !item.IsLocalComputer);
-            _summary.Text = string.Format("{0} terminal(s) visible; {1} ready; {2} require preparation. Agent-managed terminals remain visible while ServoERP is closed.", _allRows.Count, ready, preparation);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summary, string.Format("{0} terminal(s) visible; {1} ready; {2} require preparation. Agent-managed terminals remain visible while ServoERP is closed.", _allRows.Count, ready, preparation));
         }
 
         private void SetSummary(string key, int value)
         {
             Label label;
             if (_summaryValues.TryGetValue(key, out label))
-                label.Text = value.ToString();
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(label, value.ToString());
         }
 
         private void ShowSelectedDetails()
@@ -609,10 +609,10 @@ namespace HVAC_Pro_Desktop.UI
             _readinessDetails.Items.Clear();
             if (computer == null)
             {
-                _detailTitle.Text = "Readiness details — select a terminal";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_detailTitle, "Readiness details — select a terminal");
                 return;
             }
-            _detailTitle.Text = "Readiness details — " + computer.HostName;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_detailTitle, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Readiness details — {0}", computer.HostName));
             foreach (OfficeLanReadinessCheck check in computer.ReadinessChecks ?? new List<OfficeLanReadinessCheck>())
             {
                 string detail = check.Detail + (string.IsNullOrWhiteSpace(check.Recommendation) ? string.Empty : "  Fix: " + check.Recommendation);
@@ -640,11 +640,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private static string PromptForTerminal(IWin32Window owner)
         {
-            using (var dialog = new Form { Text = "Add terminal", StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(430, 150), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false })
+            using (var dialog = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Form { Text = "Add terminal", StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(430, 150), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false }))
             using (var input = new TextBox { Left = 20, Top = 48, Width = 390 })
-            using (var ok = new Button { Text = "Add terminal", DialogResult = DialogResult.OK, Left = 270, Top = 100, Width = 140 })
+            using (var ok = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Add terminal", DialogResult = DialogResult.OK, Left = 270, Top = 100, Width = 140 }))
             {
-                dialog.Controls.Add(new Label { Text = "Terminal hostname or IPv4 address", AutoSize = true, Left = 20, Top = 22 });
+                dialog.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Terminal hostname or IPv4 address", AutoSize = true, Left = 20, Top = 22 }));
                 dialog.Controls.Add(input);
                 dialog.Controls.Add(ok);
                 dialog.AcceptButton = ok;
@@ -654,11 +654,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private static DateTime? PromptForSchedule(IWin32Window owner)
         {
-            using (var dialog = new Form { Text = "Schedule pilot rollout", StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(430, 160), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false })
+            using (var dialog = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Form { Text = "Schedule pilot rollout", StartPosition = FormStartPosition.CenterParent, ClientSize = new Size(430, 160), FormBorderStyle = FormBorderStyle.FixedDialog, MaximizeBox = false, MinimizeBox = false }))
             using (var picker = new DateTimePicker { Left = 20, Top = 50, Width = 390, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy HH:mm", MinDate = DateTime.Now.AddMinutes(-1), Value = DateTime.Now.AddMinutes(5) })
-            using (var ok = new Button { Text = "Schedule rollout", DialogResult = DialogResult.OK, Left = 270, Top = 108, Width = 140 })
+            using (var ok = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Schedule rollout", DialogResult = DialogResult.OK, Left = 270, Top = 108, Width = 140 }))
             {
-                dialog.Controls.Add(new Label { Text = "Start the pilot terminal at", AutoSize = true, Left = 20, Top = 23 });
+                dialog.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Start the pilot terminal at", AutoSize = true, Left = 20, Top = 23 }));
                 dialog.Controls.Add(picker);
                 dialog.Controls.Add(ok);
                 dialog.AcceptButton = ok;
@@ -740,7 +740,7 @@ namespace HVAC_Pro_Desktop.UI
 
             public LanDeploymentCredentialDialog(OfficeLanDeploymentCredential existing)
             {
-                Text = "LAN deployment administrator access";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "LAN deployment administrator access");
                 StartPosition = FormStartPosition.CenterParent;
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 MaximizeBox = false;
@@ -749,37 +749,37 @@ namespace HVAC_Pro_Desktop.UI
                 ClientSize = new Size(520, 300);
                 BackColor = DS.BgPage;
 
-                Controls.Add(new Label
+                Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Text = "Administrator access for terminal PCs",
                     Font = DS.H2,
                     ForeColor = DS.Slate900,
                     AutoSize = true,
                     Location = new Point(24, 20)
-                });
-                Controls.Add(new Label
+                }));
+                Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Text = "Use an account that Windows already authorizes as an administrator on each selected PC. LAN Control cannot bypass Windows security.",
                     Font = DS.Body,
                     ForeColor = DS.Slate600,
                     Location = new Point(24, 57),
                     Size = new Size(470, 48)
-                });
+                }));
 
-                Controls.Add(new Label { Text = "Windows account", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 113) });
+                Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Windows account", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 113) }));
                 _userName.Location = new Point(24, 134);
                 _userName.Size = new Size(470, 26);
                 _userName.Text = existing == null ? Environment.UserName : existing.UserName;
                 Controls.Add(_userName);
 
-                Controls.Add(new Label { Text = "Password", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 170) });
+                Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Password", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Location = new Point(24, 170) }));
                 _password.Location = new Point(24, 191);
                 _password.Size = new Size(470, 26);
                 _password.UseSystemPasswordChar = true;
                 _password.Text = existing == null ? string.Empty : existing.Password;
                 Controls.Add(_password);
 
-                _remember.Text = "Remember securely for unattended deployments from this server";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_remember, "Remember securely for unattended deployments from this server");
                 _remember.Font = DS.Small;
                 _remember.ForeColor = DS.Slate700;
                 _remember.AutoSize = true;
@@ -787,8 +787,8 @@ namespace HVAC_Pro_Desktop.UI
                 _remember.Location = new Point(24, 229);
                 Controls.Add(_remember);
 
-                var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(296, 260), Size = new Size(94, 32) };
-                var use = new Button { Text = "Use access", Location = new Point(400, 260), Size = new Size(94, 32) };
+                var cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Location = new Point(296, 260), Size = new Size(94, 32) });
+                var use = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Use access", Location = new Point(400, 260), Size = new Size(94, 32) });
                 use.Click += (sender, args) => AcceptCredential();
                 Controls.Add(cancel);
                 Controls.Add(use);
@@ -800,7 +800,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_userName.Text) || string.IsNullOrEmpty(_password.Text))
                 {
-                    MessageBox.Show(this, "Enter the Windows administrator account and password used by the selected terminal PCs.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter the Windows administrator account and password used by the selected terminal PCs."), Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
                 Credential = new OfficeLanDeploymentCredential

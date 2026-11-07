@@ -12,7 +12,7 @@ namespace ServoERP.Infrastructure
     /// </summary>
     internal static class ServoTheme
     {
-        private static readonly Font ApplicationFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+        private static readonly Font ApplicationFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Regular);
         private static readonly KryptonManager PaletteManager = new KryptonManager();
 
         internal static void Initialize()

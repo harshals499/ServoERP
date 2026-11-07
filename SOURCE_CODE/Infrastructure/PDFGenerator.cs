@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -38,15 +38,15 @@ namespace ServoERP.Infrastructure
                         col.Spacing(10);
                         col.Item().Element(c => ComposeKeyValueTable(c, new[]
                         {
-                            Pair("Job Number", Safe(job == null ? null : job.JobNumber)),
-                            Pair("Client", Safe(client == null ? null : client.CompanyName)),
-                            Pair("Site", Safe(site == null ? null : SiteService.GetDisplayName(site))),
-                            Pair("Technician", Safe(technician == null ? null : technician.Name, "Not assigned")),
-                            Pair("Priority", Safe(job == null ? null : job.Priority)),
-                            Pair("Status", Safe(job == null ? null : (job.PipelineStatus ?? job.Status))),
-                            Pair("Scheduled", FormatDate(job == null ? (DateTime?)null : job.ScheduledDate)),
-                            Pair("Completed", FormatDate(job == null ? null : job.CompletedDate)),
-                            Pair("Work Done", Safe(job == null ? null : job.Notes))
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job Number"), Safe(job == null ? null : job.JobNumber)),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client"), Safe(client == null ? null : client.CompanyName)),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Site"), Safe(site == null ? null : SiteService.GetDisplayName(site))),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Technician"), Safe(technician == null ? null : technician.Name, "Not assigned")),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Priority"), Safe(job == null ? null : job.Priority)),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Status"), Safe(job == null ? null : (job.PipelineStatus ?? job.Status))),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Scheduled"), FormatDate(job == null ? (DateTime?)null : job.ScheduledDate)),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Completed"), FormatDate(job == null ? null : job.CompletedDate)),
+                            Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Work Done"), Safe(job == null ? null : job.Notes))
                         }));
                     });
                     page.Footer().AlignCenter().Text("ServoERP | Made in India | Page ").FontSize(9);
@@ -143,7 +143,7 @@ namespace ServoERP.Infrastructure
                             row.RelativeItem().AlignRight().Text("Generated: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", India));
                         });
                         col.Item().Element(c => ComposeKeyValueTable(c, rows.Length == 0
-                            ? new[] { Pair("Details", "No report details are available for this row.") }
+                            ? new[] { Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Details"), "No report details are available for this row.") }
                             : rows));
                     });
                     page.Footer().AlignCenter().Text("ServoERP | Read-only report preview").FontSize(9);

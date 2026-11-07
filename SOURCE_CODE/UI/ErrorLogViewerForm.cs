@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -13,7 +13,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public ErrorLogViewerForm()
         {
-            Text = BrandingService.WindowTitle(T("Error Logs"));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle(T("Error Logs")));
             Name = "ErrorLogViewerForm";
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new System.Drawing.Size(820, 520);
@@ -59,14 +59,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text)
         {
-            return new Button
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = Math.Max(96, TextRenderer.MeasureText(text, System.Drawing.SystemFonts.MessageBoxFont).Width + 24),
                 Height = 32,
                 AutoEllipsis = false,
                 AutoSize = true
-            };
+            });
         }
 
         private void LoadLogs()

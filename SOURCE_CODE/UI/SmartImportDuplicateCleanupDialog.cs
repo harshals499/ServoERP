@@ -39,13 +39,13 @@ namespace HVAC_Pro_Desktop.UI
         internal SmartImportDuplicateCleanupDialog(ExcelImportModule module, bool loadGroups)
         {
             _module = module;
-            Text = "Resolve Existing Duplicates - " + ExcelImportService.GetDisplayName(module);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Resolve Existing Duplicates - {0}", ExcelImportService.GetDisplayName(module)));
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(820, 590);
             MinimumSize = new Size(720, 520);
             AutoScaleMode = AutoScaleMode.None;
             BackColor = Color.White;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             BuildUi();
             if (loadGroups)
                 LoadGroups();
@@ -53,15 +53,15 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildUi()
         {
-            var title = new Label { Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 14, 18, 0), Font = new Font("Segoe UI", 13f, FontStyle.Bold), Text = "Review, merge or delete duplicate records" };
-            var help = new Label { Dock = DockStyle.Top, Height = 46, Padding = new Padding(18, 0, 18, 8), ForeColor = Color.FromArgb(71, 85, 105), Text = "Choose records to merge/archive or permanently delete. Linked records move in one transaction; failures roll back safely." };
+            var title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock = DockStyle.Top, Height = 58, Padding = new Padding(18, 14, 18, 0), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), Text = "Review, merge or delete duplicate records" });
+            var help = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock = DockStyle.Top, Height = 46, Padding = new Padding(18, 0, 18, 8), ForeColor = Color.FromArgb(71, 85, 105), Text = "Choose records to merge/archive or permanently delete. Linked records move in one transaction; failures roll back safely." });
             _workspaceSplit = new SplitContainer { Dock = DockStyle.Fill, SplitterDistance = 275, FixedPanel = FixedPanel.Panel1, Padding = new Padding(18, 4, 18, 4) };
             var groupPanel = new Panel { Dock = DockStyle.Fill };
             var groupActions = new TableLayoutPanel { Dock = DockStyle.Top, Height = 40, ColumnCount = 2, RowCount = 1, Padding = new Padding(0, 0, 0, 6) };
             groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
             groupActions.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50));
-            var selectAll = new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select shown groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat };
-            var clearAll = new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear all selection", Dock = DockStyle.Fill, Margin = new Padding(4, 0, 0, 0), FlatStyle = FlatStyle.Flat };
+            var selectAll = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Name = "SelectAllDuplicateGroupsButton", Text = "Select shown groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 4, 0), FlatStyle = FlatStyle.Flat });
+            var clearAll = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Name = "ClearDuplicateGroupsButton", Text = "Clear all selection", Dock = DockStyle.Fill, Margin = new Padding(4, 0, 0, 0), FlatStyle = FlatStyle.Flat });
             selectAll.Click += (s, e) => SetAllGroupsChecked(true);
             clearAll.Click += (s, e) => SetAllGroupsChecked(false);
             groupActions.Controls.Add(selectAll, 0, 0);
@@ -69,10 +69,10 @@ namespace HVAC_Pro_Desktop.UI
             var filterPanel = new Panel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(0, 16, 0, 6) };
             _filter.Name = "DuplicateGroupFilter";
             _filter.Dock = DockStyle.Fill;
-            _filter.Font = new Font("Segoe UI", 9f);
+            _filter.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             _filter.TextChanged += (s, e) => ApplyGroupFilter();
             filterPanel.Controls.Add(_filter);
-            filterPanel.Controls.Add(new Label { Text = "Filter groups", Dock = DockStyle.Top, Height = 16, Font = new Font("Segoe UI", 7.5f), ForeColor = Color.FromArgb(100, 116, 139) });
+            filterPanel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Filter groups", Dock = DockStyle.Top, Height = 16, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = Color.FromArgb(100, 116, 139) }));
             _groups.Dock = DockStyle.Fill;
             _groups.CheckOnClick = true;
             _groups.SelectedIndexChanged += (s, e) => BindSelectedGroup();
@@ -97,19 +97,19 @@ namespace HVAC_Pro_Desktop.UI
             right.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
             right.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
             right.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));
-            right.Controls.Add(new Label { Text = "Record to keep", Dock = DockStyle.Fill, Font = new Font("Segoe UI", 9f, FontStyle.Bold) }, 0, 0);
+            right.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Record to keep", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold) }), 0, 0);
             _survivor.Dock = DockStyle.Fill;
             _survivor.DropDownStyle = ComboBoxStyle.DropDownList;
             _survivor.SelectedIndexChanged += (s, e) => BindDuplicateChecks();
             right.Controls.Add(_survivor, 0, 1);
-            right.Controls.Add(new Label { Text = "Duplicate records selected", Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0), Font = new Font("Segoe UI", 9f, FontStyle.Bold) }, 0, 2);
+            right.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Duplicate records selected", Dock = DockStyle.Fill, Padding = new Padding(0, 8, 0, 0), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold) }), 0, 2);
             _duplicates.Dock = DockStyle.Fill;
             _duplicates.CheckOnClick = true;
             right.Controls.Add(_duplicates, 0, 3);
-            var merge = new Button { Name = "MergeSelectedDuplicateGroupsButton", Text = "Merge selected groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 6, 0), BackColor = Color.FromArgb(37, 99, 235), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            var merge = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Name = "MergeSelectedDuplicateGroupsButton", Text = "Merge selected groups", Dock = DockStyle.Fill, Margin = new Padding(0, 0, 6, 0), BackColor = Color.FromArgb(37, 99, 235), ForeColor = Color.White, FlatStyle = FlatStyle.Flat });
             merge.FlatAppearance.BorderSize = 0;
             merge.Click += (s, e) => MergeSelectedGroups();
-            var delete = new Button { Name = "DeleteSelectedDuplicateRecordsButton", Text = "Delete duplicates", Dock = DockStyle.Fill, Margin = new Padding(6, 0, 0, 0), BackColor = Color.FromArgb(180, 30, 30), ForeColor = Color.White, FlatStyle = FlatStyle.Flat };
+            var delete = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Name = "DeleteSelectedDuplicateRecordsButton", Text = "Delete duplicates", Dock = DockStyle.Fill, Margin = new Padding(6, 0, 0, 0), BackColor = Color.FromArgb(180, 30, 30), ForeColor = Color.White, FlatStyle = FlatStyle.Flat });
             delete.FlatAppearance.BorderSize = 0;
             delete.Click += (s, e) => DeleteSelectedDuplicates();
             var actionPanel = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
@@ -124,7 +124,7 @@ namespace HVAC_Pro_Desktop.UI
             _status.Dock = DockStyle.Fill;
             _status.ForeColor = Color.FromArgb(71, 85, 105);
             _status.TextAlign = ContentAlignment.MiddleLeft;
-            var close = new Button { Text = "Close", DialogResult = DialogResult.OK, Dock = DockStyle.Right, Width = 96 };
+            var close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Close", DialogResult = DialogResult.OK, Dock = DockStyle.Right, Width = 96 });
             footer.Controls.Add(_status);
             footer.Controls.Add(close);
             Controls.Add(_workspaceSplit);
@@ -197,7 +197,7 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("SmartImportDuplicateCleanupDialog.LoadGroups", ex);
-                MessageBox.Show(this, ex.Message, "Duplicate Review Unavailable", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, ex.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate Review Unavailable"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -298,9 +298,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void UpdateSelectionStatus()
         {
-            _status.Text = _items.Count == 0
-                ? "No existing duplicate groups remain."
-                : _selectedGroups.Count + " of " + _items.Count + " group(s) selected; " + _visibleItems.Count + " visible. Overlaps are consolidated automatically.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, (_items.Count == 0 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No existing duplicate groups remain.") : global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} of {1} group(s) selected; {2} visible. Overlaps are consolidated automatically.", _selectedGroups.Count, _items.Count, _visibleItems.Count)));
         }
 
         private void MergeSelectedGroups()
@@ -311,7 +309,7 @@ namespace HVAC_Pro_Desktop.UI
             int duplicateCount = plans.Sum(plan => (plan.DuplicateIds ?? Enumerable.Empty<string>()).Count());
             if (plans.Count == 0 || duplicateCount == 0)
             {
-                MessageBox.Show(this, "Select at least one duplicate group with records to archive.", "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select at least one duplicate group with records to archive."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Nothing Selected"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             string overlapNote = planning.ConsolidatedOverlapCount > 0 ? " Smart planning consolidated " + planning.ConsolidatedOverlapCount + " overlapping group(s) to prevent conflicts." : string.Empty;
@@ -319,13 +317,13 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 DuplicateCleanupResult result = _service.MergeAndArchiveGroups(_module, plans);
-                MessageBox.Show(this, result.Message, "Duplicate Cleanup Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, result.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate Cleanup Complete"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 LoadGroups();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("SmartImportDuplicateCleanupDialog.MergeSelectedGroups", ex);
-                MessageBox.Show(this, "No records were changed. " + ex.Message, "Duplicate Cleanup Rolled Back", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("No records were changed. {0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate Cleanup Rolled Back"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -340,13 +338,13 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 DuplicateCleanupResult result = _service.MergeAndDeleteGroups(_module, plans);
-                MessageBox.Show(this, result.Message, "Duplicate Records Deleted", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, result.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate Records Deleted"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 LoadGroups();
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("SmartImportDuplicateCleanupDialog.DeleteSelectedDuplicates", ex);
-                MessageBox.Show(this, "No records were changed. " + ex.Message, "Duplicate Delete Rolled Back", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("No records were changed. {0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate Delete Rolled Back"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -367,7 +365,7 @@ namespace HVAC_Pro_Desktop.UI
             catch (InvalidOperationException ex)
             {
                 planning = null;
-                MessageBox.Show(this, ex.Message, "Nothing Selected", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, ex.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Nothing Selected"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return false;
             }
         }

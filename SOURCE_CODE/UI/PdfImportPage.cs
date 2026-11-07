@@ -22,19 +22,19 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DataGridView _files = new DataGridView { Dock=DockStyle.Fill, AutoGenerateColumns=false, AllowUserToAddRows=false, AllowUserToDeleteRows=false, RowHeadersVisible=false, MultiSelect=false, SelectionMode=DataGridViewSelectionMode.FullRowSelect, BackgroundColor=Color.White };
         private readonly Panel _review = new Panel { Dock=DockStyle.Fill };
         private readonly Panel _summary = new Panel { Dock=DockStyle.Fill, Visible=false };
-        private readonly Label _sourceLabel = new Label { Dock=DockStyle.Fill, AutoEllipsis=true, Padding=new Padding(8), Text="Choose a folder to find PDFs in all its subfolders. All found files are included by default." };
+        private readonly Label _sourceLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock=DockStyle.Fill, AutoEllipsis=true, Padding=new Padding(8), Text="Choose a folder to find PDFs in all its subfolders. All found files are included by default." });
         private readonly Label _progress = new Label { Dock=DockStyle.Fill, AutoEllipsis=true, Padding=new Padding(8) };
-        private readonly Label _status = new Label { Dock=DockStyle.Fill, AutoEllipsis=true, Padding=new Padding(8), Text="Select categories manually. Nothing is imported until Confirm & Import." };
-        private readonly TextBox _search = new TextBox { Dock=DockStyle.Fill, AccessibleName="Search filenames or folders" };
+        private readonly Label _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock=DockStyle.Fill, AutoEllipsis=true, Padding=new Padding(8), Text="Select categories manually. Nothing is imported until Confirm & Import." });
+        private readonly TextBox _search = new TextBox { Dock=DockStyle.Fill, AccessibleName=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search filenames or folders") };
         private readonly ComboBox _filter = new ComboBox { Dock=DockStyle.Fill, DropDownStyle=ComboBoxStyle.DropDownList };
         private readonly FlowLayoutPanel _categories = new FlowLayoutPanel { Dock=DockStyle.Fill, FlowDirection=FlowDirection.TopDown, WrapContents=false, AutoScroll=true, Padding=new Padding(8), BackColor=Color.White };
-        private readonly Label _destination = new Label { Width=210, Height=102, Padding=new Padding(4), Text="Choose a category after reading the PDF.\r\n\r\nDocument attachments only. No business transaction will be created." };
+        private readonly Label _destination = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Width=210, Height=102, Padding=new Padding(4), Text="Choose a category after reading the PDF.\r\n\r\nDocument attachments only. No business transaction will be created." });
         private readonly FlowLayoutPanel _actions = new FlowLayoutPanel { Dock=DockStyle.Fill, WrapContents=false, AutoScroll=true };
         private readonly Button _cancel;
         private readonly Button _save;
         private readonly Button _confirm;
         private Button _cancelImport;
-        private readonly CheckBox _acknowledge = new CheckBox { Dock=DockStyle.Fill, AutoSize=false, Text="Leave unresolved files out of this import", Margin=new Padding(8,2,8,2) };
+        private readonly CheckBox _acknowledge = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Dock=DockStyle.Fill, AutoSize=false, Text="Leave unresolved files out of this import", Margin=new Padding(8,2,8,2) });
         private readonly Label _summaryCounts = new Label { Dock=DockStyle.Fill, Padding=new Padding(12), Font=DS.BodyBold };
         private readonly TextBox _unresolved = new TextBox { Dock=DockStyle.Fill, Multiline=true, ReadOnly=true, ScrollBars=ScrollBars.Vertical, BackColor=DS.Amber50 };
         private readonly DataGridView _destinations = new DataGridView { Dock=DockStyle.Fill, ReadOnly=true, AutoGenerateColumns=true, AllowUserToAddRows=false, AllowUserToDeleteRows=false, RowHeadersVisible=false, BackgroundColor=Color.White, AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.Fill };
@@ -53,7 +53,7 @@ namespace HVAC_Pro_Desktop.UI
         public override void RefreshData()
         {
             RefreshReview();
-            if(!Busy)_status.Text="Current review preserved. Choose another folder to start a new batch, or continue categorising these PDFs.";
+            if(!Busy)global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Current review preserved. Choose another folder to start a new batch, or continue categorising these PDFs.");
         }
 
         internal PdfImportPage()
@@ -61,8 +61,8 @@ namespace HVAC_Pro_Desktop.UI
             Name="PdfImportPage"; Dock=DockStyle.Fill; BackColor=DS.BgPage;
             _viewer=new PdfReviewViewer(_service); _viewer.Changed+=RefreshReview;
             var header=SharedPageHeader.Build(new SharedPageHeaderModel {Name="PdfImportHeader",Title="PDF Import",Subtitle="Select folder  ›  Review & categorise  ›  Confirm import",CompactUtility=true});
-            var choose=ActionButton("Choose folder",async()=>await ChooseFolder(),true);
-            var library=ActionButton("Imported PDFs",()=> {using(var dialog=new PdfLibraryDialog(null))dialog.ShowDialog(FindForm());return Task.CompletedTask;});
+            var choose=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Choose folder",async()=>await ChooseFolder(),true));
+            var library=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Imported PDFs",()=> {using(var dialog=new PdfLibraryDialog(null))dialog.ShowDialog(FindForm());return Task.CompletedTask;}));
             var scanBar=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=3,RowCount=1};
             scanBar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent,100));scanBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,132));scanBar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute,132));
             scanBar.Controls.Add(_sourceLabel,0,0);scanBar.Controls.Add(choose,1,0);scanBar.Controls.Add(library,2,0);
@@ -77,22 +77,22 @@ namespace HVAC_Pro_Desktop.UI
             _review.Controls.Add(body);
             var list=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Margin=new Padding(0,0,8,0)};
             list.RowStyles.Add(new RowStyle(SizeType.Absolute,22));list.RowStyles.Add(new RowStyle(SizeType.Absolute,30));list.RowStyles.Add(new RowStyle(SizeType.Absolute,34));list.RowStyles.Add(new RowStyle(SizeType.Percent,100));list.RowStyles.Add(new RowStyle(SizeType.Absolute,38));
-            list.Controls.Add(new Label {Text="Search filenames or folders",Dock=DockStyle.Fill},0,0);
+            list.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label {Text="Search filenames or folders",Dock=DockStyle.Fill}),0,0);
             list.Controls.Add(_search,0,1);_filter.Items.AddRange(new object[]{"All files","Needs attention","Categorised","Excluded"});_filter.SelectedIndex=0;list.Controls.Add(_filter,0,2);list.Controls.Add(_files,0,3);
             var inclusion=new FlowLayoutPanel {Dock=DockStyle.Fill,WrapContents=false};
-            inclusion.Controls.Add(ActionButton("Select all",()=> {SetInclusion(true);return Task.CompletedTask;}));
-            inclusion.Controls.Add(ActionButton("Exclude all",()=> {SetInclusion(false);return Task.CompletedTask;}));list.Controls.Add(inclusion,0,4);
-            _files.Columns.Add(new DataGridViewCheckBoxColumn {DataPropertyName="Include",HeaderText="✓",Width=32});
-            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="FileName",HeaderText="Filename",Width=190,ReadOnly=true});
-            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="Folder",HeaderText="Folder",Width=130,ReadOnly=true});
-            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="Status",HeaderText="Review status",Width=180,ReadOnly=true});
+            inclusion.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Select all",()=> {SetInclusion(true);return Task.CompletedTask;})));
+            inclusion.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Exclude all",()=> {SetInclusion(false);return Task.CompletedTask;})));list.Controls.Add(inclusion,0,4);
+            _files.Columns.Add(new DataGridViewCheckBoxColumn {DataPropertyName="Include",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("✓"),Width=32});
+            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="FileName",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Filename"),Width=190,ReadOnly=true});
+            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="Folder",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Folder"),Width=130,ReadOnly=true});
+            _files.Columns.Add(new DataGridViewTextBoxColumn {DataPropertyName="Status",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Review status"),Width=180,ReadOnly=true});
             _files.DataSource=_source;_files.RowTemplate.Height=32;
             _files.CurrentCellDirtyStateChanged+=(s,e)=> {if(_files.IsCurrentCellDirty)_files.CommitEdit(DataGridViewDataErrorContexts.Commit);};
             _files.CellValueChanged+=(s,e)=> {if(!_binding&&e.ColumnIndex==0)RefreshReview();};
             // CurrentCellChanged runs after CurrentRow updates; SelectionChanged can still expose the previous row.
             _files.CurrentCellChanged+=async(s,e)=> {if(!_binding&&!Busy)await ShowSelected();};
             _files.CellToolTipTextNeeded+=(s,e)=> {if(e.RowIndex>=0&&_files.Rows[e.RowIndex].DataBoundItem is PdfReviewFile file)e.ToolTipText=file.SourcePath+"\r\n"+file.Status;};
-            _files.DataError+=(s,e)=> {e.ThrowException=false;_status.Text="The selection could not be changed. Select the file again.";};
+            _files.DataError+=(s,e)=> {e.ThrowException=false;global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "The selection could not be changed. Select the file again.");};
             _search.TextChanged+=(s,e)=>ApplyFilter();_filter.SelectedIndexChanged+=(s,e)=>ApplyFilter();
             body.Controls.Add(list,0,0);body.Controls.Add(_viewer,1,0);body.Controls.Add(_categories,2,0);
             _viewer.ExpandedChanged+=expanded=>
@@ -105,35 +105,35 @@ namespace HVAC_Pro_Desktop.UI
                 body.ColumnStyles[2].Width=expanded?0:232;
                 body.ResumeLayout(true);
             };
-            _categories.Controls.Add(new Label {Text="Assign category",Font=DS.H3,Width=210,Height=34});
+            _categories.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label {Text="Assign category",Font=DS.H3,Width=210,Height=34}));
             _categoryPicker.TextChanged += (s, e) => SelectCategory(_categoryPicker.Category);
             _categories.Controls.Add(_categoryPicker);
             _categories.Controls.Add(_destination);
-            _categories.Controls.Add(ActionButton("Keep this duplicate copy",()=> {KeepCopy();return Task.CompletedTask;}));
+            _categories.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Keep this duplicate copy",()=> {KeepCopy();return Task.CompletedTask;})));
             _categories.SizeChanged+=(s,e)=>
             {
                 int width=Math.Max(150,_categories.ClientSize.Width-_categories.Padding.Horizontal-8);
                 foreach(Control control in _categories.Controls){control.AutoSize=false;control.Width=width;}
             };
-            _actions.Controls.Add(ActionButton("Previous",async()=>await MoveDocument(-1)));
-            _actions.Controls.Add(ActionButton("Skip",async()=> {if(Selected!=null&&!Selected.Imported){Selected.Skipped=true;Selected.Category=null;await MoveDocument(1);RefreshReview();}}));
-            _save=ActionButton("Save Selection & Next",async()=>await SaveNext(),true);_save.Width=192;_save.Enabled=false;_actions.Controls.Add(_save);
-            _actions.Controls.Add(ActionButton("Review import summary",()=> {ShowSummary();return Task.CompletedTask;}));
-            _cancel=ActionButton("Cancel operation",()=> {_operation?.Cancel();return Task.CompletedTask;});_cancel.Enabled=false;_actions.Controls.Add(_cancel);
-            _confirm=ActionButton("Confirm & Import",async()=>await ConfirmImport(),true);
+            _actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Previous",async()=>await MoveDocument(-1))));
+            _actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Skip",async()=> {if(Selected!=null&&!Selected.Imported){Selected.Skipped=true;Selected.Category=null;await MoveDocument(1);RefreshReview();}})));
+            _save=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Save Selection & Next",async()=>await SaveNext(),true));_save.Width=192;_save.Enabled=false;_actions.Controls.Add(_save);
+            _actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Review import summary",()=> {ShowSummary();return Task.CompletedTask;})));
+            _cancel=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Cancel operation",()=> {_operation?.Cancel();return Task.CompletedTask;}));_cancel.Enabled=false;_actions.Controls.Add(_cancel);
+            _confirm=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Confirm & Import",async()=>await ConfirmImport(),true));
             BuildSummary();RefreshReview();
         }
 
         private Button ActionButton(string text,Func<Task> action,bool primary=false)
         {
-            var button=new Button {Text=text,UseMnemonic=false,AutoSize=true,MinimumSize=new Size(100,34),Height=36,Margin=new Padding(4),FlatStyle=FlatStyle.Flat,BackColor=primary?DS.Primary600:Color.White,ForeColor=primary?Color.White:DS.Slate900};
+            var button=global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button {Text=text,UseMnemonic=false,AutoSize=true,MinimumSize=new Size(100,34),Height=36,Margin=new Padding(4),FlatStyle=FlatStyle.Flat,BackColor=primary?DS.Primary600:Color.White,ForeColor=primary?Color.White:DS.Slate900});
             button.FlatAppearance.BorderColor=DS.Border;
             button.Click+=async(s,e)=>
             {
                 if(Busy&&button!=_cancel&&button!=_cancelImport)return;
                 try {await action();}
-                catch(OperationCanceledException) {if(!IsDisposed)_status.Text="Operation cancelled. Completed imports remain saved; the remaining files are still available for review.";}
-                catch(Exception ex) {Serilog.Log.Warning("PDF review action failed with {ErrorType}",ex.GetType().Name);if(!IsDisposed){_status.Text=ex is InvalidOperationException?ex.Message:"ServoERP could not complete this action. Check your connection or access and retry.";MessageBox.Show(FindForm(),_status.Text,"ServoERP · PDF Import",MessageBoxButtons.OK,MessageBoxIcon.Warning);}}
+                catch(OperationCanceledException) {if(!IsDisposed)global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Operation cancelled. Completed imports remain saved; the remaining files are still available for review.");}
+                catch(Exception ex) {Serilog.Log.Warning("PDF review action failed with {ErrorType}",ex.GetType().Name);if(!IsDisposed){global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, (ex is InvalidOperationException ? ex.Message : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP could not complete this action. Check your connection or access and retry.")));MessageBox.Show(FindForm(),_status.Text,global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP · PDF Import"),MessageBoxButtons.OK,MessageBoxIcon.Warning);}}
             };
             return button;
         }
@@ -148,13 +148,13 @@ namespace HVAC_Pro_Desktop.UI
                 try
                 {
                     List<string> warnings=null; string folder=picker.SelectedPath;
-                    var progress=new Progress<string>(text=> {if(!IsDisposed&&Busy)_status.Text=text;});
+                    var progress=new Progress<string>(text=> {if(!IsDisposed&&Busy)global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, text);});
                     var batch=await Task.Run(()=>PdfReviewService.Scan(folder,progress,token,out warnings),token);
                     if(IsDisposed)return;
                     _batch=batch;_shown=null;await _viewer.ShowAsync(null);_checkedHashes.Clear();_search.Clear();_filter.SelectedIndex=0;
-                    _sourceLabel.Text=folder+"\r\nIncluding subfolders • "+batch.Files.Count+" PDFs found";
-                    _status.Text=warnings.Count==0?"All PDFs included. Select a file to begin review.":string.Join(" • ",warnings.Take(3));
-                    if(warnings.Count>0)MessageBox.Show(FindForm(),string.Join(Environment.NewLine,warnings.Take(20)),"ServoERP · Scan needs attention",MessageBoxButtons.OK,MessageBoxIcon.Information);
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_sourceLabel, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}\r\nIncluding subfolders • {1} PDFs found", folder, batch.Files.Count));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, (warnings.Count==0 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("All PDFs included. Select a file to begin review.") : string.Join(" • ",warnings.Take(3))));
+                    if(warnings.Count>0)MessageBox.Show(FindForm(),string.Join(Environment.NewLine,warnings.Take(20)),global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP · Scan needs attention"),MessageBoxButtons.OK,MessageBoxIcon.Information);
                     _summary.Visible=false;_review.Visible=true;_actions.Visible=true;
                 }
                 finally {EndOperation();}
@@ -163,7 +163,7 @@ namespace HVAC_Pro_Desktop.UI
         }
         private CancellationToken BeginOperation(string message)
         {
-            _operation=new CancellationTokenSource();_status.Text=message;_cancel.Enabled=true;_cancelImport.Enabled=true;_review.Enabled=false;_confirm.Enabled=false;_acknowledge.Enabled=false;_search.Enabled=false;_filter.Enabled=false;RefreshReview();return _operation.Token;
+            _operation=new CancellationTokenSource();global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, message);_cancel.Enabled=true;_cancelImport.Enabled=true;_review.Enabled=false;_confirm.Enabled=false;_acknowledge.Enabled=false;_search.Enabled=false;_filter.Enabled=false;RefreshReview();return _operation.Token;
         }
         private void EndOperation()
         {
@@ -198,7 +198,7 @@ namespace HVAC_Pro_Desktop.UI
         }
         private void PaintCategories()
         {
-            _destination.Text=(_pendingCategory.HasValue?"Destination:\r\n"+PdfCategories.Destination(_pendingCategory.Value):"Choose a category after reading the PDF.")+"\r\n\r\nDocument attachment only. No transaction created.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_destination, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}\r\n\r\nDocument attachment only. No transaction created.", (_pendingCategory.HasValue?"Destination:\r\n"+PdfCategories.Destination(_pendingCategory.Value):"Choose a category after reading the PDF.")));
         }
         private void RefreshReview()
         {
@@ -206,7 +206,7 @@ namespace HVAC_Pro_Desktop.UI
             if(InvokeRequired) {RunOnUI(RefreshReview);return;}
             _batch.RefreshDuplicates();
             int index=Selected==null?0:_batch.Files.IndexOf(Selected)+1;
-            _progress.Text="Document "+index+" of "+_batch.Files.Count+"  •  "+_batch.Files.Count(f=>f.Include&&f.Category.HasValue&&!f.Skipped&&!f.Imported)+" categorised  •  "+_batch.Files.Count(f=>f.Include&&f.Skipped&&!f.Imported)+" skipped  •  "+_batch.Files.Count(f=>!f.Include)+" excluded  •  "+_batch.Files.Count(f=>f.Imported)+" imported  •  "+_batch.Unresolved+" unresolved";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_progress, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Document {0} of {1}  •  {2} categorised  •  {3} skipped  •  {4} excluded  •  {5} imported  •  {6} unresolved", index, _batch.Files.Count, _batch.Files.Count(f=>f.Include&&f.Category.HasValue&&!f.Skipped&&!f.Imported), _batch.Files.Count(f=>f.Include&&f.Skipped&&!f.Imported), _batch.Files.Count(f=>!f.Include), _batch.Files.Count(f=>f.Imported), _batch.Unresolved));
             _files.Invalidate();
             if(_save!=null)_save.Enabled=!Busy&&!_viewer.Loading&&Selected!=null&&Selected.Include&&!Selected.Imported&&!Selected.Existing&&!Selected.Duplicate&&Selected.Previewed&&string.IsNullOrEmpty(Selected.Error)&&_pendingCategory.HasValue;
         }
@@ -238,18 +238,18 @@ namespace HVAC_Pro_Desktop.UI
             var root=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Padding=new Padding(8)};
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,44));root.RowStyles.Add(new RowStyle(SizeType.Absolute,220));root.RowStyles.Add(new RowStyle(SizeType.Percent,100));root.RowStyles.Add(new RowStyle(SizeType.Absolute,38));root.RowStyles.Add(new RowStyle(SizeType.Absolute,46));
             root.Controls.Add(_summaryCounts,0,0);root.Controls.Add(_destinations,0,1);root.Controls.Add(_unresolved,0,2);root.Controls.Add(_acknowledge,0,3);
-            var buttons=new FlowLayoutPanel {Dock=DockStyle.Fill,WrapContents=false};buttons.Controls.Add(ActionButton("Back to review",()=> {_summary.Visible=false;_review.Visible=true;_actions.Visible=true;return Task.CompletedTask;}));buttons.Controls.Add(_confirm);
-            _cancelImport=ActionButton("Cancel import",()=> {_operation?.Cancel();return Task.CompletedTask;});_cancelImport.Enabled=false;buttons.Controls.Add(_cancelImport);root.Controls.Add(buttons,0,4);_summary.Controls.Add(root);
+            var buttons=new FlowLayoutPanel {Dock=DockStyle.Fill,WrapContents=false};buttons.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Back to review",()=> {_summary.Visible=false;_review.Visible=true;_actions.Visible=true;return Task.CompletedTask;})));buttons.Controls.Add(_confirm);
+            _cancelImport=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Cancel import",()=> {_operation?.Cancel();return Task.CompletedTask;}));_cancelImport.Enabled=false;buttons.Controls.Add(_cancelImport);root.Controls.Add(buttons,0,4);_summary.Controls.Add(root);
             _acknowledge.CheckedChanged+=(s,e)=>_confirm.Enabled=!Busy&&_batch.Ready>0&&(_batch.Unresolved==0||_acknowledge.Checked);
         }
         private void ShowSummary()
         {
             _files.EndEdit();RefreshReview();_summary.BringToFront();_summary.Visible=true;_review.Visible=false;_actions.Visible=false;
-            _summaryCounts.Text="Review import summary • "+_batch.Files.Count+" found • "+_batch.Ready+" ready • "+_batch.Unresolved+" unresolved • "+_batch.Files.Count(f=>!f.Include)+" excluded";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryCounts, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Review import summary • {0} found • {1} ready • {2} unresolved • {3} excluded", _batch.Files.Count, _batch.Ready, _batch.Unresolved, _batch.Files.Count(f=>!f.Include)));
             _destinations.DataSource=PdfCategories.All.Select(c=>new {Category=PdfCategories.Label(c),Destination=PdfCategories.Destination(c),Ready=_batch.Files.Count(f=>f.Ready&&f.Category==c)}).ToList();
             _unresolved.Text=_batch.Unresolved==0?"No unresolved PDFs. All included, unimported files are ready.":"Unresolved PDFs (not imported):"+Environment.NewLine+string.Join(Environment.NewLine,_batch.Files.Where(f=>f.Include&&!f.Imported&&!f.Ready).Select(f=>f.FileName+" — "+f.Status));
-            _acknowledge.Checked=false;_acknowledge.Visible=_batch.Unresolved>0;_confirm.Text="Confirm & Import — "+_batch.Ready+" PDFs";_confirm.Enabled=_batch.Ready>0&&_batch.Unresolved==0;
-            _status.Text="Imports document attachments only. No purchase orders, invoices, quotations, stock movements or payments will be created.";
+            _acknowledge.Checked=false;_acknowledge.Visible=_batch.Unresolved>0;global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_confirm, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Confirm & Import — {0} PDFs", _batch.Ready));_confirm.Enabled=_batch.Ready>0&&_batch.Unresolved==0;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Imports document attachments only. No purchase orders, invoices, quotations, stock movements or payments will be created.");
         }
         private async Task ConfirmImport()
         {
@@ -265,14 +265,14 @@ namespace HVAC_Pro_Desktop.UI
                     try {await Task.Run(()=>_repository.Import(file,token),token);file.Imported=true;file.Password=null;file.Error=null;imported++;}
                     catch(OperationCanceledException){throw;}
                     catch(Exception ex) {failed++;file.Error=ex is InvalidOperationException?ex.Message:"Import failed. Check database access or storage and retry.";Serilog.Log.Warning("Reviewed PDF import failed with {ErrorType}",ex.GetType().Name);}
-                    if(IsDisposed)return;_status.Text=imported+" imported • "+failed+" failed • "+(files.Count-imported-failed)+" remaining";RefreshReview();
+                    if(IsDisposed)return;global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} imported • {1} failed • {2} remaining", imported, failed, (files.Count-imported-failed)));RefreshReview();
                 }
             }
-            finally {EndOperation();if(!IsDisposed){ShowSummary();_status.Text=imported+" PDFs imported; "+failed+" failed. Completed files remain saved. Failed files can be reopened and retried. No business transactions created.";}}
+            finally {EndOperation();if(!IsDisposed){ShowSummary();global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} PDFs imported; {1} failed. Completed files remain saved. Failed files can be reopened and retried. No business transactions created.", imported, failed));}}
         }
         internal void LoadForTest(PdfReviewBatch batch)
         {
-            _batch=batch;_sourceLabel.Text="Test fixture folder — all subfolders";ApplyFilter();
+            _batch=batch;global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_sourceLabel, "Test fixture folder — all subfolders");ApplyFilter();
         }
         internal void SummaryForTest()=>ShowSummary();
         protected override void Dispose(bool disposing)

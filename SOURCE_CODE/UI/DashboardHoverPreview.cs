@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -13,7 +13,7 @@ namespace HVAC_Pro_Desktop.UI
             OwnerDraw = true, InitialDelay = int.MaxValue, ReshowDelay = int.MaxValue,
             AutoPopDelay = 15000, ShowAlways = false, UseAnimation = false, UseFading = false
         };
-        private readonly Font _font = new Font("Segoe UI", 9f);
+        private readonly Font _font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
         private readonly Timer _hoverTimer = new Timer { Interval = 550 };
         private Control _hoverCard;
         private string _hoverText;

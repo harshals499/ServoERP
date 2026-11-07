@@ -271,7 +271,7 @@ namespace HVAC_Pro_Desktop.UI
                     Cursor = Cursors.SizeNS
                 };
 
-                _lockBadge = new Label
+                _lockBadge = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Name = LockBadgeName,
                     AutoSize = false,
@@ -279,12 +279,12 @@ namespace HVAC_Pro_Desktop.UI
                     Anchor = AnchorStyles.Top | AnchorStyles.Right,
                     BackColor = DS.Primary600,
                     ForeColor = Color.White,
-                    Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold),
                     Text = "Locked",
                     TextAlign = ContentAlignment.MiddleCenter,
                     Enabled = false,
                     Visible = false
-                };
+                });
             }
 
             public Action<Control, Size> ResizeComplete { get; set; }

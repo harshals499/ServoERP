@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -263,16 +263,16 @@ namespace HVAC_Pro_Desktop.UI
                     Tag = "NO_CARD_SURFACE"
                 };
 
-                var label1 = new Label
+                var label1 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Name = OverlayName + "Label",
                     Dock = DockStyle.Fill,
                     TextAlign = ContentAlignment.MiddleCenter,
-                    Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold),
                     Tag = "NO_CARD_SURFACE",
                     Text = label,
                     ForeColor = foreColor
-                };
+                });
                 overlay.Controls.Add(label1);
 
                 card.Controls.Add(overlay);
@@ -293,7 +293,7 @@ namespace HVAC_Pro_Desktop.UI
                 Label existingLabel = overlay.Controls.OfType<Label>().FirstOrDefault();
                 if (existingLabel != null)
                 {
-                    existingLabel.Text = label;
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(existingLabel, label);
                     existingLabel.ForeColor = foreColor;
                 }
                 overlay.BringToFront();

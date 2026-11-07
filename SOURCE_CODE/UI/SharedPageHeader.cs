@@ -181,28 +181,28 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.Label label = HVAC_Pro_Desktop.UI.ModernIconSystem.Icon(HVAC_Pro_Desktop.UI.ModernIconKind.Search, 18, HVAC_Pro_Desktop.UI.DS.Slate700);
 			label.Location = new System.Drawing.Point(12, 8);
 			label.Size = new System.Drawing.Size(20, 20);
-			System.Windows.Forms.Label value = new System.Windows.Forms.Label
+			System.Windows.Forms.Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = string.Equals(placeholder, "Search", System.StringComparison.OrdinalIgnoreCase) ? string.Empty : placeholder,
+				Text = (string.Equals(placeholder, "Search", System.StringComparison.OrdinalIgnoreCase) ? string.Empty : placeholder),
 				Location = new System.Drawing.Point(40, 9),
 				AutoSize = true,
-				Font = new System.Drawing.Font("Segoe UI", 8.7f),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.7f),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700,
 				BackColor = System.Drawing.Color.White
-			};
+			});
 			System.Windows.Forms.Label shortcut = null;
 			if (!string.IsNullOrWhiteSpace(shortcutText))
 			{
-				shortcut = new System.Windows.Forms.Label
+				shortcut = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 				{
 					Text = shortcutText,
 					Size = new System.Drawing.Size(62, 22),
 					BackColor = System.Drawing.Color.FromArgb(248, 250, 252),
-					Font = new System.Drawing.Font("Segoe UI", 7.5f, System.Drawing.FontStyle.Bold),
+					Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, System.Drawing.FontStyle.Bold),
 					ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700,
 					TextAlign = System.Drawing.ContentAlignment.MiddleCenter,
 					Anchor = (System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)
-				};
+				});
 				shortcut.Paint += delegate(object s, System.Windows.Forms.PaintEventArgs e)
 				{
 					e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
@@ -343,17 +343,17 @@ namespace HVAC_Pro_Desktop.UI
 					}
 				};
 			}
-			System.Windows.Forms.Label title = new System.Windows.Forms.Label
+			System.Windows.Forms.Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = (model.Title ?? string.Empty),
 				Location = new System.Drawing.Point(model.Padding.Left, model.Padding.Top + model.TitleTop),
 				Size = new System.Drawing.Size(model.TitleWidth, 30),
-				Font = new System.Drawing.Font("Segoe UI", 18f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900,
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
 				AutoEllipsis = true
-			};
-			System.Windows.Forms.Label subtitle = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = (model.Subtitle ?? string.Empty),
 				Location = new System.Drawing.Point(model.Padding.Left + 1, model.Padding.Top + model.SubtitleTop),
@@ -362,11 +362,11 @@ namespace HVAC_Pro_Desktop.UI
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate600,
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
 				AutoEllipsis = true
-			};
+			});
 			System.Windows.Forms.Label status = null;
 			if (!string.IsNullOrWhiteSpace(model.StatusText))
 			{
-				status = new System.Windows.Forms.Label
+				status = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 				{
 					Text = model.StatusText,
 					Location = new System.Drawing.Point(model.Padding.Left + 1, model.Padding.Top + model.StatusTop),
@@ -375,7 +375,7 @@ namespace HVAC_Pro_Desktop.UI
 					ForeColor = model.StatusColor,
 					TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
 					AutoEllipsis = true
-				};
+				});
 			}
 			System.Windows.Forms.Panel actionHost = new System.Windows.Forms.Panel
 			{

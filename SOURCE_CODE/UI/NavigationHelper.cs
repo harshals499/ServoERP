@@ -80,7 +80,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
 
                 if (!string.IsNullOrWhiteSpace(targetPage))
-                    MessageBox.Show(source, "Open " + targetPage + " from the main menu to view this record.", BrandingService.WindowTitle("Navigation"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(source, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Open {0} from the main menu to view this record.", targetPage), BrandingService.WindowTitle("Navigation"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -130,7 +130,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 {
-                    MessageBox.Show(source, "The linked file was not found. It may have been moved or deleted.", BrandingService.WindowTitle("Documents"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(source, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The linked file was not found. It may have been moved or deleted."), BrandingService.WindowTitle("Documents"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 

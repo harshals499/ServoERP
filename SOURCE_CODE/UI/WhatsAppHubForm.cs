@@ -99,12 +99,12 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildHeader()
         {
             Button settings = IconOnlyButton(ModernIconKind.Settings, DS.Slate700, DS.White, 38, "WhatsApp settings");
-            settings.Click += (s, e) => MessageBox.Show("WhatsApp Hub uses embedded WhatsApp Web or browser deep links only. ServoERP does not auto-send messages, scrape chats, or claim live sync without the official API.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            settings.Click += (s, e) => MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub uses embedded WhatsApp Web or browser deep links only. ServoERP does not auto-send messages, scrape chats, or claim live sync without the official API."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             Button refresh = IconOnlyButton(ModernIconKind.Refresh, DS.Slate700, DS.White, 38, "Refresh WhatsApp contacts");
             refresh.Click += (s, e) => { LoadHubData(); ReloadWhatsAppHome(); };
 
-            Button newMessage = DS.PrimaryBtn("Open WhatsApp Web", 168, 32);
+            Button newMessage = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Open WhatsApp Web", 168, 32));
             newMessage.Size = new Size(168, 32);
             newMessage.Margin = new Padding(4, 0, 4, 0);
             refresh.Size = new Size(38, 38);
@@ -179,7 +179,7 @@ namespace HVAC_Pro_Desktop.UI
             host.Controls.Clear();
 
             Panel titleRow = new Panel { Dock = DockStyle.Top, Height = 42, BackColor = Color.Transparent };
-            Label title = new Label { Text = "Contacts", AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(0, 7) };
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Contacts", AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(0, 7) });
             titleRow.Controls.Add(title);
             _conversationCount.AutoSize = false;
             _conversationCount.Size = new Size(32, 22);
@@ -207,7 +207,7 @@ namespace HVAC_Pro_Desktop.UI
             TableLayoutPanel searchRow = new TableLayoutPanel { Dock = DockStyle.Top, Height = 48, ColumnCount = 2, BackColor = Color.Transparent };
             searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             searchRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 44));
-            Panel search = SearchBox(_conversationSearch, "Search");
+            Panel search = SearchBox(_conversationSearch, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search"));
             _conversationSearch.TextChanged += (s, e) => RenderConversations();
             searchRow.Controls.Add(search, 0, 0);
             Button filter = IconOnlyButton(ModernIconKind.Filter, DS.Slate700, DS.White, 36, "Filter WhatsApp contacts");
@@ -217,7 +217,7 @@ namespace HVAC_Pro_Desktop.UI
             searchRow.Controls.Add(filter, 1, 0);
             host.Controls.Add(searchRow);
 
-            LinkLabel loadMore = new LinkLabel
+            LinkLabel loadMore = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new LinkLabel
             {
                 Dock = DockStyle.Bottom,
                 Text = "Manual WhatsApp actions only",
@@ -225,7 +225,7 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleCenter,
                 LinkColor = DS.Primary600,
                 Font = DS.SmallBold
-            };
+            });
             host.Controls.Add(loadMore);
 
             _conversationList.Dock = DockStyle.Fill;
@@ -268,7 +268,7 @@ namespace HVAC_Pro_Desktop.UI
                         : _contacts.FirstOrDefault(c => c.SourceType == _selectedContact.SourceType && c.SourceId == _selectedContact.SourceId) ?? _contacts.FirstOrDefault();
                     _selectedTemplate = _templates.FirstOrDefault(t => t.TemplateType == "Payment reminder") ?? _templates.FirstOrDefault();
 
-                    _conversationCount.Text = _contacts.Count.ToString();
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_conversationCount, _contacts.Count.ToString());
                     RenderTabs();
                     RenderConversations();
                     RenderChat();
@@ -290,7 +290,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RenderLoadingState()
         {
-            _conversationCount.Text = "...";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_conversationCount, "...");
             SetLoadingText("Loading contacts...");
             _detailHost.Controls.Clear();
         }
@@ -302,7 +302,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _chatHost.SuspendLayout();
             _chatHost.Controls.Clear();
-            Label loading = new Label
+            Label loading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Dock = DockStyle.Fill,
                 Text = text,
@@ -310,7 +310,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.BodyBold,
                 ForeColor = DS.Slate600,
                 BackColor = DS.White
-            };
+            });
             _chatHost.Controls.Add(loading);
             _chatHost.ResumeLayout();
         }
@@ -401,14 +401,14 @@ namespace HVAC_Pro_Desktop.UI
                 menu.Items.Add(item);
             }
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Clear Search", null, (s, e) =>
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Clear Search", null, (s, e) =>
             {
                 _conversationSearch.Clear();
                 _globalSearch.Clear();
                 _activeTab = "All";
                 RenderTabs();
                 RenderConversations();
-            });
+            }));
             menu.Show(owner, new Point(0, owner.Height));
         }
 
@@ -419,23 +419,23 @@ namespace HVAC_Pro_Desktop.UI
             panel.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
             Label icon = ModernIconSystem.Badge(ModernIconKind.Phone, 42, WhatsAppGreenLight, WhatsAppGreen, 12);
             icon.Location = new Point(22, 24);
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = filtered ? "No contacts match" : "No WhatsApp contacts",
                 Location = new Point(76, 26),
                 Size = new Size(210, 22),
                 Font = DS.BodyBold,
                 ForeColor = DS.Slate900
-            };
-            Label hint = new Label
+            });
+            Label hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = filtered ? "Clear the current search or tab to return to the full contact list." : "Clients, vendors, and team contacts will appear here once available.",
                 Location = new Point(76, 52),
                 Size = new Size(210, 44),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
-            };
-            Button clear = DS.GhostBtn("Clear Filters", 120, 32);
+            });
+            Button clear = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Clear Filters", 120, 32));
             clear.Location = new Point(76, 108);
             clear.Visible = filtered;
             clear.Click += (s, e) =>
@@ -469,16 +469,16 @@ namespace HVAC_Pro_Desktop.UI
             avatar.Location = new Point(10, 14);
             row.Controls.Add(avatar);
 
-            Label name = new Label { Text = contact.Name, AutoSize = false, Location = new Point(62, 13), Size = new Size(185, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 };
-            Label last = new Label { Text = contact.LastMessage, AutoSize = false, Location = new Point(62, 36), Size = new Size(208, 18), Font = DS.Small, ForeColor = DS.Slate600 };
-            Label time = new Label { Text = FormatTime(contact.LastMessageAt), AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Location = new Point(row.Width - 78, 13), Size = new Size(68, 18), Font = DS.Caption, ForeColor = DS.Slate500, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = contact.Name, AutoSize = false, Location = new Point(62, 13), Size = new Size(185, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 });
+            Label last = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = contact.LastMessage, AutoSize = false, Location = new Point(62, 36), Size = new Size(208, 18), Font = DS.Small, ForeColor = DS.Slate600 });
+            Label time = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = FormatTime(contact.LastMessageAt), AutoSize = false, TextAlign = ContentAlignment.MiddleRight, Location = new Point(row.Width - 78, 13), Size = new Size(68, 18), Font = DS.Caption, ForeColor = DS.Slate500, Anchor = AnchorStyles.Top | AnchorStyles.Right });
             row.Controls.Add(name);
             row.Controls.Add(last);
             row.Controls.Add(time);
 
             if (contact.UnreadCount > 0)
             {
-                Label unread = new Label { Text = contact.UnreadCount.ToString(), AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Font = DS.Caption, ForeColor = Color.White, BackColor = WhatsAppGreen, Size = new Size(20, 20), Location = new Point(row.Width - 30, 40), Anchor = AnchorStyles.Top | AnchorStyles.Right };
+                Label unread = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = contact.UnreadCount.ToString(), AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Font = DS.Caption, ForeColor = Color.White, BackColor = WhatsAppGreen, Size = new Size(20, 20), Location = new Point(row.Width - 30, 40), Anchor = AnchorStyles.Top | AnchorStyles.Right });
                 DS.Rounded(unread, 10);
                 row.Controls.Add(unread);
             }
@@ -506,8 +506,8 @@ namespace HVAC_Pro_Desktop.UI
                 Label avatar = Avatar(_selectedContact.Name, 52, ContactColor(_selectedContact));
                 avatar.Location = new Point(20, 18);
                 header.Controls.Add(avatar);
-                Label name = new Label { Text = _selectedContact.Name, AutoSize = false, Size = new Size(Math.Max(260, header.Width - 270), 24), Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(84, 18), AutoEllipsis = true };
-                Label phone = new Label { Text = PrettyPhone(_selectedContact.Phone), AutoSize = false, Size = new Size(Math.Max(220, header.Width - 300), 18), Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(86, 48), AutoEllipsis = true };
+                Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = _selectedContact.Name, AutoSize = false, Size = new Size(Math.Max(260, header.Width - 270), 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = DS.Slate950, Location = new Point(84, 18), AutoEllipsis = true });
+                Label phone = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = PrettyPhone(_selectedContact.Phone), AutoSize = false, Size = new Size(Math.Max(220, header.Width - 300), 18), Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(86, 48), AutoEllipsis = true });
                 name.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
                 phone.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
                 header.Controls.Add(name);
@@ -588,14 +588,14 @@ namespace HVAC_Pro_Desktop.UI
                 send.FlatAppearance.BorderSize = 1;
                 send.FlatAppearance.BorderColor = DS.Border;
                 send.FlatAppearance.MouseOverBackColor = DS.Slate200;
-                _toolTip.SetToolTip(send, "Add a phone number before opening WhatsApp");
+                _toolTip.SetToolTip(send, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Add a phone number before opening WhatsApp"));
             }
             send.Click += SendCurrentMessage;
-            _markSentButton = DS.GhostBtn("Mark Sent", 90, 32);
+            _markSentButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Mark Sent", 90, 32));
             _markSentButton.Enabled = false;
             _markSentButton.Margin = new Padding(0, 3, 8, 3);
             _markSentButton.Click += (s, e) => MarkPendingMessageSent();
-            Button copyMessage = DS.GhostBtn("Copy Message", 118, 32);
+            Button copyMessage = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Copy Message", 118, 32));
             copyMessage.Margin = new Padding(0, 3, 8, 3);
             copyMessage.Click += (s, e) => CopyPreparedMessage();
             actionRow.Controls.Add(templatePicker);
@@ -652,7 +652,7 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             if (menu.Items.Count == 0)
-                menu.Items.Add("No templates loaded").Enabled = false;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("No templates loaded")).Enabled = false;
             menu.Show(owner, new Point(0, owner.Height));
         }
 
@@ -660,7 +660,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedContact == null)
             {
-                MessageBox.Show("Select a WhatsApp contact before attaching a document reference.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a WhatsApp contact before attaching a document reference."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -670,23 +670,21 @@ namespace HVAC_Pro_Desktop.UI
             string suffix = Environment.NewLine + Environment.NewLine + "Reference: " + reference;
             if ((_messageInput.Text ?? string.Empty).IndexOf(suffix, StringComparison.OrdinalIgnoreCase) < 0)
                 _messageInput.Text = (_messageInput.Text ?? string.Empty).TrimEnd() + suffix;
-            _webStatus.Text = "Document reference added to prepared message.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Document reference added to prepared message.");
         }
 
         private void ShowPhoneStatus()
         {
             if (_selectedContact == null)
             {
-                MessageBox.Show("No contact selected.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No contact selected."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             string normalized = _service.ValidatePhone(_selectedContact.Phone);
             MessageBox.Show(
-                "Contact: " + _selectedContact.Name + Environment.NewLine +
-                "Saved phone: " + PrettyPhone(_selectedContact.Phone) + Environment.NewLine +
-                "WhatsApp number: " + (string.IsNullOrWhiteSpace(normalized) ? "Invalid or missing" : normalized),
-                "Phone Status",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Contact: {0}{1}Saved phone: {2}{3}WhatsApp number: {4}", _selectedContact.Name, Environment.NewLine, PrettyPhone(_selectedContact.Phone), Environment.NewLine, (string.IsNullOrWhiteSpace(normalized) ? "Invalid or missing" : normalized)),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Phone Status"),
                 MessageBoxButtons.OK,
                 string.IsNullOrWhiteSpace(normalized) ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
         }
@@ -697,7 +695,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             _selectedTemplate = template;
             _messageInput.Text = _service.RenderTemplate(template, _selectedContact);
-            _selectedTemplateLabel.Text = "Template: " + (template.Title ?? template.TemplateType ?? "General update");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_selectedTemplateLabel, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Template: {0}", (template.Title ?? template.TemplateType ?? "General update")));
             if (focus && _messageInput.Visible)
                 _messageInput.Focus();
         }
@@ -718,12 +716,12 @@ namespace HVAC_Pro_Desktop.UI
                 NavigateWhatsAppWeb(url);
                 if (_markSentButton != null)
                     _markSentButton.Enabled = true;
-                _webStatus.Text = "Opened prefilled chat. Review and send manually in WhatsApp.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Opened prefilled chat. Review and send manually in WhatsApp.");
                 RenderDetails();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -750,7 +748,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _pendingContext.Message = _messageInput.Text ?? string.Empty;
             _service.LogAction(_service.BuildLog(_pendingContext, "User Confirmed Sent"));
-            _webStatus.Text = "Marked as sent by user confirmation.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Marked as sent by user confirmation.");
             if (_markSentButton != null)
                 _markSentButton.Enabled = false;
             RenderDetails();
@@ -763,14 +761,14 @@ namespace HVAC_Pro_Desktop.UI
             Panel notice = new Panel { Dock = DockStyle.Top, Height = 46, BackColor = NoticeBack, Padding = new Padding(12, 7, 12, 7) };
             DS.Rounded(notice, 8);
             notice.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, NoticeBorder, 8);
-            Label noticeText = new Label
+            Label noticeText = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "WhatsApp Web runs inside ServoERP. Scan the QR code once, then open prefilled chats from the send button.",
                 Dock = DockStyle.Fill,
                 Font = DS.Small,
                 ForeColor = DS.Slate800,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
             notice.Controls.Add(noticeText);
             host.Controls.Add(notice);
 
@@ -778,7 +776,7 @@ namespace HVAC_Pro_Desktop.UI
             _webStatus.Height = 24;
             _webStatus.Font = DS.Small;
             _webStatus.ForeColor = DS.Slate600;
-            _webStatus.Text = "WhatsApp Web will start when you open a chat.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "WhatsApp Web will start when you open a chat.");
             host.Controls.Add(_webStatus);
 
             Panel browserHost = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(0), Margin = new Padding(0, 8, 0, 4) };
@@ -801,23 +799,23 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = new Panel { Width = 520, Height = 190, BackColor = DS.White, Padding = new Padding(24) };
             DS.Rounded(card, 12);
             card.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
-            Label title = new Label { Text = "Ready to open WhatsApp", Dock = DockStyle.Top, Height = 34, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            Label body = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Ready to open WhatsApp", Dock = DockStyle.Top, Height = 34, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            Label body = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Choose a template, review the message, then click send to open the prefilled WhatsApp Web chat. The embedded browser starts only when needed.",
                 Dock = DockStyle.Top,
                 Height = 74,
                 Font = DS.Body,
                 ForeColor = DS.Slate700
-            };
-            Label hint = new Label { Text = "ServoERP prepares the message; the operator sends it manually.", Dock = DockStyle.Top, Height = 28, Font = DS.Small, ForeColor = DS.Slate600 };
+            });
+            Label hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "ServoERP prepares the message; the operator sends it manually.", Dock = DockStyle.Top, Height = 28, Font = DS.Small, ForeColor = DS.Slate600 });
             card.Controls.Add(hint);
             card.Controls.Add(body);
             card.Controls.Add(title);
             host.Controls.Add(card);
             host.Resize += (s, e) => card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
             card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
-            _webStatus.Text = "WhatsApp Web will load when a chat is opened.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "WhatsApp Web will load when a chat is opened.");
             return host;
         }
 
@@ -827,23 +825,23 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = new Panel { Width = 480, Height = 170, BackColor = DS.White, Padding = new Padding(24) };
             DS.Rounded(card, 12);
             card.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, DS.Border, 12);
-            Label title = new Label { Text = "Phone number required", Dock = DockStyle.Top, Height = 30, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 };
-            Label body = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Phone number required", Dock = DockStyle.Top, Height = 30, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = DS.Slate900 });
+            Label body = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "This contact cannot be opened in WhatsApp because no phone number is saved. Add the mobile number in the client, vendor, or employee record, then refresh this hub.",
                 Dock = DockStyle.Top,
                 Height = 70,
                 Font = DS.Body,
                 ForeColor = DS.Slate700
-            };
-            Label hint = new Label { Text = "Sending is disabled until the phone number is available.", Dock = DockStyle.Top, Height = 24, Font = DS.Small, ForeColor = DS.Red600 };
+            });
+            Label hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Sending is disabled until the phone number is available.", Dock = DockStyle.Top, Height = 24, Font = DS.Small, ForeColor = DS.Red600 });
             card.Controls.Add(hint);
             card.Controls.Add(body);
             card.Controls.Add(title);
             host.Controls.Add(card);
             host.Resize += (s, e) => card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
             card.Location = new Point(Math.Max(20, (host.ClientSize.Width - card.Width) / 2), Math.Max(30, (host.ClientSize.Height - card.Height) / 2));
-            _webStatus.Text = "Phone number missing.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Phone number missing.");
             return host;
         }
 
@@ -898,7 +896,7 @@ namespace HVAC_Pro_Desktop.UI
                         _webStatus.BeginInvoke((Action)(() => SetWebStatus(text)));
                     return;
                 }
-                _webStatus.Text = text;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_webStatus, text);
             }
             catch (Exception ex)
             {
@@ -960,11 +958,11 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowChatSettingsMenu(Control owner)
         {
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Reload WhatsApp Web", null, (s, e) => ReloadWhatsAppHome());
-            menu.Items.Add("Open Chat in Browser", null, (s, e) => OpenSelectedChatInBrowser());
-            menu.Items.Add("Copy Prepared Message", null, (s, e) => CopyPreparedMessage());
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Reload WhatsApp Web", null, (s, e) => ReloadWhatsAppHome()));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Open Chat in Browser", null, (s, e) => OpenSelectedChatInBrowser()));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Copy Prepared Message", null, (s, e) => CopyPreparedMessage()));
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Refresh Contacts", null, (s, e) => LoadHubData());
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Refresh Contacts", null, (s, e) => LoadHubData()));
             menu.Show(owner, new Point(0, owner.Height));
         }
 
@@ -976,11 +974,11 @@ namespace HVAC_Pro_Desktop.UI
                     throw new InvalidOperationException("Add a valid phone number before opening WhatsApp.");
                 string url = _service.BuildWhatsAppWebUrl(_selectedContact.Phone, _messageInput.Text);
                 Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-                _webStatus.Text = "Opened WhatsApp chat in external browser.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Opened WhatsApp chat in external browser.");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -990,22 +988,20 @@ namespace HVAC_Pro_Desktop.UI
             if (string.IsNullOrWhiteSpace(text))
                 return;
             Clipboard.SetText(text);
-            _webStatus.Text = "Prepared message copied.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_webStatus, "Prepared message copied.");
         }
 
         private void OpenRelatedRecordHint()
         {
             if (_selectedContact == null)
             {
-                MessageBox.Show("Select a WhatsApp contact first.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a WhatsApp contact first."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             MessageBox.Show(
-                _selectedContact.SourceType + " record: " + _selectedContact.Name + Environment.NewLine +
-                "Linked counts: " + _selectedContact.InvoiceCount + " invoices, " + _selectedContact.QuoteCount + " quotes, " + _selectedContact.JobCount + " jobs, " + _selectedContact.ContractCount + " contracts." + Environment.NewLine + Environment.NewLine +
-                "Open the related module from the main navigation to inspect the full record.",
-                "Related Records",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} record: {1}{2}Linked counts: {3} invoices, {4} quotes, {5} jobs, {6} contracts.{7}{8}Open the related module from the main navigation to inspect the full record.", _selectedContact.SourceType, _selectedContact.Name, Environment.NewLine, _selectedContact.InvoiceCount, _selectedContact.QuoteCount, _selectedContact.JobCount, _selectedContact.ContractCount, Environment.NewLine, Environment.NewLine),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Related Records"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
@@ -1018,11 +1014,11 @@ namespace HVAC_Pro_Desktop.UI
                     throw new InvalidOperationException("This contact does not have a saved phone number.");
                 string phone = _service.ValidatePhone(_selectedContact.Phone);
                 Process.Start(new ProcessStartInfo { FileName = "tel:" + phone, UseShellExecute = true });
-                _webStatus.Text = "Opened phone dialer for " + PrettyPhone(_selectedContact.Phone) + ".";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_webStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Opened phone dialer for {0}.", PrettyPhone(_selectedContact.Phone)));
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(ex.Message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -1047,18 +1043,18 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control ContactCard()
         {
-            Panel card = RightCard("Customer Details", 168);
+            Panel card = RightCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Customer Details"), 168);
             if (_selectedContact == null)
                 return card;
 
             Label avatar = Avatar(_selectedContact.Name, 48, ContactColor(_selectedContact));
             avatar.Location = new Point(16, 52);
             card.Controls.Add(avatar);
-            Label name = new Label { Text = _selectedContact.Name, AutoSize = false, Location = new Point(76, 48), Size = new Size(190, 22), Font = DS.BodyBold, ForeColor = DS.Slate950 };
+            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = _selectedContact.Name, AutoSize = false, Location = new Point(76, 48), Size = new Size(190, 22), Font = DS.BodyBold, ForeColor = DS.Slate950 });
             Label phone = DetailLine(ModernIconKind.Phone, PrettyPhone(_selectedContact.Phone), 76, 75);
             Label email = DetailLine(ModernIconKind.Email, FirstNonEmpty(_selectedContact.Email, "No email saved"), 76, 100);
             Label location = DetailLine(ModernIconKind.Location, FirstNonEmpty(_selectedContact.Location, "Location not saved"), 76, 125);
-            Button edit = DS.GhostBtn("Edit", 78, 30);
+            Button edit = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Edit", 78, 30));
             edit.Location = new Point(card.Width - 96, 52);
             edit.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             ModernIconSystem.AddButtonIcon(edit, ModernIconKind.Preference);
@@ -1075,23 +1071,20 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_selectedContact == null)
             {
-                MessageBox.Show("Select a WhatsApp contact first.", "WhatsApp Hub", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a WhatsApp contact first."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("WhatsApp Hub"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             MessageBox.Show(
-                "Edit this " + _selectedContact.SourceType.ToLowerInvariant() + " from its master record." + Environment.NewLine + Environment.NewLine +
-                "Name: " + _selectedContact.Name + Environment.NewLine +
-                "Phone: " + PrettyPhone(_selectedContact.Phone) + Environment.NewLine +
-                "Email: " + FirstNonEmpty(_selectedContact.Email, "Not saved"),
-                "Edit Contact",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Edit this {0} from its master record.{1}{2}Name: {3}{4}Phone: {5}{6}Email: {7}", _selectedContact.SourceType.ToLowerInvariant(), Environment.NewLine, Environment.NewLine, _selectedContact.Name, Environment.NewLine, PrettyPhone(_selectedContact.Phone), Environment.NewLine, FirstNonEmpty(_selectedContact.Email, "Not saved")),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Edit Contact"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information);
         }
 
         private Control QuickActionsCard()
         {
-            Panel card = RightCard("Quick Actions", 150);
+            Panel card = RightCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Quick Actions"), 150);
             TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(16, 52), Size = new Size(310, 78), ColumnCount = 5, RowCount = 1, BackColor = Color.Transparent, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             for (int i = 0; i < 5; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20));
@@ -1110,7 +1103,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel item = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Cursor = Cursors.Hand };
             Label icon = ModernIconSystem.Badge(iconKind, 38, DS.Green50, WhatsAppGreen, 10);
             icon.Location = new Point(10, 2);
-            Label text = new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.TopCenter, Font = DS.Caption, ForeColor = DS.Slate800, Location = new Point(0, 46), Size = new Size(58, 28) };
+            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.TopCenter, Font = DS.Caption, ForeColor = DS.Slate800, Location = new Point(0, 46), Size = new Size(58, 28) });
             item.Controls.Add(icon);
             item.Controls.Add(text);
             item.Click += (s, e) => SelectTemplateFromButton(title);
@@ -1121,8 +1114,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control OpenInvoicesCard()
         {
-            Panel card = RightCard("Open Invoices", 218);
-            LinkLabel view = new LinkLabel { Text = "View all", AutoSize = true, Location = new Point(card.Width - 70, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, LinkColor = DS.Primary600, Font = DS.Caption };
+            Panel card = RightCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open Invoices"), 218);
+            LinkLabel view = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new LinkLabel { Text = "View all", AutoSize = true, Location = new Point(card.Width - 70, 20), Anchor = AnchorStyles.Top | AnchorStyles.Right, LinkColor = DS.Primary600, Font = DS.Caption });
             card.Controls.Add(view);
 
             AddInvoiceRow(card, "INV-0245", "Due on 20 May 2025", "Rs 48,750", "PENDING", DS.Amber50, DS.Amber600, 54);
@@ -1133,10 +1126,10 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddInvoiceRow(Panel card, string no, string meta, string amount, string status, Color back, Color fore, int y)
         {
-            Label inv = new Label { Text = no, Location = new Point(16, y), Size = new Size(85, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 };
-            Label date = new Label { Text = meta, Location = new Point(16, y + 20), Size = new Size(140, 18), Font = DS.Caption, ForeColor = status == "OVERDUE" ? DS.Red600 : DS.Slate600 };
-            Label amt = new Label { Text = amount, Location = new Point(card.Width - 150, y), Size = new Size(72, 20), Font = DS.BodyBold, ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleRight, Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            Label pill = new Label { Text = status, Location = new Point(card.Width - 70, y + 2), Size = new Size(58, 22), Font = DS.Caption, ForeColor = fore, BackColor = back, TextAlign = ContentAlignment.MiddleCenter, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            Label inv = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = no, Location = new Point(16, y), Size = new Size(85, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 });
+            Label date = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = meta, Location = new Point(16, y + 20), Size = new Size(140, 18), Font = DS.Caption, ForeColor = status == "OVERDUE" ? DS.Red600 : DS.Slate600 });
+            Label amt = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = amount, Location = new Point(card.Width - 150, y), Size = new Size(72, 20), Font = DS.BodyBold, ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleRight, Anchor = AnchorStyles.Top | AnchorStyles.Right });
+            Label pill = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = status, Location = new Point(card.Width - 70, y + 2), Size = new Size(58, 22), Font = DS.Caption, ForeColor = fore, BackColor = back, TextAlign = ContentAlignment.MiddleCenter, Anchor = AnchorStyles.Top | AnchorStyles.Right });
             DS.Rounded(pill, 7);
             card.Controls.Add(inv);
             card.Controls.Add(date);
@@ -1146,7 +1139,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control LinkedRecordsCard()
         {
-            Panel card = RightCard("Linked Records", 132);
+            Panel card = RightCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Linked Records"), 132);
             TableLayoutPanel grid = new TableLayoutPanel { Location = new Point(16, 50), Size = new Size(310, 62), ColumnCount = 4, RowCount = 1, BackColor = Color.Transparent, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             for (int i = 0; i < 4; i++)
                 grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25));
@@ -1164,8 +1157,8 @@ namespace HVAC_Pro_Desktop.UI
             Panel item = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
             Label icon = ModernIconSystem.Badge(kind, 28, DS.Primary50, DS.Primary600, 8);
             icon.Location = new Point(24, 0);
-            Label label = new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 30), Size = new Size(76, 16), Font = DS.Caption, ForeColor = DS.Slate600 };
-            Label count = new Label { Text = value.ToString(), AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 46), Size = new Size(76, 16), Font = DS.SmallBold, ForeColor = DS.Slate900 };
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 30), Size = new Size(76, 16), Font = DS.Caption, ForeColor = DS.Slate600 });
+            Label count = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value.ToString(), AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 46), Size = new Size(76, 16), Font = DS.SmallBold, ForeColor = DS.Slate900 });
             item.Controls.Add(icon);
             item.Controls.Add(label);
             item.Controls.Add(count);
@@ -1178,7 +1171,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Width = Math.Max(300, _detailHost.ClientSize.Width - 6);
             card.Height = height;
             card.Margin = new Padding(0, 0, 0, 12);
-            Label label = new Label { Text = title, AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(16, 18) };
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(16, 18) });
             card.Controls.Add(label);
             return card;
         }
@@ -1191,9 +1184,9 @@ namespace HVAC_Pro_Desktop.UI
             Label icon = ModernIconSystem.Icon(ModernIconKind.Alert, 16, DS.Amber600);
             icon.Size = new Size(22, 22);
             icon.Location = new Point(10, 16);
-            Label text = new Label { Text = "This is not the official WhatsApp. Messages are opened in your WhatsApp Web / Desktop.", Location = new Point(40, 10), Size = new Size(480, 20), Font = DS.Small, ForeColor = DS.Slate800 };
-            LinkLabel more = new LinkLabel { Text = "Learn more", Location = new Point(40, 30), Size = new Size(100, 18), Font = DS.Small, LinkColor = DS.Primary600 };
-            Label close = new Label { Text = "×", Location = new Point(532, 13), Size = new Size(18, 18), Font = DS.BodyBold, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter };
+            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "This is not the official WhatsApp. Messages are opened in your WhatsApp Web / Desktop.", Location = new Point(40, 10), Size = new Size(480, 20), Font = DS.Small, ForeColor = DS.Slate800 });
+            LinkLabel more = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new LinkLabel { Text = "Learn more", Location = new Point(40, 30), Size = new Size(100, 18), Font = DS.Small, LinkColor = DS.Primary600 });
+            Label close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "×", Location = new Point(532, 13), Size = new Size(18, 18), Font = DS.BodyBold, ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleCenter });
             banner.Controls.Add(icon);
             banner.Controls.Add(text);
             banner.Controls.Add(more);
@@ -1203,7 +1196,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control DatePill(string text)
         {
-            Label label = new Label { Text = text, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Font = DS.SmallBold, ForeColor = DS.Slate700, BackColor = DS.White, Width = 96, Height = 28, Margin = new Padding(230, 0, 0, 14) };
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Font = DS.SmallBold, ForeColor = DS.Slate700, BackColor = DS.White, Width = 96, Height = 28, Margin = new Padding(230, 0, 0, 14) });
             DS.Rounded(label, 10);
             return label;
         }
@@ -1220,8 +1213,8 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bubble, 10);
             bubble.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, outgoing ? Color.FromArgb(187, 247, 208) : DS.Border, 10);
-            Label message = new Label { Text = text, AutoSize = false, Location = new Point(14, 12), Size = new Size(360, bubble.Height - 30), Font = DS.Body, ForeColor = DS.Slate900 };
-            Label clock = new Label { Text = time + (outgoing ? "  ✓✓" : string.Empty), AutoSize = false, Location = new Point(bubble.Width - 104, bubble.Height - 24), Size = new Size(94, 16), TextAlign = ContentAlignment.MiddleRight, Font = DS.Caption, ForeColor = outgoing ? DS.Primary600 : DS.Slate500 };
+            Label message = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, AutoSize = false, Location = new Point(14, 12), Size = new Size(360, bubble.Height - 30), Font = DS.Body, ForeColor = DS.Slate900 });
+            Label clock = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = time + (outgoing ? "  ✓✓" : string.Empty), AutoSize = false, Location = new Point(bubble.Width - 104, bubble.Height - 24), Size = new Size(94, 16), TextAlign = ContentAlignment.MiddleRight, Font = DS.Caption, ForeColor = outgoing ? DS.Primary600 : DS.Slate500 });
             bubble.Controls.Add(message);
             bubble.Controls.Add(clock);
             return bubble;
@@ -1232,11 +1225,11 @@ namespace HVAC_Pro_Desktop.UI
             Panel bubble = new Panel { Width = 380, Height = 74, BackColor = BubbleGreen, Margin = new Padding(300, 0, 0, 12), Padding = new Padding(12) };
             DS.Rounded(bubble, 10);
             bubble.Paint += (s, e) => DrawBorder((Control)s, e.Graphics, Color.FromArgb(187, 247, 208), 10);
-            Label pdf = new Label { Text = "PDF", Location = new Point(14, 16), Size = new Size(48, 44), Font = DS.SmallBold, ForeColor = Color.White, BackColor = DS.Red500, TextAlign = ContentAlignment.MiddleCenter };
+            Label pdf = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "PDF", Location = new Point(14, 16), Size = new Size(48, 44), Font = DS.SmallBold, ForeColor = Color.White, BackColor = DS.Red500, TextAlign = ContentAlignment.MiddleCenter });
             DS.Rounded(pdf, 8);
-            Label name = new Label { Text = fileName, Location = new Point(76, 14), Size = new Size(160, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 };
-            Label details = new Label { Text = meta, Location = new Point(76, 37), Size = new Size(140, 20), Font = DS.Small, ForeColor = DS.Slate600 };
-            Label clock = new Label { Text = time + "  ✓✓", Location = new Point(270, 46), Size = new Size(96, 18), TextAlign = ContentAlignment.MiddleRight, Font = DS.Caption, ForeColor = DS.Primary600 };
+            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = fileName, Location = new Point(76, 14), Size = new Size(160, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 });
+            Label details = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = meta, Location = new Point(76, 37), Size = new Size(140, 20), Font = DS.Small, ForeColor = DS.Slate600 });
+            Label clock = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = time + "  ✓✓", Location = new Point(270, 46), Size = new Size(96, 18), TextAlign = ContentAlignment.MiddleRight, Font = DS.Caption, ForeColor = DS.Primary600 });
             bubble.Controls.Add(pdf);
             bubble.Controls.Add(name);
             bubble.Controls.Add(details);
@@ -1252,7 +1245,7 @@ namespace HVAC_Pro_Desktop.UI
             button.Tag = text;
             button.Margin = new Padding(0, 0, 4, 6);
             button.Padding = Padding.Empty;
-            button.Font = new Font("Segoe UI", 7.4f, FontStyle.Bold);
+            button.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f, FontStyle.Bold);
             button.Click += (s, e) =>
             {
                 _activeTab = (string)((Button)s).Tag;
@@ -1325,22 +1318,22 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label Avatar(string name, int size, Color color)
         {
-            Label avatar = new Label
+            Label avatar = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = Initials(name),
                 Size = new Size(size, size),
                 BackColor = color,
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", size >= 48 ? 12f : 10f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), size >= 48 ? 12f : 10f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter
-            };
+            });
             DS.Rounded(avatar, size / 2);
             return avatar;
         }
 
         private Label DetailLine(ModernIconKind kind, string text, int x, int y)
         {
-            Label label = new Label { Text = ModernIconSystem.Icon(kind, 12, DS.Slate500).Text + "  " + text, AutoSize = false, Location = new Point(x, y), Size = new Size(240, 20), Font = DS.Small, ForeColor = DS.Slate700 };
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = ModernIconSystem.Icon(kind, 12, DS.Slate500).Text + "  " + text, AutoSize = false, Location = new Point(x, y), Size = new Size(240, 20), Font = DS.Small, ForeColor = DS.Slate700 });
             return label;
         }
 

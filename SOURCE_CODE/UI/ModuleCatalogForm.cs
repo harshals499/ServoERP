@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -26,15 +26,15 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.BgPage;
             ClientSize = new Size(1080, 720);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            Text = "ServoERP - Module Catalog";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP - Module Catalog");
 
-            Controls.Add(new Label { Text = "Module Catalog", Location = new Point(24, 18), Size = new Size(460, 34), Font = DS.H1, ForeColor = DS.Slate900 });
-            Controls.Add(new Label { Text = "Installed modules and extension-ready ideas inspired by mature open-source ERP patterns.", Location = new Point(26, 52), Size = new Size(920, 28), Font = DS.Body, ForeColor = DS.Slate600 });
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Module Catalog", Location = new Point(24, 18), Size = new Size(460, 34), Font = DS.H1, ForeColor = DS.Slate900 }));
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Installed modules and extension-ready ideas inspired by mature open-source ERP patterns.", Location = new Point(26, 52), Size = new Size(920, 28), Font = DS.Body, ForeColor = DS.Slate600 }));
 
             _grid = new DataGridView
             {
@@ -67,24 +67,24 @@ namespace HVAC_Pro_Desktop.UI
             };
             Controls.Add(_report);
 
-            Button export = Button("Export Catalog", DS.Green600, Color.White, 140);
+            Button export = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Export Catalog", DS.Green600, Color.White, 140));
             export.Location = new Point(24, 634);
             export.Click += (s, e) => ExportCatalog();
             Controls.Add(export);
 
-            Button copy = Button("Copy Text", DS.Primary600, Color.White, 110);
+            Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Copy Text", DS.Primary600, Color.White, 110));
             copy.Location = new Point(178, 634);
             copy.Click += (s, e) => CopyReport();
             Controls.Add(copy);
 
-            Button close = Button("Close", Color.White, DS.Slate700, 96);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Close", Color.White, DS.Slate700, 96));
             close.FlatAppearance.BorderColor = DS.Border;
             close.FlatAppearance.BorderSize = 1;
             close.Location = new Point(960, 634);
             close.Click += (s, e) => Close();
             Controls.Add(close);
 
-            _status = new Label { Text = "Ready.", Location = new Point(310, 640), Size = new Size(620, 24), Font = DS.Small, ForeColor = DS.Slate600 };
+            _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Ready.", Location = new Point(310, 640), Size = new Size(620, 24), Font = DS.Small, ForeColor = DS.Slate600 });
             Controls.Add(_status);
         }
 
@@ -107,13 +107,13 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 string path = _service.ExportReport();
-                _status.Text = "Catalog exported: " + path;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Catalog exported: {0}", path));
                 _status.ForeColor = DS.Green600;
                 Process.Start("notepad.exe", path);
             }
             catch (Exception ex)
             {
-                _status.Text = "Export failed: " + ex.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Export failed: {0}", ex.Message));
                 _status.ForeColor = DS.Red600;
             }
         }
@@ -122,14 +122,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (UIHelper.TrySetClipboardText(this, _report.Text, BrandingService.WindowTitle("Module Catalog")))
             {
-                _status.Text = "Catalog copied to clipboard.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Catalog copied to clipboard.");
                 _status.ForeColor = DS.Green600;
             }
         }
 
         private static Button Button(string text, Color backColor, Color foreColor, int width)
         {
-            Button button = new Button { Text = text, Size = new Size(width, 34), BackColor = backColor, ForeColor = foreColor, FlatStyle = FlatStyle.Flat, Font = DS.BodyBold, UseVisualStyleBackColor = false };
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Size = new Size(width, 34), BackColor = backColor, ForeColor = foreColor, FlatStyle = FlatStyle.Flat, Font = DS.BodyBold, UseVisualStyleBackColor = false });
             button.FlatAppearance.BorderSize = backColor == Color.White ? 1 : 0;
             return button;
         }

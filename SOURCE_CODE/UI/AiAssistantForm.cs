@@ -51,7 +51,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            Text = "ServoERP Copilot";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP Copilot");
             StartPosition = FormStartPosition.Manual;
             Size = new Size(440, 760);
             MinimumSize = new Size(390, 560);
@@ -65,29 +65,29 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "ServoERP Copilot",
                 Location = new Point(18, 14),
                 Size = new Size(240, 26),
-                Font = new Font("Segoe UI", 15f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
-            Label subtitle = new Label
+            });
+            Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Built-in HVAC ERP assistant",
                 Location = new Point(18, 42),
                 Size = new Size(240, 20),
                 Font = DS.Small,
                 ForeColor = DS.Slate500
-            };
+            });
 
-            Button clear = DS.GhostBtn("Clear", 72, 30);
+            Button clear = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Clear", 72, 30));
             clear.Location = new Point(254, 16);
             clear.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             clear.Click += (s, e) => ClearChat();
 
-            Button copy = DS.GhostBtn("Copy", 72, 30);
+            Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Copy", 72, 30));
             copy.Location = new Point(334, 16);
             copy.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             copy.Click += (s, e) =>
@@ -181,12 +181,12 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 36, FlowDirection = FlowDirection.RightToLeft, WrapContents = false, BackColor = DS.White };
-            _btnSend = DS.PrimaryBtn("Send", 82, 32);
+            _btnSend = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Send", 82, 32));
             _btnSend.Click += async (s, e) => await SendAsync(null);
-            _btnCancel = DS.GhostBtn("Cancel", 82, 32);
+            _btnCancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Cancel", 82, 32));
             _btnCancel.Enabled = false;
             _btnCancel.Click += (s, e) => CancelActiveRequest();
-            _btnRegenerate = DS.GhostBtn("Regenerate", 104, 32);
+            _btnRegenerate = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Regenerate", 104, 32));
             _btnRegenerate.Click += async (s, e) => await SendAsync(_lastPrompt);
             actions.Controls.Add(_btnSend);
             actions.Controls.Add(_btnCancel);
@@ -285,23 +285,23 @@ namespace HVAC_Pro_Desktop.UI
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20));
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Suggested prompts",
                 Dock = DockStyle.Fill,
                 Font = DS.BodyBold,
                 ForeColor = DS.Slate900,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
 
-            Label hint = new Label
+            Label hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Click one to ask with the current page context.",
                 Dock = DockStyle.Fill,
                 Font = DS.Caption,
                 ForeColor = DS.Slate500,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
 
             FlowLayoutPanel list = new FlowLayoutPanel
             {
@@ -455,9 +455,9 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 bool ok = await _assistant.IsLocalAiReachableAsync(CancellationToken.None);
-                _lblStatus.Text = ok
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, ok
                     ? "Assistant ready."
-                    : "Assistant is disabled in Settings.";
+                    : "Assistant is disabled in Settings.");
                 _lblStatus.ForeColor = ok ? DS.Teal600 : DS.Amber600;
             }
             finally
@@ -533,14 +533,14 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bubble, 8);
 
-            Label label = new Label
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 AutoSize = true,
                 MaximumSize = new Size(Math.Max(260, bubble.Width - 26), 0),
                 Font = DS.Body,
                 ForeColor = user ? Color.White : (error ? DS.Red600 : DS.Slate800),
                 Text = text ?? string.Empty
-            };
+            });
             bubble.Controls.Add(label);
             _chat.Controls.Add(bubble);
             ScrollToBottom();
@@ -560,13 +560,13 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 0, 0, 10)
             };
             DS.Rounded(card, 8);
-            card.Controls.Add(new Label { Text = action.Title ?? "Suggested action", Location = new Point(12, 10), Size = new Size(card.Width - 24, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 });
-            card.Controls.Add(new Label { Text = action.Description ?? "Preview only.", Location = new Point(12, 34), Size = new Size(card.Width - 24, 34), Font = DS.Small, ForeColor = DS.Slate700 });
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = action.Title ?? "Suggested action", Location = new Point(12, 10), Size = new Size(card.Width - 24, 20), Font = DS.BodyBold, ForeColor = DS.Slate900 }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = action.Description ?? "Preview only.", Location = new Point(12, 34), Size = new Size(card.Width - 24, 34), Font = DS.Small, ForeColor = DS.Slate700 }));
             if (action.IsWriteAction)
             {
-                Button preview = DS.GhostBtn("Preview only", 110, 28);
+                Button preview = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Preview only", 110, 28));
                 preview.Location = new Point(12, 70);
-                preview.Click += (s, e) => MessageBox.Show(this, "This AI module does not write ERP records yet. Use the existing " + (action.TargetModule ?? "module") + " workflow after reviewing the suggestion.", "ServoERP Copilot", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                preview.Click += (s, e) => MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("This AI module does not write ERP records yet. Use the existing {0} workflow after reviewing the suggestion.", (action.TargetModule ?? "module")), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP Copilot"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 card.Controls.Add(preview);
             }
             _chat.Controls.Add(card);
@@ -617,7 +617,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnSend.Enabled = !busy;
             _btnCancel.Enabled = busy;
             _btnRegenerate.Enabled = !busy && !string.IsNullOrWhiteSpace(_lastPrompt);
-            _lblStatus.Text = status;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, status);
             _lblStatus.ForeColor = busy ? DS.Primary700 : DS.Slate500;
             Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
         }
@@ -636,7 +636,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void RefreshContextLabel()
         {
-            _lblContext.Text = "Context: " + ResolveCurrentModule();
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblContext, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Context: {0}", ResolveCurrentModule()));
         }
 
         private string ResolveCurrentModule()

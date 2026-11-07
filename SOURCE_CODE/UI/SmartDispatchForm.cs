@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -43,7 +43,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            Text = BrandingService.WindowTitle("Smart Dispatch");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Smart Dispatch"));
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1180, 760);
             MinimumSize = new Size(980, 640);
@@ -52,22 +52,22 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
 
             Panel header = new Panel { Dock = DockStyle.Top, Height = 116, BackColor = DS.White, Padding = new Padding(24, 16, 24, 12) };
-            header.Controls.Add(new Label
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Smart Dispatch",
                 Location = new Point(24, 14),
                 Size = new Size(300, 30),
                 Font = DS.H1,
                 ForeColor = DS.Slate900
-            });
-            header.Controls.Add(new Label
+            }));
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Compare explainable technician recommendations. ServoERP never assigns automatically.",
                 Location = new Point(26, 46),
                 Size = new Size(620, 24),
                 Font = DS.Body,
                 ForeColor = DS.Slate600
-            });
+            }));
 
             _jobPicker = new ComboBox
             {
@@ -80,12 +80,12 @@ namespace HVAC_Pro_Desktop.UI
             _jobPicker.SelectedIndexChanged += async (s, e) => await LoadPlanAsync();
             header.Controls.Add(_jobPicker);
 
-            _refreshButton = MakeButton("Refresh", DS.White, DS.Primary700, 92);
+            _refreshButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Refresh", DS.White, DS.Primary700, 92));
             _refreshButton.Location = new Point(964, 22);
             _refreshButton.Click += async (s, e) => await LoadJobsAsync();
             header.Controls.Add(_refreshButton);
 
-            _jobContext = new Label
+            _jobContext = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Select an open job.",
                 Location = new Point(26, 80),
@@ -93,7 +93,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.SmallBold,
                 ForeColor = DS.Slate800,
                 AutoEllipsis = true
-            };
+            });
             header.Controls.Add(_jobContext);
             _readiness = new Label
             {
@@ -116,14 +116,14 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             Panel gridCard = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(14) };
-            gridCard.Controls.Add(new Label
+            gridCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Recommended technicians",
                 Dock = DockStyle.Top,
                 Height = 34,
                 Font = DS.H3,
                 ForeColor = DS.Slate900
-            });
+            }));
             _recommendations = new DataGridView
             {
                 Name = "SmartDispatchRecommendationsGrid",
@@ -138,13 +138,13 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor = DS.White,
                 BorderStyle = BorderStyle.None
             };
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rank", HeaderText = "#", Width = 42 });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "EmployeeName", HeaderText = "Technician", FillWeight = 145, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Role", HeaderText = "Role", FillWeight = 105, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Score", HeaderText = "Fit", Width = 58 });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Availability", HeaderText = "Availability", Width = 108 });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Workload", HeaderText = "Workload", Width = 124 });
-            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Distance", HeaderText = "Distance", Width = 92 });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Rank", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("#"), Width = 42 });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "EmployeeName", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Technician"), FillWeight = 145, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Role", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Role"), FillWeight = 105, AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Score", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Fit"), Width = 58 });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Availability", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Availability"), Width = 108 });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Workload", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Workload"), Width = 124 });
+            _recommendations.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Distance", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Distance"), Width = 92 });
             GridTheme.Apply(_recommendations, fillWidth: false, alternateRows: true, rowHeight: 38);
             _recommendations.SelectionChanged += (s, e) => ShowSelectedExplanation();
             _recommendations.CellFormatting += RecommendationCellFormatting;
@@ -153,14 +153,14 @@ namespace HVAC_Pro_Desktop.UI
             split.Panel1.Controls.Add(gridCard);
 
             Panel detailCard = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Padding = new Padding(16) };
-            detailCard.Controls.Add(new Label
+            detailCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Why this recommendation",
                 Dock = DockStyle.Top,
                 Height = 34,
                 Font = DS.H3,
                 ForeColor = DS.Slate900
-            });
+            }));
             _explanation = new RichTextBox
             {
                 Dock = DockStyle.Fill,
@@ -177,7 +177,7 @@ namespace HVAC_Pro_Desktop.UI
             split.Panel2.Controls.Add(detailCard);
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 72, BackColor = DS.White, Padding = new Padding(24, 16, 24, 12) };
-            _status = new Label
+            _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Ready.",
                 Location = new Point(24, 24),
@@ -185,15 +185,15 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true
-            };
+            });
             footer.Controls.Add(_status);
-            _assignButton = MakeButton("Assign selected", DS.Primary600, Color.White, 150);
+            _assignButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Assign selected", DS.Primary600, Color.White, 150));
             _assignButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _assignButton.Location = new Point(850, 16);
             _assignButton.Enabled = false;
             _assignButton.Click += async (s, e) => await AssignSelectedAsync();
             footer.Controls.Add(_assignButton);
-            Button close = MakeButton("Close", DS.White, DS.Slate700, 100);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close", DS.White, DS.Slate700, 100));
             close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             close.Location = new Point(1012, 16);
             close.Click += (s, e) => Close();
@@ -233,8 +233,8 @@ namespace HVAC_Pro_Desktop.UI
 
                 if (choices.Count == 0)
                 {
-                    _jobContext.Text = "No open jobs are available for dispatch.";
-                    _readiness.Text = string.Empty;
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_jobContext, "No open jobs are available for dispatch.");
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_readiness, string.Empty);
                     BindRecommendations(new List<SmartDispatchRecommendation>());
                     return;
                 }
@@ -265,9 +265,9 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _plan = await Task.Run(() => _dispatchService.BuildPlan(jobId.Value));
                 Job job = _plan.Job;
-                _jobContext.Text = First(job.JobNumber, "Job #" + job.JobID) + " | " + First(job.JobTitle, "Untitled job") + " | " +
-                                   First(job.ClientName, "Client") + " / " + First(job.SiteName, "No site") + " | " + _plan.Urgency;
-                _readiness.Text = _plan.ReadinessSummary;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_jobContext, First(job.JobNumber, "Job #" + job.JobID) + " | " + First(job.JobTitle, "Untitled job") + " | " +
+                                   First(job.ClientName, "Client") + " / " + First(job.SiteName, "No site") + " | " + _plan.Urgency);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_readiness, _plan.ReadinessSummary);
                 BindRecommendations(_plan.Recommendations);
                 string message = "Ranked " + _plan.Recommendations.Count + " active technician(s).";
                 if (_plan.Warnings.Count > 0) message += " " + _plan.Warnings[0];
@@ -405,7 +405,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetStatus(string message, Color color)
         {
-            _status.Text = message ?? string.Empty;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, message ?? string.Empty);
             _status.ForeColor = color;
         }
 
@@ -418,7 +418,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color back, Color fore, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Size = new Size(width, 38),
@@ -428,7 +428,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.BodyBold,
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = back == DS.White ? 1 : 0;
             button.FlatAppearance.BorderColor = DS.Border;
             return button;

@@ -21,57 +21,57 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
         public LicenseActivationForm()
         {
-            Text = BrandingService.WindowTitle("License Activation");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("License Activation"));
             StartPosition = FormStartPosition.CenterScreen;
             Size = new Size(640, 430);
             MinimumSize = new Size(560, 380);
             BackColor = DS.BgPage;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             Build();
         }
 
         private void Build()
         {
-            var title = new Label
+            var title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Activate ServoERP",
                 Location = new Point(28, 24),
                 Size = new Size(560, 36),
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
+            });
             Controls.Add(title);
 
-            Controls.Add(new Label
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Activate with your company code and license key, start a trial, or import a signed offline license file from ServoERP.",
                 Location = new Point(30, 66),
                 Size = new Size(560, 46),
                 ForeColor = DS.Slate600
-            });
+            }));
 
-            Controls.Add(Label("Company Code", 32, 128));
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Label("Company Code", 32, 128)));
             _txtCompanyCode = new TextBox { Location = new Point(32, 150), Size = new Size(168, 30) };
             Controls.Add(_txtCompanyCode);
 
-            Controls.Add(Label("License Key", 214, 128));
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Label("License Key", 214, 128)));
             _txtLicenseKey = new TextBox { Location = new Point(214, 150), Size = new Size(178, 30) };
             Controls.Add(_txtLicenseKey);
 
-            Controls.Add(Label("Company Name", 406, 128));
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Label("Company Name", 406, 128)));
             _txtCompany = new TextBox { Location = new Point(406, 150), Size = new Size(172, 30) };
             Controls.Add(_txtCompany);
 
-            var fingerprintLabel = new Label
+            var fingerprintLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = "Device fingerprint:\r\n" + _fingerprint.GetFingerprintHash(),
+                Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Device fingerprint:\r\n{0}", _fingerprint.GetFingerprintHash()),
                 Location = new Point(32, 204),
                 Size = new Size(420, 54),
                 ForeColor = DS.Slate500
-            };
+            });
             Controls.Add(fingerprintLabel);
 
-            Button copyFingerprint = Button("Copy Fingerprint", 462, 210, Color.White);
+            Button copyFingerprint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Copy Fingerprint", 462, 210, Color.White));
             copyFingerprint.ForeColor = DS.Slate700;
             copyFingerprint.FlatAppearance.BorderColor = DS.Border;
             copyFingerprint.FlatAppearance.BorderSize = 1;
@@ -80,27 +80,27 @@ namespace HVAC_Pro_Desktop.UI.Licensing
                 if (UIHelper.TrySetClipboardText(this, _fingerprint.GetFingerprintHash(), BrandingService.WindowTitle("License Activation")))
                 {
                     _lblStatus.ForeColor = DS.Teal600;
-                    _lblStatus.Text = "Device fingerprint copied. Send it to ServoERP support for offline license issuance.";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Device fingerprint copied. Send it to ServoERP support for offline license issuance.");
                 }
             };
             Controls.Add(copyFingerprint);
 
-            Button trial = Button("Start Trial", 32, 284, DS.Primary600);
+            Button trial = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Start Trial", 32, 284, DS.Primary600));
             trial.Click += (s, e) => StartTrial();
             Controls.Add(trial);
 
-            Button online = Button("Activate Online", 196, 284, DS.Teal600);
+            Button online = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Activate Online", 196, 284, DS.Teal600));
             online.Click += (s, e) => ActivateOnline();
             Controls.Add(online);
 
-            Button offline = Button("Import Offline File", 360, 284, Color.White);
+            Button offline = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Import Offline File", 360, 284, Color.White));
             offline.ForeColor = DS.Slate700;
             offline.FlatAppearance.BorderColor = DS.Border;
             offline.FlatAppearance.BorderSize = 1;
             offline.Click += (s, e) => ImportOffline();
             Controls.Add(offline);
 
-            Button close = Button("Close", 430, 334, Color.White);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Button("Close", 430, 334, Color.White));
             close.ForeColor = DS.Slate700;
             close.FlatAppearance.BorderColor = DS.Border;
             close.FlatAppearance.BorderSize = 1;
@@ -133,7 +133,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
             if (string.IsNullOrWhiteSpace(company))
             {
                 _lblStatus.ForeColor = Color.FromArgb(220, 38, 38);
-                _lblStatus.Text = "Enter the company name before starting the trial.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Enter the company name before starting the trial.");
                 _txtCompany.Focus();
                 return;
             }
@@ -157,11 +157,11 @@ namespace HVAC_Pro_Desktop.UI.Licensing
         private void HandleResult(LicenseValidationResult result)
         {
             _lblStatus.ForeColor = result.Success ? DS.Teal600 : Color.FromArgb(220, 38, 38);
-            _lblStatus.Text = result.Message;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, result.Message);
             if (result.Success)
             {
                 ActivationCompleted = true;
-                MessageBox.Show("License activated.", BrandingService.WindowTitle("License"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("License activated."), BrandingService.WindowTitle("License"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 DialogResult = DialogResult.OK;
                 Close();
             }
@@ -169,12 +169,12 @@ namespace HVAC_Pro_Desktop.UI.Licensing
 
         private static Label Label(string text, int x, int y)
         {
-            return new Label { Text = text, Location = new Point(x, y), Size = new Size(220, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 };
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Size = new Size(220, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate700 });
         }
 
         private static Button Button(string text, int x, int y, Color color)
         {
-            var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(148, 38), FlatStyle = FlatStyle.Flat, BackColor = color, ForeColor = color == Color.White ? DS.Slate700 : Color.White };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Location = new Point(x, y), Size = new Size(148, 38), FlatStyle = FlatStyle.Flat, BackColor = color, ForeColor = color == Color.White ? DS.Slate700 : Color.White });
             button.FlatAppearance.BorderSize = 0;
             return button;
         }

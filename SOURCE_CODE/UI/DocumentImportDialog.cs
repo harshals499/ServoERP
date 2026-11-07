@@ -28,9 +28,9 @@ namespace HVAC_Pro_Desktop.UI
         private readonly TextBox _text = new TextBox { Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,WordWrap=false };
         private readonly TextBox _workbookPreview = new TextBox {Dock=DockStyle.Fill,Multiline=true,ReadOnly=true,ScrollBars=ScrollBars.Both,WordWrap=false,Visible=false};
         private readonly ComboBox _previewPage = new ComboBox {Dock=DockStyle.Top,DropDownStyle=ComboBoxStyle.DropDownList};
-        private readonly Label _status = new Label { Dock=DockStyle.Fill,AutoEllipsis=true,Text="Choose PDF, JPG, PNG or an original MSE XLSX. Extraction stays on this PC; every proposed document requires review.",Padding=new Padding(8) };
+        private readonly Label _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock=DockStyle.Fill,AutoEllipsis=true,Text="Choose PDF, JPG, PNG or an original MSE XLSX. Extraction stays on this PC; every proposed document requires review.",Padding=new Padding(8) });
         private readonly FlowLayoutPanel _actions = new FlowLayoutPanel { Dock=DockStyle.Fill,WrapContents=true,AutoScroll=true };
-        private readonly Button _cancel = new Button { Text="Cancel operation",AutoSize=true,Enabled=false };
+        private readonly Button _cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text="Cancel operation",AutoSize=true,Enabled=false });
         private readonly ProgressBar _progress = new ProgressBar { Dock=DockStyle.Fill,Style=ProgressBarStyle.Marquee,Visible=false };
         private CancellationTokenSource _operation;
         private bool _busy;
@@ -40,8 +40,8 @@ namespace HVAC_Pro_Desktop.UI
 
         public DocumentImportDialog()
         {
-            Text="ServoERP · Review document import"; Size=new Size(1260,860); MinimumSize=new Size(1000,720); StartPosition=FormStartPosition.CenterParent;
-            BackColor=DS.BgPage; Font=new Font("Segoe UI",9);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP · Review document import"); Size=new Size(1260,860); MinimumSize=new Size(1000,720); StartPosition=FormStartPosition.CenterParent;
+            BackColor=DS.BgPage; Font=new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(),9);
             var root=new TableLayoutPanel { Dock=DockStyle.Fill,ColumnCount=1,RowCount=4,Padding=new Padding(12) };
             root.RowStyles.Add(new RowStyle(SizeType.Absolute,104)); root.RowStyles.Add(new RowStyle(SizeType.Percent,100)); root.RowStyles.Add(new RowStyle(SizeType.Absolute,48)); root.RowStyles.Add(new RowStyle(SizeType.Absolute,8));
             Controls.Add(root); root.Controls.Add(_actions,0,0); root.Controls.Add(_status,0,2); root.Controls.Add(_progress,0,3);
@@ -63,12 +63,12 @@ namespace HVAC_Pro_Desktop.UI
             edit.Controls.Add(_fields,0,0); var tabs=new TabControl { Dock=DockStyle.Fill }; AddTab(tabs,"Editable items (INR)",_lines); AddTab(tabs,"Confidence / source evidence",_evidence); edit.Controls.Add(tabs,0,1); body.Controls.Add(edit,2,0);
             _documents.DataSource=_drafts; _documents.SelectedIndexChanged+=(s,e)=>ShowSelected();
             _fields.PropertyValueChanged+=(s,e)=> { if(Selected==null)return; if(e.ChangedItem.PropertyDescriptor.Name!="ReviewConfirmed") Selected.ReviewConfirmed=false; if(e.ChangedItem.PropertyDescriptor.Name=="Direction"||e.ChangedItem.PropertyDescriptor.Name=="DocumentType") Selected.PartyId=0; _fields.Refresh(); };
-            _lines.DataError+=(s,e)=> { e.ThrowException=false; _status.Text="Enter a valid numeric value. Use DD/MM/YYYY for document dates."; };
+            _lines.DataError+=(s,e)=> { e.ThrowException=false; global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Enter a valid numeric value. Use DD/MM/YYYY for document dates."); };
             _lines.CellValueChanged+=(s,e)=> { if(Selected!=null) { Selected.ReviewConfirmed=false; _fields.Refresh(); } };
             _evidence.ReadOnly=true; _evidence.AllowUserToAddRows=false; _evidence.AllowUserToDeleteRows=false;
             _lines.DataBindingComplete+=(s,e)=>ApplyReviewColumns();
             _evidence.DataBindingComplete+=(s,e)=> { foreach(DataGridViewColumn column in _evidence.Columns) {column.AutoSizeMode=DataGridViewAutoSizeColumnMode.None;column.Width=column.Name=="Source"?360:column.Name=="Page"?55:150;} };
-            FormClosing+=(s,e)=> { if(_busy) { e.Cancel=true; _operation?.Cancel(); _status.Text="Waiting for the operation to finish safely…"; } };
+            FormClosing+=(s,e)=> { if(_busy) { e.Cancel=true; _operation?.Cancel(); global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Waiting for the operation to finish safely…"); } };
         }
         private static DataGridView Grid() => new DataGridView {Dock=DockStyle.Fill,AutoGenerateColumns=true,AutoSizeColumnsMode=DataGridViewAutoSizeColumnsMode.DisplayedCells,BackgroundColor=DS.White,RowHeadersVisible=false};
         protected override void OnShown(EventArgs e)
@@ -83,7 +83,7 @@ namespace HVAC_Pro_Desktop.UI
         private static void AddTab(TabControl tabs,string title,Control content) { var tab=new TabPage(title); tab.Controls.Add(content); tabs.TabPages.Add(tab); }
         private void AddAction(string label,Func<Task> action)
         {
-            var button=new Button {Text=label,AutoSize=true,MinimumSize=new Size(100,30),Margin=new Padding(3)};
+            var button=global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button {Text=label,AutoSize=true,MinimumSize=new Size(100,30),Margin=new Padding(3)});
             button.Click+=async(s,e)=>await Run(action); _actions.Controls.Add(button);
         }
         private async Task Run(Func<Task> action)
@@ -91,13 +91,13 @@ namespace HVAC_Pro_Desktop.UI
             if(_busy)return; _busy=true; _operation=new CancellationTokenSource(); _progress.Visible=true;
             foreach(Control c in _actions.Controls)c.Enabled=c==_cancel; _fields.Enabled=false; _lines.Enabled=false; _documents.Enabled=false;
             try { await action(); }
-            catch(OperationCanceledException) { _status.Text="Operation cancelled. Any completed save remains visible in history; retrying the same source cannot create another record."; }
-            catch(FluentValidation.ValidationException ex) { _status.Text="Review required."; MessageBox.Show(this,string.Join(Environment.NewLine,ex.Errors.Select(x=>x.ErrorMessage)),"ServoERP · Review required",MessageBoxButtons.OK,MessageBoxIcon.Warning); }
+            catch(OperationCanceledException) { global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Operation cancelled. Any completed save remains visible in history; retrying the same source cannot create another record."); }
+            catch(FluentValidation.ValidationException ex) { global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Review required."); MessageBox.Show(this,string.Join(Environment.NewLine,ex.Errors.Select(x=>x.ErrorMessage)),global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP · Review required"),MessageBoxButtons.OK,MessageBoxIcon.Warning); }
             catch(Exception ex)
             {
                 Serilog.Log.Warning("Document import UI operation failed with {ErrorType}",ex.GetType().Name);
                 string message=ex is InvalidOperationException ? ex.Message : "The operation could not be completed. No partial business record was saved. Review the source and retry; check saved imports if the result is uncertain.";
-                _status.Text=message; MessageBox.Show(this,message,"ServoERP · Document import",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, message); MessageBox.Show(this,message,global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP · Document import"),MessageBoxButtons.OK,MessageBoxIcon.Warning);
             }
             finally { _busy=false; _operation.Dispose(); _operation=null; _progress.Visible=false; foreach(Control c in _actions.Controls)c.Enabled=c!=_cancel; _fields.Enabled=true; _lines.Enabled=true; _documents.Enabled=true; }
         }
@@ -108,7 +108,7 @@ namespace HVAC_Pro_Desktop.UI
                 if(picker.ShowDialog(this)!=DialogResult.OK)return;
                 var drafts=await _extractor.ExtractAsync(picker.FileName,new Progress<string>(s=>_status.Text=s),_operation.Token);
                 int count=StageDrafts(drafts);
-                _status.Text=count==0?"This source is already in the review queue. Review the existing entry; no records were saved.":"Review every source field, item, tax and document boundary. Workbook display rounding and cached numeric values can differ; no business records have been saved.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, count==0?"This source is already in the review queue. Review the existing entry; no records were saved.":"Review every source field, item, tax and document boundary. Workbook display rounding and cached numeric values can differ; no business records have been saved.");
             }
         }
         private int StageDrafts(List<DocumentImportDraft> drafts)
@@ -130,10 +130,10 @@ namespace HVAC_Pro_Desktop.UI
                 selected=discovery.SelectedFiles;
             }
             LocalDocumentBatchResult batch;bool loading=true;
-            try{batch=await LocalDocumentBatchLoader.LoadAsync(selected,_extractor.ExtractAsync,StageDrafts,new Progress<string>(s=>{if(loading)_status.Text=s;}),_operation.Token);}
+            try{batch=await LocalDocumentBatchLoader.LoadAsync(selected,_extractor.ExtractAsync,StageDrafts,new Progress<string>(s=>{if(loading)global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, s);}),_operation.Token);}
             finally{loading=false;}
-            _status.Text=batch.ReadyDocuments+" documents ready for review; "+batch.DuplicateSources+" queued-source duplicates skipped; "+batch.Errors.Count+" files need attention. No business records saved. Reopen Scan local drive for remaining results.";
-            if(batch.Errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,batch.Errors.Take(8))+(batch.Errors.Count>8?Environment.NewLine+"See the retained detection list for other files.":""),"ServoERP · Some files need attention",MessageBoxButtons.OK,MessageBoxIcon.Warning);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} documents ready for review; {1} queued-source duplicates skipped; {2} files need attention. No business records saved. Reopen Scan local drive for remaining results.", batch.ReadyDocuments, batch.DuplicateSources, batch.Errors.Count));
+            if(batch.Errors.Count>0)MessageBox.Show(this,string.Join(Environment.NewLine,batch.Errors.Take(8))+(batch.Errors.Count>8?Environment.NewLine+"See the retained detection list for other files.":""),global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP · Some files need attention"),MessageBoxButtons.OK,MessageBoxIcon.Warning);
         }
         private void ShowSelected()
         {
@@ -170,8 +170,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             using(var dialog=new ImportChildDialog())
             {
-                dialog.Text=title; dialog.Size=new Size(660,460); dialog.StartPosition=FormStartPosition.CenterParent;
-                var search=new TextBox {Dock=DockStyle.Top,Text=name??""}; var list=new ListBox {Dock=DockStyle.Fill}; var select=new Button {Text="Use selected record",Dock=DockStyle.Bottom,Height=38,DialogResult=DialogResult.OK};
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(dialog, title); dialog.Size=new Size(660,460); dialog.StartPosition=FormStartPosition.CenterParent;
+                var search=new TextBox {Dock=DockStyle.Top,Text=name??""}; var list=new ListBox {Dock=DockStyle.Fill}; var select=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button {Text="Use selected record",Dock=DockStyle.Bottom,Height=38,DialogResult=DialogResult.OK});
                 Action filter=()=> { list.DataSource=items.Where(x=>(x.Name??"").IndexOf(search.Text,StringComparison.OrdinalIgnoreCase)>=0 || (!string.IsNullOrEmpty(gstin)&&string.Equals(x.GSTIN,gstin,StringComparison.OrdinalIgnoreCase))).ToList(); };
                 search.TextChanged+=(s,e)=>filter(); dialog.Controls.Add(list); dialog.Controls.Add(search); dialog.Controls.Add(select); filter();
                 return dialog.ShowDialog(this)==DialogResult.OK?list.SelectedItem as ImportReference:null;
@@ -184,13 +184,13 @@ namespace HVAC_Pro_Desktop.UI
             if(d==null||index+1>=_drafts.Count)return; var next=_drafts[index+1];
             if(d.FileHash!=next.FileHash||d.LastPage+1!=next.FirstPage)throw new InvalidOperationException("Only consecutive pages of the same file can be merged.");
             d.SourceText+="\r\n--- Page "+next.FirstPage+" ---\r\n"+next.SourceText; d.LastPage=next.LastPage; d.PreviewPaths.AddRange(next.PreviewPaths); d.Evidence.AddRange(next.Evidence); foreach(var line in next.Lines)d.Lines.Add(line); d.ReviewConfirmed=false;
-            _drafts.Remove(next); _drafts.ResetItem(index); ShowSelected(); _status.Text="Continuation page merged. Review combined fields and totals. Select each original page above the preview.";
+            _drafts.Remove(next); _drafts.ResetItem(index); ShowSelected(); global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Continuation page merged. Review combined fields and totals. Select each original page above the preview.");
         }
         private async Task Save()
         {
             var draft=Selected;if(draft==null)return; _fields.Refresh(); if(!_lines.EndEdit())throw new InvalidOperationException("Correct the current item before saving."); BindingContext[_lines.DataSource]?.EndCurrentEdit();
             int id=await _service.SaveAsync(draft,_operation.Token);
-            _status.Text="Saved "+draft.DocumentType+" #"+id+". Open the module list to continue its normal workflow. Original attachment is available in Saved imports. No stock, posting or payment action was taken.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Saved {0} #{1}. Open the module list to continue its normal workflow. Original attachment is available in Saved imports. No stock, posting or payment action was taken.", draft.DocumentType, id));
             _drafts.Remove(draft); ShowSelected();
         }
         private async Task History()
@@ -198,9 +198,9 @@ namespace HVAC_Pro_Desktop.UI
             var records=await Task.Run(()=>_service.GetHistory(),_operation.Token);
             using(var dialog=new ImportChildDialog())
             {
-                dialog.Text="Saved document imports · originals"; dialog.Size=new Size(960,500); dialog.StartPosition=FormStartPosition.CenterParent;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(dialog, "Saved document imports · originals"); dialog.Size=new Size(960,500); dialog.StartPosition=FormStartPosition.CenterParent;
                 var grid=Grid(); grid.ReadOnly=true; grid.AllowUserToAddRows=false; grid.DataSource=records;
-                var open=new Button {Text="Open selected original",Dock=DockStyle.Bottom,Height=38}; open.Click+=(s,e)=> {var r=grid.CurrentRow?.DataBoundItem as ImportSavedRecord;if(r!=null&&SessionManager.HasPermission(r.Module,"View")&&File.Exists(r.FilePath))Process.Start(new ProcessStartInfo(r.FilePath){UseShellExecute=true});};
+                var open=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button {Text="Open selected original",Dock=DockStyle.Bottom,Height=38}); open.Click+=(s,e)=> {var r=grid.CurrentRow?.DataBoundItem as ImportSavedRecord;if(r!=null&&SessionManager.HasPermission(r.Module,"View")&&File.Exists(r.FilePath))Process.Start(new ProcessStartInfo(r.FilePath){UseShellExecute=true});};
                 dialog.Controls.Add(grid); dialog.Controls.Add(open); dialog.ShowDialog(this);
             }
         }

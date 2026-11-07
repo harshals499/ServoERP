@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
@@ -22,7 +22,7 @@ namespace HVAC_Pro_Desktop.UI
         private readonly DataGridView _values = Grid();
         private readonly DataGridView _archives = Grid();
         private readonly TabControl _tabs = new TabControl { Dock = DockStyle.Fill };
-        private readonly Label _status = new Label { Dock = DockStyle.Bottom, Height = 36, Text = "Posted invoices remain locked. Archived posted balances remain in financial reports." };
+        private readonly Label _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock = DockStyle.Bottom, Height = 36, Text = "Posted invoices remain locked. Archived posted balances remain in financial reports." });
         private sealed class AuditEntry
         {
             public long AuditId { get; set; }
@@ -38,16 +38,16 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (module != "Invoices" && module != "Jobs") throw new ArgumentException("Unsupported module.");
             _module = module; _recordId = recordId;
-            Text = BrandingService.WindowTitle(module + " - Record History");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle(module + " - Record History"));
             Size = new Size(1080, 720); MinimumSize = new Size(880, 520);
             var historyTab = new TabPage("Audit history");
             var split = new SplitContainer { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal, Size = new Size(1000, 580), SplitterDistance = 250, Panel1MinSize = 120, Panel2MinSize = 160 };
             split.Panel1.Controls.Add(_history); split.Panel2.Controls.Add(_values); historyTab.Controls.Add(split);
             var archiveTab = new TabPage("Archived records");
             var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, Height = 42 };
-            var restore = new Button { Text = "Restore selected", AutoSize = true };
+            var restore = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Restore selected", AutoSize = true });
             restore.Click += async (s, e) => await RestoreSelected();
-            var view = new Button { Text = "View selected history", AutoSize = true };
+            var view = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "View selected history", AutoSize = true });
             view.Click += (s, e) =>
             {
                 if (_archives.CurrentRow == null) return;
@@ -79,7 +79,7 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 AppLogger.LogError("FinancialRecordHistoryDialog.Reload", ex);
-                _status.Text = "Record history could not be loaded. Please refresh or contact ServoERP support.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Record history could not be loaded. Please refresh or contact ServoERP support.");
             }
         }
         private Tuple<List<AuditEntry>, DataTable> LoadRecords()
@@ -102,18 +102,18 @@ ORDER BY AuditId DESC", new { Module = _module, Id = _recordId }).ToList();
         {
             _history.DataSource = entries;
             _history.Columns["OldValues"].Visible = false; _history.Columns["NewValues"].Visible = false;
-            _history.Columns["ChangedUtc"].HeaderText = "Changed (UTC)";
+            _history.Columns["ChangedUtc"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Changed (UTC)");
             _history.Columns["ChangedUtc"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm:ss";
-            _history.Columns["UserName"].HeaderText = "Changed by";
+            _history.Columns["UserName"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Changed by");
             _archives.DataSource = archives;
-            _archives.Columns["RecordId"].HeaderText = "Record no.";
-            _archives.Columns["DeletedByName"].HeaderText = "Archived by";
-            _archives.Columns["DeletedUtc"].HeaderText = "Archived (UTC)";
-            if (_archives.Columns.Contains("IsPosted")) _archives.Columns["IsPosted"].HeaderText = "Posted";
-            if (_archives.Columns.Contains("TotalAmount")) _archives.Columns["TotalAmount"].HeaderText = "Total";
-            if (_archives.Columns.Contains("BalanceDue")) _archives.Columns["BalanceDue"].HeaderText = "Balance due";
+            _archives.Columns["RecordId"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Record no.");
+            _archives.Columns["DeletedByName"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Archived by");
+            _archives.Columns["DeletedUtc"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Archived (UTC)");
+            if (_archives.Columns.Contains("IsPosted")) _archives.Columns["IsPosted"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Posted");
+            if (_archives.Columns.Contains("TotalAmount")) _archives.Columns["TotalAmount"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Total");
+            if (_archives.Columns.Contains("BalanceDue")) _archives.Columns["BalanceDue"].HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Balance due");
             if (_archives.Columns.Contains("DeletedUtc")) _archives.Columns["DeletedUtc"].DefaultCellStyle.Format = "dd/MM/yyyy HH:mm:ss";
-            _status.Text = "Posted invoices remain locked. Archived posted balances remain in financial reports.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Posted invoices remain locked. Archived posted balances remain in financial reports.");
             ShowChangedValues();
         }
         private void ShowChangedValues()
@@ -142,7 +142,7 @@ ORDER BY AuditId DESC", new { Module = _module, Id = _recordId }).ToList();
             if (!ServoConfirmDialog.Show((Control)this, "Restore archived " + (_module == "Invoices" ? "invoice" : "job"),
                 "The record and its existing links will return to active lists. Posted invoices remain locked. Draft stock reservations are recreated on the next save.")) return;
             try { await Task.Run(() => FinancialRecordProtection.Restore(_module, id)); await Reload(); }
-            catch (Exception ex) { AppLogger.LogError("FinancialRecordHistoryDialog.Restore", ex); _status.Text = "Restore failed. " + ex.Message; }
+            catch (Exception ex) { AppLogger.LogError("FinancialRecordHistoryDialog.Restore", ex); global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Restore failed. {0}", ex.Message)); }
         }
         internal void LoadForVisualTest()
         {

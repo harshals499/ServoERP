@@ -111,7 +111,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Control BuildHeader()
         {
-            Button upload = MakeButton("Import Excel", Color.White, 138);
+            Button upload = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Import Excel", Color.White, 138));
             upload.AutoEllipsis = true;
             upload.Click += (s, e) => ShowBulkImportMenu(upload);
             upload.ForeColor = DS.Slate800;
@@ -119,7 +119,7 @@ namespace HVAC_Pro_Desktop.UI
             upload.FlatAppearance.BorderColor = DS.BorderStrong;
             ModernIconSystem.AddButtonIcon(upload, ModernIconKind.Import);
 
-            Button validate = MakeButton("Refresh Setup Checks", DS.Primary600, 174, async (s, e) => await LoadAllAsync());
+            Button validate = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Refresh Setup Checks", DS.Primary600, 174, async (s, e) => await LoadAllAsync()));
             validate.AutoEllipsis = true;
             ModernIconSystem.AddButtonIcon(validate, ModernIconKind.Security);
             return SharedPageHeader.Build(new SharedPageHeaderModel
@@ -141,14 +141,14 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildToolbar()
         {
             Panel bar = new Panel { Dock = DockStyle.Fill, Height = 58, BackColor = DS.BgPage, Padding = new Padding(18, 10, 18, 8) };
-            Button refresh = MakeButton("Refresh Master Data", ActionBlue, 152);
+            Button refresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Refresh Master Data", ActionBlue, 152));
             refresh.Dock = DockStyle.Left;
             refresh.Click += async (s, e) => await LoadAllAsync();
             _status = new Label
             {
                 Dock = DockStyle.Fill,
                 ForeColor = DS.Slate500,
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(14, 0, 0, 0)
             };
@@ -162,7 +162,7 @@ namespace HVAC_Pro_Desktop.UI
             _tabs = new TabControl
             {
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold),
                 Padding = new Point(18, 8),
                 DrawMode = TabDrawMode.OwnerDrawFixed,
                 ItemSize = new Size(150, 42),
@@ -215,25 +215,25 @@ namespace HVAC_Pro_Desktop.UI
             split.Controls.Add(_assetGrid, 0, 0);
 
             FlowLayoutPanel form = MakeFormFlow();
-            _assetClient = AddCombo(form, "Client *");
+            _assetClient = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client *"));
             _assetClient.SelectedIndexChanged += (s, e) => RefreshSiteCombo(_assetClient, _assetSite);
-            _assetSite = AddCombo(form, "Site");
-            _assetType = AddText(form, "Equipment type *");
-            _assetTag = AddText(form, "Asset tag");
-            _assetBrand = AddText(form, "Brand");
-            _assetModel = AddText(form, "Model");
-            _assetSerial = AddText(form, "Serial number");
-            _assetCapacity = AddText(form, "Capacity / tonnage");
-            _assetLocation = AddText(form, "Location");
-            _assetInstall = AddDate(form, "Install date", out _assetInstallOn);
-            _assetWarranty = AddDate(form, "Warranty expiry", out _assetWarrantyOn);
-            _assetAmc = new CheckBox { Text = "Covered under AMC", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            _assetSite = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Site"));
+            _assetType = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Equipment type *"));
+            _assetTag = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Asset tag"));
+            _assetBrand = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Brand"));
+            _assetModel = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Model"));
+            _assetSerial = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Serial number"));
+            _assetCapacity = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Capacity / tonnage"));
+            _assetLocation = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Location"));
+            _assetInstall = AddDate(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Install date"), out _assetInstallOn);
+            _assetWarranty = AddDate(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Warranty expiry"), out _assetWarrantyOn);
+            _assetAmc = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Covered under AMC", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) });
             form.Controls.Add(_assetAmc);
-            _assetNotes = AddText(form, "Notes", true);
+            _assetNotes = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Notes"), true);
             form.Controls.Add(ActionRow(
-                MakeButton("New asset", ActionBlue, 100, (s, e) => ClearAssetForm()),
-                MakeButton("Save asset", SaveGreen, 100, (s, e) => SaveAsset()),
-                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedAsset())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New asset", ActionBlue, 100, (s, e) => ClearAssetForm())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save asset", SaveGreen, 100, (s, e) => SaveAsset())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedAsset()))));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -248,18 +248,18 @@ namespace HVAC_Pro_Desktop.UI
             split.Controls.Add(_docGrid, 0, 0);
 
             FlowLayoutPanel form = MakeFormFlow();
-            _docClient = AddCombo(form, "Client");
-            _docType = AddCombo(form, "Document type");
+            _docClient = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client"));
+            _docType = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Document type"));
             _docType.Items.AddRange(new object[] { "AMC Contract", "Purchase Order", "License", "Insurance", "Tax Document", "Warranty", "Manual", "Drawing", "Certificate", "Other" });
             if (_docType.Items.Count > 0) _docType.SelectedIndex = 0;
-            _docTitle = AddText(form, "Title *");
-            _docPath = AddText(form, "File path *");
-            form.Controls.Add(ActionRow(MakeButton("Choose file", ActionBlue, 112, (s, e) => ChooseDocumentFile())));
-            _docExpiry = AddDate(form, "Expiry date", out _docExpiryOn);
-            _docNotes = AddText(form, "Notes", true);
+            _docTitle = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Title *"));
+            _docPath = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("File path *"));
+            form.Controls.Add(ActionRow(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Choose file", ActionBlue, 112, (s, e) => ChooseDocumentFile()))));
+            _docExpiry = AddDate(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Expiry date"), out _docExpiryOn);
+            _docNotes = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Notes"), true);
             form.Controls.Add(ActionRow(
-                MakeButton("Save document", SaveGreen, 126, (s, e) => SaveDocument()),
-                MakeButton("Remove registration", Color.White, 166, (s, e) => RemoveSelectedDocument())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save document", SaveGreen, 126, (s, e) => SaveDocument())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Remove registration", Color.White, 166, (s, e) => RemoveSelectedDocument()))));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -274,25 +274,25 @@ namespace HVAC_Pro_Desktop.UI
             split.Controls.Add(_rateGrid, 0, 0);
 
             FlowLayoutPanel form = MakeFormFlow();
-            _rateClient = AddCombo(form, "Client specific");
-            _rateCategory = AddCombo(form, "Category");
+            _rateClient = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client specific"));
+            _rateCategory = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category"));
             _rateCategory.Items.AddRange(new object[] { "Labor", "Diagnostic", "Emergency", "AMC", "Travel", "Installation", "Repair", "Cleaning", "Other" });
             if (_rateCategory.Items.Count > 0) _rateCategory.SelectedIndex = 0;
-            _rateName = AddText(form, "Service name *");
-            _rateUnit = AddText(form, "Unit");
-            _rateAmount = AddNumber(form, "Rate", 9999999, 2);
-            _rateGst = AddNumber(form, "GST %", 100, 2);
+            _rateName = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Service name *"));
+            _rateUnit = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit"));
+            _rateAmount = AddNumber(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Rate"), 9999999, 2);
+            _rateGst = AddNumber(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("GST %"), 100, 2);
             _rateGst.Value = 18;
-            _rateEffective = AddDate(form, "Effective from", out CheckBox unused);
+            _rateEffective = AddDate(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Effective from"), out CheckBox unused);
             unused.Checked = true;
             unused.Visible = false;
-            _rateEmergency = new CheckBox { Text = "Emergency rate", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            _rateEmergency = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Emergency rate", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) });
             form.Controls.Add(_rateEmergency);
-            _rateNotes = AddText(form, "Notes", true);
+            _rateNotes = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Notes"), true);
             form.Controls.Add(ActionRow(
-                MakeButton("New rate", ActionBlue, 92, (s, e) => ClearRateForm()),
-                MakeButton("Save rate", SaveGreen, 92, (s, e) => SaveRate()),
-                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedRate())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New rate", ActionBlue, 92, (s, e) => ClearRateForm())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save rate", SaveGreen, 92, (s, e) => SaveRate())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedRate()))));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -311,17 +311,17 @@ namespace HVAC_Pro_Desktop.UI
             _lookupCategoryGrid.SelectionChanged += (s, e) => SelectLookupCategoryFromGrid();
             categories.Controls.Add(_lookupCategoryGrid, 0, 0);
             FlowLayoutPanel categoryForm = MakeFormFlow();
-            _lookupKey = AddText(categoryForm, "Category key *");
-            _lookupModule = AddText(categoryForm, "Module *");
-            _lookupName = AddText(categoryForm, "Display name *");
-            _lookupDescription = AddText(categoryForm, "Description", true);
-            _lookupSort = AddNumber(categoryForm, "Sort order", 9999, 0);
-            _lookupActive = new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            _lookupKey = AddText(categoryForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category key *"));
+            _lookupModule = AddText(categoryForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Module *"));
+            _lookupName = AddText(categoryForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Display name *"));
+            _lookupDescription = AddText(categoryForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Description"), true);
+            _lookupSort = AddNumber(categoryForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sort order"), 9999, 0);
+            _lookupActive = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) });
             categoryForm.Controls.Add(_lookupActive);
             categoryForm.Controls.Add(ActionRow(
-                MakeButton("New category", ActionBlue, 116, (s, e) => ClearLookupCategoryForm()),
-                MakeButton("Save category", SaveGreen, 126, (s, e) => SaveLookupCategory()),
-                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupCategory())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New category", ActionBlue, 116, (s, e) => ClearLookupCategoryForm())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save category", SaveGreen, 126, (s, e) => SaveLookupCategory())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupCategory()))));
             categories.Controls.Add(categoryForm, 1, 0);
 
             TableLayoutPanel values = MakeSplit();
@@ -330,20 +330,20 @@ namespace HVAC_Pro_Desktop.UI
             _lookupValueGrid.SelectionChanged += (s, e) => SelectLookupValueFromGrid();
             values.Controls.Add(_lookupValueGrid, 0, 0);
             FlowLayoutPanel valueForm = MakeFormFlow();
-            _lookupValueCategory = AddCombo(valueForm, "Category *");
+            _lookupValueCategory = AddCombo(valueForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category *"));
             _lookupValueCategory.SelectedIndexChanged += (s, e) => LoadLookupValuesForSelectedCategory();
-            _lookupValueCode = AddText(valueForm, "Value code *");
-            _lookupValueText = AddText(valueForm, "Display text *");
-            _lookupValueDescription = AddText(valueForm, "Description", true);
-            _lookupValueSort = AddNumber(valueForm, "Sort order", 9999, 0);
-            _lookupValueDefault = new CheckBox { Text = "Default value", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
-            _lookupValueActive = new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) };
+            _lookupValueCode = AddText(valueForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Value code *"));
+            _lookupValueText = AddText(valueForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Display text *"));
+            _lookupValueDescription = AddText(valueForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Description"), true);
+            _lookupValueSort = AddNumber(valueForm, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sort order"), 9999, 0);
+            _lookupValueDefault = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Default value", Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) });
+            _lookupValueActive = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Active", Checked = true, Width = 220, Height = 24, Margin = new Padding(14, 6, 0, 0) });
             valueForm.Controls.Add(_lookupValueDefault);
             valueForm.Controls.Add(_lookupValueActive);
             valueForm.Controls.Add(ActionRow(
-                MakeButton("New value", ActionBlue, 96, (s, e) => ClearLookupValueForm()),
-                MakeButton("Save value", SaveGreen, 104, (s, e) => SaveLookupValue()),
-                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupValue())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New value", ActionBlue, 96, (s, e) => ClearLookupValueForm())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save value", SaveGreen, 104, (s, e) => SaveLookupValue())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedLookupValue()))));
             values.Controls.Add(valueForm, 1, 0);
 
             outer.Controls.Add(categories, 0, 0);
@@ -361,25 +361,25 @@ namespace HVAC_Pro_Desktop.UI
             split.Controls.Add(_serverGrid, 0, 0);
 
             FlowLayoutPanel form = MakeFormFlow();
-            _serverName = AddText(form, "Connection name *");
-            _serverType = AddCombo(form, "Server type");
+            _serverName = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Connection name *"));
+            _serverType = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Server type"));
             _serverType.Items.AddRange(new object[] { "SQL Server", "REST API", "SFTP", "Shared Folder" });
             _serverType.SelectedIndex = 0;
-            _serverHost = AddText(form, "Host / IP");
-            _serverPort = AddNumber(form, "Port", 65535, 0);
-            _serverDb = AddText(form, "Database / API name");
-            _serverApi = AddText(form, "API base URL");
-            _serverUser = AddText(form, "Username");
-            _serverSecret = AddText(form, "Password / API key");
+            _serverHost = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Host / IP"));
+            _serverPort = AddNumber(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Port"), 65535, 0);
+            _serverDb = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Database / API name"));
+            _serverApi = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("API base URL"));
+            _serverUser = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Username"));
+            _serverSecret = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Password / API key"));
             _serverSecret.UseSystemPasswordChar = true;
-            _syncDirection = AddCombo(form, "Sync direction");
+            _syncDirection = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sync direction"));
             _syncDirection.Items.AddRange(new object[] { "Import only", "Export only", "Two way" });
             _syncDirection.SelectedIndex = 0;
             form.Controls.Add(ActionRow(
-                MakeButton("New connection", ActionBlue, 130, (s, e) => ClearConnectionForm()),
-                MakeButton("Save connection", SaveGreen, 140, (s, e) => SaveConnection()),
-                MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedConnection()),
-                MakeButton("Test info", ActionBlue, 92, (s, e) => PreviewConnection())));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New connection", ActionBlue, 130, (s, e) => ClearConnectionForm())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save connection", SaveGreen, 140, (s, e) => SaveConnection())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Deactivate", Color.White, 112, (s, e) => DeactivateSelectedConnection())),
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Test info", ActionBlue, 92, (s, e) => PreviewConnection()))));
             split.Controls.Add(form, 1, 0);
             tab.Controls.Add(split);
             return tab;
@@ -389,14 +389,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             TabPage tab = new TabPage("Imports") { BackColor = DS.BgPage, Padding = new Padding(18) };
             Panel top = new Panel { Dock = DockStyle.Top, Height = 84, Padding = new Padding(18), BackColor = SoftTeal };
-            top.Controls.Add(new Label
+            top.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Recent import batches appear here. ServoERP now auto-detects the worksheet, maps columns, fixes safe data issues, and logs skipped rows for review.",
                 Dock = DockStyle.Fill,
                 ForeColor = Color.FromArgb(15, 118, 110),
-                Font = new Font("Segoe UI", 10f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f),
                 TextAlign = ContentAlignment.MiddleLeft
-            });
+            }));
             _importGrid = MakeGrid();
             tab.Controls.Add(_importGrid);
             tab.Controls.Add(top);
@@ -460,32 +460,32 @@ namespace HVAC_Pro_Desktop.UI
             layout.Controls.Add(heroIcon, 0, 0);
 
             Panel textBlock = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Padding = new Padding(0, 8, 0, 0) };
-            textBlock.Controls.Add(new Label
+            textBlock.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Data Control Center",
                 Location = new Point(0, 0),
                 Size = new Size(560, 40),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                Font = new Font("Segoe UI", 20f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 20f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            });
-            textBlock.Controls.Add(new Label
+            }));
+            textBlock.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Drop an Excel workbook here.\r\nServoERP detects the data type, cleans messy columns,\r\nlinks master data, and imports safe rows automatically.",
                 Location = new Point(0, 52),
                 Size = new Size(520, 86),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
-                Font = new Font("Segoe UI", 10.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f),
                 ForeColor = DS.Slate600
-            });
+            }));
             layout.Controls.Add(textBlock, 1, 0);
 
             TableLayoutPanel mini = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = Color.Transparent };
             mini.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             mini.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             mini.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Security, "Safe Import", "Clean and verify automatically", DS.Green50, DS.Green600), 0, 0);
-            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Refresh, "Smart Sync", "Detect once, use everywhere", Color.FromArgb(245, 243, 255), Color.FromArgb(124, 58, 237)), 1, 0);
+            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Security, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Safe Import"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Clean and verify automatically"), DS.Green50, DS.Green600), 0, 0);
+            mini.Controls.Add(BuildHeroMiniBlock(ModernIconKind.Refresh, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Smart Sync"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Detect once, use everywhere"), Color.FromArgb(245, 243, 255), Color.FromArgb(124, 58, 237)), 1, 0);
             layout.Controls.Add(mini, 2, 0);
 
             Control visual = BuildHeroVisual();
@@ -531,7 +531,7 @@ namespace HVAC_Pro_Desktop.UI
                 WrapContents = true
             };
             uploadGrid.Resize += (s, e) => ResizeUploadCards(uploadGrid);
-            Control uploadTitle = SectionTitle("Smart upload cards", "Choose what you are onboarding. ServoERP will validate and route records to the right module.");
+            Control uploadTitle = SectionTitle(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Smart upload cards"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose what you are onboarding. ServoERP will validate and route records to the right module."));
             uploadGrid.Controls.Add(uploadTitle);
             foreach (ExcelImportModule module in ImportableModules())
                 uploadGrid.Controls.Add(BuildUploadCard(GetUploadTitle(module), CountUploadRecords(module), GetUploadDescription(module), module, GetUploadKey(module)));
@@ -553,14 +553,14 @@ namespace HVAC_Pro_Desktop.UI
             actionGrid.RowStyles.Add(new RowStyle(SizeType.Absolute, 66f));
             for (int i = 0; i < 5; i++)
                 actionGrid.RowStyles.Add(new RowStyle(SizeType.Percent, 20f));
-            Control actionTitle = SectionTitle("Sync command center", "One-click checks before data is used across the ERP.");
+            Control actionTitle = SectionTitle(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sync command center"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("One-click checks before data is used across the ERP."));
             actionTitle.Dock = DockStyle.Fill;
             actionGrid.Controls.Add(actionTitle, 0, 0);
-            AddActionGridTile(actionGrid, BuildActionTile("Refresh all data", "Reload counts and integration status", ModernIconKind.Refresh, DS.Primary600, async () => await LoadAllAsync()), 1);
-            AddActionGridTile(actionGrid, BuildActionTile("Download templates", "Get Excel formats for clean imports", ModernIconKind.Import, SaveGreen, () => ShowTemplateMenu(actions)), 2);
-            AddActionGridTile(actionGrid, BuildActionTile("Duplicate check", "Find repeated clients, vendors, quotes", ModernIconKind.Filter, Color.FromArgb(249, 115, 22), () => ShowDuplicateCheck()), 3);
-            AddActionGridTile(actionGrid, BuildActionTile("Open import log", "Review recent sync batches", ModernIconKind.Document, Color.FromArgb(124, 58, 237), () => ShowExistingTab(6)), 4);
-            AddActionGridTile(actionGrid, BuildActionTile("Integration status", "Check API and app connectivity", ModernIconKind.Status, DS.Teal600, () => ShowExistingTab(5)), 5);
+            AddActionGridTile(actionGrid, BuildActionTile(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Refresh all data"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Reload counts and integration status"), ModernIconKind.Refresh, DS.Primary600, async () => await LoadAllAsync()), 1);
+            AddActionGridTile(actionGrid, BuildActionTile(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Download templates"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Get Excel formats for clean imports"), ModernIconKind.Import, SaveGreen, () => ShowTemplateMenu(actions)), 2);
+            AddActionGridTile(actionGrid, BuildActionTile(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Duplicate check"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Find repeated clients, vendors, quotes"), ModernIconKind.Filter, Color.FromArgb(249, 115, 22), () => ShowDuplicateCheck()), 3);
+            AddActionGridTile(actionGrid, BuildActionTile(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open import log"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Review recent sync batches"), ModernIconKind.Document, Color.FromArgb(124, 58, 237), () => ShowExistingTab(6)), 4);
+            AddActionGridTile(actionGrid, BuildActionTile(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Integration status"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Check API and app connectivity"), ModernIconKind.Status, DS.Teal600, () => ShowExistingTab(5)), 5);
             actions.Controls.Add(actionGrid);
 
             row.Controls.Add(uploads, 0, 0);
@@ -586,7 +586,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             grid.Resize += (s, e) => ResizeLookupCards(grid);
 
-            grid.Controls.Add(SectionTitle("Reference cards", "Manage missing master-data categories used by HR, payroll, service, purchase, inventory and sales documents."));
+            grid.Controls.Add(SectionTitle(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Reference cards"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Manage missing master-data categories used by HR, payroll, service, purchase, inventory and sales documents.")));
             foreach (LookupCardDefinition definition in LookupCardDefinitions())
                 grid.Controls.Add(BuildLookupCard(definition, snapshot));
 
@@ -630,47 +630,47 @@ namespace HVAC_Pro_Desktop.UI
             icon.Cursor = Cursors.Hand;
             icon.Click += (s, e) => OpenLookupCard(definition.CategoryKey);
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = definition.Title,
                 Location = new Point(56, 12),
                 Size = new Size(142, 22),
-                Font = new Font("Segoe UI", 9.25f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.25f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            };
-            Label module = new Label
+            });
+            Label module = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = definition.Module,
                 Location = new Point(56, 35),
                 Size = new Size(116, 18),
-                Font = new Font("Segoe UI", 8.1f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.1f, FontStyle.Bold),
                 ForeColor = definition.Color,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            };
-            Label count = new Label
+            });
+            Label count = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = values.Count.ToString("N0") + " values",
+                Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} values", values.Count.ToString("N0")),
                 Location = new Point(56, 58),
                 Size = new Size(96, 20),
-                Font = new Font("Segoe UI", 8.6f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.6f),
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            };
-            Label arrow = new Label
+            });
+            Label arrow = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = ">",
                 Location = new Point(card.Width - 30, 35),
                 Size = new Size(18, 20),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
-                Font = new Font("Segoe UI", 11f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold),
                 ForeColor = DS.Slate400,
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = Color.Transparent
-            };
+            });
 
             foreach (Control child in new Control[] { title, module, count, arrow })
                 child.Click += (s, e) => OpenLookupCard(definition.CategoryKey);
@@ -688,14 +688,14 @@ namespace HVAC_Pro_Desktop.UI
             row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             row.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             row.Controls.Add(ModernIconSystem.Badge(ModernIconKind.Alert, 28, DS.Primary100, DS.Primary700, 14), 0, 0);
-            row.Controls.Add(new Label
+            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Tip: Keep your master data clean and up to date for accurate reporting and smarter automation across ServoERP.",
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 ForeColor = DS.Slate600
-            }, 1, 0);
+            }), 1, 0);
             panel.Controls.Add(row);
             return panel;
         }
@@ -708,15 +708,15 @@ namespace HVAC_Pro_Desktop.UI
 
             FlowLayoutPanel warnings = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(18), FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
             warnings.Paint += (s, e) => DrawHubBorder(warnings, e);
-            warnings.Controls.Add(SectionTitle("Missing data warnings", "Resolve these to make imports usable in quotations, POs, invoices, jobs, and reports."));
+            warnings.Controls.Add(SectionTitle(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Missing data warnings"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Resolve these to make imports usable in quotations, POs, invoices, jobs, and reports.")));
             foreach (MasterDataStatus status in (snapshot?.SetupStatus ?? new List<MasterDataStatus>()).Where(s => !s.IsComplete).Take(6))
                 warnings.Controls.Add(BuildWarningRow(status.Category, status.NextAction));
             if (warnings.Controls.Count == 1)
-                warnings.Controls.Add(BuildWarningRow("All required hubs have data", "Ready to use across modules"));
+                warnings.Controls.Add(BuildWarningRow(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("All required hubs have data"), "Ready to use across modules"));
 
             FlowLayoutPanel recent = new FlowLayoutPanel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(18), FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true };
             recent.Paint += (s, e) => DrawHubBorder(recent, e);
-            recent.Controls.Add(SectionTitle("Recent imports and sync status", "Track what entered the ERP and what still needs validation."));
+            recent.Controls.Add(SectionTitle(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Recent imports and sync status"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Track what entered the ERP and what still needs validation.")));
             List<DataImportBatch> batches = snapshot?.ImportBatches ?? new List<DataImportBatch>();
             foreach (DataImportBatch batch in batches.Take(5))
                 recent.Controls.Add(BuildRecentImportRow(batch.SourceFile ?? batch.ImportType ?? "Import batch", batch.Status ?? "Pending", batch.SuccessRows, batch.ErrorRows));
@@ -734,9 +734,9 @@ namespace HVAC_Pro_Desktop.UI
             int complete = snapshot?.SetupStatus?.Count(s => s.IsComplete) ?? 0;
             int total = Math.Max(1, snapshot?.SetupStatus?.Count ?? 1);
             int health = (int)Math.Round((complete * 100m) / total);
-            panel.Controls.Add(new Label { Text = "Integration health", Location = new Point(24, 16), Size = new Size(150, 20), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 });
-            panel.Controls.Add(new Label { Text = health + "%", Location = new Point(24, 36), Size = new Size(90, 28), Font = new Font("Segoe UI", 16f, FontStyle.Bold), ForeColor = health >= 80 ? SaveGreen : Color.FromArgb(249, 115, 22) });
-            panel.Controls.Add(new Label { Text = "Data is available to Clients, Sites, Vendors, Inventory, Purchases, Invoices, Payments, Quotations, Jobs, Employees, and Reports.", Location = new Point(170, 28), Size = new Size(900, 26), Font = new Font("Segoe UI", 9f), ForeColor = DS.Slate600 });
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Integration health", Location = new Point(24, 16), Size = new Size(150, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate700 }));
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = health + "%", Location = new Point(24, 36), Size = new Size(90, 28), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold), ForeColor = health >= 80 ? SaveGreen : Color.FromArgb(249, 115, 22) }));
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Data is available to Clients, Sites, Vendors, Inventory, Purchases, Invoices, Payments, Quotations, Jobs, Employees, and Reports.", Location = new Point(170, 28), Size = new Size(900, 26), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f), ForeColor = DS.Slate600 }));
             return panel;
         }
 
@@ -1312,7 +1312,7 @@ namespace HVAC_Pro_Desktop.UI
                 DatabaseName = _serverDb.Text,
                 ApiBaseUrl = _serverApi.Text
             };
-            MessageBox.Show(_svc.BuildConnectionPreview(connection), "Private server connection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(_svc.BuildConnectionPreview(connection), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Private server connection"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ClearAssetForm()
@@ -1460,7 +1460,7 @@ namespace HVAC_Pro_Desktop.UI
         private static TextBox AddText(FlowLayoutPanel form, string label, bool multiline = false)
         {
             form.Controls.Add(FieldLabel(label));
-            TextBox box = new TextBox { Width = 300, Height = multiline ? 86 : 32, Multiline = multiline, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            TextBox box = new TextBox { Width = 300, Height = multiline ? 86 : 32, Multiline = multiline, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(box);
             return box;
         }
@@ -1468,7 +1468,7 @@ namespace HVAC_Pro_Desktop.UI
         private static ComboBox AddCombo(FlowLayoutPanel form, string label)
         {
             form.Controls.Add(FieldLabel(label));
-            ComboBox combo = new ComboBox { Width = 300, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            ComboBox combo = new ComboBox { Width = 300, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(combo);
             return combo;
         }
@@ -1476,7 +1476,7 @@ namespace HVAC_Pro_Desktop.UI
         private static NumericUpDown AddNumber(FlowLayoutPanel form, string label, decimal maximum, int decimals)
         {
             form.Controls.Add(FieldLabel(label));
-            NumericUpDown num = new NumericUpDown { Width = 170, Height = 32, Maximum = maximum, DecimalPlaces = decimals, Font = new Font("Segoe UI", 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            NumericUpDown num = new NumericUpDown { Width = 170, Height = 32, Maximum = maximum, DecimalPlaces = decimals, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), Margin = new Padding(0, 0, 0, 10), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             form.Controls.Add(num);
             return num;
         }
@@ -1486,7 +1486,7 @@ namespace HVAC_Pro_Desktop.UI
             form.Controls.Add(FieldLabel(label));
             FlowLayoutPanel row = new FlowLayoutPanel { Width = 300, Height = 36, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Margin = new Padding(0, 0, 0, 10), Tag = "DateFieldRow" };
             enabled = new CheckBox { Width = 28, Height = 28, Margin = new Padding(0, 3, 8, 0) };
-            DateTimePicker date = new DateTimePicker { Width = 200, Height = 32, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 9.5f), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
+            DateTimePicker date = new DateTimePicker { Width = 200, Height = 32, Format = DateTimePickerFormat.Short, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
             row.Controls.Add(enabled);
             row.Controls.Add(date);
             form.Controls.Add(row);
@@ -1496,7 +1496,7 @@ namespace HVAC_Pro_Desktop.UI
         private static Label FieldLabel(string text)
         {
             bool required = (text ?? string.Empty).Contains("*");
-            return new Label { Text = text, Width = 300, Height = 20, ForeColor = required ? DS.Primary700 : DS.Slate700, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), Margin = new Padding(0, 8, 0, 3), AutoEllipsis = true };
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Width = 300, Height = 20, ForeColor = required ? DS.Primary700 : DS.Slate700, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, FontStyle.Bold), Margin = new Padding(0, 8, 0, 3), AutoEllipsis = true });
         }
 
         private static FlowLayoutPanel ActionRow(params Button[] buttons)
@@ -1571,8 +1571,8 @@ namespace HVAC_Pro_Desktop.UI
         private static Control SectionTitle(string title, string subtitle)
         {
             Panel panel = new Panel { Width = 760, Height = 60, Margin = new Padding(0, 0, 0, 10), BackColor = Color.Transparent, Tag = "SectionTitle" };
-            var titleLabel = new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 26), Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
-            var subtitleLabel = new Label { Text = subtitle, Location = new Point(0, 30), Size = new Size(720, 24), Font = new Font("Segoe UI", 8.75f), ForeColor = DS.Slate600, AutoEllipsis = true };
+            var titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(0, 0), Size = new Size(680, 26), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            var subtitleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subtitle, Location = new Point(0, 30), Size = new Size(720, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f), ForeColor = DS.Slate600, AutoEllipsis = true });
             panel.Controls.Add(titleLabel);
             panel.Controls.Add(subtitleLabel);
             panel.Resize += (s, e) =>
@@ -1594,17 +1594,17 @@ namespace HVAC_Pro_Desktop.UI
             Color accent = UploadAccent(key);
             card.Controls.Add(ModernIconSystem.Badge(iconKind, 38, DS.Lighten(accent, 0.84f), accent, 10));
             card.Controls[0].Location = new Point(14, 14);
-            card.Controls.Add(new Label { Text = ShortUploadTitle(title), Location = new Point(60, 14), Size = new Size(92, 22), Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = count.ToString("N0") + " recs", Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22), AutoEllipsis = true });
-            card.Controls.Add(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate600, AutoEllipsis = true });
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = ShortUploadTitle(title), Location = new Point(60, 14), Size = new Size(92, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} recs", count.ToString("N0")), Location = new Point(card.Width - 75, 16), Size = new Size(64, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, TextAlign = ContentAlignment.MiddleRight, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = count > 0 ? SaveGreen : Color.FromArgb(249, 115, 22), AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = description, Location = new Point(60, 40), Size = new Size(card.Width - 74, 42), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f), ForeColor = DS.Slate600, AutoEllipsis = true }));
 
             int actionRowY = module.HasValue ? 102 : card.Height - 44;
-            Button primary = new Button { Text = module.HasValue ? "Import" : ResolveCardAction(key), Location = new Point(14, actionRowY), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom };
+            Button primary = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = (module.HasValue ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import") : ResolveCardAction(key)), Location = new Point(14, actionRowY), Size = new Size(96, 32), FlatStyle = FlatStyle.Flat, BackColor = module.HasValue ? DS.Primary600 : DS.Slate100, ForeColor = module.HasValue ? Color.White : DS.Slate800, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Bottom });
             primary.AutoEllipsis = true;
             primary.FlatAppearance.BorderSize = 0;
             DS.Rounded(primary, DS.RadiusSm);
             primary.Click += (s, e) => RunCardAction(module, key);
-            Button map = new Button { Text = "Auto Sync", Location = new Point(128, actionRowY), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font("Segoe UI", 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom };
+            Button map = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Auto Sync", Location = new Point(128, actionRowY), Size = new Size(78, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = DS.Slate800, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), Anchor = AnchorStyles.Right | AnchorStyles.Bottom });
             map.AutoEllipsis = true;
             map.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(map, DS.RadiusSm);
@@ -1614,7 +1614,7 @@ namespace HVAC_Pro_Desktop.UI
             Button duplicates = null;
             if (module.HasValue)
             {
-                duplicates = new Button { Text = "Check / Remove Duplicates", Location = new Point(14, 144), Size = new Size(card.Width - 28, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(194, 65, 12), Font = new Font("Segoe UI", 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom };
+                duplicates = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Check / Remove Duplicates", Location = new Point(14, 144), Size = new Size(card.Width - 28, 32), FlatStyle = FlatStyle.Flat, BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(194, 65, 12), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.75f, FontStyle.Bold), Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Bottom });
                 duplicates.AutoEllipsis = true;
                 duplicates.FlatAppearance.BorderColor = Color.FromArgb(253, 186, 116);
                 DS.Rounded(duplicates, DS.RadiusSm);
@@ -1675,10 +1675,10 @@ namespace HVAC_Pro_Desktop.UI
             Label mark = ModernIconSystem.Badge(iconKind, 34, DS.Lighten(color, 0.84f), color, 9);
             mark.Location = new Point(14, 12);
             tile.Controls.Add(mark);
-            tile.Controls.Add(new Label { Text = title, Location = new Point(62, 9), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
-            tile.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 31), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font("Segoe UI", 7.8f), ForeColor = DS.Slate500, AutoEllipsis = true });
+            tile.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(62, 9), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
+            tile.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subtitle, Location = new Point(62, 31), Size = new Size(205, 20), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f), ForeColor = DS.Slate500, AutoEllipsis = true }));
             Label chevron = ModernIconSystem.Icon(ModernIconKind.ChevronDown, 14, DS.Slate500);
-            chevron.Text = ">";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(chevron, ">");
             chevron.Location = new Point(tile.Width - 28, 17);
             chevron.Size = new Size(18, 24);
             chevron.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -1695,8 +1695,8 @@ namespace HVAC_Pro_Desktop.UI
             Control icon = ModernIconSystem.Badge(iconKind, 42, backColor, foreColor, 12);
             icon.Location = new Point(8, 28);
             panel.Controls.Add(icon);
-            panel.Controls.Add(new Label { Text = title, Location = new Point(62, 24), Size = new Size(140, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = subtitle, Location = new Point(62, 48), Size = new Size(142, 22), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600, AutoEllipsis = true });
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(62, 24), Size = new Size(140, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subtitle, Location = new Point(62, 48), Size = new Size(142, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate600, AutoEllipsis = true }));
             return panel;
         }
 
@@ -1705,8 +1705,8 @@ namespace HVAC_Pro_Desktop.UI
             Panel panel = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Margin = new Padding(6, 0, 0, 0) };
             Panel doc = new Panel { Size = new Size(96, 82), Location = new Point(18, 8), BackColor = DS.Primary50 };
             DS.Rounded(doc, 12);
-            doc.Controls.Add(new Label { Text = "XLS", Location = new Point(10, 10), Size = new Size(42, 22), BackColor = SaveGreen, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8f, FontStyle.Bold) });
-            doc.Controls.Add(new Label { Text = "Data\nSync", Location = new Point(18, 38), Size = new Size(70, 38), ForeColor = DS.Primary700, Font = new Font("Segoe UI", 10f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
+            doc.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "XLS", Location = new Point(10, 10), Size = new Size(42, 22), BackColor = SaveGreen, ForeColor = Color.White, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold) }));
+            doc.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Data\nSync", Location = new Point(18, 38), Size = new Size(70, 38), ForeColor = DS.Primary700, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter }));
             Panel cloud = ModernIconSystem.EmptyStateIcon(ModernIconKind.Import, 48, DS.Green50, SaveGreen);
             cloud.Location = new Point(104, 50);
             panel.Controls.Add(doc);
@@ -1725,13 +1725,13 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(DS.Primary100))
                     e.Graphics.DrawPath(pen, path);
             };
-            numberBadge.Controls.Add(new Label { Text = number.ToString(), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Primary700 });
+            numberBadge.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = number.ToString(), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = DS.Primary700 }));
             panel.Controls.Add(numberBadge);
             Control icon = ModernIconSystem.Badge(iconKind, 48, number == 2 ? DS.Amber50 : number == 3 ? Color.FromArgb(245, 243, 255) : number == 5 ? DS.Green50 : DS.Primary50, number == 2 ? DS.Amber600 : number == 3 ? Color.FromArgb(124, 58, 237) : number == 5 ? SaveGreen : DS.Primary700, 14);
             icon.Location = new Point(44, 20);
             panel.Controls.Add(icon);
-            panel.Controls.Add(new Label { Text = title, Location = new Point(104, 20), Size = new Size(128, 24), Font = new Font("Segoe UI", 9.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
-            panel.Controls.Add(new Label { Text = caption, Location = new Point(104, 46), Size = new Size(142, 42), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate600, AutoEllipsis = true });
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(104, 20), Size = new Size(128, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = caption, Location = new Point(104, 46), Size = new Size(142, 42), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate600, AutoEllipsis = true }));
             return panel;
         }
 
@@ -1806,9 +1806,9 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildWarningRow(string title, string action)
         {
             Panel row = new Panel { Width = 460, Height = 42, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
-            row.Controls.Add(new Label { Text = "!", Location = new Point(0, 6), Size = new Size(28, 28), BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(234, 88, 12), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Segoe UI", 9f, FontStyle.Bold) });
-            var titleLabel = new Label { Text = title, Location = new Point(40, 2), Size = new Size(190, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
-            var actionLabel = new Label { Text = action, Location = new Point(40, 21), Size = new Size(340, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "!", Location = new Point(0, 6), Size = new Size(28, 28), BackColor = Color.FromArgb(255, 247, 237), ForeColor = Color.FromArgb(234, 88, 12), TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold) }));
+            var titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(40, 2), Size = new Size(190, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            var actionLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = action, Location = new Point(40, 21), Size = new Size(340, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate500, AutoEllipsis = true });
             row.Controls.Add(titleLabel);
             row.Controls.Add(actionLabel);
             row.Resize += (s, e) =>
@@ -1822,9 +1822,9 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildRecentImportRow(string source, string status, int success, int failed)
         {
             Panel row = new Panel { Width = 460, Height = 48, BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
-            var sourceLabel = new Label { Text = source, Location = new Point(0, 2), Size = new Size(245, 20), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true };
-            var statusLabel = new Label { Text = status, Location = new Point(260, 2), Size = new Size(100, 20), Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = failed > 0 ? DS.Red600 : SaveGreen, AutoEllipsis = true };
-            var countLabel = new Label { Text = success + " synced | " + failed + " issues", Location = new Point(0, 24), Size = new Size(240, 18), Font = new Font("Segoe UI", 8f), ForeColor = DS.Slate500, AutoEllipsis = true };
+            var sourceLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = source, Location = new Point(0, 2), Size = new Size(245, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true });
+            var statusLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = status, Location = new Point(260, 2), Size = new Size(100, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), ForeColor = failed > 0 ? DS.Red600 : SaveGreen, AutoEllipsis = true });
+            var countLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} synced | {1} issues", success, failed), Location = new Point(0, 24), Size = new Size(240, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = DS.Slate500, AutoEllipsis = true });
             row.Controls.Add(sourceLabel);
             row.Controls.Add(statusLabel);
             row.Controls.Add(countLabel);
@@ -1861,10 +1861,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Auto-detect this Excel file", null, (s, e) => ImportUiHelper.RunImportFile(file, null, ResolveDialogOwner()));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Auto-detect this Excel file", null, (s, e) => ImportUiHelper.RunImportFile(file, null, ResolveDialogOwner())));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
-                menu.Items.Add("Import as " + GetUploadTitle(module), null, (s, e) => ImportFileAs(module, file));
+                menu.Items.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Import as {0}", GetUploadTitle(module)), null, (s, e) => ImportFileAs(module, file));
 
             if (!TryShowMenu(menu, this, PointToClient(Cursor.Position)))
                 ShowStatus("Master Data page is refreshing. Please try the import again.", true);
@@ -1876,10 +1876,10 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Auto-detect Excel files in this folder", null, (s, e) => ImportFolderAs(null, folder));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Auto-detect Excel files in this folder", null, (s, e) => ImportFolderAs(null, folder)));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
-                menu.Items.Add("Import folder as " + GetUploadTitle(module), null, (s, e) => ImportFolderAs(module, folder));
+                menu.Items.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Import folder as {0}", GetUploadTitle(module)), null, (s, e) => ImportFolderAs(module, folder));
 
             if (!TryShowMenu(menu, this, PointToClient(Cursor.Position)))
                 ShowStatus("Master Data page is refreshing. Please try the folder import again.", true);
@@ -1920,13 +1920,13 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             ContextMenuStrip menu = new ContextMenuStrip();
-            menu.Items.Add("Auto-detect from Excel", null, (s, e) => ImportUiHelper.RunImport(ResolveDialogOwner()));
-            menu.Items.Add("Auto-detect from Folder", null, (s, e) => RunFolderImport(null));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Auto-detect from Excel", null, (s, e) => ImportUiHelper.RunImport(ResolveDialogOwner())));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Auto-detect from Folder", null, (s, e) => RunFolderImport(null)));
             menu.Items.Add(new ToolStripSeparator());
             foreach (ExcelImportModule module in ImportableModules())
             {
-                menu.Items.Add("Upload " + GetUploadTitle(module), null, (s, e) => RunModuleImport(module));
-                menu.Items.Add("Upload " + GetUploadTitle(module) + " Folder", null, (s, e) => RunFolderImport(module));
+                menu.Items.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Upload {0}", GetUploadTitle(module)), null, (s, e) => RunModuleImport(module));
+                menu.Items.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Upload {0} Folder", GetUploadTitle(module)), null, (s, e) => RunFolderImport(module));
             }
 
             if (!TryShowMenu(menu, owner, new Point(12, owner.Height - 8)))
@@ -1943,11 +1943,11 @@ namespace HVAC_Pro_Desktop.UI
 
             ContextMenuStrip menu = new ContextMenuStrip();
             foreach (ExcelImportModule module in ImportableModules())
-                menu.Items.Add(GetUploadTitle(module) + " template", null, (s, e) => ImportUiHelper.DownloadTemplate(module, ResolveDialogOwner()));
+                menu.Items.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} template", GetUploadTitle(module)), null, (s, e) => ImportUiHelper.DownloadTemplate(module, ResolveDialogOwner()));
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("Open field-service form library", null, (s, e) => OpenFieldServiceFormLibrary());
-            menu.Items.Add("Open field-service template ZIP", null, (s, e) => OpenFieldServiceTemplateZip());
-            menu.Items.Add("Show field-service library summary", null, (s, e) => ShowFieldServiceLibrarySummary());
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Open field-service form library", null, (s, e) => OpenFieldServiceFormLibrary()));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Open field-service template ZIP", null, (s, e) => OpenFieldServiceTemplateZip()));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.CaptionItem(menu.Items.Add("Show field-service library summary", null, (s, e) => ShowFieldServiceLibrarySummary()));
 
             if (!TryShowMenu(menu, owner, new Point(12, 42)))
                 ShowStatus("Master Data page is refreshing. Please try again.", true);
@@ -1959,7 +1959,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (!_formTemplateLibrary.IsAvailable)
                 {
-                    MessageBox.Show(this, "Field-service form library was not found at:\r\n" + _formTemplateLibrary.RootFolder, "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Field-service form library was not found at:\r\n{0}", _formTemplateLibrary.RootFolder), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Form Template Library"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
@@ -1977,7 +1977,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (!File.Exists(_formTemplateLibrary.ZipPath))
                 {
-                    MessageBox.Show(this, "Field-service template ZIP was not found at:\r\n" + _formTemplateLibrary.ZipPath, "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Field-service template ZIP was not found at:\r\n{0}", _formTemplateLibrary.ZipPath), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Form Template Library"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
@@ -1995,7 +1995,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (!_formTemplateLibrary.IsAvailable)
                 {
-                    MessageBox.Show(this, "Field-service form library has not been generated yet.", "Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Field-service form library has not been generated yet."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Form Template Library"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
@@ -2004,7 +2004,7 @@ namespace HVAC_Pro_Desktop.UI
                     + Environment.NewLine + Environment.NewLine
                     + "Use these templates in Jobs, Service Desk, Contracts, Inventory, Purchases, Finance, and Compliance workflows.";
 
-                MessageBox.Show(this, body, "Field-Service Form Template Library", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, body, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Field-Service Form Template Library"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -2167,7 +2167,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowExistingTab(int index)
         {
-            using (Form dialog = ServoModalForm.Create("Master data details", 1180, 760))
+            using (Form dialog = ServoModalForm.Create(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Master data details"), 1180, 760))
             {
                 Control tabs = BuildTabs();
                 tabs.Dock = DockStyle.Fill;
@@ -2180,7 +2180,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ShowMappingHint(string subject)
         {
-            MessageBox.Show(this, "ServoERP now handles mapping for " + subject + " automatically.\r\n\r\nUpload the Excel file and the app will detect columns, clean values, create safe defaults, and skip only unsafe rows.", "Automatic import", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("ServoERP now handles mapping for {0} automatically.\r\n\r\nUpload the Excel file and the app will detect columns, clean values, create safe defaults, and skip only unsafe rows.", subject), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Automatic import"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private void ShowDuplicateCheck()
@@ -2227,7 +2227,7 @@ namespace HVAC_Pro_Desktop.UI
         private static Button MakeButton(string text, Color color, int width, EventHandler click = null)
         {
             bool light = color == Color.White || color.GetBrightness() > 0.92f;
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = Math.Max(width, 104),
@@ -2235,9 +2235,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = color,
                 ForeColor = light ? DS.Slate800 : Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderSize = light ? 1 : 0;
             button.FlatAppearance.BorderColor = light ? DS.BorderStrong : color;
             button.FlatAppearance.MouseOverBackColor = light ? DS.BgCardHov : DS.Lighten(color, 0.08f);
@@ -2249,7 +2249,7 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowStatus(string text, bool isError)
         {
             if (_status == null) return;
-            _status.Text = text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, text);
             _status.ForeColor = isError ? Color.FromArgb(185, 28, 28) : DS.Slate500;
         }
 
@@ -2273,12 +2273,12 @@ namespace HVAC_Pro_Desktop.UI
             public CompanyTemplateManagerDialog(CompanyTemplateManager manager)
             {
                 _manager = manager;
-                Text = "Company Document Templates";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Company Document Templates");
                 StartPosition = FormStartPosition.CenterParent;
                 Size = new Size(1320, 820);
                 MinimumSize = new Size(1180, 720);
                 BackColor = DS.BgPage;
-                Font = new Font("Segoe UI", 9f);
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
                 Build();
                 RefreshTemplates();
             }
@@ -2286,8 +2286,8 @@ namespace HVAC_Pro_Desktop.UI
             private void Build()
             {
                 Panel header = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = Color.White, Padding = new Padding(22, 12, 22, 8) };
-                header.Controls.Add(new Label { Text = "Company Document Templates", Dock = DockStyle.Top, Height = 30, Font = new Font("Segoe UI", 17f, FontStyle.Bold), ForeColor = DS.Slate900 });
-                header.Controls.Add(new Label { Text = "Upload real invoice, quotation, PO, delivery note, letterhead, contract, and report formats once. ServoERP recognizes, maps, and reuses them across document generation.", Dock = DockStyle.Bottom, Height = 24, ForeColor = DS.Slate600 });
+                header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Company Document Templates", Dock = DockStyle.Top, Height = 30, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 17f, FontStyle.Bold), ForeColor = DS.Slate900 }));
+                header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Upload real invoice, quotation, PO, delivery note, letterhead, contract, and report formats once. ServoERP recognizes, maps, and reuses them across document generation.", Dock = DockStyle.Bottom, Height = 24, ForeColor = DS.Slate600 }));
                 Controls.Add(header);
 
                 TableLayoutPanel root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 1, Padding = new Padding(18), BackColor = DS.BgPage };
@@ -2331,17 +2331,17 @@ namespace HVAC_Pro_Desktop.UI
                 drop.DragEnter += (s, e) => { if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy; };
                 drop.DragDrop += (s, e) => UploadFiles((string[])e.Data.GetData(DataFormats.FileDrop));
                 drop.Click += (s, e) => PickAndUpload();
-                drop.Controls.Add(new Label { Text = "PDF, Word, Excel, CSV, PNG, JPG, invoice/quotation samples", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate600 });
-                drop.Controls.Add(new Label { Text = "Drop company template here", Dock = DockStyle.Top, Height = 40, TextAlign = ContentAlignment.BottomCenter, Font = new Font("Segoe UI", 13f, FontStyle.Bold), ForeColor = DS.Slate900 });
+                drop.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "PDF, Word, Excel, CSV, PNG, JPG, invoice/quotation samples", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleCenter, ForeColor = DS.Slate600 }));
+                drop.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Drop company template here", Dock = DockStyle.Top, Height = 40, TextAlign = ContentAlignment.BottomCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = DS.Slate900 }));
 
                 FlowLayoutPanel row = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 10, 0, 8), BackColor = Color.White, WrapContents = false };
                 _type = new ComboBox { Width = 176, DropDownStyle = ComboBoxStyle.DropDownList };
                 _type.Items.AddRange(Enum.GetNames(typeof(CompanyDocumentTemplateType)));
                 _type.SelectedItem = CompanyDocumentTemplateType.Other.ToString();
                 row.Controls.Add(_type);
-                row.Controls.Add(MakeButton("Upload", DS.Primary600, 96, (s, e) => PickAndUpload()));
+                row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Upload", DS.Primary600, 96, (s, e) => PickAndUpload())));
 
-                _list = new ListBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9.5f), IntegralHeight = false, HorizontalScrollbar = true };
+                _list = new ListBox { Dock = DockStyle.Fill, BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), IntegralHeight = false, HorizontalScrollbar = true };
                 _list.SelectedIndexChanged += (s, e) => SelectCurrent();
                 layout.Controls.Add(drop, 0, 0);
                 layout.Controls.Add(row, 0, 1);
@@ -2371,25 +2371,25 @@ namespace HVAC_Pro_Desktop.UI
                 panel.Controls.Add(layout);
 
                 FlowLayoutPanel actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(0, 12, 0, 0), WrapContents = false };
-                actions.Controls.Add(MakeButton("Save mapping", SaveGreen, 120, (s, e) => SaveSelected()));
-                actions.Controls.Add(MakeButton("Set default", DS.Primary600, 110, (s, e) => SetDefault()));
-                actions.Controls.Add(MakeButton("Open file", DS.Slate700, 96, (s, e) => OpenSelected()));
-                actions.Controls.Add(MakeButton("Remove", Color.White, 96, (s, e) => RemoveSelected()));
+                actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save mapping", SaveGreen, 120, (s, e) => SaveSelected())));
+                actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Set default", DS.Primary600, 110, (s, e) => SetDefault())));
+                actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open file", DS.Slate700, 96, (s, e) => OpenSelected())));
+                actions.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Remove", Color.White, 96, (s, e) => RemoveSelected())));
 
                 _mapping = new TextBox { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Font = new Font("Consolas", 9f), BorderStyle = BorderStyle.FixedSingle };
-                Label mappingTitle = new Label { Text = "Manual mapping (Field=Placeholder per line)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 };
+                Label mappingTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Manual mapping (Field=Placeholder per line)", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate700 });
 
                 FlowLayoutPanel toggles = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = true, Padding = new Padding(0, 8, 0, 4) };
-                _default = new CheckBox { Text = "Default for this document type", Width = 230, Height = 26 };
-                _useInvoice = new CheckBox { Text = "Use for Invoices", Width = 150, Height = 26 };
-                _useQuote = new CheckBox { Text = "Use for Quotations", Width = 170, Height = 26 };
-                _usePo = new CheckBox { Text = "Use for POs", Width = 130, Height = 26 };
-                _useReport = new CheckBox { Text = "Use for Reports", Width = 150, Height = 26 };
+                _default = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Default for this document type", Width = 230, Height = 26 });
+                _useInvoice = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Use for Invoices", Width = 150, Height = 26 });
+                _useQuote = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Use for Quotations", Width = 170, Height = 26 });
+                _usePo = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Use for POs", Width = 130, Height = 26 });
+                _useReport = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox { Text = "Use for Reports", Width = 150, Height = 26 });
                 toggles.Controls.AddRange(new Control[] { _default, _useInvoice, _useQuote, _usePo, _useReport });
 
-                _recognition = new Label { Dock = DockStyle.Fill, ForeColor = DS.Slate600, Font = new Font("Segoe UI", 9f) };
+                _recognition = new Label { Dock = DockStyle.Fill, ForeColor = DS.Slate600, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f) };
 
-                layout.Controls.Add(new Label { Text = "Recognition and field mapping", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 }, 0, 0);
+                layout.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Recognition and field mapping", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = DS.Slate900 }), 0, 0);
                 layout.Controls.Add(_recognition, 0, 1);
                 layout.Controls.Add(toggles, 0, 2);
                 layout.Controls.Add(mappingTitle, 0, 3);
@@ -2407,7 +2407,7 @@ namespace HVAC_Pro_Desktop.UI
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
                 panel.Controls.Add(layout);
 
-                layout.Controls.Add(new Label { Text = "Recognized template preview", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 12f, FontStyle.Bold), ForeColor = DS.Slate900 }, 0, 0);
+                layout.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Recognized template preview", Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = DS.Slate900 }), 0, 0);
                 _preview = new WebBrowser { Dock = DockStyle.Fill, ScriptErrorsSuppressed = true };
                 layout.Controls.Add(_preview, 0, 1);
                 return panel;
@@ -2431,7 +2431,7 @@ namespace HVAC_Pro_Desktop.UI
                 foreach (string file in files ?? new string[0])
                     _manager.UploadTemplate(file, ResolveUploadType(file, selectedType));
                 RefreshTemplates();
-                _status.Text = "Template uploaded, recognized, and ready for mapping.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Template uploaded, recognized, and ready for mapping.");
             }
 
             private void RefreshTemplates()
@@ -2457,7 +2457,7 @@ namespace HVAC_Pro_Desktop.UI
                 _useQuote.Checked = _selected.UseForQuotations;
                 _usePo.Checked = _selected.UseForPurchaseOrders;
                 _useReport.Checked = _selected.UseForReports;
-                _recognition.Text = BuildRecognitionText(_selected);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_recognition, BuildRecognitionText(_selected));
                 _mapping.Text = string.Join(Environment.NewLine, (_selected.Mapping?.Fields ?? new Dictionary<string, string>()).Select(kv => kv.Key + "=" + kv.Value));
                 _preview.DocumentText = _renderer.BuildPreviewHtml(_selected);
             }
@@ -2489,7 +2489,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 _manager.SaveTemplate(_selected);
                 RefreshTemplates();
-                _status.Text = "Template mapping saved.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Template mapping saved.");
             }
 
             private void SetDefault()
@@ -2498,7 +2498,7 @@ namespace HVAC_Pro_Desktop.UI
                     return;
                 _manager.SetDefault(_selected.TemplateId);
                 RefreshTemplates();
-                _status.Text = "Default template updated.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Default template updated.");
             }
 
             private void OpenSelected()
@@ -2517,7 +2517,7 @@ namespace HVAC_Pro_Desktop.UI
                 _manager.RemoveTemplate(_selected.TemplateId);
                 _selected = null;
                 RefreshTemplates();
-                _status.Text = "Template removed from the active list.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_status, "Template removed from the active list.");
             }
 
             private static string BuildRecognitionText(CompanyDocumentTemplate template)

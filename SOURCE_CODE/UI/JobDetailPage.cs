@@ -67,7 +67,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Dock = DockStyle.Fill;
             BackColor = PageBg;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             BuildLayout();
         }
 
@@ -108,21 +108,21 @@ namespace HVAC_Pro_Desktop.UI
             Panel top = new Panel { Dock = DockStyle.Top, Height = 64, BackColor = White, Padding = new Padding(16, 12, 16, 10) };
             top.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, top.Height - 1, top.Width, top.Height - 1);
 
-            Button btnBack = MakeButton("<- Back to Jobs", White, TextPrimary, 126);
+            Button btnBack = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("<- Back to Jobs", White, TextPrimary, 126));
             btnBack.Dock = DockStyle.Left;
             btnBack.FlatAppearance.BorderColor = Border;
             btnBack.Click += (s, e) => OnBackToJobs?.Invoke(JobId);
 
-            _lblJobNumber = new Label
+            _lblJobNumber = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Dock = DockStyle.Fill,
                 Text = "JOB",
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold),
                 ForeColor = TextPrimary,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(18, 0, 0, 0),
                 AutoEllipsis = true
-            };
+            });
 
             FlowLayoutPanel actions = new FlowLayoutPanel
             {
@@ -133,9 +133,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = White,
                 Padding = new Padding(0, 4, 0, 0)
             };
-            Button btnClose = MakeButton("Close Job", Red, White, 96);
-            Button btnPrint = MakeButton("Print Report", Blue, White, 112);
-            Button btnSave = MakeButton("Save", Teal, White, 86);
+            Button btnClose = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close Job", Red, White, 96));
+            Button btnPrint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Print Report", Blue, White, 112));
+            Button btnSave = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save", Teal, White, 86));
             btnSave.Click += (s, e) => SaveJob();
             btnPrint.Click += (s, e) => PrintReport();
             btnClose.Click += (s, e) => CloseJob();
@@ -190,7 +190,7 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLeftColumn()
         {
             Panel detailsBody;
-            Control details = MakeCard("Job details", out detailsBody, 244);
+            Control details = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job details"), out detailsBody, 244);
             TableLayoutPanel form = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 6, Height = 210 };
             form.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150f));
             form.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
@@ -219,7 +219,7 @@ namespace HVAC_Pro_Desktop.UI
             detailsBody.Controls.Add(form);
 
             Panel checklistBody;
-            Control checklist = MakeCard("Job checklist", out checklistBody, 234);
+            Control checklist = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job checklist"), out checklistBody, 234);
             _gridChecklist = MakeGrid();
             _gridChecklist.Columns.Add("Item", "Item");
             _gridChecklist.Columns.Add("Done", "Done");
@@ -228,7 +228,7 @@ namespace HVAC_Pro_Desktop.UI
             checklistBody.Controls.Add(_gridChecklist);
 
             Panel partsBody;
-            Control parts = MakeCard("Parts used", out partsBody, 204);
+            Control parts = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Parts used"), out partsBody, 204);
             _gridParts = MakeGrid();
             _gridParts.Columns.Add("Item", "Item");
             _gridParts.Columns.Add("Qty", "Qty");
@@ -244,36 +244,36 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildRightColumn()
         {
             Panel techBody;
-            Control tech = MakeCard("Technician", out techBody, 82);
+            Control tech = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Technician"), out techBody, 82);
             _cmbTechnician = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDown };
             techBody.Controls.Add(WrapEditor(_cmbTechnician));
 
             Panel priorityBody;
-            Control priority = MakeCard("Priority", out priorityBody, 62);
+            Control priority = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Priority"), out priorityBody, 62);
             _cmbPriority = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDown };
             _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High" });
             priorityBody.Controls.Add(WrapEditor(_cmbPriority));
 
             Panel costBody;
-            Control cost = MakeCard("Job profitability", out costBody, 278);
+            Control cost = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job profitability"), out costBody, 278);
             TableLayoutPanel table = new TableLayoutPanel { Dock = DockStyle.Top, ColumnCount = 2, RowCount = 8, Height = 250 };
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48f));
             table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 52f));
-            _txtTravel = AddCostRow(table, 0, "Travel", true);
-            _txtLabour = AddCostRow(table, 1, "Labour", true);
-            _lblParts = AddValueRow(table, 2, "Parts");
-            _lblBilledRevenue = AddValueRow(table, 3, "Billed Revenue");
-            _lblDirectCost = AddValueRow(table, 4, "Direct Cost");
-            _lblProfit = AddValueRow(table, 5, "Gross Profit");
-            _lblMargin = AddValueRow(table, 6, "Gross Margin");
-            _lblCostStatus = AddValueRow(table, 7, "Cost Status");
+            _txtTravel = AddCostRow(table, 0, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Travel"), true);
+            _txtLabour = AddCostRow(table, 1, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Labour"), true);
+            _lblParts = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 2, "Parts"));
+            _lblBilledRevenue = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 3, "Billed Revenue"));
+            _lblDirectCost = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 4, "Direct Cost"));
+            _lblProfit = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 5, "Gross Profit"));
+            _lblMargin = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 6, "Gross Margin"));
+            _lblCostStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddValueRow(table, 7, "Cost Status"));
             costBody.Controls.Add(table);
 
             _rightStack.Controls.Add(tech);
             _rightStack.Controls.Add(priority);
             _rightStack.Controls.Add(cost);
             Panel fieldBody;
-            Control field = MakeCard("Field handoff & activity", out fieldBody, 220);
+            Control field = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Field handoff & activity"), out fieldBody, 220);
             _fieldActivity = new TextBox { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, BackColor = White };
             fieldBody.Controls.Add(_fieldActivity);
             _rightStack.Controls.Add(field);
@@ -285,7 +285,7 @@ namespace HVAC_Pro_Desktop.UI
             _binding = true;
             try
             {
-                _lblJobNumber.Text = job.JobNumber ?? ("JOB-" + job.JobID);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblJobNumber, job.JobNumber ?? ("JOB-" + job.JobID));
                 BindClients(job.ClientID);
                 BindSitesAndContracts(job.ClientID, job.SiteID, job.LinkedContractId ?? 0);
                 BindTechnicians(job.AssignedEmployeeID ?? 0);
@@ -296,23 +296,23 @@ namespace HVAC_Pro_Desktop.UI
                 SelectText(_cmbPriority, string.IsNullOrWhiteSpace(job.Priority) ? "Medium" : job.Priority);
                 _txtTravel.Text = _detail.TravelCost.ToString("0.##");
                 _txtLabour.Text = _detail.LabourCost.ToString("0.##");
-                _lblParts.Text = IndiaFormatHelper.FormatCurrency(_detail.PartsCost);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblParts, IndiaFormatHelper.FormatCurrency(_detail.PartsCost));
                 JobProfitabilityRow profitability = LoadProfitability(job.JobID);
                 if (profitability == null)
                 {
-                    _lblBilledRevenue.Text = IndiaFormatHelper.FormatCurrency(job.ActualRevenue);
-                    _lblDirectCost.Text = IndiaFormatHelper.FormatCurrency(_detail.LabourCost + _detail.TravelCost + _detail.PartsCost);
-                    _lblProfit.Text = IndiaFormatHelper.FormatCurrency(_detail.EstimatedProfit);
-                    _lblMargin.Text = _detail.EstimatedMarginPct.ToString("0.##") + "%";
-                    _lblCostStatus.Text = "Not linked";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblBilledRevenue, IndiaFormatHelper.FormatCurrency(job.ActualRevenue));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblDirectCost, IndiaFormatHelper.FormatCurrency(_detail.LabourCost + _detail.TravelCost + _detail.PartsCost));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblProfit, IndiaFormatHelper.FormatCurrency(_detail.EstimatedProfit));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMargin, _detail.EstimatedMarginPct.ToString("0.##") + "%");
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblCostStatus, "Not linked");
                 }
                 else
                 {
-                    _lblBilledRevenue.Text = IndiaFormatHelper.FormatCurrency(profitability.BilledRevenue);
-                    _lblDirectCost.Text = IndiaFormatHelper.FormatCurrency(profitability.ActualDirectCost);
-                    _lblProfit.Text = IndiaFormatHelper.FormatCurrency(profitability.GrossProfit);
-                    _lblMargin.Text = profitability.BilledRevenue <= 0m ? "n.a." : profitability.GrossMarginPercent.ToString("0.##") + "%";
-                    _lblCostStatus.Text = profitability.CostStatus;
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblBilledRevenue, IndiaFormatHelper.FormatCurrency(profitability.BilledRevenue));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblDirectCost, IndiaFormatHelper.FormatCurrency(profitability.ActualDirectCost));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblProfit, IndiaFormatHelper.FormatCurrency(profitability.GrossProfit));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMargin, (profitability.BilledRevenue <= 0m ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("n.a.") : profitability.GrossMarginPercent.ToString("0.##") + "%"));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCostStatus, profitability.CostStatus);
                 }
                 _lblMargin.ForeColor = profitability != null && profitability.GrossMarginPercent < 15m ? Red : Teal;
                 _lblCostStatus.ForeColor = profitability != null && profitability.CostStatus == "Complete" ? Teal : Red;
@@ -389,7 +389,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < steps.Length; i++)
             {
                 bool active = string.Equals(steps[i], current, StringComparison.OrdinalIgnoreCase);
-                Label step = new Label
+                Label step = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     AutoSize = false,
                     Width = i == 2 || i == 3 ? 134 : 96,
@@ -398,10 +398,10 @@ namespace HVAC_Pro_Desktop.UI
                     TextAlign = ContentAlignment.MiddleCenter,
                     BackColor = active ? Color.FromArgb(232, 248, 241) : White,
                     ForeColor = active ? Teal : TextSecondary,
-                    Font = new Font("Segoe UI", 8.5f, active ? FontStyle.Bold : FontStyle.Regular),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, active ? FontStyle.Bold : FontStyle.Regular),
                     Margin = new Padding(0, 0, 6, 0),
                     AutoEllipsis = true
-                };
+                });
                 step.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(active ? Teal : Border), 0, 0, step.Width - 1, step.Height - 1);
                 _pipeline.Controls.Add(step);
             }
@@ -456,7 +456,7 @@ namespace HVAC_Pro_Desktop.UI
                 string title = (_txtTitle.Text ?? string.Empty).Trim();
                 if (string.IsNullOrWhiteSpace(title))
                 {
-                    MessageBox.Show(this, "Job title is required.", BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job title is required."), BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     _txtTitle.Focus();
                     return;
                 }
@@ -464,7 +464,7 @@ namespace HVAC_Pro_Desktop.UI
                 int clientId = GetSelectedId(_cmbClient);
                 if (clientId <= 0)
                 {
-                    MessageBox.Show(this, "Select a client before saving the job.", BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a client before saving the job."), BrandingService.WindowTitle("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     _cmbClient.Focus();
                     return;
                 }
@@ -485,7 +485,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 _jobService.Update(job);
                 LoadJob();
-                MessageBox.Show("Job saved.", "Jobs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job saved."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -508,7 +508,7 @@ namespace HVAC_Pro_Desktop.UI
                 decimal revenue = _detail.Job.ActualRevenue > 0 ? _detail.Job.ActualRevenue : Math.Max(_detail.Job.QuotedRevenue, _detail.Job.Revenue);
                 _jobService.CloseJob(JobId, revenue, "Closed from Job detail page.", false);
                 LoadJob();
-                MessageBox.Show("Job closed successfully.", "Jobs", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job closed successfully."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Jobs"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -624,7 +624,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color back, Color fore, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = width,
@@ -632,9 +632,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = back,
                 ForeColor = fore,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 Margin = new Padding(6, 0, 0, 0)
-            };
+            });
             button.FlatAppearance.BorderSize = 1;
             button.AutoEllipsis = true;
             return button;
@@ -661,14 +661,14 @@ namespace HVAC_Pro_Desktop.UI
         private static void AddFormRow(TableLayoutPanel table, int row, string label, Control editor, bool required = false)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
-            table.Controls.Add(new Label { Text = required ? label + " *" : label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = required ? Red : TextSecondary, AutoEllipsis = true }, 0, row);
+            table.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = (required ? label + " *" : label), Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = required ? Red : TextSecondary, AutoEllipsis = true }), 0, row);
             table.Controls.Add(WrapEditor(editor), 1, row);
         }
 
         private TextBox AddCostRow(TableLayoutPanel table, int row, string label, bool editable)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
-            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }, 0, row);
+            table.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }), 0, row);
             TextBox box = new TextBox { Dock = DockStyle.Fill, ReadOnly = !editable, TextAlign = HorizontalAlignment.Right };
             table.Controls.Add(WrapEditor(box), 1, row);
             return box;
@@ -698,8 +698,8 @@ namespace HVAC_Pro_Desktop.UI
         private Label AddValueRow(TableLayoutPanel table, int row, string label)
         {
             table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32f));
-            table.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }, 0, row);
-            Label value = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, ForeColor = TextPrimary, Font = new Font("Segoe UI", 9f, FontStyle.Bold), AutoEllipsis = true };
+            table.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, ForeColor = TextSecondary, AutoEllipsis = true }), 0, row);
+            Label value = new Label { Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleRight, ForeColor = TextPrimary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), AutoEllipsis = true };
             table.Controls.Add(value, 1, row);
             return value;
         }

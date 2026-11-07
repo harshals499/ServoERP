@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using ServoERP.Infrastructure;
 using HVAC_Pro_Desktop.Services;
 
@@ -9,7 +9,7 @@ namespace HVAC_Pro_Desktop.UI
     {
         public ServoModalForm(string title, int clientWidth, int clientHeight)
         {
-            Text = BrandingService.WindowTitle(title);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle(title));
             StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             MaximizeBox = false;

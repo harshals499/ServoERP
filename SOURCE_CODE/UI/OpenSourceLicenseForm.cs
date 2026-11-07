@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -42,13 +42,13 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 string path = _service.ExportDisclosureReport();
-                _lblStatus.Text = "Disclosure exported: " + path;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Disclosure exported: {0}", path));
                 _lblStatus.ForeColor = DS.Green600;
                 Process.Start("notepad.exe", path);
             }
             catch (Exception ex)
             {
-                _lblStatus.Text = "Export failed: " + ex.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Export failed: {0}", ex.Message));
                 _lblStatus.ForeColor = DS.Red600;
             }
         }
@@ -59,12 +59,12 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 Clipboard.SetText(_txtDisclosure.Text);
-                _lblStatus.Text = "Disclosure copied to clipboard.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Disclosure copied to clipboard.");
                 _lblStatus.ForeColor = DS.Green600;
             }
             catch (Exception ex)
             {
-                _lblStatus.Text = "Copy failed: " + ex.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Copy failed: {0}", ex.Message));
                 _lblStatus.ForeColor = DS.Red600;
             }
         }

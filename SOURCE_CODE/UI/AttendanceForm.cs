@@ -203,15 +203,15 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			_isInitializing = true;
 			base.Controls.Clear();
-			System.Windows.Forms.Button button = NewButton("Mark All Present", System.Drawing.Point.Empty, 132, HVAC_Pro_Desktop.UI.DS.Primary600);
-			_btnImport = NewButton("Import Excel / CSV", System.Drawing.Point.Empty, 154, System.Drawing.Color.White);
+			System.Windows.Forms.Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Mark All Present", System.Drawing.Point.Empty, 132, HVAC_Pro_Desktop.UI.DS.Primary600));
+			_btnImport = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Import Excel / CSV", System.Drawing.Point.Empty, 154, System.Drawing.Color.White));
 			_btnImport.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700;
 			_btnImport.FlatAppearance.BorderSize = 1;
 			_btnImport.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
-			System.Windows.Forms.Button button2 = NewButton("Save Attendance", System.Drawing.Point.Empty, 136, System.Drawing.Color.FromArgb(39, 174, 96));
-			System.Windows.Forms.Button button3 = NewButton("Open Payroll", System.Drawing.Point.Empty, 118, System.Drawing.Color.White);
-			System.Windows.Forms.Button resetSelected = NewButton("Reset Selected", System.Drawing.Point.Empty, 124, System.Drawing.Color.White);
-			System.Windows.Forms.Button clearMonth = NewButton("Clear Month", System.Drawing.Point.Empty, 112, System.Drawing.Color.White);
+			System.Windows.Forms.Button button2 = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Save Attendance", System.Drawing.Point.Empty, 136, System.Drawing.Color.FromArgb(39, 174, 96)));
+			System.Windows.Forms.Button button3 = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Open Payroll", System.Drawing.Point.Empty, 118, System.Drawing.Color.White));
+			System.Windows.Forms.Button resetSelected = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Reset Selected", System.Drawing.Point.Empty, 124, System.Drawing.Color.White));
+			System.Windows.Forms.Button clearMonth = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Clear Month", System.Drawing.Point.Empty, 112, System.Drawing.Color.White));
 			button3.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700;
 			button3.FlatAppearance.BorderSize = 1;
 			button3.FlatAppearance.BorderColor = HVAC_Pro_Desktop.UI.DS.BorderStrong;
@@ -279,41 +279,41 @@ namespace HVAC_Pro_Desktop.UI
 			periodStrip.Height = 62;
 			periodStrip.Padding = new System.Windows.Forms.Padding(16, 8, 16, 8);
 			periodStrip.Margin = new System.Windows.Forms.Padding(0, 0, 0, 12);
-			System.Windows.Forms.Label label = new System.Windows.Forms.Label
+			System.Windows.Forms.Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = "PERIOD",
 				Location = new System.Drawing.Point(0, 2),
 				Size = new System.Drawing.Size(120, 16),
-				Font = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500
-			};
+			});
 			_cmbMonth = NewCombo(new System.Drawing.Point(0, 20), 78, System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(System.Linq.Enumerable.Range(1, 12), (int i) => new System.DateTime(2000, i, 1).ToString("MMMM"))));
 			_cmbMonth.SelectedIndex = System.DateTime.Today.Month - 1;
 			_cmbYear = NewCombo(new System.Drawing.Point(88, 20), 72, System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(System.Linq.Enumerable.Range(System.DateTime.Today.Year - 3, 7), (int y) => y.ToString())));
 			_cmbYear.SelectedItem = System.DateTime.Today.Year.ToString();
-			_lblMonthChip = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("Month open", System.Drawing.Color.FromArgb(227, 247, 236), HVAC_Pro_Desktop.UI.DS.Green600, 96);
+			_lblMonthChip = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("Month open", System.Drawing.Color.FromArgb(227, 247, 236), HVAC_Pro_Desktop.UI.DS.Green600, 96));
 			_lblMonthChip.Location = new System.Drawing.Point(168, 18);
-			System.Windows.Forms.Label siteLabel = new System.Windows.Forms.Label
+			System.Windows.Forms.Label siteLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = "SITE",
 				Location = new System.Drawing.Point(280, 2),
 				Size = new System.Drawing.Size(120, 16),
-				Font = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500
-			};
+			});
 			_cmbSiteFilter = NewCombo(new System.Drawing.Point(280, 20), 190, new string[] { "All sites" });
 			_cmbSiteFilter.SelectedIndex = 0;
-			_lblStatus = new System.Windows.Forms.Label
+			_lblStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = "Workspace ready for " + CurrentMonthName + " " + CurrentYear,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace ready for {0} {1}", CurrentMonthName, CurrentYear),
 				Anchor = (System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right),
 				Location = new System.Drawing.Point(490, 18),
 				Size = new System.Drawing.Size(System.Math.Max(320, periodStrip.Width - 706), 24),
-				Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Regular),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, System.Drawing.FontStyle.Regular),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate700,
 				BackColor = System.Drawing.Color.Transparent,
 				AutoEllipsis = true
-			};
+			});
 			_lblPeriodStatus = _lblStatus;
 			periodStrip.Resize += delegate
 			{
@@ -337,7 +337,7 @@ namespace HVAC_Pro_Desktop.UI
 			trustStrip.Dock = System.Windows.Forms.DockStyle.Top;
 			trustStrip.Height = 58;
 			trustStrip.Margin = new System.Windows.Forms.Padding(0, 0, 0, 12);
-			System.Windows.Forms.Panel control3 = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Daily coverage grid", "Each active employee across the selected month. Click any cell to cycle its status.", panel3, BuildStatusLegend(), 560);
+			System.Windows.Forms.Panel control3 = HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Daily coverage grid"), "Each active employee across the selected month. Click any cell to cycle its status.", panel3, BuildStatusLegend(), 560);
 			System.Windows.Forms.Panel dailyGridShell = CreateResizableDailyCoverageShell(control3);
 			panel2.Controls.Add(dailyGridShell);
 			panel2.Controls.Add(trustStrip);
@@ -458,11 +458,11 @@ namespace HVAC_Pro_Desktop.UI
 				Padding = System.Windows.Forms.Padding.Empty,
 				Controls = 
 				{
-					(System.Windows.Forms.Control)CreateLegendPill("Present", System.Drawing.Color.FromArgb(225, 245, 235), HVAC_Pro_Desktop.UI.DS.Green600),
-					(System.Windows.Forms.Control)CreateLegendPill("Absent", System.Drawing.Color.FromArgb(255, 235, 232), HVAC_Pro_Desktop.UI.DS.Red500),
-					(System.Windows.Forms.Control)CreateLegendPill("Leave", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber500),
-					(System.Windows.Forms.Control)CreateLegendPill("Half-day", System.Drawing.Color.FromArgb(238, 232, 255), HVAC_Pro_Desktop.UI.DS.Primary600),
-					(System.Windows.Forms.Control)CreateLegendPill("Blank", System.Drawing.Color.FromArgb(243, 243, 243), HVAC_Pro_Desktop.UI.DS.Slate500)
+					(System.Windows.Forms.Control)global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(CreateLegendPill("Present", System.Drawing.Color.FromArgb(225, 245, 235), HVAC_Pro_Desktop.UI.DS.Green600)),
+					(System.Windows.Forms.Control)global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(CreateLegendPill("Absent", System.Drawing.Color.FromArgb(255, 235, 232), HVAC_Pro_Desktop.UI.DS.Red500)),
+					(System.Windows.Forms.Control)global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(CreateLegendPill("Leave", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber500)),
+					(System.Windows.Forms.Control)global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(CreateLegendPill("Half-day", System.Drawing.Color.FromArgb(238, 232, 255), HVAC_Pro_Desktop.UI.DS.Primary600)),
+					(System.Windows.Forms.Control)global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(CreateLegendPill("Blank", System.Drawing.Color.FromArgb(243, 243, 243), HVAC_Pro_Desktop.UI.DS.Slate500))
 				}
 			};
 		}
@@ -471,7 +471,7 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			System.Windows.Forms.Panel panel = MakeCard();
 			panel.Padding = new System.Windows.Forms.Padding(16, 8, 16, 8);
-			_lblTrustSummary = new System.Windows.Forms.Label
+			_lblTrustSummary = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Dock = System.Windows.Forms.DockStyle.Fill,
 				Text = "Summary will appear after attendance loads.",
@@ -479,18 +479,18 @@ namespace HVAC_Pro_Desktop.UI
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate800,
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
 				AutoEllipsis = true
-			};
-			_lblSaveProof = new System.Windows.Forms.Label
+			});
+			_lblSaveProof = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Dock = System.Windows.Forms.DockStyle.Right,
 				Width = 330,
 				Text = "No unsaved changes",
-				Font = new System.Drawing.Font("Segoe UI", 9f, System.Drawing.FontStyle.Regular),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, System.Drawing.FontStyle.Regular),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500,
 				TextAlign = System.Drawing.ContentAlignment.MiddleRight,
 				AutoEllipsis = true
-			};
-			System.Windows.Forms.Button exportButton = NewButton("Export Month", System.Drawing.Point.Empty, 116, System.Drawing.Color.White);
+			});
+			System.Windows.Forms.Button exportButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(NewButton("Export Month", System.Drawing.Point.Empty, 116, System.Drawing.Color.White));
 			exportButton.Dock = System.Windows.Forms.DockStyle.Right;
 			exportButton.Height = 34;
 			exportButton.Margin = new System.Windows.Forms.Padding(12, 4, 0, 4);
@@ -515,7 +515,7 @@ namespace HVAC_Pro_Desktop.UI
 				Margin = System.Windows.Forms.Padding.Empty,
 				Padding = System.Windows.Forms.Padding.Empty
 			};
-			return HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard("Review queue", "Employees with exceptions to resolve before payroll.", _reviewQueueBody, HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("Open", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber600, 72), 340);
+			return HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateSectionCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Review queue"), "Employees with exceptions to resolve before payroll.", _reviewQueueBody, global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(HVAC_Pro_Desktop.UI.WorkforceModuleVisuals.CreateChip("Open", System.Drawing.Color.FromArgb(255, 244, 221), HVAC_Pro_Desktop.UI.DS.Amber600, 72)), 340);
 		}
 
 		private System.Windows.Forms.Panel CreatePayrollHandoffCard()
@@ -528,15 +528,15 @@ namespace HVAC_Pro_Desktop.UI
 				Padding = new System.Windows.Forms.Padding(18, 16, 18, 16)
 			};
 			HVAC_Pro_Desktop.UI.DS.Rounded(obj, 10);
-			_lblPayrollTitle = new System.Windows.Forms.Label
+			_lblPayrollTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Dock = System.Windows.Forms.DockStyle.Top,
 				Height = 20,
 				Text = "PAYROLL HANDOFF",
-				Font = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, System.Drawing.FontStyle.Bold),
 				ForeColor = System.Drawing.Color.FromArgb(214, 225, 255)
-			};
-			_lblPayrollBody = new System.Windows.Forms.Label
+			});
+			_lblPayrollBody = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Dock = System.Windows.Forms.DockStyle.Top,
 				Height = 56,
@@ -544,8 +544,8 @@ namespace HVAC_Pro_Desktop.UI
 				Font = new System.Drawing.Font("Segoe UI Semibold", 12f, System.Drawing.FontStyle.Bold),
 				ForeColor = System.Drawing.Color.White,
 				Padding = new System.Windows.Forms.Padding(0, 8, 0, 0)
-			};
-			System.Windows.Forms.Button button = new System.Windows.Forms.Button
+			});
+			System.Windows.Forms.Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Button
 			{
 				Dock = System.Windows.Forms.DockStyle.Bottom,
 				Height = 40,
@@ -555,7 +555,7 @@ namespace HVAC_Pro_Desktop.UI
 				FlatStyle = System.Windows.Forms.FlatStyle.Flat,
 				Font = new System.Drawing.Font("Segoe UI Semibold", 9.5f, System.Drawing.FontStyle.Bold),
 				Cursor = System.Windows.Forms.Cursors.Hand
-			};
+			});
 			button.FlatAppearance.BorderSize = 0;
 			button.Click += delegate
 			{
@@ -872,7 +872,7 @@ namespace HVAC_Pro_Desktop.UI
 			_gridAttendance.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
 			_gridAttendance.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
 			_gridAttendance.ColumnHeadersHeight = 34;
-			_gridAttendance.DefaultCellStyle.Font = new System.Drawing.Font("Segoe UI", 9f);
+			_gridAttendance.DefaultCellStyle.Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
 			_gridAttendance.DefaultCellStyle.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate800;
 			_gridAttendance.DefaultCellStyle.SelectionBackColor = System.Drawing.Color.Transparent;
 			_gridAttendance.DefaultCellStyle.SelectionForeColor = HVAC_Pro_Desktop.UI.DS.Slate800;
@@ -905,7 +905,7 @@ namespace HVAC_Pro_Desktop.UI
 				dayColumn.HeaderCell.Style.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
 				dayColumn.HeaderCell.Style.BackColor = System.Drawing.Color.White;
 				dayColumn.HeaderCell.Style.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;
-				dayColumn.HeaderCell.Style.Font = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold);
+				dayColumn.HeaderCell.Style.Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, System.Drawing.FontStyle.Bold);
 				_gridAttendance.Columns.Add(dayColumn);
 			}
 			_gridAttendance.CellFormatting += AttendanceGridCellFormatting;
@@ -962,18 +962,18 @@ namespace HVAC_Pro_Desktop.UI
 			_gridAttendance.ClearSelection();
 			int count = visibleEmployees.Count;
 			decimal coverage = count == 0 ? 0m : ((decimal)completeCount * 100m / (decimal)count);
-			if (_lblActiveEmployees != null) _lblActiveEmployees.Text = count.ToString();
-			if (_lblCompleteCount != null) _lblCompleteCount.Text = completeCount.ToString();
-			if (_lblReviewCount != null) _lblReviewCount.Text = reviewCount.ToString();
-			if (_lblCoverage != null) _lblCoverage.Text = coverage.ToString("0.#") + "%";
-			if (_lblMonthChip != null) _lblMonthChip.Text = reviewCount == 0 ? "Month ready" : "Month open";
+			if (_lblActiveEmployees != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblActiveEmployees, count.ToString());
+			if (_lblCompleteCount != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCompleteCount, completeCount.ToString());
+			if (_lblReviewCount != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblReviewCount, reviewCount.ToString());
+			if (_lblCoverage != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCoverage, coverage.ToString("0.#") + "%");
+			if (_lblMonthChip != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblMonthChip, reviewCount == 0 ? "Month ready" : "Month open");
 			string reconciliationBanner = GetAttendanceReconciliationBanner();
-			if (_lblPeriodStatus != null) _lblPeriodStatus.Text = string.IsNullOrWhiteSpace(reconciliationBanner) ? $"Workspace ready for {CurrentMonthName} {CurrentYear}" : reconciliationBanner;
-			if (_lblSummary != null) _lblSummary.Text = $"{reviewCount} employees need review.";
-			if (_lblReviewInsight != null) _lblReviewInsight.Text = "Focus on blanks, absences, leave, half-day.";
-			if (_lblCoverageInsight != null) _lblCoverageInsight.Text = $"Coverage: {coverage:0.#}% across {count} employee(s)" + GetSelectedSiteSuffix() + ".";
-			if (_lblMonthSignalSummary != null) _lblMonthSignalSummary.Text = $"{reviewCount} employees still need attendance review for {CurrentMonthName} {CurrentYear}.";
-			if (_lblMonthSignalDetail != null) _lblMonthSignalDetail.Text = "Review queue, coverage distribution, and exception mix.";
+			if (_lblPeriodStatus != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblPeriodStatus, (string.IsNullOrWhiteSpace(reconciliationBanner) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace ready for {0} {1}", CurrentMonthName, CurrentYear) : reconciliationBanner));
+			if (_lblSummary != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} employees need review.", reviewCount));
+			if (_lblReviewInsight != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblReviewInsight, "Focus on blanks, absences, leave, half-day.");
+			if (_lblCoverageInsight != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCoverageInsight, $"Coverage: {coverage:0.#}% across {count} employee(s)" + GetSelectedSiteSuffix() + ".");
+			if (_lblMonthSignalSummary != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMonthSignalSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} employees still need attendance review for {1} {2}.", reviewCount, CurrentMonthName, CurrentYear));
+			if (_lblMonthSignalDetail != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblMonthSignalDetail, "Review queue, coverage distribution, and exception mix.");
 			if (_reviewQueueBody != null)
 			{
 				_reviewQueueBody.Controls.Clear();
@@ -982,7 +982,7 @@ namespace HVAC_Pro_Desktop.UI
 					_reviewQueueBody.Controls.Add(CreateReviewQueueItem(review.Item1, review.Item2, review.Item3));
 				}
 			}
-			if (_lblPayrollBody != null) _lblPayrollBody.Text = $"{reviewCount} employee(s)" + GetSelectedSiteSuffix() + $" still need review before you can close {CurrentMonthName} {CurrentYear}.";
+			if (_lblPayrollBody != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblPayrollBody, $"{reviewCount} employee(s)" + GetSelectedSiteSuffix() + $" still need review before you can close {CurrentMonthName} {CurrentYear}.");
 			UpdateTrustSummary(daysInMonth);
 			SetUnsavedAttendanceChanges(false);
 			_isLoadingAttendanceGrid = false;
@@ -1060,11 +1060,11 @@ namespace HVAC_Pro_Desktop.UI
 			string monthSummary = "Month: " + employees + " employee(s) | Present: " + present + " | Absent: " + absent + " | Leave: " + leave + " | Half-day: " + halfDay + " | Blank: " + blank;
 			if (selectedMonthIsCurrent)
 			{
-				_lblTrustSummary.Text = "Today: P " + todayPresent + " | A " + todayAbsent + " | L " + todayLeave + " | HD " + todayHalfDay + " | Blank " + todayBlank + "    " + monthSummary;
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblTrustSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Today: P {0} | A {1} | L {2} | HD {3} | Blank {4}    {5}", todayPresent, todayAbsent, todayLeave, todayHalfDay, todayBlank, monthSummary));
 			}
 			else
 			{
-				_lblTrustSummary.Text = monthSummary;
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblTrustSummary, monthSummary);
 			}
 		}
 
@@ -1081,12 +1081,12 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			if (hasChanges)
 			{
-				_lblSaveProof.Text = "Unsaved changes - save before payroll";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblSaveProof, "Unsaved changes - save before payroll");
 				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Amber600;
 			}
 			else if (string.IsNullOrWhiteSpace(_lblSaveProof.Text) || HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(_lblSaveProof, _lblSaveProof.Text).StartsWith("Unsaved", System.StringComparison.OrdinalIgnoreCase))
 			{
-				_lblSaveProof.Text = "No unsaved changes";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblSaveProof, "No unsaved changes");
 				_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500;
 			}
 		}
@@ -1161,40 +1161,40 @@ namespace HVAC_Pro_Desktop.UI
 			decimal num5 = ((num == 0) ? 0m : ((decimal)num3 * 100m / (decimal)num));
 			if (_lblActiveEmployees != null)
 			{
-				_lblActiveEmployees.Text = num.ToString();
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblActiveEmployees, num.ToString());
 			}
 			if (_lblCompleteCount != null)
 			{
-				_lblCompleteCount.Text = num3.ToString();
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCompleteCount, num3.ToString());
 			}
 			if (_lblReviewCount != null)
 			{
-				_lblReviewCount.Text = num2.ToString();
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblReviewCount, num2.ToString());
 			}
 			if (_lblCoverage != null)
 			{
-				_lblCoverage.Text = num5.ToString("0.#") + "%";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCoverage, num5.ToString("0.#") + "%");
 			}
 			if (_lblMonthChip != null)
 			{
-				_lblMonthChip.Text = ((num2 == 0) ? "Month ready" : "Month open");
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMonthChip, ((num2 == 0) ? "Month ready" : "Month open"));
 			}
 			if (_lblPeriodStatus != null)
 			{
 				string reconciliationBanner = GetAttendanceReconciliationBanner();
-				_lblPeriodStatus.Text = string.IsNullOrWhiteSpace(reconciliationBanner) ? $"Workspace ready for {CurrentMonthName} {CurrentYear}" : reconciliationBanner;
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblPeriodStatus, (string.IsNullOrWhiteSpace(reconciliationBanner) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace ready for {0} {1}", CurrentMonthName, CurrentYear) : reconciliationBanner));
 			}
 			if (_lblMonthSignalSummary != null)
 			{
-				_lblMonthSignalSummary.Text = $"{num2} employees still need attendance review for {CurrentMonthName} {CurrentYear}.";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMonthSignalSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} employees still need attendance review for {1} {2}.", num2, CurrentMonthName, CurrentYear));
 			}
 			if (_lblMonthSignalDetail != null)
 			{
-				_lblMonthSignalDetail.Text = "Distribution across all recorded working days.";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblMonthSignalDetail, "Distribution across all recorded working days.");
 			}
 			if (_lblCoverageInsight != null)
 			{
-				_lblCoverageInsight.Text = $"Coverage is {num5:0.#}% across {num} active employees.";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCoverageInsight, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Coverage is {0:0.#}% across {1} active employees.", num5, num));
 			}
 			if (_reviewQueueBody != null)
 			{
@@ -1206,7 +1206,7 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			if (_lblPayrollBody != null)
 			{
-				_lblPayrollBody.Text = $"{num2} employees still need review before you can close {CurrentMonthName} {CurrentYear}.";
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblPayrollBody, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} employees still need review before you can close {1} {2}.", num2, CurrentMonthName, CurrentYear));
 			}
 			UpdateTrustSummary(daysInMonth);
 		}
@@ -1605,7 +1605,7 @@ namespace HVAC_Pro_Desktop.UI
 					e.Graphics.DrawRectangle(pen, 0, 0, item.Width - 1, item.Height - 1);
 				}
 			};
-			System.Windows.Forms.Label label = new System.Windows.Forms.Label
+			System.Windows.Forms.Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = GetEmployeeInitials(employee),
 				Location = new System.Drawing.Point(10, 14),
@@ -1614,17 +1614,17 @@ namespace HVAC_Pro_Desktop.UI
 				Font = new System.Drawing.Font("Segoe UI Semibold", 8.5f, System.Drawing.FontStyle.Bold),
 				ForeColor = GetEmployeeAccent(employee),
 				BackColor = System.Drawing.Color.FromArgb(245, 247, 255)
-			};
+			});
 			HVAC_Pro_Desktop.UI.DS.Rounded(label, 14);
-			System.Windows.Forms.Label label2 = new System.Windows.Forms.Label
+			System.Windows.Forms.Label label2 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = ((employee == null) ? "Employee" : employee.Name),
 				Location = new System.Drawing.Point(48, 10),
 				Size = new System.Drawing.Size(146, 20),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 9.5f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900
-			};
-			System.Windows.Forms.Label label3 = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label label3 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = detail,
 				Location = new System.Drawing.Point(48, 31),
@@ -1632,8 +1632,8 @@ namespace HVAC_Pro_Desktop.UI
 				Font = HVAC_Pro_Desktop.UI.DS.Small,
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500,
 				AutoEllipsis = true
-			};
-			System.Windows.Forms.Label label4 = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label label4 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = issueCount.ToString(),
 				Location = new System.Drawing.Point(210, 19),
@@ -1642,7 +1642,7 @@ namespace HVAC_Pro_Desktop.UI
 				Font = new System.Drawing.Font("Segoe UI Semibold", 8.5f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Red600,
 				BackColor = System.Drawing.Color.FromArgb(255, 238, 235)
-			};
+			});
 			HVAC_Pro_Desktop.UI.DS.Rounded(label4, 13);
 			item.Controls.AddRange(new System.Windows.Forms.Control[4] { label4, label3, label2, label });
 			return item;
@@ -1786,7 +1786,7 @@ namespace HVAC_Pro_Desktop.UI
 				string savedAt = System.DateTime.Now.ToString("dd/MM/yyyy hh:mm tt", System.Globalization.CultureInfo.GetCultureInfo("en-IN"));
 				if (_lblSaveProof != null)
 				{
-					_lblSaveProof.Text = "Saved and reloaded from database at " + savedAt;
+					global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSaveProof, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Saved and reloaded from database at {0}", savedAt));
 					_lblSaveProof.ForeColor = HVAC_Pro_Desktop.UI.DS.Green600;
 				}
 				SetStatus($"Attendance saved and verified for {CurrentMonthName} {CurrentYear}. Records touched: {num}.", HVAC_Pro_Desktop.UI.DS.Green600);
@@ -1795,7 +1795,7 @@ namespace HVAC_Pro_Desktop.UI
 			{
 				HVAC_Pro_Desktop.Services.AppLogger.LogError("AttendanceForm.SaveAttendanceGrid", ex);
 				SetStatus("Attendance could not be saved. No payroll data was changed. Please try again or contact admin.", System.Drawing.Color.Firebrick);
-				System.Windows.Forms.MessageBox.Show(this, "Attendance could not be saved. No payroll data was changed. Please try again or contact admin.", "Attendance Save Failed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+				System.Windows.Forms.MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance could not be saved. No payroll data was changed. Please try again or contact admin."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance Save Failed"), System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
 			}
 		}
 
@@ -1812,7 +1812,7 @@ namespace HVAC_Pro_Desktop.UI
 				{
 					HVAC_Pro_Desktop.Models.ServiceResult<HVAC_Pro_Desktop.Models.PayrollImportReport> serviceResult = _importService.ImportFiles(openFileDialog.FileNames, CurrentMonth, CurrentYear);
 					SetStatus(serviceResult.Message, serviceResult.Success ? HVAC_Pro_Desktop.UI.DS.Green600 : System.Drawing.Color.Firebrick);
-					System.Windows.Forms.MessageBox.Show(BuildImportSummary(serviceResult), serviceResult.Success ? "Attendance Import Complete" : "Attendance Import Failed", System.Windows.Forms.MessageBoxButtons.OK, serviceResult.Success ? System.Windows.Forms.MessageBoxIcon.Asterisk : System.Windows.Forms.MessageBoxIcon.Exclamation);
+					System.Windows.Forms.MessageBox.Show(BuildImportSummary(serviceResult), (serviceResult.Success ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance Import Complete") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance Import Failed")), System.Windows.Forms.MessageBoxButtons.OK, serviceResult.Success ? System.Windows.Forms.MessageBoxIcon.Asterisk : System.Windows.Forms.MessageBoxIcon.Exclamation);
 					if (serviceResult.Success)
 					{
 						LoadEmployees();
@@ -1826,14 +1826,14 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			bool flag = backColor == System.Drawing.Color.White || backColor.GetBrightness() > 0.92f;
 			System.Windows.Forms.Button button = new System.Windows.Forms.Button();
-			button.Text = text;
+			global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, text);
 			button.Location = location;
 			button.Width = width;
 			button.Height = 34;
 			button.BackColor = backColor;
 			button.ForeColor = (flag ? HVAC_Pro_Desktop.UI.DS.Slate700 : System.Drawing.Color.White);
 			button.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-			button.Font = new System.Drawing.Font("Segoe UI", 8.75f, System.Drawing.FontStyle.Bold);
+			button.Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, System.Drawing.FontStyle.Bold);
 			button.Cursor = System.Windows.Forms.Cursors.Hand;
 			button.UseVisualStyleBackColor = false;
 			button.AutoEllipsis = true;
@@ -1852,7 +1852,7 @@ namespace HVAC_Pro_Desktop.UI
 				Location = location,
 				Width = width,
 				DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList,
-				Font = new System.Drawing.Font("Segoe UI", 9f)
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f)
 			};
 			obj.Items.AddRange(items);
 			obj.SelectedIndexChanged += delegate
@@ -1892,7 +1892,7 @@ namespace HVAC_Pro_Desktop.UI
 				BackColor = accent
 			};
 			HVAC_Pro_Desktop.UI.DS.Rounded(panel2, 6);
-			System.Windows.Forms.Label value2 = new System.Windows.Forms.Label
+			System.Windows.Forms.Label value2 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = title,
 				Location = new System.Drawing.Point(44, 16),
@@ -1900,16 +1900,16 @@ namespace HVAC_Pro_Desktop.UI
 				Font = HVAC_Pro_Desktop.UI.DS.Small,
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate600,
 				AutoEllipsis = true
-			};
-			valueLabel = new System.Windows.Forms.Label
+			});
+			valueLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = value,
 				Location = new System.Drawing.Point(44, 38),
 				Size = new System.Drawing.Size(180, 28),
-				Font = new System.Drawing.Font("Segoe UI", 14f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900
-			};
-			System.Windows.Forms.Label value3 = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label value3 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = subtitle,
 				Location = new System.Drawing.Point(44, 70),
@@ -1917,7 +1917,7 @@ namespace HVAC_Pro_Desktop.UI
 				Font = HVAC_Pro_Desktop.UI.DS.Small,
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500,
 				AutoEllipsis = true
-			};
+			});
 			panel.Controls.Add(panel2);
 			panel.Controls.Add(value2);
 			panel.Controls.Add(valueLabel);
@@ -1934,23 +1934,23 @@ namespace HVAC_Pro_Desktop.UI
 				Padding = new System.Windows.Forms.Padding(16, 10, 12, 8),
 				Margin = new System.Windows.Forms.Padding(0)
 			};
-			System.Windows.Forms.Label titleLabel = new System.Windows.Forms.Label
+			System.Windows.Forms.Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = title,
 				Dock = System.Windows.Forms.DockStyle.Top,
 				Height = 20,
-				Font = new System.Drawing.Font("Segoe UI", 8.2f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate600,
 				AutoEllipsis = true
-			};
-			System.Windows.Forms.Label valueLabel = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label valueLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = "0",
 				Dock = System.Windows.Forms.DockStyle.Fill,
-				Font = new System.Drawing.Font("Segoe UI", 14f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900,
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft
-			};
+			});
 			System.Windows.Forms.Panel separator = new System.Windows.Forms.Panel
 			{
 				Dock = System.Windows.Forms.DockStyle.Right,
@@ -1968,7 +1968,7 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			if (label != null)
 			{
-				label.Text = value;
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(label, value);
 			}
 		}
 
@@ -2003,7 +2003,7 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.DataGridViewCell statusCell = row.Cells["Status"];
 			string status = ToAttendanceDisplayStatus(System.Convert.ToString(statusCell.Value));
 			statusCell.Style.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-			statusCell.Style.Font = new System.Drawing.Font("Segoe UI", 8.4f, System.Drawing.FontStyle.Bold);
+			statusCell.Style.Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.4f, System.Drawing.FontStyle.Bold);
 			if (status == "Present")
 			{
 				statusCell.Style.BackColor = System.Drawing.Color.FromArgb(232, 245, 233);
@@ -2078,7 +2078,7 @@ namespace HVAC_Pro_Desktop.UI
 				{
 					HVAC_Pro_Desktop.Services.AppLogger.LogError("AttendanceForm.ExportAttendanceGrid", ex);
 					SetStatus("Attendance export could not be completed. Please try again.", System.Drawing.Color.Firebrick);
-					System.Windows.Forms.MessageBox.Show(this, "Attendance export could not be completed. Please try again.", "Attendance Export Failed", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
+					System.Windows.Forms.MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance export could not be completed. Please try again."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Attendance Export Failed"), System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
 				}
 			}
 		}
@@ -2113,11 +2113,11 @@ namespace HVAC_Pro_Desktop.UI
 				{
 					BackColor = HVAC_Pro_Desktop.UI.DS.Slate100,
 					ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900,
-					Font = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold)
+					Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, System.Drawing.FontStyle.Bold)
 				},
 				DefaultCellStyle = 
 				{
-					Font = new System.Drawing.Font("Segoe UI", 8.5f),
+					Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
 					SelectionBackColor = HVAC_Pro_Desktop.UI.GridTheme.RowSelected,
 					SelectionForeColor = HVAC_Pro_Desktop.UI.GridTheme.RowSelectedFore
 				},
@@ -2191,7 +2191,7 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			if (_lblStatus != null)
 			{
-				_lblStatus.Text = message;
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, message);
 				_lblStatus.ForeColor = color;
 			}
 		}

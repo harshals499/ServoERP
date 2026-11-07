@@ -32,12 +32,12 @@ namespace HVAC_Pro_Desktop.UI
             _tradeHint = tradeHint ?? string.Empty;
             _queryHint = queryHint ?? string.Empty;
 
-            Text = "ServoERP Forms - " + _workflowName;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("ServoERP Forms - {0}", _workflowName));
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(980, 620);
             Size = new Size(1120, 680);
             BackColor = DS.BgPage;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
 
             BuildLayout();
             Load += (s, e) => LoadTemplates();
@@ -46,29 +46,29 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLayout()
         {
             Panel header = new Panel { Dock = DockStyle.Top, Height = 96, BackColor = DS.BgPage, Padding = new Padding(22, 16, 22, 10) };
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Field-Service Form Templates",
                 Dock = DockStyle.Top,
                 Height = 30,
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
-            };
-            Label subtitle = new Label
+            });
+            Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = _workflowName + " workflow library. Open a master template or copy a working version for this record.",
+                Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} workflow library. Open a master template or copy a working version for this record.", _workflowName),
                 Dock = DockStyle.Top,
                 Height = 24,
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true
-            };
+            });
             _lblSummary = new Label
             {
                 Dock = DockStyle.Bottom,
                 Height = 20,
-                Font = new Font("Segoe UI", 8.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
                 ForeColor = DS.Slate500,
                 AutoEllipsis = true
             };
@@ -87,7 +87,7 @@ namespace HVAC_Pro_Desktop.UI
                 Width = 420,
                 Height = 30,
                 BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 Text = _queryHint
             };
             _txtSearch.TextChanged += (s, e) => ApplyFilters();
@@ -97,13 +97,13 @@ namespace HVAC_Pro_Desktop.UI
                 Width = 210,
                 Height = 30,
                 DropDownStyle = ComboBoxStyle.DropDownList,
-                Font = new Font("Segoe UI", 9f)
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f)
             };
             _cmbTrade.SelectedIndexChanged += (s, e) => ApplyFilters();
-            Button openFolder = MakeButton("Open Library", Color.White, DS.Slate700, 112);
+            Button openFolder = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open Library", Color.White, DS.Slate700, 112));
             openFolder.Left = 664;
             openFolder.Click += (s, e) => OpenPath(_library.RootFolder);
-            Button openZip = MakeButton("Open ZIP", Color.White, DS.Slate700, 96);
+            Button openZip = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open ZIP", Color.White, DS.Slate700, 96));
             openZip.Left = 784;
             openZip.Click += (s, e) => OpenPath(_library.ZipPath);
             filterBar.Resize += (s, e) =>
@@ -134,17 +134,17 @@ namespace HVAC_Pro_Desktop.UI
                 EnableHeadersVisualStyles = false,
                 ColumnHeadersHeight = 38,
                 RowTemplate = { Height = 34 },
-                Font = new Font("Segoe UI", 8.75f)
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f)
             };
             _grid.ColumnHeadersDefaultCellStyle.BackColor = DS.Slate50;
             _grid.ColumnHeadersDefaultCellStyle.ForeColor = DS.Slate700;
-            _grid.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Trade", DataPropertyName = "Trade", Width = 125 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Form", DataPropertyName = "FormName", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, MinimumWidth = 260 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "ServoERP Module", DataPropertyName = "RecommendedServoErpModule", Width = 170 });
-            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Customer Sign", DataPropertyName = "RequiresCustomerSignature", Width = 96 });
-            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Tech Sign", DataPropertyName = "RequiresTechnicianSignature", Width = 78 });
-            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Readings", DataPropertyName = "RequiresReadings", Width = 70 });
+            _grid.ColumnHeadersDefaultCellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold);
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Trade"), DataPropertyName = "Trade", Width = 125 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Form"), DataPropertyName = "FormName", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, MinimumWidth = 260 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP Module"), DataPropertyName = "RecommendedServoErpModule", Width = 170 });
+            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Customer Sign"), DataPropertyName = "RequiresCustomerSignature", Width = 96 });
+            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Tech Sign"), DataPropertyName = "RequiresTechnicianSignature", Width = 78 });
+            _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Readings"), DataPropertyName = "RequiresReadings", Width = 70 });
             _grid.CellDoubleClick += (s, e) => OpenSelectedTemplate();
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 66, BackColor = DS.BgPage, Padding = new Padding(18, 12, 18, 14) };
@@ -158,11 +158,11 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(0),
                 Margin = Padding.Empty
             };
-            Button close = MakeButton("Close", Color.White, DS.Slate700, 94);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close", Color.White, DS.Slate700, 94));
             close.Click += (s, e) => Close();
-            Button copy = MakeButton("Copy For Workflow", DS.Primary600, Color.White, 156);
+            Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Copy For Workflow", DS.Primary600, Color.White, 156));
             copy.Click += (s, e) => CopySelectedTemplate();
-            Button open = MakeButton("Open Template", DS.Teal600, Color.White, 132);
+            Button open = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open Template", DS.Teal600, Color.White, 132));
             open.Click += (s, e) => OpenSelectedTemplate();
             footerActions.Controls.Add(close);
             footerActions.Controls.Add(copy);
@@ -179,7 +179,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!_library.IsAvailable)
             {
-                _lblSummary.Text = "Template library is not available at " + _library.RootFolder;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Template library is not available at {0}", _library.RootFolder));
                 return;
             }
 
@@ -216,9 +216,7 @@ namespace HVAC_Pro_Desktop.UI
 
             List<FieldServiceFormTemplate> list = filtered.ToList();
             _grid.DataSource = list;
-            _lblSummary.Text = list.Count + " templates shown"
-                + (string.IsNullOrWhiteSpace(_moduleHint) ? string.Empty : " · module: " + _moduleHint)
-                + (string.IsNullOrWhiteSpace(_tradeHint) ? string.Empty : " · trade: " + _tradeHint);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSummary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} templates shown{1}{2}", list.Count, (string.IsNullOrWhiteSpace(_moduleHint) ? string.Empty : " · module: " + _moduleHint), (string.IsNullOrWhiteSpace(_tradeHint) ? string.Empty : " · trade: " + _tradeHint)));
         }
 
         private static bool Matches(FieldServiceFormTemplate template, string term)
@@ -247,7 +245,7 @@ namespace HVAC_Pro_Desktop.UI
             FieldServiceFormTemplate template = SelectedTemplate();
             if (template == null)
             {
-                MessageBox.Show(this, "Select a template first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a template first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
             OpenPath(template.FullPath);
@@ -258,13 +256,13 @@ namespace HVAC_Pro_Desktop.UI
             FieldServiceFormTemplate template = SelectedTemplate();
             if (template == null)
             {
-                MessageBox.Show(this, "Select a template first.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a template first."), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
             string targetRoot = Path.Combine(SharedStorageService.ResolveDocumentFolder("FormTemplateWorkingCopies"), SafeFolder(_workflowName), DateTime.Today.ToString("yyyyMMdd"));
             string copied = _library.CopyTemplateToWorkingFolder(template, targetRoot);
-            MessageBox.Show(this, "Working copy created:\r\n\r\n" + copied, Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Working copy created:\r\n\r\n{0}", copied), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
             OpenPath(targetRoot);
         }
 
@@ -278,7 +276,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (string.IsNullOrWhiteSpace(path) || (!File.Exists(path) && !Directory.Exists(path)))
             {
-                MessageBox.Show("Path was not found:\r\n\r\n" + path, "ServoERP Forms", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Path was not found:\r\n\r\n{0}", path), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP Forms"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
             Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
@@ -286,7 +284,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color back, Color fore, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = width,
@@ -294,11 +292,11 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = back,
                 ForeColor = fore,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8.75f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, FontStyle.Bold),
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false,
                 Margin = new Padding(0, 0, 8, 0)
-            };
+            });
             button.FlatAppearance.BorderColor = back == Color.White ? DS.BorderStrong : back;
             button.FlatAppearance.BorderSize = 1;
             DS.Rounded(button, 7);

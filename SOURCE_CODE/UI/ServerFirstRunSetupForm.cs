@@ -43,9 +43,9 @@ namespace HVAC_Pro_Desktop.UI
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(940, 640);
-            Font = new Font("Segoe UI", 9F);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9F);
             BackColor = DS.BgPage;
-            Text = BrandingService.WindowTitle("Server Setup");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Server Setup"));
 
             BuildLayout();
             DS.ApplyTheme(this);
@@ -63,13 +63,13 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(24, 18, 24, 10)
             };
 
-            _lblTitle.Text = "ServoERP Server Setup";
-            _lblTitle.Font = new Font("Segoe UI", 18F, FontStyle.Bold);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblTitle, "ServoERP Server Setup");
+            _lblTitle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18F, FontStyle.Bold);
             _lblTitle.ForeColor = DS.Slate900;
             _lblTitle.Dock = DockStyle.Top;
             _lblTitle.Height = 34;
 
-            _lblSubtitle.Text = "One guided setup for the office server, license, owner login, legal approval, and terminal PCs.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblSubtitle, "One guided setup for the office server, license, owner login, legal approval, and terminal PCs.");
             _lblSubtitle.Font = DS.Body;
             _lblSubtitle.ForeColor = DS.Slate600;
             _lblSubtitle.Dock = DockStyle.Top;
@@ -113,7 +113,7 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(24, 10, 24, 16)
             };
 
-            _lblStatus.Text = "Start with Prepare Server. ServoERP will unlock Finish Start only after every office setup step is ready.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Start with Prepare Server. ServoERP will unlock Finish Start only after every office setup step is ready.");
             _lblStatus.ForeColor = DS.Slate600;
             _lblStatus.Dock = DockStyle.Top;
             _lblStatus.Height = 52;
@@ -127,35 +127,35 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = DS.BgPage
             };
 
-            _btnPrepare.Text = "Prepare Server";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnPrepare, "Prepare Server");
             _btnPrepare.Width = 130;
             _btnPrepare.Click += (s, e) => PrepareServer();
 
-            _btnActivateLicense.Text = "Activate License";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnActivateLicense, "Activate License");
             _btnActivateLicense.Width = 140;
             _btnActivateLicense.Click += (s, e) => ActivateLicense();
 
-            _btnCreateAdmin.Text = "Create Admin";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnCreateAdmin, "Create Admin");
             _btnCreateAdmin.Width = 120;
             _btnCreateAdmin.Click += (s, e) => CreateAdminAccount();
 
-            _btnAcceptLegal.Text = "Accept Legal";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnAcceptLegal, "Accept Legal");
             _btnAcceptLegal.Width = 120;
             _btnAcceptLegal.Click += (s, e) => AcceptLegalTerms();
 
-            _btnGeneratePack.Text = "Generate Terminal Pack";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnGeneratePack, "Generate Terminal Pack");
             _btnGeneratePack.Width = 170;
             _btnGeneratePack.Click += (s, e) => GenerateTerminalPack();
 
-            _btnOpenFolder.Text = "Open Pack Folder";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnOpenFolder, "Open Pack Folder");
             _btnOpenFolder.Width = 140;
             _btnOpenFolder.Click += (s, e) => OpenPackFolder();
 
-            _btnSupportReport.Text = "Copy Support Report";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnSupportReport, "Copy Support Report");
             _btnSupportReport.Width = 160;
             _btnSupportReport.Click += (s, e) => CopySupportReport();
 
-            _btnFinish.Text = "Finish & Start";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnFinish, "Finish & Start");
             _btnFinish.Width = 120;
             _btnFinish.Click += (s, e) => FinishSetup();
 
@@ -206,9 +206,9 @@ namespace HVAC_Pro_Desktop.UI
             _btnFinish.Enabled = _sqlReady && _licenseReady && _adminReady && _legalReady && _terminalPackReady;
 
             if (_btnFinish.Enabled)
-                _lblStatus.Text = "Office setup is ready. Click Finish Start to open ServoERP.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Office setup is ready. Click Finish Start to open ServoERP.");
             else
-                _lblStatus.Text = "Complete the pending steps from top to bottom. If anything fails, click Copy Support Report and send it to ServoERP support.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Complete the pending steps from top to bottom. If anything fails, click Copy Support Report and send it to ServoERP support.");
         }
 
         private void AddRow(string step, string status, string detail)
@@ -291,7 +291,7 @@ namespace HVAC_Pro_Desktop.UI
                     throw new InvalidOperationException(result.Message);
 
                 _lastPackagePath = result.OutputPath;
-                _lblStatus.Text = "Terminal pack ready. Apply it on each office terminal before users start ServoERP.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Terminal pack ready. Apply it on each office terminal before users start ServoERP.");
                 RefreshReadiness();
             }
             catch (Exception ex)
@@ -319,7 +319,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!(_sqlReady && _licenseReady && _adminReady && _legalReady && _terminalPackReady))
             {
-                MessageBox.Show("Complete all setup steps before starting ServoERP. Pending rows are shown in red.", BrandingService.WindowTitle("Office Setup"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Complete all setup steps before starting ServoERP. Pending rows are shown in red."), BrandingService.WindowTitle("Office Setup"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 RefreshReadiness();
                 return;
             }
@@ -339,7 +339,7 @@ namespace HVAC_Pro_Desktop.UI
             _btnOpenFolder.Enabled = !busy && _terminalPackReady;
             _btnSupportReport.Enabled = !busy;
             _btnFinish.Enabled = !busy && _sqlReady && _licenseReady && _adminReady && _legalReady && _terminalPackReady;
-            _lblStatus.Text = message;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, message);
             Cursor = busy ? Cursors.WaitCursor : Cursors.Default;
         }
 
@@ -403,7 +403,7 @@ namespace HVAC_Pro_Desktop.UI
                 "Fallback: " + LocalSqliteFallbackStore.GetDatabasePath();
 
             UIHelper.TrySetClipboardText(this, report, BrandingService.WindowTitle("Support Report"));
-            _lblStatus.Text = "Support report copied. Send it to ServoERP support if setup is stuck.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Support report copied. Send it to ServoERP support if setup is stuck.");
         }
 
         private static string BuildFriendlyError(string title, string detail)

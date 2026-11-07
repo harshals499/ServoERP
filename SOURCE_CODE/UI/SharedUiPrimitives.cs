@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -92,20 +92,20 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(panel, DS.RadiusMd);
 
-            Label titleLabel = new Label
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = string.IsNullOrWhiteSpace(title) ? "No records found" : title,
+                Text = (string.IsNullOrWhiteSpace(title) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No records found") : title),
                 Dock = DockStyle.Top,
                 Height = 24,
                 Font = DS.BodyBold,
                 ForeColor = DS.Slate700,
                 TextAlign = ContentAlignment.MiddleCenter
-            };
+            });
             panel.Controls.Add(titleLabel);
 
             if (!string.IsNullOrWhiteSpace(detail))
             {
-                Label detailLabel = new Label
+                Label detailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = detail,
                     Dock = DockStyle.Top,
@@ -113,7 +113,7 @@ namespace HVAC_Pro_Desktop.UI
                     Font = DS.Small,
                     ForeColor = DS.Slate500,
                     TextAlign = ContentAlignment.TopCenter
-                };
+                });
                 panel.Controls.Add(detailLabel);
             }
 
@@ -518,8 +518,8 @@ namespace HVAC_Pro_Desktop.UI
             if (string.IsNullOrWhiteSpace(fieldName))
                 fieldName = "This field";
 
-            SharedToolTip.SetToolTip(control, fieldName + " is required.");
-            SharedToolTip.SetToolTip(requiredLabel, fieldName + " is required.");
+            SharedToolTip.SetToolTip(control, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} is required.", fieldName));
+            SharedToolTip.SetToolTip(requiredLabel, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} is required.", fieldName));
         }
 
         private static bool LooksLikeCompactIconBadge(Label label, string text)
@@ -693,15 +693,15 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 0, 8, 0)
             };
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = sectionTitle,
                 Dock = DockStyle.Top,
                 Height = 24,
-                Font = new Font("Segoe UI", 9.2f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.2f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
-            };
+            });
 
             TableLayoutPanel buckets = new TableLayoutPanel
             {
@@ -740,15 +740,15 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bucket, 8);
 
-            Label heading = new Label
+            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = title,
                 Dock = DockStyle.Top,
                 Height = 22,
-                Font = new Font("Segoe UI", 8.6f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.6f, FontStyle.Bold),
                 ForeColor = DS.Primary500,
                 AutoEllipsis = true
-            };
+            });
             FlowLayoutPanel list = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
@@ -766,30 +766,30 @@ namespace HVAC_Pro_Desktop.UI
 
             if (values.Count == 0)
             {
-                list.Controls.Add(new Label
+                list.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Text = "No records yet.",
                     Width = 260,
                     Height = 22,
-                    Font = new Font("Segoe UI", 8f),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f),
                     ForeColor = DS.Slate500,
                     AutoEllipsis = true
-                });
+                }));
             }
             else
             {
                 foreach (string value in values)
                 {
-                    list.Controls.Add(new Label
+                    list.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                     {
                         Text = value,
                         Width = 260,
                         Height = 22,
-                        Font = new Font("Segoe UI", 8f),
+                        Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f),
                         ForeColor = DS.Slate700,
                         AutoEllipsis = true,
                         Margin = new Padding(0, 0, 0, 2)
-                    });
+                    }));
                 }
             }
 

@@ -95,7 +95,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = White,
                 Padding = new Padding(0, 10, 10, 10)
             };
-            Button btnBack = MakeButton("<- Back", White, TextPrimary, 104);
+            Button btnBack = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("<- Back", White, TextPrimary, 104));
             btnBack.FlatAppearance.BorderColor = Border;
             btnBack.Location = new Point(0, 12);
             btnBack.Click += (s, e) => OnBackToJobs?.Invoke(JobId);
@@ -110,11 +110,11 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0)
             };
 
-            Button btnEdit = MakeButton("Edit Job", Teal, White, 88);
-            Button btnPrint = MakeButton("Print", Blue, White, 70);
-            Button btnOpenPdf = MakeButton("Open PDF", White, TextPrimary, 82);
-            Button btnSavePdf = MakeButton("Save PDF", White, TextPrimary, 82);
-            Button btnRefresh = MakeButton("Refresh", White, TextPrimary, 76);
+            Button btnEdit = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Edit Job", Teal, White, 88));
+            Button btnPrint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Print", Blue, White, 70));
+            Button btnOpenPdf = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Open PDF", White, TextPrimary, 82));
+            Button btnSavePdf = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save PDF", White, TextPrimary, 82));
+            Button btnRefresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Refresh", White, TextPrimary, 76));
 
             btnOpenPdf.FlatAppearance.BorderColor = Border;
             btnSavePdf.FlatAppearance.BorderColor = Border;
@@ -150,21 +150,21 @@ namespace HVAC_Pro_Desktop.UI
             Panel titleHost = new Panel { Dock = DockStyle.Fill, BackColor = White, Padding = new Padding(10, 0, 12, 0) };
             _lblTitle.Dock = DockStyle.Top;
             _lblTitle.Height = 24;
-            _lblTitle.Font = new Font("Segoe UI", 12.6f, FontStyle.Bold);
+            _lblTitle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12.6f, FontStyle.Bold);
             _lblTitle.ForeColor = TextPrimary;
-            _lblTitle.Text = "Job Preview";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblTitle, "Job Preview");
             _lblCompany.Dock = DockStyle.Top;
             _lblCompany.Height = 18;
-            _lblCompany.Font = new Font("Segoe UI", 8.9f, FontStyle.Bold);
+            _lblCompany.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.9f, FontStyle.Bold);
             _lblCompany.ForeColor = Blue;
-            _lblCompany.Text = DocumentBranding.DefaultCompanyName;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCompany, DocumentBranding.DefaultCompanyName);
             _lblMeta.Dock = DockStyle.Top;
             _lblMeta.Height = 18;
-            _lblMeta.Font = new Font("Segoe UI", 8.2f);
+            _lblMeta.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f);
             _lblMeta.ForeColor = TextSecondary;
             _lblMeta.AutoEllipsis = true;
             _lblStatus.AutoSize = true;
-            _lblStatus.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            _lblStatus.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold);
             _lblStatus.ForeColor = Teal;
             _lblStatus.BackColor = Color.FromArgb(232, 248, 241);
             _lblStatus.Padding = new Padding(8, 3, 8, 3);
@@ -187,9 +187,9 @@ namespace HVAC_Pro_Desktop.UI
 
             _lblLoading.Dock = DockStyle.Top;
             _lblLoading.Height = 26;
-            _lblLoading.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _lblLoading.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold);
             _lblLoading.ForeColor = TextSecondary;
-            _lblLoading.Text = "Loading job preview...";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblLoading, "Loading job preview...");
 
             previewCard.Controls.Add(_browserHost);
             previewCard.Controls.Add(_lblLoading);
@@ -289,15 +289,15 @@ namespace HVAC_Pro_Desktop.UI
         private void BindHeader(JobDetailDto detail, IndiaCompanySettings settings)
         {
             Job job = detail.Job;
-            _lblTitle.Text = string.IsNullOrWhiteSpace(job.JobNumber) ? "Job Preview" : job.JobNumber + " Preview";
-            _lblCompany.Text = ResolveCompanyName(settings);
-            _lblMeta.Text = string.Join("   |   ", new[]
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblTitle, (string.IsNullOrWhiteSpace(job.JobNumber) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job Preview") : global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} Preview", job.JobNumber)));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCompany, ResolveCompanyName(settings));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblMeta, string.Join("   |   ", new[]
             {
                 Safe(detail.Client == null ? null : detail.Client.CompanyName, "Client not linked"),
                 Safe(detail.Site == null ? null : detail.Site.SiteName, "Site not linked"),
                 job.ScheduledDate == default(DateTime) ? "Date not scheduled" : "Scheduled " + IndiaFormatHelper.FormatDate(job.ScheduledDate)
-            });
-            _lblStatus.Text = Safe(FirstNonEmpty(job.PipelineStatus, job.Status), "Created");
+            }));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, Safe(FirstNonEmpty(job.PipelineStatus, job.Status), "Created"));
         }
 
         private static string ResolveCompanyName(IndiaCompanySettings settings)
@@ -311,7 +311,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetLoading(string text)
         {
-            _lblLoading.Text = text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblLoading, text);
             _lblLoading.Visible = !string.IsNullOrWhiteSpace(text);
         }
 
@@ -376,7 +376,7 @@ namespace HVAC_Pro_Desktop.UI
                 try
                 {
                     HtmlPreviewDialog.ExportHtmlToPdf(_currentHtml, dialog.FileName);
-                    MessageBox.Show(this, "PDF saved to " + dialog.FileName, "Job Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("PDF saved to {0}", dialog.FileName), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Job Preview"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
                 catch (Exception ex)
                 {
@@ -411,7 +411,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color backColor, Color foreColor, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = width,
@@ -419,9 +419,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = backColor,
                 ForeColor = foreColor,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold),
                 Margin = new Padding(4, 0, 0, 0)
-            };
+            });
             button.FlatAppearance.BorderSize = 1;
             return button;
         }

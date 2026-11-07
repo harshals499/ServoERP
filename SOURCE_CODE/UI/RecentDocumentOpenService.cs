@@ -31,7 +31,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 {
-                    MessageBox.Show(owner, "The linked file was not found. It may have been moved or deleted.", title ?? "Open document", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The linked file was not found. It may have been moved or deleted."), title ?? "Open document", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -57,7 +57,7 @@ namespace HVAC_Pro_Desktop.UI
                 TenderBid bid = service.GetByIdDetailed(bidId) ?? service.GetById(bidId);
                 if (bid == null)
                 {
-                    MessageBox.Show(owner, "The selected quotation could not be found.", "Open quotation PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The selected quotation could not be found."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open quotation PDF"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -79,7 +79,7 @@ namespace HVAC_Pro_Desktop.UI
                 Invoice invoice = service.GetInvoiceById(invoiceId);
                 if (invoice == null)
                 {
-                    MessageBox.Show(owner, "The selected invoice could not be found.", "Open invoice PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The selected invoice could not be found."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open invoice PDF"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -107,12 +107,12 @@ namespace HVAC_Pro_Desktop.UI
                 PurchaseOrder po = service.GetById(poId);
                 if (po == null)
                 {
-                    MessageBox.Show(owner, "The selected purchase order could not be found.", "Open purchase PDF", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The selected purchase order could not be found."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open purchase PDF"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 if (!OpenPurchaseOrderPreview(owner, po) && !OpenPdf(owner, po))
-                    MessageBox.Show(owner, "The purchase order preview could not be opened automatically.", "Open purchase PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The purchase order preview could not be opened automatically."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open purchase PDF"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -152,7 +152,7 @@ namespace HVAC_Pro_Desktop.UI
                 JobDetailDto detail = new JobService().GetJobDetail(jobId);
                 if (detail == null || detail.Job == null)
                 {
-                    MessageBox.Show(owner, "The selected job could not be found.", "Open job report", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The selected job could not be found."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open job report"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -295,7 +295,7 @@ namespace HVAC_Pro_Desktop.UI
             File.WriteAllBytes(pdfPath, PDFGenerator.GenerateInvoice(invoice));
 
             if (!TryOpenPdfPath(pdfPath))
-                MessageBox.Show(owner, "Invoice PDF was generated, but Windows could not open it automatically." + Environment.NewLine + pdfPath, "Open invoice PDF", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(owner, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Invoice PDF was generated, but Windows could not open it automatically.{0}{1}", Environment.NewLine, pdfPath), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open invoice PDF"), MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private static string SafePdfFilename(string value)

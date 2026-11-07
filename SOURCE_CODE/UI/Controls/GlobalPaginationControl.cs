@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -32,7 +32,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Size = new Size(900, 44);
             MinimumSize = new Size(280, 44);
             _summaryLabel = new Label { Name = "PaginationSummary", TextAlign = ContentAlignment.MiddleLeft, Font = ModernERPTheme.Small, ForeColor = DS.Slate600 };
-            _rowsLabel = new Label { Text = T("Rows per page"), TextAlign = ContentAlignment.MiddleLeft, Font = ModernERPTheme.Small, ForeColor = DS.Slate700 };
+            _rowsLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = T("Rows per page"), TextAlign = ContentAlignment.MiddleLeft, Font = ModernERPTheme.Small, ForeColor = DS.Slate700 });
             _pageSizeCombo = new ComboBox { Name = "PaginationPageSize", DropDownStyle = ComboBoxStyle.DropDownList, Font = ModernERPTheme.Small, Tag = "CUSTOM_INPUT_SHELL", AccessibleName = T("Rows per page"), IntegralHeight = false };
             _pageSizeCombo.Items.AddRange(new object[] { "10", "25", "50", "100" });
             _pageSizeCombo.SelectedIndexChanged += PageSizeSelected;
@@ -64,7 +64,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                 string value = PageSize.ToString(CultureInfo.InvariantCulture);
                 if (!_pageSizeCombo.Items.Contains(value)) _pageSizeCombo.Items.Add(value);
                 _pageSizeCombo.SelectedItem = value;
-                _summaryLabel.Text = string.Format(CultureInfo.GetCultureInfo("en-IN"), "Showing {0:N0}–{1:N0} of {2:N0}", DisplayFrom, DisplayTo, TotalRecords);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryLabel, string.Format(CultureInfo.GetCultureInfo("en-IN"), "Showing {0:N0}–{1:N0} of {2:N0}", DisplayFrom, DisplayTo, TotalRecords));
                 _toolTip.SetToolTip(_summaryLabel, _summaryLabel.Text);
                 _previousButton.Enabled = TotalRecords > 0 && CurrentPage > 1;
                 _nextButton.Enabled = TotalRecords > 0 && CurrentPage < TotalPages;
@@ -96,7 +96,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
         }
         private Button CreateButton(string text, int width, string accessibleName)
         {
-            var button = new Button { Text = text, Size = new Size(width, 32), FlatStyle = FlatStyle.Flat, Font = ModernERPTheme.SmallBold, BackColor = Color.White, ForeColor = DS.Slate800, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 4, 0), UseVisualStyleBackColor = false, AccessibleName = accessibleName, Tag = "PAGINATION_BUTTON" };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Size = new Size(width, 32), FlatStyle = FlatStyle.Flat, Font = ModernERPTheme.SmallBold, BackColor = Color.White, ForeColor = DS.Slate800, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 4, 0), UseVisualStyleBackColor = false, AccessibleName = accessibleName, Tag = "PAGINATION_BUTTON" });
             button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.MouseOverBackColor = DS.Slate100;
             _toolTip.SetToolTip(button, accessibleName);
@@ -145,7 +145,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             {
                 if (page == 0)
                 {
-                    _pages.Controls.Add(new Label { Text = "…", Size = new Size(buttonWidth, 32), TextAlign = ContentAlignment.MiddleCenter, Font = ModernERPTheme.Small, ForeColor = DS.Slate600, Margin = new Padding(0, 0, 4, 0) });
+                    _pages.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "…", Size = new Size(buttonWidth, 32), TextAlign = ContentAlignment.MiddleCenter, Font = ModernERPTheme.Small, ForeColor = DS.Slate600, Margin = new Padding(0, 0, 4, 0) }));
                     continue;
                 }
                 int target = page;
@@ -158,7 +158,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                     button.ForeColor = Color.White;
                     button.FlatAppearance.BorderColor = DS.Primary600;
                     button.FlatAppearance.MouseOverBackColor = DS.Primary700;
-                    button.AccessibleDescription = "Current page";
+                    button.AccessibleDescription = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Current page");
                 }
                 button.Click += (s, e) => GoToPage(target);
                 _pages.Controls.Add(button);
@@ -177,7 +177,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             _layingOut = true;
             try
             {
-                int rowHeight = Math.Max(32, TextRenderer.MeasureText("Next", ModernERPTheme.SmallBold).Height + 12);
+                int rowHeight = Math.Max(32, TextRenderer.MeasureText(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Next"), ModernERPTheme.SmallBold).Height + 12);
                 const int pad = 6;
                 int width = ClientSize.Width;
                 int summaryWidth = TextRenderer.MeasureText(_summaryLabel.Text, _summaryLabel.Font).Width + 8;
@@ -193,7 +193,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                     if (IsHandleCreated && Parent != null)
                         BeginInvoke(new Action(() => { if (!IsDisposed && Parent != null) Parent.PerformLayout(this, "Height"); }));
                 }
-                _rowsLabel.Text = T(stacked && width < 400 ? "Rows" : "Rows per page");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_rowsLabel, T(stacked && width < 400 ? "Rows" : "Rows per page"));
                 rowsWidth = TextRenderer.MeasureText(_rowsLabel.Text, _rowsLabel.Font).Width + 6;
                 _summaryLabel.SetBounds(pad, pad, Math.Max(0, stacked ? width - rowsWidth - 72 - pad * 3 : summaryWidth), rowHeight);
                 _summaryLabel.AutoEllipsis = true;

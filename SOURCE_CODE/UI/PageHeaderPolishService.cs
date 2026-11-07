@@ -155,7 +155,7 @@ namespace HVAC_Pro_Desktop.UI
             Label title = labels.FirstOrDefault(l => l.Font != null && l.Font.Size >= 13f);
             if (title != null)
             {
-                title.Font = new Font("Segoe UI", Math.Min(18f, Math.Max(15.5f, title.Font.Size)), FontStyle.Bold);
+                title.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), Math.Min(18f, Math.Max(15.5f, title.Font.Size)), FontStyle.Bold);
                 title.ForeColor = DS.Slate950;
                 title.AutoEllipsis = true;
                 title.UseMnemonic = false;
@@ -165,7 +165,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (label.Font != null && label.Font.Size <= 10.5f)
                 {
-                    label.Font = new Font("Segoe UI", Math.Max(8.6f, label.Font.Size), FontStyle.Regular);
+                    label.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), Math.Max(8.6f, label.Font.Size), FontStyle.Regular);
                     label.ForeColor = DS.Slate600;
                     label.AutoEllipsis = true;
                     label.UseMnemonic = false;
@@ -280,7 +280,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button CreateRefreshButton()
         {
-            Button refresh = DS.GhostBtn("Refresh", 108, 36);
+            Button refresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Refresh", 108, 36));
             refresh.Name = GlobalRefreshButtonName;
             refresh.UseMnemonic = false;
             refresh.Margin = new Padding(8, 0, 8, 0);
@@ -307,7 +307,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button CreatePreviewButton()
         {
-            Button preview = DS.GhostBtn("Preview", 108, 36);
+            Button preview = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Preview", 108, 36));
             preview.Name = GlobalPreviewButtonName;
             preview.UseMnemonic = false;
             preview.Margin = new Padding(8, 0, 8, 0);
@@ -634,7 +634,7 @@ namespace HVAC_Pro_Desktop.UI
             Bitmap snapshot = TryRenderControl(target);
             if (snapshot == null)
             {
-                MessageBox.Show(target.FindForm() ?? target, "Preview is not available for this screen yet.", "Preview", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(target.FindForm() ?? target, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Preview is not available for this screen yet."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Preview"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 
@@ -685,14 +685,14 @@ namespace HVAC_Pro_Desktop.UI
         public VisualPreviewDialog(string title, Bitmap snapshot)
         {
             _snapshot = snapshot;
-            Text = string.IsNullOrWhiteSpace(title) ? "Preview" : title + " Preview";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, (string.IsNullOrWhiteSpace(title) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Preview") : global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} Preview", title)));
             StartPosition = FormStartPosition.CenterParent;
             Width = 1180;
             Height = 820;
             BackColor = Color.White;
 
             Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Color.White };
-            Button save = MakeButton("Save PNG", 10, Color.FromArgb(37, 99, 235));
+            Button save = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save PNG", 10, Color.FromArgb(37, 99, 235)));
             save.Click += SaveSnapshot;
             toolbar.Controls.Add(save);
 
@@ -719,7 +719,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, int left, Color color)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = 96,
@@ -729,9 +729,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = color,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderSize = 0;
             return button;
         }
@@ -748,7 +748,7 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 _snapshot.Save(dialog.FileName, ImageFormat.Png);
-                MessageBox.Show(this, "Preview saved to " + dialog.FileName, "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Preview saved to {0}", dialog.FileName), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
     }

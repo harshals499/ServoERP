@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
@@ -13,7 +13,7 @@ namespace HVAC_Pro_Desktop.UI
         internal PdfCategoryPicker()
         {
             Name = "PdfCategoryPicker";
-            AccessibleName = "Search or select a PDF category";
+            AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search or select a PDF category");
             DropDownStyle = ComboBoxStyle.DropDown;
             AutoCompleteMode = AutoCompleteMode.Suggest;
             AutoCompleteSource = AutoCompleteSource.ListItems;
@@ -33,17 +33,17 @@ namespace HVAC_Pro_Desktop.UI
         protected override bool EnableWorkspaceHeader => false;
         internal PdfLibraryDialog(PdfCategory? category)
         {
-            Text="ServoERP · Imported PDFs"; Size=new Size(1000,650); MinimumSize=new Size(700,450); StartPosition=FormStartPosition.CenterParent; BackColor=DS.BgPage;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP · Imported PDFs"); Size=new Size(1000,650); MinimumSize=new Size(700,450); StartPosition=FormStartPosition.CenterParent; BackColor=DS.BgPage;
             var grid=new DataGridView { Dock=DockStyle.Fill, ReadOnly=true, AutoGenerateColumns=false, AllowUserToAddRows=false, AllowUserToDeleteRows=false, RowHeadersVisible=false, SelectionMode=DataGridViewSelectionMode.FullRowSelect, MultiSelect=false, BackgroundColor=Color.White };
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="FileName",HeaderText="Filename",Width=280 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="Category",HeaderText="Category",Width=130 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="SourceFolder",HeaderText="Source folder",Width=240 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="ImportedUtc",HeaderText="Imported (local)",Width=155 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="FileName",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Filename"),Width=280 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="Category",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category"),Width=130 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="SourceFolder",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Source folder"),Width=240 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName="ImportedUtc",HeaderText=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Imported (local)"),Width=155 });
             grid.CellFormatting+=(s,e)=> { if(grid.Columns[e.ColumnIndex].DataPropertyName=="ImportedUtc" && e.Value is DateTime time) {e.Value=DateTime.SpecifyKind(time,DateTimeKind.Utc).ToLocalTime().ToString("dd/MM/yyyy HH:mm");e.FormattingApplied=true;} };
-            var status=new Label { Dock=DockStyle.Top,Height=50,Padding=new Padding(12),Text="Loading imported PDFs…" };
-            var open=new Button {Text="Open selected PDF",Dock=DockStyle.Bottom,Height=40};
+            var status=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock=DockStyle.Top,Height=50,Padding=new Padding(12),Text="Loading imported PDFs…" });
+            var open=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button {Text="Open selected PDF",Dock=DockStyle.Bottom,Height=40});
             open.Click+=(s,e)=> { var row=grid.CurrentRow?.DataBoundItem as PdfLibraryRecord; if(row!=null) RecentDocumentOpenService.OpenStoredFile(this,row.FilePath,"ServoERP · Imported PDF"); };
-            var change = new Button { Text = "Change category", Dock = DockStyle.Bottom, Height = 40, Enabled = false };
+            var change = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Change category", Dock = DockStyle.Bottom, Height = 40, Enabled = false });
             var repository = new PdfReviewRepository();
             async Task ReloadAsync()
             {
@@ -51,8 +51,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (IsDisposed) return;
                 grid.DataSource = rows;
                 change.Enabled = rows.Count > 0;
-                status.Text = (category.HasValue ? PdfCategories.Destination(category.Value) : "All imported PDFs")
-                    + " • " + rows.Count + " most recent attachments. No business transactions created.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(status, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} • {1} most recent attachments. No business transactions created.", (category.HasValue ? PdfCategories.Destination(category.Value) : "All imported PDFs"), rows.Count));
             }
 
             change.Click += async (s, e) =>
@@ -61,17 +60,17 @@ namespace HVAC_Pro_Desktop.UI
                 if (row == null || !Enum.TryParse(row.Category, out PdfCategory current)) return;
                 using (var dialog = new CategoryDialog())
                 {
-                    dialog.Text = "ServoERP · Change PDF category";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(dialog, "ServoERP · Change PDF category");
                     dialog.StartPosition = FormStartPosition.CenterParent;
                     dialog.ClientSize = new Size(420, 180);
                     var picker = new PdfCategoryPicker { Category = current, Dock = DockStyle.Top };
                     var destination = new Label { Dock = DockStyle.Fill, Padding = new Padding(12) };
-                    var save = new Button { Text = "Save category", DialogResult = DialogResult.OK, Dock = DockStyle.Bottom, Height = 40 };
+                    var save = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "Save category", DialogResult = DialogResult.OK, Dock = DockStyle.Bottom, Height = 40 });
                     void RefreshChoice()
                     {
                         var selected = picker.Category;
                         save.Enabled = selected.HasValue && selected != current;
-                        destination.Text = selected.HasValue ? PdfCategories.Destination(selected.Value) : "Choose an available category.";
+                        global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(destination, (selected.HasValue ? PdfCategories.Destination(selected.Value) : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose an available category.")));
                     }
                     picker.TextChanged += (sender, args) => RefreshChoice();
                     dialog.Controls.Add(destination);
@@ -91,7 +90,7 @@ namespace HVAC_Pro_Desktop.UI
                     {
                         Serilog.Log.Warning(ex, "Could not change imported PDF category for {DocumentId}", row.DocumentId);
                         if (IsDisposed) return;
-                        status.Text = "The category could not be updated or refreshed. Check your access and reopen Imported PDFs.";
+                        global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "The category could not be updated or refreshed. Check your access and reopen Imported PDFs.");
                         change.Enabled = true;
                     }
                 }
@@ -103,7 +102,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     await ReloadAsync();
                 }
-                catch(Exception ex) {Serilog.Log.Warning("PDF library failed with {ErrorType}",ex.GetType().Name);if(!IsDisposed)status.Text="Imported PDFs could not be loaded. Check the database connection and your access, then reopen.";}
+                catch(Exception ex) {Serilog.Log.Warning("PDF library failed with {ErrorType}",ex.GetType().Name);if(!IsDisposed)global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "Imported PDFs could not be loaded. Check the database connection and your access, then reopen.");}
             };
         }
         private sealed class CategoryDialog : ServoERP.Infrastructure.ServoFormBase
@@ -119,7 +118,7 @@ namespace HVAC_Pro_Desktop.UI
             else if(title=="Quotations"||title=="Quotation Dashboard")category=PdfCategory.Quotation;
             else return;
             if(model.RightActions.Any(c=>c.Name=="ImportedPdfLibrary"))return;
-            var button=new Button {Name="ImportedPdfLibrary",Text="Imported PDFs",Width=120,Height=36,FlatStyle=FlatStyle.Flat};
+            var button=global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button {Name="ImportedPdfLibrary",Text="Imported PDFs",Width=120,Height=36,FlatStyle=FlatStyle.Flat});
             button.Click+=(s,e)=> {using(var dialog=new PdfLibraryDialog(category))dialog.ShowDialog(button.FindForm());};
             model.RightActions.Add(button);
         }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -42,16 +42,16 @@ namespace HVAC_Pro_Desktop.UI
             badge.Location = new Point(14, 14);
             Controls.Add(badge);
 
-            Controls.Add(new Label
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = title,
                 Location = new Point(74, 20),
                 Size = new Size(160, 22),
-                Font = new Font("Segoe UI", 9.2f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.2f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            });
+            }));
 
             AddMetric(primary, 70);
             if (pills != null)
@@ -59,7 +59,7 @@ namespace HVAC_Pro_Desktop.UI
             if (secondary != null)
                 AddMetric(secondary, pills == null ? 122 : 138);
 
-            Button view = new Button
+            Button view = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "View Details    >",
                 Height = 30,
@@ -67,9 +67,9 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = DS.Slate900,
-                Font = new Font("Segoe UI", 8.2f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
                 Cursor = Cursors.Hand
-            };
+            });
             view.FlatAppearance.BorderColor = DS.Border;
             view.FlatAppearance.MouseOverBackColor = DS.Primary50;
             view.Click += (s, e) => viewAction?.Invoke();
@@ -81,26 +81,26 @@ namespace HVAC_Pro_Desktop.UI
             if (metric == null)
                 return;
 
-            Controls.Add(new Label
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = string.IsNullOrWhiteSpace(metric.Value) ? "-" : metric.Value,
+                Text = (string.IsNullOrWhiteSpace(metric.Value) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : metric.Value),
                 Location = new Point(74, y),
                 Size = new Size(170, 26),
-                Font = new Font("Segoe UI", 13.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13.5f, FontStyle.Bold),
                 ForeColor = metric.Color ?? DS.Slate900,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            });
-            Controls.Add(new Label
+            }));
+            Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = metric.Label ?? string.Empty,
                 Location = new Point(74, y + 27),
                 Size = new Size(170, 18),
-                Font = new Font("Segoe UI", 8f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f),
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true,
                 BackColor = Color.Transparent
-            });
+            }));
         }
 
         private void AddPills(IEnumerable<DashboardCardPill> pills, int y)
@@ -108,16 +108,16 @@ namespace HVAC_Pro_Desktop.UI
             int x = 74;
             foreach (DashboardCardPill pill in pills)
             {
-                Label label = new Label
+                Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = "● " + pill.Text,
                     Location = new Point(x, y),
                     Size = new Size(86, 18),
-                    Font = new Font("Segoe UI", 7.6f),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.6f),
                     ForeColor = pill.Color,
                     AutoEllipsis = true,
                     BackColor = Color.Transparent
-                };
+                });
                 Controls.Add(label);
                 x += 92;
             }

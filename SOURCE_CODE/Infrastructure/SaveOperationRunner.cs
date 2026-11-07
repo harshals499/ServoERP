@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -34,7 +34,7 @@ namespace ServoERP.Infrastructure
             string originalText = string.IsNullOrWhiteSpace(readyText) ? primaryButton.Text : readyText;
             foreach (Control control in controls.Keys) control.Enabled = false;
             if (!primaryButton.IsDisposed)
-                primaryButton.Text = string.IsNullOrWhiteSpace(busyText) ? "Saving..." : busyText;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(primaryButton, (string.IsNullOrWhiteSpace(busyText) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Saving...") : busyText));
 
             try
             {
@@ -49,7 +49,7 @@ namespace ServoERP.Infrastructure
             }
             finally
             {
-                if (!primaryButton.IsDisposed) primaryButton.Text = originalText;
+                if (!primaryButton.IsDisposed) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(primaryButton, originalText);
                 foreach (var state in controls)
                     if (!state.Key.IsDisposed) state.Key.Enabled = state.Value;
                 lock (Sync) Running.Remove(primaryButton);

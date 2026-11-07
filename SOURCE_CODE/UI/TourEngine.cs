@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -272,11 +272,11 @@ namespace HVAC_Pro_Desktop.UI
                 Control target = step.TargetProvider == null ? null : step.TargetProvider();
                 _spotlightBounds = ResolveTargetBounds(target);
 
-                _title.Text = step.Title;
-                _body.Text = step.Body;
-                _counter.Text = "Step " + (_index + 1).ToString("0") + " of " + _steps.Count.ToString("0");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_title, step.Title);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_body, step.Body);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_counter, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Step {0} of {1}", (_index + 1).ToString("0"), _steps.Count.ToString("0")));
                 _back.Enabled = _index > 0;
-                _next.Text = _index == _steps.Count - 1 ? "Finish" : "Next";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_next, _index == _steps.Count - 1 ? "Finish" : "Next");
                 LayoutTooltip(step.Position);
                 Invalidate();
             }
@@ -395,7 +395,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Top,
                 Height = 28,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold),
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
             };
@@ -403,7 +403,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Top,
                 Height = 82,
-                Font = new Font("Segoe UI", 9.3f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.3f),
                 ForeColor = DS.Slate700,
                 AutoEllipsis = true
             };
@@ -411,7 +411,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Dock = DockStyle.Top,
                 Height = 24,
-                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold),
                 ForeColor = DS.Primary700
             };
 
@@ -423,9 +423,9 @@ namespace HVAC_Pro_Desktop.UI
                 WrapContents = false,
                 Padding = new Padding(0, 8, 0, 0)
             };
-            next = DS.PrimaryBtn("Next", 86, 32);
-            back = DS.GhostBtn("Back", 78, 32);
-            skip = DS.GhostBtn("Skip tour", 94, 32);
+            next = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Next", 86, 32));
+            back = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Back", 78, 32));
+            skip = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Skip tour", 94, 32));
             actions.Controls.Add(next);
             actions.Controls.Add(back);
             actions.Controls.Add(skip);

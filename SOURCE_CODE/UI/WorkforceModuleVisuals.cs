@@ -1,4 +1,4 @@
-namespace HVAC_Pro_Desktop.UI
+﻿namespace HVAC_Pro_Desktop.UI
 {
 	internal sealed class WorkforceMetricCardResult
 	{
@@ -40,22 +40,22 @@ namespace HVAC_Pro_Desktop.UI
 				BackColor = System.Drawing.Color.White,
 				Padding = new System.Windows.Forms.Padding(12, 12, 12, 8)
 			};
-			System.Windows.Forms.Label titleLabel = new System.Windows.Forms.Label
+			System.Windows.Forms.Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = title,
 				Location = new System.Drawing.Point(0, 0),
 				Size = new System.Drawing.Size(320, 22),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 10.5f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900
-			};
-			System.Windows.Forms.Label detailLabel = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label detailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = detail,
 				Location = new System.Drawing.Point(0, 28),
 				Size = new System.Drawing.Size(520, 30),
-				Font = new System.Drawing.Font("Segoe UI", 8.75f),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate500
-			};
+			});
 			header.Resize += delegate
 			{
 				int num = ((action != null && action.Visible) ? (action.Width + 16) : 0);
@@ -125,30 +125,30 @@ namespace HVAC_Pro_Desktop.UI
 				Size = new System.Drawing.Size(56, 3),
 				BackColor = (filled ? System.Drawing.Color.FromArgb(210, System.Drawing.Color.White) : accent)
 			};
-			System.Windows.Forms.Label value3 = new System.Windows.Forms.Label
+			System.Windows.Forms.Label value3 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = title,
 				Location = new System.Drawing.Point(18, 14),
 				Size = new System.Drawing.Size(180, 18),
-				Font = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
 				ForeColor = (filled ? System.Drawing.Color.FromArgb(235, 245, 255) : HVAC_Pro_Desktop.UI.DS.Slate600)
-			};
-			System.Windows.Forms.Label label = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = value,
 				Location = new System.Drawing.Point(18, 34),
 				Size = new System.Drawing.Size(180, 30),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 16f, System.Drawing.FontStyle.Bold),
 				ForeColor = (filled ? System.Drawing.Color.White : HVAC_Pro_Desktop.UI.DS.Slate900)
-			};
-			System.Windows.Forms.Label label2 = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label label2 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = caption,
 				Location = new System.Drawing.Point(18, 82),
 				Size = new System.Drawing.Size(220, 30),
-				Font = new System.Drawing.Font("Segoe UI", 8.5f),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
 				ForeColor = (filled ? System.Drawing.Color.FromArgb(229, 237, 246) : HVAC_Pro_Desktop.UI.DS.Slate500)
-			};
+			});
 			card.Controls.Add(value2);
 			card.Controls.Add(value3);
 			card.Controls.Add(label);
@@ -176,7 +176,7 @@ namespace HVAC_Pro_Desktop.UI
 
 		public static System.Windows.Forms.Label CreateChip(string text, System.Drawing.Color backColor, System.Drawing.Color foreColor, int width = 0)
 		{
-			System.Windows.Forms.Label obj = new System.Windows.Forms.Label
+			System.Windows.Forms.Label obj = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = text,
 				AutoSize = (width <= 0),
@@ -186,9 +186,9 @@ namespace HVAC_Pro_Desktop.UI
 				Padding = new System.Windows.Forms.Padding(10, 6, 10, 0),
 				BackColor = backColor,
 				ForeColor = foreColor,
-				Font = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, System.Drawing.FontStyle.Bold),
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft
-			};
+			});
 			HVAC_Pro_Desktop.UI.DS.Rounded(obj, 14);
 			return obj;
 		}
@@ -223,30 +223,30 @@ namespace HVAC_Pro_Desktop.UI
 					e.Graphics.FillRectangle(brush2, 0, 0, 7, card.Height);
 				}
 			};
-			System.Windows.Forms.Label eyebrowLabel = new System.Windows.Forms.Label
+			System.Windows.Forms.Label eyebrowLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = eyebrow,
 				Location = new System.Drawing.Point(0, 0),
 				Size = new System.Drawing.Size(280, 18),
-				Font = new System.Drawing.Font("Segoe UI", 8f, System.Drawing.FontStyle.Bold),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
 				ForeColor = accent
-			};
-			System.Windows.Forms.Label localTitleLabel = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label localTitleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = title,
 				Location = new System.Drawing.Point(0, 24),
 				Size = new System.Drawing.Size(520, 42),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 18f, System.Drawing.FontStyle.Bold),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate900
-			};
-			System.Windows.Forms.Label localDetailLabel = new System.Windows.Forms.Label
+			});
+			System.Windows.Forms.Label localDetailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
 				Text = detail,
 				Location = new System.Drawing.Point(0, 72),
 				Size = new System.Drawing.Size(560, 38),
-				Font = new System.Drawing.Font("Segoe UI", 9f),
+				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
 				ForeColor = HVAC_Pro_Desktop.UI.DS.Slate600
-			};
+			});
 			System.Windows.Forms.FlowLayoutPanel localChipRow = CreateChipRow();
 			localChipRow.Location = new System.Drawing.Point(0, 118);
 			System.Windows.Forms.Panel actionHost = new System.Windows.Forms.Panel

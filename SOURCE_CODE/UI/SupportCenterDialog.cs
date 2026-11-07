@@ -29,7 +29,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public SupportCenterDialog()
         {
-            Text = "Help & Support Center";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Help & Support Center");
             StartPosition = FormStartPosition.CenterParent;
             MinimumSize = new Size(440, 560);
             Size = new Size(1180, 760);
@@ -62,7 +62,7 @@ namespace HVAC_Pro_Desktop.UI
             icon.Location = new Point(24, 24);
             header.Controls.Add(icon);
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Help & Support Center",
                 Font = DS.H1,
@@ -72,10 +72,10 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSize = false,
                 AutoEllipsis = true,
                 UseMnemonic = false
-            };
+            });
             header.Controls.Add(title);
 
-            Label subtitle = new Label
+            Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Knowledge base, health checks, diagnostics, updates, and troubleshooting tools.",
                 Font = DS.Body,
@@ -84,7 +84,7 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(560, 34),
                 AutoSize = false,
                 AutoEllipsis = true
-            };
+            });
             header.Controls.Add(subtitle);
 
             Panel searchWrap = new Panel
@@ -116,7 +116,7 @@ namespace HVAC_Pro_Desktop.UI
             searchWrap.Controls.Add(_search);
             header.Controls.Add(searchWrap);
 
-            Button close = DS.GhostBtn("X", 38, 34);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("X", 38, 34));
             close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             close.Location = new Point(header.ClientSize.Width - close.Width - 18, 28);
             close.Click += (s, e) => RequestClose();
@@ -317,14 +317,14 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < (compact ? 8 : 4); i++)
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 148));
 
-            AddGridCard(grid, compact, DashboardCard("Knowledge Base", "Search guided tutorials for daily ServoERP workflows.", ModernIconKind.Document, DS.Primary600, ShowKnowledgeBase), 0, 0, 0);
-            AddGridCard(grid, compact, DashboardCard("System Health", "Run safe checks and self-healing tools.", ModernIconKind.Security, DS.Green600, ShowSystemHealth), 1, 1, 0);
-            AddGridCard(grid, compact, DashboardCard("Troubleshooting", "Resolve layout, cache, database, and app file issues.", ModernIconKind.Alert, DS.Amber600, ShowSystemHealth), 2, 0, 1);
-            AddGridCard(grid, compact, DashboardCard("Export Diagnostics", "Create a safe support ZIP with logs and environment details.", ModernIconKind.Export, DS.Teal600, async () => await RunStandaloneTool("Export Diagnostics Package", () => _service.ExportDiagnosticsPackage())), 3, 1, 1);
-            AddGridCard(grid, compact, DashboardCard("App Information", "Review version, modules, database state, and update host.", ModernIconKind.Settings, DS.Slate700, ShowAppInformation), 4, 0, 2);
-            AddGridCard(grid, compact, DashboardCard("Check Updates", "Check whether a newer ServoERP release is available.", ModernIconKind.Refresh, DS.Primary700, async () => await CheckUpdates()), 5, 1, 2);
-            AddGridCard(grid, compact, DashboardCard("Contact Support", "Prepare an escalation brief with issue summary, page name, version, database, and machine context.", ModernIconKind.Email, DS.Teal600, ShowContactSupportBrief), 6, 0, 3);
-            AddGridCard(grid, compact, DashboardCard("Recent Errors", "Review recent application errors from local logs.", ModernIconKind.Activity, DS.Red600, () => MessageBox.Show(this, RecentErrorsText(), "Recent Errors", MessageBoxButtons.OK, MessageBoxIcon.Information)), 7, 1, 3);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Knowledge Base"), "Search guided tutorials for daily ServoERP workflows.", ModernIconKind.Document, DS.Primary600, ShowKnowledgeBase), 0, 0, 0);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("System Health"), "Run safe checks and self-healing tools.", ModernIconKind.Security, DS.Green600, ShowSystemHealth), 1, 1, 0);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Troubleshooting"), "Resolve layout, cache, database, and app file issues.", ModernIconKind.Alert, DS.Amber600, ShowSystemHealth), 2, 0, 1);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Export Diagnostics"), "Create a safe support ZIP with logs and environment details.", ModernIconKind.Export, DS.Teal600, async () => await RunStandaloneTool("Export Diagnostics Package", () => _service.ExportDiagnosticsPackage())), 3, 1, 1);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("App Information"), "Review version, modules, database state, and update host.", ModernIconKind.Settings, DS.Slate700, ShowAppInformation), 4, 0, 2);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Check Updates"), "Check whether a newer ServoERP release is available.", ModernIconKind.Refresh, DS.Primary700, async () => await CheckUpdates()), 5, 1, 2);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Contact Support"), "Prepare an escalation brief with issue summary, page name, version, database, and machine context.", ModernIconKind.Email, DS.Teal600, ShowContactSupportBrief), 6, 0, 3);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Recent Errors"), "Review recent application errors from local logs.", ModernIconKind.Activity, DS.Red600, () => MessageBox.Show(this, RecentErrorsText(), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Recent Errors"), MessageBoxButtons.OK, MessageBoxIcon.Information)), 7, 1, 3);
             _content.Controls.Add(grid);
             EndContent();
         }
@@ -342,49 +342,49 @@ namespace HVAC_Pro_Desktop.UI
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, compact ? 178 : 178));
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "1. Understand the office setup",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("1. Understand the office setup"),
                 "One office SQL Server is the authoritative source. Every connected PC sees the same live business data.",
                 "Read overview",
                 "SetupOverview",
                 () => ShowSetupMessage("How ServoERP works", "Set up one Windows PC as the office server. It hosts SQL Server and the HVAC_PRO database. Each terminal PC connects directly to that SQL Server. This is live shared data, not PC-to-PC file copying. Keep the server and local network available while users work.")), 0, 0, 0);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "2. Prepare the office server",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("2. Prepare the office server"),
                 "Run this once on the PC that will host the company SQL Server, database, license, and administrator account.",
                 "Open server setup",
                 "OfficeServer",
                 OpenServerSetup), 1, 1, 0);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "3. Connect this terminal PC",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("3. Connect this terminal PC"),
                 "Use the configured server name or IP address to connect this PC directly to the shared HVAC_PRO database.",
                 "Open connection setup",
                 "TerminalConnection",
                 OpenConnectionSetup), 2, 0, 1);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "4. Connect shared office storage",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("4. Connect shared office storage"),
                 "Optionally share documents, templates, exports, and backups from \\SERVER\\ServoERPShared. Auto Detect Server proposes the correct location.",
                 "Open shared storage",
                 "SharedStorage",
                 OpenSharedStorageSetup), 3, 1, 1);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "5. Verify this PC",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("5. Verify this PC"),
                 "Check SQL connectivity before entering business data. The result confirms whether this PC can use the office database.",
                 "Run database check",
                 "VerifyConnection",
                 RunSetupDatabaseCheck), 4, 0, 2);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "6. Prepare the remaining PCs",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("6. Prepare the remaining PCs"),
                 "On the server, generate a connection package for each terminal. Apply it, then complete steps 3 through 5 on that PC.",
                 "Generate client package",
                 "ClientPackage",
                 GenerateClientPackage), 5, 1, 2);
 
             AddGridCard(grid, compact, SetupGuideCard(
-                "7. Daily safety checks",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("7. Daily safety checks"),
                 "Keep the server powered on, take regular backups, and use Help & Support > System Health if connection or update issues occur.",
                 "Open system health",
                 "DailySafety",
@@ -400,7 +400,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Padding = new Padding(18);
             card.Margin = new Padding(8);
 
-            CheckBox complete = new CheckBox
+            CheckBox complete = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox
             {
                 Text = "Completed on this PC",
                 AutoSize = true,
@@ -408,7 +408,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate600,
                 Checked = string.Equals(ConfigService.Get("InteractiveGuide", completionKey, "false"), "true", StringComparison.OrdinalIgnoreCase),
                 Location = new Point(18, 16)
-            };
+            });
             complete.CheckedChanged += (s, e) => ConfigService.Set("InteractiveGuide", completionKey, complete.Checked ? "true" : "false");
             card.Controls.Add(complete);
 
@@ -441,7 +441,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void OpenServerSetup()
         {
-            if (MessageBox.Show(this, "Open the office-server setup now? Use this only on the PC that hosts SQL Server for the company.", "Office Server Setup", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+            if (MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Open the office-server setup now? Use this only on the PC that hosts SQL Server for the company."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Office Server Setup"), MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
                 using (var form = new ServerFirstRunSetupForm())
                     form.ShowDialog(this);
         }
@@ -506,7 +506,7 @@ namespace HVAC_Pro_Desktop.UI
             listCard.Margin = compact ? new Padding(0, 0, 0, 12) : new Padding(0, 0, 12, 0);
             split.Controls.Add(listCard, 0, 0);
 
-            Label listTitle = LabelText("Knowledge Base", DS.H2, DS.Slate900);
+            Label listTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Knowledge Base", DS.H2, DS.Slate900));
             listTitle.Dock = DockStyle.Top;
             listTitle.Height = 32;
             listCard.Controls.Add(listTitle);
@@ -562,31 +562,31 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < (compact ? 18 : 9); i++)
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, 150));
 
-            AddGridCard(grid, compact, ToolCard("Check Database", "Validate SQL Server connection without changing data.", ModernIconKind.Security, () => _service.CheckDatabase()), 0, 0, 0);
-            AddGridCard(grid, compact, ToolCard("Backup Database", "Create a manual backup through the existing backup service.", ModernIconKind.Backup, () => _service.BackupDatabase()), 1, 1, 0);
-            AddGridCard(grid, compact, ToolCard("Repair Database Schema", "Run safe startup migrations now to fix missing columns after an update.", ModernIconKind.Settings, () => _service.RepairDatabaseSchema()), 2, 0, 1);
-            AddGridCard(grid, compact, ToolCard("Clear Cache", "Clear in-memory module data cache so pages reload fresh data.", ModernIconKind.Refresh, () => _service.ClearCache()), 3, 1, 1);
-            AddGridCard(grid, compact, ToolCard("Reset Layout", "Reset saved card/page layouts for the current user.", ModernIconKind.Preference, () => _service.ResetLayout()), 4, 0, 2);
-            AddGridCard(grid, compact, ToolCard("Verify App Files", "Check that core application files are present.", ModernIconKind.Checklist, () => _service.VerifyAppFiles()), 5, 1, 2);
-            AddGridCard(grid, compact, ToolCard("Repair Config", "Ensure required ServoERP folders exist and are writable.", ModernIconKind.Settings, () => _service.RepairConfig()), 6, 0, 3);
-            AddGridCard(grid, compact, ToolCard("Export Diagnostics Package", "Export safe logs, version, health, and layout summaries.", ModernIconKind.Export, () => _service.ExportDiagnosticsPackage()), 7, 1, 3);
-            AddGridCard(grid, compact, ToolCard("Client Server Setup Wizard", "Detect server IP, SQL target, and generate client connection ZIP.", ModernIconKind.Settings, () => _service.GenerateClientServerSetupPackage()), 8, 0, 4);
-            AddGridCard(grid, compact, ToolCard("Office Sync Health Monitor", "Show this PC, configured server, SQL reachability, version, backup, and row counts.", ModernIconKind.Activity, () => _service.CreateOfficeHealthReport()), 9, 1, 4);
-            AddGridCard(grid, compact, DashboardCard("LAN Control Center", "Detect office PCs, deploy the Enterprise installer, and monitor enrolled-terminal health and updates.", ModernIconKind.Activity, DS.Teal600, OpenLanControlCenter), 16, 0, 8);
-            AddGridCard(grid, compact, ToolCard("Synchronization Health", "Export node identity, local replay queue, and SQL sync outbox status.", ModernIconKind.Refresh, () => _service.CreateSynchronizationReport()), 10, 0, 5);
-            AddGridCard(grid, compact, ToolCard("Operations Command Center", "Create COO report for sales, jobs, AMC, vendors, inventory, technicians, and quotations.", ModernIconKind.Analytics, () => _service.CreateOperationsCommandCenterReport()), 11, 1, 5);
-            AddGridCard(grid, compact, ToolCard("Material Price Intelligence", "Summarize supplier rates, price variance, quotation margins, and best supplier readiness.", ModernIconKind.Inventory, () => _service.CreateMaterialPriceIntelligenceReport()), 12, 0, 6);
-            AddGridCard(grid, compact, ToolCard("Document Automation", "Audit letterhead, quotation, invoice, PO, AMC, delivery note templates and defaults.", ModernIconKind.Document, () => _service.CreateDocumentAutomationReport()), 13, 1, 6);
-            AddGridCard(grid, compact, ToolCard("Fresh Client Deployment Mode", "Generate deployment report: clean database status, connection, import order, backup readiness.", ModernIconKind.Checklist, () => _service.CreateFreshClientDeploymentReport()), 14, 0, 7);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Check Database"), "Validate SQL Server connection without changing data.", ModernIconKind.Security, () => _service.CheckDatabase()), 0, 0, 0);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Backup Database"), "Create a manual backup through the existing backup service.", ModernIconKind.Backup, () => _service.BackupDatabase()), 1, 1, 0);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Repair Database Schema"), "Run safe startup migrations now to fix missing columns after an update.", ModernIconKind.Settings, () => _service.RepairDatabaseSchema()), 2, 0, 1);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Clear Cache"), "Clear in-memory module data cache so pages reload fresh data.", ModernIconKind.Refresh, () => _service.ClearCache()), 3, 1, 1);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Reset Layout"), "Reset saved card/page layouts for the current user.", ModernIconKind.Preference, () => _service.ResetLayout()), 4, 0, 2);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Verify App Files"), "Check that core application files are present.", ModernIconKind.Checklist, () => _service.VerifyAppFiles()), 5, 1, 2);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Repair Config"), "Ensure required ServoERP folders exist and are writable.", ModernIconKind.Settings, () => _service.RepairConfig()), 6, 0, 3);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Export Diagnostics Package"), "Export safe logs, version, health, and layout summaries.", ModernIconKind.Export, () => _service.ExportDiagnosticsPackage()), 7, 1, 3);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client Server Setup Wizard"), "Detect server IP, SQL target, and generate client connection ZIP.", ModernIconKind.Settings, () => _service.GenerateClientServerSetupPackage()), 8, 0, 4);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Office Sync Health Monitor"), "Show this PC, configured server, SQL reachability, version, backup, and row counts.", ModernIconKind.Activity, () => _service.CreateOfficeHealthReport()), 9, 1, 4);
+            AddGridCard(grid, compact, DashboardCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("LAN Control Center"), "Detect office PCs, deploy the Enterprise installer, and monitor enrolled-terminal health and updates.", ModernIconKind.Activity, DS.Teal600, OpenLanControlCenter), 16, 0, 8);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Synchronization Health"), "Export node identity, local replay queue, and SQL sync outbox status.", ModernIconKind.Refresh, () => _service.CreateSynchronizationReport()), 10, 0, 5);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Operations Command Center"), "Create COO report for sales, jobs, AMC, vendors, inventory, technicians, and quotations.", ModernIconKind.Analytics, () => _service.CreateOperationsCommandCenterReport()), 11, 1, 5);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Material Price Intelligence"), "Summarize supplier rates, price variance, quotation margins, and best supplier readiness.", ModernIconKind.Inventory, () => _service.CreateMaterialPriceIntelligenceReport()), 12, 0, 6);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Document Automation"), "Audit letterhead, quotation, invoice, PO, AMC, delivery note templates and defaults.", ModernIconKind.Document, () => _service.CreateDocumentAutomationReport()), 13, 1, 6);
+            AddGridCard(grid, compact, ToolCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Fresh Client Deployment Mode"), "Generate deployment report: clean database status, connection, import order, backup readiness.", ModernIconKind.Checklist, () => _service.CreateFreshClientDeploymentReport()), 14, 0, 7);
             AddGridCard(grid, compact, DataCleanRoomCard(), 15, 1, 7);
 
             Panel guidance = CardPanel();
             guidance.Padding = new Padding(20);
             guidance.Margin = new Padding(8);
-            Label title = LabelText("Security Note", DS.H3, DS.Slate900);
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Security Note", DS.H3, DS.Slate900));
             title.Dock = DockStyle.Top;
             title.Height = 28;
-            Label text = LabelText("Diagnostics intentionally exclude passwords, API keys, raw connection strings, license keys, and customer financial data.", DS.Body, DS.Slate600);
+            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Diagnostics intentionally exclude passwords, API keys, raw connection strings, license keys, and customer financial data.", DS.Body, DS.Slate600));
             text.Dock = DockStyle.Fill;
             text.MaximumSize = new Size(460, 0);
             guidance.Controls.Add(text);
@@ -608,19 +608,19 @@ namespace HVAC_Pro_Desktop.UI
             icon.SetBounds(18, 18, 38, 38);
             card.Controls.Add(icon);
 
-            Label titleLabel = LabelText("Data Clean Room", DS.H3, DS.Slate900);
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Data Clean Room", DS.H3, DS.Slate900));
             titleLabel.SetBounds(70, 18, 310, 24);
             card.Controls.Add(titleLabel);
 
-            Label summaryLabel = LabelText("Choose messy Excel, ZIP, or folder and generate a pre-upload classification report.", DS.Body, DS.Slate600);
+            Label summaryLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Choose messy Excel, ZIP, or folder and generate a pre-upload classification report.", DS.Body, DS.Slate600));
             summaryLabel.SetBounds(70, 44, 390, 38);
             card.Controls.Add(summaryLabel);
 
-            Label result = LabelText("Ready", DS.Small, DS.Slate500);
+            Label result = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Ready", DS.Small, DS.Slate500));
             result.SetBounds(18, 104, 360, 24);
             card.Controls.Add(result);
 
-            Button run = DS.PrimaryBtn("Choose", 96, 34);
+            Button run = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Choose", 96, 34));
             run.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
             run.Click += async (s, e) => await RunDataCleanRoom(result, run);
             card.Controls.Add(run);
@@ -664,27 +664,27 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < (compact ? 4 : 2); i++)
                 grid.RowStyles.Add(new RowStyle(SizeType.Absolute, compact ? 240 : (i == 0 ? 220 : 300)));
 
-            AddGridCard(grid, compact, InfoCard("Application", new[]
+            AddGridCard(grid, compact, InfoCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Application"), new[]
             {
                 "Version: " + ConfigService.GetAppVersion(),
                 "Machine: " + Environment.MachineName,
                 "OS: " + Environment.OSVersion,
                 ".NET: " + Environment.Version
             }, ModernIconKind.Settings), 0, 0, 0);
-            AddGridCard(grid, compact, InfoCard("Update Settings", new[]
+            AddGridCard(grid, compact, InfoCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Update Settings"), new[]
             {
                 "Version check: " + (ConfigService.IsVersionCheckEnabled() ? "Enabled" : "Disabled"),
                 "Interval: " + ConfigService.GetVersionCheckIntervalHours() + " hour(s)",
                 "Host: " + SafeHost(ConfigService.GetVersionCheckUrl())
             }, ModernIconKind.Refresh), 1, 1, 0);
-            AddGridCard(grid, compact, InfoCard("Installed Modules", new[]
+            AddGridCard(grid, compact, InfoCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Installed Modules"), new[]
             {
                 "Invoices, Vendors, Purchases, Clients, Contracts",
                 "Jobs, Service Desk, Inventory, Payments, Payroll",
                 "Reports, Settings, Master Data",
                 "Integrations: WhatsApp Cloud, Calendar, Cloud Backup, GST/e-Invoice"
             }, ModernIconKind.Inventory), 2, 0, 1);
-            AddGridCard(grid, compact, InfoCard("Support Boundaries", new[]
+            AddGridCard(grid, compact, InfoCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Support Boundaries"), new[]
             {
                 "Enabled: knowledge base, system health tools, diagnostics export.",
                 "Not enabled yet: live chat, WhatsApp support, remote desktop, cloud ticketing, AI assistant.",
@@ -713,7 +713,7 @@ namespace HVAC_Pro_Desktop.UI
             summaryLabel.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
             card.Controls.Add(summaryLabel);
 
-            Button open = DS.PrimaryBtn("Open", 96, 34);
+            Button open = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Open", 96, 34));
             open.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
             open.Click += (s, e) => action();
             card.Controls.Add(open);
@@ -740,11 +740,11 @@ namespace HVAC_Pro_Desktop.UI
             summaryLabel.SetBounds(70, 44, 390, 38);
             card.Controls.Add(summaryLabel);
 
-            Label result = LabelText("Ready", DS.Small, DS.Slate500);
+            Label result = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Ready", DS.Small, DS.Slate500));
             result.SetBounds(18, 104, 360, 24);
             card.Controls.Add(result);
 
-            Button run = DS.PrimaryBtn("Run", 90, 34);
+            Button run = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Run", 90, 34));
             run.Anchor = AnchorStyles.Right | AnchorStyles.Bottom;
             run.Click += async (s, e) => await RunTool(action, result, run);
             card.Controls.Add(run);
@@ -779,13 +779,13 @@ namespace HVAC_Pro_Desktop.UI
         private async Task RunTool(Func<SupportToolResult> action, Label status, Button button)
         {
             button.Enabled = false;
-            status.Text = "Running...";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "Running...");
             status.ForeColor = DS.Slate600;
             Cursor = Cursors.WaitCursor;
             try
             {
                 SupportToolResult result = await Task.Run(action);
-                status.Text = (result.Success ? "Success: " : "Failed: ") + result.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(status, (result.Success ? "Success: " : "Failed: ") + result.Message);
                 status.ForeColor = result.Success ? DS.Green600 : DS.Red600;
                 if (!string.IsNullOrWhiteSpace(result.OutputPath))
                     MessageBox.Show(this, result.Message + Environment.NewLine + result.OutputPath, result.Title, MessageBoxButtons.OK, result.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
@@ -820,7 +820,7 @@ namespace HVAC_Pro_Desktop.UI
                 string message = result.IsUpdateAvailable
                     ? "Update available: " + result.LatestVersion + Environment.NewLine + result.Notes
                     : "ServoERP is up to date. Current version: " + result.CurrentVersion;
-                MessageBox.Show(this, message, "Check Updates", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, message, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Check Updates"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 AppLogger.LogInfo("Support Center: update check completed.");
             }
             finally
@@ -832,7 +832,7 @@ namespace HVAC_Pro_Desktop.UI
         private void ShowContactSupportBrief()
         {
             string brief = BuildSupportBriefText();
-            using (Form dialog = ServoModalForm.Create("Contact Support", 820, 580))
+            using (Form dialog = ServoModalForm.Create(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Contact Support"), 820, 580))
             {
                 dialog.MinimumSize = new Size(720, 520);
 
@@ -848,11 +848,11 @@ namespace HVAC_Pro_Desktop.UI
                 icon.Location = new Point(24, 24);
                 header.Controls.Add(icon);
 
-                Label title = LabelText("Contact Support", DS.H2, DS.Slate900);
+                Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Contact Support", DS.H2, DS.Slate900));
                 title.SetBounds(82, 22, 520, 28);
                 header.Controls.Add(title);
 
-                Label subtitle = LabelText("Copy this brief into your approved support channel. ServoERP will not send anything automatically.", DS.Body, DS.Slate500);
+                Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Copy this brief into your approved support channel. ServoERP will not send anything automatically.", DS.Body, DS.Slate500));
                 subtitle.SetBounds(82, 52, 660, 28);
                 subtitle.Anchor = AnchorStyles.Left | AnchorStyles.Top | AnchorStyles.Right;
                 header.Controls.Add(subtitle);
@@ -884,21 +884,21 @@ namespace HVAC_Pro_Desktop.UI
                 };
                 dialog.Controls.Add(actions);
 
-                Button close = DS.GhostBtn("Close", 100, 36);
+                Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Close", 100, 36));
                 close.Click += (s, e) => dialog.Close();
                 actions.Controls.Add(close);
 
-                Button export = DS.GhostBtn("Export Diagnostics", 168, 36);
+                Button export = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Export Diagnostics", 168, 36));
                 ModernIconSystem.AddButtonIcon(export, ModernIconKind.Export);
                 export.Click += async (s, e) => await RunStandaloneTool("Export Diagnostics Package", () => _service.ExportDiagnosticsPackage());
                 actions.Controls.Add(export);
 
-                Button copy = DS.PrimaryBtn("Copy Brief", 126, 36);
+                Button copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Copy Brief", 126, 36));
                 ModernIconSystem.AddButtonIcon(copy, ModernIconKind.Document);
                 copy.Click += (s, e) =>
                 {
                     if (UIHelper.TrySetClipboardText(dialog, briefBox.Text, BrandingService.WindowTitle("Contact Support")))
-                        MessageBox.Show(dialog, "Support brief copied to clipboard.", BrandingService.WindowTitle("Contact Support"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        MessageBox.Show(dialog, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Support brief copied to clipboard."), BrandingService.WindowTitle("Contact Support"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 };
                 actions.Controls.Add(copy);
 
@@ -1026,13 +1026,13 @@ namespace HVAC_Pro_Desktop.UI
             emptyIcon.Anchor = AnchorStyles.Top;
             target.Controls.Add(emptyIcon);
 
-            Label title = LabelText("No articles found", DS.H3, DS.Slate900);
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("No articles found", DS.H3, DS.Slate900));
             title.TextAlign = ContentAlignment.MiddleCenter;
             title.SetBounds(0, 224, target.Width, 28);
             title.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
             target.Controls.Add(title);
 
-            Label body = LabelText("Try searching for invoice, backup, update, job, vendor, or diagnostics.", DS.Body, DS.Slate500);
+            Label body = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LabelText("Try searching for invoice, backup, update, job, vendor, or diagnostics.", DS.Body, DS.Slate500));
             body.TextAlign = ContentAlignment.MiddleCenter;
             body.SetBounds(0, 256, target.Width, 28);
             body.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
@@ -1074,7 +1074,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label LabelText(string text, Font font, Color color)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text ?? string.Empty,
                 Font = font,
@@ -1082,7 +1082,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.Transparent,
                 AutoSize = false,
                 UseMnemonic = false
-            };
+            });
         }
 
         private static PaintEventHandler PaintBorder(Color border, int radius)

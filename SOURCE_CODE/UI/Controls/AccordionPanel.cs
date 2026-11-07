@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -69,7 +69,7 @@ namespace HVAC_Pro_Desktop.UI
             Controls.Add(_contentPanel);
             Controls.Add(_header);
 
-            HeaderText = "Section";
+            HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Section");
             HeaderBackground = Color.White;
             HeaderBorderColor = DS.Border;
             HeaderTextColor = Color.FromArgb(60, 60, 60);
@@ -85,7 +85,7 @@ namespace HVAC_Pro_Desktop.UI
         public string HeaderText
         {
             get { return _titleLabel.Text; }
-            set { _titleLabel.Text = value ?? string.Empty; LayoutHeader(); }
+            set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_titleLabel, value ?? string.Empty); LayoutHeader(); }
         }
 
         [Browsable(true)]
@@ -136,7 +136,7 @@ namespace HVAC_Pro_Desktop.UI
         public int HeaderFontSize
         {
             get { return (int)Math.Round(_titleLabel.Font.SizeInPoints); }
-            set { _titleLabel.Font = new Font("Segoe UI", Math.Max(7, value), FontStyle.Regular); LayoutHeader(); }
+            set { _titleLabel.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), Math.Max(7, value), FontStyle.Regular); LayoutHeader(); }
         }
 
         [Browsable(true)]
@@ -150,7 +150,7 @@ namespace HVAC_Pro_Desktop.UI
         public string BadgeText
         {
             get { return _badgeLabel.Text; }
-            set { _badgeLabel.Text = value ?? string.Empty; LayoutHeader(); _badgeLabel.Invalidate(); }
+            set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_badgeLabel, value ?? string.Empty); LayoutHeader(); _badgeLabel.Invalidate(); }
         }
 
         [Browsable(true)]
@@ -234,7 +234,7 @@ namespace HVAC_Pro_Desktop.UI
             int badgeWidth = 0;
             if (_badgeLabel.Visible)
             {
-                badgeWidth = Math.Max(34, TextRenderer.MeasureText(_badgeLabel.Text ?? string.Empty, new Font("Segoe UI", 8.5f)).Width + 18);
+                badgeWidth = Math.Max(34, TextRenderer.MeasureText(_badgeLabel.Text ?? string.Empty, new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f)).Width + 18);
                 _badgeLabel.SetBounds(Math.Max(28, Width - badgeWidth - 12), Math.Max(0, (HeaderHeight - 22) / 2), badgeWidth, 22);
             }
 
@@ -251,7 +251,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 e.Graphics.FillPath(brush, path);
             }
-            TextRenderer.DrawText(e.Graphics, _badgeLabel.Text, new Font("Segoe UI", 8.5f, FontStyle.Bold), rect, _badgeLabel.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            TextRenderer.DrawText(e.Graphics, _badgeLabel.Text, new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), rect, _badgeLabel.ForeColor, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 
         private static GraphicsPath RoundedPath(Rectangle bounds, int radius)

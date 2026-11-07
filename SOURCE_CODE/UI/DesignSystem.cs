@@ -210,7 +210,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, Color bg, Color fg, Color border, int width, int height, Font font)
         {
-            var button = new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = Math.Max(width, 110),
@@ -223,7 +223,7 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.MiddleCenter,
                 Padding = new Padding(10, 0, 10, 0),
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = 1;
             button.FlatAppearance.BorderColor = border == Color.Transparent ? bg : border;
             button.FlatAppearance.MouseOverBackColor = bg.GetBrightness() > 0.92f ? Slate50 : Darken(bg, 0.08f);
@@ -235,14 +235,14 @@ namespace HVAC_Pro_Desktop.UI
         public static Panel Badge(string text, Color bg, Color fg)
         {
             Panel panel = new Panel { AutoSize = true, BackColor = bg, Padding = new Padding(8, 3, 8, 3) };
-            panel.Controls.Add(new Label { Text = text, Font = SmallBold, ForeColor = fg, AutoSize = true });
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Font = SmallBold, ForeColor = fg, AutoSize = true }));
             Rounded(panel, 12);
             return panel;
         }
 
         public static Label StatusChipLabel(string text, Color bg, Color fg, int width = 86)
         {
-            var label = new Label
+            var label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text,
                 BackColor = bg,
@@ -253,20 +253,20 @@ namespace HVAC_Pro_Desktop.UI
                 Height = 22,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Padding = new Padding(6, 2, 6, 2)
-            };
+            });
             Rounded(label, 11);
             return label;
         }
 
         public static Label SectionHeading(string text)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = (text ?? string.Empty).ToUpperInvariant(),
                 Font = CaptionBold(),
                 ForeColor = Slate500,
                 AutoSize = true
-            };
+            });
         }
 
         public static Font CaptionBold()
@@ -289,14 +289,14 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawLine(pen, 0, header.Height - 1, header.Width, header.Height - 1);
             };
 
-            header.Controls.Add(new Label
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = title ?? string.Empty,
                 Dock = DockStyle.Fill,
                 Font = H2,
                 ForeColor = Slate900,
                 TextAlign = ContentAlignment.MiddleLeft
-            });
+            }));
 
             return header;
         }
@@ -306,14 +306,14 @@ namespace HVAC_Pro_Desktop.UI
             int rowHeight = multiline ? height + 26 : 62;
             Panel row = new Panel { Height = rowHeight, Dock = DockStyle.Top, BackColor = Color.Transparent };
 
-            var fieldLabel = new Label
+            var fieldLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = label,
                 Font = SmallBold,
                 ForeColor = Slate600,
                 Location = new Point(0, 0),
                 AutoSize = true
-            };
+            });
 
             Panel inputWrap = new Panel
             {

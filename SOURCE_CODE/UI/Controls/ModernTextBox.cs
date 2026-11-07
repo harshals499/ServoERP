@@ -22,7 +22,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             MinimumSize = new Size(180, 50);
 
             _inner.BorderStyle = BorderStyle.None;
-            _inner.Font = new Font("Segoe UI", 10.5f);
+            _inner.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f);
             _inner.ForeColor = DS.InputText;
             _inner.BackColor = Color.White;
             _inner.TextChanged += (s, e) => OnTextChanged(e);

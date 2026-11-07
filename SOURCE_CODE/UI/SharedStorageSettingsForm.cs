@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -18,7 +18,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public SharedStorageSettingsForm()
         {
-            Text = "Shared Office Storage";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Shared Office Storage");
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(690, 405);
             MinimumSize = new Size(620, 360);
@@ -30,57 +30,57 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            var heading = new Label
+            var heading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Connect ServoERP to your private office server",
                 Location = new Point(24, 22),
                 Size = new Size(620, 28),
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
-            var help = new Label
+            });
+            var help = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Use a Windows network share such as \\SERVERNAME\\ServoERPShared. ServoERP uses your Windows sign-in permissions and does not store server passwords. Business records remain in the shared SQL Server database.",
                 Location = new Point(24, 58),
                 Size = new Size(630, 50),
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 ForeColor = DS.Slate600
-            };
-            _enabled.Text = "Enable shared office storage";
+            });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_enabled, "Enable shared office storage");
             _enabled.Location = new Point(24, 123);
             _enabled.Size = new Size(260, 24);
-            _enabled.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            _enabled.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold);
 
-            var pathLabel = new Label { Text = "Private server share (UNC path)", Location = new Point(24, 156), Size = new Size(280, 22), Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = DS.Slate700 };
+            var pathLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Private server share (UNC path)", Location = new Point(24, 156), Size = new Size(280, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate700 });
             _rootPath.Location = new Point(24, 181);
             _rootPath.Size = new Size(625, 26);
             _rootPath.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            _rootPath.Font = new Font("Segoe UI", 10f);
+            _rootPath.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f);
 
-            var folders = new Label
+            var folders = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "When enabled, ServoERP stores shared Backups, Company Templates, Documents, Exports, Imports, Logs, and Updates below this folder. If the share is unavailable, each PC continues safely with its local fallback folder.",
                 Location = new Point(24, 220),
                 Size = new Size(625, 47),
-                Font = new Font("Segoe UI", 8.8f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.8f),
                 ForeColor = DS.Slate600
-            };
+            });
 
-            Button test = MakeButton("Test Connection", DS.Primary600);
+            Button test = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Test Connection", DS.Primary600));
             test.Location = new Point(24, 282);
             test.Click += (s, e) => TestConnection(false);
-            _detectServer = MakeButton("Auto Detect Server", DS.Slate700);
+            _detectServer = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Auto Detect Server", DS.Slate700));
             _detectServer.Location = new Point(164, 282);
             _detectServer.Size = new Size(132, 34);
             _detectServer.Click += async (s, e) => await DetectPrivateServerAsync();
-            Button create = MakeButton("Create Folders", DS.Slate700);
+            Button create = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Create Folders", DS.Slate700));
             create.Location = new Point(304, 282);
             create.Click += (s, e) => TestConnection(true);
-            Button save = MakeButton("Save", DS.Green600);
+            Button save = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save", DS.Green600));
             save.Location = new Point(480, 282);
             save.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             save.Click += (s, e) => SaveSettings();
-            Button close = MakeButton("Close", DS.Slate500);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close", DS.Slate500));
             close.Location = new Point(570, 282);
             close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             close.Click += (s, e) => Close();
@@ -88,14 +88,14 @@ namespace HVAC_Pro_Desktop.UI
             _status.Location = new Point(24, 327);
             _status.Size = new Size(625, 32);
             _status.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            _status.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _status.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold);
 
             Controls.AddRange(new Control[] { heading, help, _enabled, pathLabel, _rootPath, folders, test, _detectServer, create, save, close, _status });
         }
 
         private static Button MakeButton(string text, Color color)
         {
-            var button = new Button { Text = text, Size = new Size(132, 34), BackColor = color, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), Cursor = Cursors.Hand };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Size = new Size(132, 34), BackColor = color, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), Cursor = Cursors.Hand });
             button.FlatAppearance.BorderSize = 0;
             return button;
         }
@@ -193,7 +193,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetStatus(string message, Color color)
         {
-            _status.Text = message;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, message);
             _status.ForeColor = color;
         }
     }

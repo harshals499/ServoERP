@@ -79,7 +79,7 @@ namespace HVAC_Pro_Desktop.UI
 
             box.SuspendLayout();
             box.SelectAll();
-            box.SelectionFont = new Font("Segoe UI", 10f, FontStyle.Regular);
+            box.SelectionFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Regular);
             box.SelectionColor = DS.Slate800;
             box.SelectionBackColor = Color.White;
 
@@ -125,7 +125,7 @@ namespace HVAC_Pro_Desktop.UI
         private static void SetLineStyle(RichTextBox box, int start, int length, float size, FontStyle style, Color color)
         {
             box.Select(start, length);
-            box.SelectionFont = new Font("Segoe UI", size, style);
+            box.SelectionFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), size, style);
             box.SelectionColor = color;
         }
 
@@ -157,7 +157,7 @@ namespace HVAC_Pro_Desktop.UI
         private void OnDeclineClick(object sender, EventArgs e)
         {
             MessageBox.Show(
-                "You must accept the terms to use ServoERP. The application will now close.",
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Get("You must accept the terms to use ServoERP. The application will now close."),
                 BrandingService.WindowTitle("Legal Agreements"),
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Warning);

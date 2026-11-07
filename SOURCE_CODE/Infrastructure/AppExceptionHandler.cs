@@ -53,7 +53,7 @@ namespace ServoERP.Infrastructure
             {
                 MessageBox.Show(
                     userMessage + "\n\n" + (ex == null ? string.Empty : ex.Message),
-                    "ServoERP Error",
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP Error"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             }

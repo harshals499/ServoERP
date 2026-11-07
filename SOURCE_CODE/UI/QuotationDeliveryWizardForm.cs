@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
@@ -55,7 +55,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildLayout()
         {
-            Text = BrandingService.WindowTitle("Accepted Quote to Delivery");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Accepted Quote to Delivery"));
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1180, 780);
             MinimumSize = new Size(980, 660);
@@ -64,23 +64,23 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
 
             Panel header = new Panel { Name = "DeliveryWizardDialogHeader", Tag = "dialog no-global-actions", Dock = DockStyle.Top, Height = 122, BackColor = DS.White, Padding = new Padding(24, 16, 24, 12) };
-            header.Controls.Add(new Label
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Accepted Quote → Delivery Wizard",
                 Location = new Point(24, 14),
                 Size = new Size(520, 32),
                 Font = DS.H1,
                 ForeColor = DS.Slate900
-            });
-            header.Controls.Add(new Label
+            }));
+            header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Review every output before ServoERP creates the job and delivery records.",
                 Location = new Point(26, 48),
                 Size = new Size(650, 24),
                 Font = DS.Body,
                 ForeColor = DS.Slate600
-            });
-            _quotationContext = new Label
+            }));
+            _quotationContext = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Loading accepted quotation…",
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right,
@@ -90,7 +90,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate800,
                 TextAlign = ContentAlignment.MiddleLeft,
                 AutoEllipsis = true
-            };
+            });
             header.Controls.Add(_quotationContext);
 
             TableLayoutPanel metrics = new TableLayoutPanel
@@ -106,10 +106,10 @@ namespace HVAC_Pro_Desktop.UI
             };
             for (int i = 0; i < 4; i++) metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
             metrics.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            _jobMetric = AddMetric(metrics, 0, "JOB", "Pending review");
-            _materialMetric = AddMetric(metrics, 1, "MATERIAL PLAN", "0 line(s)");
-            _purchaseMetric = AddMetric(metrics, 2, "DRAFT PURCHASE NEEDS", "0 line(s)");
-            _billingMetric = AddMetric(metrics, 3, "BILLING SCHEDULE", "0 milestone(s)");
+            _jobMetric = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddMetric(metrics, 0, "JOB", "Pending review"));
+            _materialMetric = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddMetric(metrics, 1, "MATERIAL PLAN", "0 line(s)"));
+            _purchaseMetric = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddMetric(metrics, 2, "DRAFT PURCHASE NEEDS", "0 line(s)"));
+            _billingMetric = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddMetric(metrics, 3, "BILLING SCHEDULE", "0 milestone(s)"));
 
             TabControl tabs = new TabControl
             {
@@ -121,10 +121,10 @@ namespace HVAC_Pro_Desktop.UI
             _materialGrid = BuildMaterialGrid();
             _purchaseGrid = BuildPurchaseGrid();
             _billingGrid = BuildBillingGrid();
-            tabs.TabPages.Add(BuildTab("1  Job & checklist", _checklistGrid));
-            tabs.TabPages.Add(BuildTab("2  Material reservation", _materialGrid));
-            tabs.TabPages.Add(BuildTab("3  Draft purchase needs", _purchaseGrid));
-            tabs.TabPages.Add(BuildTab("4  Billing schedule", _billingGrid));
+            tabs.TabPages.Add(BuildTab(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("1  Job & checklist"), _checklistGrid));
+            tabs.TabPages.Add(BuildTab(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("2  Material reservation"), _materialGrid));
+            tabs.TabPages.Add(BuildTab(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("3  Draft purchase needs"), _purchaseGrid));
+            tabs.TabPages.Add(BuildTab(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("4  Billing schedule"), _billingGrid));
             TabPage review = new TabPage("5  Review") { BackColor = DS.White, Padding = new Padding(18) };
             _reviewNotes = new RichTextBox
             {
@@ -141,7 +141,7 @@ namespace HVAC_Pro_Desktop.UI
             tabs.TabPages.Add(review);
 
             Panel footer = new Panel { Dock = DockStyle.Bottom, Height = 76, BackColor = DS.White, Padding = new Padding(24, 17, 24, 12) };
-            _status = new Label
+            _status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Preparing delivery plan…",
                 Location = new Point(24, 26),
@@ -149,15 +149,15 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
                 AutoEllipsis = true
-            };
+            });
             footer.Controls.Add(_status);
-            _confirmButton = MakeButton("Confirm & create", DS.Primary600, Color.White, 164);
+            _confirmButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Confirm & create", DS.Primary600, Color.White, 164));
             _confirmButton.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _confirmButton.Location = new Point(818, 17);
             _confirmButton.Enabled = false;
             _confirmButton.Click += async (s, e) => await ConfirmAsync();
             footer.Controls.Add(_confirmButton);
-            Button close = MakeButton("Close", DS.White, DS.Slate700, 110);
+            Button close = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Close", DS.White, DS.Slate700, 110));
             close.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             close.Location = new Point(996, 17);
             close.Click += (s, e) => Close();
@@ -183,13 +183,13 @@ namespace HVAC_Pro_Desktop.UI
                 BindPlan();
                 if (_plan.ExistingJobId.HasValue)
                 {
-                    _confirmButton.Text = "Already created";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_confirmButton, "Already created");
                     _confirmButton.Enabled = false;
                     SetStatus("This quotation is already linked to " + First(_plan.ExistingJobNumber, "job #" + _plan.ExistingJobId.Value) + ".", DS.Amber600);
                 }
                 else if (_previewPlan != null)
                 {
-                    _confirmButton.Text = "Preview only";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_confirmButton, "Preview only");
                     _confirmButton.Enabled = false;
                     SetStatus("Visual preview — no business records will be changed.", DS.Primary700);
                 }
@@ -211,13 +211,11 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BindPlan()
         {
-            _quotationContext.Text = First(_plan.QuotationNumber, "Quotation #" + _plan.QuotationId) + "  •  " +
-                                     First(_plan.ClientName, "Client") + "  •  " +
-                                     First(_plan.SiteName, "No site") + "  •  Accepted value " + IndiaFormatHelper.FormatCurrency(_plan.AcceptedValue);
-            _jobMetric.Text = _plan.ScheduledDate.ToString("dd/MM/yyyy") + "\r\n" + _plan.ChecklistItems.Count + " checklist item(s)";
-            _materialMetric.Text = _plan.Materials.Count + " line(s)\r\n" + _plan.TotalReservedQuantity.ToString("0.###") + " units reservable";
-            _purchaseMetric.Text = _plan.PurchaseRequirements.Count + " line(s)\r\n" + _plan.TotalShortfallQuantity.ToString("0.###") + " units short";
-            _billingMetric.Text = _plan.BillingSchedule.Count + " milestone(s)\r\n" + IndiaFormatHelper.FormatCurrency(_plan.AcceptedValue);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_quotationContext, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}  •  {1}  •  {2}  •  Accepted value {3}", First(_plan.QuotationNumber, "Quotation #" + _plan.QuotationId), First(_plan.ClientName, "Client"), First(_plan.SiteName, "No site"), IndiaFormatHelper.FormatCurrency(_plan.AcceptedValue)));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_jobMetric, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}\r\n{1} checklist item(s)", _plan.ScheduledDate.ToString("dd/MM/yyyy"), _plan.ChecklistItems.Count));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_materialMetric, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} line(s)\r\n{1} units reservable", _plan.Materials.Count, _plan.TotalReservedQuantity.ToString("0.###")));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_purchaseMetric, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} line(s)\r\n{1} units short", _plan.PurchaseRequirements.Count, _plan.TotalShortfallQuantity.ToString("0.###")));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_billingMetric, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} milestone(s)\r\n{1}", _plan.BillingSchedule.Count, IndiaFormatHelper.FormatCurrency(_plan.AcceptedValue)));
 
             _checklistGrid.DataSource = _plan.ChecklistItems.Select((item, index) => new ChecklistRow { Step = index + 1, ChecklistItem = item }).ToList();
             _materialGrid.DataSource = _plan.Materials;
@@ -245,7 +243,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Result = await Task.Run(() => _service.Confirm(_plan));
                 SetStatus("Created " + First(Result.JobNumber, "job #" + Result.JobId) + " and its reviewed delivery plan.", DS.Green600);
-                _confirmButton.Text = "Created";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_confirmButton, "Created");
                 _confirmButton.Enabled = false;
                 DialogResult = DialogResult.OK;
             }
@@ -284,8 +282,8 @@ namespace HVAC_Pro_Desktop.UI
         private static Label AddMetric(TableLayoutPanel host, int column, string title, string initialValue)
         {
             Panel card = new Panel { Dock = DockStyle.Fill, BackColor = DS.White, Margin = new Padding(0, 0, column == 3 ? 0 : 10, 0), Padding = new Padding(14, 8, 14, 6) };
-            card.Controls.Add(new Label { Text = title, Location = new Point(14, 8), Size = new Size(235, 18), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = DS.SmallBold, ForeColor = DS.Slate600 });
-            Label value = new Label { Text = initialValue, Location = new Point(14, 29), Size = new Size(235, 36), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = DS.BodyBold, ForeColor = DS.Slate900 };
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(14, 8), Size = new Size(235, 18), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = DS.SmallBold, ForeColor = DS.Slate600 }));
+            Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = initialValue, Location = new Point(14, 29), Size = new Size(235, 36), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, Font = DS.BodyBold, ForeColor = DS.Slate900 });
             card.Controls.Add(value);
             card.Resize += (s, e) =>
             {
@@ -306,43 +304,43 @@ namespace HVAC_Pro_Desktop.UI
         private static DataGridView BuildChecklistGrid()
         {
             DataGridView grid = BaseGrid("DeliveryChecklistGrid");
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Step", HeaderText = "Step", Width = 70 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ChecklistItem", HeaderText = "Checklist item", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Step", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Step"), Width = 70 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ChecklistItem", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Checklist item"), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
             return grid;
         }
 
         private static DataGridView BuildMaterialGrid()
         {
             DataGridView grid = BaseGrid("DeliveryMaterialGrid");
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ItemDescription", HeaderText = "Material", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityRequired", HeaderText = "Required", Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityAvailable", HeaderText = "Available", Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityReserved", HeaderText = "Reserve", Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ShortfallQuantity", HeaderText = "Shortfall", Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Unit", HeaderText = "Unit", Width = 70 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ReservationStatus", HeaderText = "Plan", Width = 130 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ItemDescription", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Material"), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityRequired", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Required"), Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityAvailable", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Available"), Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityReserved", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Reserve"), Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ShortfallQuantity", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Shortfall"), Width = 90, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Unit", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit"), Width = 70 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ReservationStatus", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Plan"), Width = 130 });
             return grid;
         }
 
         private static DataGridView BuildPurchaseGrid()
         {
             DataGridView grid = BaseGrid("DeliveryPurchaseRequirementsGrid");
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ItemDescription", HeaderText = "Material shortfall", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityRequired", HeaderText = "Draft qty", Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Unit", HeaderText = "Unit", Width = 75 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PreferredVendorName", HeaderText = "Preferred supplier", Width = 180 });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RequiredByDate", HeaderText = "Required by", Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Status", Width = 80 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "ItemDescription", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Material shortfall"), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "QuantityRequired", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Draft qty"), Width = 100, DefaultCellStyle = new DataGridViewCellStyle { Format = "0.###" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Unit", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit"), Width = 75 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "PreferredVendorName", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Preferred supplier"), Width = 180 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "RequiredByDate", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Required by"), Width = 110, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Status"), Width = 80 });
             return grid;
         }
 
         private static DataGridView BuildBillingGrid()
         {
             DataGridView grid = BaseGrid("DeliveryBillingGrid");
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "MilestoneName", HeaderText = "Milestone", AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Amount", HeaderText = "Amount", Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Format = "C2", FormatProvider = CultureInfo.GetCultureInfo("en-IN") } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "DueDate", HeaderText = "Due date", Width = 130, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
-            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = "Status", Width = 100 });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "MilestoneName", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Milestone"), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Amount", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Amount"), Width = 150, DefaultCellStyle = new DataGridViewCellStyle { Format = "C2", FormatProvider = CultureInfo.GetCultureInfo("en-IN") } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "DueDate", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Due date"), Width = 130, DefaultCellStyle = new DataGridViewCellStyle { Format = "dd/MM/yyyy" } });
+            grid.Columns.Add(new DataGridViewTextBoxColumn { DataPropertyName = "Status", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Status"), Width = 100 });
             return grid;
         }
 
@@ -376,13 +374,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetStatus(string message, Color colour)
         {
-            _status.Text = message ?? string.Empty;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_status, message ?? string.Empty);
             _status.ForeColor = colour;
         }
 
         private static Button MakeButton(string text, Color back, Color fore, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Size = new Size(width, 40),
@@ -392,7 +390,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.BodyBold,
                 Cursor = Cursors.Hand,
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = back == DS.White ? 1 : 0;
             button.FlatAppearance.BorderColor = DS.Border;
             return button;

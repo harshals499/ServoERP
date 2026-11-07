@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -24,9 +24,9 @@ namespace HVAC_Pro_Desktop.UI
             var layout = new FlowLayoutPanel { Location = new Point(20, 20), AutoSize = true,
                 FlowDirection = FlowDirection.TopDown, WrapContents = false, BackColor = DS.BgPage };
             scroll.Controls.Add(layout);
-            Func<string, Label> text = value => new Label { Text = value, AutoSize = false,
-                Font = DS.Body, ForeColor = DS.Slate600, Margin = new Padding(0, 0, 0, 12), Height = 52 };
-            var heading = text("Mobile Connection"); heading.Font = new Font("Segoe UI", 18, FontStyle.Bold); heading.ForeColor = DS.Slate900; heading.Height = 42;
+            Func<string, Label> text = value => global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, AutoSize = false,
+                Font = DS.Body, ForeColor = DS.Slate600, Margin = new Padding(0, 0, 0, 12), Height = 52 });
+            var heading = text("Mobile Connection"); heading.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18, FontStyle.Bold); heading.ForeColor = DS.Slate900; heading.Height = 42;
             layout.Controls.Add(heading);
             var intro = text("First scan Download Mobile App with your phone camera and install the Android app. Then scan Sync App inside ServoERP Mobile to connect to your office and sign in.");
             layout.Controls.Add(intro);
@@ -40,7 +40,7 @@ namespace HVAC_Pro_Desktop.UI
             Action<FlowLayoutPanel, string> label = (panel, value) => { var item = text(value); item.Height = 26; panel.Controls.Add(item); };
             label(setup, "1. Download Mobile App");
             var downloadQr = new PictureBox { Name = "MobileDownloadQr", Size = new Size(240, 240), SizeMode = PictureBoxSizeMode.CenterImage,
-                BackColor = Color.White, AccessibleName = "Download ServoERP Mobile Android app QR code", Margin = new Padding(0, 0, 0, 12), Tag = MobileAppDownloadUrl };
+                BackColor = Color.White, AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Download ServoERP Mobile Android app QR code"), Margin = new Padding(0, 0, 0, 12), Tag = MobileAppDownloadUrl };
             using (var generator = new QRCodeGenerator())
             using (var data = generator.CreateQrCode(MobileAppDownloadUrl, QRCodeGenerator.ECCLevel.M))
             using (var renderer = new QRCode(data))
@@ -63,34 +63,34 @@ namespace HVAC_Pro_Desktop.UI
             var trust = text("Use the exact fingerprint for a private certificate. Leave blank only for a publicly trusted certificate. Verify these details with your office administrator."); trust.Height = 66; setup.Controls.Add(trust);
             var actions = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = Padding.Empty };
             setup.Controls.Add(actions);
-            var preview = MakeBtn("Show sync QR", InfoBlue, 132); preview.Name = "ShowMobileQr";
-            var save = MakeBtn("Save connection", InfoBlue, 152); save.Enabled = admin; save.Name = "SaveMobileConnection";
+            var preview = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Show sync QR", InfoBlue, 132)); preview.Name = "ShowMobileQr";
+            var save = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Save connection", InfoBlue, 152)); save.Enabled = admin; save.Name = "SaveMobileConnection";
             _saveMobileConnection = save;
-            var import = MakeBtn("Import profile", Color.White, 140); import.Enabled = admin;
+            var import = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Import profile", Color.White, 140)); import.Enabled = admin;
             actions.Controls.AddRange(new Control[] { preview, save, import });
             var status = text(admin ? "Enter your office details or import its connection profile." : "Your administrator manages these details. Contact the office if no connection is configured.");
             status.Name = "MobileConnectionStatus"; status.Height = 76; setup.Controls.Add(status);
 
             label(pairing, "2. Sync App");
             var qr = new PictureBox { Name = "MobileConnectionQr", Size = new Size(320, 320), SizeMode = PictureBoxSizeMode.CenterImage,
-                BackColor = Color.White, AccessibleName = "Sync app with office QR code", Margin = new Padding(0, 0, 0, 12) };
+                BackColor = Color.White, AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sync app with office QR code"), Margin = new Padding(0, 0, 0, 12) };
             pairing.Controls.Add(qr);
             var steps = text("After installing, open Connect to desktop > Photograph office QR in ServoERP Mobile and scan this Sync App code. Review the office details, then sign in with your office user ID and password."); steps.Height = 100; pairing.Controls.Add(steps);
             var syncHelp = text("This QR connects the app; it does not download or sign in. Office details must be configured first. Shared records sync through the office service while connected."); syncHelp.Height = 82; pairing.Controls.Add(syncHelp);
             var code = new TextBox { Name = "MobileConnectionCode", ReadOnly = true, Multiline = true,
-                Height = 58, ScrollBars = ScrollBars.Vertical, Font = DS.Small, AccessibleName = "Office connection code" }; pairing.Controls.Add(code);
+                Height = 58, ScrollBars = ScrollBars.Vertical, Font = DS.Small, AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Office connection code") }; pairing.Controls.Add(code);
             var sharing = new FlowLayoutPanel { AutoSize = true, WrapContents = true, Margin = Padding.Empty };
-            var copy = MakeBtn("Copy code", Color.White, 120); copy.Enabled = false;
-            var export = MakeBtn("Export profile", Color.White, 140); export.Enabled = false;
+            var copy = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Copy code", Color.White, 120)); copy.Enabled = false;
+            var export = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Export profile", Color.White, 140)); export.Enabled = false;
             sharing.Controls.AddRange(new Control[] { copy, export }); pairing.Controls.Add(sharing);
             var manual = text("Manual sign-in: choose Use office server sign-in and enter an office address, company number and certificate fingerprint shown here, then your user ID and password. User ID and password alone do not locate an office server."); manual.Height = 100; layout.Controls.Add(manual);
-            var users = MakeBtn("Manage office users", Color.White, 200); users.Enabled = admin; users.Name = "ManageMobileOfficeUsers";
+            var users = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Manage office users", Color.White, 200)); users.Enabled = admin; users.Name = "ManageMobileOfficeUsers";
             users.Click += (s, e) => OpenUserManagementTab(); layout.Controls.Add(users);
             var accountHelp = text("Office administrators create accounts in Users & Logins. Complete any required password change on desktop first. Field engineers also need a linked employee, company access and job permissions. Keep the office PC online and use office Wi-Fi or your existing office VPN."); accountHelp.Height = 100; layout.Controls.Add(accountHelp);
 
             MobileConnectionProfile shownProfile = null;
             Action clear = () => { shownProfile = null; var old = qr.Image; qr.Image = null; old?.Dispose(); code.Clear(); copy.Enabled = export.Enabled = false; };
-            Action changed = () => { clear(); status.Text = "Details changed. Show the QR to review them, then save the connection. Server availability has not been checked."; };
+            Action changed = () => { clear(); global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "Details changed. Show the QR to review them, then save the connection. Server availability has not been checked."); };
             addresses.TextChanged += (s, e) => changed(); company.TextChanged += (s, e) => changed(); fingerprint.TextChanged += (s, e) => changed();
             Func<MobileConnectionProfile> read = () => {
                 int id; int.TryParse(company.Text.Trim(), out id);
@@ -105,12 +105,11 @@ namespace HVAC_Pro_Desktop.UI
                 using (var renderer = new QRCode(data))
                     qr.Image = renderer.GetGraphic(Math.Max(1, 320 / data.ModuleMatrix.Count));
                 shownProfile = profile; code.Text = payload; copy.Enabled = export.Enabled = true;
-                status.Text = "QR ready. It contains office details only, with no password or access token. Server availability has not been checked.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "QR ready. It contains office details only, with no password or access token. Server availability has not been checked.");
             };
             Action<Exception> error = ex => {
                 clear();
-                status.Text = ex is ValidationException ? ((ValidationException)ex).Errors.Select(v => v.ErrorMessage).FirstOrDefault() :
-                    "ServoERP could not use these connection details. Check the profile, office address and company number, then try again.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(status, (ex is ValidationException ? ((ValidationException)ex).Errors.Select(v => v.ErrorMessage).FirstOrDefault() : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP could not use these connection details. Check the profile, office address and company number, then try again.")));
                 // Do not log supplied profiles, certificate details or file contents.
                 Log.Warning("Mobile connection operation failed ({FailureType})", ex.GetType().Name);
             };
@@ -119,7 +118,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!IsAdminUser() || MobileConnectionPreviewOnly) return;
                 save.Enabled = false;
                 addresses.Enabled = company.Enabled = fingerprint.Enabled = import.Enabled = false;
-                try { var profile = read(); await System.Threading.Tasks.Task.Run(() => MobileConnectionService.Save(profile)); show(profile); status.Text = "Office connection saved. Users must sign in with their own office accounts. Server availability has not been checked."; }
+                try { var profile = read(); await System.Threading.Tasks.Task.Run(() => MobileConnectionService.Save(profile)); show(profile); global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "Office connection saved. Users must sign in with their own office accounts. Server availability has not been checked."); }
                 catch (Exception ex) { error(ex); }
                 finally { if (!save.IsDisposed) { save.Enabled = import.Enabled = IsAdminUser(); addresses.Enabled = company.Enabled = fingerprint.Enabled = true; } }
             };
@@ -132,7 +131,7 @@ namespace HVAC_Pro_Desktop.UI
                         if (new FileInfo(dialog.FileName).Length > 8192) throw new ArgumentException("Profile too large.");
                         var profile = MobileConnectionService.Parse(File.ReadAllText(dialog.FileName));
                         addresses.Text = string.Join(Environment.NewLine, profile.Addresses); company.Text = profile.CompanyId.ToString(); fingerprint.Text = profile.CertificateSha256;
-                        show(profile); status.Text = "Profile imported for review. Select Save connection to keep it for this office.";
+                        show(profile); global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(status, "Profile imported for review. Select Save connection to keep it for this office.");
                     } catch (Exception ex) { error(ex); }
                 }
             };

@@ -35,7 +35,7 @@ namespace HVAC_Pro_Desktop.UI
             _workingHtml = _originalHtml;
             _tempHtmlPath = Path.Combine(Path.GetTempPath(), "servo-preview-" + Guid.NewGuid().ToString("N") + ".html");
 
-            Text = _title;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, _title);
             _fitDocumentToPreview = _title.IndexOf("Quotation Preview", StringComparison.OrdinalIgnoreCase) >= 0;
             Width = 1120;
             Height = 780;
@@ -47,13 +47,13 @@ namespace HVAC_Pro_Desktop.UI
             MinimizeBox = true;
 
             Panel toolbar = new Panel { Dock = DockStyle.Top, Height = 44, BackColor = Color.White };
-            Button print = MakeButton("Print", 10, Color.FromArgb(39, 174, 96));
-            Button savePdf = MakeButton("Save PDF", 108, Color.FromArgb(37, 99, 235));
-            Button saveHtml = MakeButton("Save HTML", 220, Color.FromArgb(71, 85, 105));
-            _editButton = MakeButton("Edit", 342, Color.FromArgb(217, 119, 6));
-            Button addSignature = MakeButton("Add Signature", 440, Color.FromArgb(124, 58, 237));
-            Button reset = MakeButton("Reset", 562, Color.FromArgb(100, 116, 139));
-            _editStatus = new Label { AutoSize = true, Left = 664, Top = 14, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), Text = "Preview mode" };
+            Button print = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Print", 10, Color.FromArgb(39, 174, 96)));
+            Button savePdf = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save PDF", 108, Color.FromArgb(37, 99, 235)));
+            Button saveHtml = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save HTML", 220, Color.FromArgb(71, 85, 105)));
+            _editButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Edit", 342, Color.FromArgb(217, 119, 6)));
+            Button addSignature = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Add Signature", 440, Color.FromArgb(124, 58, 237)));
+            Button reset = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Reset", 562, Color.FromArgb(100, 116, 139)));
+            _editStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { AutoSize = true, Left = 664, Top = 14, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(71, 85, 105), Text = "Preview mode" });
 
             print.Click += (s, e) => { if (_editMode) SetEditMode(false); else CaptureWorkingHtml(); _browser.ShowPrintDialog(); };
             savePdf.Click += SavePdf;
@@ -75,7 +75,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Button MakeButton(string text, int left, Color color)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = text.Length > 8 ? 104 : 90,
@@ -85,9 +85,9 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = color,
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderSize = 0;
             return button;
         }
@@ -128,7 +128,7 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 File.WriteAllText(dialog.FileName, _workingHtml);
-                MessageBox.Show("Preview saved to " + dialog.FileName, "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Preview saved to {0}", dialog.FileName), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -145,7 +145,7 @@ namespace HVAC_Pro_Desktop.UI
                     return;
 
                 ExportHtmlToPdf(_workingHtml, dialog.FileName);
-                MessageBox.Show("PDF saved to " + dialog.FileName, "Saved", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("PDF saved to {0}", dialog.FileName), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Saved"), MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -160,9 +160,9 @@ namespace HVAC_Pro_Desktop.UI
             _browser.Document.Body.SetAttribute("contentEditable", enabled ? "true" : "false");
             _browser.Document.Body.Style = (_browser.Document.Body.Style ?? string.Empty)
                 + (enabled ? ";outline:3px solid #f59e0b;outline-offset:-3px;" : ";outline:none;");
-            _editButton.Text = enabled ? "Done" : "Edit";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_editButton, enabled ? "Done" : "Edit");
             _editButton.BackColor = enabled ? Color.FromArgb(22, 163, 74) : Color.FromArgb(217, 119, 6);
-            _editStatus.Text = enabled ? "Editing: click text or a table cell and type" : "Preview mode";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_editStatus, enabled ? "Editing: click text or a table cell and type" : "Preview mode");
             _editStatus.ForeColor = enabled ? Color.FromArgb(22, 101, 52) : Color.FromArgb(71, 85, 105);
             if (enabled)
                 _browser.Focus();
@@ -194,12 +194,12 @@ namespace HVAC_Pro_Desktop.UI
                     string dataUri = "data:image/png;base64," + Convert.ToBase64String(pngBytes);
                     InsertSignatureHtml("<span class='servo-added-signature' contenteditable='false' style='display:inline-block;min-width:150px;padding:8px;text-align:center'><img src='" + dataUri + "' alt='Signature' style='display:block;max-width:190px;max-height:80px;margin:0 auto' /></span>");
                     CaptureWorkingHtml();
-                    _editStatus.Text = "Signature added; select it and press Delete to remove";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_editStatus, "Signature added; select it and press Delete to remove");
                 }
                 catch (Exception ex)
                 {
                     AppLogger.LogError("HtmlPreviewDialog.AddSignature", ex);
-                    MessageBox.Show(this, "The signature could not be added. Choose a valid PNG or JPG image and try again.", "Signature Not Added", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The signature could not be added. Choose a valid PNG or JPG image and try again."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Signature Not Added"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
         }
@@ -221,9 +221,9 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             _workingHtml = _originalHtml;
             _editMode = false;
-            _editButton.Text = "Edit";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_editButton, "Edit");
             _editButton.BackColor = Color.FromArgb(217, 119, 6);
-            _editStatus.Text = "Preview mode";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_editStatus, "Preview mode");
             LoadPreview();
         }
 

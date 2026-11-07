@@ -140,6 +140,49 @@ internal static class MarathiLocalizationTests
                 LanguageManager.ApplyControlTree(technical); LanguageManager.ApplyControlTree(icon);
                 Check(technical.Font.FontFamily.Name == "Consolas" && technical.Text == "Save" && icon.Font.FontFamily.Name == "Segoe MDL2 Assets", "technical and icon fonts preserved");
             }
+            LanguageManager.SetLanguage(LanguageManager.Marathi, false);
+            using (var customerName = new Label { Text = "Save" })
+            {
+                typeof(LanguageManager).GetMethod("DataText", BindingFlags.Static | BindingFlags.NonPublic).MakeGenericMethod(typeof(Label)).Invoke(null, new object[] { customerName });
+                LanguageManager.ApplyControlTree(customerName);
+                Check(customerName.Text == "Save", "data-bearing customer name is not translated even when it matches a caption key");
+                customerName.Text = "Cancel";
+                LanguageManager.ApplyControlTree(customerName);
+                Check(customerName.Text == "Cancel", "changing data-bearing text never reuses a caption translation");
+            }
+            // Preview-only database scope. Any accidental SQL access targets this explicitly
+            // identified QA database, never HVAC_PRO. No schema/save methods are called.
+            var diagnostic = App.GetType("HVAC_Pro_Desktop.DAL.DatabaseConnectionFactory").GetProperty("DiagnosticConnectionString", BindingFlags.Static | BindingFlags.NonPublic);
+            diagnostic.SetValue(null, @"Data Source=.\SQLEXPRESS;Initial Catalog=ServoERP_MarathiQA_20261107_PreviewOnly;Integrated Security=True;Connect Timeout=1", null);
+            try
+            {
+                var qaConnection = new System.Data.SqlClient.SqlConnectionStringBuilder(HVAC_Pro_Desktop.DAL.DatabaseManager.RequireConfiguredConnectionString());
+                if (qaConnection.InitialCatalog != "ServoERP_MarathiQA_20261107_PreviewOnly") throw new InvalidOperationException("Disposable QA database scope is required.");
+                new HVAC_Pro_Desktop.DAL.DatabaseManager().InitializeDatabase();
+                HVAC_Pro_Desktop.Services.SessionManager.SetSession(new HVAC_Pro_Desktop.Models.AppUserDto { UserId = 1, Username = "marathi-qa", DisplayName = "Marathi QA", RoleName = "Admin", IsActive = true });
+                foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
+                {
+                    LanguageManager.SetLanguage(language, false);
+                    foreach (string scenario in new[] { "invoice", "reports" })
+                    {
+                        Console.WriteLine("SCENARIO " + scenario + " / " + language);
+                        Control page;
+                        if (scenario == "invoice") { var invoice = new InvoiceForm(); invoice.LoadReceivablesPreviewForVisualTest(); page = invoice; }
+                        else { var reports = new ReportForm(); reports.LoadProfitabilityPreviewForVisualTest(); page = reports; }
+                        using (page)
+                        using (var host = new Form { ClientSize = new Size(1440, 940), StartPosition = FormStartPosition.Manual, Location = new Point(-2500, -2500), ShowInTaskbar = false })
+                        {
+                            page.Dock = DockStyle.Fill; host.Controls.Add(page);
+                            LanguageManager.ApplyControlTree(page); host.Show(); Application.DoEvents(); host.PerformLayout();
+                            using (var image = new Bitmap(host.Width, host.Height))
+                            { host.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(output, scenario + "-" + (language == LanguageManager.Marathi ? "marathi" : "english") + ".png")); }
+                            Check(Tree(page).Any(c => c is Button), scenario + " preview renders native workflow actions: " + language);
+                            host.Close();
+                        }
+                    }
+                }
+            }
+            finally { diagnostic.SetValue(null, null, null); }
             string temporary = Path.Combine(output, "temporary-preferences", Guid.NewGuid().ToString("N") + ".txt");
             Check((string)Preference("LoadFrom", temporary, LanguageManager.English) == LanguageManager.English, "missing preference retains default");
             Preference("SaveTo", temporary, LanguageManager.Marathi);

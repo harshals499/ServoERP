@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -53,22 +53,22 @@ namespace HVAC_Pro_Desktop.UI
             Location = new Point(work.Right - Width - 22, work.Bottom + 8);
 
             Panel accent = new Panel { Dock = DockStyle.Left, Width = 6, BackColor = accentColor };
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "ServoERP",
                 Location = new Point(22, 14),
                 Size = new Size(330, 22),
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
-            Label body = new Label
+            });
+            Label body = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = message ?? string.Empty,
                 Location = new Point(22, 38),
                 Size = new Size(340, 38),
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 ForeColor = DS.Slate700
-            };
+            });
 
             Controls.Add(accent);
             Controls.Add(title);

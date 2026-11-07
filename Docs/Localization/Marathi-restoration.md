@@ -1,3 +1,36 @@
+﻿# Marathi restoration — current checkpoint 07/11/2026
+
+**Unreleased 1.1.532; INCOMPLETE; do not publish.**
+
+The continuation expanded the Marathi resource catalogue from 579 to **3,191 entries**. Reviewed translation batches, identity entries and their exact key lists are retained under scripts/Localization and Docs/Localization. The source rewriter uses the project's Roslyn semantic model to distinguish editable controls/data-bearing text from captions and to convert interpolated presentation strings into resource templates. Production dependencies are unchanged; the Roslyn tool is developer-only.
+
+The static caption audit now reports **zero missing candidate keys**, after correctly decoding C# escapes. The scan is still not exhaustive runtime coverage: SQL-generated notification content, variable-driven UI labels, closed-choice display, standard/third-party dialogs and print/export output need explicit review. Do not equate this audit result with app-wide completion.
+
+Source changes include explicit data-text markers, caption setters, UI factory caption binding after metadata construction, neutral button-role resolution, Devanagari drawing fonts, and preserving raw Settings card-routing keys while localizing their visible titles/search text. Caption matches such as a customer named Save or Cancel are tested as data and remain unchanged.
+
+## Actual continuation validation
+
+- Release compilation succeeds; version/culture-matched resource assemblies exist.
+- Last fully passing focused run before expanded workflow checks: **3,581 assertions**. Latest expanded run reached **3,564 PASS assertions** before setup failure. These totals include resource presence and placeholder checks; they are not thousands of business-workflow tests.
+- Current expanded suite **fails**. Attempt 1: unauthenticated preview fixture closed its host. Attempt 2: adding an authenticated synthetic session exposed license-state persistence against the deliberately isolated, then-missing QA database. Attempt 3: creating the QA database and invoking the existing schema initializer failed with SQL 208: **Invalid object name dbo.Payments**.
+- QA database retained: **ServoERP_MarathiQA_20261107_PreviewOnly** on .\SQLEXPRESS. Diagnostic connection scope and an exact catalog assertion guard all write-capable workflow tests. It is partially initialized. No business write, migration, save, reset or Fresh Start was executed against HVAC_PRO/customer databases. No license endpoint, machine ID, pricing or plan logic was changed.
+- Further retries of the unchanged workflow setup are stopped after three failed attempts, as AGENTS.md requires. Next bounded work must diagnose/repair the disposable fixture/schema setup before retrying UI workflows; do not bypass it or weaken the checks.
+- Installed app PID 5200 stayed open. No normal application entry point was launched. No updater feed, package, installer, remote release or source push was produced.
+- Login/Settings focused previews and unit-level persistence/format/role checks were previously captured. Full invoice/report previews and business-workflow checks have **not** passed. The last failing report is artifacts/marathi-localization/run2-workflow-blocker.txt.
+- Whitespace validation passes after normalizing resource-file line endings. Candidate notes are still explicitly INCOMPLETE and packaging remains prohibited.
+
+## Next acceptance work
+
+1. Repair the isolated QA fixture/schema bootstrap without changing customer data, LicenseInfo structure, licensing/pricing rules or existing PDF headers. Check the existing initializer/order before changing anything; the exact failure is known, the underlying cause is not yet established.
+2. Re-run the complete suite against that fixture, inspect native English/Marathi workflows, navigation, Settings search/card routing, saves, errors, dialogs, keyboard behavior, clipping and third-party controls. Do not mark preview constructors as full business workflow validation.
+3. Audit dynamic closed-choice and service/SQL-generated presentation text beyond the static caption catalogue; preserve canonical database values and user-entered names/notes.
+4. Review all metadata/caption-dependent logic affected by the broad migration. Translation must happen at presentation boundaries, never change persistent identifiers or routing keys.
+5. Only after all acceptance passes: refresh final notes, remove INCOMPLETE, recheck public version availability, package, pass notes/artifact/security/data checks and verify the remote release/feed/assets. 1.1.532 remains a local candidate, not a public reservation.
+
+Baseline is clean published 1.1.531 source 69de4c4731652f35464f33568d92a4885fd9a770. Branch codex/marathi-localization is isolated from the pre-existing main-workspace modifications. New packages/services: None. Continue using public 1.1.531. No customer-database rollback is required; retain the QA database as evidence rather than dropping anything automatically.
+
+## Previous checkpoint record
+
 # Marathi restoration — unreleased 1.1.532 candidate
 
 Status on 07/11/2026: checkpointed, incomplete, **not for distribution**. Full app-wide Marathi acceptance is not satisfied. Packaging is explicitly blocked by `Release status: INCOMPLETE` in the version-matched notes.
@@ -48,3 +81,6 @@ VERSION, assembly metadata and installer version are 1.1.532 **only in this isol
 - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexa
 
 Application strings ship in the application's own resource assemblies; installing a Windows language pack does not translate hardcoded ServoERP text.
+
+## Continuation run 07/11/2026
+User explicitly requested complete app-wide Marathi and publication after all checks pass. Entry source is clean 07f6174; installed app PID 5200 is running. Usage is 13%, below the 80% deferral limit. This run targets explicit data-text exclusions, dynamic caption templates and remaining resource translations, followed by scoped native/workflow checks. Candidate remains INCOMPLETE until coverage, safety, workflow, packaging and remote verification pass. Planned affected files: LanguageManager, UI source text assignments, resources, localization audit/tooling, focused tests and release evidence. No business database writes are authorized against HVAC_PRO; use a disposable test database for write-capable checks.

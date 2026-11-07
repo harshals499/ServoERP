@@ -68,13 +68,13 @@ namespace HVAC_Pro_Desktop.UI
         public LoginForm()
         {
             ServoERP.Infrastructure.AppIconService.Apply(this);
-            Text = BrandingService.WindowTitle("Login");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Login"));
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new Size(1180, 760);
             MinimumSize = new Size(940, 660);
             FormBorderStyle = FormBorderStyle.None;
             BackColor = Color.FromArgb(245, 249, 255);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             AutoScaleMode = AutoScaleMode.Dpi;
             KeyPreview = true;
             DoubleBuffered = true;
@@ -99,7 +99,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _spinnerPhase += 0.25f;
                 if (_lblSpinner.Visible)
-                    _lblSpinner.Text = SpinnerFrame();
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSpinner, SpinnerFrame());
             };
         }
 
@@ -154,18 +154,18 @@ namespace HVAC_Pro_Desktop.UI
         {
             _titleBar.MouseDown += DragWindow;
 
-            _titleBar.Controls.Add(new Label
+            _titleBar.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "ServoERP",
                 Location = new Point(24, 13),
                 Size = new Size(180, 28),
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(15, 23, 42)
-            });
+            }));
 
             AddWindowButton(WindowButtonKind.Close, 0, Close, "Close window");
             AddWindowButton("□", 1, ToggleMaximize);
-            AddWindowButton("\u2212", 2, () => WindowState = FormWindowState.Minimized, "Minimize window", false);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddWindowButton("−", 2, () => WindowState = FormWindowState.Minimized, "Minimize window", false));
         }
 
         private void LayoutTitleBarControls()
@@ -194,7 +194,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button AddWindowButton(WindowButtonKind kind, int slot, Action action, string accessibleName)
         {
-            var button = new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = string.Empty,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
@@ -207,7 +207,7 @@ namespace HVAC_Pro_Desktop.UI
                 AccessibleDescription = accessibleName,
                 TabStop = false,
                 Tag = kind
-            };
+            });
             button.FlatAppearance.BorderSize = 0;
             button.FlatAppearance.MouseOverBackColor = Color.Transparent;
             button.FlatAppearance.MouseDownBackColor = Color.Transparent;
@@ -238,42 +238,42 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Paint += DrawLoginCard;
             _rightPanel.Controls.Add(_loginCard);
 
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Sign In",
                 Location = new Point(56, 36),
                 Size = new Size(440, 56),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 25f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 25f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            });
+            }));
 
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Use your ServoERP account to continue.",
                 Location = new Point(56, 92),
                 Size = new Size(440, 30),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 10.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f),
                 ForeColor = Color.FromArgb(71, 85, 105)
-            });
+            }));
 
-            _loginCard.Controls.Add(FieldLabel("Username / Email", 56, 136));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Username / Email", 56, 136)));
             _txtUsername = new ModernTextBox
             {
                 Location = new Point(56, 164),
                 Size = new Size(440, 52),
-                Placeholder = "Enter your username or email",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your username or email"),
                 LeadingIcon = '\uE77B'
             };
             _loginCard.Controls.Add(_txtUsername);
 
-            _loginCard.Controls.Add(FieldLabel("Password", 56, 232));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Password", 56, 232)));
             _txtPassword = new ModernTextBox
             {
                 Location = new Point(56, 260),
                 Size = new Size(440, 52),
-                Placeholder = "Enter your password",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your password"),
                 UseSystemPasswordChar = true,
                 LeadingIcon = '\uE72E'
             };
@@ -286,17 +286,17 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Controls.Add(_btnPasswordToggle);
             _btnPasswordToggle.BringToFront();
 
-            _chkRememberMe = new CheckBox
+            _chkRememberMe = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox
             {
                 Text = "Remember me",
                 Location = new Point(56, 332),
                 Size = new Size(160, 28),
-                Font = new Font("Segoe UI", 10f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            };
+            });
             _loginCard.Controls.Add(_chkRememberMe);
 
-            var forgot = LinkLabel("Forgot password?", 346, 328, 150, 30);
+            var forgot = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Forgot password?", 346, 328, 150, 30));
             forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
@@ -305,12 +305,12 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(56, 368),
                 Size = new Size(440, 28),
                 ForeColor = Color.FromArgb(220, 38, 38),
-                Font = new Font("Segoe UI", 9.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             _loginCard.Controls.Add(_lblError);
 
-            _btnSignIn = new Button
+            _btnSignIn = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Sign In",
                 Location = new Point(56, 404),
@@ -318,8 +318,8 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0, 91, 224),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold)
+            });
             _btnSignIn.FlatAppearance.BorderSize = 0;
             _btnSignIn.FlatAppearance.MouseOverBackColor = Color.FromArgb(29, 78, 216);
             _btnSignIn.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
@@ -327,29 +327,29 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Controls.Add(_btnSignIn);
             StylePrimaryButton(_btnSignIn);
 
-            _lblSpinner = new Label
+            _lblSpinner = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "",
                 Location = new Point(72, 417),
                 Size = new Size(34, 28),
                 ForeColor = Color.White,
                 BackColor = Color.FromArgb(0, 91, 224),
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold),
                 Visible = false
-            };
+            });
             _loginCard.Controls.Add(_lblSpinner);
 
             AddDivider(56, 464, 440);
 
-            var demoButton = SocialButton("Continue as Demo", 56, 488);
+            var demoButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SocialButton("Continue as Demo", 56, 488));
             demoButton.Size = new Size(210, 46);
-            demoButton.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            demoButton.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold);
             demoButton.Click += (s, e) => ShowToast("Demo access can be enabled from administrator settings.", false);
             _loginCard.Controls.Add(demoButton);
 
-            var createButton = SocialButton("Create Account", 286, 488);
+            var createButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SocialButton("Create Account", 286, 488));
             createButton.Size = new Size(210, 46);
-            createButton.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
+            createButton.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold);
             createButton.ForeColor = Color.FromArgb(0, 92, 255);
             createButton.FlatAppearance.BorderColor = Color.FromArgb(0, 92, 255);
             createButton.Click += (s, e) => ShowCreateAccountDialog();
@@ -362,7 +362,7 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Paint += DrawLoginCard;
             _rightPanel.Controls.Add(_loginCard);
 
-            var language = new Button
+            var language = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "◎  English",
                 Location = new Point(518, 28),
@@ -370,68 +370,68 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(8, 22, 61),
-                Font = new Font("Segoe UI", 10f)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            });
             language.FlatAppearance.BorderColor = DS.Border;
             language.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             _loginCard.Controls.Add(language);
 
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Welcome Back!",
                 Location = new Point(0, 94),
                 Size = new Size(690, 48),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 24f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 24f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            });
+            }));
             _loginCard.Controls.Add(new Panel { Location = new Point(315, 151), Size = new Size(60, 2), BackColor = Color.FromArgb(249, 115, 22) });
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Sign in to your ServoERP account",
                 Location = new Point(0, 172),
                 Size = new Size(690, 34),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 13f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f),
                 ForeColor = Color.FromArgb(30, 41, 82)
-            });
+            }));
 
-            _loginCard.Controls.Add(FieldLabel("Username / Email", 58, 232));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Username / Email", 58, 232)));
             _txtUsername = new ModernTextBox
             {
                 Location = new Point(58, 262),
                 Size = new Size(574, 56),
-                Placeholder = "Enter your username or email",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your username or email"),
                 LeadingIcon = '\uE77B'
             };
             _loginCard.Controls.Add(_txtUsername);
 
-            _loginCard.Controls.Add(FieldLabel("Password", 58, 350));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Password", 58, 350)));
             _txtPassword = new ModernTextBox
             {
                 Location = new Point(58, 380),
                 Size = new Size(574, 56),
-                Placeholder = "Enter your password",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your password"),
                 UseSystemPasswordChar = true,
                 LeadingIcon = '\uE72E'
             };
             _loginCard.Controls.Add(_txtPassword);
 
-            _btnPasswordToggle = GhostButton("○", 590, 392, 34, 32);
+            _btnPasswordToggle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(GhostButton("○", 590, 392, 34, 32));
             _btnPasswordToggle.Click += (s, e) => TogglePasswordVisibility();
             _loginCard.Controls.Add(_btnPasswordToggle);
 
-            _chkRememberMe = new CheckBox
+            _chkRememberMe = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox
             {
                 Text = "Remember me",
                 Location = new Point(58, 462),
                 Size = new Size(160, 28),
-                Font = new Font("Segoe UI", 10.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            };
+            });
             _loginCard.Controls.Add(_chkRememberMe);
 
-            var forgot = LinkLabel("Forgot Password?", 482, 458, 150, 30);
+            var forgot = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Forgot Password?", 482, 458, 150, 30));
             forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
@@ -440,12 +440,12 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(58, 486),
                 Size = new Size(574, 24),
                 ForeColor = Color.FromArgb(220, 38, 38),
-                Font = new Font("Segoe UI", 9.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             _loginCard.Controls.Add(_lblError);
 
-            _btnSignIn = new Button
+            _btnSignIn = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Sign In  ->",
                 Location = new Point(58, 492),
@@ -453,15 +453,15 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0, 91, 224),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 14f, FontStyle.Bold)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold)
+            });
             _btnSignIn.FlatAppearance.BorderSize = 0;
             _btnSignIn.FlatAppearance.MouseOverBackColor = Color.FromArgb(29, 78, 216);
             _btnSignIn.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
             _btnSignIn.Click += async (s, e) => await AttemptLoginAsync();
             _loginCard.Controls.Add(_btnSignIn);
 
-            _lblSpinner = new Label
+            _lblSpinner = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "",
                 Location = new Point(74, 507),
@@ -470,31 +470,31 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.FromArgb(0, 91, 224),
                 Font = new Font("Segoe UI Symbol", 14f),
                 Visible = false
-            };
+            });
             _loginCard.Controls.Add(_lblSpinner);
 
             AddDivider(58, 574, 250);
-            _loginCard.Controls.Add(new Label { Text = "OR", Location = new Point(316, 560), Size = new Size(58, 30), TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font("Segoe UI", 9.5f) });
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "OR", Location = new Point(316, 560), Size = new Size(58, 30), TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f) }));
             AddDivider(382, 574, 250);
 
-            var createButton = SocialButton("Create New Account", 58, 596);
+            var createButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SocialButton("Create New Account", 58, 596));
             createButton.Size = new Size(574, 50);
-            createButton.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            createButton.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold);
             createButton.ForeColor = Color.FromArgb(0, 92, 255);
             createButton.FlatAppearance.BorderColor = Color.FromArgb(0, 92, 255);
             createButton.Click += (s, e) => ShowCreateAccountDialog();
             _loginCard.Controls.Add(createButton);
 
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "New to ServoERP?",
                 Location = new Point(230, 650),
                 Size = new Size(126, 28),
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = Color.FromArgb(71, 85, 125),
-                Font = new Font("Segoe UI", 10f)
-            });
-            var createAccount = LinkLabel("Create an account", 360, 650, 132, 28);
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            }));
+            var createAccount = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Create an account", 360, 650, 132, 28));
             createAccount.TextAlign = ContentAlignment.MiddleCenter;
             createAccount.Click += (s, e) => ShowCreateAccountDialog();
             _loginCard.Controls.Add(createAccount);
@@ -510,7 +510,7 @@ namespace HVAC_Pro_Desktop.UI
             int[] x = { 58, 280, 486 };
             for (int i = 0; i < titles.Length; i++)
             {
-                _loginCard.Controls.Add(new Label
+                _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = icons[i],
                     Location = new Point(x[i], 676),
@@ -518,23 +518,23 @@ namespace HVAC_Pro_Desktop.UI
                     Font = new Font("Segoe MDL2 Assets", 20f),
                     ForeColor = Color.FromArgb(0, 65, 170),
                     TextAlign = ContentAlignment.MiddleCenter
-                });
-                _loginCard.Controls.Add(new Label
+                }));
+                _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = titles[i],
                     Location = new Point(x[i] + 46, 674),
                     Size = new Size(128, 20),
-                    Font = new Font("Segoe UI", 8.5f, FontStyle.Bold),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold),
                     ForeColor = Color.FromArgb(8, 22, 61)
-                });
-                _loginCard.Controls.Add(new Label
+                }));
+                _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = subtitles[i],
                     Location = new Point(x[i] + 46, 694),
                     Size = new Size(136, 20),
-                    Font = new Font("Segoe UI", 8.5f),
+                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
                     ForeColor = Color.FromArgb(30, 41, 82)
-                });
+                }));
                 if (i > 0)
                     _loginCard.Controls.Add(new Panel { Location = new Point(x[i] - 16, 674), Size = new Size(1, 42), BackColor = Color.FromArgb(226, 232, 240) });
             }
@@ -546,7 +546,7 @@ namespace HVAC_Pro_Desktop.UI
             _loginCard.Paint += DrawLoginCard;
             _rightPanel.Controls.Add(_loginCard);
 
-            var language = new Button
+            var language = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "◎  English  ˅",
                 Location = new Point(520, 38),
@@ -554,71 +554,71 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(30, 64, 175),
-                Font = new Font("Segoe UI", 10f)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            });
             language.FlatAppearance.BorderColor = DS.Border;
             language.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             _loginCard.Controls.Add(language);
 
-            _loginCard.Controls.Add(new Label
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Welcome Back!",
                 Location = new Point(0, 130),
                 Size = new Size(720, 48),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 25f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 25f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            });
-            _loginCard.Controls.Add(new Label
+            }));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Sign in to your ServoERP account",
                 Location = new Point(0, 178),
                 Size = new Size(720, 34),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 13f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f),
                 ForeColor = Color.FromArgb(71, 85, 125)
-            });
+            }));
 
-            _loginCard.Controls.Add(FieldLabel("Username / Email", 78, 258));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Username / Email", 78, 258)));
             _txtUsername = new ModernTextBox
             {
                 Location = new Point(78, 294),
                 Size = new Size(564, 58),
-                Placeholder = "Enter your username or email",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your username or email"),
                 LeadingIcon = '♙'
             };
             _loginCard.Controls.Add(_txtUsername);
 
-            _loginCard.Controls.Add(FieldLabel("Password", 78, 394));
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(FieldLabel("Password", 78, 394)));
             _txtPassword = new ModernTextBox
             {
                 Location = new Point(78, 430),
                 Size = new Size(564, 58),
-                Placeholder = "Enter your password",
+                Placeholder = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter your password"),
                 UseSystemPasswordChar = true,
                 LeadingIcon = '▣'
             };
             _loginCard.Controls.Add(_txtPassword);
 
-            _btnPasswordToggle = GhostButton("◉", 604, 443, 34, 32);
+            _btnPasswordToggle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(GhostButton("◉", 604, 443, 34, 32));
             _btnPasswordToggle.Click += (s, e) => TogglePasswordVisibility();
             _loginCard.Controls.Add(_btnPasswordToggle);
 
-            _chkRememberMe = new CheckBox
+            _chkRememberMe = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox
             {
                 Text = "Remember me",
                 Location = new Point(78, 522),
                 Size = new Size(160, 28),
-                Font = new Font("Segoe UI", 10.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f),
                 ForeColor = Color.FromArgb(8, 22, 61)
-            };
+            });
             _loginCard.Controls.Add(_chkRememberMe);
 
-            var forgot = LinkLabel("Forgot Password?", 500, 518, 150, 30);
+            var forgot = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Forgot Password?", 500, 518, 150, 30));
             forgot.Click += (s, e) => ShowForgotPasswordDialog();
             _loginCard.Controls.Add(forgot);
 
-            _btnSignIn = new Button
+            _btnSignIn = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "→  Sign In",
                 Location = new Point(78, 574),
@@ -626,15 +626,15 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(37, 99, 235),
                 ForeColor = Color.White,
-                Font = new Font("Segoe UI", 15f, FontStyle.Bold)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold)
+            });
             _btnSignIn.FlatAppearance.BorderSize = 0;
             _btnSignIn.FlatAppearance.MouseOverBackColor = Color.FromArgb(29, 78, 216);
             _btnSignIn.FlatAppearance.MouseDownBackColor = Color.FromArgb(30, 64, 175);
             _btnSignIn.Click += async (s, e) => await AttemptLoginAsync();
             _loginCard.Controls.Add(_btnSignIn);
 
-            _lblSpinner = new Label
+            _lblSpinner = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "",
                 Location = new Point(92, 595),
@@ -643,27 +643,27 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.FromArgb(37, 99, 235),
                 Font = new Font("Segoe UI Symbol", 14f),
                 Visible = false
-            };
+            });
             _loginCard.Controls.Add(_lblSpinner);
 
             AddDivider(78, 686, 224);
-            _loginCard.Controls.Add(new Label { Text = "or sign in with", Location = new Point(304, 674), Size = new Size(116, 32), TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font("Segoe UI", 10f) });
+            _loginCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "or sign in with", Location = new Point(304, 674), Size = new Size(116, 32), TextAlign = ContentAlignment.MiddleCenter, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f) }));
             AddDivider(420, 686, 222);
 
-            var microsoft = SocialButton("■  Microsoft", 78, 720);
+            var microsoft = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SocialButton("■  Microsoft", 78, 720));
             microsoft.Click += (s, e) => ShowToast("Microsoft sign-in is ready for Azure AD wiring.", false);
             _loginCard.Controls.Add(microsoft);
 
-            var google = SocialButton("G  Google", 360, 720);
+            var google = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SocialButton("G  Google", 360, 720));
             google.Click += (s, e) => ShowToast("Google sign-in is ready for OAuth wiring.", false);
             _loginCard.Controls.Add(google);
 
-            var createAccount = LinkLabel("Create account", 236, 804, 112, 30);
+            var createAccount = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Create account", 236, 804, 112, 30));
             createAccount.TextAlign = ContentAlignment.MiddleCenter;
             createAccount.Click += (s, e) => ShowCreateAccountDialog();
             _loginCard.Controls.Add(createAccount);
 
-            var contact = LinkLabel("Need access? Ask Administrator", 356, 804, 210, 30);
+            var contact = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(LinkLabel("Need access? Ask Administrator", 356, 804, 210, 30));
             contact.TextAlign = ContentAlignment.MiddleCenter;
             contact.Click += (s, e) => ShowToast("An Admin can approve and create local ServoERP users.", false);
             _loginCard.Controls.Add(contact);
@@ -673,7 +673,7 @@ namespace HVAC_Pro_Desktop.UI
                 Location = new Point(78, 646),
                 Size = new Size(564, 28),
                 ForeColor = Color.FromArgb(220, 38, 38),
-                Font = new Font("Segoe UI", 9.5f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f),
                 TextAlign = ContentAlignment.MiddleCenter
             };
             _loginCard.Controls.Add(_lblError);
@@ -681,38 +681,38 @@ namespace HVAC_Pro_Desktop.UI
 
         private void BuildFooterLabels()
         {
-            _footer.Controls.Add(new Label
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "✓  Secure Connection\r\nSSL Encrypted",
                 Location = new Point(44, 19),
                 Size = new Size(260, 48),
                 ForeColor = Color.FromArgb(15, 72, 145),
-                Font = new Font("Segoe UI", 10f)
-            });
-            _footer.Controls.Add(new Label
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = "Version " + Assembly.GetExecutingAssembly().GetName().Version,
+                Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Version {0}", Assembly.GetExecutingAssembly().GetName().Version),
                 Anchor = AnchorStyles.Top,
                 Location = new Point(590, 30),
                 Size = new Size(220, 28),
                 TextAlign = ContentAlignment.MiddleCenter,
                 ForeColor = Color.FromArgb(82, 103, 143),
-                Font = new Font("Segoe UI", 10.5f)
-            });
-            _footer.Controls.Add(new Label
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f)
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "☎  Need Help?\r\nSupport Center",
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(ClientSize.Width - 250, 19),
                 Size = new Size(210, 48),
                 ForeColor = Color.FromArgb(15, 72, 145),
-                Font = new Font("Segoe UI", 10f)
-            });
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            }));
         }
 
         private void BuildFooterLabelsV2()
         {
-            _footer.Controls.Add(new Label
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "\uE72E",
                 Location = new Point(30, 18),
@@ -720,17 +720,17 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe MDL2 Assets", 16f),
                 ForeColor = Color.FromArgb(22, 163, 74),
                 TextAlign = ContentAlignment.MiddleCenter
-            });
-            _footer.Controls.Add(new Label
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Secure encrypted local connection",
                 Location = new Point(66, 16),
                 Size = new Size(320, 34),
                 ForeColor = Color.FromArgb(8, 44, 118),
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold)
-            });
-            _footer.Controls.Add(new Label
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold)
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = string.Format(LanguageManager.Get("Version {0}  |  Licensed workstation"), Assembly.GetExecutingAssembly().GetName().Version),
                 Dock = DockStyle.Right,
@@ -738,13 +738,13 @@ namespace HVAC_Pro_Desktop.UI
                 Padding = new Padding(0, 0, 36, 0),
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = Color.FromArgb(71, 85, 105),
-                Font = new Font("Segoe UI", 9.5f)
-            });
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f)
+            }));
         }
 
         private void BuildFooterLabelsV2Legacy()
         {
-            _footer.Controls.Add(new Label
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "\uE83D",
                 Location = new Point(28, 22),
@@ -752,25 +752,25 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font("Segoe MDL2 Assets", 20f),
                 ForeColor = Color.FromArgb(22, 163, 74),
                 TextAlign = ContentAlignment.MiddleCenter
-            });
-            _footer.Controls.Add(new Label
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Secure Connection\r\nSSL Encrypted",
                 Location = new Point(70, 19),
                 Size = new Size(260, 48),
                 ForeColor = Color.FromArgb(8, 44, 118),
-                Font = new Font("Segoe UI", 10f)
-            });
-            _footer.Controls.Add(new Label
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            }));
+            _footer.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = "Version " + Assembly.GetExecutingAssembly().GetName().Version + "\r\n© ServoERP. All rights reserved.",
+                Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Version {0}\r\n© ServoERP. All rights reserved.", Assembly.GetExecutingAssembly().GetName().Version),
                 Anchor = AnchorStyles.Top | AnchorStyles.Right,
                 Location = new Point(ClientSize.Width - 330, 19),
                 Size = new Size(290, 48),
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = Color.FromArgb(30, 41, 82),
-                Font = new Font("Segoe UI", 10f)
-            });
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f)
+            }));
         }
 
         private void LayoutMainAreas()
@@ -913,7 +913,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!IsDisposed)
                 {
                     _txtPassword.Text = string.Empty;
-                    _lblError.Text = string.Empty;
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblError, string.Empty);
                     Close();
                 }
             }
@@ -935,22 +935,22 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.Enabled = !busy;
             _chkRememberMe.Enabled = !busy;
             _btnSignIn.Enabled = !busy;
-            _btnSignIn.Text = busy ? "   Signing In..." : "Sign In";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnSignIn, busy ? "   Signing In..." : "Sign In");
             if (!busy)
-                _btnSignIn.Text = "Sign In";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnSignIn, "Sign In");
             _lblSpinner.Visible = busy;
             if (busy && !_spinnerTimer.Enabled)
                 _spinnerTimer.Start();
             else if (!busy && _spinnerTimer.Enabled)
                 _spinnerTimer.Stop();
             _lblError.ForeColor = busy ? Color.FromArgb(37, 99, 235) : Color.FromArgb(220, 38, 38);
-            _lblError.Text = message ?? string.Empty;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblError, LanguageManager.GetMessage(message ?? string.Empty));
         }
 
         private void ShowToast(string message, bool error)
         {
             _lblError.ForeColor = error ? Color.FromArgb(220, 38, 38) : Color.FromArgb(37, 99, 235);
-            _lblError.Text = message ?? string.Empty;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblError, LanguageManager.GetMessage(message ?? string.Empty));
         }
 
         private void TogglePasswordVisibility()
@@ -970,7 +970,7 @@ namespace HVAC_Pro_Desktop.UI
             if (button == null)
                 return;
 
-            button.Text = string.Empty;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, string.Empty);
             button.TabStop = false;
             button.AccessibleName = LanguageManager.Get("Show password");
             button.AccessibleDescription = LanguageManager.Get("Show password");
@@ -1139,9 +1139,9 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             int x = 58;
-            DrawLeftAligned(g, "ServoERP", new Font("Segoe UI", 30f, FontStyle.Bold), new Rectangle(x, 60, r.Width - 112, 54), Color.White);
-            DrawLeftAligned(g, "Manage every service call, contract, and invoice. Built for India.", new Font("Segoe UI", 11.7f, FontStyle.Bold), new Rectangle(x, 126, r.Width - 112, 86), Color.FromArgb(226, 239, 255));
-            DrawLeftAligned(g, "Secure local sign-in for clients, service jobs, billing and field operations.", new Font("Segoe UI", 9.5f), new Rectangle(x, 220, r.Width - 112, 46), Color.FromArgb(203, 213, 225));
+            DrawLeftAligned(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP"), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 30f, FontStyle.Bold), new Rectangle(x, 60, r.Width - 112, 54), Color.White);
+            DrawLeftAligned(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Manage every service call, contract, and invoice. Built for India."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11.7f, FontStyle.Bold), new Rectangle(x, 126, r.Width - 112, 86), Color.FromArgb(226, 239, 255));
+            DrawLeftAligned(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Secure local sign-in for clients, service jobs, billing and field operations."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), new Rectangle(x, 220, r.Width - 112, 46), Color.FromArgb(203, 213, 225));
 
             int previewHeight = r.Height < 620 ? 120 : 136;
             Rectangle preview = new Rectangle(x, r.Height < 620 ? 282 : 294, Math.Min(336, r.Width - 116), previewHeight);
@@ -1163,7 +1163,7 @@ namespace HVAC_Pro_Desktop.UI
                 using (SolidBrush orange = new SolidBrush(Color.FromArgb(249, 115, 22)))
                     g.FillEllipse(orange, dot);
 
-                DrawLeftAligned(g, items[i], new Font("Segoe UI", 10f, FontStyle.Bold), new Rectangle(x + 28, y + (i * rowGap), r.Width - 124, 28), Color.White);
+                DrawLeftAligned(g, items[i], new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold), new Rectangle(x + 28, y + (i * rowGap), r.Width - 124, 28), Color.White);
             }
         }
 
@@ -1229,9 +1229,9 @@ namespace HVAC_Pro_Desktop.UI
             DrawWaves(g, r);
             DrawServoLogo(g, new Rectangle((r.Width - 360) / 2, 64, 360, 230));
 
-            DrawCentered(g, "ServoERP", new Font("Segoe UI", 40f, FontStyle.Bold), new Rectangle(0, 300, r.Width, 72), Color.FromArgb(8, 22, 61));
-            DrawCentered(g, "Smart. Integrated. Powerful.", new Font("Segoe UI", 18f, FontStyle.Bold), new Rectangle(0, 370, r.Width, 36), Color.FromArgb(8, 22, 61));
-            DrawCentered(g, "All your HVAC business operations,\r\nconnected in one place.", new Font("Segoe UI", 13f), new Rectangle(0, 412, r.Width, 64), Color.FromArgb(71, 85, 125));
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP"), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 40f, FontStyle.Bold), new Rectangle(0, 300, r.Width, 72), Color.FromArgb(8, 22, 61));
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Smart. Integrated. Powerful."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold), new Rectangle(0, 370, r.Width, 36), Color.FromArgb(8, 22, 61));
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("All your HVAC business operations,\r\nconnected in one place."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f), new Rectangle(0, 412, r.Width, 64), Color.FromArgb(71, 85, 125));
 
             string[] features = { "Clients", "Invoicing", "Service", "Contracts", "Inventory", "Purchases", "Reports", "Employees" };
             char[] icons = { '♙', '▤', '⚒', '▣', '□', '⌁', '▥', '○' };
@@ -1297,12 +1297,12 @@ namespace HVAC_Pro_Desktop.UI
             DrawServoWordmark(g, new Rectangle(0, 222, r.Width, 78));
             using (Pen orange = new Pen(Color.FromArgb(249, 115, 22), 2f))
                 g.DrawLine(orange, r.Width / 2 - 32, 306, r.Width / 2 + 32, 306);
-            DrawCentered(g, "Service Business Management Software\r\nfor Indian SMEs", new Font("Segoe UI", 15.5f, FontStyle.Bold), new Rectangle(64, 324, r.Width - 128, 58), Color.FromArgb(8, 22, 61));
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Service Business Management Software\r\nfor Indian SMEs"), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15.5f, FontStyle.Bold), new Rectangle(64, 324, r.Width - 128, 58), Color.FromArgb(8, 22, 61));
 
             using (Pen blue = new Pen(Color.FromArgb(0, 91, 224), 2f))
                 g.DrawLine(blue, r.Width / 2 - 30, 392, r.Width / 2 + 30, 392);
             DrawCapabilityRow(g, new Rectangle(90, 416, r.Width - 180, 36));
-            DrawCentered(g, "Manage Clients, Jobs, Inventory, Billing, Service,\r\nContracts, Employees and much more.", new Font("Segoe UI", 11.5f), new Rectangle(70, 466, r.Width - 140, 52), Color.FromArgb(30, 41, 82));
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Manage Clients, Jobs, Inventory, Billing, Service,\r\nContracts, Employees and much more."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11.5f), new Rectangle(70, 466, r.Width - 140, 52), Color.FromArgb(30, 41, 82));
 
             string[] features = { "Clients", "Invoicing", "Service", "Contracts", "Inventory", "Purchases", "Reports", "Employees" };
             char[] icons = { '\uE716', '\uE8A5', '\uE90F', '\uE9D2', '\uE7B8', '\uE7BF', '\uE9D9', '\uE716' };
@@ -1392,7 +1392,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             string left = "Servo";
             string right = "ERP";
-            using (Font font = new Font("Segoe UI", 45f, FontStyle.Bold))
+            using (Font font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 45f, FontStyle.Bold))
             {
                 SizeF leftSize = g.MeasureString(left, font);
                 SizeF rightSize = g.MeasureString(right, font);
@@ -1415,7 +1415,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 int x = rect.Left + i * segment;
                 using (Font iconFont = new Font("Segoe MDL2 Assets", 12f))
-                using (Font textFont = new Font("Segoe UI", 10.5f))
+                using (Font textFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f))
                 using (Brush blue = new SolidBrush(Color.FromArgb(0, 91, 224)))
                 using (Brush text = new SolidBrush(Color.FromArgb(8, 22, 61)))
                 {
@@ -1437,11 +1437,11 @@ namespace HVAC_Pro_Desktop.UI
                 g.DrawArc(gearPen, gear, 140, 250);
             using (Pen orange = new Pen(Color.FromArgb(249, 115, 22), 12f))
                 g.DrawArc(orange, new Rectangle(cx - 82, cy - 56, 164, 126), 315, 118);
-            using (Font font = new Font("Segoe UI", 98f, FontStyle.Bold))
+            using (Font font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 98f, FontStyle.Bold))
             using (SolidBrush blue = new SolidBrush(Color.FromArgb(8, 44, 118)))
             {
                 SizeF s = g.MeasureString("S", font);
-                g.DrawString("S", font, blue, cx - s.Width / 2f + 4, cy - s.Height / 2f - 2);
+                g.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("S"), font, blue, cx - s.Width / 2f + 4, cy - s.Height / 2f - 2);
             }
             using (Pen cold = new Pen(Color.FromArgb(37, 99, 235), 3f))
             {
@@ -1468,18 +1468,18 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             DrawCentered(g, icon.ToString(), new Font("Segoe MDL2 Assets", 22f), new Rectangle(rect.X, rect.Y + 14, rect.Width, 34), Color.FromArgb(0, 91, 224));
-            DrawCentered(g, title, new Font("Segoe UI", 9f, FontStyle.Bold), new Rectangle(rect.X, rect.Y + 60, rect.Width, 24), Color.FromArgb(8, 22, 61));
+            DrawCentered(g, title, new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), new Rectangle(rect.X, rect.Y + 60, rect.Width, 24), Color.FromArgb(8, 22, 61));
         }
 
         private void DrawSecurityNote(Graphics g, Rectangle rect)
         {
             using (SolidBrush blue = new SolidBrush(Color.FromArgb(37, 99, 235)))
                 g.FillEllipse(blue, rect.X, rect.Y + 8, 42, 42);
-            DrawCentered(g, "✓", new Font("Segoe UI", 18f, FontStyle.Bold), new Rectangle(rect.X, rect.Y + 9, 42, 40), Color.White);
+            DrawCentered(g, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("✓"), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold), new Rectangle(rect.X, rect.Y + 9, 42, 40), Color.White);
             using (Brush b = new SolidBrush(Color.FromArgb(8, 22, 61)))
-                g.DrawString("Secure. Reliable. Always.", new Font("Segoe UI", 10.5f, FontStyle.Bold), b, rect.X + 56, rect.Y + 7);
+                g.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Secure. Reliable. Always."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold), b, rect.X + 56, rect.Y + 7);
             using (Brush b = new SolidBrush(Color.FromArgb(71, 85, 125)))
-                g.DrawString("Your data is protected with enterprise-grade security.", new Font("Segoe UI", 9.5f), b, rect.X + 56, rect.Y + 31);
+                g.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Your data is protected with enterprise-grade security."), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f), b, rect.X + 56, rect.Y + 31);
         }
 
         private void DrawLoginCard(object sender, PaintEventArgs e)
@@ -1510,19 +1510,19 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label FieldLabel(string text, int x, int y)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text,
                 Location = new Point(x, y),
                 Size = new Size(240, 28),
-                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold),
                 ForeColor = Color.FromArgb(30, 41, 59)
-            };
+            });
         }
 
         private Button GhostButton(string text, int x, int y, int width, int height)
         {
-            var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(width, height), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font("Segoe UI Symbol", 12f), TabStop = false };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Location = new Point(x, y), Size = new Size(width, height), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(82, 103, 143), Font = new Font("Segoe UI Symbol", 12f), TabStop = false });
             button.FlatAppearance.BorderSize = 0;
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             return button;
@@ -1530,7 +1530,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button SocialButton(string text, int x, int y)
         {
-            var button = new Button { Text = text, Location = new Point(x, y), Size = new Size(264, 58), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(8, 22, 61), Font = new Font("Segoe UI", 12f) };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Location = new Point(x, y), Size = new Size(264, 58), FlatStyle = FlatStyle.Flat, BackColor = Color.White, ForeColor = Color.FromArgb(8, 22, 61), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f) });
             button.FlatAppearance.BorderColor = DS.Border;
             button.FlatAppearance.MouseOverBackColor = Color.FromArgb(239, 246, 255);
             return button;
@@ -1561,7 +1561,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label LinkLabel(string text, int x, int y, int width, int height)
         {
-            var label = new Label { Text = text, Location = new Point(x, y), Size = new Size(width, height), ForeColor = Color.FromArgb(0, 92, 255), Cursor = Cursors.Hand, Font = new Font("Segoe UI", 10f), TextAlign = ContentAlignment.MiddleRight };
+            var label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Size = new Size(width, height), ForeColor = Color.FromArgb(0, 92, 255), Cursor = Cursors.Hand, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f), TextAlign = ContentAlignment.MiddleRight });
             label.MouseEnter += (s, e) => label.ForeColor = Color.FromArgb(30, 64, 175);
             label.MouseLeave += (s, e) => label.ForeColor = Color.FromArgb(0, 92, 255);
             return label;

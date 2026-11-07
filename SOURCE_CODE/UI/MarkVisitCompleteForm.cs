@@ -24,7 +24,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _visitId = visitId;
             InitializeComponent();
-            Text = "Mark Visit Complete";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Mark Visit Complete");
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -56,8 +56,8 @@ namespace HVAC_Pro_Desktop.UI
             AddRow(grid, 3, "Parts Used (leave blank if Non-Comprehensive)", _partsUsed);
 
             var buttons = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.RightToLeft, BackColor = DS.BgPage };
-            _save = MakeButton("Save", DS.Primary600, Color.White);
-            Button cancel = MakeButton("Cancel", Color.White, DS.Slate900);
+            _save = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Save", DS.Primary600, Color.White));
+            Button cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Cancel", Color.White, DS.Slate900));
             cancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
             _save.Click += (s, e) => SaveVisit();
             buttons.Controls.Add(_save);
@@ -71,7 +71,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Adds one row to the form grid.</summary>
         private void AddRow(TableLayoutPanel grid, int row, string label, Control editor)
         {
-            grid.Controls.Add(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }, 0, row);
+            grid.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }), 0, row);
             editor.Dock = DockStyle.Fill;
             editor.Margin = new Padding(0, 4, 0, 4);
             grid.Controls.Add(editor, 1, row);
@@ -82,7 +82,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (string.IsNullOrWhiteSpace(_technician.Text) || string.IsNullOrWhiteSpace(_workDone.Text))
             {
-                MessageBox.Show("Enter Technician Name and Work Done.", BrandingService.WindowTitle("AMC Visit"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter Technician Name and Work Done."), BrandingService.WindowTitle("AMC Visit"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -133,7 +133,7 @@ WHERE VisitID = @VisitID;", connection))
         /// <summary>Creates a compact dialog button.</summary>
         private Button MakeButton(string text, Color back, Color fore)
         {
-            var button = new Button { Text = text, Width = 92, Height = 32, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat };
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = 92, Height = 32, BackColor = back, ForeColor = fore, FlatStyle = FlatStyle.Flat });
             button.FlatAppearance.BorderSize = back == Color.White ? 1 : 0;
             button.FlatAppearance.BorderColor = DS.Border;
             DS.Rounded(button, 6);

@@ -35,13 +35,13 @@ namespace HVAC_Pro_Desktop.UI
         public ConnectionSetupForm()
         {
             AutoScaleMode = AutoScaleMode.Dpi;
-            Text = "Connect to office server";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "Connect to office server");
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             ClientSize = new Size(820, 612);
-            Font = new Font("Segoe UI", 9F);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9F);
             BackColor = DS.BgPage;
 
             BuildLayout();
@@ -63,49 +63,49 @@ namespace HVAC_Pro_Desktop.UI
             };
             var icon = ModernIconSystem.Badge(ModernIconKind.Security, 46, DS.Primary50, DS.Primary600, 12);
             icon.Location = new Point(28, 26);
-            var title = new Label
+            var title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Connect to your office server",
                 Font = DS.H1,
                 ForeColor = DS.Slate900,
                 Location = new Point(88, 23),
                 Size = new Size(560, 28)
-            };
-            var hint = new Label
+            });
+            var hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Set up the secure SQL Server connection used by every ServoERP PC in your office.",
                 Font = DS.Body,
                 ForeColor = DS.Slate600,
                 Location = new Point(90, 54),
                 Size = new Size(660, 34)
-            };
+            });
             header.Controls.AddRange(new Control[] { icon, title, hint });
 
             var setupCard = BuildCard(new Rectangle(28, 122, 500, 406));
-            var serverTitle = new Label
+            var serverTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "1. Choose where your data is stored",
                 Font = DS.H3,
                 ForeColor = DS.Slate900,
                 Location = new Point(22, 18),
                 Size = new Size(410, 22)
-            };
-            var serverHint = new Label
+            });
+            var serverHint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Use the office server for client PCs so everyone works with the same live data.",
                 Font = DS.Small,
                 ForeColor = DS.Slate500,
                 Location = new Point(22, 40),
                 Size = new Size(445, 30)
-            };
+            });
 
-            _rbLocalServer.Text = "This server PC";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_rbLocalServer, "This server PC");
             _rbLocalServer.Location = new Point(24, 77);
             _rbLocalServer.Size = new Size(170, 24);
             _rbLocalServer.Checked = true;
             _rbLocalServer.CheckedChanged += (s, e) => UpdateServerMode();
 
-            _rbPrivateServer.Text = "Another PC in this office";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_rbPrivateServer, "Another PC in this office");
             _rbPrivateServer.Location = new Point(226, 77);
             _rbPrivateServer.Size = new Size(220, 24);
             _rbPrivateServer.CheckedChanged += (s, e) => UpdateServerMode();
@@ -129,28 +129,28 @@ namespace HVAC_Pro_Desktop.UI
             _txtDatabase.Location = new Point(24, 242);
             _txtDatabase.Size = new Size(450, 28);
 
-            var authTitle = new Label { Text = "2. Sign in to SQL Server", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(22, 289), Size = new Size(300, 22) };
+            var authTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "2. Sign in to SQL Server", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(22, 289), Size = new Size(300, 22) });
             var authModePanel = new Panel { Location = new Point(0, 312), Size = new Size(480, 34), BackColor = Color.Transparent };
 
-            _rbWindowsAuth.Text = "Windows Authentication";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_rbWindowsAuth, "Windows Authentication");
             _rbWindowsAuth.Location = new Point(24, 2);
             _rbWindowsAuth.Size = new Size(190, 24);
             _rbWindowsAuth.Checked = true;
             _rbWindowsAuth.CheckedChanged += (s, e) => UpdateAuthFields();
 
-            _rbSqlAuth.Text = "SQL Authentication";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_rbSqlAuth, "SQL Authentication");
             _rbSqlAuth.Location = new Point(230, 2);
             _rbSqlAuth.Size = new Size(170, 24);
             _rbSqlAuth.CheckedChanged += (s, e) => UpdateAuthFields();
 
-            _lblUsername.Text = "SQL username";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblUsername, "SQL username");
             _lblUsername.Location = new Point(24, 351);
             _lblUsername.Size = new Size(190, 20);
             _lblUsername.Font = DS.SmallBold;
             _txtUsername.Location = new Point(24, 373);
             _txtUsername.Size = new Size(215, 28);
 
-            _lblPassword.Text = "Password";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblPassword, "Password");
             _lblPassword.Location = new Point(258, 351);
             _lblPassword.Size = new Size(190, 20);
             _lblPassword.Font = DS.SmallBold;
@@ -158,7 +158,7 @@ namespace HVAC_Pro_Desktop.UI
             _txtPassword.Size = new Size(216, 28);
             _txtPassword.UseSystemPasswordChar = true;
 
-            var advanced = new Label { Text = "Connection pool", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(24, 421), Size = new Size(140, 20) };
+            var advanced = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Connection pool", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(24, 421), Size = new Size(140, 20) });
             _numMaxPoolSize.Location = new Point(155, 417);
             _numMaxPoolSize.Size = new Size(88, 28);
             _numMaxPoolSize.Minimum = 20;
@@ -168,44 +168,44 @@ namespace HVAC_Pro_Desktop.UI
             var guideCard = BuildCard(new Rectangle(546, 122, 246, 406));
             var guideIcon = ModernIconSystem.Badge(ModernIconKind.Status, 38, DS.Green50, DS.Green600, 10);
             guideIcon.Location = new Point(20, 20);
-            var guideTitle = new Label { Text = "Before you save", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(68, 24), Size = new Size(156, 22) };
-            var guideText = new Label
+            var guideTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Before you save", Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(68, 24), Size = new Size(156, 22) });
+            var guideText = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "1. Enter the office server name or IP.\r\n\r\n2. Select the SQL sign-in provided by your administrator.\r\n\r\n3. Test first, then save the verified connection.\r\n\r\nYour server details stay on this PC.",
                 Font = DS.Body,
                 ForeColor = DS.Slate600,
                 Location = new Point(20, 78),
                 Size = new Size(205, 224)
-            };
-            var statusCaption = new Label { Text = "Connection check", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(20, 324), Size = new Size(160, 18) };
+            });
+            var statusCaption = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Connection check", Font = DS.SmallBold, ForeColor = DS.Slate600, Location = new Point(20, 324), Size = new Size(160, 18) });
             _lblStatus.Location = new Point(20, 347);
             _lblStatus.Size = new Size(205, 42);
             _lblStatus.Font = DS.Small;
             _lblStatus.ForeColor = DS.Slate500;
 
             var footer = new Panel { Dock = DockStyle.Bottom, Height = 68, BackColor = DS.White, Padding = new Padding(28, 16, 28, 16) };
-            var btnTestConnection = new Button
+            var btnTestConnection = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Test connection",
                 Location = new Point(326, 17),
                 Size = new Size(130, 34)
-            };
+            });
             btnTestConnection.Click += (s, e) => TestConnection();
 
-            var btnSave = new Button
+            var btnSave = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Save connection",
                 Location = new Point(466, 17),
                 Size = new Size(132, 34)
-            };
+            });
             btnSave.Click += (s, e) => SaveConnection();
 
-            var btnCancel = new Button
+            var btnCancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Cancel",
                 Location = new Point(610, 17),
                 Size = new Size(82, 34)
-            };
+            });
             btnCancel.Click += (s, e) =>
             {
                 DialogResult = DialogResult.Cancel;
@@ -234,7 +234,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddLabel(Control parent, string text, int y, int x = 24)
         {
-            parent.Controls.Add(new Label { Text = text, Location = new Point(x, y), Size = new Size(190, 20), Font = DS.SmallBold, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleLeft });
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Size = new Size(190, 20), Font = DS.SmallBold, ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleLeft }));
         }
 
         private void ApplyConnectionTheme()
@@ -296,7 +296,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (IsLocalServer(_txtServerIP.Text))
                     _txtServerIP.Text = string.Empty;
 
-                _lblModeHint.Text = "Use this on every client PC. The shared office SQL Server is the live source of truth for all users.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblModeHint, "Use this on every client PC. The shared office SQL Server is the live source of truth for all users.");
                 _txtServerIP.Focus();
             }
             else
@@ -307,7 +307,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (string.IsNullOrWhiteSpace(_txtInstance.Text))
                     _txtInstance.Text = "SQLEXPRESS";
 
-                _lblModeHint.Text = "Use this for a single PC installation or when SQL Server runs on this computer.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblModeHint, "Use this for a single PC installation or when SQL Server runs on this computer.");
             }
 
             if (string.IsNullOrWhiteSpace(_txtDatabase.Text))
@@ -345,7 +345,7 @@ namespace HVAC_Pro_Desktop.UI
             _lastTestSucceeded = false;
             _lastTestedConnectionString = null;
             _lblStatus.ForeColor = Color.DimGray;
-            _lblStatus.Text = "Testing connection...";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Testing connection...");
             Application.DoEvents();
 
             try
@@ -358,15 +358,14 @@ namespace HVAC_Pro_Desktop.UI
                 _lastTestSucceeded = result.Success;
                 _lastTestedConnectionString = result.ConnectionString;
                 _lblStatus.ForeColor = result.Success ? Color.ForestGreen : Color.Firebrick;
-                _lblStatus.Text = result.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, result.Message);
                 AppRuntime.LogConnection(result.Success ? "Connection setup test succeeded." : "Connection setup test failed.");
 
                 if (result.Success)
                 {
                     DialogResult saveVerifiedConnection = MessageBox.Show(
                         this,
-                        "The database connection was successful. Save these verified settings and the new password on this PC now?\r\n\r\n" +
-                        "The password will be protected for this Windows computer.",
+                        global::HVAC_Pro_Desktop.Services.LanguageManager.Format("The database connection was successful. Save these verified settings and the new password on this PC now?\r\n\r\nThe password will be protected for this Windows computer."),
                         BrandingService.WindowTitle("Save Database Password"),
                         MessageBoxButtons.YesNo,
                         MessageBoxIcon.Question);
@@ -379,7 +378,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 LocalSqliteFallbackStore.RecordSqlUnavailable(BuildConnectionStringForFallback(), ex);
                 _lblStatus.ForeColor = Color.Firebrick;
-                _lblStatus.Text = "Connection failed: " + ex.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Connection failed: {0}", ex.Message));
                 AppRuntime.LogException("ConnectionSetupForm.TestConnection", ex);
             }
         }
@@ -396,7 +395,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (!_lastTestSucceeded || !string.Equals(connectionString, _lastTestedConnectionString, StringComparison.Ordinal))
                 {
                     _lblStatus.ForeColor = Color.Firebrick;
-                    _lblStatus.Text = "Please test the connection successfully before saving.";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "Please test the connection successfully before saving.");
                     return;
                 }
 
@@ -419,7 +418,7 @@ namespace HVAC_Pro_Desktop.UI
                 AppRuntime.LogConnection("Connection string saved and verified.");
                 MessageBox.Show(
                     this,
-                    "The database password was saved and verified on this PC. ServoERP will use it the next time it starts.",
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.Get("The database password was saved and verified on this PC. ServoERP will use it the next time it starts."),
                     BrandingService.WindowTitle("Database Password Saved"),
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
@@ -455,7 +454,7 @@ namespace HVAC_Pro_Desktop.UI
                     }
                 }
                 _lblStatus.ForeColor = Color.Firebrick;
-                _lblStatus.Text = "Save failed: " + ex.Message;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Save failed: {0}", ex.Message));
                 AppRuntime.LogException("ConnectionSetupForm.SaveConnection", ex);
             }
         }

@@ -85,13 +85,13 @@ namespace HVAC_Pro_Desktop.UI
 
             dgv.ColumnHeadersDefaultCellStyle.BackColor = HeaderBack;
             dgv.ColumnHeadersDefaultCellStyle.ForeColor = HeaderFore;
-            dgv.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            dgv.ColumnHeadersDefaultCellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold);
             dgv.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
             dgv.ColumnHeadersDefaultCellStyle.Padding = new Padding(8, 0, 0, 0);
             dgv.ColumnHeadersDefaultCellStyle.SelectionBackColor = HeaderBack;
             dgv.ColumnHeadersDefaultCellStyle.SelectionForeColor = HeaderFore;
 
-            dgv.DefaultCellStyle.Font = new Font("Segoe UI", 9f);
+            dgv.DefaultCellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             dgv.DefaultCellStyle.ForeColor = DS.Slate800;
             dgv.DefaultCellStyle.BackColor = RowNormal;
             dgv.DefaultCellStyle.SelectionBackColor = RowSelected;
@@ -287,7 +287,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (!header.Contains("margin") && !name.Contains("margin") && !header.Contains("gst%") && !name.Contains("gstpct"))
                         col.DefaultCellStyle.Format = "₹#,##0.00";
                     col.DefaultCellStyle.Padding = new Padding(0, 0, 10, 0);
-                    col.DefaultCellStyle.Font = new Font("Segoe UI", 9f);
+                    col.DefaultCellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
                 }
                 else if (dateKeywords.Any(k => name.Contains(k) || header.Contains(k)))
                 {
@@ -330,8 +330,8 @@ namespace HVAC_Pro_Desktop.UI
                 if (dgv.Rows.Count != 0)
                     return;
 
-                using (Font titleFont = new Font("Segoe UI", 10f, FontStyle.Bold))
-                using (Font hintFont = new Font("Segoe UI", 8.75f, FontStyle.Regular))
+                using (Font titleFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold))
+                using (Font hintFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f, FontStyle.Regular))
                 using (SolidBrush titleBrush = new SolidBrush(DS.Slate700))
                 using (SolidBrush hintBrush = new SolidBrush(DS.Slate500))
                 using (StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
@@ -353,7 +353,7 @@ namespace HVAC_Pro_Desktop.UI
             if (label == null)
                 return;
 
-            label.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            label.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold);
             label.ForeColor = DS.Primary700;
             label.AutoSize = true;
             label.Margin = new Padding(label.Margin.Left, label.Margin.Top, label.Margin.Right, 8);

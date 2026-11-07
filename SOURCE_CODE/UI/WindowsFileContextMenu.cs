@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -35,7 +35,7 @@ namespace HVAC_Pro_Desktop.UI
         private static readonly Color HoverBackColor = Color.FromArgb(229, 240, 251);
         private static readonly Color TextColor = Color.FromArgb(20, 20, 20);
         private static readonly Color DangerColor = Color.FromArgb(185, 28, 28);
-        private static readonly Font MenuFont = new Font("Segoe UI", 9f, FontStyle.Regular);
+        private static readonly Font MenuFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Regular);
 
         /// <summary>Attaches the Windows-style context menu to a control tree.</summary>
         public static void Attach(Control control, Func<object> contextFactory, WindowsFileContextMenuActions actions)

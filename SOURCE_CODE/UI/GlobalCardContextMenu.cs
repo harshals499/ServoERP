@@ -516,12 +516,12 @@ namespace HVAC_Pro_Desktop.UI
                 if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Lock Card", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Unlock Card", StringComparison.OrdinalIgnoreCase))
                 {
-                    item.Text = locked ? "Unlock Card" : "Lock Card";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(item, locked ? "Unlock Card" : "Lock Card");
                 }
                 else if (string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Add to Favorites", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(item, item.Text), "Remove from Favorites", StringComparison.OrdinalIgnoreCase))
                 {
-                    item.Text = favorite ? "Remove from Favorites" : "Add to Favorites";
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(item, favorite ? "Remove from Favorites" : "Add to Favorites");
                 }
             }
         }

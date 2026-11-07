@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace HVAC_Pro_Desktop.UI
@@ -58,12 +58,12 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.Slate50;
             ClientSize = new Size(960, 700);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
-            Text = "ServoERP - Legal Agreements";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP - Legal Agreements");
 
             _headerPanel.BackColor = DS.Primary700;
             _headerPanel.Dock = DockStyle.Top;
@@ -71,26 +71,26 @@ namespace HVAC_Pro_Desktop.UI
             _headerPanel.Paint += OnHeaderPanelPaint;
 
             _lblTitle.AutoSize = false;
-            _lblTitle.Font = new Font("Segoe UI", 18f, FontStyle.Bold);
+            _lblTitle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold);
             _lblTitle.ForeColor = Color.White;
             _lblTitle.Location = new Point(30, 22);
             _lblTitle.Size = new Size(590, 34);
-            _lblTitle.Text = "ServoERP Legal Agreements";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblTitle, "ServoERP Legal Agreements");
 
             _lblSubtitle.AutoSize = false;
-            _lblSubtitle.Font = new Font("Segoe UI", 10f);
+            _lblSubtitle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f);
             _lblSubtitle.ForeColor = DS.Primary100;
             _lblSubtitle.Location = new Point(32, 60);
             _lblSubtitle.Size = new Size(690, 42);
-            _lblSubtitle.Text = "Review the EULA, Privacy Policy, Data Processing Policy, and Disclaimer before using ServoERP for your business operations.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblSubtitle, "Review the EULA, Privacy Policy, Data Processing Policy, and Disclaimer before using ServoERP for your business operations.");
 
             _lblBadge.AutoSize = false;
             _lblBadge.BackColor = Color.White;
-            _lblBadge.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            _lblBadge.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold);
             _lblBadge.ForeColor = DS.Teal600;
             _lblBadge.Location = new Point(702, 30);
             _lblBadge.Size = new Size(220, 30);
-            _lblBadge.Text = "Made in India | Local-first ERP";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblBadge, "Made in India | Local-first ERP");
             _lblBadge.TextAlign = ContentAlignment.MiddleCenter;
 
             _contentPanel.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -105,22 +105,22 @@ namespace HVAC_Pro_Desktop.UI
             _noticePanel.Paint += OnSurfacePaint;
 
             _lblNoticeTitle.AutoSize = false;
-            _lblNoticeTitle.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+            _lblNoticeTitle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold);
             _lblNoticeTitle.ForeColor = DS.Slate900;
             _lblNoticeTitle.Location = new Point(18, 8);
             _lblNoticeTitle.Size = new Size(280, 20);
-            _lblNoticeTitle.Text = "Review before continuing";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblNoticeTitle, "Review before continuing");
 
             _lblNoticeText.AutoSize = false;
-            _lblNoticeText.Font = new Font("Segoe UI", 9f);
+            _lblNoticeText.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             _lblNoticeText.ForeColor = DS.Slate600;
             _lblNoticeText.Location = new Point(18, 30);
             _lblNoticeText.Size = new Size(824, 20);
-            _lblNoticeText.Text = "ServoERP stores business data locally and asks for one-time acceptance of these India-aligned legal terms.";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblNoticeText, "ServoERP stores business data locally and asks for one-time acceptance of these India-aligned legal terms.");
 
             _tabs.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             _tabs.DrawMode = TabDrawMode.OwnerDrawFixed;
-            _tabs.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+            _tabs.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold);
             _tabs.ItemSize = new Size(170, 34);
             _tabs.Location = new Point(20, 92);
             _tabs.Size = new Size(872, 340);
@@ -139,43 +139,43 @@ namespace HVAC_Pro_Desktop.UI
             _bottomPanel.Paint += OnBottomPanelPaint;
 
             _chkAccept.AutoSize = false;
-            _chkAccept.Font = new Font("Segoe UI", 9.5f);
+            _chkAccept.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f);
             _chkAccept.ForeColor = DS.Slate800;
             _chkAccept.Location = new Point(28, 22);
             _chkAccept.Size = new Size(585, 42);
-            _chkAccept.Text = "I have read and agree to all the above terms and conditions";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_chkAccept, "I have read and agree to all the above terms and conditions");
             _chkAccept.CheckedChanged += OnAcceptCheckedChanged;
 
             _btnAccept.BackColor = DS.Slate300;
             _btnAccept.Enabled = false;
             _btnAccept.FlatStyle = FlatStyle.Flat;
-            _btnAccept.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            _btnAccept.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold);
             _btnAccept.ForeColor = Color.White;
             _btnAccept.Location = new Point(710, 26);
             _btnAccept.Size = new Size(96, 38);
-            _btnAccept.Text = "Accept";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnAccept, "Accept");
             _btnAccept.UseVisualStyleBackColor = false;
             _btnAccept.FlatAppearance.BorderSize = 0;
             _btnAccept.Click += OnAcceptClick;
 
             _btnDecline.BackColor = Color.White;
             _btnDecline.FlatStyle = FlatStyle.Flat;
-            _btnDecline.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            _btnDecline.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold);
             _btnDecline.ForeColor = DS.Slate700;
             _btnDecline.Location = new Point(820, 26);
             _btnDecline.Size = new Size(104, 38);
-            _btnDecline.Text = "Decline";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnDecline, "Decline");
             _btnDecline.UseVisualStyleBackColor = false;
             _btnDecline.FlatAppearance.BorderColor = DS.Border;
             _btnDecline.Click += OnDeclineClick;
 
             _btnClose.BackColor = Color.White;
             _btnClose.FlatStyle = FlatStyle.Flat;
-            _btnClose.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            _btnClose.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold);
             _btnClose.ForeColor = DS.Slate700;
             _btnClose.Location = new Point(820, 26);
             _btnClose.Size = new Size(104, 38);
-            _btnClose.Text = "Close";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_btnClose, "Close");
             _btnClose.UseVisualStyleBackColor = false;
             _btnClose.Visible = false;
             _btnClose.FlatAppearance.BorderColor = DS.Border;
@@ -208,7 +208,7 @@ namespace HVAC_Pro_Desktop.UI
                 BorderStyle = BorderStyle.None,
                 DetectUrls = true,
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 10f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f),
                 ForeColor = DS.Slate800,
                 ReadOnly = true,
                 ScrollBars = RichTextBoxScrollBars.Vertical,
@@ -221,7 +221,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             tab.BackColor = Color.White;
             tab.Padding = new Padding(18);
-            tab.Text = title;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(tab, title);
             tab.Controls.Add(textBox);
         }
 
@@ -236,7 +236,7 @@ namespace HVAC_Pro_Desktop.UI
             using (SolidBrush brush = new SolidBrush(back))
                 e.Graphics.FillRectangle(brush, bounds);
 
-            using (Font tabFont = new Font("Segoe UI", 8.8f, FontStyle.Bold))
+            using (Font tabFont = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.8f, FontStyle.Bold))
             {
                 TextRenderer.DrawText(
                     e.Graphics,

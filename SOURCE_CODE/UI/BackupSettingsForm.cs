@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
@@ -77,7 +77,7 @@ namespace HVAC_Pro_Desktop.UI
             string root = BackupService.DetectOneDriveRoot();
             if (string.IsNullOrWhiteSpace(root))
             {
-                _lblOneDriveStatus.Text = T("OneDrive was not detected on this PC");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblOneDriveStatus, T("OneDrive was not detected on this PC"));
                 _lblOneDriveStatus.ForeColor = DS.Red600;
                 return;
             }
@@ -91,16 +91,14 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (!_chkOneDriveEnabled.Checked)
             {
-                _lblOneDriveStatus.Text = T("OneDrive backup is optional");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblOneDriveStatus, T("OneDrive backup is optional"));
                 _lblOneDriveStatus.ForeColor = DS.Slate600;
                 return;
             }
 
             string root = _txtOneDrivePath.Text.Trim();
             string destination = BackupService.BuildOneDriveCompanyBackupPath(root);
-            _lblOneDriveStatus.Text = Directory.Exists(root)
-                ? T("Company folder: ") + destination
-                : T("Select or detect a synced OneDrive folder");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblOneDriveStatus, (Directory.Exists(root) ? T("Company folder: ") + destination : T("Select or detect a synced OneDrive folder")));
             _lblOneDriveStatus.ForeColor = Directory.Exists(root) ? DS.Green600 : DS.Red600;
         }
 
@@ -110,13 +108,13 @@ namespace HVAC_Pro_Desktop.UI
             string path = _txtNetworkPath.Text.Trim();
             if (string.IsNullOrWhiteSpace(path))
             {
-                _lblNetworkStatus.Text = T("Network backup skipped.");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblNetworkStatus, T("Network backup skipped."));
                 _lblNetworkStatus.ForeColor = DS.Slate600;
                 return;
             }
 
             bool connected = Directory.Exists(path);
-            _lblNetworkStatus.Text = connected ? T("Connected") : T("Unreachable - check path or network");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblNetworkStatus, (connected ? T("Connected") : T("Unreachable - check path or network")));
             _lblNetworkStatus.ForeColor = connected ? DS.Green600 : DS.Red600;
         }
 
@@ -236,9 +234,7 @@ namespace HVAC_Pro_Desktop.UI
         private void RefreshLastBackupLabel()
         {
             BackupLogEntry latest = _backupService.GetBackupLog(50).FirstOrDefault(r => r.Success);
-            _lblLastBackup.Text = latest == null
-                ? T("Last backup: no successful backup found")
-                : string.Format(T("Last backup: {0} to {1}"), latest.BackupTime.ToString("dd/MM/yyyy HH:mm"), FriendlyDestination(latest.Destination));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblLastBackup, (latest == null ? T("Last backup: no successful backup found") : string.Format(T("Last backup: {0} to {1}"), latest.BackupTime.ToString("dd/MM/yyyy HH:mm"), FriendlyDestination(latest.Destination))));
         }
 
         /// <summary>Resolves the folder containing the last successful backup.</summary>
@@ -262,7 +258,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Shows an inline status message.</summary>
         private void SetStatus(string text, Color color)
         {
-            _lblStatus.Text = text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, text);
             _lblStatus.ForeColor = color;
         }
 

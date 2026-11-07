@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Linq;
@@ -55,7 +55,7 @@ namespace HVAC_Pro_Desktop.UI
 
         public static Label Icon(ModernIconKind kind, int size, Color foreColor)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 AutoSize = false,
                 Text = Glyph(kind),
@@ -64,7 +64,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.Transparent,
                 TextAlign = ContentAlignment.MiddleCenter,
                 Margin = Padding.Empty
-            };
+            });
         }
 
         public static Label Badge(ModernIconKind kind, int size, Color backColor, Color foreColor, int radius = 10)
@@ -191,7 +191,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
 
             string text = (button.Text ?? string.Empty).Trim();
-            button.Text = text;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(button, text);
             button.Image = IconBitmap(kind, Math.Min(18, Math.Max(14, button.Height - 14)), button.ForeColor);
             button.ImageAlign = ContentAlignment.MiddleLeft;
             button.TextAlign = ContentAlignment.MiddleCenter;

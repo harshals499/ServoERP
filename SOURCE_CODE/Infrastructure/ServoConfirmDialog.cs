@@ -31,7 +31,7 @@ namespace ServoERP.Infrastructure
         {
             action = HVAC_Pro_Desktop.Services.LanguageManager.GetMessage(action);
             detail = HVAC_Pro_Desktop.Services.LanguageManager.GetMessage(detail);
-            Text = HVAC_Pro_Desktop.Services.LanguageManager.Get("Confirm - ServoERP");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, HVAC_Pro_Desktop.Services.LanguageManager.Get("Confirm - ServoERP"));
             ClientSize = new Size(440, 206);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
@@ -58,7 +58,7 @@ namespace ServoERP.Infrastructure
             layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42f));
 
-            var lblAction = new Label
+            var lblAction = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = action,
                 Font = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold),
@@ -66,9 +66,9 @@ namespace ServoERP.Infrastructure
                 ForeColor = Color.FromArgb(180, 30, 30),
                 AutoEllipsis = false,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
 
-            var lblDetail = new Label
+            var lblDetail = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = detail,
                 Font = new Font(HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
@@ -78,7 +78,7 @@ namespace ServoERP.Infrastructure
                 ForeColor = Color.FromArgb(60, 60, 60),
                 AutoEllipsis = false,
                 TextAlign = ContentAlignment.TopLeft
-            };
+            });
 
             var actions = new FlowLayoutPanel
             {
@@ -89,7 +89,7 @@ namespace ServoERP.Infrastructure
                 Padding = new Padding(0, 8, 0, 0)
             };
 
-            var btnConfirm = new Button
+            var btnConfirm = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Yes, confirm",
                 Size = new Size(110, 32),
@@ -97,18 +97,18 @@ namespace ServoERP.Infrastructure
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 DialogResult = DialogResult.OK
-            };
+            });
             btnConfirm.FlatAppearance.BorderSize = 0;
             btnConfirm.Click += (s, e) => { Confirmed = true; Close(); };
 
-            var btnCancel = new Button
+            var btnCancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Cancel",
                 Size = new Size(110, 32),
                 FlatStyle = FlatStyle.Flat,
                 DialogResult = DialogResult.Cancel,
                 Margin = new Padding(8, 0, 0, 0)
-            };
+            });
             btnCancel.Click += (s, e) => { Confirmed = false; Close(); };
 
             actions.Controls.Add(btnConfirm);

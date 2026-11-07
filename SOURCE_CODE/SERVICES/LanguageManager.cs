@@ -23,6 +23,7 @@ namespace HVAC_Pro_Desktop.Services
             public string Rendered;
             public bool Hooked;
             public bool Updating;
+            public bool IsDataText;
             public readonly object AccessibleNameKey = new object();
             public readonly object AccessibleDescriptionKey = new object();
             public readonly object ToolTipKey = new object();
@@ -71,6 +72,69 @@ namespace HVAC_Pro_Desktop.Services
             if (string.IsNullOrEmpty(message) || CurrentLanguage == English) return message;
             return System.Text.RegularExpressions.Regex.Replace(message, @"(?m)^(?<prefix> *- +)?(?<body>[^\r\n]+)",
                 match => match.Groups["prefix"].Value + Get(match.Groups["body"].Value));
+        }
+
+        internal static string Format(string key, params object[] values)
+        {
+            return string.Format(System.Globalization.CultureInfo.CurrentCulture, Get(key), values);
+        }
+
+        internal static T DataText<T>(T control) where T : Control
+        {
+            OriginalText.GetValue(control, _ => new TextState()).IsDataText = true;
+            return control;
+        }
+
+        internal static T DataTextItem<T>(T item) where T : ToolStripItem
+        {
+            OriginalText.GetValue(item, _ => new TextState()).IsDataText = true;
+            return item;
+        }
+
+        internal static T Caption<T>(T control) where T : Control
+        {
+            SetCaption(control, control.Text);
+            return control;
+        }
+
+        internal static T CaptionItem<T>(T item) where T : ToolStripItem
+        {
+            SetCaption(item, item.Text);
+            return item;
+        }
+
+        internal static void SetCaption(Control control, string source)
+        {
+            var state = OriginalText.GetValue(control, _ => new TextState());
+            state.IsDataText = false;
+            state.Source = source ?? string.Empty;
+            state.Rendered = Get(state.Source);
+            state.Updating = true;
+            try { control.Text = state.Rendered; }
+            finally { state.Updating = false; }
+        }
+
+        internal static void SetCaption(ToolStripItem item, string source)
+        {
+            var state = OriginalText.GetValue(item, _ => new TextState());
+            state.IsDataText = false;
+            state.Source = source ?? string.Empty;
+            state.Rendered = Get(state.Source);
+            state.Updating = true;
+            try { item.Text = state.Rendered; }
+            finally { state.Updating = false; }
+        }
+
+        internal static void SetDataText(Control control, string value)
+        {
+            OriginalText.GetValue(control, _ => new TextState()).IsDataText = true;
+            control.Text = value;
+        }
+
+        internal static void SetDataText(ToolStripItem item, string value)
+        {
+            OriginalText.GetValue(item, _ => new TextState()).IsDataText = true;
+            item.Text = value;
         }
 
         /// <summary>Returns true when the active language needs a Devanagari-capable font.</summary>
@@ -194,7 +258,7 @@ namespace HVAC_Pro_Desktop.Services
                 return;
 
             var state = OriginalText.GetValue(control, _ => new TextState());
-            if (state.Updating) return;
+            if (state.Updating || state.IsDataText) return;
             state.Updating = true;
             try
             {
@@ -248,7 +312,7 @@ namespace HVAC_Pro_Desktop.Services
                 }
                 // ToolStripTextBox and ToolStripComboBox host editable/business values.
                 if (item is ToolStripControlHost host) ApplyControlTree(host.Control);
-                else if (!string.IsNullOrWhiteSpace(item.Text)) item.Text = Get(OriginalFor(item, item.Text));
+                else if (!state.IsDataText && !string.IsNullOrWhiteSpace(item.Text)) item.Text = Get(OriginalFor(item, item.Text));
                 if (!string.IsNullOrWhiteSpace(item.ToolTipText)) item.ToolTipText = Get(OriginalFor(state.ToolTipKey, item.ToolTipText));
                 if (!string.IsNullOrWhiteSpace(item.AccessibleName)) item.AccessibleName = Get(OriginalFor(state.AccessibleNameKey, item.AccessibleName));
                 if (!string.IsNullOrWhiteSpace(item.AccessibleDescription)) item.AccessibleDescription = Get(OriginalFor(state.AccessibleDescriptionKey, item.AccessibleDescription));
@@ -263,7 +327,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             if (key == null) return currentText ?? string.Empty;
             TextState state;
-            if (OriginalText.TryGetValue(key, out state) && string.Equals(currentText, state.Rendered, StringComparison.Ordinal))
+            if (OriginalText.TryGetValue(key, out state) && !state.IsDataText && state.Source != null && string.Equals(currentText, state.Rendered, StringComparison.Ordinal))
                 return state.Source;
             return CanonicalText(currentText ?? string.Empty);
         }

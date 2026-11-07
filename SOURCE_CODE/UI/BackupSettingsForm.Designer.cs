@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using HVAC_Pro_Desktop.Services;
 
@@ -32,29 +32,29 @@ namespace HVAC_Pro_Desktop.UI
             AutoScaleMode = AutoScaleMode.Dpi;
             BackColor = DS.BgPage;
             ClientSize = new Size(980, 942);
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             StartPosition = FormStartPosition.CenterParent;
-            Text = T("ServoERP - Backup & Recovery");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, T("ServoERP - Backup & Recovery"));
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("Backup & Recovery"),
                 Location = new Point(24, 18),
                 Size = new Size(460, 34),
                 Font = DS.H1,
                 ForeColor = DS.Slate900
-            };
-            Label subtitle = new Label
+            });
+            Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("Protect SQL backups in your own folders or OneDrive. Offline work uses a machine-local queue; the live database is never opened from OneDrive."),
                 Location = new Point(26, 52),
                 Size = new Size(900, 34),
                 Font = DS.Body,
                 ForeColor = DS.Slate600
-            };
+            });
 
             Panel network = Section(T("Network Server"), 24, 96, 288, 146);
             Label networkLabel = Label(T("Network Server Path (UNC)"), 16, 18, 250);
@@ -63,14 +63,14 @@ namespace HVAC_Pro_Desktop.UI
             Button test = Button(T("Test"), DS.Primary600, Color.White, 70);
             test.Location = new Point(202, 41);
             test.Click += TestNetworkConnection;
-            _lblNetworkStatus = new Label
+            _lblNetworkStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("Leave blank to skip network backup"),
                 Location = new Point(16, 86),
                 Size = new Size(250, 38),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
-            };
+            });
             network.Controls.AddRange(new Control[] { networkLabel, _txtNetworkPath, test, _lblNetworkStatus });
 
             Panel local = Section(T("Local Backup"), 322, 96, 288, 146);
@@ -90,14 +90,14 @@ namespace HVAC_Pro_Desktop.UI
             Button detectOneDrive = Button(T("Detect"), DS.Primary600, Color.White, 76);
             detectOneDrive.Location = new Point(214, 51);
             detectOneDrive.Click += DetectOneDriveFolder;
-            _lblOneDriveStatus = new Label
+            _lblOneDriveStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("OneDrive backup is optional"),
                 Location = new Point(16, 90),
                 Size = new Size(278, 38),
                 Font = DS.Small,
                 ForeColor = DS.Slate600
-            };
+            });
             oneDrive.Controls.AddRange(new Control[] { _chkOneDriveEnabled, _txtOneDrivePath, detectOneDrive, _lblOneDriveStatus });
 
             Panel schedule = Section(T("Schedule"), 24, 260, 444, 164);
@@ -127,18 +127,18 @@ namespace HVAC_Pro_Desktop.UI
             };
             retention.Controls.Add(Label(T("Keep backups for"), 16, 18, 180));
             retention.Controls.Add(_numRetention);
-            retention.Controls.Add(new Label
+            retention.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("days (older backups will be deleted automatically)"),
                 Location = new Point(112, 45),
                 Size = new Size(300, 24),
                 Font = DS.Body,
                 ForeColor = DS.Slate700
-            });
+            }));
 
             Panel offline = Section(T("Offline Work"), 24, 442, 912, 100);
             _chkOfflineEnabled = Check(T("Allow offline create/update for Clients, Sites, and Jobs"), 16, 26, 520);
-            Label offlineScope = new Label
+            Label offlineScope = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = T("Financial, stock, and payroll changes remain online-only."),
                 Location = new Point(16, 58),
@@ -146,7 +146,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Small,
                 ForeColor = DS.Slate600,
                 TextAlign = ContentAlignment.MiddleLeft
-            };
+            });
             offline.Controls.AddRange(new Control[] { _chkOfflineEnabled, offlineScope });
 
             Panel manual = Section(T("Manual Backup & Status"), 24, 560, 912, 112);
@@ -213,28 +213,28 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(DS.Border))
                     e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
             };
-            panel.Controls.Add(new Label
+            panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = title,
                 Location = new Point(12, 0),
                 Size = new Size(width - 24, 18),
                 Font = DS.BodyBold,
                 ForeColor = DS.Slate900
-            });
+            }));
             return panel;
         }
 
         /// <summary>Creates a field label.</summary>
         private static Label Label(string text, int x, int y, int width)
         {
-            return new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text,
                 Location = new Point(x, y),
                 Size = new Size(width, 20),
                 Font = DS.SmallBold,
                 ForeColor = DS.Slate600
-            };
+            });
         }
 
         /// <summary>Creates a styled text input.</summary>
@@ -252,7 +252,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Creates a settings checkbox.</summary>
         private static CheckBox Check(string text, int x, int y, int width)
         {
-            return new CheckBox
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new CheckBox
             {
                 Text = text,
                 Location = new Point(x, y),
@@ -260,13 +260,13 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.Body,
                 ForeColor = DS.Slate700,
                 BackColor = Color.White
-            };
+            });
         }
 
         /// <summary>Creates a styled button.</summary>
         private static Button Button(string text, Color backColor, Color foreColor, int width)
         {
-            Button button = new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Size = new Size(width, 34),
@@ -275,7 +275,7 @@ namespace HVAC_Pro_Desktop.UI
                 FlatStyle = FlatStyle.Flat,
                 Font = DS.BodyBold,
                 UseVisualStyleBackColor = false
-            };
+            });
             button.FlatAppearance.BorderSize = backColor == Color.White ? 1 : 0;
             return button;
         }

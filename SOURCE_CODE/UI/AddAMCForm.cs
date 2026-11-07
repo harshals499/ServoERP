@@ -82,14 +82,14 @@ namespace HVAC_Pro_Desktop.UI
             _contractId = contractId;
             InitializeComponent();
             DoubleBuffered = true;
-            Text = _contractId.HasValue ? "Edit AMC Contract" : "New AMC Contract";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, _contractId.HasValue ? "Edit AMC Contract" : "New AMC Contract");
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             Size = new Size(980, 700);
             BackColor = PageBg;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             BuildLayout();
             Shown += (s, e) =>
             {
@@ -137,13 +137,13 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildHeader()
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            _titleLabel = new Label
+            _titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = _contractId.HasValue ? "Edit AMC Contract" : "New AMC Contract",
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 17f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 17f, FontStyle.Bold),
                 ForeColor = Ink
-            };
+            });
             panel.Controls.Add(_titleLabel);
             return panel;
         }
@@ -233,15 +233,15 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Adds one label/control row to the form grid.</summary>
         private void AddRow(TableLayoutPanel grid, int row, string labelText, Control editor)
         {
-            var label = new Label
+            var label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = labelText,
                 Dock = DockStyle.Fill,
                 TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 ForeColor = labelText.IndexOf('*') >= 0 ? Blue : Ink,
                 AutoEllipsis = true
-            };
+            });
             editor.Dock = DockStyle.Fill;
             editor.Margin = new Padding(0, 4, 0, 4);
             grid.Controls.Add(label, 0, row);
@@ -252,31 +252,31 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildSummaryPanel()
         {
             Panel card = MakeCard();
-            card.Controls.Add(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "AMC Summary",
                 Location = new Point(18, 18),
                 Size = new Size(240, 28),
-                Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold),
                 ForeColor = Ink
-            });
+            }));
 
-            _summaryNumber = AddSummaryRow(card, 62, "AMC Number");
-            _summaryClient = AddSummaryRow(card, 106, "Client");
-            _summaryType = AddSummaryRow(card, 150, "AMC Type");
-            _summaryPeriod = AddSummaryRow(card, 194, "Period");
-            _summaryValue = AddSummaryRow(card, 254, "Contract Value");
-            _summaryBilling = AddSummaryRow(card, 298, "Billing Cycle");
-            _summaryVisits = AddSummaryRow(card, 342, "Visits/Year");
-            _summaryStatus = AddSummaryRow(card, 386, "Status");
+            _summaryNumber = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 62, "AMC Number"));
+            _summaryClient = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 106, "Client"));
+            _summaryType = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 150, "AMC Type"));
+            _summaryPeriod = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 194, "Period"));
+            _summaryValue = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 254, "Contract Value"));
+            _summaryBilling = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 298, "Billing Cycle"));
+            _summaryVisits = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 342, "Visits/Year"));
+            _summaryStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(AddSummaryRow(card, 386, "Status"));
             return card;
         }
 
         /// <summary>Adds one row to the summary panel.</summary>
         private Label AddSummaryRow(Control parent, int top, string title)
         {
-            parent.Controls.Add(new Label { Text = title, Location = new Point(18, top), Size = new Size(230, 18), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true });
-            var value = new Label { Text = "-", Location = new Point(18, top + 18), Size = new Size(280, 26), Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true };
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(18, top), Size = new Size(230, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Muted, AutoEllipsis = true }));
+            var value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "-", Location = new Point(18, top + 18), Size = new Size(280, 26), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold), ForeColor = Ink, AutoEllipsis = true });
             parent.Controls.Add(value);
             return value;
         }
@@ -285,23 +285,23 @@ namespace HVAC_Pro_Desktop.UI
         private Control BuildButtonBar()
         {
             var panel = new Panel { Dock = DockStyle.Fill, BackColor = PageBg };
-            Button cancel = MakeButton("Cancel", Color.White, 100);
+            Button cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Cancel", Color.White, 100));
             cancel.ForeColor = Ink;
             cancel.FlatAppearance.BorderSize = 1;
             cancel.FlatAppearance.BorderColor = DS.Border;
             cancel.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             cancel.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            _btnRenew = MakeButton("Renew 1 Year", Green, 118);
+            _btnRenew = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Renew 1 Year", Green, 118));
             _btnRenew.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _btnRenew.Visible = _contractId.HasValue;
             _btnRenew.Click += (s, e) => RenewOneYear();
 
-            _btnSave = MakeButton(_contractId.HasValue ? "Save Changes" : "Save AMC", Blue, 126);
+            _btnSave = MakeButton((_contractId.HasValue ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Save Changes") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Save AMC")), Blue, 126);
             _btnSave.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             _btnSave.Click += (s, e) => SaveAMC();
 
-            Button delete = MakeButton("Delete AMC", Color.FromArgb(220, 38, 38), 112);
+            Button delete = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Delete AMC", Color.FromArgb(220, 38, 38), 112));
             delete.Name = "DeleteAmcButton";
             delete.Visible = _contractId.HasValue;
             delete.Location = new Point(0, 12);
@@ -1073,14 +1073,14 @@ WHERE AMCNumber = @AMCNumber
             string status = Convert.ToString(_cmbStatus.SelectedItem, CultureInfo.InvariantCulture);
             int months = Math.Max(0, ((_dtpEnd.Value.Year - _dtpStart.Value.Year) * 12) + _dtpEnd.Value.Month - _dtpStart.Value.Month);
 
-            _summaryNumber.Text = string.IsNullOrWhiteSpace(_txtAMCNumber.Text) ? "-" : _txtAMCNumber.Text;
-            _summaryClient.Text = string.IsNullOrWhiteSpace(client) ? "-" : client;
-            _summaryType.Text = string.IsNullOrWhiteSpace(type) ? "-" : type;
-            _summaryPeriod.Text = _dtpStart.Value.ToString("dd/MM/yyyy", _india) + " -> " + _dtpEnd.Value.ToString("dd/MM/yyyy", _india) + " (" + months.ToString(CultureInfo.InvariantCulture) + " months)";
-            _summaryValue.Text = _numValue.Value.ToString("C0", _india);
-            _summaryBilling.Text = string.IsNullOrWhiteSpace(billing) ? "-" : billing;
-            _summaryVisits.Text = _numVisits.Value.ToString(CultureInfo.InvariantCulture);
-            _summaryStatus.Text = string.IsNullOrWhiteSpace(status) ? "-" : status;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryNumber, (string.IsNullOrWhiteSpace(_txtAMCNumber.Text) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : _txtAMCNumber.Text));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryClient, (string.IsNullOrWhiteSpace(client) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : client));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryType, (string.IsNullOrWhiteSpace(type) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : type));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryPeriod, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} -> {1} ({2} months)", _dtpStart.Value.ToString("dd/MM/yyyy", _india), _dtpEnd.Value.ToString("dd/MM/yyyy", _india), months.ToString(CultureInfo.InvariantCulture)));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryValue, _numValue.Value.ToString("C0", _india));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryBilling, (string.IsNullOrWhiteSpace(billing) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : billing));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryVisits, _numVisits.Value.ToString(CultureInfo.InvariantCulture));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryStatus, (string.IsNullOrWhiteSpace(status) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : status));
         }
 
         /// <summary>Returns the selected client id.</summary>
@@ -1148,7 +1148,7 @@ WHERE AMCNumber = @AMCNumber
         /// <summary>Creates a shared rounded button.</summary>
         private Button MakeButton(string text, Color back, int width)
         {
-            var button = new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text,
                 Width = width,
@@ -1156,9 +1156,9 @@ WHERE AMCNumber = @AMCNumber
                 BackColor = back,
                 ForeColor = back == Color.White ? Ink : Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
-            };
+            });
             button.FlatAppearance.BorderSize = 0;
             DS.Rounded(button, 6);
             return button;

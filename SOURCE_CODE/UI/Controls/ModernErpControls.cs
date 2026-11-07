@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -39,12 +39,12 @@ namespace HVAC_Pro_Desktop.UI.Controls
         public static readonly Color Purple = DS.Primary600;
         public static readonly Color Shadow = DS.Shadow;
 
-        public static readonly Font Body = new Font("Segoe UI", 9f);
-        public static readonly Font BodyBold = new Font("Segoe UI", 9f, FontStyle.Bold);
-        public static readonly Font Small = new Font("Segoe UI", 8f);
-        public static readonly Font SmallBold = new Font("Segoe UI", 8f, FontStyle.Bold);
-        public static readonly Font Title = new Font("Segoe UI", 14f, FontStyle.Bold);
-        public static readonly Font Heading = new Font("Segoe UI", 11f, FontStyle.Bold);
+        public static readonly Font Body = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
+        public static readonly Font BodyBold = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold);
+        public static readonly Font Small = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f);
+        public static readonly Font SmallBold = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+        public static readonly Font Title = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 14f, FontStyle.Bold);
+        public static readonly Font Heading = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold);
 
         public const int RadiusSm = 6;
         public const int Radius = 8;
@@ -545,7 +545,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Padding = new Padding(18, 14, 18, 14);
             _accent = new Panel { Dock = DockStyle.Left, Width = 4, BackColor = ModernERPTheme.Primary };
             _caption = new Label { Dock = DockStyle.Top, Height = 22, Font = ModernERPTheme.SmallBold, ForeColor = ModernERPTheme.MutedText };
-            _value = new Label { Dock = DockStyle.Top, Height = 36, Font = new Font("Segoe UI", 18f, FontStyle.Bold), ForeColor = ModernERPTheme.Text };
+            _value = new Label { Dock = DockStyle.Top, Height = 36, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold), ForeColor = ModernERPTheme.Text };
             _delta = new Label { Dock = DockStyle.Fill, Font = ModernERPTheme.Small, ForeColor = ModernERPTheme.MutedText };
             Controls.Add(_delta);
             Controls.Add(_value);
@@ -553,9 +553,9 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Controls.Add(_accent);
         }
 
-        public string Caption { get { return _caption.Text; } set { _caption.Text = value; } }
-        public string Value { get { return _value.Text; } set { _value.Text = value; } }
-        public string Delta { get { return _delta.Text; } set { _delta.Text = value; } }
+        public string Caption { get { return _caption.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_caption, value); } }
+        public string Value { get { return _value.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_value, value); } }
+        public string Delta { get { return _delta.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_delta, value); } }
 
         public Color AccentColor
         {
@@ -606,8 +606,8 @@ namespace HVAC_Pro_Desktop.UI.Controls
             IconKind = ModernIconKind.EmptyBox;
         }
 
-        public string Title { get { return _title.Text; } set { _title.Text = value; } }
-        public string Message { get { return _message.Text; } set { _message.Text = value; } }
+        public string Title { get { return _title.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_title, value); } }
+        public string Message { get { return _message.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_message, value); } }
         public ModernIconKind IconKind
         {
             set
@@ -651,13 +651,13 @@ namespace HVAC_Pro_Desktop.UI.Controls
             if (form == null || form.IsDisposed)
                 return null;
 
-            ModernERPToast toast = new ModernERPToast
+            ModernERPToast toast = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new ModernERPToast
             {
                 Text = message ?? string.Empty,
                 BackColor = DS.Lighten(accent, 0.86f),
                 ForeColor = accent.GetBrightness() < 0.5f ? DS.Darken(accent, 0.10f) : DS.Slate900,
                 Width = Math.Min(460, Math.Max(240, (message ?? string.Empty).Length * 7 + 42))
-            };
+            });
             toast.Left = Math.Max(12, form.ClientSize.Width - toast.Width - 24);
             toast.Top = 24;
             toast.Anchor = AnchorStyles.Top | AnchorStyles.Right;
@@ -705,7 +705,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             int index = 0;
             foreach (string step in steps ?? Enumerable.Empty<string>())
             {
-                Label label = new Label
+                Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
                     Text = (index + 1).ToString() + ". " + step,
                     AutoSize = false,
@@ -714,7 +714,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                     TextAlign = ContentAlignment.MiddleCenter,
                     Font = ModernERPTheme.SmallBold,
                     Margin = new Padding(0, 0, 8, 0)
-                };
+                });
                 _steps.Add(label);
                 Controls.Add(label);
                 index++;
@@ -835,7 +835,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             Dock = DockStyle.Fill;
             BackColor = Color.FromArgb(220, DS.BgPage);
             Visible = false;
-            _message = new Label
+            _message = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 AutoSize = false,
                 Width = 280,
@@ -845,12 +845,12 @@ namespace HVAC_Pro_Desktop.UI.Controls
                 TextAlign = ContentAlignment.MiddleCenter,
                 BackColor = DS.BgCard,
                 Text = "Loading..."
-            };
+            });
             Controls.Add(_message);
             Resize += (s, e) => CenterMessage();
         }
 
-        public string Message { get { return _message.Text; } set { _message.Text = value; } }
+        public string Message { get { return _message.Text; } set { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_message, value); } }
 
         public void ShowOverlay(string message)
         {
@@ -920,7 +920,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
 
         public static ModernERPButton Button(string text, ModernERPButtonVariant variant, int width = 118)
         {
-            return new ModernERPButton { Text = text, Width = width, Variant = variant };
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new ModernERPButton { Text = text, Width = width, Variant = variant });
         }
 
         public static ModernERPCard Card(params Control[] children)
@@ -963,12 +963,12 @@ namespace HVAC_Pro_Desktop.UI.Controls
             BackColor = ModernERPTheme.SurfaceAlt;
             Size = new Size(112, 58);
             Padding = new Padding(10, 7, 10, 7);
-            _title.Text = title;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_title, title);
             _title.Dock = DockStyle.Top;
             _title.Height = 18;
             _title.Font = ModernERPTheme.Small;
             _title.ForeColor = ModernERPTheme.MutedText;
-            _value.Text = value;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_value, value);
             _value.Dock = DockStyle.Fill;
             _value.Font = ModernERPTheme.BodyBold;
             _value.ForeColor = valueColor;

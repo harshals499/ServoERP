@@ -29,12 +29,12 @@ namespace HVAC_Pro_Desktop.UI
 
         public AgentSimulationPanel()
         {
-            Text = "ServoERP Agent Simulation";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP Agent Simulation");
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(820, 620);
             MinimumSize = new Size(720, 520);
             BackColor = DS.BgPage;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
             BuildLayout();
             _service.ProgressChanged += ServiceProgressChanged;
             _service.Completed += ServiceCompleted;
@@ -49,21 +49,21 @@ namespace HVAC_Pro_Desktop.UI
         private void BuildLayout()
         {
             Panel header = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = DS.White, Padding = new Padding(20, 12, 20, 0) };
-            _lblTitle = new Label
+            _lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Agent Simulation",
                 Dock = DockStyle.Top,
                 Height = 30,
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
-            _lblStatus = new Label
+            });
+            _lblStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Ready",
                 Dock = DockStyle.Top,
                 Height = 24,
                 ForeColor = DS.Slate600
-            };
+            });
             header.Controls.Add(_lblStatus);
             header.Controls.Add(_lblTitle);
 
@@ -75,12 +75,12 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = DS.BgPage,
                 WrapContents = true
             };
-            _btnStart = DS.PrimaryBtn("Run Agent Simulation", 176, 34);
-            _btnPause = DS.GhostBtn("Pause", 86, 34);
-            _btnResume = DS.GhostBtn("Resume", 96, 34);
-            _btnRunDay = DS.GhostBtn("Run 1 Day", 104, 34);
-            _btnReport = DS.GhostBtn("Open Report", 118, 34);
-            _btnCleanup = DS.DangerBtn("Delete Agent Data", 148, 34);
+            _btnStart = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Run Agent Simulation", 176, 34));
+            _btnPause = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Pause", 86, 34));
+            _btnResume = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Resume", 96, 34));
+            _btnRunDay = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Run 1 Day", 104, 34));
+            _btnReport = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Open Report", 118, 34));
+            _btnCleanup = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.DangerBtn("Delete Agent Data", 148, 34));
             _btnStart.Click += (s, e) => _service.StartOrResume();
             _btnPause.Click += (s, e) => _service.Pause();
             _btnResume.Click += (s, e) => _service.Resume();
@@ -100,10 +100,10 @@ namespace HVAC_Pro_Desktop.UI
             };
             for (int i = 0; i < 4; i++)
                 metrics.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            _lblScore = Metric(metrics, "Score", 0);
-            _lblCoverage = Metric(metrics, "Coverage", 1);
-            _lblRecords = Metric(metrics, "Records", 2);
-            _lblIssues = Metric(metrics, "Issues", 3);
+            _lblScore = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Metric(metrics, "Score", 0));
+            _lblCoverage = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Metric(metrics, "Coverage", 1));
+            _lblRecords = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Metric(metrics, "Records", 2));
+            _lblIssues = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Metric(metrics, "Issues", 3));
 
             Panel body = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20), BackColor = DS.BgPage };
             _progress = new ProgressBar { Dock = DockStyle.Top, Height = 18, Minimum = 0, Maximum = 60 };
@@ -146,21 +146,21 @@ namespace HVAC_Pro_Desktop.UI
                 using (Pen pen = new Pen(DS.Border, 1))
                     e.Graphics.DrawRectangle(pen, 0, 0, card.Width - 1, card.Height - 1);
             };
-            Label labelTitle = new Label
+            Label labelTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = title.ToUpperInvariant(),
                 Dock = DockStyle.Top,
                 Height = 22,
                 Font = DS.SmallBold,
                 ForeColor = DS.Slate500
-            };
-            Label value = new Label
+            });
+            Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "-",
                 Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 18f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold),
                 ForeColor = DS.Primary600
-            };
+            });
             card.Controls.Add(value);
             card.Controls.Add(labelTitle);
             host.Controls.Add(card, column, 0);
@@ -200,18 +200,12 @@ namespace HVAC_Pro_Desktop.UI
             if (state == null)
                 return;
 
-            _lblStatus.Text = "[AGENT SIM] Day " + state.SimulatedDay + "/" + state.MaxDays
-                + " | " + state.SimulatedDate.ToString("dd/MM/yyyy")
-                + " | Quotations " + Count(state, "Quotations")
-                + " | Invoices " + Count(state, "Invoices")
-                + " | Payments " + Count(state, "Payments")
-                + " | Purchases " + Count(state, "Purchases")
-                + " | Score " + state.Score;
-            _lblScore.Text = state.Score + "/100";
-            _lblCoverage.Text = state.Checklist.Count(kv => kv.Value) + "/" + state.Checklist.Count;
-            _lblRecords.Text = state.Records.Count.ToString("N0");
-            _lblIssues.Text = state.Issues.Count.ToString("N0");
-            _lblApproach.Text = state.Approach;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("[AGENT SIM] Day {0}/{1} | {2} | Quotations {3} | Invoices {4} | Payments {5} | Purchases {6} | Score {7}", state.SimulatedDay, state.MaxDays, state.SimulatedDate.ToString("dd/MM/yyyy"), Count(state, "Quotations"), Count(state, "Invoices"), Count(state, "Payments"), Count(state, "Purchases"), state.Score));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblScore, state.Score + "/100");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblCoverage, state.Checklist.Count(kv => kv.Value) + "/" + state.Checklist.Count);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblRecords, state.Records.Count.ToString("N0"));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblIssues, state.Issues.Count.ToString("N0"));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblApproach, state.Approach);
             _progress.Value = Math.Max(_progress.Minimum, Math.Min(_progress.Maximum, state.SimulatedDay));
             _notes.BeginUpdate();
             _notes.Items.Clear();
@@ -249,7 +243,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Unable to open report:\r\n" + ex.Message, "Agent Simulation", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Unable to open report:\r\n{0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Agent Simulation"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 

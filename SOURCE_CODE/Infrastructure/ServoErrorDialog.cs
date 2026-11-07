@@ -28,14 +28,14 @@ namespace ServoERP.Infrastructure
         /// <summary>Builds the error dialog layout.</summary>
         private void InitializeLayout(string userMessage, Exception ex)
         {
-            Text = "ServoERP - Unexpected Error";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP - Unexpected Error");
             Size = new Size(520, 340);
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;
             BackColor = Color.White;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
 
             _iconBox = new PictureBox
             {
@@ -45,22 +45,22 @@ namespace ServoERP.Infrastructure
                 SizeMode = PictureBoxSizeMode.StretchImage
             };
 
-            _lblTitle = new Label
+            _lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Something went wrong",
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold),
                 Location = new Point(70, 20),
                 Size = new Size(420, 28),
                 ForeColor = Color.FromArgb(180, 30, 30)
-            };
+            });
 
-            _lblMessage = new Label
+            _lblMessage = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = userMessage,
                 Location = new Point(70, 52),
                 Size = new Size(420, 44),
                 ForeColor = Color.FromArgb(60, 60, 60)
-            };
+            });
 
             _txtDetail = new TextBox
             {
@@ -78,7 +78,7 @@ namespace ServoERP.Infrastructure
                 BorderStyle = BorderStyle.FixedSingle
             };
 
-            _btnOK = new Button
+            _btnOK = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "OK",
                 Location = new Point(390, 265),
@@ -87,17 +87,17 @@ namespace ServoERP.Infrastructure
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 DialogResult = DialogResult.OK
-            };
+            });
             _btnOK.FlatAppearance.BorderSize = 0;
 
-            _btnOpenLog = new Button
+            _btnOpenLog = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = "Open Log File",
                 Location = new Point(270, 265),
                 Size = new Size(110, 32),
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = Color.FromArgb(0, 100, 180)
-            };
+            });
             _btnOpenLog.FlatAppearance.BorderSize = 0;
             _btnOpenLog.Click += (s, e) =>
             {
@@ -108,7 +108,7 @@ namespace ServoERP.Infrastructure
                 }
                 else
                 {
-                    MessageBox.Show("No log file found for this month.", "ServoERP", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No log file found for this month."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             };
 

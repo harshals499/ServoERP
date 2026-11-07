@@ -32,7 +32,7 @@ namespace HVAC_Pro_Desktop.UI
             UIHelper.ApplyInputStyles(Controls);
             EnableDeferredLoad(
                 () => LoadDataAsync(),
-                ex => { _lblStatus.Text = "Load error: " + ex.Message; _lblStatus.ForeColor = Color.Red; });
+                ex => { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Load error: {0}", ex.Message)); _lblStatus.ForeColor = Color.Red; });
         }
 
         protected override bool EnableAutomaticLayoutScaling => false;
@@ -42,8 +42,8 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void BuildLayout()
         {
-            Button btnLog = MakeBtn("Log SLA Event", Color.FromArgb(39, 174, 96), 130);
-            Button btnRefresh = MakeBtn("Refresh",   AccentBlue,                   90);
+            Button btnLog = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Log SLA Event", Color.FromArgb(39, 174, 96), 130));
+            Button btnRefresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeBtn("Refresh",   AccentBlue,                   90));
 
             btnLog.Click     += BtnLog_Click;
             btnRefresh.Click += async (s, e) => await LoadDataAsync();
@@ -52,7 +52,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 AutoSize = false,
                 Size = new Size(180, 24),
-                Font = new Font("Segoe UI", 9f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 ForeColor = Color.Gray,
                 TextAlign = ContentAlignment.MiddleRight
             };
@@ -61,7 +61,7 @@ namespace HVAC_Pro_Desktop.UI
                 "SLA Dashboard",
                 "Review contract compliance, breach trends, and service commitment status.",
                 new List<Control> { btnRefresh, btnLog },
-                SharedPageHeader.CreateSearchCommand("SlaDashboardSearch", 320, "Search", "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
+                SharedPageHeader.CreateSearchCommand("SlaDashboardSearch", 320, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search"), "Ctrl + K", () => SharedUiPrimitives.OpenGlobalSearch(this)),
                 _lblStatus,
                 HeaderBg,
                 new Padding(16, 10, 16, 8));
@@ -82,30 +82,30 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor     = Color.White,
                 GridColor           = Color.FromArgb(220, 220, 220),
                 RowHeadersVisible   = false,
-                Font                = new Font("Segoe UI", 9),
+                Font                = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9),
                 RowTemplate         = { Height = 28 }
             };
 
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ContractID",    HeaderText = "Contract ID",    Width = 110 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Compliance",    HeaderText = "Compliance %",   Width = 130 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rating",        HeaderText = "Rating",         Width = 110 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TotalEvents",   HeaderText = "Total Events",   Width = 110 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Breaches",      HeaderText = "Breaches",       Width = 90  });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "ContractID",    HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Contract ID"),    Width = 110 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Compliance",    HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Compliance %"),   Width = 130 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rating",        HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Rating"),         Width = 110 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "TotalEvents",   HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Total Events"),   Width = 110 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Breaches",      HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Breaches"),       Width = 90  });
 
             GridTheme.Apply(_grid);
 
             _grid.RowPrePaint += Grid_RowPrePaint;
 
-            _lblNoRecords = new Label
+            _lblNoRecords = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Dock = DockStyle.Fill,
                 Text = "No SLA records found.",
                 Visible = false,
                 BackColor = Color.White,
                 ForeColor = Color.FromArgb(100, 100, 100),
-                Font = new Font("Segoe UI", 10f),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f),
                 TextAlign = ContentAlignment.MiddleCenter
-            };
+            });
 
             // â”€â”€ Add controls in reverse visual order â”€â”€â”€â”€â”€â”€â”€â”€â”€
             this.Controls.Add(_lblNoRecords);
@@ -211,84 +211,84 @@ namespace HVAC_Pro_Desktop.UI
 
         private Form BuildLogDialog()
         {
-            Form dlg = ServoModalForm.Create("Log SLA Event", 420, 380);
+            Form dlg = ServoModalForm.Create(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Log SLA Event"), 420, 380);
 
             int lx = 16, tx = 150, tw = 230, cy = 18;
 
             Label MakeLbl(string text, int y)
             {
-                var l = new Label { Text = text, Location = new Point(lx, y + 3), AutoSize = true,
-                                    Font = new Font("Segoe UI", 9, FontStyle.Bold), ForeColor = Color.FromArgb(60,60,60) };
+                var l = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(lx, y + 3), AutoSize = true,
+                                    Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold), ForeColor = Color.FromArgb(60,60,60) });
                 dlg.Controls.Add(l);
                 return l;
             }
             TextBox MakeTb(int y, int w = 0)
             {
                 var tb = new TextBox { Location = new Point(tx, y), Width = w > 0 ? w : tw,
-                                       BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 9) };
+                                       BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9) };
                 dlg.Controls.Add(tb);
                 return tb;
             }
 
-            MakeLbl("Contract ID",  cy);  var tbContractId  = MakeTb(cy, 80);  cy += 34;
-            MakeLbl("Metric Type",  cy);  var tbMetricType  = MakeTb(cy);       cy += 34;
-            MakeLbl("Target",       cy);  var tbTarget      = MakeTb(cy);       cy += 34;
-            MakeLbl("Actual",       cy);  var tbActual      = MakeTb(cy);       cy += 34;
-            MakeLbl("Notes",        cy);  var tbNotes       = MakeTb(cy);       cy += 34;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Contract ID",  cy));  var tbContractId  = MakeTb(cy, 80);  cy += 34;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Metric Type",  cy));  var tbMetricType  = MakeTb(cy);       cy += 34;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Target",       cy));  var tbTarget      = MakeTb(cy);       cy += 34;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Actual",       cy));  var tbActual      = MakeTb(cy);       cy += 34;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Notes",        cy));  var tbNotes       = MakeTb(cy);       cy += 34;
 
-            MakeLbl("Compliant",    cy);
-            var chkCompliant = new CheckBox
+            global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeLbl("Compliant",    cy));
+            var chkCompliant = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new CheckBox
             {
                 Location = new Point(tx, cy), Text = "Yes", Checked = true,
-                Font = new Font("Segoe UI", 9)
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9)
+            });
             dlg.Controls.Add(chkCompliant);
             cy += 38;
 
             // Hint for MetricType
-            var hint = new Label
+            var hint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Metric types: ResponseTime, Uptime, RepairTime",
                 Location = new Point(lx, cy), AutoSize = true,
-                Font = new Font("Segoe UI", 8), ForeColor = Color.Gray
-            };
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8), ForeColor = Color.Gray
+            });
             dlg.Controls.Add(hint);
             cy += 24;
 
             var lblErr = new Label
             {
                 Location = new Point(lx, cy), AutoSize = true,
-                Font = new Font("Segoe UI", 8, FontStyle.Bold), ForeColor = Color.Red
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8, FontStyle.Bold), ForeColor = Color.Red
             };
             dlg.Controls.Add(lblErr);
 
-            Button btnOk = new Button
+            Button btnOk = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text         = "Log Event",
                 Location     = new Point(lx, dlg.ClientSize.Height - 48),
                 Width        = 110, Height = 30,
                 BackColor    = Color.FromArgb(39, 174, 96), ForeColor = Color.White,
-                FlatStyle    = FlatStyle.Flat, Font = new Font("Segoe UI", 9, FontStyle.Bold),
+                FlatStyle    = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold),
                 DialogResult = DialogResult.None
-            };
+            });
             btnOk.FlatAppearance.BorderSize = 0;
 
-            Button btnCancel = new Button
+            Button btnCancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text         = "Cancel",
                 Location     = new Point(lx + 120, dlg.ClientSize.Height - 48),
                 Width        = 80, Height = 30,
-                FlatStyle    = FlatStyle.Flat, Font = new Font("Segoe UI", 9),
+                FlatStyle    = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9),
                 DialogResult = DialogResult.Cancel
-            };
+            });
 
             btnOk.Click += (s, ev) =>
             {
-                lblErr.Text = "";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(lblErr, "");
                 if (!int.TryParse(tbContractId.Text.Trim(), out int cid) || cid <= 0)
-                { lblErr.Text = "Enter a valid Contract ID."; return; }
+                { global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(lblErr, "Enter a valid Contract ID."); return; }
                 if (string.IsNullOrWhiteSpace(tbMetricType.Text))
-                { lblErr.Text = "Metric Type is required."; return; }
+                { global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(lblErr, "Metric Type is required."); return; }
                 try
                 {
                     _svc.LogSLAEvent(cid, tbMetricType.Text.Trim(), tbTarget.Text.Trim(),
@@ -299,7 +299,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
                 catch (Exception ex)
                 {
-                    lblErr.Text = "Error: " + ex.Message;
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(lblErr, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Error: {0}", ex.Message));
                 }
             };
 
@@ -315,7 +315,7 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void ShowStatus(string msg, Color color)
         {
-            _lblStatus.Text      = msg;
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, msg);
             _lblStatus.ForeColor = color;
         }
 
@@ -330,13 +330,13 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeBtn(string text, Color bg, int width)
         {
-            Button b = new Button
+            Button b = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Text = text, Width = width, Height = 28,
                 BackColor = bg, ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9, FontStyle.Bold), FlatStyle = FlatStyle.Flat,
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold), FlatStyle = FlatStyle.Flat,
                 Cursor = Cursors.Hand
-            };
+            });
             b.FlatAppearance.BorderSize = 0;
             return b;
         }

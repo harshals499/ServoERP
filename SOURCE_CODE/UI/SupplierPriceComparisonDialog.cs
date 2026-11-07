@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -38,7 +38,7 @@ namespace HVAC_Pro_Desktop.UI
             _vendorService = vendorService ?? new VendorService();
             _currentVendorId = currentVendorId;
 
-            Text = BrandingService.WindowTitle("Supplier Price Comparison");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(this, BrandingService.WindowTitle("Supplier Price Comparison"));
             StartPosition = FormStartPosition.CenterParent;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -60,7 +60,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.White
             };
 
-            Label title = new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Supplier Price Comparison",
                 Location = new Point(0, 0),
@@ -68,17 +68,17 @@ namespace HVAC_Pro_Desktop.UI
                 Font = DS.H2,
                 ForeColor = DS.Slate900,
                 AutoEllipsis = true
-            };
+            });
 
-            _itemTitle = new Label
+            _itemTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = string.IsNullOrWhiteSpace(_itemDescription) ? "Select a material to compare supplier offers." : _itemDescription,
+                Text = (string.IsNullOrWhiteSpace(_itemDescription) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select a material to compare supplier offers.") : _itemDescription),
                 Location = new Point(0, 30),
                 Size = new Size(700, 24),
-                Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold),
                 ForeColor = DS.Slate800,
                 AutoEllipsis = true
-            };
+            });
 
             _summary = new Label
             {
@@ -107,14 +107,14 @@ namespace HVAC_Pro_Desktop.UI
                 BackgroundColor = Color.White,
                 BorderStyle = BorderStyle.FixedSingle
             };
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Supplier", HeaderText = "Supplier Name", FillWeight = 30 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = "Unit Price", FillWeight = 14 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = "UOM", FillWeight = 9 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LastPurchaseDate", HeaderText = "Last Purchase Date", FillWeight = 16 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "QtyAvailable", HeaderText = "Qty Available", FillWeight = 12 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LeadDays", HeaderText = "Lead Days", FillWeight = 10 });
-            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "WeightedScore", HeaderText = "Score", FillWeight = 10 });
-            _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Select", HeaderText = "", Text = "Select", UseColumnTextForButtonValue = true, FillWeight = 9 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Supplier", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Supplier Name"), FillWeight = 30 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Rate", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit Price"), FillWeight = 14 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Unit", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("UOM"), FillWeight = 9 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LastPurchaseDate", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Last Purchase Date"), FillWeight = 16 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "QtyAvailable", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Qty Available"), FillWeight = 12 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "LeadDays", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Lead Days"), FillWeight = 10 });
+            _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "WeightedScore", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Score"), FillWeight = 10 });
+            _grid.Columns.Add(new DataGridViewButtonColumn { Name = "Select", HeaderText = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(""), Text = "Select", UseColumnTextForButtonValue = true, FillWeight = 9 });
             _grid.CellContentClick += Grid_CellContentClick;
             _grid.CellDoubleClick += (s, e) => UseSelectedOption();
             _grid.SelectionChanged += (s, e) => UpdateUseButton();
@@ -129,17 +129,17 @@ namespace HVAC_Pro_Desktop.UI
                 Visible = false
             };
 
-            Label emptyTitle = new Label
+            Label emptyTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Supplier and price details are not available yet",
                 Location = new Point(0, 82),
                 Size = new Size(714, 28),
                 TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold),
                 ForeColor = DS.Slate800
-            };
+            });
 
-            Label emptyHint = new Label
+            Label emptyHint = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "No saved supplier rate is available for this material yet. Add supplier price data or complete a purchase entry, then compare again.",
                 Location = new Point(48, 116),
@@ -147,20 +147,20 @@ namespace HVAC_Pro_Desktop.UI
                 TextAlign = ContentAlignment.TopCenter,
                 Font = DS.Body,
                 ForeColor = DS.Slate600
-            };
+            });
 
             _emptyStatePanel.Controls.Add(emptyTitle);
             _emptyStatePanel.Controls.Add(emptyHint);
 
-            _applyLowestButton = DS.GhostBtn("Apply Lowest Price", 146, 36);
+            _applyLowestButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Apply Lowest Price", 146, 36));
             _applyLowestButton.Location = new Point(338, 416);
             _applyLowestButton.Click += (s, e) => ApplyLowestPrice();
 
-            _useButton = DS.PrimaryBtn("Apply Selected", 126, 36);
+            _useButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Apply Selected", 126, 36));
             _useButton.Location = new Point(612, 416);
             _useButton.Click += (s, e) => UseSelectedOption();
 
-            _closeButton = DS.GhostBtn("Close", 96, 36);
+            _closeButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Close", 96, 36));
             _closeButton.Location = new Point(506, 416);
             _closeButton.DialogResult = DialogResult.Cancel;
 
@@ -238,17 +238,9 @@ namespace HVAC_Pro_Desktop.UI
 
             SupplierOption best = _options.FirstOrDefault();
             if (best == null)
-                _summary.Text = string.IsNullOrWhiteSpace(_category)
-                    ? "Supplier and price details are not available for this material yet."
-                    : "Supplier and price details are not available for this " + _category.Trim() + " material yet.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summary, (string.IsNullOrWhiteSpace(_category) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Supplier and price details are not available for this material yet.") : global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Supplier and price details are not available for this {0} material yet.", _category.Trim())));
             else
-                _summary.Text = _options.Count.ToString("N0") + " supplier option" + (_options.Count == 1 ? string.Empty : "s") + " found. Best: "
-                    + best.VendorName + " at " + IndiaFormatHelper.FormatCurrency(best.Rate) + " / "
-                    + _unitService.NormalizeForPickerDisplayOrDefault(best.Unit) + " for "
-                    + _quantity.ToString("0.##") + " qty"
-                    + " | score " + best.WeightedScore.ToString("0.##")
-                    + (best.OnTimeDeliveryRatePct.HasValue ? " | on-time " + best.OnTimeDeliveryRatePct.Value.ToString("0.#") + "%" : string.Empty)
-                    + (best.StockCoveragePct.HasValue ? " | stock " + best.StockCoveragePct.Value.ToString("0.#") + "%" : string.Empty);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summary, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} supplier option{1} found. Best: {2} at {3} / {4} for {5} qty | score {6}{7}{8}", _options.Count.ToString("N0"), (_options.Count == 1 ? string.Empty : "s"), best.VendorName, IndiaFormatHelper.FormatCurrency(best.Rate), _unitService.NormalizeForPickerDisplayOrDefault(best.Unit), _quantity.ToString("0.##"), best.WeightedScore.ToString("0.##"), (best.OnTimeDeliveryRatePct.HasValue ? " | on-time " + best.OnTimeDeliveryRatePct.Value.ToString("0.#") + "%" : string.Empty), (best.StockCoveragePct.HasValue ? " | stock " + best.StockCoveragePct.Value.ToString("0.#") + "%" : string.Empty)));
 
             _grid.Visible = _options.Count > 0;
             _emptyStatePanel.Visible = _options.Count == 0;

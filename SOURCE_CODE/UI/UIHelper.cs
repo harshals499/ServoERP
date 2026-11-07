@@ -294,7 +294,7 @@ namespace HVAC_Pro_Desktop.UI
                     size = 9.5f;
             }
 
-            return new Font("Segoe UI", size, style);
+            return new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), size, style);
         }
 
         private static bool SameFont(Font left, Font right)
@@ -769,7 +769,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private static bool IsIconOnlyButton(Button button)
         {
-            string text = (button == null ? string.Empty : button.Text ?? string.Empty).Trim();
+            string text = (button == null ? string.Empty : HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(button, button.Text)).Trim();
             if (text.Length <= 2)
                 return true;
 
@@ -1109,7 +1109,7 @@ namespace HVAC_Pro_Desktop.UI
                 return ButtonRole.Secondary;
 
             string key = ((button == null ? string.Empty : button.Name ?? string.Empty) + " " +
-                          (button == null ? string.Empty : button.Text ?? string.Empty))
+                          (button == null ? string.Empty : HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(button, button.Text)))
                 .ToLowerInvariant();
 
             if (ContainsAny(key, "clear filters", "reset filters", "clear selection", "clear all selection"))
@@ -1123,7 +1123,7 @@ namespace HVAC_Pro_Desktop.UI
             if (ContainsAny(key, "open", "view", "test", "refresh", "export", "import", "print", "preview", "template", "forms", "upload", "browse", "load", "filter", "copy", "compare", "download"))
                 return ButtonRole.Secondary;
 
-            UiActionVariant variant = ResolveActionVariant(button == null ? string.Empty : button.Text);
+            UiActionVariant variant = ResolveActionVariant(button == null ? string.Empty : HVAC_Pro_Desktop.Services.LanguageManager.GetSourceText(button, button.Text));
             switch (variant)
             {
                 case UiActionVariant.Danger:
@@ -1173,7 +1173,7 @@ namespace HVAC_Pro_Desktop.UI
             button.UseVisualStyleBackColor = false;
             button.UseCompatibleTextRendering = false;
             button.Cursor = Cursors.Hand;
-            button.Font = new Font("Segoe UI", Math.Max(9f, Math.Min(10f, button.Font.Size <= 0 ? 9f : button.Font.Size)), FontStyle.Bold);
+            button.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), Math.Max(9f, Math.Min(10f, button.Font.Size <= 0 ? 9f : button.Font.Size)), FontStyle.Bold);
             button.Height = Math.Max(button.Height, IsIconOnlyButton(button) ? 34 : 38);
             button.Padding = IsIconOnlyButton(button) ? Padding.Empty : new Padding(12, 0, 12, 0);
             button.AccessibleRole = AccessibleRole.PushButton;
@@ -1436,7 +1436,7 @@ namespace HVAC_Pro_Desktop.UI
                 AppLogger.LogError("UIHelper.TrySetClipboardText", ex);
                 MessageBox.Show(
                     owner,
-                    "Windows clipboard is busy right now. Please try the copy action again.",
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Windows clipboard is busy right now. Please try the copy action again."),
                     resolvedTitle,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Warning);

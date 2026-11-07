@@ -41,12 +41,12 @@ namespace HVAC_Pro_Desktop.UI
 
         public DevTeamDashboardForm()
         {
-            Text = "ServoERP Brain - Dev Team Dashboard";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "ServoERP Brain - Dev Team Dashboard");
             StartPosition = FormStartPosition.CenterParent;
             Size = new Size(1180, 760);
             MinimumSize = new Size(980, 640);
             BackColor = DS.BgPage;
-            Font = new Font("Segoe UI", 9f);
+            Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
 
             BuildLayout();
 
@@ -63,28 +63,28 @@ namespace HVAC_Pro_Desktop.UI
             }
             else
             {
-                _lblStatus.Text = "ServoERP Brain database not found. Run 'python ServoERPBrain/memory/init_db.py' once to initialize it.";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, "ServoERP Brain database not found. Run 'python ServoERPBrain/memory/init_db.py' once to initialize it.");
             }
         }
 
         private void BuildLayout()
         {
             Panel header = new Panel { Dock = DockStyle.Top, Height = 78, BackColor = DS.White, Padding = new Padding(20, 12, 20, 0) };
-            _lblTitle = new Label
+            _lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Dev Team Dashboard",
                 Dock = DockStyle.Top,
                 Height = 30,
-                Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold),
                 ForeColor = DS.Slate900
-            };
-            _lblStatus = new Label
+            });
+            _lblStatus = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = "Ready",
                 Dock = DockStyle.Top,
                 Height = 24,
                 ForeColor = DS.Slate600
-            };
+            });
             header.Controls.Add(_lblStatus);
             header.Controls.Add(_lblTitle);
 
@@ -96,11 +96,11 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = DS.BgPage,
                 WrapContents = true
             };
-            _btnNewTask = DS.PrimaryBtn("New Task", 120, 34);
-            _btnRetry = DS.GhostBtn("Retry", 100, 34);
-            _btnStop = DS.GhostBtn("Stop", 100, 34);
-            _btnOpenReport = DS.GhostBtn("Open Report", 130, 34);
-            _btnRefresh = DS.GhostBtn("Refresh", 100, 34);
+            _btnNewTask = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("New Task", 120, 34));
+            _btnRetry = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Retry", 100, 34));
+            _btnStop = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Stop", 100, 34));
+            _btnOpenReport = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Open Report", 130, 34));
+            _btnRefresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Refresh", 100, 34));
             _btnNewTask.Click += (s, e) => SubmitNewTask();
             _btnRetry.Click += (s, e) => RetrySelectedTask();
             _btnStop.Click += (s, e) => StopSelectedTask();
@@ -125,14 +125,14 @@ namespace HVAC_Pro_Desktop.UI
             };
 
             Panel agentsPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 10, 10, 10), BackColor = DS.BgPage };
-            agentsPanel.Controls.Add(SectionLabel("Agents"));
+            agentsPanel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SectionLabel("Agents")));
             _gridAgents = new DataGridView();
             BuildAgentsGrid();
             agentsPanel.Controls.Add(_gridAgents);
             agentsPanel.Controls.SetChildIndex(agentsPanel.Controls[0], 0);
 
             Panel tasksPanel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(20, 10, 10, 10), BackColor = DS.BgPage };
-            tasksPanel.Controls.Add(SectionLabel("Tasks"));
+            tasksPanel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SectionLabel("Tasks")));
             _gridTasks = new DataGridView();
             BuildTasksGrid();
             _gridTasks.SelectionChanged += (s, e) => OnTaskSelectionChanged();
@@ -167,7 +167,7 @@ namespace HVAC_Pro_Desktop.UI
             tabs.TabPages.Add(testsTab);
 
             detailPanel.Controls.Add(tabs);
-            detailPanel.Controls.Add(SectionLabel("Task Detail"));
+            detailPanel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SectionLabel("Task Detail")));
             detailPanel.Controls.SetChildIndex(detailPanel.Controls[0], 0);
 
             mainSplit.Panel1.Controls.Add(leftSplit);
@@ -194,14 +194,14 @@ namespace HVAC_Pro_Desktop.UI
 
         private static Label SectionLabel(string text)
         {
-            Label label = new Label
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = text,
                 Dock = DockStyle.Top,
                 Height = 28,
                 Font = DS.H3,
                 ForeColor = DS.Slate900
-            };
+            });
             return label;
         }
 
@@ -283,7 +283,7 @@ namespace HVAC_Pro_Desktop.UI
 
             int working = snapshot.Agents.Count(a => a.Status != "idle");
             int running = snapshot.Tasks.Count(t => t.Status == "running" || t.Status == "pending");
-            _lblStatus.Text = $"{snapshot.Agents.Count} agents | {working} active | {snapshot.Tasks.Count} tasks | {running} running";
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} agents | {1} active | {2} tasks | {3} running", snapshot.Agents.Count, working, snapshot.Tasks.Count, running));
 
             int? previouslySelected = _selectedTaskId;
 
@@ -419,8 +419,8 @@ namespace HVAC_Pro_Desktop.UI
             if (!_service.DatabaseExists)
             {
                 MessageBox.Show(this,
-                    "ServoERP Brain database not found. Run 'python ServoERPBrain/memory/init_db.py' once to initialize it.",
-                    "Dev Team Dashboard", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.Get("ServoERP Brain database not found. Run 'python ServoERPBrain/memory/init_db.py' once to initialize it."),
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Dev Team Dashboard"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -442,7 +442,7 @@ namespace HVAC_Pro_Desktop.UI
                 catch (Exception ex)
                 {
                     ExceptionLogger.Log(ex, "DevTeamDashboardForm.SubmitNewTask");
-                    MessageBox.Show(this, "Failed to submit task:\r\n" + ex.Message, "Dev Team Dashboard",
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Failed to submit task:\r\n{0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Dev Team Dashboard"),
                         MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
@@ -463,7 +463,7 @@ namespace HVAC_Pro_Desktop.UI
             catch (Exception ex)
             {
                 ExceptionLogger.Log(ex, "DevTeamDashboardForm.RetrySelectedTask");
-                MessageBox.Show(this, "Failed to retry task:\r\n" + ex.Message, "Dev Team Dashboard",
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Failed to retry task:\r\n{0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Dev Team Dashboard"),
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -497,13 +497,13 @@ namespace HVAC_Pro_Desktop.UI
                 if (!string.IsNullOrEmpty(fullPath) && File.Exists(fullPath))
                     Process.Start("notepad.exe", fullPath);
                 else
-                    MessageBox.Show(this, "Report file not found:\r\n" + fullPath, "Dev Team Dashboard",
+                    MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Report file not found:\r\n{0}", fullPath), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Dev Team Dashboard"),
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 ExceptionLogger.Log(ex, "DevTeamDashboardForm.OpenSelectedReport");
-                MessageBox.Show(this, "Unable to open report:\r\n" + ex.Message, "Dev Team Dashboard",
+                MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Unable to open report:\r\n{0}", ex.Message), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Dev Team Dashboard"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -517,22 +517,22 @@ namespace HVAC_Pro_Desktop.UI
 
             public NewTaskDialog()
             {
-                Text = "New Dev Team Task";
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(this, "New Dev Team Task");
                 FormBorderStyle = FormBorderStyle.FixedDialog;
                 StartPosition = FormStartPosition.CenterParent;
                 MaximizeBox = false;
                 MinimizeBox = false;
                 ClientSize = new Size(480, 220);
                 BackColor = DS.White;
-                Font = new Font("Segoe UI", 9f);
+                Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f);
 
-                Label label = new Label
+                Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Text = "Describe the task for the Dev Team (Product Manager will route it to the right agents):",
                     Location = new Point(16, 14),
                     Size = new Size(448, 40),
                     ForeColor = DS.Slate700
-                };
+                });
 
                 _text = new TextBox
                 {
@@ -544,26 +544,26 @@ namespace HVAC_Pro_Desktop.UI
                     BorderStyle = BorderStyle.FixedSingle
                 };
 
-                Button ok = DS.PrimaryBtn("Submit", 100, 34);
+                Button ok = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.PrimaryBtn("Submit", 100, 34));
                 ok.Location = new Point(280, 176);
                 ok.Click += (s, e) =>
                 {
                     if (string.IsNullOrWhiteSpace(_text.Text))
                     {
-                        MessageBox.Show(this, "Please enter a task description.", "New Dev Team Task",
+                        MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Please enter a task description."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("New Dev Team Task"),
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     if (_text.Text.Trim().Length < 10)
                     {
-                        MessageBox.Show(this, "Enter at least 10 characters so the Dev Team has enough context.", "New Dev Team Task",
+                        MessageBox.Show(this, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter at least 10 characters so the Dev Team has enough context."), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("New Dev Team Task"),
                             MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     DialogResult = DialogResult.OK;
                 };
 
-                Button cancel = DS.GhostBtn("Cancel", 90, 34);
+                Button cancel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn("Cancel", 90, 34));
                 cancel.Location = new Point(384, 176);
                 cancel.Click += (s, e) => DialogResult = DialogResult.Cancel;
 
