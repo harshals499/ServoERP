@@ -4,7 +4,7 @@
 - Move the existing translations into .NET satellite resources; add Marathi login, Settings and custom validation text.
 - Preserve editable/business values and neutral action routing when translating controls and UI alerts.
 - Expand the reviewed Marathi catalogue to 3,191 entries and pass the static caption audit; separate data-bearing labels from caption keys and localize dynamic UI templates.
-- Extended workflow QA is blocked by disposable-database initialization (missing dbo.Payments). The full suite has not passed.
+- Extended workflow QA is blocked by disposable-database initialization (missing dbo.PurchaseOrders after the Payments fixture dependency was supplied). The full suite has not passed.
 - Release remains held: app-wide translation coverage and full workflow visual verification are incomplete. See Docs/Localization/Marathi-restoration.md.
 
 ## 1.1.531 (05/11/2026)

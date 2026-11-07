@@ -158,6 +158,16 @@ internal static class MarathiLocalizationTests
             {
                 var qaConnection = new System.Data.SqlClient.SqlConnectionStringBuilder(HVAC_Pro_Desktop.DAL.DatabaseManager.RequireConfiguredConnectionString());
                 if (qaConnection.InitialCatalog != "ServoERP_MarathiQA_20261107_PreviewOnly") throw new InvalidOperationException("Disposable QA database scope is required.");
+                // Guarded schema-only fixture DDL intentionally uses ADO.NET.
+                using (var fixtureConnection = new System.Data.SqlClient.SqlConnection(qaConnection.ConnectionString))
+                {
+                    fixtureConnection.Open();
+                    using (var fixtureCommand = fixtureConnection.CreateCommand())
+                    {
+                        fixtureCommand.CommandText = File.ReadAllText(Path.GetFullPath(Path.Combine(args[1], "..", "..", "..", "scripts", "Localization", "MarathiPreviewFixture.sql")));
+                        fixtureCommand.ExecuteNonQuery();
+                    }
+                }
                 new HVAC_Pro_Desktop.DAL.DatabaseManager().InitializeDatabase();
                 HVAC_Pro_Desktop.Services.SessionManager.SetSession(new HVAC_Pro_Desktop.Models.AppUserDto { UserId = 1, Username = "marathi-qa", DisplayName = "Marathi QA", RoleName = "Admin", IsActive = true });
                 foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })

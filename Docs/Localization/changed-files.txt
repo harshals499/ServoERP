@@ -144,6 +144,7 @@ scripts/Assert-ServoReleaseNotes.ps1
 scripts/Audit-MarathiLocalization.py
 scripts/Localization/ApplyReviewedTranslations.py
 scripts/Localization/LocalizeSource.cs
+scripts/Localization/MarathiPreviewFixture.sql
 scripts/Localization/mr-batch-01.txt
 scripts/Localization/mr-batch-02.txt
 scripts/Localization/mr-batch-03.txt
