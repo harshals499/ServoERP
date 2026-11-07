@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)]
     [string]$BuildOutput,
 
@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $source = Resolve-Path $BuildOutput
+& (Join-Path $PSScriptRoot "Assert-ServoLanguageResources.ps1") -BuildOutput $source
 $releaseVersion = [Reflection.AssemblyName]::GetAssemblyName((Join-Path $source 'HVAC_Pro_Desktop.exe')).Version
 $releaseVersion = '{0}.{1}.{2}' -f $releaseVersion.Major,$releaseVersion.Minor,$releaseVersion.Build
 & (Join-Path $PSScriptRoot 'Assert-ServoReleaseNotes.ps1') -Version $releaseVersion -ForPackaging

@@ -1,4 +1,4 @@
-; ServoERP Inno Setup 6 installer
+﻿; ServoERP Inno Setup 6 installer
 ; Build with: powershell -ExecutionPolicy Bypass -File .\Build-ServoERPInstaller.ps1
 
 #include "ServoERP.version.iss"
@@ -69,6 +69,8 @@ Name: "{app}\RECEIPTS"; Permissions: users-full; Flags: uninsneveruninstall
 Source: "..\bin\Release\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\{#AppExeName}.config"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\bin\Release\*.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\bin\Release\mr-IN\HVAC_Pro_Desktop.resources.dll"; DestDir: "{app}\mr-IN"; Flags: ignoreversion
+Source: "..\bin\Release\hi-IN\HVAC_Pro_Desktop.resources.dll"; DestDir: "{app}\hi-IN"; Flags: ignoreversion
 Source: "..\bin\Release\*.xml"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\bin\Release\x64\SQLite.Interop.dll"; DestDir: "{app}\x64"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "..\bin\Release\x86\SQLite.Interop.dll"; DestDir: "{app}\x86"; Flags: ignoreversion skipifsourcedoesntexist

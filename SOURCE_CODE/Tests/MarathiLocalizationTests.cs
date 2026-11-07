@@ -158,6 +158,9 @@ internal static class MarathiLocalizationTests
                 {
                     typeof(SettingsForm).GetMethod("BuildForm", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(settings, new object[] { canvas, false });
                     var selector = Tree(canvas).OfType<ComboBox>().Single(c => c.Name == "ApplicationLanguage");
+                    var displayMode = (ComboBox)typeof(SettingsForm).GetField("_cmbDisplayFitMode", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(settings);
+                    displayMode.SelectedIndex = 0;
+                    Check(displayMode.SelectedItem.ToString() == "Auto detect laptop screens" && displayMode.GetItemText(displayMode.SelectedItem) == LanguageManager.Get("Auto detect laptop screens"), "display choice localized without mutating persisted mode: " + language);
                     Check(selector.Items.Count == 2 && selector.Items[1].ToString() == LanguageManager.Marathi && selector.SelectedItem.ToString() == language, "Settings language selector: " + language);
                     Control card = selector.Parent.Parent;
                     card.Parent = null;
@@ -176,6 +179,13 @@ internal static class MarathiLocalizationTests
                     }
                 }
             }
+            foreach (string result in (System.Collections.Generic.IEnumerable<string>)App.GetType("HVAC_Pro_Desktop.Tests.ReleaseNotesSmokeTests").GetMethod("RunAll", BindingFlags.Static | BindingFlags.NonPublic).Invoke(null, null))
+                Check(true, result);
+            var version = App.GetName().Version;
+            string notesFile = Path.Combine(args[1], "RELEASE_NOTES_" + version.Major + "." + version.Minor + "." + version.Build + ".md");
+            using (var stream = App.GetManifestResourceStream("ServoERP.ReleaseNotes.Current.md"))
+            using (var reader = new StreamReader(stream))
+                Check(reader.ReadToEnd() == File.ReadAllText(notesFile), "embedded notes exactly match versioned build output notes");
             Console.WriteLine("PASS TOTAL " + _passed); return 0;
         }
         catch (Exception ex) { Console.WriteLine("FAIL " + ex); return 1; }

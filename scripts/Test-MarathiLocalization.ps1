@@ -9,6 +9,7 @@ $buildLog = Join-Path $OutputDirectory 'release-build.log'
 & msbuild $project /p:Configuration=Release /verbosity:minimal /nologo *> $buildLog
 if ($LASTEXITCODE -ne 0) { throw "Release build failed. See $buildLog" }
 $appExe = Join-Path $buildOutput 'HVAC_Pro_Desktop.exe'
+& (Join-Path $PSScriptRoot 'Assert-ServoLanguageResources.ps1') -BuildOutput $buildOutput
 if (!(Test-Path -LiteralPath $appExe)) { throw 'Release executable is missing.' }
 $csc = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\Roslyn\csc.exe'
 if (!(Test-Path -LiteralPath $csc)) { throw 'Visual Studio 2022 Build Tools C# compiler is required.' }

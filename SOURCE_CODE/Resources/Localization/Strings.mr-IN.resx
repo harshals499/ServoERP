@@ -1737,4 +1737,16 @@
   <data name="An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values." xml:space="preserve">
     <value>या स्क्रीनचा {0} रोजी आपोआप जतन केलेला मसुदा उपलब्ध आहे. तो परत आणल्यास फॉर्ममधील सध्याची न जतन केलेली मूल्ये बदलली जातील.</value>
   </data>
+  <data name="Search settings by name or description" xml:space="preserve">
+    <value>नाव किंवा तपशीलावरून सेटिंग्ज शोधा</value>
+  </data>
+  <data name="Format: 22ABCDE1234F1Z5" xml:space="preserve">
+    <value>स्वरूप: 22ABCDE1234F1Z5</value>
+  </data>
+  <data name="Calculated automatically from annual turnover and configured e-invoice threshold." xml:space="preserve">
+    <value>वार्षिक उलाढाल आणि ठरवलेल्या ई-चलन मर्यादेवरून आपोआप मोजले जाते.</value>
+  </data>
+  <data name="Type CONFIRM to unlock this destructive action." xml:space="preserve">
+    <value>ही कायमस्वरूपी हटवण्याची कृती सुरू करण्यासाठी CONFIRM लिहा.</value>
+  </data>
 </root>

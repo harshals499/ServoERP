@@ -1737,4 +1737,16 @@
   <data name="An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values." xml:space="preserve">
     <value>An autosaved draft exists for this screen from {0}. Restoring it will replace the current unsaved form values.</value>
   </data>
+  <data name="Search settings by name or description" xml:space="preserve">
+    <value>Search settings by name or description</value>
+  </data>
+  <data name="Format: 22ABCDE1234F1Z5" xml:space="preserve">
+    <value>Format: 22ABCDE1234F1Z5</value>
+  </data>
+  <data name="Calculated automatically from annual turnover and configured e-invoice threshold." xml:space="preserve">
+    <value>Calculated automatically from annual turnover and configured e-invoice threshold.</value>
+  </data>
+  <data name="Type CONFIRM to unlock this destructive action." xml:space="preserve">
+    <value>Type CONFIRM to unlock this destructive action.</value>
+  </data>
 </root>

@@ -1,7 +1,7 @@
 {
   "note": "Conservative static candidate audit, not proof of complete runtime coverage. Includes data, protected content and interpolated strings requiring manual classification. Excludes many helper-built strings and services.",
-  "marathiResourceCount": 575,
-  "missingCandidateCount": 1326,
+  "marathiResourceCount": 579,
+  "missingCandidateCount": 1331,
   "candidates": [
     {
       "file": "SOURCE_CODE/UI/AddAMCEquipmentForm.cs",
@@ -3880,112 +3880,137 @@
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 55,
+      "line": 56,
       "text": "Current review preserved. Choose another folder to start a new batch, or continue categorising these PDFs."
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 79,
+      "line": 80,
       "text": "Search filenames or folders"
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 85,
+      "line": 86,
       "text": "Filename"
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 86,
+      "line": 87,
       "text": "Folder"
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 87,
+      "line": 88,
       "text": "Review status"
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 94,
+      "line": 95,
       "text": "The selection could not be changed. Select the file again."
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 107,
+      "line": 108,
       "text": "Assign category"
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 136,
+      "line": 135,
       "text": "Operation cancelled. Completed imports remain saved; the remaining files are still available for review."
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 192,
+      "line": 191,
       "text": "Database duplicate check unavailable. It will be checked again during import."
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 212,
+      "line": 209,
       "text": "Document "
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 251,
+      "line": 248,
       "text": "Review import summary • "
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 254,
+      "line": 251,
       "text": "Confirm & Import — "
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 255,
+      "line": 252,
       "text": "Imports document attachments only. No purchase orders, invoices, quotations, stock movements or payments will be created."
     },
     {
       "file": "SOURCE_CODE/UI/PdfImportPage.cs",
-      "line": 278,
+      "line": 275,
       "text": "Test fixture folder — all subfolders"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
       "line": 16,
+      "text": "Search or select a PDF category"
+    },
+    {
+      "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
+      "line": 36,
       "text": "ServoERP · Imported PDFs"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 18,
+      "line": 38,
       "text": "Filename"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 20,
+      "line": 40,
       "text": "Source folder"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 21,
+      "line": 41,
       "text": "Imported (local)"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 23,
+      "line": 43,
       "text": "Loading imported PDFs…"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 24,
+      "line": 44,
       "text": "Open selected PDF"
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 35,
+      "line": 46,
+      "text": "Change category"
+    },
+    {
+      "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
+      "line": 64,
+      "text": "ServoERP · Change PDF category"
+    },
+    {
+      "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
+      "line": 69,
+      "text": "Save category"
+    },
+    {
+      "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
+      "line": 94,
+      "text": "The category could not be updated or refreshed. Check your access and reopen Imported PDFs."
+    },
+    {
+      "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
+      "line": 106,
       "text": "Imported PDFs could not be loaded. Check the database connection and your access, then reopen."
     },
     {
       "file": "SOURCE_CODE/UI/PdfLibraryDialog.cs",
-      "line": 46,
+      "line": 122,
       "text": "Imported PDFs"
     },
     {
@@ -5085,172 +5110,172 @@
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 925,
+      "line": 928,
       "text": "INR (\\u20B9)"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1458,
+      "line": 1461,
       "text": "Current version: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1729,
+      "line": 1732,
       "text": "Open-source disclosure exported: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1735,
+      "line": 1738,
       "text": "Disclosure export failed: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1771,
+      "line": 1774,
       "text": "Module catalog exported: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1777,
+      "line": 1780,
       "text": "Catalog export failed: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1813,
+      "line": 1816,
       "text": "Compliance pack created: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1819,
+      "line": 1822,
       "text": "Compliance pack failed: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1874,
+      "line": 1877,
       "text": "Load error: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1965,
+      "line": 1968,
       "text": "Unit save failed: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 1970,
+      "line": 1973,
       "text": "Unit added to the global list: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2230,
+      "line": 2233,
       "text": "User login summary could not be loaded: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2578,
+      "line": 2581,
       "text": "Error: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2684,
+      "line": 2687,
       "text": "Database: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2696,
+      "line": 2699,
       "text": "Database: NOT connected - "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2715,
+      "line": 2718,
       "text": "Database: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2721,
+      "line": 2724,
       "text": "Database: NOT connected - "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2746,
+      "line": 2749,
       "text": "Database: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2764,
+      "line": 2767,
       "text": "Database: repair failed - "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2800,
+      "line": 2803,
       "text": "Connection setup error: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2809,
+      "line": 2812,
       "text": "Money preview: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2836,
+      "line": 2839,
       "text": "HSN / SAC"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2839,
+      "line": 2842,
       "text": "GST %"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2840,
+      "line": 2843,
       "text": "CGST %"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2841,
+      "line": 2844,
       "text": "SGST %"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2842,
+      "line": 2845,
       "text": "IGST %"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2934,
+      "line": 2937,
       "text": "HSN/SAC master could not be loaded: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 3066,
+      "line": 3069,
       "text": "AD"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 3347,
+      "line": 3350,
       "text": "INV"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4082,
+      "line": 4085,
       "text": "All data including master data will be deleted. This cannot be undone.\\r\\n\\r\\nType CONFIRM to proceed."
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4117,
+      "line": 4120,
       "text": "Fresh Start failed: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4279,
+      "line": 4282,
       "text": "Locate error: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4343,
+      "line": 4346,
       "text": "Update check failed. ServoERP will continue normally. "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4396,
+      "line": 4399,
       "text": "Downloading update package... "
     },
     {
@@ -5260,42 +5285,42 @@
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2375,
+      "line": 2378,
       "text": "Temp password: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 2409,
+      "line": 2412,
       "text": "Temp password: "
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4024,
+      "line": 4027,
       "text": "Restore completed.\\r\\n\\r\\nClose and reopen ServoERP before continuing work."
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4029,
+      "line": 4032,
       "text": "Restore failed:\\r\\n"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4108,
+      "line": 4111,
       "text": "Fresh Start complete. The following data was cleared:\\r\\n- Jobs\\r\\n- Quotations\\r\\n- Invoices\\r\\n- Payments\\r\\n- Purchases\\r\\n- Attendance records\\r\\n- SLA Logs\\r\\n- Clients\\r\\n- Employees\\r\\n- Vendors\\r\\n- Sites\\r\\n- Contracts\\r\\n- Salary\\r\\n- Settings\\r\\n\\r\\nApp is ready for a new client."
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4299,
+      "line": 4302,
       "text": "Update notification settings were saved, but automatic checks are turned off.\\r\\nTurn on \\\"Check for updates automatically\\\" to show update banners at startup."
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4344,
+      "line": 4347,
       "text": "Update check failed. ServoERP will continue normally.\\r\\n\\r\\n"
     },
     {
       "file": "SOURCE_CODE/UI/SettingsForm.cs",
-      "line": 4415,
+      "line": 4418,
       "text": "Automatic update could not complete.\\r\\n\\r\\n"
     },
     {

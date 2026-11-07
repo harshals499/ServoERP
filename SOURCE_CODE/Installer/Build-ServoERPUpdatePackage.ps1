@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$NoBuild,
     [switch]$ForceCloseRunningApp
 )
@@ -11,6 +11,9 @@ $assemblyInfo = Join-Path $sourceRoot 'Properties\AssemblyInfo.cs'
 $solution = Join-Path $sourceRoot 'HVAC_Pro_Desktop.sln'
 $releaseDir = Join-Path $sourceRoot 'bin\Release'
 $outputDir = Join-Path $repoRoot 'update_output'
+$releaseVersion = [IO.File]::ReadAllText((Join-Path $repoRoot 'VERSION')).Trim()
+& (Join-Path $repoRoot 'scripts\Assert-ServoReleaseNotes.ps1') -Version $releaseVersion -AssemblyInfoPath $assemblyInfo -ForPackaging
+
 
 $runningApps = @(Get-Process -Name 'HVAC_Pro_Desktop','ServoERP' -ErrorAction SilentlyContinue)
 if ($runningApps.Count -gt 0) {
@@ -60,7 +63,9 @@ foreach ($pattern in $filePatterns) {
         Copy-Item -Destination $stage -Force
 }
 
-foreach ($folder in @('Resources', 'runtimes', 'SERVICES')) {
+& (Join-Path $repoRoot 'scripts\Assert-ServoLanguageResources.ps1') -BuildOutput $releaseDir
+
+foreach ($folder in @('Resources', 'runtimes', 'SERVICES', 'mr-IN', 'hi-IN')) {
     $source = Join-Path $releaseDir $folder
     if (Test-Path -LiteralPath $source) {
         Copy-Item -LiteralPath $source -Destination (Join-Path $stage $folder) -Recurse -Force

@@ -1,3 +1,10 @@
+﻿## 1.1.532 — unreleased Marathi candidate (07/11/2026)
+
+- Restore English / मराठी selection in Settings, persist it per Windows user and load it before login.
+- Move the existing translations into .NET satellite resources; add Marathi login, Settings and custom validation text.
+- Preserve editable/business values and neutral action routing when translating controls and UI alerts.
+- Release remains held: app-wide translation coverage and full workflow visual verification are incomplete. See Docs/Localization/Marathi-restoration.md.
+
 ## 1.1.531 (05/11/2026)
 
 - PDF Imports now includes the document types used in Master Data plus Proforma Invoice, Credit Note, Debit Note, Payment Receipt, Work Order and Service Report. It also supports changing the category of an imported PDF.

@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory = $true)][string]$Version,
     [string]$NotesPath,
     [string]$AssemblyInfoPath,
@@ -29,4 +29,7 @@ if ($notes -match '(?im)^\s*(?:TODO|TBD|No release notes were provided|No change
     throw 'Release notes contain a placeholder instead of completed changes.'
 }
 if ($ForPackaging -and $notes -match 'Pending final Release build') { throw 'Record actual validation results before packaging.' }
+if ($ForPackaging -and $notes -match '(?im)^Release status:\s*INCOMPLETE\b') {
+    throw 'This candidate is explicitly incomplete and must not be packaged for distribution.'
+}
 Write-Output "Release notes validated: $Version"
