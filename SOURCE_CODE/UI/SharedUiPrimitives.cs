@@ -693,7 +693,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 0, 8, 0)
             };
 
-            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = sectionTitle,
                 Dock = DockStyle.Top,
@@ -740,7 +740,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(bucket, 8);
 
-            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Dock = DockStyle.Top,

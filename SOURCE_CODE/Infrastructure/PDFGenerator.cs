@@ -72,11 +72,11 @@ namespace ServoERP.Infrastructure
                         col.Spacing(10);
                         col.Item().Row(row =>
                         {
-                            row.RelativeItem().Text("Invoice No: " + Safe(invoice.InvoiceNumber)).Bold();
-                            row.RelativeItem().AlignRight().Text("Date: " + FormatDate(invoice.InvoiceDate));
+                            row.RelativeItem().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Invoice No: {0}", Safe(invoice.InvoiceNumber))).Bold();
+                            row.RelativeItem().AlignRight().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Date: {0}", FormatDate(invoice.InvoiceDate)));
                         });
-                        col.Item().Text("Bill To: " + Safe(invoice.ClientName)).Bold();
-                        col.Item().Text("Site: " + Safe(invoice.SiteName));
+                        col.Item().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Bill To: {0}", Safe(invoice.ClientName))).Bold();
+                        col.Item().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Site: {0}", Safe(invoice.SiteName)));
 
                         col.Item().Table(table =>
                         {
@@ -92,10 +92,10 @@ namespace ServoERP.Infrastructure
                             table.Header(header =>
                             {
                                 HeaderCell(header.Cell(), "#");
-                                HeaderCell(header.Cell(), "Description");
-                                HeaderCell(header.Cell(), "Qty");
-                                HeaderCell(header.Cell(), "Rate");
-                                HeaderCell(header.Cell(), "Amount");
+                                HeaderCell(header.Cell(), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Description"));
+                                HeaderCell(header.Cell(), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Qty"));
+                                HeaderCell(header.Cell(), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Rate"));
+                                HeaderCell(header.Cell(), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Amount"));
                             });
 
                             int index = 1;
@@ -111,9 +111,9 @@ namespace ServoERP.Infrastructure
 
                         col.Item().AlignRight().Column(totals =>
                         {
-                            totals.Item().Text("Subtotal: " + invoice.SubTotal.ToString("C2", India));
-                            totals.Item().Text("GST: " + invoice.TaxAmount.ToString("C2", India));
-                            totals.Item().Text("Total: " + invoice.TotalAmount.ToString("C2", India)).Bold();
+                            totals.Item().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Subtotal: {0}", invoice.SubTotal.ToString("C2", India)));
+                            totals.Item().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("GST: {0}", invoice.TaxAmount.ToString("C2", India)));
+                            totals.Item().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Total: {0}", invoice.TotalAmount.ToString("C2", India))).Bold();
                         });
                     });
                     page.Footer().AlignCenter().Text("ServoERP | Made in India").FontSize(9);
@@ -136,14 +136,14 @@ namespace ServoERP.Infrastructure
                     page.Content().Column(col =>
                     {
                         col.Spacing(10);
-                        col.Item().Background(Colors.Blue.Lighten5).Padding(8).Text("Read-only report preview").FontColor(Colors.Blue.Darken2).SemiBold();
+                        col.Item().Background(Colors.Blue.Lighten5).Padding(8).Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Read-only report preview")).FontColor(Colors.Blue.Darken2).SemiBold();
                         col.Item().Row(row =>
                         {
-                            row.RelativeItem().Text("Reference: " + Safe(reference)).Bold();
-                            row.RelativeItem().AlignRight().Text("Generated: " + DateTime.Now.ToString("dd/MM/yyyy HH:mm", India));
+                            row.RelativeItem().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Reference: {0}", Safe(reference))).Bold();
+                            row.RelativeItem().AlignRight().Text(global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Generated: {0}", DateTime.Now.ToString("dd/MM/yyyy HH:mm", India)));
                         });
                         col.Item().Element(c => ComposeKeyValueTable(c, rows.Length == 0
-                            ? new[] { Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Details"), "No report details are available for this row.") }
+                            ? new[] { Pair(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Details"), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No report details are available for this row.")) }
                             : rows));
                     });
                     page.Footer().AlignCenter().Text("ServoERP | Read-only report preview").FontSize(9);

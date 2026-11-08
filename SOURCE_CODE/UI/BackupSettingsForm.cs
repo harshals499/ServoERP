@@ -258,7 +258,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Shows an inline status message.</summary>
         private void SetStatus(string text, Color color)
         {
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, text);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, text);
             _lblStatus.ForeColor = color;
         }
 

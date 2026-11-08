@@ -3943,7 +3943,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (combo != null)
                 {
-                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(display, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo));
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(display, combo.SelectedItem == null ? combo.Text : combo.GetItemText(combo.SelectedItem));
                     global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(affordance, IconFromHex("E70D"));
                     return;
                 }
@@ -4265,7 +4265,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void SetStatus(string text, Color color)
         {
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, text);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, text);
             _lblStatus.ForeColor = color;
         }
 

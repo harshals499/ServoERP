@@ -30,6 +30,7 @@ SOURCE_CODE/SERVICES/BrandingService.cs
 SOURCE_CODE/SERVICES/LanguageManager.cs
 SOURCE_CODE/SERVICES/LanguagePreferenceService.cs
 SOURCE_CODE/SERVICES/LocalizedMessageBox.cs
+SOURCE_CODE/SERVICES/MasterLookupService.cs
 SOURCE_CODE/SERVICES/NotificationCenterService.cs
 SOURCE_CODE/Tests/EndToEndWorkflowSmokeTests.cs
 SOURCE_CODE/Tests/MarathiLocalizationTests.cs
@@ -156,6 +157,7 @@ scripts/Audit-MarathiLocalization.py
 scripts/Localization/ApplyResourceOverrides.py
 scripts/Localization/ApplyReviewedTranslations.py
 scripts/Localization/AuditRenderedCaptions.py
+scripts/Localization/BindReviewedCaptions.cs
 scripts/Localization/LocalizeChoices.cs
 scripts/Localization/LocalizeSource.cs
 scripts/Localization/mr-batch-01.txt
@@ -177,5 +179,7 @@ scripts/Localization/mr-extra-07.txt
 scripts/Localization/mr-reviewed-additions.json
 scripts/Localization/mr-run3-choices.json
 scripts/Localization/mr-run3-reviewed.json
+scripts/Localization/mr-run4-reviewed.json
+scripts/Localization/reviewed-caption-bindings.txt
 scripts/Prepare-VelopackPublish.ps1
 scripts/Test-MarathiLocalization.ps1

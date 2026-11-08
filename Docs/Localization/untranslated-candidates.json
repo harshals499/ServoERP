@@ -7,7 +7,7 @@
       "reason": "Embedded export-template code falsely matched as a C# property assignment"
     }
   ],
-  "marathiResourceCount": 3604,
+  "marathiResourceCount": 3999,
   "missingCandidateCount": 0,
   "candidates": []
 }

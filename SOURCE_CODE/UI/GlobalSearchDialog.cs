@@ -74,7 +74,7 @@ namespace HVAC_Pro_Desktop.UI
             _results.DrawItem+=DrawResult; _results.SelectedIndexChanged+=(s,e)=>RenderPreview();
             _results.DoubleClick+=(s,e)=>OpenSelected();
             Resize+=(s,e)=>{input.Width=Math.Max(400,ClientSize.Width-440);_searchBox.Width=input.Width-100;clear.Left=input.Width-44;hints.Left=input.Right+18;hints.Width=ClientSize.Width-hints.Left-18;_filters.Width=ClientSize.Width-36;LayoutPreviewButton();};
-            Shown+=(s,e)=>{SendMessage(_searchBox.Handle,0x1501,new IntPtr(1),"Search names, record numbers or descriptions…");_searchBox.Focus();};
+            Shown+=(s,e)=>{SendMessage(_searchBox.Handle,0x1501,new IntPtr(1),global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search names, record numbers or descriptions…"));_searchBox.Focus();};
             BuildFilters();RenderPreview();CrashProtectionService.AttachToTree(this);
         }
         private static Label TextLabel(Control parent,string text,int x,int y,int w,int h,float size=9,bool bold=false)

@@ -215,13 +215,13 @@ namespace HVAC_Pro_Desktop.UI
                 Panel row = new Panel { Width = rows.Width - (_inboxPageSize > 3 ? SystemInformation.VerticalScrollBarWidth : 0), Height = 62, BackColor = Color.White };
                 row.Location = new Point(0, i * 64);
                 DispatchIcon(row, ActionIcon(item), 0, 12);
-                Label priority = SoftText(row, item.Priority.ToString(), 36, 13, 68, 24, 8f, true);
+                Label priority = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(row, item.Priority.ToString(), 36, 13, 68, 24, 8f, true));
                 priority.Tag = "DISPATCH_PRESENTATION";
                 priority.ForeColor = PriorityColor(item);
                 priority.BackColor = Blend(PriorityColor(item), .93f);
-                SoftText(row, item.Title, 116, 1, row.Width - 256, 18, 8.8f, true);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(row, item.Title, 116, 1, row.Width - 256, 18, 8.8f, true));
                 SoftText(row, ActionContext(item), 116, 20, row.Width - 256, 16, 8.1f).ForeColor = DS.Slate500;
-                SoftText(row, item.PriorityReason, 116, 37, row.Width - 256, 16, 7.8f).ForeColor = PriorityColor(item);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(row, item.PriorityReason, 116, 37, row.Width - 256, 16, 7.8f)).ForeColor = PriorityColor(item);
                 Button action = SoftButton(row, item.SuggestedAction, row.Width - 130, 10, 130, () => { });
                 action.Click += async (s, e) => await OpenActionAsync(item, action);
                 rows.Controls.Add(row);
@@ -255,7 +255,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
                 var item = items[i]; int y = 72 + i * 37;
-                SoftText(card, item.Title, 18, y, width - 134, 20, 8.5f, true);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, item.Title, 18, y, width - 134, 20, 8.5f, true));
                 SoftText(card, FirstNonEmpty(item.ClientName, item.Reference) + " · " + (item.DueAt.HasValue ? item.DueAt.Value.ToString("dd/MM/yyyy") : "Waiting"), 18, y + 21, width - 134, 18, 8f).ForeColor = DS.Slate500;
                 Button action = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "Review", width - 98, y, 80, () => { }));
                 action.Click += async (s, e) => await OpenActionAsync(item, action);
@@ -320,7 +320,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < 3; i++)
             {
                 SoftText(card, values[i], 20 + i * column, 81, column - 20, 32, 17f, true).ForeColor = i == 0 ? SoftBlue : SoftInk;
-                SoftText(card, captions[i], 20 + i * column, 119, column - 20, 24, 9f).ForeColor = DS.Slate500;
+                global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftText(card, captions[i], 20 + i * column, 119, column - 20, 24, 9f)).ForeColor = DS.Slate500;
             }
             // These are different cohorts; do not present a misleading paid/pending percentage.
             if (DashboardCanView("Invoices")) global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SoftButton(card, "Receivables", width - 138, 12, 120, () => OnNavigate?.Invoke(3)));
@@ -341,7 +341,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < Math.Min(2, items.Count); i++)
             {
                 var item = items[i]; int left = 210 + i * ((width - 228) / 2);
-                Label label = SoftText(card, item.Module + " · " + item.Reference + " · " + item.PartyName, left, 23, (width - 252) / 2, 28, 8.5f);
+                Label label = SoftText(card, LanguageManager.Get(item.Module) + " · " + item.Reference + " · " + item.PartyName, left, 23, (width - 252) / 2, 28, 8.5f);
                 label.Cursor = Cursors.Hand; label.Click += (s, e) => OpenRecentActivityItem(item);
             }
             Preview(card, "Recent activity", "Most recent records from the modules you can view.", items.Select(i => i.Module + " · " + i.Reference + " · " + i.Status + "\n" + i.ActivityDate.ToString("dd/MM/yyyy hh:mm tt")));

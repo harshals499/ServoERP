@@ -632,7 +632,7 @@ namespace HVAC_Pro_Desktop.UI
             int x = 8;
             for (int i = 0; i < cols.Length; i++)
             {
-                header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = cols[i], Location = new Point(x, 10), Size = new Size(widths[i], 20), Font = DS.CaptionBold(), ForeColor = DS.Slate700 }));
+                header.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = cols[i], Location = new Point(x, 10), Size = new Size(widths[i], 20), Font = DS.CaptionBold(), ForeColor = DS.Slate700 }));
                 x += widths[i];
             }
             return header;
@@ -3059,7 +3059,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_lblStatus == null || _lblStatus.IsDisposed)
                 return;
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, msg);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, msg);
             _lblStatus.ForeColor = c;
         }
 
@@ -3095,9 +3095,9 @@ namespace HVAC_Pro_Desktop.UI
                 Tag = "CUSTOM_INPUT_SHELL"
             };
             foreach (string item in items ?? Enumerable.Empty<string>())
-                combo.Items.Add(item);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(combo, item);
             if (combo.Items.Count == 0)
-                combo.Items.Add(defaultText);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(combo, defaultText);
             combo.SelectedIndex = 0;
             return combo;
         }

@@ -1,41 +1,41 @@
 # ServoERP 1.1.532
 
-Release date: 08/11/2026 (unreleased candidate; not for distribution).
-Release status: INCOMPLETE
+Release date: 08/11/2026.
 
 ## User-facing summary
-Restore English / मराठी in Settings and expand Marathi across existing desktop workflows. Publication remains blocked by untranslated rendered UI; this candidate is not an app-wide Marathi release.
+Restore English / मराठी selection in Settings and Marathi presentation across ServoERP desktop workflows, while preserving business data and India-first formatting.
 
 ## Features and fixes
-- Persist the language per Windows user and restore it before login; retain English for users without a Marathi preference.
-- Ship 3604 Marathi .NET resource entries; replace 52 inherited TODO(mr) placeholders. Preserve resource format arguments and English fallback.
-- Localize registered dropdown choices by presentation without changing item objects; read canonical choices for business comparisons and saves. Preserve data-bearing names, identifiers, editable values and grid data.
-- Repair Marathi Settings tab routing, workspace title line-height clipping, invoice risk presentation and notification-detail templates. Expand custom/default import-validation messages and pagination captions.
-- Repair clean database initialization: move uniqueness checks after their tables exist; add the existing required nullable InvoiceLineItems.JobID column through the guarded additive migration.
+- Persist language per Windows user and restore it before login; preserve English for users without a Marathi preference.
+- Ship 3999 Marathi .NET resource entries, English fallback, formatted captions, validation and notification text, menus, grid headers, empty states and search hints.
+- Complete the previously identified 86 English captions and additional dashboard, payroll, contract, service, guide and backup captions discovered during native review.
+- Translate built-in dropdown presentation while retaining canonical item objects and saved values. Preserve custom lookup labels, customer names, identifiers and editable data.
+- Repair Settings routing, workspace title clipping, invoice risk display and clean database initialization ordering.
+- Translate invoice/job/report PDF body labels. Existing PDF headers remain unchanged.
 
 ## Affected modules
-Settings, login, navigation, invoices, reports, notifications, shared UI, master data, clients, suppliers, jobs, purchasing, inventory, payments, contracts, attendance, employees and payroll. Changes in these modules do not imply complete translated coverage.
+Settings, startup/login, navigation, clients, vendors, jobs, invoices, reports, purchasing, inventory, payments, contracts/AMC, employees, attendance, payroll, quotations, SLA, site monitoring, Service Desk, WhatsApp Hub shell, master data, PDF imports, user guide, backups and shared UI.
 
 ## Database or migration impact
-Guarded additive nullable InvoiceLineItems.JobID column; uniqueness guards run after table creation, retaining duplicate-check behavior. No drops, public renames, LicenseInfo structure changes, or new business policies. Tests wrote only to explicitly named disposable SQL databases, most recently ServoERP_MarathiQA_20261108_124537_91babf. Earlier QA databases are retained; no customer migration/save/reset experiment was performed.
+Guarded additive nullable InvoiceLineItems.JobID column; existing uniqueness guards now run after their tables are created. No table/column drops or renames, LicenseInfo changes or destructive data migration. Write-capable QA uses explicitly named disposable ServoERP_MarathiQA databases only.
 
 ## Configuration and dependency changes
-Per-user language file: %LOCALAPPDATA%/ServoERP/Preferences/language.txt. Include version-matched mr-IN and hi-IN satellite assemblies. No production dependency, downloaded language pack, new service, credential or paid service added. Roslyn review tools use existing Visual Studio tooling only. Devanagari uses the existing Nirmala UI font; icon/technical fonts are preserved.
+Per-user preference: %LOCALAPPDATA%/ServoERP/Preferences/language.txt. Include version-matched mr-IN and hi-IN satellite assemblies. No production package, downloaded language pack, new outbound service or credentials added. Existing Windows Nirmala UI renders Devanagari; icon and technical fonts remain intact. Review tooling uses existing Visual Studio Roslyn libraries.
 
 ## Compatibility or breaking changes
-No public API names, pricing, plan names, license endpoint/machine-ID logic, Fresh Start behavior or PDF header content changed. en-IN business formatting remains. Restart guidance ensures the selected language is restored consistently; practical controls update immediately. Canonical dropdown strings and IDs remain the values used by business operations.
+None. Public API names, licensing, pricing, plans, Fresh Start and PDF headers remain intact. en-IN date, currency and GST behavior remains. Apply controls immediately where supported; follow the Settings restart guidance to refresh every existing screen.
 
 ## Security impact
-No new outbound service or secret store. Language preference contains only the UI language. Technical exception details remain untranslated. The test suite verifies that finalized invoices remain protected and blocked edits leave stored subjects intact. No customer data was written during testing.
+No new outbound service or secret store. User-entered data, database values and technical logs remain intact. Finalized invoice edit protections and persisted subjects are checked in both languages. No customer database writes were performed.
 
 ## Deployment/update steps
-Do not distribute. Resolve the rendered-caption findings and remaining dynamic/custom/print/export/third-party coverage, repeat acceptance, then package with the existing scripts and pass all notes/artifact/publication guards. Include both satellite folders and version-matched notes. Public verified release remains 1.1.531; 1.1.532 is only a local candidate.
+Install the verified Velopack Setup or use the existing desktop updater. Preserve company configuration and database backups. Restart after choosing मराठी to refresh all existing screens. Deploy satellites and these version-matched notes with the EXE. Publish only after final workflow, visual, notes and artifact guards pass.
 
 ## Validation performed
-Release build succeeds and SOURCE_CODE/bin/Release/HVAC_Pro_Desktop.exe exists. Latest functional harness: 4,153 assertions, including 3604 resource-presence checks; this is not thousands of workflow tests. A new disposable database was asserted to have zero user tables, then initialized twice without priming. Existing end-to-end client/site/job/quotation/purchase/inventory/invoice/payment/report/import workflows passed in English and Marathi. Ten create/update/attendance/payment regression cases passed in each language, including draft edits and rejection of posted-invoice edits. Native captures cover login, navigation, all 14 Settings routes, confirmations, invoice/report previews and 13 further modules in both languages. Preference reload/fallback, data preservation, canonical choice reads, risk formatting, notification templates and embedded notes were checked. Expanded static audit: zero missing candidates, not exhaustive runtime coverage. Rendered linguistic audit fails: 86 resource-backed captions remain English. Additional English presentation strings require review. No distribution package or remote upload was produced.
+Release build and executable existence pass. The completed pre-final suite passed 4559 assertions, mostly resource and invariant assertions, not thousands of separate workflows. Fresh disposable databases started with zero user tables and initialized twice. Existing business E2E and ten create/update/payment/attendance regressions per language passed. Native captures cover login, Settings and 14 Settings routes, navigation, confirmation, invoice/report previews and 22 further module surfaces in both languages. Tests cover persistence/fallback, canonical choices, data preservation, notifications, dynamic controls and embedded notes. Final shipping evidence is recorded in the localization acceptance report. Four synthetic English/Marathi invoice and job-card PDFs were generated without normal startup; Marathi body glyphs were visually inspected. Cumulative last-50-tag ancestry and diff whitespace checks pass.
 
 ## Known limitations
-INCOMPLETE: 86 rendered resource-backed captions remain unbound to Marathi, and the broader captured-English worklist includes other missing templates and data requiring classification. Custom dashboards/tables, dynamic messages, deeper dialogs, print/export bodies and third-party controls need completion and review. Functional/native construction tests do not prove full linguistic coverage or exhaustive click-by-click acceptance. Normal Program entry was not launched because it shuts down other app instances; a separate STA harness used the actual Release assembly and suppressed updater/offline/backup startup in the preview shell. Direct computer-use tooling could not initialize, so captures and actions were performed by the native QA harness. Existing PDF headers remain unchanged under the Hard Stop; Windows-owned dialog buttons use Windows language. Packaging guard must continue rejecting this candidate. Artifact verification cannot pass without a package.
+Existing PDF headers are preserved under the approval restriction. Windows-owned dialogs/buttons and embedded external WhatsApp Web follow their own language settings. Customer-entered text, custom database lookup labels, business identifiers, technical abbreviations/logs and en-IN dates remain unchanged. Resource and rendered audits are conservative; native captures and service workflows do not prove every possible user state or click sequence. Normal Program entry was not invoked because it closes other app instances; a separate STA harness exercised the actual Release assembly while preserving the running user app. Some pre-existing Service Desk controls clip in both languages at the captured viewport. No claim of exhaustive linguistic certification is made.
 
 ## Rollback guidance
-Continue using verified 1.1.531. If a test candidate was manually installed, restore the prior complete verified package; retain additive schema for compatibility. Never automatically roll back business data. Older versions ignore the local UI-language preference. No customer database rollback is required for this QA run.
+Retain verified 1.1.531 and its full package. Restore the prior desktop package through the existing deployment process if necessary; preserve user configuration and business database. The additive nullable column can remain. Never automatically roll back customer data. Language can be switched back to English in Settings.

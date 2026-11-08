@@ -13,6 +13,7 @@ patterns.extend([
  r'\bCreate(?:Workspace|Sales)(?:Dashboard|Editor)\([^,\n]+,\s*"((?:[^"\\]|\\.)+)"',
  r'\bCreate(?:Workspace|Sales)(?:Dashboard|Editor)\([^,\n]+,\s*"(?:[^"\\]|\\.)+"\s*,\s*"((?:[^"\\]|\\.)+)"'
 ])
+patterns.extend([r'\.Columns\.Add\(\s*"[^"]+"\s*,\s*"([^"]+)"', r'new\s+(?:TabPage|ToolStripMenuItem|ToolStripButton|MenuItem)\(\s*"([^"]+)"'])
 rows=[]
 excluded=[]
 for folder in ['UI','Infrastructure','Validators','OfflineDesktop']:

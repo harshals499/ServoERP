@@ -26,11 +26,11 @@ namespace HVAC_Pro_Desktop.UI
                 Image = ModernIconSystem.IconBitmap(icon, 22, accent), SizeMode = PictureBoxSizeMode.CenterImage };
             metricIcon.Disposed += (s, e) => metricIcon.Image?.Dispose();
             card.Controls.Add(metricIcon);
-            var titleLabel = Text(title, 70, 11, 18, 8.2f, true, Ink);
+            var titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Text(title, 70, 11, 18, 8.2f, true, Ink));
             titleLabel.Name = "MetricTitle";
             value = Text(valueText, 70, 31, 27, 15f, true, accent);
             value.Name = "MetricValue";
-            sub = Text(subtitle, 70, 63, 17, 7.5f, false, DS.Slate500);
+            sub = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Text(subtitle, 70, 63, 17, 7.5f, false, DS.Slate500));
             sub.Name = "MetricSubtitle";
             card.Controls.Add(titleLabel); card.Controls.Add(value); card.Controls.Add(sub);
             Label valueLabel = value, subLabel = sub;
@@ -52,14 +52,14 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = Color.Transparent };
             headingIcon.Disposed += (s, e) => headingIcon.Image?.Dispose();
             card.Controls.Add(headingIcon);
-            var heading = Text(title, 38, 8, 24, 9.5f, true, Ink);
+            var heading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Text(title, 38, 8, 24, 9.5f, true, Ink));
             heading.Name = "CardHeading";
             heading.TextAlign = ContentAlignment.MiddleLeft;
             heading.Width = Math.Max(80, card.Width - 50 - actionWidth);
             card.Controls.Add(heading);
             if (!string.IsNullOrWhiteSpace(subtitle))
             {
-                var description = Text(subtitle, 12, 34, 20, 7.5f, false, DS.Slate500);
+                var description = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(Text(subtitle, 12, 34, 20, 7.5f, false, DS.Slate500));
                 description.Width = Math.Max(80, card.Width - 24 - actionWidth);
                 card.Controls.Add(description);
             }
@@ -67,7 +67,7 @@ namespace HVAC_Pro_Desktop.UI
 
         internal static Button Action(string text, int width, Color back, Color fore)
         {
-            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = width, Height = 30, BackColor = back,
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = text, Width = width, Height = 30, BackColor = back,
                 ForeColor = fore, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold),
                 Cursor = Cursors.Hand, UseVisualStyleBackColor = false, AutoEllipsis = true });
             button.FlatAppearance.BorderColor = Color.FromArgb(214, 222, 232);

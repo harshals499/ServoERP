@@ -53,7 +53,7 @@ namespace HVAC_Pro_Desktop.UI
             var result = buildPage(model);
             var page = result.Header;
             page.Name = (model.Name ?? "Page") + "PageHeading";
-            var breadcrumb = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Name = "WorkspaceBreadcrumb", Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace  ›  {0}", model.Title),
+            var breadcrumb = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Name = "WorkspaceBreadcrumb", Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Workspace  ›  {0}", global::HVAC_Pro_Desktop.Services.LanguageManager.Get(model.Title)),
                 Location = new Point(25, 8), Size = new Size(550, 19), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f),
                 ForeColor = Color.FromArgb(111, 123, 135), AutoEllipsis = true });
             if (!model.CompactUtility) page.Controls.Add(breadcrumb);

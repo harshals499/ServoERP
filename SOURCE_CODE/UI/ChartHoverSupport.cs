@@ -21,7 +21,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             string title = string.IsNullOrWhiteSpace(Title) ? "Chart value" : Title.Trim();
             string value = string.IsNullOrWhiteSpace(Value) ? "0" : Value.Trim();
-            string calculation = string.IsNullOrWhiteSpace(Calculation) ? string.Empty : "\n" + HVAC_Pro_Desktop.Services.LanguageManager.Get("Calculation:") + " " + HVAC_Pro_Desktop.Services.LanguageManager.Get(Calculation.Trim());
+            string calculation = string.IsNullOrWhiteSpace(Calculation) ? string.Empty : "\n" + HVAC_Pro_Desktop.Services.LanguageManager.Get("Calculation:") + " " + HVAC_Pro_Desktop.Services.LanguageManager.GetPresentationText(Calculation.Trim());
             return title + "\n" + HVAC_Pro_Desktop.Services.LanguageManager.Get("Exact value:") + " " + value + calculation;
         }
     }

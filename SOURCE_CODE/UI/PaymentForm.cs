@@ -528,7 +528,7 @@ namespace HVAC_Pro_Desktop.UI
             int x = 14;
             foreach (string tab in tabs)
             {
-                Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = tab, Location = new Point(x, 12), Size = new Size(tab == "All Transactions" ? 110 : 92, 26), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), ForeColor = tab == _overviewTab ? InfoBlue : PayMuted, Cursor = Cursors.Hand });
+                Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = tab, Location = new Point(x, 12), Size = new Size(tab == "All Transactions" ? 110 : 92, 26), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), ForeColor = tab == _overviewTab ? InfoBlue : PayMuted, Cursor = Cursors.Hand });
                 _overviewTabLabels.Add(label);
                 string captured = tab;
                 label.Click += (s, e) => { _overviewTab = captured; _overviewPage = 1; RefreshTransactionsTable(); };
@@ -682,7 +682,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 decimal amount = bucket.Rows.Sum(r => Math.Max(0m, r.Amount - r.PaidAmount));
                 decimal pct = Math.Round(amount * 100m / total, 1);
-                _agingTable.Controls.Add(MakePayCell(bucket.Label, false, PayText), 0, row);
+                _agingTable.Controls.Add(MakePayCell(LanguageManager.Get(bucket.Label), false, PayText), 0, row);
                 _agingTable.Controls.Add(MakePayCell(CompactCurrency(amount), false, PayText), 1, row);
                 _agingTable.Controls.Add(MakePercentBadge(pct), 2, row);
                 row++;
@@ -829,7 +829,7 @@ namespace HVAC_Pro_Desktop.UI
                 }
             };
             if (!string.IsNullOrWhiteSpace(title))
-                panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(14, 12), Size = new Size(230, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = PayText }));
+                panel.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, Location = new Point(14, 12), Size = new Size(230, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = PayText }));
             AttachPaymentDashboardResize(panel);
             return panel;
         }
@@ -891,15 +891,15 @@ namespace HVAC_Pro_Desktop.UI
             Label badge = new Label { Location = new Point(14, 18), Size = new Size(40, 40), BackColor = DS.Lighten(accent, 0.84f), Image = ModernIconSystem.IconBitmap(icon, 20, accent), ImageAlign = ContentAlignment.MiddleCenter };
             DS.Rounded(badge, 12);
             card.Controls.Add(badge);
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(68, 13), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = PayMuted, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Location = new Point(68, 13), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = PayMuted, AutoEllipsis = true }));
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, Location = new Point(68, 32), Size = new Size(130, 25), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = PayText, AutoEllipsis = true }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = trend, Location = new Point(68, 60), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = trend.StartsWith("↓") ? PayRed : SaveGreen, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = trend, Location = new Point(68, 60), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = trend.StartsWith("↓") ? PayRed : SaveGreen, AutoEllipsis = true }));
             return card;
         }
 
         private Label MakePayHeaderButton(string text, int width, Color fore)
         {
-            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Size = new Size(width, 32), BackColor = Color.White, ForeColor = fore, BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, AutoEllipsis = true });
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, Size = new Size(width, 32), BackColor = Color.White, ForeColor = fore, BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, AutoEllipsis = true });
         }
 
         private Label MakePayIcon(string text, Color back, Color fore)
@@ -911,7 +911,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakePayButton(string text, Color back, int width)
         {
-            Button b = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = width, Height = 32, BackColor = back, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.3f, FontStyle.Bold), UseVisualStyleBackColor = false });
+            Button b = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = text, Width = width, Height = 32, BackColor = back, ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.3f, FontStyle.Bold), UseVisualStyleBackColor = false });
             b.FlatAppearance.BorderSize = 0;
             DS.Rounded(b, 7);
             return b;
@@ -937,7 +937,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label MakePayCell(string text, bool header, Color fore)
         {
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Dock = DockStyle.Fill, BackColor = header ? Color.FromArgb(248, 250, 252) : Color.White, ForeColor = fore, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), header ? 7.5f : 7.3f, header ? FontStyle.Bold : FontStyle.Regular), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(5, 0, 2, 0), AutoEllipsis = true });
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.TableCell(new Label { Text = text, Dock = DockStyle.Fill, BackColor = header ? Color.FromArgb(248, 250, 252) : Color.White, ForeColor = fore, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), header ? 7.5f : 7.3f, header ? FontStyle.Bold : FontStyle.Regular), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(5, 0, 2, 0), AutoEllipsis = true },header);
             label.Paint += (s, e) => { using (Pen pen = new Pen(Color.FromArgb(241, 245, 249))) e.Graphics.DrawLine(pen, 0, label.Height - 1, label.Width, label.Height - 1); };
             return label;
         }
@@ -957,7 +957,7 @@ namespace HVAC_Pro_Desktop.UI
         private Control MakePill(string text, Color color)
         {
             Panel host = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(4, 6, 4, 6) };
-            Label pill = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Width = 86, Height = 21, BackColor = DS.Lighten(color, 0.84f), ForeColor = color, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 6.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true });
+            Label pill = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, Width = 86, Height = 21, BackColor = DS.Lighten(color, 0.84f), ForeColor = color, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 6.8f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter, AutoEllipsis = true });
             DS.Rounded(pill, 10);
             host.Controls.Add(pill);
             return host;
@@ -973,7 +973,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel row = new Panel { Width = 210, Height = 30, BackColor = Color.White, Margin = new Padding(0, 0, 0, 5) };
             row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "■", Location = new Point(0, 5), Size = new Size(18, 18), ForeColor = color, TextAlign = ContentAlignment.MiddleCenter }));
-            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = method, Location = new Point(20, 4), Size = new Size(78, 18), ForeColor = PayText, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.6f, FontStyle.Bold), AutoEllipsis = true }));
+            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = method, Location = new Point(20, 4), Size = new Size(78, 18), ForeColor = PayText, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.6f, FontStyle.Bold), AutoEllipsis = true }));
             Panel barBg = new Panel { Location = new Point(100, 11), Size = new Size(52, 5), BackColor = Color.FromArgb(226, 232, 240) };
             Panel bar = new Panel { Location = new Point(0, 0), Size = new Size((int)Math.Max(2, Math.Min(52, pct * 52m / 100m)), 5), BackColor = color };
             barBg.Controls.Add(bar);
@@ -999,7 +999,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel row = new Panel { Width = 244, Height = 28, BackColor = Color.White, Margin = new Padding(0, 0, 0, 6) };
             row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = icon, Location = new Point(0, 4), Size = new Size(18, 18), ForeColor = color, TextAlign = ContentAlignment.MiddleCenter }));
-            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(22, 3), Size = new Size(210, 20), ForeColor = PayText, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), AutoEllipsis = true }));
+            row.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, Location = new Point(22, 3), Size = new Size(210, 20), ForeColor = PayText, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), AutoEllipsis = true }));
             return row;
         }
 
@@ -1692,7 +1692,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label SummaryLine(Panel parent, string label, string value, int y, Color valueColor, bool emphasize)
         {
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(16, y), Width = 120, Height = 18 }));
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Font = DS.Small, ForeColor = DS.Slate600, Location = new Point(16, y), Width = 120, Height = 18 }));
             Label amount = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
                 Text = value,
@@ -2375,7 +2375,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         private GroupBox MakeGroup(string title) =>
-            global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new ModernPaymentGroupBox { Text = title, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.25f, FontStyle.Bold), ForeColor = InfoBlue, BackColor = DS.White, Padding = new Padding(10) });
+global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new ModernPaymentGroupBox { Text = title, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.25f, FontStyle.Bold), ForeColor = InfoBlue, BackColor = DS.White, Padding = new Padding(10) });
 
         private Label InfoLabel(GroupBox parent, string text, int x, int y, Color? color = null, bool bold = false)
         {
@@ -2388,7 +2388,7 @@ namespace HVAC_Pro_Desktop.UI
         }
 
         private void AddLabel(GroupBox parent, string text, int x, int y) =>
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, AutoSize = true, Location = new Point(x, y), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8, FontStyle.Bold), ForeColor = Color.FromArgb(80, 80, 80) }));
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, AutoSize = true, Location = new Point(x, y), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8, FontStyle.Bold), ForeColor = Color.FromArgb(80, 80, 80) }));
 
         private sealed class ModernPaymentGroupBox : GroupBox
         {
@@ -2458,7 +2458,7 @@ namespace HVAC_Pro_Desktop.UI
         private void AddFieldLabel(Control parent, string text, int x, int y)
         {
             bool required = (text ?? string.Empty).Contains("*");
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = text,
                 AutoSize = false,

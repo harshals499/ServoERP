@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -49,9 +49,19 @@ namespace HVAC_Pro_Desktop.Services
             if (combo == null)
                 return;
 
-            string previous = !string.IsNullOrWhiteSpace(preferredValue) ? preferredValue : combo.Text;
+            string previous = !string.IsNullOrWhiteSpace(preferredValue) ? preferredValue : LanguageManager.ReadChoiceText(combo);
             combo.Items.Clear();
-            combo.Items.AddRange(GetDisplayValues(categoryKey, (fallbackValues ?? new string[0]).ToArray()).Cast<object>().ToArray());
+            // Only untouched built-in choices are presentation resources. Custom SQL labels
+            // retain their exact text; every item and stored business value stays canonical.
+            string[] defaults = (fallbackValues ?? new string[0]).ToArray();
+            var records = GetValues(categoryKey).Where(v => !string.IsNullOrWhiteSpace(v.DisplayText)).ToList();
+            foreach (string value in GetDisplayValues(categoryKey, defaults))
+            {
+                bool builtIn = defaults.Contains(value, StringComparer.Ordinal)
+                    && (records.Count == 0 || records.Any(v => v.IsSystem && string.Equals(v.DisplayText.Trim(), value, StringComparison.Ordinal)));
+                if (builtIn) LanguageManager.AddChoice(combo, value);
+                else combo.Items.Add(value);
+            }
 
             if (!string.IsNullOrWhiteSpace(previous))
                 SelectComboValue(combo, previous);

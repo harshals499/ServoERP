@@ -302,7 +302,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _chatHost.SuspendLayout();
             _chatHost.Controls.Clear();
-            Label loading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label loading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Dock = DockStyle.Fill,
                 Text = text,
@@ -1103,7 +1103,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel item = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent, Cursor = Cursors.Hand };
             Label icon = ModernIconSystem.Badge(iconKind, 38, DS.Green50, WhatsAppGreen, 10);
             icon.Location = new Point(10, 2);
-            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.TopCenter, Font = DS.Caption, ForeColor = DS.Slate800, Location = new Point(0, 46), Size = new Size(58, 28) });
+            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.TopCenter, Font = DS.Caption, ForeColor = DS.Slate800, Location = new Point(0, 46), Size = new Size(58, 28) });
             item.Controls.Add(icon);
             item.Controls.Add(text);
             item.Click += (s, e) => SelectTemplateFromButton(title);
@@ -1157,7 +1157,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel item = new Panel { Dock = DockStyle.Fill, BackColor = Color.Transparent };
             Label icon = ModernIconSystem.Badge(kind, 28, DS.Primary50, DS.Primary600, 8);
             icon.Location = new Point(24, 0);
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 30), Size = new Size(76, 16), Font = DS.Caption, ForeColor = DS.Slate600 });
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 30), Size = new Size(76, 16), Font = DS.Caption, ForeColor = DS.Slate600 });
             Label count = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value.ToString(), AutoSize = false, TextAlign = ContentAlignment.MiddleCenter, Location = new Point(0, 46), Size = new Size(76, 16), Font = DS.SmallBold, ForeColor = DS.Slate900 });
             item.Controls.Add(icon);
             item.Controls.Add(label);
@@ -1171,7 +1171,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Width = Math.Max(300, _detailHost.ClientSize.Width - 6);
             card.Height = height;
             card.Margin = new Padding(0, 0, 0, 12);
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(16, 18) });
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, AutoSize = true, Font = DS.H3, ForeColor = DS.Slate900, Location = new Point(16, 18) });
             card.Controls.Add(label);
             return card;
         }
@@ -1240,7 +1240,7 @@ namespace HVAC_Pro_Desktop.UI
         private Button TabButton(string text)
         {
             int width = text == "All" ? 46 : text == "Unread" ? 64 : text == "Clients" ? 58 : text == "Vendors" ? 66 : 50;
-            Button button = DS.GhostBtn(text, width, 30);
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DS.GhostBtn(text, width, 30));
             button.Dock = DockStyle.Fill;
             button.Tag = text;
             button.Margin = new Padding(0, 0, 4, 6);

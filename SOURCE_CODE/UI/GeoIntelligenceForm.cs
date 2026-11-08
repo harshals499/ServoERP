@@ -357,7 +357,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = TextPrimary,
                 AutoEllipsis = true
             });
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Dock = DockStyle.Top,
@@ -366,7 +366,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = TextPrimary,
                 AutoEllipsis = true
             });
-            Label small = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label small = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = sub,
                 Dock = DockStyle.Fill,
@@ -432,7 +432,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Margin = new Padding(0, 0, 12, 12);
             card.Padding = new Padding(16, 46, 16, 14);
             AttachSiteMonitorDrilldown(card, detailKey);
-            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Name = "SiteMonitorCardHeading",
                 Text = title,
@@ -552,7 +552,7 @@ namespace HVAC_Pro_Desktop.UI
                 BorderStyle = BorderStyle.FixedSingle,
                 Margin = Padding.Empty
             };
-            _txtSiteRegionSearch.HandleCreated += (s, e) => SendMessage(_txtSiteRegionSearch.Handle, EmSetCueBanner, new IntPtr(1), "Search site, client, work or technician");
+            _txtSiteRegionSearch.HandleCreated += (s, e) => SendMessage(_txtSiteRegionSearch.Handle, EmSetCueBanner, new IntPtr(1), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search site, client, work or technician"));
             _txtSiteRegionSearch.TextChanged += (s, e) => ApplySiteRegionFilters();
             searchHost.Controls.Add(searchLabel, 0, 0);
             searchHost.Controls.Add(_txtSiteRegionSearch, 1, 0);
@@ -721,7 +721,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label AddRevenueRow(TableLayoutPanel table, int row, string label)
         {
-            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.4f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true });
+            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.4f, FontStyle.Bold), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Rs 0", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.4f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true });
             table.Controls.Add(name, 0, row);
             table.Controls.Add(value, 1, row);
@@ -730,7 +730,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label AddMiniStat(TableLayoutPanel table, int row, string label, Color color)
         {
-            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft });
+            Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleLeft });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.2f, FontStyle.Bold), ForeColor = color, TextAlign = ContentAlignment.MiddleRight });
             table.Controls.Add(name, 0, row);
             table.Controls.Add(value, 1, row);
@@ -1064,9 +1064,9 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter
             });
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(64, 13), Size = new Size(154, 34), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.4f, FontStyle.Bold), ForeColor = TextSecondary, AutoEllipsis = true });
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, Location = new Point(64, 13), Size = new Size(154, 34), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.4f, FontStyle.Bold), ForeColor = TextSecondary, AutoEllipsis = true });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", Location = new Point(64, 42), Size = new Size(120, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true });
-            Label small = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = sub, Location = new Point(64, 66), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = TextSecondary, AutoEllipsis = true });
+            Label small = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = sub, Location = new Point(64, 66), Size = new Size(130, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f), ForeColor = TextSecondary, AutoEllipsis = true });
             _toolTip.SetToolTip(card, title + " " + sub);
             card.Controls.AddRange(new Control[] { iconLabel, label, value, small });
             card.Resize += (s, e) =>
@@ -1234,7 +1234,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddQueueTab(FlowLayoutPanel tabs, string text)
         {
-            Button tab = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
+            Button tab = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = text,
                 Width = text == "All" ? 76 : text == "AMC" ? 84 : text == "Emergency" ? 118 : 112,
@@ -1825,7 +1825,7 @@ namespace HVAC_Pro_Desktop.UI
                 global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSiteRegion, "All regions");
                 foreach (string region in _siteMonitorRows.Select(site => First(site.Region, "Unspecified")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(region => region))
                     _cmbSiteRegion.Items.Add(region);
-                int selectedIndex = _cmbSiteRegion.FindStringExact(selectedRegion);
+                int selectedIndex = global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(_cmbSiteRegion, selectedRegion);
                 _cmbSiteRegion.SelectedIndex = selectedIndex >= 0 ? selectedIndex : 0;
             }
             finally
@@ -2003,7 +2003,7 @@ namespace HVAC_Pro_Desktop.UI
             int top = row * 34;
             Label dot = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "●", Location = new Point(2, top), Size = new Size(22, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f, FontStyle.Bold), ForeColor = color, TextAlign = ContentAlignment.MiddleCenter });
             int pct = total <= 0 ? 0 : (int)Math.Round(count * 100m / total);
-            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(28, top + 2), Size = new Size(128, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = TextPrimary, AutoEllipsis = true });
+            Label text = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Location = new Point(28, top + 2), Size = new Size(128, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = TextPrimary, AutoEllipsis = true });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = count.ToString("N0") + " (" + pct + "%)", Location = new Point(160, top + 2), Size = new Size(86, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleRight });
             legend.Controls.Add(dot);
             legend.Controls.Add(text);
@@ -2018,7 +2018,7 @@ namespace HVAC_Pro_Desktop.UI
             badge.Dock = DockStyle.Left;
             badge.Width = 42;
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = count.ToString("N0"), Dock = DockStyle.Top, Height = 24, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true });
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f), ForeColor = TextPrimary, AutoEllipsis = true });
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f), ForeColor = TextPrimary, AutoEllipsis = true });
             Panel text = new Panel { Dock = DockStyle.Fill, BackColor = tile.BackColor, Padding = new Padding(8, 0, 0, 0) };
             text.Controls.Add(label);
             text.Controls.Add(value);
@@ -2217,8 +2217,8 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush b = new SolidBrush(Lighten(Primary, 0.84f))) e.Graphics.FillEllipse(b, 20, 18, 42, 42);
                 using (Brush b = new SolidBrush(Primary)) e.Graphics.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("?"), new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold), b, 34, 24);
             };
-            var titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(76, 24), Size = new Size(empty.Width - 96, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true });
-            var subtitleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subtitle, Location = new Point(76, 50), Size = new Size(empty.Width - 96, 42), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = TextSecondary, AutoEllipsis = true });
+            var titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title, Location = new Point(76, 24), Size = new Size(empty.Width - 96, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true });
+            var subtitleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = subtitle, Location = new Point(76, 50), Size = new Size(empty.Width - 96, 42), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = TextSecondary, AutoEllipsis = true });
             empty.Controls.Add(titleLabel);
             empty.Controls.Add(subtitleLabel);
             Button clear = null;
@@ -2659,7 +2659,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label SectionTitle(string text)
         {
-            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Height = 28, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true });
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, Height = 28, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.5f, FontStyle.Bold), ForeColor = TextPrimary, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true });
         }
 
         private Button MakePrimaryButton(string text, int width)
@@ -2673,7 +2673,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeToolbarButton(string text, int width)
         {
-            Button b = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button { Text = text, Width = width, Height = 36, BackColor = White, ForeColor = TextPrimary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0), AutoEllipsis = true });
+            Button b = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = text, Width = width, Height = 36, BackColor = White, ForeColor = TextPrimary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand, Margin = new Padding(0, 0, 8, 0), AutoEllipsis = true });
             b.FlatAppearance.BorderColor = Border;
             b.FlatAppearance.BorderSize = 1;
             UIHelper.ApplyActionButton(b);

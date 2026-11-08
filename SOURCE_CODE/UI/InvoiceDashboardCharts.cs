@@ -152,7 +152,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     using (SolidBrush swatch = new SolidBrush(bucket.Color))
                         e.Graphics.FillRectangle(swatch, donut.Right + 22, y + 5, 8, 8);
-                    e.Graphics.DrawString(bucket.Label + "  " + bucket.Count, legendFont, muted, donut.Right + 36, y);
+                    e.Graphics.DrawString(LanguageManager.Get(bucket.Label) + "  " + bucket.Count, legendFont, muted, donut.Right + 36, y);
                     y += 22;
                 }
             }

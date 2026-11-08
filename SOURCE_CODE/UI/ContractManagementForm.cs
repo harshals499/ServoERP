@@ -616,7 +616,7 @@ namespace HVAC_Pro_Desktop.UI
             int y = 94;
             foreach (string tab in tabs)
             {
-                Button tabButton = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
+                Button tabButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
                 {
                     Text = tab,
                     Tag = tab,
@@ -976,7 +976,7 @@ namespace HVAC_Pro_Desktop.UI
                 AMCContract contract = page[row];
                 _recentTable.Controls.Add(MakeCell(ContractName(contract), false, ContentAlignment.MiddleLeft), 0, row + 1);
                 _recentTable.Controls.Add(MakeCell(GetClientName(contract.ClientID), false, ContentAlignment.MiddleLeft), 1, row + 1);
-                _recentTable.Controls.Add(MakeCell(NormalizeContractType(contract.ContractType), false, ContentAlignment.MiddleLeft), 2, row + 1);
+                _recentTable.Controls.Add(MakeCell(LanguageManager.Get(NormalizeContractType(contract.ContractType)), false, ContentAlignment.MiddleLeft), 2, row + 1);
                 _recentTable.Controls.Add(MakeStatusPill(GetDisplayStatus(contract)), 3, row + 1);
                 _recentTable.Controls.Add(MakeCell(FormatDate(contract.StartDate), false, ContentAlignment.MiddleLeft), 4, row + 1);
                 _recentTable.Controls.Add(MakeCell(FormatDate(contract.EndDate), false, ContentAlignment.MiddleLeft), 5, row + 1);
@@ -1506,9 +1506,9 @@ namespace HVAC_Pro_Desktop.UI
             Label icon = new Label { Dock = DockStyle.Fill, Image = ModernIconSystem.IconBitmap(iconKind, 30, accent), ImageAlign = ContentAlignment.MiddleCenter };
             badge.Controls.Add(icon);
             card.Controls.Add(badge);
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(92, 18), Size = new Size(160, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = Ink }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Location = new Point(92, 18), Size = new Size(160, 22), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = Ink }));
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = number, Location = new Point(92, 42), Size = new Size(160, 30), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18f, FontStyle.Bold), ForeColor = Ink }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = sub, Location = new Point(92, 74), Size = new Size(160, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = accent }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = sub, Location = new Point(92, 74), Size = new Size(160, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = accent }));
             return card;
         }
 
@@ -1547,7 +1547,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Button MakeButton(string text, Color bg, int width)
         {
-            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
+            Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = text,
                 Width = width,
@@ -1569,7 +1569,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label MakeCell(string text, bool header, ContentAlignment align)
         {
-            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label label = global::HVAC_Pro_Desktop.Services.LanguageManager.TableCell(new Label
             {
                 Text = text,
                 Dock = DockStyle.Fill,
@@ -1579,7 +1579,7 @@ namespace HVAC_Pro_Desktop.UI
                 AutoEllipsis = true,
                 Padding = new Padding(8, 0, 4, 0),
                 BackColor = header ? Color.FromArgb(248, 250, 252) : Color.White
-            });
+            },header);
             label.Paint += (s, e) =>
             {
                 using (Pen pen = new Pen(Color.FromArgb(241, 245, 249)))
@@ -1594,7 +1594,7 @@ namespace HVAC_Pro_Desktop.UI
             string displayStatus = cleanStatus.StartsWith("Expiring", StringComparison.OrdinalIgnoreCase) ? "Expiring" : cleanStatus;
             int measuredWidth = TextRenderer.MeasureText(displayStatus, new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold)).Width + 26;
             int pillWidth = Math.Min(150, Math.Max(76, measuredWidth));
-            Label pill = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label pill = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = displayStatus,
                 AutoSize = false,
@@ -1764,7 +1764,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void AddLabel(Control parent, string text, int x, int y)
         {
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = text, Location = new Point(x, y), Size = new Size(180, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(51, 65, 85) }));
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = text, Location = new Point(x, y), Size = new Size(180, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Color.FromArgb(51, 65, 85) }));
         }
 
         private ComboBox MakeCombo(Control parent, int x, int y, int width)
@@ -1783,7 +1783,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label AddSummaryLine(Control parent, string label, int y)
         {
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(18, y), Size = new Size(100, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = Muted }));
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = label, Location = new Point(18, y), Size = new Size(100, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = Muted }));
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "-", Location = new Point(112, y), Size = new Size(118, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = Ink, TextAlign = ContentAlignment.MiddleRight, AutoEllipsis = true });
             parent.Controls.Add(value);
             return value;
@@ -1896,10 +1896,10 @@ namespace HVAC_Pro_Desktop.UI
 
             int days = (contract.EndDate.Date - DateTime.Today).Days;
             if (days < 0)
-                return Math.Abs(days).ToString(CultureInfo.InvariantCulture) + " days overdue";
+                return LanguageManager.Format("{0} days overdue", Math.Abs(days).ToString(CultureInfo.InvariantCulture));
             if (days == 0)
                 return "Due today";
-            return days.ToString(CultureInfo.InvariantCulture) + " days left";
+            return LanguageManager.Format("{0} days left", days.ToString(CultureInfo.InvariantCulture));
         }
 
         private static Color GetRenewalColor(AMCContract contract)
@@ -1967,7 +1967,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SetStatus(string message, Color color)
         {
             if (_statusLabel == null) return;
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_statusLabel, message);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_statusLabel, message);
             _statusLabel.ForeColor = color;
         }
 

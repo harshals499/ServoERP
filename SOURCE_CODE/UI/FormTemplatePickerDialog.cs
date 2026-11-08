@@ -190,7 +190,7 @@ namespace HVAC_Pro_Desktop.UI
             global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTrade, "All trades");
             foreach (string trade in _templates.Select(t => t.Trade).Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().OrderBy(t => t))
                 _cmbTrade.Items.Add(trade);
-            int tradeIndex = string.IsNullOrWhiteSpace(_tradeHint) ? -1 : _cmbTrade.FindStringExact(_tradeHint);
+            int tradeIndex = string.IsNullOrWhiteSpace(_tradeHint) ? -1 : global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(_cmbTrade, _tradeHint);
             _cmbTrade.SelectedIndex = tradeIndex > 0 ? tradeIndex : 0;
             ApplyFilters();
         }

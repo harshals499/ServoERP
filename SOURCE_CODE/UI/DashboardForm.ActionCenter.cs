@@ -259,7 +259,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = color,
                 TextAlign = ContentAlignment.MiddleCenter
             }));
-            metric.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            metric.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = label,
                 Location = new Point(8, 40),
@@ -294,7 +294,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold),
                 ForeColor = PriorityColor(item)
             }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = item.Title,
                 Location = new Point(78, 36),
@@ -312,7 +312,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700,
                 AutoEllipsis = true
             }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = item.PriorityReason,
                 Location = new Point(78, 92),
@@ -321,7 +321,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = PriorityColor(item),
                 AutoEllipsis = true
             }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = DueText(item),
                 Location = new Point(78, 116),
@@ -381,7 +381,7 @@ namespace HVAC_Pro_Desktop.UI
         private static Label FilterChip(string text, int x, int y, bool selected)
         {
             int width = Math.Max(54, TextRenderer.MeasureText(text, new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold)).Width + 22);
-            var chip = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            var chip = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = text,
                 Location = new Point(x, y),
@@ -417,7 +417,7 @@ namespace HVAC_Pro_Desktop.UI
             icon.Location = new Point(16, 14);
             card.Controls.Add(icon);
 
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Location = new Point(60, 13),
@@ -426,7 +426,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate900,
                 UseMnemonic = false
             }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = subtitle,
                 Location = new Point(60, 35),
@@ -487,7 +487,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel priority = new Panel { Location = new Point(0, 0), Size = new Size(4, 68), BackColor = PriorityColor(item) };
             Label icon = ModernIconSystem.Badge(ActionIcon(item), 28, Blend(PriorityColor(item), 0.91f), PriorityColor(item), 8);
             icon.Location = new Point(12, 20);
-            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = item.Title,
                 Location = new Point(50, 7),
@@ -505,7 +505,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = DS.Slate700,
                 AutoEllipsis = true
             });
-            Label reason = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label reason = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = item.PriorityReason,
                 Location = new Point(50, 45),

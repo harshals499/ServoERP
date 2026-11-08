@@ -171,7 +171,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Size = new Size(210, 86);
             card.Margin = new Padding(0, 0, 14, 0);
             card.Cursor = Cursors.Hand;
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Location = new Point(18, 14),
@@ -402,7 +402,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f)
             };
             foreach (string item in items)
-                combo.Items.Add(item);
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(combo, item);
             combo.SelectedIndex = 0;
             return combo;
         }
@@ -744,7 +744,7 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
 
         private void AddHeaderCell(Panel parent, string text, int column)
         {
-            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            parent.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = text,
                 TextAlign = ContentAlignment.MiddleLeft,
@@ -929,7 +929,7 @@ ORDER BY c.EndDate ASC, c.ContractID DESC;", connection))
         /// <summary>Creates a shared styled button.</summary>
         private Button MakeButton(string text, Color back, int width)
         {
-            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
+            var button = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
             {
                 Text = text,
                 Width = width,

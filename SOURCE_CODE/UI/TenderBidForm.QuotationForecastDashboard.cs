@@ -238,9 +238,9 @@ namespace HVAC_Pro_Desktop.UI
             SetKpi("pipeline", CompactCurrency(snapshot.Kpis.RevenuePipeline.Value), snapshot.Kpis.TotalQuotations.Value.ToString("0") + " quotations in period");
             SetKpi("weighted", CompactCurrency(snapshot.Kpis.WeightedPipeline.Value), "Based on stage probability");
             SetKpi("winrate", snapshot.Kpis.WinRate.Value.ToString("0.#") + "%", "Won vs. closed quotations");
-            SetKpi("cycle", snapshot.Kpis.AverageSalesCycle.Value.ToString("0.#") + " days", "From first quote to closure");
+            SetKpi("cycle", LanguageManager.Format("{0} days", snapshot.Kpis.AverageSalesCycle.Value.ToString("0.#")), "From first quote to closure");
             List<QuotationActionItem> expiring = snapshot.ActionItems.Where(a => a.Category == "Expiring").GroupBy(a => a.BidId).Select(g => g.First()).ToList();
-            SetKpi("expiring", expiring.Count.ToString(), CompactCurrency(expiring.Sum(a => a.Value)) + " at risk");
+            SetKpi("expiring", expiring.Count.ToString(), LanguageManager.Format("{0} at risk", CompactCurrency(expiring.Sum(a => a.Value))));
             _forecastChart.SetData(snapshot.ValueTrend); _forecastFunnel.SetData(snapshot.Funnel);
             BindForecastFollowUps(); BindForecastInsights(snapshot); BindForecastRows();
         }
@@ -248,7 +248,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SetKpi(string key, string value, string subtitle)
         {
             Label label; if (_forecastKpiValues.TryGetValue(key, out label)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(label, value);
-            if (_forecastKpiSubtitles.TryGetValue(key, out label)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(label, subtitle);
+            if (_forecastKpiSubtitles.TryGetValue(key, out label)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(label, subtitle);
         }
 
         private void BindForecastFollowUps()
@@ -289,7 +289,7 @@ namespace HVAC_Pro_Desktop.UI
             int atRisk = snapshot.ActionItems.Where(a => a.Category == "Overdue" || a.Category == "Expiring").Select(a => a.BidId).Distinct().Count();
             decimal awaiting = snapshot.ActionItems.Where(a => a.Category == "Overdue").GroupBy(a => a.BidId).Sum(g => g.First().Value);
             _forecastInsights.Controls.Add(InsightTile(CompactCurrency(snapshot.Kpis.ExpectedRevenue.Value), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("likely in 30 days"), SaveGreen, Color.FromArgb(238, 250, 246)));
-            _forecastInsights.Controls.Add(InsightTile(atRisk + " deals", global::HVAC_Pro_Desktop.Services.LanguageManager.Get("need attention"), WarnOrange, Color.FromArgb(255, 248, 235)));
+            _forecastInsights.Controls.Add(InsightTile(LanguageManager.Format("{0} deals", atRisk), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("need attention"), WarnOrange, Color.FromArgb(255, 248, 235)));
             _forecastInsights.Controls.Add(InsightTile(CompactCurrency(awaiting), global::HVAC_Pro_Desktop.Services.LanguageManager.Get("awaiting follow-up"), InfoBlue, Color.FromArgb(238, 245, 255)));
             ResizeInsightTiles();
             decimal confidence = snapshot.Kpis.RevenuePipeline.Value <= 0m ? 0m : Math.Min(100m, snapshot.Kpis.WeightedPipeline.Value * 100m / snapshot.Kpis.RevenuePipeline.Value);
@@ -300,7 +300,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             var tile = new Panel { Height = 66, BackColor = back, Margin = new Padding(0, 0, 7, 0), Padding = new Padding(9, 8, 7, 5) };
             tile.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, Dock = DockStyle.Top, Height = 27, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true }));
-            tile.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = caption, Dock = DockStyle.Bottom, Height = 21, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), ForeColor = QuoteMuted, AutoEllipsis = true }));
+            tile.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = caption, Dock = DockStyle.Bottom, Height = 21, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), ForeColor = QuoteMuted, AutoEllipsis = true }));
             return tile;
         }
 
@@ -325,7 +325,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (QuotationRecentRow row in result)
             {
                 DateTime close = row.FollowUpDate ?? row.ValidTill; int age = Math.Max(0, (today - row.QuotationDate.Date).Days);
-                _forecastGrid.Rows.Add(row.BidId, row.QuotationNumber, row.ClientName + " / " + row.SiteName, IndiaFormatHelper.FormatCurrency(row.Value), DisplayStage(row.Status), Probability(row.Status) + "%", IndiaFormatHelper.FormatDate(close), age + " days", row.OwnerName, NextAction(row, today), "•••");
+                _forecastGrid.Rows.Add(row.BidId, row.QuotationNumber, row.ClientName + " / " + row.SiteName, IndiaFormatHelper.FormatCurrency(row.Value), DisplayStage(row.Status), Probability(row.Status) + "%", IndiaFormatHelper.FormatDate(close), LanguageManager.Format("{0} days", age), row.OwnerName, NextAction(row, today), "•••");
             }
             global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_forecastRowCount, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} shown", result.Count));
         }
@@ -368,8 +368,18 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ForecastGridFormatting(object sender, DataGridViewCellFormattingEventArgs e)
         {
-            if (e.RowIndex < 0 || _forecastGrid.Columns[e.ColumnIndex].Name != "Stage") return;
-            e.CellStyle.ForeColor = StageColor(Convert.ToString(e.Value)); e.CellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+            if (e.RowIndex < 0) return;
+            string column = _forecastGrid.Columns[e.ColumnIndex].Name;
+            if (column == "Stage")
+            {
+                e.CellStyle.ForeColor = StageColor(Convert.ToString(e.Value));
+                e.CellStyle.Font = new Font(LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+            }
+            if (column == "Stage" || column == "NextAction")
+            {
+                e.Value = LanguageManager.Get(Convert.ToString(e.Value));
+                e.FormattingApplied = true;
+            }
         }
 
         private Control ForecastSection(string title, Control body, ModernIconKind icon, Color accent, int rightMargin)

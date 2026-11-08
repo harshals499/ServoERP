@@ -545,7 +545,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel cell = new Panel { Dock = DockStyle.Fill, BackColor = Color.White, Padding = new Padding(16, 12, 12, 8), Margin = Padding.Empty };
             Label icon = ModernIconSystem.Badge(iconKind, 34, iconBackColor, iconColor, 17);
             icon.Location = new Point(16, 20);
-            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Location = new Point(58, 14),
@@ -2491,7 +2491,7 @@ namespace HVAC_Pro_Desktop.UI
             SetDatePicker(_dtpProbationEnd, _currentEmployee.ProbationEndDate);
             SetDatePicker(_dtpConfirmation, _currentEmployee.ConfirmationDate);
             SetDatePicker(_dtpLastWorkingDay, _currentEmployee.LastWorkingDay);
-            _cmbEmployeeStatus.Text = _currentEmployee.Status ?? string.Empty;
+            _cmbEmployeeStatus.SelectedItem = _currentEmployee.Status ?? string.Empty;
             _chkIsRehire.Checked = _currentEmployee.IsRehire;
             _picPhoto.Image = ToImage(_currentPhoto);
             if (_btnWhatsapp != null)
@@ -2558,7 +2558,7 @@ namespace HVAC_Pro_Desktop.UI
             SetDatePicker(_dtpProbationEnd, null);
             SetDatePicker(_dtpConfirmation, null);
             SetDatePicker(_dtpLastWorkingDay, null);
-            _cmbEmployeeStatus.Text = "Active";
+            _cmbEmployeeStatus.SelectedItem = "Active";
             _chkIsRehire.Checked = false;
             _picPhoto.Image = ToImage(null);
             UpdateSelectedEmployeeReadiness();
@@ -2587,7 +2587,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_lblStatus == null)
                 return;
 
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, message);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, message);
             _lblStatus.ForeColor = color;
         }
         private void GridJobs_DataBindingComplete(object sender, DataGridViewBindingCompleteEventArgs e)
@@ -2912,7 +2912,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label CreateMiniStat(Control parent, int x, string title)
         {
-            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title.ToUpperInvariant(), AutoSize = true, ForeColor = TextSecondary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8F, FontStyle.Bold), Location = new Point(x, 10) });
+            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title.ToUpperInvariant(), AutoSize = true, ForeColor = TextSecondary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8F, FontStyle.Bold), Location = new Point(x, 10) });
             Label lblValue = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", AutoSize = true, ForeColor = TextPrimary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16F, FontStyle.Bold), Location = new Point(x, 26) });
             parent.Controls.Add(lblTitle);
             parent.Controls.Add(lblValue);
@@ -2970,7 +2970,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private Label MakeFieldLabel(string label)
         {
-            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = label,
                 Dock = DockStyle.Top,
@@ -3187,7 +3187,7 @@ namespace HVAC_Pro_Desktop.UI
             SetDatePicker(_dtpProbationEnd, _currentEmployee.ProbationEndDate);
             SetDatePicker(_dtpConfirmation, _currentEmployee.ConfirmationDate);
             SetDatePicker(_dtpLastWorkingDay, _currentEmployee.LastWorkingDay);
-            _cmbEmployeeStatus.Text = string.IsNullOrWhiteSpace(_currentEmployee.Status) ? "Active" : _currentEmployee.Status;
+            _cmbEmployeeStatus.SelectedItem = string.IsNullOrWhiteSpace(_currentEmployee.Status) ? "Active" : _currentEmployee.Status;
             _chkIsRehire.Checked = _currentEmployee.IsRehire;
             _picPhoto.Image = ToImage(_currentPhoto);
         }
@@ -3456,7 +3456,7 @@ namespace HVAC_Pro_Desktop.UI
             SetDatePicker(_dtpProbationEnd, null);
             SetDatePicker(_dtpConfirmation, null);
             SetDatePicker(_dtpLastWorkingDay, null);
-            _cmbEmployeeStatus.Text = "Active";
+            _cmbEmployeeStatus.SelectedItem = "Active";
             _chkIsRehire.Checked = false;
             _picPhoto.Image = ToImage(null);
             _gridJobs.DataSource = null;
@@ -3516,7 +3516,7 @@ namespace HVAC_Pro_Desktop.UI
                 ForeColor = TextPrimary,
                 TextAlign = ContentAlignment.MiddleLeft
             });
-            Label captionLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label captionLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = caption,
                 AutoSize = false,
@@ -3971,7 +3971,7 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawPath(pen, path);
             };
             DS.Rounded(card, 8);
-            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title.ToUpperInvariant(), ForeColor = TextSecondary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8F, FontStyle.Bold), AutoSize = true, Location = new Point(14, 12) });
+            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title.ToUpperInvariant(), ForeColor = TextSecondary, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8F, FontStyle.Bold), AutoSize = true, Location = new Point(14, 12) });
             Label lblValue = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", ForeColor = valueColor, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 18F, FontStyle.Bold), AutoSize = true, Location = new Point(14, 30) });
             card.Controls.Add(lblTitle);
             card.Controls.Add(lblValue);
@@ -4004,7 +4004,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(card, 8);
 
-            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title.ToUpperInvariant(),
                 ForeColor = Color.FromArgb(235, foreColor),
@@ -4020,7 +4020,7 @@ namespace HVAC_Pro_Desktop.UI
                 AutoSize = true,
                 Location = new Point(14, 30)
             });
-            Label lblSubtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label lblSubtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = subtitle,
                 ForeColor = Color.FromArgb(210, foreColor),
@@ -4233,7 +4233,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             DS.Rounded(card, 8);
 
-            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label lblTitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title.ToUpperInvariant(),
                 ForeColor = TextSecondary,
@@ -4276,7 +4276,7 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush dotBrush = new SolidBrush(color))
                     e.Graphics.FillEllipse(dotBrush, 4, 4, 6, 6);
             };
-            Label lbl = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label lbl = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = text,
                 Location = new Point(14, 0),

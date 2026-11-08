@@ -1,10 +1,10 @@
-## 1.1.532 — unreleased Marathi candidate (08/11/2026)
+## 1.1.532 (08/11/2026)
 
-- Restore English / मराठी selection, startup persistence and .NET satellite resources; catalogue now 3604 entries, without TODO(mr) placeholders.
-- Localize registered dropdown display while preserving canonical business values; fix Marathi Settings routing, workspace title clipping, invoice risk formatting and notification templates.
-- Repair clean schema initialization ordering and the missing nullable InvoiceLineItems.JobID column.
-- Fresh-database initialization, both language business workflows and ten save/update regressions per language pass; latest functional suite: 4,153 assertions.
-- Release remains INCOMPLETE: rendered linguistic audit finds 86 English resource-backed captions and additional dynamic/custom UI needs review. No publication. See Docs/Localization/Marathi-restoration.md.
+- Restore English / मराठी in Settings, startup persistence and 3999 Marathi resource entries.
+- Complete the 86 identified captions plus additional dashboard, grid, empty-state, guide, backup, payroll and built-in choice presentation.
+- Preserve business data/canonical choices, India-first formatting, licensing and existing PDF headers; translate PDF body labels.
+- Repair fresh schema initialization ordering and the missing guarded nullable InvoiceLineItems.JobID column.
+- Validate both languages using disposable SQL databases, native screenshots and workflow/save regressions. See the version-matched release notes for scope and limitations.
 
 ## 1.1.531 (05/11/2026)
 

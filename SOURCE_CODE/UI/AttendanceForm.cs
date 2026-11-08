@@ -374,7 +374,7 @@ namespace HVAC_Pro_Desktop.UI
 				int selectedIndex = 0;
 				if (!string.IsNullOrWhiteSpace(selectedSite))
 				{
-					int foundIndex = _cmbSiteFilter.FindStringExact(selectedSite);
+					int foundIndex = global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(_cmbSiteFilter, selectedSite);
 					if (foundIndex >= 0)
 					{
 						selectedIndex = foundIndex;
@@ -2191,7 +2191,7 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			if (_lblStatus != null)
 			{
-				global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, message);
+				global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, message);
 				_lblStatus.ForeColor = color;
 			}
 		}

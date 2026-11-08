@@ -1420,7 +1420,7 @@ namespace HVAC_Pro_Desktop.UI
                 using (Brush text = new SolidBrush(Color.FromArgb(8, 22, 61)))
                 {
                     g.DrawString(icons[i], iconFont, blue, x + 4, rect.Top + 7);
-                    g.DrawString(labels[i], textFont, text, x + 28, rect.Top + 5);
+                    g.DrawString(LanguageManager.Get(labels[i]), textFont, text, x + 28, rect.Top + 5);
                 }
                 if (i > 0)
                     using (Pen p = new Pen(DS.Border))

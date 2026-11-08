@@ -1,112 +1,29 @@
-# Current checkpoint — 08/11/2026
+# Marathi restoration — ServoERP 1.1.532
 
-**1.1.532 remains INCOMPLETE and unpublished.** Database initialization defects are repaired; app-wide Marathi acceptance is not complete.
+Acceptance completed 08/11/2026. Publication is performed only after the checks below; the artifact provenance/checkpoint records the final remote result.
 
-## Verified this run
+## Changes
+English / मराठी in Settings, per-user atomic preference restoration before login, 3999 mr-IN resources, caption-only formatted templates, dynamic controls/menus, accessibility text, grids, empty states, search hints, built-in choices and custom dashboard captions. The previous 86 known captions and additional findings were corrected. Untouched system lookup defaults translate only in presentation; custom database labels remain exact. Employee and Service Desk canonical choice selection is preserved, with a Medium-priority regression test. PDF body labels translate while protected headers remain unchanged. Fresh initialization guards now follow table creation; missing nullable InvoiceLineItems.JobID is added with an existing guarded additive pattern.
 
-- Root cause reproduced in an empty database: duplicate checks referenced Payments/PurchaseOrders before creation. Moved the guards after dependent tables exist. A genuinely fresh workflow then exposed missing InvoiceLineItems.JobID; added the existing nullable field through the standard guarded migration.
-- Latest fresh QA database: `ServoERP_MarathiQA_20261108_124537_91babf`. Zero user tables were asserted before initialization; initializer passed twice. No table priming remains. SQL/business writes were scoped to disposable QA databases, not HVAC_PRO/customer data.
-- Release functional suite: **4,153 passing assertions**. Most assertions check resources/formats; they are not thousands of business workflows. Both language E2E service flows and ten save/update cases per language pass. The invoice regression now correctly edits a draft, finalizes it and verifies that posted edits stay blocked; financial protection was not weakened.
-- Native English/Marathi captures cover login, navigation, all 14 Settings destinations, confirmation dialogs, invoice/report previews and 13 further modules. Settings navigation retains unsaved input. The Settings Users/Audit routes had compared translated tabs with English identifiers; fixed to use canonical keys.
-- 3604 Marathi entries, no TODO markers or case-insensitive duplicate keys. Replaced 52 inherited placeholder translations. Added literal-choice registration that preserves objects and data provenance, plus canonical dropdown reads so formatted Text is not saved as business data.
-- Fixed workspace title line metrics, invoice captions/risk colors, resource-based notification detail formatting, explicit default import-validation messages and shared pagination/workforce captions. No production dependencies or downloaded language pack added.
-- Expanded static audit returns zero candidates, but is demonstrably non-exhaustive. **Rendered linguistic audit fails: 86 existing Marathi-resource captions are still English.** The broader rendered-English review also contains missing templates and data requiring classification. This is the current release blocker, replacing the old PurchaseOrders blocker.
-- Installed app PID 10676 stayed running. Normal app entry was not launched. Native tests load the built assembly in an isolated STA harness. Direct computer-use initialization failed (kernel assets unavailable); no claim of a full manual clickthrough is made.
+## Passing evidence
+- Final Release build and SOURCE_CODE/bin/Release/HVAC_Pro_Desktop.exe existence; matching language satellites.
+- 4608 focused assertions, primarily resource/invariant assertions, not 4608 workflows. Report: artifacts/marathi-localization/run4-choice-regression-final/regression.txt.
+- Disposable SQL database ServoERP_MarathiQA_20261108_141741_191a1c: zero initial user tables, initializer twice without table priming; existing business E2E in English and Marathi and ten save/update regressions per language. No HVAC_PRO/customer writes. Posted invoice edits remain blocked without changing the persisted subject.
+- 58 native screenshots: login, navigation, Settings, directory, confirmation, invoice/report previews and 22 module surfaces, both languages. All 14 Settings routes are exercised. Screenshots are retained under artifacts/marathi-localization/run4-choice-regression-final. Selected visual inspections include Settings, Payroll, Guide, AMC, Geo, Backup, PDF import, Service Desk and invoice/job-card PDFs.
+- Preference persistence/fallback, canonical choice lookup/selection, customer text preservation, notification templates, late menus, font/layout checks and exact embedded notes.
+- Rendered audit zero resource-backed English captions in the captured review files; static audit zero missing candidates, expanded to grid-column and tab/menu constructors. Both are conservative, not exhaustive linguistic certification. Remaining ASCII review text is synthetic/customer data, identifiers, dates or technical abbreviations.
+- Four synthetic English/Marathi invoice/job-card PDFs rendered; Devanagari body inspected; header pixels identical across languages. Evidence: artifacts/marathi-localization/pdf-acceptance. PDF text extraction was unavailable and is not claimed.
+- Notes guard, satellite guard, Velopack artifact/feed-notes guard, whitespace check and cumulative ancestry of 50 available version tags pass. Packaged EXE, satellites and notes hashes exactly match tested output. No client config, license, database, backup or company-header-image files are in the full package.
 
-## Evidence and next acceptance work
+## Limits and protected coverage
+Existing PDF headers remain English as required by the Hard Stop. Windows-owned controls/dialog buttons and external WhatsApp Web use their own language. Names, business identifiers, custom database labels, logs, abbreviations and en-IN dates/currency/GST remain intact. Normal Program startup was not invoked because it closes other app instances; an external STA harness exercised the actual Release assembly and preference restoration. Installed user app PID 10676 was preserved. Captures and service tests do not prove every possible state or click sequence. Some pre-existing Service Desk clipping exists in both languages at the captured viewport; no theme redesign was made. No new package, downloaded language pack, service, credentials or paid dependency was added. No approval is needed for the shipped scope; translating existing PDF header content remains outside it.
 
-- Final harness and captures: `artifacts/marathi-localization/run3-final/`; database name in qa-database.txt; functional output in regression.txt.
-- Strict rendered audit: `python scripts/Localization/AuditRenderedCaptions.py artifacts/marathi-localization/run3-final --fail-on-untranslated`. Its JSON findings identify the remaining resource-backed captions.
-- Broader worklist: `Docs/Localization/run3-rendered-review.json`; this is a review list, not a count of proven bugs. Source helper/model caption paths bypass the conservative static scan.
-- Finish custom dashboard/card/table caption bindings, generated action/empty-state text, deeper dialogs, print/export bodies and third-party controls; classify business data without translating it. Repeat linguistic checks and inspect fresh captures. No release until these pass.
-- PDF header content is protected and unchanged. Windows-owned buttons follow Windows display language. No other Hard Stop approval blocker was introduced.
-- Packaging remains blocked by INCOMPLETE notes. No installer, updater feed, release assets, source push or remote publication was produced. Latest public release checked this run: v1.1.531, published 05/11/2026.
-
-## Earlier checkpoint history
-
-# Marathi restoration — current checkpoint 07/11/2026
-
-**Unreleased 1.1.532; INCOMPLETE; do not publish.**
-
-The continuation expanded the Marathi resource catalogue from 579 to **3,191 entries**. Reviewed translation batches, identity entries and their exact key lists are retained under scripts/Localization and Docs/Localization. The source rewriter uses the project's Roslyn semantic model to distinguish editable controls/data-bearing text from captions and to convert interpolated presentation strings into resource templates. Production dependencies are unchanged; the Roslyn tool is developer-only.
-
-The static caption audit now reports **zero missing candidate keys**, after correctly decoding C# escapes. The scan is still not exhaustive runtime coverage: SQL-generated notification content, variable-driven UI labels, closed-choice display, standard/third-party dialogs and print/export output need explicit review. Do not equate this audit result with app-wide completion.
-
-Source changes include explicit data-text markers, caption setters, UI factory caption binding after metadata construction, neutral button-role resolution, Devanagari drawing fonts, and preserving raw Settings card-routing keys while localizing their visible titles/search text. Caption matches such as a customer named Save or Cancel are tested as data and remain unchanged.
-
-## Actual continuation validation
-
-- Release compilation succeeds; version/culture-matched resource assemblies exist.
-- Last fully passing focused run before expanded workflow checks: **3,581 assertions**. Latest expanded run reached **3,564 PASS assertions** before setup failure. These totals include resource presence and placeholder checks; they are not thousands of business-workflow tests.
-- Current expanded suite **fails**. Attempt 1: unauthenticated preview fixture closed its host. Attempt 2: adding an authenticated synthetic session exposed license-state persistence against the deliberately isolated, then-missing QA database. Attempt 3 (repair 2): creating the QA database and invoking the existing schema initializer failed with SQL 208: **Invalid object name dbo.Payments**. Attempt 4 (repair 3): supplying the exact existing guarded Payments definition as a schema-only fixture allowed initialization to progress, then it failed with SQL 208: **Invalid object name dbo.PurchaseOrders**. There have now been three failed repair attempts after the initial setup failure; no further retry is authorized by the standing run policy.
-- QA database retained: **ServoERP_MarathiQA_20261107_PreviewOnly** on .\SQLEXPRESS. Diagnostic connection scope and an exact catalog assertion guard all write-capable workflow tests. It is partially initialized. No business write, migration, save, reset or Fresh Start was executed against HVAC_PRO/customer databases. No license endpoint, machine ID, pricing or plan logic was changed.
-- Further retries of the unchanged workflow setup are stopped after three failed attempts, as AGENTS.md requires. Next bounded work must diagnose/repair the disposable fixture/schema setup before retrying UI workflows; do not bypass it or weaken the checks.
-- Installed app PID 5200 stayed open. No normal application entry point was launched. No updater feed, package, installer, remote release or source push was produced.
-- Login/Settings focused previews and unit-level persistence/format/role checks were previously captured. Full invoice/report previews and business-workflow checks have **not** passed. The last failing report is artifacts/marathi-localization/run2-workflow-blocker.txt.
-- Whitespace validation passes after normalizing resource-file line endings. Candidate notes are still explicitly INCOMPLETE and packaging remains prohibited.
-
-## Next acceptance work
-
-1. Repair the isolated QA fixture/schema bootstrap without changing customer data, LicenseInfo structure, licensing/pricing rules or existing PDF headers. Check the existing initializer/order before changing anything; the exact failure is known, the underlying cause is not yet established.
-2. Re-run the complete suite against that fixture, inspect native English/Marathi workflows, navigation, Settings search/card routing, saves, errors, dialogs, keyboard behavior, clipping and third-party controls. Do not mark preview constructors as full business workflow validation.
-3. Audit dynamic closed-choice and service/SQL-generated presentation text beyond the static caption catalogue; preserve canonical database values and user-entered names/notes.
-4. Review all metadata/caption-dependent logic affected by the broad migration. Translation must happen at presentation boundaries, never change persistent identifiers or routing keys.
-5. Only after all acceptance passes: refresh final notes, remove INCOMPLETE, recheck public version availability, package, pass notes/artifact/security/data checks and verify the remote release/feed/assets. 1.1.532 remains a local candidate, not a public reservation.
-
-Baseline is clean published 1.1.531 source 69de4c4731652f35464f33568d92a4885fd9a770. Branch codex/marathi-localization is isolated from the pre-existing main-workspace modifications. New packages/services: None. Continue using public 1.1.531. No customer-database rollback is required; retain the QA database as evidence rather than dropping anything automatically.
-
-## Previous checkpoint record
-
-# Marathi restoration — unreleased 1.1.532 candidate
-
-Status on 07/11/2026: checkpointed, incomplete, **not for distribution**. Full app-wide Marathi acceptance is not satisfied. Packaging is explicitly blocked by `Release status: INCOMPLETE` in the version-matched notes.
-
-## Source and scope
-
-Branch: `codex/marathi-localization` in `C:\Users\Administrator\.codex\worktrees\marathi-localization\HVAC_PRO_MSE`.
-Baseline: published 1.1.531, source `69de4c4731652f35464f33568d92a4885fd9a770`. Public metadata and release-note content were verified against https://github.com/harshals499/ServoERP-Releases/releases/tag/v1.1.531 . The source branch had lagged at 1.1.530; the task was rebased onto the clean committed 1.1.531 source. Main-workspace product changes and the running installed app were preserved.
-
-Requested acceptance: English / मराठी in Settings; persistence and startup restoration; .NET mr-IN resources with English fallback; all UI surfaces and major workflows localized without changing business values, formatting, pricing, licensing or PDF headers; visual verification; a fully verified release with notes/artifacts.
-
-## Implemented
-
-- Settings > Display & layout now contains English / मराठी and Save Language. Preference is saved atomically per Windows user under `%LOCALAPPDATA%\ServoERP\Preferences\language.txt`, loaded before login and given precedence over the legacy SQL Language fallback. Restart guidance is shown. The legacy dashboard selector uses the same persistence path.
-- Migrate the historical dictionaries to neutral, mr-IN and legacy hi-IN .NET resource assemblies. The Marathi set has 579 entries with no missing neutral keys. No external language pack, new package or new service was added. Nirmala UI is verified on this host; symbol and technical fonts are preserved.
-- Localize safe presentation captions, newly added controls, grid headers, menus, toolbar tooltips, accessibility labels, login placeholders, login validation and UI alerts. Custom validator messages have Marathi resources. Keep input/composite-input values, combo Items and grid business data intact. The Settings display-mode dropdown formats its display without changing its persisted selection.
-- Replace stale strong text caching with weak source/rendered state. Use neutral captions for existing action routing in shared controls and affected modules, including Settings mobile-save routing and Ctrl+S.
-- Include satellite folders in legacy ZIP/Inno installer definitions and validate their culture/version during staging. Incomplete release notes now prevent packaging. No package or publication was performed.
-
-## Validation actually performed
-
-- Release 1.1.532 build succeeded, with no warnings/errors in the recorded build output. `SOURCE_CODE/bin/Release/HVAC_Pro_Desktop.exe` exists. mr-IN/hi-IN assembly versions and cultures match 1.1.532.0.
-- `scripts/Test-MarathiLocalization.ps1`: **656 passing assertions**, including 579 resource-presence checks and behavior, formatting-placeholder, fallback, alert overload compatibility, neutral action routing, persistence, editable/composite data preservation, late-created captions/headers/toolbars, and embedded release-note checks. Embedded notes exactly match the versioned notes copied beside the built EXE.
-- Native WinForms login and the actual Settings display-card controls were rendered in English and Marathi. Screenshots were inspected. New language captions fit and the input/button do not overlap. The display card is reparented into a test host; this is not a full Settings navigation/workflow test.
-- Existing release-note smoke checks pass. Notes guard passes for building; packaging correctly rejects the INCOMPLETE candidate. Positive satellite checks and negative missing/wrong-culture probes pass.
-- `scripts/Test-VelopackReleaseArtifacts.ps1` was run and **did not pass**: no Velopack RELEASES/package was generated. This is an artifact blocker, not a verified release.
-- `scripts/Audit-MarathiLocalization.py --fail-on-missing` exits **1** with **1,331 candidates / 1,157 unique strings**. The scan is conservative and incomplete; candidates include proper nouns, protected content, technical identifiers and interpolated strings requiring classification.
-- No normal application entry point, remembered-session authentication, business-save/reset/Fresh Start/migration experiment or customer-database write was run. The normal entry point stops other app instances, so tests use a standalone harness and a preview subclass. Installed app PID 5200 remained open.
-- `git diff --check` passed. Evidence is retained in `artifacts/marathi-localization/`; changed-file inventory is beside this report.
-
-## Remaining acceptance work / release holds
-
-1. Complete module-by-module translation with explicit resource bindings/templates. Largest current candidate groups: Employees, Purchases, Invoices, Tender Bids, Reports, Settings, Payroll and Inventory. Audit helper-built and service-generated strings beyond the current static scan.
-2. Review data-bearing labels so a customer-entered value that happens to equal a resource key can never be translated as presentation text. Generic traversal alone is insufficient proof of this requirement. Audit all remaining caption-dependent logic and preserve neutral identifiers.
-3. Complete dynamic/interpolated messages, normal ToolTip components, presentation-only dropdown text, default FluentValidation messages, empty states and notification content. Preserve canonical business values.
-4. Test full startup/persistence in a separate safe app session; visually and functionally exercise main navigation, major workflows, dialogs, keyboard access, narrow layouts and third-party controls. Use a disposable explicitly identified SQL database for any write-capable checks. None has been used for this task yet.
-5. Existing PDF header content stays unchanged under the Hard Stop. Native OS dialogs/buttons follow Windows language. Identify any additional protected coverage before distribution.
-6. Remove INCOMPLETE only after acceptance passes, refresh notes from actual results, inspect/package with existing scripts, run all release guards and artifact verification, recheck remote versions and publication limits, and verify public feed/assets. Candidate 1.1.532 is not a reservation of a public release number.
-
-## Version, notes and rollback
-
-VERSION, assembly metadata and installer version are 1.1.532 **only in this isolated candidate**. CHANGELOG and `release/RELEASE_NOTES_1.1.532.md` explicitly state the incomplete status. No remote release, updater feed or main-workspace build was changed. Continue using verified 1.1.531. If a test candidate was manually installed, restore the prior full package; no database rollback is needed.
+## Release and rollback
+Artifacts: artifacts/velopack-marathi-1.1.532-verified. Source branch: codex/marathi-localization. Versioned notes: release/RELEASE_NOTES_1.1.532.md. File inventory: Docs/Localization/changed-files.txt. Final source commit, checksums, remote verification and publication URL are recorded with artifacts and checkpoint.json. Retain verified 1.1.531 for rollback; restore the prior desktop package while preserving configuration and database. Leave the additive nullable column in place; never automatically roll back customer data.
 
 ## Research
-
-- https://learn.microsoft.com/en-us/dotnet/core/extensions/resources
+- https://learn.microsoft.com/en-us/dotnet/framework/resources/creating-satellite-assemblies-for-desktop-apps
 - https://learn.microsoft.com/en-us/dotnet/core/extensions/create-satellite-assemblies
 - https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexa
 
-Application strings ship in the application's own resource assemblies; installing a Windows language pack does not translate hardcoded ServoERP text.
-
-## Continuation run 07/11/2026
-User explicitly requested complete app-wide Marathi and publication after all checks pass. Entry source is clean 07f6174; installed app PID 5200 is running. Usage is 13%, below the 80% deferral limit. This run targets explicit data-text exclusions, dynamic caption templates and remaining resource translations, followed by scoped native/workflow checks. Candidate remains INCOMPLETE until coverage, safety, workflow, packaging and remote verification pass. Planned affected files: LanguageManager, UI source text assignments, resources, localization audit/tooling, focused tests and release evidence. No business database writes are authorized against HVAC_PRO; use a disposable test database for write-capable checks.
+Application resource assemblies translate ServoERP text; a Windows language pack does not translate hardcoded application strings. Existing framework/controls did not require a downloaded Marathi pack.

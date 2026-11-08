@@ -32,7 +32,7 @@ namespace HVAC_Pro_Desktop.UI
             UIHelper.ApplyInputStyles(Controls);
             EnableDeferredLoad(
                 () => LoadDataAsync(),
-                ex => { global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Load error: {0}", ex.Message)); _lblStatus.ForeColor = Color.Red; });
+                ex => { global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Load error: {0}", ex.Message)); _lblStatus.ForeColor = Color.Red; });
         }
 
         protected override bool EnableAutomaticLayoutScaling => false;
@@ -315,7 +315,7 @@ namespace HVAC_Pro_Desktop.UI
         // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
         private void ShowStatus(string msg, Color color)
         {
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, msg);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, msg);
             _lblStatus.ForeColor = color;
         }
 

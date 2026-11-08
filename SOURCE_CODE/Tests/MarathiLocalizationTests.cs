@@ -182,8 +182,30 @@ internal static class MarathiLocalizationTests
                 Check(choices.GetItemText(customer) == "Save", "mixed list customer value matching a caption remains intact");
                 var readChoice = typeof(LanguageManager).GetMethod("ReadChoiceText", BindingFlags.Static | BindingFlags.NonPublic);
                 Check((string)readChoice.Invoke(null, new object[] { choices }) == "Save", "business reads canonical choice despite translated ComboBox.Text");
+                add.Invoke(null, new object[] { choices, "Active" });
+                int activeIndex = (int)typeof(LanguageManager).GetMethod("FindChoiceIndex", BindingFlags.NonPublic | BindingFlags.Static).Invoke(null, new object[] { choices, "Active" });
+                Check(activeIndex >= 0 && choices.Items[activeIndex].ToString() == "Active", "canonical lookup finds translated built-in choice");
+                choices.SelectedItem = "Active";
+                Check((string)readChoice.Invoke(null, new object[] { choices }) == "Active" && choices.GetItemText(choices.SelectedItem) == LanguageManager.Get("Active"), "canonical status assignment selects translated built-in choice");
                 choices.Items.Clear(); choices.Items.Add(new string("Save".ToCharArray()));
                 Check(choices.GetItemText(choices.Items[0]) == "Save", "rebinding choices does not translate incoming business values");
+            }
+            using (var templateForm = new Form())
+            {
+                var caption = new Label(); templateForm.Controls.Add(caption);
+                string rawCaption = @"Backup completed - saved to C:\Save\Cancel";
+                typeof(LanguageManager).GetMethod("SetCaption", BindingFlags.Static | BindingFlags.NonPublic, null, new[] { typeof(Control), typeof(string) }, null).Invoke(null, new object[] { caption, rawCaption });
+                LanguageManager.ApplyControlTree(templateForm);
+                Check(caption.Text == string.Format(LanguageManager.Get("Backup completed - saved to {0}"), @"C:\Save\Cancel"), "caption template localizes wording and preserves file-path substitutions");
+                LanguageManager.SetLanguage(LanguageManager.English, false); LanguageManager.ApplyControlTree(templateForm);
+                Check(caption.Text == rawCaption, "formatted caption restores its original English source");
+                LanguageManager.SetLanguage(LanguageManager.Marathi, false); LanguageManager.ApplyControlTree(templateForm);
+                var data = new Label { Text = rawCaption, AccessibleName = "Save" };
+                typeof(LanguageManager).GetMethod("DataText", BindingFlags.Static | BindingFlags.NonPublic).MakeGenericMethod(typeof(Label)).Invoke(null, new object[] { data });
+                templateForm.Controls.Add(data); LanguageManager.ApplyControlTree(data);
+                Check(data.Text == rawCaption && data.AccessibleName == "Save", "business text and accessible data remain raw even when matching a full caption template");
+                caption.ContextMenuStrip = new ContextMenuStrip(); caption.ContextMenuStrip.Items.Add("Save");
+                Check(caption.ContextMenuStrip.Items[0].Text == LanguageManager.Get("Save"), "late context menu and actions are localized");
             }
             // Preview-only database scope. Any accidental SQL access targets this explicitly
             // identified QA database, never HVAC_PRO. Initialization is tested without table priming.
@@ -236,6 +258,8 @@ internal static class MarathiLocalizationTests
                     foreach (string result in (System.Collections.Generic.IEnumerable<string>)App.GetType("HVAC_Pro_Desktop.Tests.SaveButtonSmokeTests").GetMethod("RunAll").Invoke(null, null))
                         Check(result.StartsWith("PASS ", StringComparison.Ordinal), workflowLanguage + " " + result);
                 }
+                Type[] moduleSurfaces = new[] { typeof(DashboardForm), typeof(ClientManagementForm), typeof(VendorForm), typeof(JobManagementForm), typeof(PurchaseForm), typeof(InventoryForm), typeof(PaymentForm), typeof(ContractManagementForm), typeof(EmployeeForm), typeof(AttendanceForm), typeof(PayrollForm), typeof(TenderBidForm), typeof(MasterDataForm), typeof(SLADashboardForm), typeof(GeoIntelligenceForm), typeof(ServiceDeskForm), typeof(WhatsAppHubForm), typeof(AMCPage), typeof(UserGuideForm), App.GetType("HVAC_Pro_Desktop.UI.PdfImportPage"), typeof(ModuleCatalogForm), typeof(BackupSettingsForm) };
+                File.WriteAllLines(Path.Combine(output, "expected-surfaces.txt"), moduleSurfaces.Select(type => type.Name));
                 foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
                 {
                     LanguageManager.SetLanguage(language, false);
@@ -285,13 +309,16 @@ internal static class MarathiLocalizationTests
                 foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
                 {
                     LanguageManager.SetLanguage(language, false);
-                    foreach (Type surface in new[] { typeof(DashboardForm), typeof(ClientManagementForm), typeof(VendorForm), typeof(JobManagementForm), typeof(PurchaseForm), typeof(InventoryForm), typeof(PaymentForm), typeof(ContractManagementForm), typeof(EmployeeForm), typeof(AttendanceForm), typeof(PayrollForm), typeof(TenderBidForm), typeof(MasterDataForm) })
+                    foreach (Type surface in moduleSurfaces)
                     {
                         Console.WriteLine("SCENARIO module surface / " + surface.Name + " / " + language);
-                        using (var page = (Control)Activator.CreateInstance(surface))
+                        using (var page = (Control)Activator.CreateInstance(surface, true))
                         using (var host = new Form { ClientSize = new Size(1440, 940), StartPosition = FormStartPosition.Manual, Location = new Point(-2500, -2500), ShowInTaskbar = false })
                         {
-                            page.Dock = DockStyle.Fill; host.Controls.Add(page); host.Show(); Application.DoEvents();
+                            if (page is Form embeddedForm) { embeddedForm.TopLevel = false; embeddedForm.FormBorderStyle = FormBorderStyle.None; }
+                            page.Dock = DockStyle.Fill; host.Controls.Add(page); host.Show();
+                            if (page is Form embedded) embedded.Show();
+                            Application.DoEvents();
                             LanguageManager.ApplyControlTree(page);
                             var until = DateTime.UtcNow.AddMilliseconds(200);
                             while (DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(10); }
@@ -299,8 +326,14 @@ internal static class MarathiLocalizationTests
                             Capture(host, Path.Combine(output, surface.Name + "-" + suffix + ".png"));
                             if (language == LanguageManager.Marathi)
                             {
-                                var candidates = Tree(page).Where(c => c.Visible && (c is Label || c is ButtonBase || c is TabPage)).Select(c => c.Text).Where(text => !string.IsNullOrWhiteSpace(text) && System.Text.RegularExpressions.Regex.IsMatch(text, @"[A-Za-z]{3,}") && !System.Text.RegularExpressions.Regex.IsMatch(text, @"[\u0900-\u097f]")).Distinct();
+                                var candidates = Tree(page).Where(c => c.Visible && (c is Label || c is ButtonBase || c is TabPage)).Select(c => c.Text).Concat(Tree(page).OfType<ComboBox>().Select(c => c.SelectedItem == null ? c.Text : c.GetItemText(c.SelectedItem))).Concat(Tree(page).OfType<DataGridView>().SelectMany(g => g.Columns.Cast<DataGridViewColumn>().Select(c => c.HeaderText))).Where(text => !string.IsNullOrWhiteSpace(text) && System.Text.RegularExpressions.Regex.IsMatch(text, @"[A-Za-z]{3,}") && !System.Text.RegularExpressions.Regex.IsMatch(text, @"[\u0900-\u097f]")).Distinct();
                                 File.WriteAllLines(Path.Combine(output, surface.Name + "-caption-review.txt"), candidates);
+                            }
+
+                            if (surface.Name == "ServiceDeskForm")
+                            {
+                                var priority = (ComboBox)surface.GetField("_cmbPriority", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(page);
+                                Check(Convert.ToString(priority.SelectedItem) == "Medium", "Service Desk retains canonical Medium default: " + language);
                             }
                             Check(!page.IsDisposed && Tree(page).Any(c => c is ButtonBase), "native module surface rendered: " + surface.Name + " / " + language);
                             host.Close();

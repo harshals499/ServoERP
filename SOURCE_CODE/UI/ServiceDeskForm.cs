@@ -290,7 +290,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < tabNames.Length; i++)
             {
                 int tabIndex = i;
-                Label tabLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+                Label tabLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
                 {
                     Text = tabNames[i],
                     Width = i == 4 ? 104 : 88,
@@ -1173,7 +1173,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Control icon = ModernIconSystem.Badge(iconKind, 24, DS.Primary50, DS.Primary600, 8);
             icon.Location = new Point(16, 12);
-            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
+            Label heading = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label
             {
                 Text = title,
                 Location = new Point(48, 14),
@@ -1222,7 +1222,7 @@ namespace HVAC_Pro_Desktop.UI
             bool required = label == "Client" || label == "Caller name" || label == "Caller phone" ||
                 label == "Category" || label == "Equipment" || label == "Priority" || label == "Status" ||
                 label == "Short description" || label == "Description";
-            return global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = (required ? label + " *" : label), Dock = DockStyle.Top, Height = 22, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = required ? Red : TextSecondary });
+            return global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = (required ? label + " *" : label), Dock = DockStyle.Top, Height = 22, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f, FontStyle.Bold), ForeColor = required ? Red : TextSecondary });
         }
 
         private void EnsureSplitWidth()
@@ -1237,7 +1237,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Paint += (s, e) => PaintCardBorder(e.Graphics, card.ClientRectangle, 8);
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "0", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 17f, FontStyle.Bold), ForeColor = color });
             card.Controls.Add(value);
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 20, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = TextSecondary }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 20, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f, FontStyle.Bold), ForeColor = TextSecondary }));
             table.Controls.Add(card, col, 0);
             return value;
         }
@@ -1359,7 +1359,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_lblStatus == null)
                 return;
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblStatus, text);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblStatus, text);
             _lblStatus.ForeColor = color;
         }
 
@@ -1370,7 +1370,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (combo == null)
                 return;
-            int index = combo.FindStringExact(text ?? string.Empty);
+            int index = global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(combo, text ?? string.Empty);
             combo.SelectedIndex = index >= 0 ? index : (combo.Items.Count > 0 ? 0 : -1);
         }
 

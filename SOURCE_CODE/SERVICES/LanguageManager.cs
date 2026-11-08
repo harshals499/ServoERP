@@ -74,6 +74,62 @@ namespace HVAC_Pro_Desktop.Services
                 match => match.Groups["prefix"].Value + Get(match.Groups["body"].Value));
         }
 
+        private sealed class PresentationTemplate
+        {
+            internal string Key, Prefix, Suffix;
+            internal int LiteralLength, ArgumentCount;
+            internal System.Text.RegularExpressions.Regex Pattern;
+        }
+        private static readonly Lazy<List<PresentationTemplate>> PresentationTemplates = new Lazy<List<PresentationTemplate>>(BuildPresentationTemplates);
+
+        // Only caption-marked controls use template matching. User data is never scanned
+        // for translated words; substitutions are kept as their already-formatted strings.
+        internal static string GetPresentationText(string source)
+        {
+            string exact = Get(source);
+            if (string.IsNullOrEmpty(source) || CurrentLanguage == English || exact != source || source.Length > 2000 ||
+                Resources.GetString(source, System.Globalization.CultureInfo.InvariantCulture) != null) return exact;
+            foreach (var template in PresentationTemplates.Value)
+            {
+                if (!source.StartsWith(template.Prefix, StringComparison.OrdinalIgnoreCase) || !source.EndsWith(template.Suffix, StringComparison.OrdinalIgnoreCase)) continue;
+                System.Text.RegularExpressions.Match match;
+                try { match = template.Pattern.Match(source); }
+                catch (System.Text.RegularExpressions.RegexMatchTimeoutException) { continue; }
+                if (!match.Success) continue;
+                object[] values = new object[template.ArgumentCount];
+                for (int i = 0; i < values.Length; i++) values[i] = match.Groups["v" + i].Value;
+                return string.Format(System.Globalization.CultureInfo.CurrentCulture, Get(template.Key), values);
+            }
+            return exact;
+        }
+        private static List<PresentationTemplate> BuildPresentationTemplates()
+        {
+            var result = new List<PresentationTemplate>();
+            var slots = new System.Text.RegularExpressions.Regex(@"(?<!\{)\{(?<index>[0-9]+)(?:,-?[0-9]+)?(?::[^{}]*)?\}(?!\})");
+            foreach (System.Collections.DictionaryEntry entry in Resources.GetResourceSet(System.Globalization.CultureInfo.InvariantCulture, true, false))
+            {
+                string key = (string)entry.Key;
+                var matches = slots.Matches(key).Cast<System.Text.RegularExpressions.Match>().ToList();
+                if (matches.Count == 0) continue;
+                int literals = key.Length - matches.Sum(match => match.Length);
+                if (literals < 8) continue;
+                var pattern = new System.Text.StringBuilder("\\A");
+                var seen = new HashSet<int>(); int cursor = 0, count = 0;
+                foreach (var match in matches)
+                {
+                    pattern.Append(System.Text.RegularExpressions.Regex.Escape(key.Substring(cursor, match.Index - cursor).Replace("{{", "{").Replace("}}", "}")));
+                    int index = int.Parse(match.Groups["index"].Value, System.Globalization.CultureInfo.InvariantCulture);
+                    count = Math.Max(count, index + 1);
+                    pattern.Append(seen.Add(index) ? "(?<v" + index + ">.+?)" : "\\k<v" + index + ">");
+                    cursor = match.Index + match.Length;
+                }
+                pattern.Append(System.Text.RegularExpressions.Regex.Escape(key.Substring(cursor).Replace("{{", "{").Replace("}}", "}"))).Append("\\z");
+                result.Add(new PresentationTemplate { Key = key, Prefix = key.Substring(0, matches[0].Index).Replace("{{", "{").Replace("}}", "}"), Suffix = key.Substring(cursor).Replace("{{", "{").Replace("}}", "}"), LiteralLength = literals, ArgumentCount = count,
+                    Pattern = new System.Text.RegularExpressions.Regex(pattern.ToString(), System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.Singleline, TimeSpan.FromMilliseconds(25)) });
+            }
+            return result.OrderByDescending(template => template.LiteralLength).ToList();
+        }
+
         internal static string Format(string key, params object[] values)
         {
             return string.Format(System.Globalization.CultureInfo.CurrentCulture, Get(key), values);
@@ -131,9 +187,26 @@ namespace HVAC_Pro_Desktop.Services
                 return Convert.ToString(control.SelectedItem);
             return control.Text;
         }
+        internal static int FindChoiceIndex(ComboBox control, string value)
+        {
+            ChoiceCaptions captions;
+            if (Choices.TryGetValue(control, out captions))
+                for (int i = 0; i < control.Items.Count; i++)
+                {
+                    string source;
+                    if (captions.Keys.TryGetValue(control.Items[i], out source) && string.Equals(source, value, StringComparison.OrdinalIgnoreCase)) return i;
+                }
+            return control.FindStringExact(value);
+        }
+
         internal static void AddChoices(ComboBox control, object[] keys)
         {
             foreach (string key in keys) AddChoice(control, key);
+        }
+
+        internal static T TableCell<T>(T control, bool header) where T : Control
+        {
+            return header ? Caption(control) : DataText(control);
         }
 
         internal static T DataText<T>(T control) where T : Control
@@ -165,7 +238,7 @@ namespace HVAC_Pro_Desktop.Services
             var state = OriginalText.GetValue(control, _ => new TextState());
             state.IsDataText = false;
             state.Source = source ?? string.Empty;
-            state.Rendered = Get(state.Source);
+            state.Rendered = GetPresentationText(state.Source);
             state.Updating = true;
             try { control.Text = state.Rendered; }
             finally { state.Updating = false; }
@@ -176,7 +249,7 @@ namespace HVAC_Pro_Desktop.Services
             var state = OriginalText.GetValue(item, _ => new TextState());
             state.IsDataText = false;
             state.Source = source ?? string.Empty;
-            state.Rendered = Get(state.Source);
+            state.Rendered = GetPresentationText(state.Source);
             state.Updating = true;
             try { item.Text = state.Rendered; }
             finally { state.Updating = false; }
@@ -266,15 +339,19 @@ namespace HVAC_Pro_Desktop.Services
                 state.Hooked = true;
                 control.TextChanged += OnPresentationTextChanged;
                 control.ControlAdded += OnLocalizedControlAdded;
+                control.ContextMenuStripChanged += (sender, args) => {
+                    var changedMenu = ((Control)sender).ContextMenuStrip;
+                    if (changedMenu != null && !ReferenceEquals(changedMenu, sender)) ApplyControlTree(changedMenu);
+                };
                 if (control is DataGridView localizedGrid)
                     localizedGrid.ColumnAdded += (sender, args) => TranslateGridHeaders((DataGridView)sender);
                 if (control is ToolStrip localizedStrip)
                     localizedStrip.ItemAdded += (sender, args) => TranslateToolStripItem(args.Item);
             }
-            if (!string.IsNullOrWhiteSpace(control.AccessibleName))
-                control.AccessibleName = Get(OriginalFor(state.AccessibleNameKey, control.AccessibleName));
-            if (!string.IsNullOrWhiteSpace(control.AccessibleDescription))
-                control.AccessibleDescription = Get(OriginalFor(state.AccessibleDescriptionKey, control.AccessibleDescription));
+            if (!state.IsDataText && !string.IsNullOrWhiteSpace(control.AccessibleName))
+                control.AccessibleName = GetPresentationText(OriginalFor(state.AccessibleNameKey, control.AccessibleName));
+            if (!state.IsDataText && !string.IsNullOrWhiteSpace(control.AccessibleDescription))
+                control.AccessibleDescription = GetPresentationText(OriginalFor(state.AccessibleDescriptionKey, control.AccessibleDescription));
             TranslateControlText(control);
 
             DataGridView grid = control as DataGridView;
@@ -286,9 +363,8 @@ namespace HVAC_Pro_Desktop.Services
                 foreach (TabPage page in tabs.TabPages)
                     TranslateControlText(page);
 
-            if (control.ContextMenuStrip != null)
-                foreach (ToolStripItem item in control.ContextMenuStrip.Items)
-                    TranslateToolStripItem(item);
+            if (control.ContextMenuStrip != null && !ReferenceEquals(control.ContextMenuStrip, control))
+                ApplyControlTree(control.ContextMenuStrip);
 
             MenuStrip menu = control as MenuStrip;
             if (menu != null)
@@ -320,7 +396,7 @@ namespace HVAC_Pro_Desktop.Services
             try
             {
                 string original = OriginalFor(control, control.Text);
-                string translated = Get(original);
+                string translated = GetPresentationText(original);
                 if (control.Text != translated) control.Text = translated;
             }
             finally { state.Updating = false; }
@@ -344,7 +420,7 @@ namespace HVAC_Pro_Desktop.Services
                     continue;
 
                 string original = OriginalFor(column, column.HeaderText);
-                column.HeaderText = Get(original);
+                column.HeaderText = GetPresentationText(original);
             }
         }
 
@@ -369,10 +445,10 @@ namespace HVAC_Pro_Desktop.Services
                 }
                 // ToolStripTextBox and ToolStripComboBox host editable/business values.
                 if (item is ToolStripControlHost host) ApplyControlTree(host.Control);
-                else if (!state.IsDataText && !string.IsNullOrWhiteSpace(item.Text)) item.Text = Get(OriginalFor(item, item.Text));
-                if (!string.IsNullOrWhiteSpace(item.ToolTipText)) item.ToolTipText = Get(OriginalFor(state.ToolTipKey, item.ToolTipText));
-                if (!string.IsNullOrWhiteSpace(item.AccessibleName)) item.AccessibleName = Get(OriginalFor(state.AccessibleNameKey, item.AccessibleName));
-                if (!string.IsNullOrWhiteSpace(item.AccessibleDescription)) item.AccessibleDescription = Get(OriginalFor(state.AccessibleDescriptionKey, item.AccessibleDescription));
+                else if (!state.IsDataText && !string.IsNullOrWhiteSpace(item.Text)) item.Text = GetPresentationText(OriginalFor(item, item.Text));
+                if (!string.IsNullOrWhiteSpace(item.ToolTipText)) item.ToolTipText = GetPresentationText(OriginalFor(state.ToolTipKey, item.ToolTipText));
+                if (!string.IsNullOrWhiteSpace(item.AccessibleName)) item.AccessibleName = GetPresentationText(OriginalFor(state.AccessibleNameKey, item.AccessibleName));
+                if (!string.IsNullOrWhiteSpace(item.AccessibleDescription)) item.AccessibleDescription = GetPresentationText(OriginalFor(state.AccessibleDescriptionKey, item.AccessibleDescription));
                 if (item is ToolStripDropDownItem dropDown)
                     foreach (ToolStripItem child in dropDown.DropDownItems) TranslateToolStripItem(child);
             }
@@ -424,7 +500,7 @@ namespace HVAC_Pro_Desktop.Services
             var state = OriginalText.GetValue(key, _ => new TextState());
             if (state.Source == null || !string.Equals(currentText, state.Rendered, StringComparison.Ordinal))
                 state.Source = CanonicalText(currentText ?? string.Empty);
-            state.Rendered = Get(state.Source);
+            state.Rendered = GetPresentationText(state.Source);
             return state.Source;
         }
 

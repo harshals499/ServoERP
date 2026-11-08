@@ -341,9 +341,9 @@ namespace HVAC_Pro_Desktop.UI
                     rect.Height = Math.Max(0, rect.Height - dgv.ColumnHeadersHeight);
                     Rectangle titleRect = new Rectangle(rect.X, rect.Y - 10, rect.Width, rect.Height);
                     Rectangle hintRect = new Rectangle(rect.X + 24, rect.Y + 18, Math.Max(0, rect.Width - 48), rect.Height);
-                    e.Graphics.DrawString(message, titleFont, titleBrush, titleRect, sf);
+                    e.Graphics.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.GetPresentationText(message), titleFont, titleBrush, titleRect, sf);
                     if (!string.IsNullOrWhiteSpace(hint))
-                        e.Graphics.DrawString(hint, hintFont, hintBrush, hintRect, sf);
+                        e.Graphics.DrawString(global::HVAC_Pro_Desktop.Services.LanguageManager.GetPresentationText(hint), hintFont, hintBrush, hintRect, sf);
                 }
             };
         }

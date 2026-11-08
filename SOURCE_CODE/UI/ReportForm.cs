@@ -648,9 +648,9 @@ namespace HVAC_Pro_Desktop.UI
         private static void SetCueBanner(TextBox box, string text)
         {
             if (box == null) return;
-            box.HandleCreated += (s, e) => SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), text ?? string.Empty);
+            box.HandleCreated += (s, e) => SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), global::HVAC_Pro_Desktop.Services.LanguageManager.Get(text ?? string.Empty));
             if (box.IsHandleCreated)
-                SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), text ?? string.Empty);
+                SendMessage(box.Handle, EmSetCueBanner, new IntPtr(1), global::HVAC_Pro_Desktop.Services.LanguageManager.Get(text ?? string.Empty));
         }
 
         private Label AddExplorerSummary(TableLayoutPanel host, int column, string title, Color color)
@@ -907,7 +907,7 @@ namespace HVAC_Pro_Desktop.UI
             combo.Items.Add(allLabel);
             foreach (string value in values.Where(v => !string.IsNullOrWhiteSpace(v)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(v => v))
                 combo.Items.Add(value.Trim());
-            int index = combo.FindStringExact(selected);
+            int index = global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(combo, selected);
             combo.SelectedIndex = index >= 0 ? index : 0;
             combo.EndUpdate();
         }
@@ -1466,7 +1466,7 @@ namespace HVAC_Pro_Desktop.UI
         private static void SelectComboValue(ComboBox combo, string value)
         {
             if (combo == null || string.IsNullOrWhiteSpace(value)) return;
-            int index = combo.FindStringExact(value);
+            int index = global::HVAC_Pro_Desktop.Services.LanguageManager.FindChoiceIndex(combo, value);
             if (index >= 0) combo.SelectedIndex = index;
         }
 
