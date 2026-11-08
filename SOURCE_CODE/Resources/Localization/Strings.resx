@@ -12299,4 +12299,13 @@ Contracts, Employees and much more.</value>
   <data name="Reset page layout" xml:space="preserve">
     <value>Reset page layout</value>
   </data>
+  <data name="Hide" xml:space="preserve">
+    <value>Hide</value>
+  </data>
+  <data name="Hide status banner" xml:space="preserve">
+    <value>Hide status banner</value>
+  </data>
+  <data name="Offline access is not prepared. Sign out and sign in with your password once to prepare this PC." xml:space="preserve">
+    <value>Offline access is not prepared. Sign out and sign in with your password once to prepare this PC.</value>
+  </data>
 </root>

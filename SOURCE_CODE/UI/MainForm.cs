@@ -26,6 +26,8 @@ namespace HVAC_Pro_Desktop.UI
         private Panel _pnlLicenseBanner;
         private Panel _pnlAgentSimulationBanner;
         private Panel _pnlDatabaseStatusBanner;
+        private string _databaseBannerKey;
+        private string _dismissedDatabaseBannerKey;
         private const int LastSyncNotificationDurationMilliseconds = 5000;
         private System.Windows.Forms.Timer _lastSyncNotificationTimer;
         private string _lastSyncNotificationStatus;
@@ -1075,10 +1077,25 @@ namespace HVAC_Pro_Desktop.UI
 
             var offlineWorkspace = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button {Text="Offline workspace",Dock=DockStyle.Right,Width=146,BackColor=DS.White,ForeColor=DS.Primary700,FlatStyle=FlatStyle.Flat});
             offlineWorkspace.Click += (s,e) => OpenOfflineWorkspace();
+            var hideBanner = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button
+            {
+                Name = "HideDatabaseStatusBanner", Text = "Hide", AccessibleName = "Hide status banner",
+                Dock = DockStyle.Right, Width = 88, FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White, ForeColor = DS.Primary700, TabIndex = 0
+            });
+            hideBanner.FlatAppearance.BorderColor = DS.Primary100;
+            hideBanner.Click += (s, e) =>
+            {
+                _dismissedDatabaseBannerKey = _databaseBannerKey;
+                _pnlDatabaseStatusBanner.Visible = false;
+                AdjustForScreenSize();
+                PerformLayout();
+            };
             _pnlDatabaseStatusBanner.Controls.Add(_lblDatabaseStatusMessage);
             _pnlDatabaseStatusBanner.Controls.Add(offlineWorkspace);
             _pnlDatabaseStatusBanner.Controls.Add(btnSupport);
             _pnlDatabaseStatusBanner.Controls.Add(btnCheck);
+            _pnlDatabaseStatusBanner.Controls.Add(hideBanner);
             Controls.Add(_pnlDatabaseStatusBanner);
             _pnlDatabaseStatusBanner.BringToFront();
         }
@@ -1174,6 +1191,10 @@ namespace HVAC_Pro_Desktop.UI
             string message = HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.CanUseCurrentWorkspace()
                 ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status
                 : (HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status.StartsWith("Offline cache") ? HVAC_Pro_Desktop.OfflineDesktop.OfflineDesktopCoordinator.Status : "Offline access is not prepared. Sign out and sign in with your password once to prepare this PC.");
+            string bannerKey = snapshot.State + "|" + snapshot.BusinessWritesAllowed + "|" + message;
+            if (!string.Equals(_databaseBannerKey, bannerKey, StringComparison.Ordinal))
+                _dismissedDatabaseBannerKey = null;
+            _databaseBannerKey = bannerKey;
             bool transientSyncNotice = SessionManager.IsLoggedIn
                 && snapshot.State == DatabaseConnectionStateKind.Online && snapshot.BusinessWritesAllowed
                 && message.StartsWith("Last sync ", StringComparison.Ordinal);
@@ -1211,6 +1232,7 @@ namespace HVAC_Pro_Desktop.UI
                         snapshot.State == DatabaseConnectionStateKind.ConfigError || SessionManager.IsLoggedIn;
             if (transientSyncNotice && _lastSyncNotificationExpired)
                 show = false;
+            show = show && !string.Equals(_dismissedDatabaseBannerKey, _databaseBannerKey, StringComparison.Ordinal);
             _pnlDatabaseStatusBanner.Visible = show;
             if (!show)
             {
@@ -1218,7 +1240,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             }
 
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblDatabaseStatusMessage, message);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblDatabaseStatusMessage, LanguageManager.Get(message));
             if (snapshot.State == DatabaseConnectionStateKind.ConfigError || snapshot.State == DatabaseConnectionStateKind.Offline)
             {
                 _pnlDatabaseStatusBanner.BackColor = Color.FromArgb(255, 241, 242);

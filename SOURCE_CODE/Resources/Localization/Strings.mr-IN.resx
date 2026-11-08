@@ -12299,4 +12299,13 @@ ServoERP ने ब्राउझर उघडलेला नाही कि�
   <data name="Reset page layout" xml:space="preserve">
     <value>पानाची मूळ मांडणी करा</value>
   </data>
+  <data name="Hide" xml:space="preserve">
+    <value>लपवा</value>
+  </data>
+  <data name="Hide status banner" xml:space="preserve">
+    <value>स्थिती सूचना लपवा</value>
+  </data>
+  <data name="Offline access is not prepared. Sign out and sign in with your password once to prepare this PC." xml:space="preserve">
+    <value>ऑफलाइन प्रवेश तयार नाही. हा संगणक तयार करण्यासाठी साइन आउट करा आणि तुमचा पासवर्ड वापरून एकदा साइन इन करा.</value>
+  </data>
 </root>
