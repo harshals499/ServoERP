@@ -1,4 +1,4 @@
-## 1.1.533 — next release
+## 1.1.533 (08/11/2026)
 
 - Add English/Marathi Hide action to the offline/database banner. Keep it hidden during same-status refreshes; show new status changes and restore on restart. Connectivity and sync behavior are unchanged.
 

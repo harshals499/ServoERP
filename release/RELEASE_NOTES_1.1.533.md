@@ -1,6 +1,6 @@
 # ServoERP 1.1.533
 
-Release date: 08/11/2026 (prepared for next release; not published).
+Release date: 08/11/2026.
 
 ## User-facing summary
 Hide the offline-access/database status banner using its new Hide button.
@@ -24,7 +24,7 @@ None. Existing offline workspace, support and Check actions remain. Public APIs,
 None. Dismissal changes presentation only; connectivity checks, business-write protections and synchronization continue.
 
 ## Deployment/update steps
-Include this change in the next verified release with matching satellite assemblies and notes. No publication is performed by this feature task.
+Install ServoERP 1.1.533 through the existing desktop updater or verified Setup. Preserve configuration and database. Deploy matching satellite assemblies and versioned notes. Use Hide / लपवा on the banner; changed status or restart restores notices.
 
 ## Validation performed
 Release build succeeds and SOURCE_CODE/bin/Release/HVAC_Pro_Desktop.exe exists. Nineteen focused assertions pass against the actual Release assembly: English/Marathi captions, focusability and caption fit, hide action, reclaimed content space, suppression during same-status refresh, reappearance after connection transitions and exact embedded release notes. Four before/after native screenshots were captured and inspected in both languages. An external STA harness suppresses startup/update/backup hooks and uses disposable database ServoERP_MarathiQA_20261108_141741_191a1c; normal Program entry and customer business writes were not run. Evidence is retained in artifacts/banner-dismiss.
