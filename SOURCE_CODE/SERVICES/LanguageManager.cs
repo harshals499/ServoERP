@@ -79,6 +79,63 @@ namespace HVAC_Pro_Desktop.Services
             return string.Format(System.Globalization.CultureInfo.CurrentCulture, Get(key), values);
         }
 
+        // Opt in only at closed, application-owned choice lists. Values remain canonical.
+        internal static void LocalizeChoices(ComboBox control)
+        {
+            control.FormattingEnabled = true;
+            control.Format += (sender, args) => args.Value = Get(Convert.ToString(args.ListItem));
+        }
+
+        private sealed class ChoiceCaptions
+        {
+            internal readonly Dictionary<object, string> Keys = new Dictionary<object, string>(ReferenceComparer.Instance);
+        }
+        private sealed class ReferenceComparer : IEqualityComparer<object>
+        {
+            internal static readonly ReferenceComparer Instance = new ReferenceComparer();
+            public new bool Equals(object left, object right) => ReferenceEquals(left, right);
+            public int GetHashCode(object value) => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(value);
+        }
+        private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ComboBox, ChoiceCaptions> Choices =
+            new System.Runtime.CompilerServices.ConditionalWeakTable<ComboBox, ChoiceCaptions>();
+
+        // Literal choices opt in individually, by object identity. SQL/user items in mixed
+        // lists are never inferred to be captions just because their text matches a key.
+        internal static int AddChoice(ComboBox control, string key) => AddChoice(control, (object)key, key);
+        internal static int AddChoice(ComboBox control, object item, string key)
+        {
+            var captions = Choices.GetValue(control, combo => {
+                var state = new ChoiceCaptions();
+                combo.FormattingEnabled = true;
+                combo.Format += (sender, args) => {
+                    string source;
+                    if (args.ListItem != null && state.Keys.TryGetValue(args.ListItem, out source) &&
+                        combo.Items.Cast<object>().Count(candidate => ReferenceEquals(candidate, args.ListItem)) == 1)
+                        args.Value = Get(source);
+                };
+                return state;
+            });
+            int index = control.Items.Add(item);
+            captions.Keys[item] = key;
+            control.Refresh();
+            return index;
+        }
+        // WinForms Text exposes the formatted display text. Business comparisons and saves
+        // must read the canonical choice, while unregistered editable/customer text stays raw.
+        internal static string ReadChoiceText(ComboBox control)
+        {
+            if (control == null) return null;
+            ChoiceCaptions captions;
+            string source;
+            if (control.SelectedItem != null && Choices.TryGetValue(control, out captions) && captions.Keys.TryGetValue(control.SelectedItem, out source))
+                return Convert.ToString(control.SelectedItem);
+            return control.Text;
+        }
+        internal static void AddChoices(ComboBox control, object[] keys)
+        {
+            foreach (string key in keys) AddChoice(control, key);
+        }
+
         internal static T DataText<T>(T control) where T : Control
         {
             OriginalText.GetValue(control, _ => new TextState()).IsDataText = true;

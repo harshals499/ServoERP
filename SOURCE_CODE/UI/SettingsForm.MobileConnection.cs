@@ -124,7 +124,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             import.Click += (s, e) => {
                 if (!IsAdminUser()) return;
-                using (var dialog = new OpenFileDialog { Title = "Import public office connection profile", Filter = "Office connection profile|*.json;*.txt", CheckFileExists = true })
+                using (var dialog = new OpenFileDialog { Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import public office connection profile"), Filter = "Office connection profile|*.json;*.txt", CheckFileExists = true })
                 {
                     if (dialog.ShowDialog(FindForm()) != DialogResult.OK) return;
                     try {
@@ -138,7 +138,7 @@ namespace HVAC_Pro_Desktop.UI
             copy.Click += (s, e) => { try { if (shownProfile != null) Clipboard.SetText(MobileConnectionService.ToCode(shownProfile)); } catch (Exception ex) { error(ex); } };
             export.Click += (s, e) => {
                 if (shownProfile == null) return;
-                using (var dialog = new SaveFileDialog { Title = "Export public office connection profile", Filter = "Office connection profile|*.servo-office.json", FileName = "office.servo-office.json" })
+                using (var dialog = new SaveFileDialog { Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Export public office connection profile"), Filter = "Office connection profile|*.servo-office.json", FileName = "office.servo-office.json" })
                 {
                     if (dialog.ShowDialog(FindForm()) != DialogResult.OK) return;
                     try { File.WriteAllText(dialog.FileName, MobileConnectionService.ToJson(shownProfile)); } catch (Exception ex) { error(ex); }

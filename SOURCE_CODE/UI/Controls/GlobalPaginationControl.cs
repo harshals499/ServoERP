@@ -34,7 +34,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
             _summaryLabel = new Label { Name = "PaginationSummary", TextAlign = ContentAlignment.MiddleLeft, Font = ModernERPTheme.Small, ForeColor = DS.Slate600 };
             _rowsLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = T("Rows per page"), TextAlign = ContentAlignment.MiddleLeft, Font = ModernERPTheme.Small, ForeColor = DS.Slate700 });
             _pageSizeCombo = new ComboBox { Name = "PaginationPageSize", DropDownStyle = ComboBoxStyle.DropDownList, Font = ModernERPTheme.Small, Tag = "CUSTOM_INPUT_SHELL", AccessibleName = T("Rows per page"), IntegralHeight = false };
-            _pageSizeCombo.Items.AddRange(new object[] { "10", "25", "50", "100" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_pageSizeCombo, new object[] { "10", "25", "50", "100" });
             _pageSizeCombo.SelectedIndexChanged += PageSizeSelected;
             _previousButton = CreateButton(T("Previous"), 78, T("Previous page"));
             _previousButton.Name = "PaginationPrevious";
@@ -64,7 +64,7 @@ namespace HVAC_Pro_Desktop.UI.Controls
                 string value = PageSize.ToString(CultureInfo.InvariantCulture);
                 if (!_pageSizeCombo.Items.Contains(value)) _pageSizeCombo.Items.Add(value);
                 _pageSizeCombo.SelectedItem = value;
-                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryLabel, string.Format(CultureInfo.GetCultureInfo("en-IN"), "Showing {0:N0}–{1:N0} of {2:N0}", DisplayFrom, DisplayTo, TotalRecords));
+                global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_summaryLabel, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Showing {0:N0}–{1:N0} of {2:N0}", DisplayFrom, DisplayTo, TotalRecords));
                 _toolTip.SetToolTip(_summaryLabel, _summaryLabel.Text);
                 _previousButton.Enabled = TotalRecords > 0 && CurrentPage > 1;
                 _nextButton.Enabled = TotalRecords > 0 && CurrentPage < TotalPages;

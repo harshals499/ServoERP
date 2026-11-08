@@ -86,7 +86,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _name.Enabled = false;
             _name.Items.Clear();
-            _name.Items.Add("Loading material list...");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_name, "Loading material list...");
             _name.SelectedIndex = 0;
 
             try
@@ -163,7 +163,7 @@ namespace HVAC_Pro_Desktop.UI
         /// <summary>Saves equipment asynchronously without blocking the modal.</summary>
         private async void SaveEquipment()
         {
-            if (string.IsNullOrWhiteSpace(_name.Text))
+            if (string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_name)))
             {
                 MessageBox.Show(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Enter Equipment Name."), BrandingService.WindowTitle("AMC Equipment"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -199,7 +199,7 @@ VALUES
     (@AMCID, @EquipmentName, @ModelNumber, @SerialNumber, @InstallDate, @Location, @Notes, GETDATE());", connection))
             {
                 command.Parameters.AddWithValue("@AMCID", _amcId);
-                command.Parameters.AddWithValue("@EquipmentName", _name.Text.Trim());
+                command.Parameters.AddWithValue("@EquipmentName", global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_name).Trim());
                 command.Parameters.AddWithValue("@ModelNumber", string.IsNullOrWhiteSpace(_model.Text) ? (object)DBNull.Value : _model.Text.Trim());
                 command.Parameters.AddWithValue("@SerialNumber", string.IsNullOrWhiteSpace(_serial.Text) ? (object)DBNull.Value : _serial.Text.Trim());
                 command.Parameters.AddWithValue("@InstallDate", _installDate.Checked ? (object)_installDate.Value.Date : DBNull.Value);

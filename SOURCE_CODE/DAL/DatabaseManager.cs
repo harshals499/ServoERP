@@ -821,19 +821,6 @@ namespace HVAC_Pro_Desktop.DAL
                     Detail NVARCHAR(2000) NULL,
                     CheckedUtc DATETIME NOT NULL DEFAULT GETUTCDATE()
                 );");
-                Exec(conn, @"IF OBJECT_ID('dbo.Payments', 'U') IS NOT NULL
-                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Payments_ReferenceNumber' AND object_id=OBJECT_ID('dbo.Payments'))
-                    AND NOT EXISTS (SELECT ReferenceNumber FROM dbo.Payments WHERE NULLIF(LTRIM(RTRIM(ReferenceNumber)), '') IS NOT NULL GROUP BY ReferenceNumber HAVING COUNT(*) > 1)
-                    CREATE UNIQUE INDEX UX_Payments_ReferenceNumber ON dbo.Payments(ReferenceNumber) WHERE ReferenceNumber IS NOT NULL AND ReferenceNumber <> '';");
-                Exec(conn, @"IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL
-                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Invoices_InvoiceNumber' AND object_id=OBJECT_ID('dbo.Invoices'))
-                    AND NOT EXISTS (SELECT InvoiceNumber FROM dbo.Invoices WHERE NULLIF(LTRIM(RTRIM(InvoiceNumber)), '') IS NOT NULL GROUP BY InvoiceNumber HAVING COUNT(*) > 1)
-                    CREATE UNIQUE INDEX UX_Invoices_InvoiceNumber ON dbo.Invoices(InvoiceNumber) WHERE InvoiceNumber IS NOT NULL AND InvoiceNumber <> '';");
-                Exec(conn, @"IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL
-                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_PurchaseOrders_PONumber' AND object_id=OBJECT_ID('dbo.PurchaseOrders'))
-                    AND NOT EXISTS (SELECT PONumber FROM dbo.PurchaseOrders WHERE NULLIF(LTRIM(RTRIM(PONumber)), '') IS NOT NULL GROUP BY PONumber HAVING COUNT(*) > 1)
-                    CREATE UNIQUE INDEX UX_PurchaseOrders_PONumber ON dbo.PurchaseOrders(PONumber) WHERE PONumber IS NOT NULL AND PONumber <> '';");
-
                 // B2BClients
                 AddColumn(conn, "B2BClients", "Email",            "NVARCHAR(255) NULL");
                 AddColumn(conn, "B2BClients", "GSTNumber",        "NVARCHAR(20)  NULL");
@@ -1065,6 +1052,8 @@ namespace HVAC_Pro_Desktop.DAL
                 AddColumn(conn, "InvoiceLineItems", "Unit",    "NVARCHAR(50) NOT NULL DEFAULT 'Nos'");
                 AddColumn(conn, "InvoiceLineItems", "Category", "NVARCHAR(50) NOT NULL DEFAULT 'Service'");
                 AddColumn(conn, "InvoiceLineItems", "StockItemID", "INT NULL");
+                // Required by invoice posting and the existing job relationship guard.
+                AddColumn(conn, "InvoiceLineItems", "JobID", "INT NULL");
                 AddColumn(conn, "InvoiceLineItems", "DiscountPercent", "DECIMAL(5,2) NOT NULL DEFAULT 0");
                 AddColumn(conn, "InvoiceLineItems", "GSTPercent", "DECIMAL(5,2) NOT NULL DEFAULT 18");
                 AddColumn(conn, "InvoiceLineItems", "TaxType", "NVARCHAR(30) NOT NULL DEFAULT 'Taxable'");
@@ -2549,6 +2538,20 @@ END;");
                     Notes        NVARCHAR(500) NULL,
                     CreatedDate  DATETIME NOT NULL DEFAULT GETDATE()
                 );");
+
+                // These guards query table data: run only after all dependent tables exist.
+                Exec(conn, @"IF OBJECT_ID('dbo.Payments', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Payments_ReferenceNumber' AND object_id=OBJECT_ID('dbo.Payments'))
+                    AND NOT EXISTS (SELECT ReferenceNumber FROM dbo.Payments WHERE NULLIF(LTRIM(RTRIM(ReferenceNumber)), '') IS NOT NULL GROUP BY ReferenceNumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_Payments_ReferenceNumber ON dbo.Payments(ReferenceNumber) WHERE ReferenceNumber IS NOT NULL AND ReferenceNumber <> '';");
+                Exec(conn, @"IF OBJECT_ID('dbo.Invoices', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_Invoices_InvoiceNumber' AND object_id=OBJECT_ID('dbo.Invoices'))
+                    AND NOT EXISTS (SELECT InvoiceNumber FROM dbo.Invoices WHERE NULLIF(LTRIM(RTRIM(InvoiceNumber)), '') IS NOT NULL GROUP BY InvoiceNumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_Invoices_InvoiceNumber ON dbo.Invoices(InvoiceNumber) WHERE InvoiceNumber IS NOT NULL AND InvoiceNumber <> '';");
+                Exec(conn, @"IF OBJECT_ID('dbo.PurchaseOrders', 'U') IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name='UX_PurchaseOrders_PONumber' AND object_id=OBJECT_ID('dbo.PurchaseOrders'))
+                    AND NOT EXISTS (SELECT PONumber FROM dbo.PurchaseOrders WHERE NULLIF(LTRIM(RTRIM(PONumber)), '') IS NOT NULL GROUP BY PONumber HAVING COUNT(*) > 1)
+                    CREATE UNIQUE INDEX UX_PurchaseOrders_PONumber ON dbo.PurchaseOrders(PONumber) WHERE PONumber IS NOT NULL AND PONumber <> '';");
 
                 EnsureAuthSchema(conn);
                 EnsureLicenseSchema(conn);

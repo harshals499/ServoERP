@@ -1,6 +1,13 @@
 {
   "note": "Conservative static candidate audit, not proof of complete runtime coverage. Includes data, protected content and interpolated strings requiring manual classification. Excludes many helper-built strings and services.",
-  "marathiResourceCount": 3191,
+  "excludedCandidates": [
+    {
+      "file": "SOURCE_CODE/UI/GlobalCardStateService.cs",
+      "text": " + DisplayTitle(info) +\n                   ",
+      "reason": "Embedded export-template code falsely matched as a C# property assignment"
+    }
+  ],
+  "marathiResourceCount": 3604,
   "missingCandidateCount": 0,
   "candidates": []
 }

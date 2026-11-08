@@ -1,4 +1,30 @@
-﻿# Marathi restoration — current checkpoint 07/11/2026
+# Current checkpoint — 08/11/2026
+
+**1.1.532 remains INCOMPLETE and unpublished.** Database initialization defects are repaired; app-wide Marathi acceptance is not complete.
+
+## Verified this run
+
+- Root cause reproduced in an empty database: duplicate checks referenced Payments/PurchaseOrders before creation. Moved the guards after dependent tables exist. A genuinely fresh workflow then exposed missing InvoiceLineItems.JobID; added the existing nullable field through the standard guarded migration.
+- Latest fresh QA database: `ServoERP_MarathiQA_20261108_124537_91babf`. Zero user tables were asserted before initialization; initializer passed twice. No table priming remains. SQL/business writes were scoped to disposable QA databases, not HVAC_PRO/customer data.
+- Release functional suite: **4,153 passing assertions**. Most assertions check resources/formats; they are not thousands of business workflows. Both language E2E service flows and ten save/update cases per language pass. The invoice regression now correctly edits a draft, finalizes it and verifies that posted edits stay blocked; financial protection was not weakened.
+- Native English/Marathi captures cover login, navigation, all 14 Settings destinations, confirmation dialogs, invoice/report previews and 13 further modules. Settings navigation retains unsaved input. The Settings Users/Audit routes had compared translated tabs with English identifiers; fixed to use canonical keys.
+- 3604 Marathi entries, no TODO markers or case-insensitive duplicate keys. Replaced 52 inherited placeholder translations. Added literal-choice registration that preserves objects and data provenance, plus canonical dropdown reads so formatted Text is not saved as business data.
+- Fixed workspace title line metrics, invoice captions/risk colors, resource-based notification detail formatting, explicit default import-validation messages and shared pagination/workforce captions. No production dependencies or downloaded language pack added.
+- Expanded static audit returns zero candidates, but is demonstrably non-exhaustive. **Rendered linguistic audit fails: 86 existing Marathi-resource captions are still English.** The broader rendered-English review also contains missing templates and data requiring classification. This is the current release blocker, replacing the old PurchaseOrders blocker.
+- Installed app PID 10676 stayed running. Normal app entry was not launched. Native tests load the built assembly in an isolated STA harness. Direct computer-use initialization failed (kernel assets unavailable); no claim of a full manual clickthrough is made.
+
+## Evidence and next acceptance work
+
+- Final harness and captures: `artifacts/marathi-localization/run3-final/`; database name in qa-database.txt; functional output in regression.txt.
+- Strict rendered audit: `python scripts/Localization/AuditRenderedCaptions.py artifacts/marathi-localization/run3-final --fail-on-untranslated`. Its JSON findings identify the remaining resource-backed captions.
+- Broader worklist: `Docs/Localization/run3-rendered-review.json`; this is a review list, not a count of proven bugs. Source helper/model caption paths bypass the conservative static scan.
+- Finish custom dashboard/card/table caption bindings, generated action/empty-state text, deeper dialogs, print/export bodies and third-party controls; classify business data without translating it. Repeat linguistic checks and inspect fresh captures. No release until these pass.
+- PDF header content is protected and unchanged. Windows-owned buttons follow Windows display language. No other Hard Stop approval blocker was introduced.
+- Packaging remains blocked by INCOMPLETE notes. No installer, updater feed, release assets, source push or remote publication was produced. Latest public release checked this run: v1.1.531, published 05/11/2026.
+
+## Earlier checkpoint history
+
+# Marathi restoration — current checkpoint 07/11/2026
 
 **Unreleased 1.1.532; INCOMPLETE; do not publish.**
 

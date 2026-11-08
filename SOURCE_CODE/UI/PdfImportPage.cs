@@ -78,7 +78,7 @@ namespace HVAC_Pro_Desktop.UI
             var list=new TableLayoutPanel {Dock=DockStyle.Fill,ColumnCount=1,RowCount=5,Margin=new Padding(0,0,8,0)};
             list.RowStyles.Add(new RowStyle(SizeType.Absolute,22));list.RowStyles.Add(new RowStyle(SizeType.Absolute,30));list.RowStyles.Add(new RowStyle(SizeType.Absolute,34));list.RowStyles.Add(new RowStyle(SizeType.Percent,100));list.RowStyles.Add(new RowStyle(SizeType.Absolute,38));
             list.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label {Text="Search filenames or folders",Dock=DockStyle.Fill}),0,0);
-            list.Controls.Add(_search,0,1);_filter.Items.AddRange(new object[]{"All files","Needs attention","Categorised","Excluded"});_filter.SelectedIndex=0;list.Controls.Add(_filter,0,2);list.Controls.Add(_files,0,3);
+            list.Controls.Add(_search,0,1);global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_filter, new object[]{"All files","Needs attention","Categorised","Excluded"});_filter.SelectedIndex=0;list.Controls.Add(_filter,0,2);list.Controls.Add(_files,0,3);
             var inclusion=new FlowLayoutPanel {Dock=DockStyle.Fill,WrapContents=false};
             inclusion.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Select all",()=> {SetInclusion(true);return Task.CompletedTask;})));
             inclusion.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ActionButton("Exclude all",()=> {SetInclusion(false);return Task.CompletedTask;})));list.Controls.Add(inclusion,0,4);
@@ -140,7 +140,7 @@ namespace HVAC_Pro_Desktop.UI
         private async Task ChooseFolder()
         {
             SessionManager.DemandPermission("MasterData","View");
-            using(var picker=new FolderBrowserDialog {Description="Choose a folder — all subfolders will be scanned for PDFs",ShowNewFolderButton=false})
+            using(var picker=new FolderBrowserDialog {Description=global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose a folder — all subfolders will be scanned for PDFs"),ShowNewFolderButton=false})
             {
                 if(picker.ShowDialog(FindForm())!=DialogResult.OK)return;
                 if(_batch.Files.Any(f=>!f.Imported) && !ServoERP.Infrastructure.ServoConfirmDialog.Show(this,"Replace the current PDF review?","Unsaved category choices will be discarded. Already imported documents remain saved."))return;

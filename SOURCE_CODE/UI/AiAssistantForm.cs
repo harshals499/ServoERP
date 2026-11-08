@@ -103,7 +103,7 @@ namespace HVAC_Pro_Desktop.UI
                 Size = new Size(190, 25),
                 Font = DS.Small
             };
-            _cmbMode.Items.AddRange(new object[]
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbMode, new object[]
             {
                 "General ERP Help",
                 "Client Assistant",

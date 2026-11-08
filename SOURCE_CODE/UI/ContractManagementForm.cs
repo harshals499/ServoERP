@@ -322,7 +322,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 Name = "ContractStatusPeriodFilter"
             };
-            _statusPeriodFilter.Items.AddRange(new object[] { "This Month", "This Quarter", "All Time" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_statusPeriodFilter, new object[] { "This Month", "This Quarter", "All Time" });
             _statusPeriodFilter.SelectedIndex = 2;
             _statusPeriodFilter.SelectedIndexChanged += (s, e) =>
             {
@@ -386,7 +386,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),
                 Name = "ContractTableStatusFilter"
             };
-            _tableStatusFilter.Items.Add("All Status");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_tableStatusFilter, "All Status");
             foreach (string status in ContractStatuses) _tableStatusFilter.Items.Add(status);
             _tableStatusFilter.SelectedIndex = 0;
             _tableStatusFilter.SelectedIndexChanged += (s, e) =>
@@ -694,7 +694,7 @@ namespace HVAC_Pro_Desktop.UI
 
             AddLabel(group, "Contract Type *", 18, 112);
             _cmbType = MakeCombo(group, 18, 132, 320);
-            _cmbType.Items.AddRange(new object[] { "AMC", "Service Agreement", "NDA", "Vendor Agreement", "Employment Contract" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbType, new object[] { "AMC", "Service Agreement", "NDA", "Vendor Agreement", "Employment Contract" });
             _cmbType.SelectedIndexChanged += (s, e) => UpdateLiveSummary();
 
             AddLabel(group, "Status *", 360, 112);
@@ -752,7 +752,7 @@ namespace HVAC_Pro_Desktop.UI
             _numSLARepair.Value = 24;
             AddLabel(group, "Maintenance Frequency", 18, 108);
             _cmbFrequency = MakeCombo(group, 18, 128, 320);
-            _cmbFrequency.Items.AddRange(new object[] { "Monthly", "Weekly", "Quarterly", "Annually" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbFrequency, new object[] { "Monthly", "Weekly", "Quarterly", "Annually" });
             return group;
         }
 
@@ -1024,7 +1024,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (_cmbClient == null) return;
             _cmbClient.Items.Clear();
-            _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, new ComboItem { Id = 0, Text = "-- Select Client --" }, "-- Select Client --");
             foreach (B2BClient client in _clientsById.Values.OrderBy(c => c.CompanyName))
                 _cmbClient.Items.Add(new ComboItem { Id = client.ClientID, Text = client.CompanyName });
             _cmbClient.SelectedIndex = 0;
@@ -1036,7 +1036,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbSite == null) return;
             int previous = ((_cmbSite.SelectedItem as ComboItem)?.Id).GetValueOrDefault();
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, new ComboItem { Id = 0, Text = "-- No site / site not decided --" }, "-- No site / site not decided --");
             foreach (ClientSite site in _sitesById.Values.Where(s => s.ClientID == clientId).OrderBy(SiteService.GetDisplayName))
                 _cmbSite.Items.Add(new ComboItem { Id = site.SiteID, Text = SiteService.GetDisplayName(site) });
             _cmbSite.SelectedIndex = 0;

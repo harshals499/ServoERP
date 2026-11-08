@@ -165,7 +165,7 @@ namespace HVAC_Pro_Desktop.UI
             Label filterLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Show", Font = DS.SmallBold, ForeColor = DS.Slate700, AutoSize = true, Anchor = AnchorStyles.Left, Margin = new Padding(4, 8, 8, 0) });
             _filter.DropDownStyle = ComboBoxStyle.DropDownList;
             _filter.Width = 145;
-            _filter.Items.AddRange(new object[] { "All terminals", "Online", "Need installation", "Update available", "Installing", "Failed", "Offline" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_filter, new object[] { "All terminals", "Online", "Need installation", "Update available", "Installing", "Failed", "Offline" });
             _filter.SelectedIndex = 0;
             _filter.SelectedIndexChanged += (sender, args) => ApplyFilter();
             ConfigureButton(_chooseInstaller, "Installer override", 130);
@@ -355,7 +355,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (var dialog = new OpenFileDialog
             {
-                Title = "Choose ServoERP terminal or Enterprise installer",
+                Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose ServoERP terminal or Enterprise installer"),
                 Filter = "ServoERP installer|ServoERP.Terminal.Setup.*.exe;ServoERP.Setup.*.exe;ServoERP.App.*.msi|Windows installer|*.exe;*.msi",
                 CheckFileExists = true,
                 Multiselect = false

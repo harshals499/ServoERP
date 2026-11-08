@@ -42,7 +42,7 @@
 			};
 			System.Windows.Forms.Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = title,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(title),
 				Location = new System.Drawing.Point(0, 0),
 				Size = new System.Drawing.Size(320, 22),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 10.5f, System.Drawing.FontStyle.Bold),
@@ -50,7 +50,7 @@
 			});
 			System.Windows.Forms.Label detailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = detail,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(detail),
 				Location = new System.Drawing.Point(0, 28),
 				Size = new System.Drawing.Size(520, 30),
 				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.75f),
@@ -127,7 +127,7 @@
 			};
 			System.Windows.Forms.Label value3 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = title,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(title),
 				Location = new System.Drawing.Point(18, 14),
 				Size = new System.Drawing.Size(180, 18),
 				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
@@ -143,7 +143,7 @@
 			});
 			System.Windows.Forms.Label label2 = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = caption,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(caption),
 				Location = new System.Drawing.Point(18, 82),
 				Size = new System.Drawing.Size(220, 30),
 				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f),
@@ -225,7 +225,7 @@
 			};
 			System.Windows.Forms.Label eyebrowLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = eyebrow,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(eyebrow),
 				Location = new System.Drawing.Point(0, 0),
 				Size = new System.Drawing.Size(280, 18),
 				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, System.Drawing.FontStyle.Bold),
@@ -233,7 +233,7 @@
 			});
 			System.Windows.Forms.Label localTitleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = title,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(title),
 				Location = new System.Drawing.Point(0, 24),
 				Size = new System.Drawing.Size(520, 42),
 				Font = new System.Drawing.Font("Segoe UI Semibold", 18f, System.Drawing.FontStyle.Bold),
@@ -241,7 +241,7 @@
 			});
 			System.Windows.Forms.Label localDetailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
 			{
-				Text = detail,
+				Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(detail),
 				Location = new System.Drawing.Point(0, 72),
 				Size = new System.Drawing.Size(560, 38),
 				Font = new System.Drawing.Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f),

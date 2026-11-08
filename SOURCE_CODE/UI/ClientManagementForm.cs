@@ -654,7 +654,7 @@ namespace HVAC_Pro_Desktop.UI
             int y = 48;
             foreach (var row in rows)
             {
-                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = row.Item1, Location = new Point(16, y), Size = new Size(150, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = DS.Slate800 }));
+                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(row.Item1), Location = new Point(16, y), Size = new Size(150, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = DS.Slate800 }));
                 card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = row.Item2, Location = new Point(card.Width - 64, y), Size = new Size(42, 18), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = DS.Slate900, TextAlign = ContentAlignment.MiddleRight }));
                 y += 28;
             }
@@ -673,7 +673,7 @@ namespace HVAC_Pro_Desktop.UI
             _dashboardTableSearch.TextChanged += (s, e) => HandleDashboardSearchChanged(_dashboardTableSearch, "table", "Search");
 
             _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Size = new Size(150, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _dashboardStatusFilter.Items.AddRange(new object[] { "All Status", "Active", "Inactive", "Prospect", "On Hold", "Blacklisted" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_dashboardStatusFilter, new object[] { "All Status", "Active", "Inactive", "Prospect", "On Hold", "Blacklisted" });
             int statusIndex = Math.Max(0, _dashboardStatusFilter.Items.IndexOf(_dashboardStatus));
             _dashboardStatusFilter.SelectedIndex = statusIndex;
             _dashboardStatusFilter.SelectedIndexChanged += (s, e) => { _dashboardStatus = Convert.ToString(_dashboardStatusFilter.SelectedItem); _dashboardClientsPage = 1; PopulateDashboardClientsGrid(); };
@@ -1131,9 +1131,9 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = new Panel { Size = new Size(width, 86), BackColor = Color.White, Margin = new Padding(0, 0, 12, 0) };
             card.Paint += (s, e) => DrawRoundedBorder(e.Graphics, card.ClientRectangle, DS.Border, 8);
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "□", Location = new Point(16, 22), Size = new Size(42, 42), BackColor = iconBg, ForeColor = iconFg, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold) }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(74, 16), Size = new Size(width - 92, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(label), Location = new Point(74, 16), Size = new Size(width - 92, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, Location = new Point(74, 36), Size = new Size(width - 92, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = DS.Slate900, AutoEllipsis = true }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subLabel, Location = new Point(74, 62), Size = new Size(width - 92, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = DS.Slate500, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(subLabel), Location = new Point(74, 62), Size = new Size(width - 92, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = DS.Slate500, AutoEllipsis = true }));
             return card;
         }
 
@@ -1172,7 +1172,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (DashSlice slice in slices)
             {
                 card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "●", Location = new Point(x, y), Size = new Size(16, 16), ForeColor = slice.Color }));
-                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = slice.Name, Location = new Point(x + 18, y), Size = new Size(112, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = DS.Slate800, AutoEllipsis = true }));
+                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(slice.Name), Location = new Point(x + 18, y), Size = new Size(112, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = DS.Slate800, AutoEllipsis = true }));
                 card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = (slice.Value == 0 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("-") : slice.Value.ToString()), Location = new Point(card.Width - 52, y), Size = new Size(30, 16), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = DS.Slate500, TextAlign = ContentAlignment.MiddleRight }));
                 y += 28;
             }

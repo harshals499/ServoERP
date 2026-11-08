@@ -76,14 +76,15 @@ namespace HVAC_Pro_Desktop.UI
             Panel queueCard = Card(new Padding(0, 50, 0, 0), new Padding(0, 0, 10, 0));
             AddSectionTitle(queueCard, "Invoice work queue", "Prioritized by age, balance and payment risk");
             _queueFilter = Combo(108);
-            _queueFilter.Items.AddRange(new object[] { "All", "Overdue", "Due soon", "Not due", "Paid" });
+            LanguageManager.LocalizeChoices(_queueFilter);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_queueFilter, new object[] { "All", "Overdue", "Due soon", "Not due", "Paid" });
             _queueFilter.SelectedIndex = 0;
             _queueFilter.SelectedIndexChanged += (s, e) => BindQueue();
-            _search = new TextBox { Width = 184, Height = 28, BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = Muted, Text = "Search invoices..." };
+            _search = new TextBox { Width = 184, Height = 28, BorderStyle = BorderStyle.FixedSingle, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), ForeColor = Muted, Text = LanguageManager.Get("Search invoices...") };
             _search.TextChanged += (s, e) => BindQueue();
             _search.Enter += (s, e) =>
             {
-                if (_search.Text == "Search invoices...")
+                if (_search.Text == LanguageManager.Get("Search invoices..."))
                 {
                     _search.Text = string.Empty;
                     _search.ForeColor = TextColor;
@@ -93,7 +94,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (string.IsNullOrWhiteSpace(_search.Text))
                 {
-                    _search.Text = "Search invoices...";
+                    _search.Text = LanguageManager.Get("Search invoices...");
                     _search.ForeColor = Muted;
                 }
             };
@@ -104,7 +105,7 @@ namespace HVAC_Pro_Desktop.UI
             queueCard.Controls.Add(_search);
             queueCard.Controls.Add(_rowCount);
             queueCard.Controls.Add(refresh);
-            Button clearFilters = WorkspaceActionUi.CreateClearFilters(() => { _queueFilter.SelectedIndex = 0; _search.Text = "Search invoices..."; _search.ForeColor = Muted; BindQueue(); });
+            Button clearFilters = WorkspaceActionUi.CreateClearFilters(() => { _queueFilter.SelectedIndex = 0; _search.Text = LanguageManager.Get("Search invoices..."); _search.ForeColor = Muted; BindQueue(); });
             queueCard.Controls.Add(clearFilters);
             queueCard.Resize += (s, e) =>
             {
@@ -162,7 +163,7 @@ namespace HVAC_Pro_Desktop.UI
             SetKpi("collected", CompactCurrency(_snapshot.Kpis.PaidAmount.Value), "Paid in the selected period");
             SetKpi("risk", CompactCurrency(_snapshot.AtRiskAmount), "High-risk open balances");
             SetKpi("overdue", CompactCurrency(_snapshot.OverdueAmount), "Past due and still outstanding");
-            SetKpi("dso", _snapshot.DaysSalesOutstanding.ToString("0") + " days", "Average collection period");
+            SetKpi("dso", LanguageManager.Format("{0} days", _snapshot.DaysSalesOutstanding.ToString("0")), "Average collection period");
             _forecastChart.SetData(_snapshot.CollectionForecast);
             _agingChart.SetData(_snapshot.AgingBuckets);
             BindQueue();
@@ -185,10 +186,10 @@ namespace HVAC_Pro_Desktop.UI
         private Control Kpi(string key, string title, Color accent, Color badgeBack, string badgeText)
         {
             Panel card = Card(new Padding(14, 10, 58, 8), new Padding(0, 0, 10, 0));
-            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Dock = DockStyle.Top, Height = 19, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = TextColor, AutoEllipsis = true });
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), Dock = DockStyle.Top, Height = 19, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = TextColor, AutoEllipsis = true });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "—", Dock = DockStyle.Top, Height = 31, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true });
             Label note = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Waiting for live data", Dock = DockStyle.Bottom, Height = 18, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = Muted, AutoEllipsis = true });
-            Label badge = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = badgeText, Size = new Size(38, 38), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = badgeBack, ForeColor = accent, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
+            Label badge = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(badgeText), Size = new Size(38, 38), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = badgeBack, ForeColor = accent, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter });
             card.Controls.Add(note);
             card.Controls.Add(value);
             card.Controls.Add(titleLabel);
@@ -202,7 +203,7 @@ namespace HVAC_Pro_Desktop.UI
         private void SetKpi(string key, string value, string note)
         {
             if (_kpiValues.TryGetValue(key, out Label valueLabel)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(valueLabel, value);
-            if (_kpiNotes.TryGetValue(key, out Label noteLabel)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(noteLabel, note);
+            if (_kpiNotes.TryGetValue(key, out Label noteLabel)) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(noteLabel, note);
         }
 
         private Control Section(string title, string subtitle, Control body, int rightMargin)
@@ -215,8 +216,8 @@ namespace HVAC_Pro_Desktop.UI
 
         private static void AddSectionTitle(Control card, string title, string subtitle)
         {
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(14, 8), Size = new Size(300, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.6f, FontStyle.Bold), ForeColor = TextColor, AutoEllipsis = true }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = subtitle, Location = new Point(14, 28), Size = new Size(340, 17), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = Muted, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), Location = new Point(14, 8), Size = new Size(300, 20), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9.6f, FontStyle.Bold), ForeColor = TextColor, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(subtitle), Location = new Point(14, 28), Size = new Size(340, 17), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f), ForeColor = Muted, AutoEllipsis = true }));
         }
 
         private DataGridView BuildQueueGrid()
@@ -263,17 +264,26 @@ namespace HVAC_Pro_Desktop.UI
             grid.CellDoubleClick += (s, e) => { int id = RowInvoiceId(e.RowIndex); if (id > 0) OpenInvoiceRequested?.Invoke(id); };
             grid.CellFormatting += (s, e) =>
             {
-                if (e.RowIndex < 0 || grid.Columns[e.ColumnIndex].Name != "Risk") return;
-                string risk = Convert.ToString(e.Value);
-                e.CellStyle.ForeColor = risk == "High" ? Red : risk == "Medium" ? Color.FromArgb(217, 119, 6) : Green;
-                e.CellStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+                if (e.RowIndex < 0) return;
+                string column = grid.Columns[e.ColumnIndex].Name;
+                if (column == "Risk")
+                {
+                    string risk = Convert.ToString(e.Value);
+                    e.CellStyle.ForeColor = risk == "High" ? Red : risk == "Medium" ? Color.FromArgb(217, 119, 6) : Green;
+                    e.CellStyle.Font = new Font(LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold);
+                }
+                if (column == "Risk" || column == "NextAction")
+                {
+                    e.Value = LanguageManager.Get(Convert.ToString(e.Value));
+                    e.FormattingApplied = true;
+                }
             };
             return grid;
         }
 
         private static DataGridViewButtonColumn ActionColumn(string name, string text, float weight)
         {
-            return new DataGridViewButtonColumn { Name = name, HeaderText = string.Empty, Text = text, UseColumnTextForButtonValue = true, FillWeight = weight, FlatStyle = FlatStyle.Flat };
+            return new DataGridViewButtonColumn { Name = name, HeaderText = string.Empty, Text = LanguageManager.Get(text), UseColumnTextForButtonValue = true, FillWeight = weight, FlatStyle = FlatStyle.Flat };
         }
 
         private void QueueGridCellContentClick(object sender, DataGridViewCellEventArgs e)
@@ -314,14 +324,14 @@ namespace HVAC_Pro_Desktop.UI
             else if (filter == "Not due") rows = rows.Where(r => r.BalanceDue > 0m && r.DueDate.Date > DateTime.Today.AddDays(7));
             else if (filter == "Paid") rows = rows.Where(r => r.BalanceDue <= 0m || string.Equals(r.Status, "Paid", StringComparison.OrdinalIgnoreCase));
             string search = (_search?.Text ?? string.Empty).Trim();
-            if (search == "Search invoices...") search = string.Empty;
+            if (search == LanguageManager.Get("Search invoices...")) search = string.Empty;
             if (search.Length > 0) rows = rows.Where(r => Contains(r.ClientName, search) || Contains(r.InvoiceNumber, search) || Contains(r.SiteName, search));
             List<InvoiceRecentRow> result = rows.Take(50).ToList();
             _queueGrid.Rows.Clear();
             foreach (InvoiceRecentRow row in result)
             {
-                string age = row.DaysOverdue > 0 ? row.DaysOverdue + " d late" : row.BalanceDue <= 0m ? "Paid" : Math.Max(0, (row.DueDate.Date - DateTime.Today).Days) + " d";
-                _queueGrid.Rows.Add(row.InvoiceId, row.ClientName, row.InvoiceNumber, IndiaFormatHelper.FormatDate(row.DueDate), IndiaFormatHelper.FormatCurrency(row.BalanceDue), age, row.Risk, row.NextAction, "Open", "Record payment", "Send reminder");
+                string age = row.DaysOverdue > 0 ? LanguageManager.Format("{0} d late", row.DaysOverdue) : row.BalanceDue <= 0m ? LanguageManager.Get("Paid") : LanguageManager.Format("{0} d", Math.Max(0, (row.DueDate.Date - DateTime.Today).Days));
+                _queueGrid.Rows.Add(row.InvoiceId, row.ClientName, row.InvoiceNumber, IndiaFormatHelper.FormatDate(row.DueDate), IndiaFormatHelper.FormatCurrency(row.BalanceDue), age, row.Risk, row.NextAction, LanguageManager.Get("Open"), LanguageManager.Get("Record payment"), LanguageManager.Get("Send reminder"));
             }
             if (_rowCount != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_rowCount, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} shown", result.Count));
         }
@@ -339,7 +349,7 @@ namespace HVAC_Pro_Desktop.UI
                 item.Controls.Add(new Panel { Dock = DockStyle.Left, Width = 3, BackColor = accent });
                 item.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = DateTime.Today.AddHours(10).AddMinutes(i * 75).ToString("HH:mm"), Location = new Point(11, 8), Size = new Size(44, 17), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f, FontStyle.Bold), ForeColor = Muted }));
                 item.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = row.ClientName, Location = new Point(58, 6), Size = new Size(190, 19), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.1f, FontStyle.Bold), ForeColor = TextColor, AutoEllipsis = true }));
-                item.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = row.NextAction + " • " + row.InvoiceNumber, Location = new Point(58, 28), Size = new Size(220, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), ForeColor = Muted, AutoEllipsis = true }));
+                item.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(row.NextAction) + " • " + row.InvoiceNumber, Location = new Point(58, 28), Size = new Size(220, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f), ForeColor = Muted, AutoEllipsis = true }));
                 item.Click += (s, e) => OpenInvoiceRequested?.Invoke((int)((Control)s).Tag);
                 _followUps.Controls.Add(item);
             }
@@ -396,7 +406,7 @@ namespace HVAC_Pro_Desktop.UI
             var open = _queueGrid.Columns["Open"] as DataGridViewButtonColumn;
             if (open != null)
             {
-                open.Text = compact ? "Actions" : "Open";
+                open.Text = LanguageManager.Get(compact ? "Actions" : "Open");
                 open.FillWeight = compact ? 64 : 50;
             }
             _queueGrid.Invalidate();
@@ -525,7 +535,7 @@ namespace HVAC_Pro_Desktop.UI
             if (height <= 0)
                 return;
             AddHoverRectangle(new RectangleF(x, y, width, height), "invoice-forecast-" + index + "-" + category,
-                point.WeekStart.ToString("dd MMM yyyy") + " · " + category, ChartHoverFormat.Currency(amount), calculation);
+                point.WeekStart.ToString("dd MMM yyyy") + " · " + LanguageManager.Get(category), ChartHoverFormat.Currency(amount), LanguageManager.Get(calculation));
         }
         private static int DrawSegment(Graphics graphics, int x, int bottom, int width, decimal amount, decimal max, int plotHeight, Color color)
         {
@@ -542,7 +552,7 @@ namespace HVAC_Pro_Desktop.UI
             for (int i = 0; i < labels.Length; i++)
             {
                 using (Brush fill = new SolidBrush(colors[i])) graphics.FillRectangle(fill, x, 5, 10, 8);
-                graphics.DrawString(labels[i], font, text, x + 14, 1);
+                graphics.DrawString(LanguageManager.Get(labels[i]), font, text, x + 14, 1);
                 x += 78;
             }
         }
@@ -569,7 +579,7 @@ namespace HVAC_Pro_Desktop.UI
                 for (int i = 0; i < _data.Count; i++)
                 {
                     InvoiceAgingBucket row = _data[i];
-                    e.Graphics.DrawString(row.Bucket, label, text, 0, y + 3);
+                    e.Graphics.DrawString(LanguageManager.Get(row.Bucket), label, text, 0, y + 3);
                     int barX = 76;
                     int barMax = Math.Max(40, Width - 190);
                     int barWidth = row.Amount <= 0m ? 2 : Math.Max(4, (int)(barMax * row.Amount / max));
@@ -580,8 +590,8 @@ namespace HVAC_Pro_Desktop.UI
                     e.Graphics.DrawString(share, label, text, Width - 42, y + 3);
                     decimal percentage = total <= 0m ? 0m : row.Amount * 100m / total;
                     AddHoverRectangle(new RectangleF(barX, y, Math.Max(4, barWidth), 20), "invoice-aging-" + i,
-                        row.Bucket + " receivables", ChartHoverFormat.Currency(row.Amount) + " (" + ChartHoverFormat.Percent(percentage) + ")",
-                        "bucket outstanding ÷ total outstanding receivables");
+                        LanguageManager.Format("{0} receivables", LanguageManager.Get(row.Bucket)), ChartHoverFormat.Currency(row.Amount) + " (" + ChartHoverFormat.Percent(percentage) + ")",
+                        LanguageManager.Get("bucket outstanding ÷ total outstanding receivables"));
                     y += 35;
                 }
             }

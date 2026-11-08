@@ -623,17 +623,17 @@ namespace HVAC_Pro_Desktop.UI
             _dtpValidity.Value = DateTime.Today.AddDays(30);
             _dtpValidity.ValueChanged += (s, e) => UpdateDueDate();
             _cboStatus = MakeCombo(true);
-            _cboStatus.Items.AddRange(new object[] { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboStatus, new object[] { "Draft", "Material Check", "Approval", "Sent", "Accepted", "Converted" });
             _cboStatus.SelectedIndex = 0;
             _cboStatus.SelectedIndexChanged += (s, e) => { RefreshSummary(); RenderWorkflowStepper(); };
             _cboCommercialFlow = MakeCombo(true);
-            _cboCommercialFlow.Items.AddRange(new object[] { "Revenue", "Revenue + Procurement", "Procurement Only" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboCommercialFlow, new object[] { "Revenue", "Revenue + Procurement", "Procurement Only" });
             _cboCommercialFlow.SelectedIndex = 0;
             _cboCustomerDocStatus = MakeCombo(true);
-            _cboCustomerDocStatus.Items.AddRange(new object[] { "Quote Draft", "Quote Sent", "PO Received", "Quote Accepted", "Invoice Created", "Invoice Sent", "Payment Received", "Job Created", "Closed" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboCustomerDocStatus, new object[] { "Quote Draft", "Quote Sent", "PO Received", "Quote Accepted", "Invoice Created", "Invoice Sent", "Payment Received", "Job Created", "Closed" });
             _cboCustomerDocStatus.SelectedIndex = 0;
             _cboSupplierDocStatus = MakeCombo(true);
-            _cboSupplierDocStatus.Items.AddRange(new object[] { "Not Required", "Supplier Quote Needed", "Supplier Quote Sent", "Supplier Quote Received", "PO Draft", "PO Sent", "Materials Received", "Vendor Paid", "Closed" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboSupplierDocStatus, new object[] { "Not Required", "Supplier Quote Needed", "Supplier Quote Sent", "Supplier Quote Received", "PO Draft", "PO Sent", "Materials Received", "Vendor Paid", "Closed" });
             _cboSupplierDocStatus.SelectedIndex = 0;
             _dtpDate = MakeDatePicker();
             _dtpDate.Value = DateTime.Today;
@@ -787,7 +787,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label filterLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Filter by Category", AutoSize = true, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f), ForeColor = QuoteMuted, Anchor = AnchorStyles.Top | AnchorStyles.Right });
             _cmbCategoryFilter = new ComboBox { Width = 150, Height = 32, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f), Anchor = AnchorStyles.Top | AnchorStyles.Right, BackColor = InputFill, FlatStyle = FlatStyle.Standard };
-            _cmbCategoryFilter.Items.Add("All");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbCategoryFilter, "All");
             _cmbCategoryFilter.SelectedIndex = 0;
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => BindInventoryItems();
             Panel searchPanel = CreateSearchPanel();
@@ -1452,7 +1452,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = InputFill,
                 FlatStyle = FlatStyle.Standard
             };
-            _cmbCategoryFilter.Items.Add("All");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbCategoryFilter, "All");
             _cmbCategoryFilter.SelectedIndex = 0;
             _cmbCategoryFilter.SelectedIndexChanged += (s, e) => BindInventoryItems();
             filterBar.Controls.Add(_cmbCategoryFilter);
@@ -1772,7 +1772,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             int selectedClientId = (_cboClient?.SelectedItem as ComboItem)?.Id ?? 0;
             _cboClient.Items.Clear();
-            _cboClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select client --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboClient, new ComboItem { Id = 0, Text = "-- Select client --" }, "-- Select client --");
             foreach (B2BClient client in _clients
                 .Where(c => c != null && c.ClientID > 0 && !string.IsNullOrWhiteSpace(c.CompanyName))
                 .OrderBy(c => c.CompanyName))
@@ -1796,7 +1796,7 @@ namespace HVAC_Pro_Desktop.UI
         private void LoadSites()
         {
             _cboSite.Items.Clear();
-            _cboSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboSite, new ComboItem { Id = 0, Text = "-- No site / site not decided --" }, "-- No site / site not decided --");
             ComboItem client = _cboClient.SelectedItem as ComboItem;
             if (client == null || client.Id <= 0)
             {
@@ -2864,7 +2864,7 @@ namespace HVAC_Pro_Desktop.UI
                 return;
             string previous = _cmbCategoryFilter.SelectedItem?.ToString();
             _cmbCategoryFilter.Items.Clear();
-            _cmbCategoryFilter.Items.Add("All");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbCategoryFilter, "All");
             foreach (string cat in _inventoryItems
                 .Select(i => i.Category)
                 .Where(c => !string.IsNullOrWhiteSpace(c))
@@ -3076,7 +3076,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _inventorySelectionRow = _grid.CurrentCell.RowIndex;
                 _inventorySelectionItem = _inventoryItems.FirstOrDefault(item =>
-                    string.Equals(item.ItemName, combo.Text, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(item.ItemName, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo), StringComparison.OrdinalIgnoreCase));
             }
         }
 
@@ -3249,7 +3249,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 using (OpenFileDialog dialog = new OpenFileDialog())
                 {
-                    dialog.Title = "Upload authorised signature image";
+                    dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Upload authorised signature image");
                     dialog.Filter = "Image files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp";
                     dialog.CheckFileExists = true;
                     if (dialog.ShowDialog(this) != DialogResult.OK)
@@ -3943,7 +3943,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 if (combo != null)
                 {
-                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(display, combo.Text);
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(display, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo));
                     global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(affordance, IconFromHex("E70D"));
                     return;
                 }

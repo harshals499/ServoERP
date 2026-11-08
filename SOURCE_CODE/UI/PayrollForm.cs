@@ -1352,7 +1352,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (var dialog = new OpenFileDialog
             {
-                Title = "Import Payroll or Attendance Excel",
+                Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import Payroll or Attendance Excel"),
                 Filter = "Payroll Excel or CSV|*.xlsx;*.xls;*.csv|Excel Files|*.xlsx;*.xls|CSV Files|*.csv|All Files|*.*",
                 Multiselect = true
             })

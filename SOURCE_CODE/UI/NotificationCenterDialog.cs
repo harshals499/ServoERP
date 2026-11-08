@@ -181,10 +181,10 @@ FlowLayoutPanel actions = new FlowLayoutPanel
             foreach (FoundationNotification n in page)
             {
                 int rowIndex = _grid.Rows.Add(
-                    Safe(n.Severity, "Low"),
-                    Safe(n.Module, "General"),
+                    LanguageManager.Get(Safe(n.Severity, "Low")),
+                    LanguageManager.Get(Safe(n.Module, "General")),
                     Safe(n.Title, "Notification"),
-                    Safe(n.Detail, "Needs attention"),
+                    NotificationCenterService.GetDisplayDetail(Safe(n.Detail, "Needs attention")),
                     n.CreatedAt.ToString("dd MMM yyyy"));
                 _grid.Rows[rowIndex].Tag = n;
             }

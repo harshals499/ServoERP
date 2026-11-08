@@ -281,7 +281,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 4, 12, 4),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
-            _cboListMode.Items.AddRange(new object[] { "All", "Procurement Required", "Supplier Ready", "Needs Supplier" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboListMode, new object[] { "All", "Procurement Required", "Supplier Ready", "Needs Supplier" });
             _cboListMode.SelectedIndex = 0;
             _cboListMode.SelectedIndexChanged += (s, e) =>
             {
@@ -298,7 +298,7 @@ namespace HVAC_Pro_Desktop.UI
                 Margin = new Padding(0, 4, 12, 4),
                 Tag = "CUSTOM_INPUT_SHELL"
             };
-            _cboCategoryFilter.Items.Add("All Categories");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboCategoryFilter, "All Categories");
             _cboCategoryFilter.SelectedIndex = 0;
             _cboCategoryFilter.SelectedIndexChanged += (s, e) => ApplyInventoryFilter();
 
@@ -1206,7 +1206,7 @@ namespace HVAC_Pro_Desktop.UI
                 });
                 Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
-                    Text = (string.IsNullOrWhiteSpace(_cboName?.Text) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("New material supplier rates") : _cboName.Text.Trim()),
+                    Text = (string.IsNullOrWhiteSpace(_cboName?.Text) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("New material supplier rates") : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName).Trim()),
                     Dock = DockStyle.Top,
                     Height = 28,
                     Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold),
@@ -1321,7 +1321,7 @@ namespace HVAC_Pro_Desktop.UI
                             ItemID = _current?.ItemID,
                             VendorID = vendorId,
                             VendorName = vendor?.VendorName,
-                            ItemName = _cboName.Text.Trim(),
+                            ItemName = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName).Trim(),
                             Category = _cboCategory.SelectedItem?.ToString() ?? string.Empty,
                             Unit = Convert.ToString(row.Cells["SupplierUnit"].Value),
                             Rate = Math.Max(0m, ParseDecimalSafe(row.Cells["SupplierRate"].Value)),
@@ -1507,7 +1507,7 @@ namespace HVAC_Pro_Desktop.UI
                     ItemID = _current?.ItemID,
                     VendorID = vendorId,
                     VendorName = vendor?.VendorName,
-                    ItemName = _cboName.Text.Trim(),
+                    ItemName = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName).Trim(),
                     Category = _cboCategory.SelectedItem?.ToString() ?? string.Empty,
                     Unit = string.IsNullOrWhiteSpace(unit) ? DisplayUnit(_cboUnit?.Text) : unit.Trim(),
                     Rate = Math.Max(0m, rate),
@@ -1694,13 +1694,13 @@ namespace HVAC_Pro_Desktop.UI
                 names.Sort(StringComparer.CurrentCultureIgnoreCase);
                 if (_cboName != null && !_cboName.IsDisposed)
                 {
-                    string currentText = _cboName.Text;
+                    string currentText = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName);
                     _cboName.BeginUpdate();
                     _cboName.Items.Clear();
                     if (names.Count > 0)
                         _cboName.Items.AddRange(names.Cast<object>().ToArray());
                     _cboName.Text = currentText;
-                    _cboName.SelectionStart = _cboName.Text == null ? 0 : _cboName.Text.Length;
+                    _cboName.SelectionStart = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName) == null ? 0 : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName).Length;
                     _cboName.SelectionLength = 0;
                     _cboName.EndUpdate();
                 }
@@ -1870,7 +1870,7 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _cboCategoryFilter.Items.Clear();
-                _cboCategoryFilter.Items.Add("All Categories");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboCategoryFilter, "All Categories");
                 foreach (string category in categories)
                     _cboCategoryFilter.Items.Add(category);
                 SelectComboByText(_cboCategoryFilter, previous);
@@ -1900,10 +1900,10 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _cboSupplierFilter.Items.Clear();
-                _cboSupplierFilter.Items.Add("All Suppliers");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboSupplierFilter, "All Suppliers");
                 foreach (string supplier in suppliers)
                     _cboSupplierFilter.Items.Add(supplier);
-                _cboSupplierFilter.Items.Add("(No Supplier)");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboSupplierFilter, "(No Supplier)");
                 SelectComboByText(_cboSupplierFilter, previous);
                 if (_cboSupplierFilter.SelectedIndex < 0)
                     _cboSupplierFilter.SelectedIndex = 0;
@@ -2333,7 +2333,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private async void Save()
         {
-            if (string.IsNullOrWhiteSpace(_cboName.Text))
+            if (string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName)))
             { SetStatus("Item Name is required.", Color.Red); return; }
 
             try
@@ -2342,7 +2342,7 @@ namespace HVAC_Pro_Desktop.UI
                 var vendor = _cboVendor.SelectedItem as Vendor;
                 var item = new StockItem
                 {
-                    ItemName         = _cboName.Text.Trim(),
+                    ItemName         = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboName).Trim(),
                     Category         = _cboCategory.SelectedItem?.ToString() ?? "",
                     Unit             = NormalizeUnit(_cboUnit.SelectedItem?.ToString() ?? UnitMeasurementService.DefaultCode),
                     CurrentStock     = _numStock.Value,
@@ -2729,8 +2729,8 @@ namespace HVAC_Pro_Desktop.UI
                 TextBox reference = new TextBox { Location = new Point(150, 196), Width = 270, Font = DS.Body };
                 TextBox notes = new TextBox { Location = new Point(150, 234), Width = 270, Height = 44, Multiline = true, Font = DS.Body };
 
-                from.Items.AddRange(new object[] { "Main Store", "Service Van", "Site Store", "Supplier Return", "Damaged Hold" });
-                to.Items.AddRange(new object[] { "Main Store", "Service Van", "Site Store", "Supplier Return", "Damaged Hold" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(from, new object[] { "Main Store", "Service Van", "Site Store", "Supplier Return", "Damaged Hold" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(to, new object[] { "Main Store", "Service Van", "Site Store", "Supplier Return", "Damaged Hold" });
                 from.Text = "Main Store";
                 to.Text = "Service Van";
 
@@ -2756,7 +2756,7 @@ namespace HVAC_Pro_Desktop.UI
                 {
                     try
                     {
-                        _svc.TransferStock(_current.ItemID, qty.Value, from.Text, to.Text, reference.Text, notes.Text);
+                        _svc.TransferStock(_current.ItemID, qty.Value, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(from), global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(to), reference.Text, notes.Text);
                         dialog.DialogResult = DialogResult.OK;
                     }
                     catch (Exception ex)
@@ -2841,7 +2841,7 @@ namespace HVAC_Pro_Desktop.UI
                 using (OpenFileDialog dialog = new OpenFileDialog())
                 {
                     dialog.Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*";
-                    dialog.Title = "Import inventory CSV";
+                    dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import inventory CSV");
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
 

@@ -537,7 +537,7 @@ namespace HVAC_Pro_Desktop.UI
             }
             Panel txnTypeHost = new Panel { Name = "TxnTypeFilterHost", Size = new Size(110, 32), BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
             _txnTypeFilter = new ComboBox { Name = "TxnTypeFilter", DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f) };
-            _txnTypeFilter.Items.AddRange(new object[] { "All Types", "Receipt", "Payment Made", "Refund" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_txnTypeFilter, new object[] { "All Types", "Receipt", "Payment Made", "Refund" });
             _txnTypeFilter.SelectedIndex = 0;
             _txnTypeFilter.SelectedIndexChanged += (s, e) => { _overviewPage = 1; RefreshTransactionsTable(); };
             txnTypeHost.Controls.Add(_txnTypeFilter);
@@ -1564,7 +1564,7 @@ namespace HVAC_Pro_Desktop.UI
 
             AddFieldLabel(container, "Payment Mode", 405, 146);
             _cmbMode = new ComboBox { Location = new Point(405, 166), Width = 180, Height = 26, Font = DS.Body, DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbMode.Items.AddRange(new object[] { "Bank Transfer", "NEFT/RTGS", "UPI", "Cash", "Cheque", "DD" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbMode, new object[] { "Bank Transfer", "NEFT/RTGS", "UPI", "Cash", "Cheque", "DD" });
             _cmbMode.SelectedIndex = 0;
             _payModeHost = AddPaymentInputHost(container, _cmbMode);
 
@@ -1773,10 +1773,10 @@ namespace HVAC_Pro_Desktop.UI
             clients = clients ?? new List<B2BClient>();
             _cboClient.Items.Clear();
             _clientFilterSource.Clear();
-            _cboClient.Items.Add(new ComboItem { Id = 0, Text = "(All Clients)" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cboClient, new ComboItem { Id = 0, Text = "(All Clients)" }, "(All Clients)");
             _cmbClient.Items.Clear();
             _clientEntrySource.Clear();
-            _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, new ComboItem { Id = 0, Text = "-- Select Client --" }, "-- Select Client --");
             foreach (B2BClient c in clients)
             {
                 _cboClient.Items.Add(new ComboItem { Id = c.ClientID, Text = c.CompanyName });
@@ -1794,7 +1794,7 @@ namespace HVAC_Pro_Desktop.UI
             var sw = Stopwatch.StartNew();
             _cmbInvoice.Items.Clear();
             _invoiceSource.Clear();
-            _cmbInvoice.Items.Add(new ComboItem { Id = 0, Text = "-- Select Invoice --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbInvoice, new ComboItem { Id = 0, Text = "-- Select Invoice --" }, "-- Select Invoice --");
             if (clientId <= 0) { _cmbInvoice.SelectedIndex = 0; return; }
             try
             {
@@ -2316,7 +2316,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             _cmbClient.SelectedIndex = 0;
             _cmbInvoice.Items.Clear();
-            _cmbInvoice.Items.Add(new ComboItem { Id = 0, Text = "-- Select Invoice --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbInvoice, new ComboItem { Id = 0, Text = "-- Select Invoice --" }, "-- Select Invoice --");
             _cmbInvoice.SelectedIndex = 0;
             _numAmount.Value  = 0;
             _dtpPayDate.Value = DateTime.Today;
@@ -2347,7 +2347,7 @@ namespace HVAC_Pro_Desktop.UI
             ComboItem selected = combo.SelectedItem as ComboItem;
             if (selected != null)
                 return selected;
-            string text = (combo.Text ?? string.Empty).Trim();
+            string text = (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo) ?? string.Empty).Trim();
             if (text.Length == 0)
                 return null;
             foreach (object item in combo.Items)

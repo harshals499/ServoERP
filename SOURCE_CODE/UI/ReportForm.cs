@@ -330,7 +330,7 @@ namespace HVAC_Pro_Desktop.UI
                 AccessibleName = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Search reports")
             };
             _txtLibrarySearch.TextChanged += (s, e) => FilterReportLibrary();
-            SetCueBanner(_txtLibrarySearch, "Search reports");
+            SetCueBanner(_txtLibrarySearch, LanguageManager.Get("Search reports"));
 
             _reportLibrary = new FlowLayoutPanel
             {
@@ -414,9 +414,10 @@ namespace HVAC_Pro_Desktop.UI
             _cmbSite = ExplorerCombo();
             _cmbStatus = ExplorerCombo();
             FillFinancialYears();
-            _cmbClient.Items.Add("All clients");
-            _cmbSite.Items.Add("All sites");
-            _cmbStatus.Items.AddRange(new object[] { "All jobs", "Completed", "In progress", "Open", "Cost incomplete" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, "All clients");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, "All sites");
+            LanguageManager.LocalizeChoices(_cmbStatus);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbStatus, new object[] { "All jobs", "Completed", "In progress", "Open", "Cost incomplete" });
             _cmbClient.SelectedIndex = _cmbSite.SelectedIndex = _cmbStatus.SelectedIndex = 0;
 
             Button run = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Run report", Blue, 112));
@@ -505,7 +506,7 @@ namespace HVAC_Pro_Desktop.UI
                 _lblReportCount.Width = Math.Max(220, _txtResultSearch.Left - 28);
             };
             _txtResultSearch.TextChanged += (s, e) => ApplyGridSearchAndFilters();
-            SetCueBanner(_txtResultSearch, "Search results");
+            SetCueBanner(_txtResultSearch, LanguageManager.Get("Search results"));
             _detailGrid = MakeGrid();
             _detailGrid.Dock = DockStyle.Fill;
             _detailGrid.CellFormatting += DetailGrid_CellFormatting;
@@ -530,12 +531,13 @@ namespace HVAC_Pro_Desktop.UI
             flow.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ExplorerHeading("Report setup", 34)));
 
             _cmbExportFormat = ExplorerCombo(214);
-            _cmbExportFormat.Items.AddRange(new object[] { "Excel (.xlsx)", "CSV (.csv)" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbExportFormat, new object[] { "Excel (.xlsx)", "CSV (.csv)" });
             _cmbExportFormat.SelectedIndex = 0;
             flow.Controls.Add(ExplorerField(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Format"), _cmbExportFormat, 214));
 
             _cmbGroupBy = ExplorerCombo(214);
-            _cmbGroupBy.Items.AddRange(new object[] { "Client", "Site", "Status", "No grouping" });
+            LanguageManager.LocalizeChoices(_cmbGroupBy);
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbGroupBy, new object[] { "Client", "Site", "Status", "No grouping" });
             _cmbGroupBy.SelectedIndex = 0;
             _cmbGroupBy.SelectedIndexChanged += (s, e) => ApplyGridGrouping();
             flow.Controls.Add(ExplorerField(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Group by"), _cmbGroupBy, 214));
@@ -630,7 +632,7 @@ namespace HVAC_Pro_Desktop.UI
                 BackColor = CardBg,
                 Margin = new Padding(0, 0, 6, 0)
             };
-            Label caption = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Dock = DockStyle.Top, Height = 18, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = TextMid });
+            Label caption = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(label), Dock = DockStyle.Top, Height = 18, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f, FontStyle.Bold), ForeColor = TextMid });
             input.Dock = DockStyle.Bottom;
             input.Height = 30;
             field.Controls.Add(input);
@@ -656,7 +658,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel item = new Panel { Dock = DockStyle.Fill, BackColor = CardBg, Padding = new Padding(10, 2, 8, 0), Margin = Padding.Empty };
             if (column > 0)
                 item.Paint += (s, e) => e.Graphics.DrawLine(new Pen(Border), 0, 4, 0, item.Height - 4);
-            Label caption = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Dock = DockStyle.Top, Height = 20, Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true });
+            Label caption = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), Dock = DockStyle.Top, Height = 20, Font = DS.Small, ForeColor = TextMid, AutoEllipsis = true });
             Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "-", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = color, AutoEllipsis = true });
             item.Controls.Add(value);
             item.Controls.Add(caption);
@@ -668,7 +670,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Label group = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = heading,
+                Text = LanguageManager.Get(heading),
                 Width = 204,
                 Height = 27,
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.6f, FontStyle.Bold),
@@ -689,7 +691,7 @@ namespace HVAC_Pro_Desktop.UI
             Button button = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Tag = index,
-                Text = label,
+                Text = LanguageManager.Get(label),
                 Width = 204,
                 Height = 31,
                 Margin = new Padding(0),
@@ -801,11 +803,11 @@ namespace HVAC_Pro_Desktop.UI
             area.AxisY.MajorGrid.LineColor = Color.FromArgb(232, 237, 244);
             area.AxisY.LabelStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f);
             area.AxisY.LabelStyle.ForeColor = TextMid;
-            area.AxisY.Title = "Amount (Rs)";
+            area.AxisY.Title = LanguageManager.Get("Amount (Rs)");
             area.AxisY2.Enabled = AxisEnabled.True;
             area.AxisY2.LabelStyle.Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.5f);
             area.AxisY2.LabelStyle.ForeColor = TextMid;
-            area.AxisY2.Title = "Margin %";
+            area.AxisY2.Title = LanguageManager.Get("Margin %");
             area.AxisX.LineColor = area.AxisY.LineColor = area.AxisY2.LineColor = Border;
             chart.ChartAreas.Add(area);
 
@@ -828,7 +830,7 @@ namespace HVAC_Pro_Desktop.UI
             if (content == null)
                 return;
 
-            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblChartCalculationPreview, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}  |  Exact value: {1}  |  Calculation: {2}", content.Title, content.Value, content.Calculation));
+            global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblChartCalculationPreview, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0}  |  Exact value: {1}  |  Calculation: {2}", content.Title, content.Value, LanguageManager.Get(content.Calculation)));
             _lblChartCalculationPreview.ForeColor = Blue;
         }
 
@@ -1023,16 +1025,16 @@ namespace HVAC_Pro_Desktop.UI
             if (_explorerChart == null) return;
             global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblChartTitle, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("Monthly trend (FY {0})", Convert.ToString(_cmbFinancialYear.SelectedItem, CultureInfo.InvariantCulture)));
             ChartArea area = _explorerChart.ChartAreas[0];
-            area.AxisY.Title = "Amount (Rs)";
+            area.AxisY.Title = LanguageManager.Get("Amount (Rs)");
             area.AxisY.Minimum = double.NaN;
             area.AxisY.Maximum = double.NaN;
-            area.AxisY2.Title = "Margin %";
+            area.AxisY2.Title = LanguageManager.Get("Margin %");
             area.AxisY2.Minimum = double.NaN;
             area.AxisY2.Maximum = double.NaN;
             _explorerChart.Series["Revenue"].Name = "Revenue";
-            _explorerChart.Series[0].LegendText = "Revenue";
-            _explorerChart.Series[1].LegendText = "Direct cost";
-            _explorerChart.Series[2].LegendText = "Margin %";
+            _explorerChart.Series[0].LegendText = LanguageManager.Get("Revenue");
+            _explorerChart.Series[1].LegendText = LanguageManager.Get("Direct cost");
+            _explorerChart.Series[2].LegendText = LanguageManager.Get("Margin %");
             _explorerChart.Series["Direct cost"].Enabled = true;
             _explorerChart.Series["Margin %"].Enabled = true;
             foreach (Series series in _explorerChart.Series)
@@ -1067,14 +1069,14 @@ namespace HVAC_Pro_Desktop.UI
             if (_explorerChart == null || _detailGrid == null) return;
             global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblChartTitle, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("{0} overview", ExplorerReportLabel(_currentReportIndex)));
             ChartArea area = _explorerChart.ChartAreas[0];
-            area.AxisY.Title = "Records";
+            area.AxisY.Title = LanguageManager.Get("Records");
             area.AxisY.Minimum = double.NaN;
             area.AxisY.Maximum = double.NaN;
             area.AxisY2.Title = string.Empty;
             area.AxisY2.Minimum = double.NaN;
             area.AxisY2.Maximum = double.NaN;
             Series records = _explorerChart.Series[0];
-            records.LegendText = "Records";
+            records.LegendText = LanguageManager.Get("Records");
             records.Points.Clear();
             _explorerChart.Series[1].Enabled = false;
             _explorerChart.Series[2].Enabled = false;
@@ -1114,17 +1116,17 @@ namespace HVAC_Pro_Desktop.UI
             Series integrity = _explorerChart.Series[1];
             Series context = _explorerChart.Series[2];
             coverage.Enabled = integrity.Enabled = context.Enabled = true;
-            coverage.LegendText = "Coverage %";
-            integrity.LegendText = "Integrity %";
-            context.LegendText = "Context %";
+            coverage.LegendText = LanguageManager.Get("Coverage %");
+            integrity.LegendText = LanguageManager.Get("Integrity %");
+            context.LegendText = LanguageManager.Get("Context %");
             foreach (Series series in _explorerChart.Series)
                 series.Points.Clear();
 
             ChartArea area = _explorerChart.ChartAreas[0];
-            area.AxisY.Title = "Coverage / integrity %";
+            area.AxisY.Title = LanguageManager.Get("Coverage / integrity %");
             area.AxisY.Minimum = 0d;
             area.AxisY.Maximum = 100d;
-            area.AxisY2.Title = "Context %";
+            area.AxisY2.Title = LanguageManager.Get("Context %");
             area.AxisY2.Minimum = 0d;
             area.AxisY2.Maximum = 100d;
 
@@ -1167,7 +1169,7 @@ namespace HVAC_Pro_Desktop.UI
             Label captionLabel = value.Parent == null
                 ? null
                 : value.Parent.Controls.OfType<Label>().FirstOrDefault(label => !ReferenceEquals(label, value));
-            if (captionLabel != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(captionLabel, caption);
+            if (captionLabel != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(captionLabel, caption);
         }
 
         private void ApplyGridSearchAndFilters()
@@ -1470,7 +1472,7 @@ namespace HVAC_Pro_Desktop.UI
 
         private void ConfigureExplorerSchedule()
         {
-            using (var folderDialog = new FolderBrowserDialog { Description = "Choose where ServoERP should save scheduled report exports", ShowNewFolderButton = true })
+            using (var folderDialog = new FolderBrowserDialog { Description = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose where ServoERP should save scheduled report exports"), ShowNewFolderButton = true })
             {
                 if (!string.IsNullOrWhiteSpace(_scheduledExportFolder) && Directory.Exists(_scheduledExportFolder))
                     folderDialog.SelectedPath = _scheduledExportFolder;
@@ -1484,7 +1486,7 @@ namespace HVAC_Pro_Desktop.UI
                     body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
                     body.RowStyles.Add(new RowStyle(SizeType.Absolute, 46f));
                     ComboBox frequency = ExplorerCombo();
-                    frequency.Items.AddRange(new object[] { "Daily", "Every Monday", "First day of month" });
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(frequency, new object[] { "Daily", "Every Monday", "First day of month" });
                     frequency.SelectedIndex = 0;
                     DateTimePicker time = new DateTimePicker { Dock = DockStyle.Bottom, Format = DateTimePickerFormat.Time, ShowUpDown = true, Font = DS.Body, Value = DateTime.Today.AddHours(18) };
                     Label note = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Dock = DockStyle.Fill, Text = "Scheduled exports run while ServoERP is open. The selected report and saved view are used.", Font = DS.Small, ForeColor = TextMid });
@@ -2038,8 +2040,8 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbSite != null) _cmbSite.Enabled = usesOperationalFilters;
             if (_cmbStatus != null) _cmbStatus.Enabled = usesOperationalFilters;
             if (_chkIncludeIncompleteCosts != null) _chkIncludeIncompleteCosts.Enabled = _currentReportIndex == 9;
-            if (_lblReportTitle != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblReportTitle, ExplorerReportLabel(_currentReportIndex));
-            if (_lblReportSubtitle != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblReportSubtitle, ExplorerReportDescription(_currentReportIndex));
+            if (_lblReportTitle != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblReportTitle, ExplorerReportLabel(_currentReportIndex));
+            if (_lblReportSubtitle != null) global::HVAC_Pro_Desktop.Services.LanguageManager.SetCaption(_lblReportSubtitle, ExplorerReportDescription(_currentReportIndex));
             if (previousIndex != _currentReportIndex)
             {
                 _selectedColumns.Clear();
@@ -2351,7 +2353,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (var dialog = new OpenFileDialog
             {
-                Title = "Import job P&L workbook",
+                Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import job P&L workbook"),
                 Filter = "Excel workbooks (*.xlsx)|*.xlsx",
                 Multiselect = false
             })
@@ -2478,7 +2480,7 @@ namespace HVAC_Pro_Desktop.UI
             Label badge = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 30, DS.Lighten(accent, 0.82f), accent, 10);
             badge.Dock = DockStyle.Top;
             icon.Controls.Add(badge);
-            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title.ToUpperInvariant(), Dock = DockStyle.Top, Height = 18, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = TextMid, AutoEllipsis = true });
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), Dock = DockStyle.Top, Height = 18, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = TextMid, AutoEllipsis = true });
             Label valueLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "-", Dock = DockStyle.Top, Height = 31, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 16f, FontStyle.Bold), ForeColor = accent, AutoEllipsis = true });
             subLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Loading...", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.2f), ForeColor = TextMid, AutoEllipsis = true });
             card.Controls.Add(subLabel);
@@ -3035,7 +3037,7 @@ namespace HVAC_Pro_Desktop.UI
             card.Paint += (s, e) => DrawBorder(e.Graphics, card);
             Label titleIcon = ModernIconSystem.Badge(ModernIconSystem.KindForTitle(title), 24, DS.Indigo50, Blue, 8);
             titleIcon.Location = new Point(12, 9);
-            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, Location = new Point(44, 10), Size = new Size(Math.Max(80, card.ClientSize.Width - 58), 24), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, AutoEllipsis = true, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg });
+            Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), Location = new Point(44, 10), Size = new Size(Math.Max(80, card.ClientSize.Width - 58), 24), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right, AutoEllipsis = true, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 11.5f, FontStyle.Bold), ForeColor = TextDark, BackColor = CardBg });
             card.Controls.Add(titleLabel);
             card.Controls.Add(titleIcon);
             titleLabel.BringToFront();
@@ -3047,7 +3049,7 @@ namespace HVAC_Pro_Desktop.UI
             Button tile = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Button
             {
                 Tag = index,
-                Text = title,
+                Text = LanguageManager.Get(title),
                 Image = ModernIconSystem.IconBitmap(ModernIconSystem.KindForTitle(title), 16, Blue),
                 ImageAlign = ContentAlignment.MiddleLeft,
                 TextImageRelation = TextImageRelation.ImageBeforeText,

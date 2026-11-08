@@ -526,7 +526,7 @@ namespace HVAC_Pro_Desktop.UI
                 Height = 28,
                 Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
-            _cmbDashboardPageSize.Items.AddRange(new object[] { "15 / page", "25 / page", "50 / page", "All rows" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbDashboardPageSize, new object[] { "15 / page", "25 / page", "50 / page", "All rows" });
             _cmbDashboardPageSize.SelectedIndex = 0;
             _cmbDashboardPageSize.SelectedIndexChanged += (s, e) => RefreshDashboardRosterGrid();
             pager.Resize += (s, e) => _cmbDashboardPageSize.Left = Math.Max(12, pager.ClientSize.Width - _cmbDashboardPageSize.Width - 12);
@@ -3053,13 +3053,13 @@ namespace HVAC_Pro_Desktop.UI
             string status = _cmbStatusFilter.SelectedItem as string;
 
             _cmbClientFilter.Items.Clear();
-            _cmbClientFilter.Items.Add("All");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClientFilter, "All");
             foreach (string item in _employeeSummaries.Select(x => x.ClientSite).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct().OrderBy(x => x))
                 _cmbClientFilter.Items.Add(item);
             _cmbClientFilter.SelectedItem = !string.IsNullOrWhiteSpace(clientSite) && _cmbClientFilter.Items.Contains(clientSite) ? clientSite : "All";
 
             _cmbStatusFilter.Items.Clear();
-            _cmbStatusFilter.Items.AddRange(new object[] { "All", "Active", "Inactive", "Leave" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbStatusFilter, new object[] { "All", "Active", "Inactive", "Leave" });
             _cmbStatusFilter.SelectedItem = !string.IsNullOrWhiteSpace(status) && _cmbStatusFilter.Items.Contains(status) ? status : "All";
         }
 
@@ -3362,10 +3362,10 @@ namespace HVAC_Pro_Desktop.UI
                 employee.Name = _txtName.Text.Trim();
                 employee.Designation = _txtDesignation.Text.Trim();
                 employee.Department = _txtDepartment.Text.Trim();
-                employee.ClientSite = _cmbSite.Text.Trim();
+                employee.ClientSite = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbSite).Trim();
                 employee.Phone = _txtPhone.Text.Trim();
                 employee.WhatsAppNumber = _txtWhatsapp.Text.Trim();
-                employee.BloodGroup = _cmbBloodGroup.Text.Trim();
+                employee.BloodGroup = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbBloodGroup).Trim();
                 employee.AadhaarNumber = _txtAadhaar.Text.Trim();
                 employee.PANNumber = _txtPan.Text.Trim().ToUpperInvariant();
                 employee.EmergencyContactName = _txtEmergencyName.Text.Trim();
@@ -3375,7 +3375,7 @@ namespace HVAC_Pro_Desktop.UI
                 employee.ProbationEndDate = GetDate(_dtpProbationEnd);
                 employee.ConfirmationDate = GetDate(_dtpConfirmation);
                 employee.LastWorkingDay = GetDate(_dtpLastWorkingDay);
-                employee.Status = string.IsNullOrWhiteSpace(_cmbEmployeeStatus.Text) ? "Active" : _cmbEmployeeStatus.Text.Trim();
+                employee.Status = string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbEmployeeStatus)) ? "Active" : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbEmployeeStatus).Trim();
                 employee.IsRehire = _chkIsRehire.Checked;
                 employee.Photo = _currentPhoto;
 

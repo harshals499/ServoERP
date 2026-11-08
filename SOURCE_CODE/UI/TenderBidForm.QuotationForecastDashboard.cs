@@ -93,12 +93,12 @@ namespace HVAC_Pro_Desktop.UI
             bar.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Forecast & Pipeline", Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 12f, FontStyle.Bold), ForeColor = QuoteText, TextAlign = ContentAlignment.MiddleLeft }), 0, 0);
             _quoteDashCompany = ForecastCombo(184);
             _quoteDashCompany.Name = "QuotationDashboardCompanyFilter";
-            _quoteDashCompany.Items.Add("All companies");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_quoteDashCompany, "All companies");
             _quoteDashCompany.SelectedIndex = 0;
             _quoteDashCompany.SelectedIndexChanged += QuoteDashboardCompany_SelectedIndexChanged;
             _quoteDashMonths = ForecastCombo(116);
             _quoteDashMonths.Name = "QuotationDashboardMonthFilter";
-            _quoteDashMonths.Items.AddRange(new object[] { "3 months", "6 months", "12 months" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_quoteDashMonths, new object[] { "3 months", "6 months", "12 months" });
             _quoteDashMonths.SelectedItem = "6 months";
             _quoteDashMonths.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
             Button refresh = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(ForecastButton("Refresh", 92, QuoteSurface, InfoBlue));

@@ -558,13 +558,13 @@ namespace HVAC_Pro_Desktop.UI
             searchHost.Controls.Add(_txtSiteRegionSearch, 1, 0);
 
             _cmbSiteRegion = MakeSiteFilterCombo("SiteRegionFilter");
-            _cmbSiteRegion.Items.Add("All regions");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSiteRegion, "All regions");
             _cmbSiteRegion.SelectedIndex = 0;
             _cmbSiteRegion.Margin = new Padding(0, 0, 8, 0);
             _cmbSiteRegion.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
 
             _cmbSiteWork = MakeSiteFilterCombo("SiteWorkFilter");
-            _cmbSiteWork.Items.AddRange(new object[] { "All work", "Active work", "No active work", "Critical / SLA risk", "Unassigned technician" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbSiteWork, new object[] { "All work", "Active work", "No active work", "Critical / SLA risk", "Unassigned technician" });
             _cmbSiteWork.SelectedIndex = 0;
             _cmbSiteWork.Margin = new Padding(0, 0, 8, 0);
             _cmbSiteWork.SelectedIndexChanged += (s, e) => ApplySiteRegionFilters();
@@ -977,7 +977,7 @@ namespace HVAC_Pro_Desktop.UI
             _cmbLocation = MakeCombo();
             Panel locationHost = new Panel { Name = "DispatchLocationHost", Size = new Size(190, 32), BackColor = DS.BgInput, Padding = new Padding(6, 1, 6, 1) };
             _cmbLocation.Dock = DockStyle.Fill;
-            _cmbLocation.Items.Add("All Locations");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbLocation, "All Locations");
             _cmbLocation.SelectedIndex = 0;
             _cmbLocation.SelectedIndexChanged += (s, e) => ApplyJobFilters();
             locationHost.Controls.Add(_cmbLocation);
@@ -1177,13 +1177,13 @@ namespace HVAC_Pro_Desktop.UI
             _cmbType = MakeCombo();
             _cmbType.Dock = DockStyle.Fill;
             _cmbType.Margin = new Padding(0, 0, 6, 8);
-            _cmbType.Items.Add("All Types");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbType, "All Types");
             _cmbType.SelectedIndex = 0;
             _cmbType.SelectedIndexChanged += (s, e) => ApplyJobFilters();
             _cmbPriority = MakeCombo();
             _cmbPriority.Dock = DockStyle.Fill;
             _cmbPriority.Margin = new Padding(0, 0, 0, 8);
-            _cmbPriority.Items.AddRange(new object[] { "All Priority", "Critical", "High", "Medium", "Low" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbPriority, new object[] { "All Priority", "Critical", "High", "Medium", "Low" });
             _cmbPriority.SelectedIndex = 0;
             _cmbPriority.SelectedIndexChanged += (s, e) => ApplyJobFilters();
             Button date = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeToolbarButton("Date", 70));
@@ -1279,7 +1279,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblTechTitle.Location = new Point(0, 0);
             _lblTechTitle.Size = new Size(260, 30);
             _cmbTechnicianDesignationFilter = MakeCombo();
-            _cmbTechnicianDesignationFilter.Items.Add("All Designations");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTechnicianDesignationFilter, "All Designations");
             _cmbTechnicianDesignationFilter.SelectedIndex = 0;
             _cmbTechnicianDesignationFilter.SelectedIndexChanged += (s, e) =>
             {
@@ -1420,7 +1420,7 @@ namespace HVAC_Pro_Desktop.UI
             _lblScheduleWarning = new Label { Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8f, FontStyle.Bold), ForeColor = Danger, TextAlign = ContentAlignment.MiddleLeft };
             Label status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(SmallLabel("Status"));
             _cmbDetailStatus = MakeCombo();
-            _cmbDetailStatus.Items.AddRange(new object[] { "Created", "Assigned", "Traveling", "On Site", "In Progress", "Waiting Parts", "Completed", "Closed", "Cancelled" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbDetailStatus, new object[] { "Created", "Assigned", "Traveling", "On Site", "In Progress", "Waiting Parts", "Completed", "Closed", "Cancelled" });
             Button update = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakePrimaryButton("Update Status", 116));
             update.Height = 34;
             update.Dock = DockStyle.Left;
@@ -1822,7 +1822,7 @@ namespace HVAC_Pro_Desktop.UI
             try
             {
                 _cmbSiteRegion.Items.Clear();
-                _cmbSiteRegion.Items.Add("All regions");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSiteRegion, "All regions");
                 foreach (string region in _siteMonitorRows.Select(site => First(site.Region, "Unspecified")).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(region => region))
                     _cmbSiteRegion.Items.Add(region);
                 int selectedIndex = _cmbSiteRegion.FindStringExact(selectedRegion);
@@ -2032,7 +2032,7 @@ namespace HVAC_Pro_Desktop.UI
             _binding = true;
             string previousLocation = Convert.ToString(_cmbLocation.SelectedItem ?? "All Locations");
             _cmbLocation.Items.Clear();
-            _cmbLocation.Items.Add("All Locations");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbLocation, "All Locations");
             foreach (string site in _jobs.Select(j => First(j.SiteName, "")).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s).Take(80))
                 _cmbLocation.Items.Add(site);
             SelectComboText(_cmbLocation, previousLocation);
@@ -2040,7 +2040,7 @@ namespace HVAC_Pro_Desktop.UI
 
             string previousType = Convert.ToString(_cmbType.SelectedItem ?? "All Types");
             _cmbType.Items.Clear();
-            _cmbType.Items.Add("All Types");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbType, "All Types");
             foreach (string type in _jobs.Select(j => First(j.JobType, "")).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
                 _cmbType.Items.Add(type);
             SelectComboText(_cmbType, previousType);
@@ -2050,7 +2050,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbTechnicianDesignationFilter != null)
             {
                 _cmbTechnicianDesignationFilter.Items.Clear();
-                _cmbTechnicianDesignationFilter.Items.Add("All Designations");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTechnicianDesignationFilter, "All Designations");
                 foreach (string designation in _technicians.Select(GetTechnicianDesignationFilterLabel).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().OrderBy(s => s))
                     _cmbTechnicianDesignationFilter.Items.Add(designation);
                 SelectComboText(_cmbTechnicianDesignationFilter, previousDesignation);

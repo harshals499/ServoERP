@@ -197,7 +197,7 @@ namespace HVAC_Pro_Desktop.UI
 
             _txtTitle = new TextBox { Dock = DockStyle.Fill };
             _cmbType = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbType.Items.AddRange(new object[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbType, new object[] { "PM Visit", "Breakdown", "Installation", "AMC Visit", "Gas Charging", "General" });
             _dtpScheduled = new DateTimePicker { Dock = DockStyle.Left, Width = 150, Format = DateTimePickerFormat.Custom, CustomFormat = "dd/MM/yyyy" };
             _cmbClient = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
             _cmbSite = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDown };
@@ -251,7 +251,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel priorityBody;
             Control priority = MakeCard(global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Priority"), out priorityBody, 62);
             _cmbPriority = new ComboBox { Dock = DockStyle.Top, DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbPriority.Items.AddRange(new object[] { "Low", "Medium", "High" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbPriority, new object[] { "Low", "Medium", "High" });
             priorityBody.Controls.Add(WrapEditor(_cmbPriority));
 
             Panel costBody;

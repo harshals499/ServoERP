@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -29,7 +29,7 @@ namespace HVAC_Pro_Desktop.Tests
                 results.Add(Run("Contract save persists create and update", TestContractSave));
                 results.Add(Run("Job save persists create and update", TestJobSave));
                 results.Add(Run("Purchase save persists create and update", TestPurchaseSave));
-                results.Add(Run("Invoice save persists create and update", TestInvoiceSave));
+                results.Add(Run("Invoice draft create/update persists and posted edits stay blocked", TestInvoiceSave));
                 results.Add(Run("Payment save persists record and invoice status refresh", TestPaymentSave));
             });
         }
@@ -38,7 +38,7 @@ namespace HVAC_Pro_Desktop.Tests
         {
             return RunWithQaSession(results =>
             {
-                results.Add(Run("Invoice save persists create and update", TestInvoiceSave));
+                results.Add(Run("Invoice draft create/update persists and posted edits stay blocked", TestInvoiceSave));
             });
         }
 
@@ -385,7 +385,7 @@ namespace HVAC_Pro_Desktop.Tests
                 SiteID = site.SiteID,
                 InvoiceDate = DateTime.Today,
                 DueDate = DateTime.Today.AddDays(30),
-                PaymentStatus = "Pending",
+                PaymentStatus = "Draft",
                 GSTMode = "CGST+SGST",
                 GSTPercent = 18m,
                 PaymentTerms = "30 Days",
@@ -420,6 +420,15 @@ namespace HVAC_Pro_Desktop.Tests
             invoiceService.UpdateInvoiceWithLineItems(created);
             Invoice updated = invoiceService.GetInvoiceById(invoice.InvoiceID);
             Assert(updated != null && string.Equals(updated.Subject, "QA Invoice " + suffix + " Updated", StringComparison.OrdinalIgnoreCase), "Invoice update did not persist.");
+            invoiceService.FinalizeInvoice(invoice.InvoiceID);
+            Invoice posted = invoiceService.GetInvoiceById(invoice.InvoiceID);
+            Assert(posted.IsPosted, "Finalized invoice was not posted.");
+            posted.Subject = "Blocked posted edit";
+            bool blocked = false;
+            try { invoiceService.UpdateInvoiceWithLineItems(posted); }
+            catch (InvalidOperationException ex) { blocked = ex.Message.IndexOf("posted", StringComparison.OrdinalIgnoreCase) >= 0; }
+            Assert(blocked, "Posted invoice edit must remain protected; use the financial correction workflow.");
+            Assert(invoiceService.GetInvoiceById(invoice.InvoiceID).Subject == updated.Subject, "Blocked posted edit changed persisted data.");
         }
 
         private static void TestPaymentSave()

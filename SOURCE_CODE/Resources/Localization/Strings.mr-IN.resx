@@ -58,7 +58,7 @@
     <value>सूचना आणि अलर्ट</value>
   </data>
   <data name="All Jobs" xml:space="preserve">
-    <value>सर्व जॉब्स</value>
+    <value>सर्व कामे</value>
   </data>
   <data name="All settings" xml:space="preserve">
     <value>सर्व सेटिंग्ज</value>
@@ -67,7 +67,7 @@
     <value>रक्कम</value>
   </data>
   <data name="An autosaved draft exists for this screen from {0}. Restore it?" xml:space="preserve">
-    <value>TODO(mr): An autosaved draft exists for this screen from {0}. Restore it?</value>
+    <value>या स्क्रीनसाठी {0} पासून स्वयंचलितपणे जतन केलेला मसुदा उपलब्ध आहे. तो पुनर्संचयित करायचा?</value>
   </data>
   <data name="Application language" xml:space="preserve">
     <value>ॲपची भाषा</value>
@@ -91,7 +91,7 @@
     <value>बदलांची नोंद</value>
   </data>
   <data name="Autosave" xml:space="preserve">
-    <value>TODO(mr): Autosave</value>
+    <value>स्वयंचलित जतन</value>
   </data>
   <data name="Back" xml:space="preserve">
     <value>मागे</value>
@@ -103,31 +103,31 @@
     <value>बॅकअप</value>
   </data>
   <data name="Backup &amp; Recovery" xml:space="preserve">
-    <value>TODO(mr): Backup &amp; Recovery</value>
+    <value>बॅकअप व पुनर्प्राप्ती</value>
   </data>
   <data name="Backup Log" xml:space="preserve">
-    <value>TODO(mr): Backup Log</value>
+    <value>बॅकअप नोंद</value>
   </data>
   <data name="Backup Now" xml:space="preserve">
-    <value>TODO(mr): Backup Now</value>
+    <value>आता बॅकअप घ्या</value>
   </data>
   <data name="Backup completed - saved to {0}" xml:space="preserve">
-    <value>TODO(mr): Backup completed - saved to {0}</value>
+    <value>बॅकअप पूर्ण झाला - {0} येथे जतन केला</value>
   </data>
   <data name="Backup failed - please check settings" xml:space="preserve">
-    <value>TODO(mr): Backup failed - please check settings</value>
+    <value>बॅकअप अयशस्वी - कृपया सेटिंग्ज तपासा</value>
   </data>
   <data name="Backup failed: {0}" xml:space="preserve">
-    <value>TODO(mr): Backup failed: {0}</value>
+    <value>बॅकअप अयशस्वी: {0}</value>
   </data>
   <data name="Backup log cleared." xml:space="preserve">
-    <value>TODO(mr): Backup log cleared.</value>
+    <value>बॅकअप नोंद साफ केली.</value>
   </data>
   <data name="Backup settings saved." xml:space="preserve">
-    <value>TODO(mr): Backup settings saved.</value>
+    <value>बॅकअप सेटिंग्ज जतन केल्या.</value>
   </data>
   <data name="Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in." xml:space="preserve">
-    <value>TODO(mr): Backups stay on your own network, local machine, or external drive. ServoERP never sends client data to Harshal or servoerp.in.</value>
+    <value>बॅकअप तुमच्या स्वतःच्या नेटवर्कवर, स्थानिक संगणकावर किंवा बाह्य ड्राइव्हवर राहतात. ServoERP ग्राहकांचा डेटा हर्षल किंवा servoerp.in यांना कधीही पाठवत नाही.</value>
   </data>
   <data name="Balance" xml:space="preserve">
     <value>शिल्लक</value>
@@ -163,13 +163,13 @@
     <value>साफ करा</value>
   </data>
   <data name="Clear Log" xml:space="preserve">
-    <value>TODO(mr): Clear Log</value>
+    <value>नोंद साफ करा</value>
   </data>
   <data name="Clear Logs" xml:space="preserve">
-    <value>TODO(mr): Clear Logs</value>
+    <value>नोंदी साफ करा</value>
   </data>
   <data name="Clear local crash logs?" xml:space="preserve">
-    <value>TODO(mr): Clear local crash logs?</value>
+    <value>स्थानिक क्रॅश नोंदी साफ करायच्या?</value>
   </data>
   <data name="Client" xml:space="preserve">
     <value>ग्राहक</value>
@@ -205,7 +205,7 @@
     <value>अनुपालन निर्यात पॅक</value>
   </data>
   <data name="Connected" xml:space="preserve">
-    <value>TODO(mr): Connected</value>
+    <value>जोडलेले</value>
   </data>
   <data name="Contact" xml:space="preserve">
     <value>संपर्क</value>
@@ -214,7 +214,7 @@
     <value>AMC करार</value>
   </data>
   <data name="Could not open backup folder: {0}" xml:space="preserve">
-    <value>TODO(mr): Could not open backup folder: {0}</value>
+    <value>बॅकअप फोल्डर उघडता आला नाही: {0}</value>
   </data>
   <data name="Create Invoice" xml:space="preserve">
     <value>चलन तयार करा</value>
@@ -226,7 +226,7 @@
     <value>निर्मिती दिनांक</value>
   </data>
   <data name="Creating manual backup..." xml:space="preserve">
-    <value>TODO(mr): Creating manual backup...</value>
+    <value>हस्तचलित बॅकअप तयार होत आहे...</value>
   </data>
   <data name="Customer Name" xml:space="preserve">
     <value>ग्राहकाचे नाव</value>
@@ -235,7 +235,7 @@
     <value>कस्टमाईज</value>
   </data>
   <data name="Daily Backup Time" xml:space="preserve">
-    <value>TODO(mr): Daily Backup Time</value>
+    <value>दैनंदिन बॅकअपची वेळ</value>
   </data>
   <data name="Daily Dispatch" xml:space="preserve">
     <value>दैनंदिन कामाचे नियोजन</value>
@@ -292,7 +292,7 @@
     <value>कर्मचारी</value>
   </data>
   <data name="Enable automatic backups" xml:space="preserve">
-    <value>TODO(mr): Enable automatic backups</value>
+    <value>स्वयंचलित बॅकअप सुरू करा</value>
   </data>
   <data name="End Date" xml:space="preserve">
     <value>समाप्ती दिनांक</value>
@@ -301,7 +301,7 @@
     <value>त्रुटी</value>
   </data>
   <data name="Error Logs" xml:space="preserve">
-    <value>TODO(mr): Error Logs</value>
+    <value>त्रुटी नोंदी</value>
   </data>
   <data name="Expenses" xml:space="preserve">
     <value>खर्च</value>
@@ -316,10 +316,10 @@
     <value>PDF मध्ये निर्यात करा</value>
   </data>
   <data name="External Drive" xml:space="preserve">
-    <value>TODO(mr): External Drive</value>
+    <value>बाह्य ड्राइव्ह</value>
   </data>
   <data name="Failed" xml:space="preserve">
-    <value>TODO(mr): Failed</value>
+    <value>अयशस्वी</value>
   </data>
   <data name="Filter" xml:space="preserve">
     <value>फिल्टर</value>
@@ -334,7 +334,7 @@
     <value>पूर्ण</value>
   </data>
   <data name="First page" xml:space="preserve">
-    <value>TODO(mr): First page</value>
+    <value>पहिले पृष्ठ</value>
   </data>
   <data name="Forgot password?" xml:space="preserve">
     <value>पासवर्ड विसरलात?</value>
@@ -382,7 +382,7 @@
     <value>आयात</value>
   </data>
   <data name="In Progress" xml:space="preserve">
-    <value>प्रगतीत</value>
+    <value>प्रगतीपथावर</value>
   </data>
   <data name="Information" xml:space="preserve">
     <value>माहिती</value>
@@ -400,7 +400,7 @@
     <value>चलन क्रमांक</value>
   </data>
   <data name="Invoices" xml:space="preserve">
-    <value>GST चलन</value>
+    <value>चलने</value>
   </data>
   <data name="Job Number" xml:space="preserve">
     <value>जॉब क्रमांक</value>
@@ -415,7 +415,7 @@
     <value>जॉब्स / प्रकल्प</value>
   </data>
   <data name="Keep backups for" xml:space="preserve">
-    <value>TODO(mr): Keep backups for</value>
+    <value>बॅकअप ठेवा</value>
   </data>
   <data name="Language" xml:space="preserve">
     <value>भाषा</value>
@@ -427,16 +427,16 @@
     <value>मागील महिना</value>
   </data>
   <data name="Last backup: no successful backup found" xml:space="preserve">
-    <value>TODO(mr): Last backup: no successful backup found</value>
+    <value>शेवटचा बॅकअप: यशस्वी बॅकअप आढळला नाही</value>
   </data>
   <data name="Last backup: {0} to {1}" xml:space="preserve">
-    <value>TODO(mr): Last backup: {0} to {1}</value>
+    <value>शेवटचा बॅकअप: {0} ते {1}</value>
   </data>
   <data name="Last page" xml:space="preserve">
-    <value>TODO(mr): Last page</value>
+    <value>शेवटचे पृष्ठ</value>
   </data>
   <data name="Leave blank to skip network backup" xml:space="preserve">
-    <value>TODO(mr): Leave blank to skip network backup</value>
+    <value>नेटवर्क बॅकअप वगळण्यासाठी रिकामे ठेवा</value>
   </data>
   <data name="Legal Agreements" xml:space="preserve">
     <value>कायदेशीर करार</value>
@@ -448,10 +448,10 @@
     <value>लोड होत आहे...</value>
   </data>
   <data name="Local Backup Folder" xml:space="preserve">
-    <value>TODO(mr): Local Backup Folder</value>
+    <value>स्थानिक बॅकअप फोल्डर</value>
   </data>
   <data name="Local Folder" xml:space="preserve">
-    <value>TODO(mr): Local Folder</value>
+    <value>स्थानिक फोल्डर</value>
   </data>
   <data name="Login" xml:space="preserve">
     <value>प्रवेश करा</value>
@@ -460,10 +460,10 @@
     <value>बाहेर पडा</value>
   </data>
   <data name="Manual Backup &amp; Status" xml:space="preserve">
-    <value>TODO(mr): Manual Backup &amp; Status</value>
+    <value>हस्तचलित बॅकअप व स्थिती</value>
   </data>
   <data name="Manual backup failed. Please check backup settings." xml:space="preserve">
-    <value>TODO(mr): Manual backup failed. Please check backup settings.</value>
+    <value>हस्तचलित बॅकअप अयशस्वी झाला. कृपया बॅकअप सेटिंग्ज तपासा.</value>
   </data>
   <data name="Master Data" xml:space="preserve">
     <value>मास्टर डेटा</value>
@@ -496,16 +496,16 @@
     <value>निव्वळ नफा</value>
   </data>
   <data name="Network Server" xml:space="preserve">
-    <value>TODO(mr): Network Server</value>
+    <value>नेटवर्क सर्व्हर</value>
   </data>
   <data name="Network Server Connection" xml:space="preserve">
-    <value>TODO(mr): Network Server Connection</value>
+    <value>नेटवर्क सर्व्हर जोडणी</value>
   </data>
   <data name="Network Server Path (UNC)" xml:space="preserve">
-    <value>TODO(mr): Network Server Path (UNC)</value>
+    <value>नेटवर्क सर्व्हरचा मार्ग (UNC)</value>
   </data>
   <data name="Network backup skipped." xml:space="preserve">
-    <value>TODO(mr): Network backup skipped.</value>
+    <value>नेटवर्क बॅकअप वगळला.</value>
   </data>
   <data name="New" xml:space="preserve">
     <value>नवीन</value>
@@ -526,13 +526,13 @@
     <value>पुढे</value>
   </data>
   <data name="Next page" xml:space="preserve">
-    <value>TODO(mr): Next page</value>
+    <value>पुढील पृष्ठ</value>
   </data>
   <data name="No" xml:space="preserve">
     <value>नाही</value>
   </data>
   <data name="No crash logs found." xml:space="preserve">
-    <value>TODO(mr): No crash logs found.</value>
+    <value>क्रॅश नोंदी आढळल्या नाहीत.</value>
   </data>
   <data name="No records found" xml:space="preserve">
     <value>कोणत्याही नोंदी आढळल्या नाहीत</value>
@@ -553,7 +553,7 @@
     <value>उघडा</value>
   </data>
   <data name="Open Backup Folder" xml:space="preserve">
-    <value>TODO(mr): Open Backup Folder</value>
+    <value>बॅकअप फोल्डर उघडा</value>
   </data>
   <data name="Open Jobs" xml:space="preserve">
     <value>उघडे जॉब्स</value>
@@ -628,7 +628,7 @@
     <value>पूर्वावलोकन</value>
   </data>
   <data name="Previous page" xml:space="preserve">
-    <value>TODO(mr): Previous page</value>
+    <value>मागील पृष्ठ</value>
   </data>
   <data name="Priced Items" xml:space="preserve">
     <value>दर असलेले आयटम</value>
@@ -691,19 +691,19 @@
     <value>रीसेट</value>
   </data>
   <data name="Retention" xml:space="preserve">
-    <value>TODO(mr): Retention</value>
+    <value>साठवण कालावधी</value>
   </data>
   <data name="Retired" xml:space="preserve">
     <value>निवृत्त</value>
   </data>
   <data name="Run backup when app closes (if not already run today)" xml:space="preserve">
-    <value>TODO(mr): Run backup when app closes (if not already run today)</value>
+    <value>अॅप बंद होताना बॅकअप घ्या (आज आधी घेतला नसल्यास)</value>
   </data>
   <data name="SLA Dashboard" xml:space="preserve">
     <value>SLA डॅशबोर्ड</value>
   </data>
   <data name="SYSTEM &amp; SUPPORT" xml:space="preserve">
-    <value>प्रणाली आणि सहाय्य</value>
+    <value>प्रणाली व सहाय्य</value>
   </data>
   <data name="Sales" xml:space="preserve">
     <value>विक्री</value>
@@ -727,7 +727,7 @@
     <value>सेटिंग्ज जतन करा</value>
   </data>
   <data name="Schedule" xml:space="preserve">
-    <value>TODO(mr): Schedule</value>
+    <value>नियोजन</value>
   </data>
   <data name="Scheduled Date" xml:space="preserve">
     <value>नियोजित दिनांक</value>
@@ -748,13 +748,13 @@
     <value>सर्व निवडा</value>
   </data>
   <data name="Select the local ServoERP backup folder" xml:space="preserve">
-    <value>TODO(mr): Select the local ServoERP backup folder</value>
+    <value>स्थानिक ServoERP बॅकअप फोल्डर निवडा</value>
   </data>
   <data name="Service Operations" xml:space="preserve">
     <value>सेवा ऑपरेशन्स</value>
   </data>
   <data name="ServoERP - Backup &amp; Recovery" xml:space="preserve">
-    <value>TODO(mr): ServoERP - Backup &amp; Recovery</value>
+    <value>ServoERP - बॅकअप व पुनर्प्राप्ती</value>
   </data>
   <data name="Settings" xml:space="preserve">
     <value>सेटिंग्ज</value>
@@ -766,7 +766,7 @@
     <value>सेटिंग्ज मुख्यपृष्ठ</value>
   </data>
   <data name="Showing {0} to {1} of {2}" xml:space="preserve">
-    <value>TODO(mr): Showing {0} to {1} of {2}</value>
+    <value>एकूण {2} पैकी {0} ते {1} दाखवत आहे</value>
   </data>
   <data name="Sign in" xml:space="preserve">
     <value>प्रवेश करा</value>
@@ -805,7 +805,7 @@
     <value>कर</value>
   </data>
   <data name="Test Connection" xml:space="preserve">
-    <value>TODO(mr): Test Connection</value>
+    <value>जोडणी तपासा</value>
   </data>
   <data name="This Month" xml:space="preserve">
     <value>हा महिना</value>
@@ -841,10 +841,10 @@
     <value>एकक</value>
   </data>
   <data name="Unknown backup failure." xml:space="preserve">
-    <value>TODO(mr): Unknown backup failure.</value>
+    <value>बॅकअपमध्ये अज्ञात बिघाड.</value>
   </data>
   <data name="Unreachable - check path or network" xml:space="preserve">
-    <value>TODO(mr): Unreachable - check path or network</value>
+    <value>पोहोचता येत नाही - मार्ग किंवा नेटवर्क तपासा</value>
   </data>
   <data name="Update" xml:space="preserve">
     <value>अपडेट करा</value>
@@ -895,10 +895,10 @@
     <value>दुपार</value>
   </data>
   <data name="backup destination" xml:space="preserve">
-    <value>TODO(mr): backup destination</value>
+    <value>बॅकअपचे ठिकाण</value>
   </data>
   <data name="days (older backups will be deleted automatically)" xml:space="preserve">
-    <value>TODO(mr): days (older backups will be deleted automatically)</value>
+    <value>दिवस (जुने बॅकअप आपोआप हटवले जातील)</value>
   </data>
   <data name="evening" xml:space="preserve">
     <value>संध्याकाळ</value>
@@ -907,7 +907,7 @@
     <value>सकाळ</value>
   </data>
   <data name="of" xml:space="preserve">
-    <value>TODO(mr): of</value>
+    <value>पैकी</value>
   </data>
   <data name="Customize how dense data is displayed across the system." xml:space="preserve">
     <value>प्रणालीतील माहितीच्या प्रदर्शनाची मांडणी निवडा.</value>
@@ -1420,7 +1420,7 @@
     <value>एकक आवश्यक आहे.</value>
   </data>
   <data name="Unit must be 30 characters or less." xml:space="preserve">
-    <value>एकक जास्तीत जास्त ३० अक्षरांचे असावे.</value>
+    <value>एकक 30 अक्षरांपेक्षा मोठे नसावे.</value>
   </data>
   <data name="Vendor email address is not valid." xml:space="preserve">
     <value>पुरवठादाराचा ईमेल पत्ता वैध नाही.</value>
@@ -2000,7 +2000,7 @@ Admin</value>
     <value>GST वगळून रक्कम (₹)</value>
   </data>
   <data name="Analyse job-wise revenue, cost and margin across clients and sites." xml:space="preserve">
-    <value>ग्राहक आणि कार्यस्थळांनुसार कामाचा महसूल, खर्च आणि नफ्याचे विश्लेषण करा.</value>
+    <value>ग्राहक व कार्यस्थळांनुसार कामाचा महसूल, खर्च व नफा तपासा.</value>
   </data>
   <data name="Analyse line items to see supplier, shortfall, and pricing suggestions." xml:space="preserve">
     <value>पुरवठादार, तुटवडा आणि दरांच्या सूचना पाहण्यासाठी वस्तूंच्या ओळींचे विश्लेषण करा.</value>
@@ -2837,7 +2837,7 @@ ServoERP डेटा प्रकार ओळखतो, विस्कळी�
     <value>मुदत संपली</value>
   </data>
   <data name="Expires on {0}" xml:space="preserve">
-    <value>मुदत संपण्याचा दिनांक {0}</value>
+    <value>मुदत समाप्ती {0}</value>
   </data>
   <data name="Expiry Date" xml:space="preserve">
     <value>मुदत समाप्ती दिनांक</value>
@@ -4684,7 +4684,7 @@ C:\HVAC_PRO_MSE\COMPLIANCE येथे स्थानिकरीत्या 
     <value>अहवाल शोधा</value>
   </data>
   <data name="Search results" xml:space="preserve">
-    <value>शोध परिणाम</value>
+    <value>निकाल शोधा</value>
   </data>
   <data name="Search tools" xml:space="preserve">
     <value>शोध साधने</value>
@@ -8156,7 +8156,7 @@ ServoERP ने ब्राउझर उघडलेला नाही. पु
     <value>चलनाच्या कृती उघडा</value>
   </data>
   <data name="Open Invoices" xml:space="preserve">
-    <value>चलने उघडा</value>
+    <value>प्रलंबित चलने</value>
   </data>
   <data name="Open Issues" xml:space="preserve">
     <value>प्रलंबित समस्या</value>
@@ -9447,7 +9447,7 @@ ServoERP ने ब्राउझर उघडलेला नाही. पु
     <value>एकूण कामे</value>
   </data>
   <data name="Total Net Pay" xml:space="preserve">
-    <value>एकूण निव्वळ देय</value>
+    <value>एकूण निव्वळ वेतन</value>
   </data>
   <data name="Total PCs" xml:space="preserve">
     <value>एकूण संगणक</value>
@@ -9874,5 +9874,1244 @@ ServoERP ने ब्राउझर उघडलेला नाही कि�
   </data>
   <data name="Ctrl + K" xml:space="preserve">
     <value>Ctrl + K</value>
+  </data>
+  <data name="GST billing, receivables and customer invoice workflow." xml:space="preserve">
+    <value>GST बिलिंग, येणी व ग्राहक चलन कार्यप्रवाह.</value>
+  </data>
+  <data name="Invoice work queue" xml:space="preserve">
+    <value>चलन कामांची रांग</value>
+  </data>
+  <data name="Prioritized by age, balance and payment risk" xml:space="preserve">
+    <value>थकीत कालावधी, शिल्लक व देयक जोखमीनुसार प्राधान्य</value>
+  </data>
+  <data name="Today's follow-ups" xml:space="preserve">
+    <value>आजचे पाठपुरावे</value>
+  </data>
+  <data name="Recommended collection actions" xml:space="preserve">
+    <value>सुचवलेल्या वसुली कृती</value>
+  </data>
+  <data name="Client concentration" xml:space="preserve">
+    <value>ग्राहकनिहाय येणी</value>
+  </data>
+  <data name="Share of total outstanding" xml:space="preserve">
+    <value>एकूण थकबाकीतील वाटा</value>
+  </data>
+  <data name="Due within the next 30 days" xml:space="preserve">
+    <value>पुढील 30 दिवसांत देय</value>
+  </data>
+  <data name="Paid in the selected period" xml:space="preserve">
+    <value>निवडलेल्या कालावधीत भरलेले</value>
+  </data>
+  <data name="High-risk open balances" xml:space="preserve">
+    <value>उच्च जोखमीची प्रलंबित शिल्लक</value>
+  </data>
+  <data name="Past due and still outstanding" xml:space="preserve">
+    <value>मुदत उलटलेली थकबाकी</value>
+  </data>
+  <data name="Average collection period" xml:space="preserve">
+    <value>सरासरी वसुली कालावधी</value>
+  </data>
+  <data name="{0} days" xml:space="preserve">
+    <value>{0} दिवस</value>
+  </data>
+  <data name="{0} d late" xml:space="preserve">
+    <value>{0} दिवस थकीत</value>
+  </data>
+  <data name="{0} d" xml:space="preserve">
+    <value>{0} दिवस</value>
+  </data>
+  <data name="On time" xml:space="preserve">
+    <value>वेळेवर</value>
+  </data>
+  <data name="Due soon" xml:space="preserve">
+    <value>लवकरच देय</value>
+  </data>
+  <data name="Not due" xml:space="preserve">
+    <value>अद्याप देय नाही</value>
+  </data>
+  <data name="1-30 Days" xml:space="preserve">
+    <value>1-30 दिवस</value>
+  </data>
+  <data name="31-60 Days" xml:space="preserve">
+    <value>31-60 दिवस</value>
+  </data>
+  <data name="61-90 Days" xml:space="preserve">
+    <value>61-90 दिवस</value>
+  </data>
+  <data name="90+ Days" xml:space="preserve">
+    <value>90+ दिवस</value>
+  </data>
+  <data name="Escalate payment follow-up" xml:space="preserve">
+    <value>देयक पाठपुरावा वरिष्ठांकडे पाठवा</value>
+  </data>
+  <data name="Send payment reminder" xml:space="preserve">
+    <value>देयक स्मरणपत्र पाठवा</value>
+  </data>
+  <data name="Confirm payment commitment" xml:space="preserve">
+    <value>देयकाच्या आश्वासनाची खात्री करा</value>
+  </data>
+  <data name="CAL" xml:space="preserve">
+    <value>दिन</value>
+  </data>
+  <data name="DAY" xml:space="preserve">
+    <value>दिवस</value>
+  </data>
+  <data name="Reports Command Center" xml:space="preserve">
+    <value>अहवाल नियंत्रण केंद्र</value>
+  </data>
+  <data name="Real-time insights and analytics across your business." xml:space="preserve">
+    <value>तुमच्या व्यवसायातील अद्ययावत माहिती व विश्लेषण.</value>
+  </data>
+  <data name="Revenue summary" xml:space="preserve">
+    <value>महसूल सारांश</value>
+  </data>
+  <data name="Receivables ageing" xml:space="preserve">
+    <value>येण्यांचे वयोमान</value>
+  </data>
+  <data name="Job register" xml:space="preserve">
+    <value>काम नोंदवही</value>
+  </data>
+  <data name="Technician productivity" xml:space="preserve">
+    <value>तंत्रज्ञ उत्पादकता</value>
+  </data>
+  <data name="AMC contracts" xml:space="preserve">
+    <value>AMC करार</value>
+  </data>
+  <data name="Inventory summary" xml:space="preserve">
+    <value>साठा सारांश</value>
+  </data>
+  <data name="Purchase register" xml:space="preserve">
+    <value>खरेदी नोंदवही</value>
+  </data>
+  <data name="Supplier advances" xml:space="preserve">
+    <value>पुरवठादार आगाऊ रक्कम</value>
+  </data>
+  <data name="Clients sites" xml:space="preserve">
+    <value>ग्राहक कार्यस्थळे</value>
+  </data>
+  <data name="Import review" xml:space="preserve">
+    <value>आयात पुनरावलोकन</value>
+  </data>
+  <data name="Relationship health" xml:space="preserve">
+    <value>संबंधांची स्थिती</value>
+  </data>
+  <data name="FINANCIAL" xml:space="preserve">
+    <value>आर्थिक</value>
+  </data>
+  <data name="JOBS  SERVICE" xml:space="preserve">
+    <value>कामे व सेवा</value>
+  </data>
+  <data name="INVENTORY  PURCHASES" xml:space="preserve">
+    <value>साठा व खरेदी</value>
+  </data>
+  <data name="CLIENTS  SITES" xml:space="preserve">
+    <value>ग्राहक व कार्यस्थळे</value>
+  </data>
+  <data name="DATA QUALITY" xml:space="preserve">
+    <value>डेटाची गुणवत्ता</value>
+  </data>
+  <data name="Amount (Rs)" xml:space="preserve">
+    <value>रक्कम (रु.)</value>
+  </data>
+  <data name="No grouping" xml:space="preserve">
+    <value>गट नाही</value>
+  </data>
+  <data name="Cost incomplete" xml:space="preserve">
+    <value>खर्च अपूर्ण</value>
+  </data>
+  <data name="JOBS &amp; SERVICE" xml:space="preserve">
+    <value>कामे व सेवा</value>
+  </data>
+  <data name="INVENTORY &amp; PURCHASES" xml:space="preserve">
+    <value>साठा व खरेदी</value>
+  </data>
+  <data name="CLIENTS &amp; SITES" xml:space="preserve">
+    <value>ग्राहक व कार्यस्थळे</value>
+  </data>
+  <data name="Confirm payment date" xml:space="preserve">
+    <value>देयकाच्या तारखेची खात्री करा</value>
+  </data>
+  <data name="Overdue invoice: {0}" xml:space="preserve">
+    <value>मुदत उलटलेले चलन: {0}</value>
+  </data>
+  <data name="Scheduled date passed: {0}" xml:space="preserve">
+    <value>नियोजित तारीख उलटली: {0}</value>
+  </data>
+  <data name="Current stock below reorder level: {0} / {1}" xml:space="preserve">
+    <value>सध्याचा साठा पुनर्मागणी पातळीपेक्षा कमी: {0} / {1}</value>
+  </data>
+  <data name="Supplier payable overdue: {0} | due {1}" xml:space="preserve">
+    <value>पुरवठादाराचे देयक थकीत: {0} | देय तारीख {1}</value>
+  </data>
+  <data name="Supplier payable overdue: {0}" xml:space="preserve">
+    <value>पुरवठादाराचे देयक थकीत: {0}</value>
+  </data>
+  <data name="Pending approval: invoice is still {0}" xml:space="preserve">
+    <value>मंजुरी प्रलंबित: चलनाची स्थिती अद्याप {0}</value>
+  </data>
+  <data name="Pending approval: {0} | required by {1}" xml:space="preserve">
+    <value>मंजुरी प्रलंबित: {0} | आवश्यक तारीख {1}</value>
+  </data>
+  <data name="Pending approval: {0}" xml:space="preserve">
+    <value>मंजुरी प्रलंबित: {0}</value>
+  </data>
+  <data name="Pending approval: client charge not created" xml:space="preserve">
+    <value>मंजुरी प्रलंबित: ग्राहकाचे शुल्क तयार केलेले नाही</value>
+  </data>
+  <data name="Technician delay: {0} | {1} day(s) past schedule" xml:space="preserve">
+    <value>तंत्रज्ञाचा विलंब: {0} | नियोजित तारखेपासून {1} दिवस उलटले</value>
+  </data>
+  <data name="Technician delay: SLA breached by {0} hour(s)" xml:space="preserve">
+    <value>तंत्रज्ञाचा विलंब: SLA मुदतीपेक्षा {0} तास उशीर</value>
+  </data>
+  <data name="SLA due: {0}" xml:space="preserve">
+    <value>SLA मुदत: {0}</value>
+  </data>
+  <data name="Employee document expires on {0}" xml:space="preserve">
+    <value>कर्मचाऱ्याच्या दस्तऐवजाची मुदत समाप्ती {0}</value>
+  </data>
+  <data name="Certification expires on {0}" xml:space="preserve">
+    <value>प्रमाणपत्राची मुदत समाप्ती {0}</value>
+  </data>
+  <data name="Client record needs contact details" xml:space="preserve">
+    <value>ग्राहक नोंदीत संपर्क तपशील आवश्यक</value>
+  </data>
+  <data name="Vendor master missing GST/PAN/contact details" xml:space="preserve">
+    <value>पुरवठादार नोंदीत GST/PAN/संपर्क तपशील नाहीत</value>
+  </data>
+  <data name="Payment reference pending for reconciliation" xml:space="preserve">
+    <value>ताळमेळासाठी देयकाचा संदर्भ प्रलंबित</value>
+  </data>
+  <data name="No successful backup recorded in the last 7 days" xml:space="preserve">
+    <value>गेल्या 7 दिवसांत यशस्वी बॅकअपची नोंद नाही</value>
+  </data>
+  <data name="Backup attention required" xml:space="preserve">
+    <value>बॅकअपकडे लक्ष देणे आवश्यक</value>
+  </data>
+  <data name="Approvals" xml:space="preserve">
+    <value>मंजुऱ्या</value>
+  </data>
+  <data name="Technician Delays" xml:space="preserve">
+    <value>तंत्रज्ञांचे विलंब</value>
+  </data>
+  <data name="sum of billed revenue for the month using the active report filters" xml:space="preserve">
+    <value>सक्रिय अहवाल फिल्टरनुसार महिन्यातील बिल केलेल्या महसुलाची बेरीज</value>
+  </data>
+  <data name="sum of direct job costs for the month using the active report filters" xml:space="preserve">
+    <value>सक्रिय अहवाल फिल्टरनुसार महिन्यातील कामाच्या थेट खर्चाची बेरीज</value>
+  </data>
+  <data name="sum of invoices forecast on or before their due date" xml:space="preserve">
+    <value>देय तारखेपर्यंत अपेक्षित चलनांची बेरीज</value>
+  </data>
+  <data name="sum of invoices due within the forecast warning window" xml:space="preserve">
+    <value>अंदाजाच्या सूचनाकालावधीत देय चलनांची बेरीज</value>
+  </data>
+  <data name="sum of overdue invoice balances in this forecast week" xml:space="preserve">
+    <value>या अंदाज आठवड्यातील थकीत चलन शिल्लकीची बेरीज</value>
+  </data>
+  <data name="bucket outstanding ÷ total outstanding receivables" xml:space="preserve">
+    <value>या गटाची थकबाकी ÷ एकूण थकीत येणी</value>
+  </data>
+  <data name="{0} receivables" xml:space="preserve">
+    <value>{0} येणी</value>
+  </data>
+  <data name="Document number is required." xml:space="preserve">
+    <value>दस्तऐवज क्रमांक आवश्यक आहे.</value>
+  </data>
+  <data name="Document number must be 50 characters or less." xml:space="preserve">
+    <value>दस्तऐवज क्रमांक 50 अक्षरांपेक्षा मोठे नसावे.</value>
+  </data>
+  <data name="Subject must be 200 characters or less." xml:space="preserve">
+    <value>विषय 200 अक्षरांपेक्षा मोठे नसावे.</value>
+  </data>
+  <data name="Document date is required." xml:space="preserve">
+    <value>दस्तऐवज तारीख आवश्यक आहे.</value>
+  </data>
+  <data name="Document lines is required." xml:space="preserve">
+    <value>दस्तऐवजाच्या ओळी आवश्यक आहे.</value>
+  </data>
+  <data name="Taxable amount is required." xml:space="preserve">
+    <value>करपात्र रक्कम आवश्यक आहे.</value>
+  </data>
+  <data name="Taxable amount cannot be below 0." xml:space="preserve">
+    <value>करपात्र रक्कम 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="CGST is required." xml:space="preserve">
+    <value>CGST आवश्यक आहे.</value>
+  </data>
+  <data name="CGST cannot be below 0." xml:space="preserve">
+    <value>CGST 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="SGST is required." xml:space="preserve">
+    <value>SGST आवश्यक आहे.</value>
+  </data>
+  <data name="SGST cannot be below 0." xml:space="preserve">
+    <value>SGST 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="IGST is required." xml:space="preserve">
+    <value>IGST आवश्यक आहे.</value>
+  </data>
+  <data name="IGST cannot be below 0." xml:space="preserve">
+    <value>IGST 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="Round off is required." xml:space="preserve">
+    <value>पूर्णांक समायोजन आवश्यक आहे.</value>
+  </data>
+  <data name="Total amount is required." xml:space="preserve">
+    <value>एकूण रक्कम आवश्यक आहे.</value>
+  </data>
+  <data name="Total amount must be greater than 0." xml:space="preserve">
+    <value>एकूण रक्कम 0 पेक्षा जास्त असावे.</value>
+  </data>
+  <data name="Total amount must be below 999999999." xml:space="preserve">
+    <value>एकूण रक्कम 999999999 पेक्षा कमी असावे.</value>
+  </data>
+  <data name="Line description is required." xml:space="preserve">
+    <value>ओळीचे वर्णन आवश्यक आहे.</value>
+  </data>
+  <data name="Line description must be 500 characters or less." xml:space="preserve">
+    <value>ओळीचे वर्णन 500 अक्षरांपेक्षा मोठे नसावे.</value>
+  </data>
+  <data name="HSN must be 20 characters or less." xml:space="preserve">
+    <value>HSN 20 अक्षरांपेक्षा मोठे नसावे.</value>
+  </data>
+  <data name="Quantity is required." xml:space="preserve">
+    <value>प्रमाण आवश्यक आहे.</value>
+  </data>
+  <data name="Quantity must be greater than 0." xml:space="preserve">
+    <value>प्रमाण 0 पेक्षा जास्त असावे.</value>
+  </data>
+  <data name="Quantity must be below 100000000." xml:space="preserve">
+    <value>प्रमाण 100000000 पेक्षा कमी असावे.</value>
+  </data>
+  <data name="Rate is required." xml:space="preserve">
+    <value>दर आवश्यक आहे.</value>
+  </data>
+  <data name="Rate cannot be below 0." xml:space="preserve">
+    <value>दर 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="Rate must be below 999999999." xml:space="preserve">
+    <value>दर 999999999 पेक्षा कमी असावे.</value>
+  </data>
+  <data name="Discount percent is required." xml:space="preserve">
+    <value>सवलत टक्केवारी आवश्यक आहे.</value>
+  </data>
+  <data name="Discount percent must be between 0 and 100." xml:space="preserve">
+    <value>सवलत टक्केवारी 0 ते  100 दरम्यान असावे.</value>
+  </data>
+  <data name="GST percent is required." xml:space="preserve">
+    <value>GST टक्केवारी आवश्यक आहे.</value>
+  </data>
+  <data name="GST percent must be between 0 and 28." xml:space="preserve">
+    <value>GST टक्केवारी 0 ते  28 दरम्यान असावे.</value>
+  </data>
+  <data name="Line taxable amount is required." xml:space="preserve">
+    <value>ओळीची करपात्र रक्कम आवश्यक आहे.</value>
+  </data>
+  <data name="Line taxable amount cannot be below 0." xml:space="preserve">
+    <value>ओळीची करपात्र रक्कम 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="Line tax is required." xml:space="preserve">
+    <value>ओळीचा कर आवश्यक आहे.</value>
+  </data>
+  <data name="Line tax cannot be below 0." xml:space="preserve">
+    <value>ओळीचा कर 0 पेक्षा कमी नसावे.</value>
+  </data>
+  <data name="PDF content verification is required." xml:space="preserve">
+    <value>PDF मजकुराची पडताळणी आवश्यक आहे.</value>
+  </data>
+  <data name="File name is required." xml:space="preserve">
+    <value>फाइलचे नाव आवश्यक आहे.</value>
+  </data>
+  <data name="File name must be 255 characters or less." xml:space="preserve">
+    <value>फाइलचे नाव 255 अक्षरांपेक्षा मोठे नसावे.</value>
+  </data>
+  <data name="Exact value:" xml:space="preserve">
+    <value>अचूक मूल्य:</value>
+  </data>
+  <data name="Calculation:" xml:space="preserve">
+    <value>गणना:</value>
+  </data>
+  <data name="All sites" xml:space="preserve">
+    <value>सर्व कार्यस्थळे</value>
+  </data>
+  <data name="Coverage %" xml:space="preserve">
+    <value>व्याप्ती %</value>
+  </data>
+  <data name="Integrity %" xml:space="preserve">
+    <value>अखंडता %</value>
+  </data>
+  <data name="Context %" xml:space="preserve">
+    <value>संदर्भ %</value>
+  </data>
+  <data name="Coverage / integrity %" xml:space="preserve">
+    <value>व्याप्ती / अखंडता %</value>
+  </data>
+  <data name="(No Supplier)" xml:space="preserve">
+    <value>(पुरवठादार नाही)</value>
+  </data>
+  <data name="1 month" xml:space="preserve">
+    <value>1 महिना</value>
+  </data>
+  <data name="12 months" xml:space="preserve">
+    <value>12 महिने</value>
+  </data>
+  <data name="15 / page" xml:space="preserve">
+    <value>15 / पृष्ठ</value>
+  </data>
+  <data name="2 months" xml:space="preserve">
+    <value>2 महिने</value>
+  </data>
+  <data name="25 / page" xml:space="preserve">
+    <value>25 / पृष्ठ</value>
+  </data>
+  <data name="3 months" xml:space="preserve">
+    <value>3 महिने</value>
+  </data>
+  <data name="50 / page" xml:space="preserve">
+    <value>50 / पृष्ठ</value>
+  </data>
+  <data name="6 months" xml:space="preserve">
+    <value>6 महिने</value>
+  </data>
+  <data name="AMC Contract" xml:space="preserve">
+    <value>AMC करार</value>
+  </data>
+  <data name="AMC Visit" xml:space="preserve">
+    <value>AMC भेट</value>
+  </data>
+  <data name="Accepted" xml:space="preserve">
+    <value>स्वीकारलेले</value>
+  </data>
+  <data name="Active work" xml:space="preserve">
+    <value>सक्रिय कामे</value>
+  </data>
+  <data name="All Categories" xml:space="preserve">
+    <value>सर्व श्रेणी</value>
+  </data>
+  <data name="All Designations" xml:space="preserve">
+    <value>सर्व पदे</value>
+  </data>
+  <data name="All Locations" xml:space="preserve">
+    <value>सर्व ठिकाणे</value>
+  </data>
+  <data name="All Priority" xml:space="preserve">
+    <value>सर्व प्राधान्ये</value>
+  </data>
+  <data name="All Suppliers" xml:space="preserve">
+    <value>सर्व पुरवठादार</value>
+  </data>
+  <data name="All Time" xml:space="preserve">
+    <value>संपूर्ण कालावधी</value>
+  </data>
+  <data name="All Types" xml:space="preserve">
+    <value>सर्व प्रकार</value>
+  </data>
+  <data name="All Users" xml:space="preserve">
+    <value>सर्व वापरकर्ते</value>
+  </data>
+  <data name="All companies" xml:space="preserve">
+    <value>सर्व कंपन्या</value>
+  </data>
+  <data name="All files" xml:space="preserve">
+    <value>सर्व फाइल्स</value>
+  </data>
+  <data name="All regions" xml:space="preserve">
+    <value>सर्व प्रदेश</value>
+  </data>
+  <data name="All rows" xml:space="preserve">
+    <value>सर्व ओळी</value>
+  </data>
+  <data name="All statuses" xml:space="preserve">
+    <value>सर्व स्थिती</value>
+  </data>
+  <data name="All terminals" xml:space="preserve">
+    <value>सर्व टर्मिनल</value>
+  </data>
+  <data name="All trades" xml:space="preserve">
+    <value>सर्व व्यवसायप्रकार</value>
+  </data>
+  <data name="All work" xml:space="preserve">
+    <value>सर्व कामे</value>
+  </data>
+  <data name="Analytics Explainer" xml:space="preserve">
+    <value>विश्लेषण स्पष्टीकरण सहाय्यक</value>
+  </data>
+  <data name="Annually" xml:space="preserve">
+    <value>वार्षिक</value>
+  </data>
+  <data name="Approval" xml:space="preserve">
+    <value>मंजुरी</value>
+  </data>
+  <data name="Bank Transfer" xml:space="preserve">
+    <value>बँक हस्तांतरण</value>
+  </data>
+  <data name="Blacklisted" xml:space="preserve">
+    <value>काळ्या यादीत</value>
+  </data>
+  <data name="Booked" xml:space="preserve">
+    <value>आरक्षित</value>
+  </data>
+  <data name="Breakdown" xml:space="preserve">
+    <value>बिघाड</value>
+  </data>
+  <data name="Cash" xml:space="preserve">
+    <value>रोख</value>
+  </data>
+  <data name="Categorised" xml:space="preserve">
+    <value>वर्गीकृत</value>
+  </data>
+  <data name="Certificate" xml:space="preserve">
+    <value>प्रमाणपत्र</value>
+  </data>
+  <data name="Cheque" xml:space="preserve">
+    <value>धनादेश</value>
+  </data>
+  <data name="Cleaning" xml:space="preserve">
+    <value>स्वच्छता</value>
+  </data>
+  <data name="Client Assistant" xml:space="preserve">
+    <value>ग्राहक सहाय्यक</value>
+  </data>
+  <data name="Composition" xml:space="preserve">
+    <value>कंपोझिशन</value>
+  </data>
+  <data name="Converted" xml:space="preserve">
+    <value>रूपांतरित</value>
+  </data>
+  <data name="Count" xml:space="preserve">
+    <value>संख्या</value>
+  </data>
+  <data name="Critical / SLA risk" xml:space="preserve">
+    <value>अत्यावश्यक / SLA जोखीम</value>
+  </data>
+  <data name="Custom Range" xml:space="preserve">
+    <value>सानुकूल कालावधी</value>
+  </data>
+  <data name="Customer update" xml:space="preserve">
+    <value>ग्राहकाला माहिती</value>
+  </data>
+  <data name="Daily" xml:space="preserve">
+    <value>दैनंदिन</value>
+  </data>
+  <data name="Damaged Hold" xml:space="preserve">
+    <value>नुकसान झाल्यामुळे रोखलेले</value>
+  </data>
+  <data name="Diagnostic" xml:space="preserve">
+    <value>निदान</value>
+  </data>
+  <data name="Drawing" xml:space="preserve">
+    <value>रेखाचित्र</value>
+  </data>
+  <data name="Emergency" xml:space="preserve">
+    <value>आपत्कालीन</value>
+  </data>
+  <data name="Employment Contract" xml:space="preserve">
+    <value>नोकरी करार</value>
+  </data>
+  <data name="Every Monday" xml:space="preserve">
+    <value>दर सोमवारी</value>
+  </data>
+  <data name="Excluded" xml:space="preserve">
+    <value>वगळलेले</value>
+  </data>
+  <data name="Export only" xml:space="preserve">
+    <value>फक्त निर्यात</value>
+  </data>
+  <data name="First day of month" xml:space="preserve">
+    <value>महिन्याचा पहिला दिवस</value>
+  </data>
+  <data name="Fully Received" xml:space="preserve">
+    <value>पूर्ण मिळालेले</value>
+  </data>
+  <data name="Gas Charging" xml:space="preserve">
+    <value>गॅस भरणे</value>
+  </data>
+  <data name="General ERP Help" xml:space="preserve">
+    <value>सामान्य ERP मदत</value>
+  </data>
+  <data name="Imperial" xml:space="preserve">
+    <value>इम्पीरियल</value>
+  </data>
+  <data name="Import only" xml:space="preserve">
+    <value>फक्त आयात</value>
+  </data>
+  <data name="In Transit" xml:space="preserve">
+    <value>वाहतुकीत</value>
+  </data>
+  <data name="Inactive" xml:space="preserve">
+    <value>निष्क्रिय</value>
+  </data>
+  <data name="Inspection" xml:space="preserve">
+    <value>तपासणी</value>
+  </data>
+  <data name="Installation" xml:space="preserve">
+    <value>स्थापना</value>
+  </data>
+  <data name="Insurance" xml:space="preserve">
+    <value>विमा</value>
+  </data>
+  <data name="Internal note" xml:space="preserve">
+    <value>अंतर्गत नोंद</value>
+  </data>
+  <data name="Invoice Assistant" xml:space="preserve">
+    <value>चलन सहाय्यक</value>
+  </data>
+  <data name="Invoice Created" xml:space="preserve">
+    <value>चलन तयार केले</value>
+  </data>
+  <data name="Invoice Sent" xml:space="preserve">
+    <value>चलन पाठवले</value>
+  </data>
+  <data name="Job Created" xml:space="preserve">
+    <value>काम तयार केले</value>
+  </data>
+  <data name="Job/Technician Assistant" xml:space="preserve">
+    <value>काम/तंत्रज्ञ सहाय्यक</value>
+  </data>
+  <data name="Labor" xml:space="preserve">
+    <value>मजुरी</value>
+  </data>
+  <data name="Last 12 Months" xml:space="preserve">
+    <value>मागील 12 महिने</value>
+  </data>
+  <data name="Last 6 Months" xml:space="preserve">
+    <value>मागील 6 महिने</value>
+  </data>
+  <data name="Loading clients..." xml:space="preserve">
+    <value>ग्राहक लोड होत आहेत...</value>
+  </data>
+  <data name="Loading material list..." xml:space="preserve">
+    <value>साहित्य यादी लोड होत आहे...</value>
+  </data>
+  <data name="Loading sites..." xml:space="preserve">
+    <value>कार्यस्थळे लोड होत आहेत...</value>
+  </data>
+  <data name="Maintenance" xml:space="preserve">
+    <value>देखभाल</value>
+  </data>
+  <data name="Manual" xml:space="preserve">
+    <value>हस्तचलित</value>
+  </data>
+  <data name="Material Check" xml:space="preserve">
+    <value>साहित्य तपासणी</value>
+  </data>
+  <data name="Material list unavailable" xml:space="preserve">
+    <value>साहित्य यादी उपलब्ध नाही</value>
+  </data>
+  <data name="Materials Assistant" xml:space="preserve">
+    <value>साहित्य सहाय्यक</value>
+  </data>
+  <data name="Materials Received" xml:space="preserve">
+    <value>साहित्य मिळाले</value>
+  </data>
+  <data name="Metric" xml:space="preserve">
+    <value>मेट्रिक</value>
+  </data>
+  <data name="Mixed" xml:space="preserve">
+    <value>मिश्र</value>
+  </data>
+  <data name="Month" xml:space="preserve">
+    <value>महिना</value>
+  </data>
+  <data name="Monthly" xml:space="preserve">
+    <value>मासिक</value>
+  </data>
+  <data name="Need installation" xml:space="preserve">
+    <value>स्थापना आवश्यक</value>
+  </data>
+  <data name="No active work" xml:space="preserve">
+    <value>सक्रिय कामे नाहीत</value>
+  </data>
+  <data name="Not Required" xml:space="preserve">
+    <value>आवश्यक नाही</value>
+  </data>
+  <data name="Offline" xml:space="preserve">
+    <value>ऑफलाइन</value>
+  </data>
+  <data name="On Site" xml:space="preserve">
+    <value>कार्यस्थळी</value>
+  </data>
+  <data name="Other" xml:space="preserve">
+    <value>इतर</value>
+  </data>
+  <data name="PM Visit" xml:space="preserve">
+    <value>प्रतिबंधक देखभाल भेट</value>
+  </data>
+  <data name="PO Draft" xml:space="preserve">
+    <value>खरेदी आदेशाचा मसुदा</value>
+  </data>
+  <data name="PO Received" xml:space="preserve">
+    <value>खरेदी आदेश मिळाला</value>
+  </data>
+  <data name="PO Sent" xml:space="preserve">
+    <value>खरेदी आदेश पाठवला</value>
+  </data>
+  <data name="Partially Received" xml:space="preserve">
+    <value>अंशतः मिळालेले</value>
+  </data>
+  <data name="Payment Made" xml:space="preserve">
+    <value>देयक दिले</value>
+  </data>
+  <data name="Payment Received" xml:space="preserve">
+    <value>देयक मिळाले</value>
+  </data>
+  <data name="Pending Approval" xml:space="preserve">
+    <value>मंजुरी प्रलंबित</value>
+  </data>
+  <data name="Picked Up" xml:space="preserve">
+    <value>उचललेले</value>
+  </data>
+  <data name="Procurement Only" xml:space="preserve">
+    <value>फक्त खरेदी</value>
+  </data>
+  <data name="Project" xml:space="preserve">
+    <value>प्रकल्प</value>
+  </data>
+  <data name="Prospect" xml:space="preserve">
+    <value>संभाव्य ग्राहक</value>
+  </data>
+  <data name="Quarterly" xml:space="preserve">
+    <value>त्रैमासिक</value>
+  </data>
+  <data name="Quotation Assistant" xml:space="preserve">
+    <value>कोटेशन सहाय्यक</value>
+  </data>
+  <data name="Quote Accepted" xml:space="preserve">
+    <value>कोटेशन स्वीकारले</value>
+  </data>
+  <data name="Quote Draft" xml:space="preserve">
+    <value>कोटेशन मसुदा</value>
+  </data>
+  <data name="Quote Sent" xml:space="preserve">
+    <value>कोटेशन पाठवले</value>
+  </data>
+  <data name="Receipt" xml:space="preserve">
+    <value>पावती</value>
+  </data>
+  <data name="Received" xml:space="preserve">
+    <value>मिळालेले</value>
+  </data>
+  <data name="Refund" xml:space="preserve">
+    <value>परतावा</value>
+  </data>
+  <data name="Regular" xml:space="preserve">
+    <value>नियमित</value>
+  </data>
+  <data name="Repair" xml:space="preserve">
+    <value>दुरुस्ती</value>
+  </data>
+  <data name="Revenue + Procurement" xml:space="preserve">
+    <value>महसूल + खरेदी</value>
+  </data>
+  <data name="Sent" xml:space="preserve">
+    <value>पाठवलेले</value>
+  </data>
+  <data name="Service Agreement" xml:space="preserve">
+    <value>सेवा करार</value>
+  </data>
+  <data name="Shared Folder" xml:space="preserve">
+    <value>सामायिक फोल्डर</value>
+  </data>
+  <data name="Site Store" xml:space="preserve">
+    <value>कार्यस्थळाचे गोदाम</value>
+  </data>
+  <data name="Sites unavailable" xml:space="preserve">
+    <value>कार्यस्थळे उपलब्ध नाहीत</value>
+  </data>
+  <data name="Supplier Quote Needed" xml:space="preserve">
+    <value>पुरवठादाराचे कोटेशन आवश्यक</value>
+  </data>
+  <data name="Supplier Quote Received" xml:space="preserve">
+    <value>पुरवठादाराचे कोटेशन मिळाले</value>
+  </data>
+  <data name="Supplier Quote Sent" xml:space="preserve">
+    <value>पुरवठादाराचे कोटेशन पाठवले</value>
+  </data>
+  <data name="Supplier Return" xml:space="preserve">
+    <value>पुरवठादाराकडे परतावा</value>
+  </data>
+  <data name="Tax Document" xml:space="preserve">
+    <value>कर दस्तऐवज</value>
+  </data>
+  <data name="This Job" xml:space="preserve">
+    <value>हे काम</value>
+  </data>
+  <data name="Traveling" xml:space="preserve">
+    <value>प्रवासात</value>
+  </data>
+  <data name="Two way" xml:space="preserve">
+    <value>दोन्ही दिशांनी</value>
+  </data>
+  <data name="Unassigned technician" xml:space="preserve">
+    <value>तंत्रज्ञ नेमलेला नाही</value>
+  </data>
+  <data name="Unregistered" xml:space="preserve">
+    <value>नोंदणी नसलेले</value>
+  </data>
+  <data name="Update available" xml:space="preserve">
+    <value>अद्यतन उपलब्ध</value>
+  </data>
+  <data name="Vendor Agreement" xml:space="preserve">
+    <value>पुरवठादार करार</value>
+  </data>
+  <data name="Vendor Assistant" xml:space="preserve">
+    <value>पुरवठादार सहाय्यक</value>
+  </data>
+  <data name="Vendor Paid" xml:space="preserve">
+    <value>पुरवठादाराला देयक दिले</value>
+  </data>
+  <data name="Waiting Parts" xml:space="preserve">
+    <value>सुट्या भागांच्या प्रतीक्षेत</value>
+  </data>
+  <data name="Warranty" xml:space="preserve">
+    <value>हमी</value>
+  </data>
+  <data name="Week" xml:space="preserve">
+    <value>आठवडा</value>
+  </data>
+  <data name="Weekly" xml:space="preserve">
+    <value>साप्ताहिक</value>
+  </data>
+  <data name="Work note" xml:space="preserve">
+    <value>कामाची नोंद</value>
+  </data>
+  <data name="NEFT" xml:space="preserve">
+    <value>NEFT</value>
+  </data>
+  <data name="NEFT/RTGS" xml:space="preserve">
+    <value>NEFT/RTGS</value>
+  </data>
+  <data name="CGST+SGST" xml:space="preserve">
+    <value>CGST+SGST</value>
+  </data>
+  <data name="25" xml:space="preserve">
+    <value>25</value>
+  </data>
+  <data name="10" xml:space="preserve">
+    <value>10</value>
+  </data>
+  <data name="DD" xml:space="preserve">
+    <value>DD</value>
+  </data>
+  <data name="50" xml:space="preserve">
+    <value>50</value>
+  </data>
+  <data name="NDA" xml:space="preserve">
+    <value>NDA</value>
+  </data>
+  <data name="UPI" xml:space="preserve">
+    <value>UPI</value>
+  </data>
+  <data name="Excel (.xlsx)" xml:space="preserve">
+    <value>Excel (.xlsx)</value>
+  </data>
+  <data name="CSV (.csv)" xml:space="preserve">
+    <value>CSV (.csv)</value>
+  </data>
+  <data name="SFTP" xml:space="preserve">
+    <value>SFTP</value>
+  </data>
+  <data name="100" xml:space="preserve">
+    <value>100</value>
+  </data>
+  <data name="SQL Server" xml:space="preserve">
+    <value>SQL Server</value>
+  </data>
+  <data name="REST API" xml:space="preserve">
+    <value>REST API</value>
+  </data>
+  <data name="ADMINISTRATION" xml:space="preserve">
+    <value>प्रशासन</value>
+  </data>
+  <data name="BUSINESS" xml:space="preserve">
+    <value>व्यवसाय</value>
+  </data>
+  <data name="Activation, renewal and application updates" xml:space="preserve">
+    <value>सक्रियकरण, नूतनीकरण व अॅप अद्यतने</value>
+  </data>
+  <data name="All Sites by Region - Work Details" xml:space="preserve">
+    <value>प्रदेशानुसार सर्व कार्यस्थळे - कामाचा तपशील</value>
+  </data>
+  <data name="Backup destinations, schedules and recovery" xml:space="preserve">
+    <value>बॅकअपची ठिकाणे, वेळापत्रके व पुनर्प्राप्ती</value>
+  </data>
+  <data name="Book with Porter, then record and track the delivery in ServoERP." xml:space="preserve">
+    <value>Porter वर बुक करा, नंतर ServoERP मध्ये वितरण नोंदवा व त्याचा मागोवा घ्या.</value>
+  </data>
+  <data name="Business identity, contact details and office location" xml:space="preserve">
+    <value>व्यवसायाची ओळख, संपर्क तपशील व कार्यालयाचे ठिकाण</value>
+  </data>
+  <data name="Choose ServoERP terminal or Enterprise installer" xml:space="preserve">
+    <value>ServoERP टर्मिनल किंवा एंटरप्राइझ इंस्टॉलर निवडा</value>
+  </data>
+  <data name="Choose a folder — all subfolders will be scanned for PDFs" xml:space="preserve">
+    <value>फोल्डर निवडा — सर्व उपफोल्डरमधील PDF शोधले जातील</value>
+  </data>
+  <data name="Choose a signature image" xml:space="preserve">
+    <value>स्वाक्षरीचे चित्र निवडा</value>
+  </data>
+  <data name="Choose document" xml:space="preserve">
+    <value>दस्तऐवज निवडा</value>
+  </data>
+  <data name="Choose messy Excel/ZIP/PDF file for Data Clean Room" xml:space="preserve">
+    <value>डेटा स्वच्छतेसाठी अव्यवस्थित Excel/ZIP/PDF फाइल निवडा</value>
+  </data>
+  <data name="Choose where ServoERP should save scheduled report exports" xml:space="preserve">
+    <value>नियोजित अहवाल निर्यात ServoERP ने कुठे जतन करावी ते निवडा</value>
+  </data>
+  <data name="Client profile and sites" xml:space="preserve">
+    <value>ग्राहकाची माहिती व कार्यस्थळे</value>
+  </data>
+  <data name="Codes, tax rates and units of measure" xml:space="preserve">
+    <value>कोड, कर दर व मोजमापाची एकके</value>
+  </data>
+  <data name="Company header for PDFs and print previews" xml:space="preserve">
+    <value>PDF व मुद्रण पूर्वावलोकनासाठी कंपनीचे शीर्षलेख</value>
+  </data>
+  <data name="Connect phones by QR code or office user ID and password" xml:space="preserve">
+    <value>QR कोड किंवा कार्यालयीन वापरकर्ता आयडी व पासवर्डने फोन जोडा</value>
+  </data>
+  <data name="Connection setup, health and layout recovery" xml:space="preserve">
+    <value>जोडणीची मांडणी, स्थिती व मांडणी पुनर्प्राप्ती</value>
+  </data>
+  <data name="Contract service - " xml:space="preserve">
+    <value>करारातील सेवा - </value>
+  </data>
+  <data name="Draft service / material line" xml:space="preserve">
+    <value>सेवा / साहित्य ओळीचा मसुदा</value>
+  </data>
+  <data name="Due for PM - Next 30 Days" xml:space="preserve">
+    <value>पुढील 30 दिवसांत प्रतिबंधक देखभाल देय</value>
+  </data>
+  <data name="Equipment Offline - Not Reporting" xml:space="preserve">
+    <value>उपकरण ऑफलाइन - माहिती येत नाही</value>
+  </data>
+  <data name="Export Attendance" xml:space="preserve">
+    <value>हजेरी निर्यात करा</value>
+  </data>
+  <data name="Export public office connection profile" xml:space="preserve">
+    <value>सार्वजनिक कार्यालयीन जोडणी प्रोफाइल निर्यात करा</value>
+  </data>
+  <data name="Follow the next recommended action. Return to any step whenever you need help." xml:space="preserve">
+    <value>पुढील सुचवलेली कृती करा. मदत हवी असल्यास कोणत्याही टप्प्यावर परत या.</value>
+  </data>
+  <data name="Fresh Start and data reset tools" xml:space="preserve">
+    <value>नव्याने सुरुवात व डेटा पुनर्स्थापना साधने</value>
+  </data>
+  <data name="GST &amp; financial defaults" xml:space="preserve">
+    <value>GST व आर्थिक मूलभूत सेटिंग्ज</value>
+  </data>
+  <data name="HSN / SAC &amp; units" xml:space="preserve">
+    <value>HSN / SAC व एकके</value>
+  </data>
+  <data name="Import Attendance Excel or CSV" xml:space="preserve">
+    <value>हजेरीची Excel किंवा CSV फाइल आयात करा</value>
+  </data>
+  <data name="Import Payroll or Attendance Excel" xml:space="preserve">
+    <value>वेतन किंवा हजेरीची Excel फाइल आयात करा</value>
+  </data>
+  <data name="Import inventory CSV" xml:space="preserve">
+    <value>साठ्याची CSV फाइल आयात करा</value>
+  </data>
+  <data name="Import job P&amp;L workbook" xml:space="preserve">
+    <value>कामाच्या नफा-तोट्याचे वर्कबुक आयात करा</value>
+  </data>
+  <data name="Import one Excel file or a folder of workbooks and let ServoERP detect, clean, link, and sync the data automatically." xml:space="preserve">
+    <value>एक Excel फाइल किंवा वर्कबुकचा फोल्डर आयात करा. ServoERP डेटा आपोआप ओळखेल, स्वच्छ करेल, जोडेल व समक्रमित करेल.</value>
+  </data>
+  <data name="Import public office connection profile" xml:space="preserve">
+    <value>सार्वजनिक कार्यालयीन जोडणी प्रोफाइल आयात करा</value>
+  </data>
+  <data name="Imported Note" xml:space="preserve">
+    <value>आयात केलेली नोंद</value>
+  </data>
+  <data name="Incidents and service follow-up" xml:space="preserve">
+    <value>घटना व सेवा पाठपुरावा</value>
+  </data>
+  <data name="Job progress and service details" xml:space="preserve">
+    <value>कामाची प्रगती व सेवेचा तपशील</value>
+  </data>
+  <data name="Letterhead &amp; documents" xml:space="preserve">
+    <value>लेटरहेड व दस्तऐवज</value>
+  </data>
+  <data name="Manage staff logins and access" xml:space="preserve">
+    <value>कर्मचाऱ्यांची प्रवेश खाती व परवानग्या सांभाळा</value>
+  </data>
+  <data name="Manage the material catalog, preferred suppliers, buying rates, and job-by-job procurement readiness." xml:space="preserve">
+    <value>साहित्य सूची, पसंतीचे पुरवठादार, खरेदी दर व प्रत्येक कामासाठी खरेदीची तयारी सांभाळा.</value>
+  </data>
+  <data name="Materials / Job Procurement" xml:space="preserve">
+    <value>साहित्य / कामासाठी खरेदी</value>
+  </data>
+  <data name="No records yet" xml:space="preserve">
+    <value>अद्याप नोंदी नाहीत</value>
+  </data>
+  <data name="Note" xml:space="preserve">
+    <value>नोंद</value>
+  </data>
+  <data name="Offline operation " xml:space="preserve">
+    <value>ऑफलाइन कृती </value>
+  </data>
+  <data name="Or choose a folder containing client data files" xml:space="preserve">
+    <value>किंवा ग्राहकांच्या डेटा फाइल्सचा फोल्डर निवडा</value>
+  </data>
+  <data name="PDF Import" xml:space="preserve">
+    <value>PDF आयात</value>
+  </data>
+  <data name="Paid Amount" xml:space="preserve">
+    <value>भरलेली रक्कम</value>
+  </data>
+  <data name="Payroll Dashboard" xml:space="preserve">
+    <value>वेतन डॅशबोर्ड</value>
+  </data>
+  <data name="Policies, component licenses and export pack" xml:space="preserve">
+    <value>धोरणे, घटकांचे परवाने व निर्यात संच</value>
+  </data>
+  <data name="Porter Deliveries" xml:space="preserve">
+    <value>Porter वितरणे</value>
+  </data>
+  <data name="Profile updated" xml:space="preserve">
+    <value>माहिती अद्ययावत केली</value>
+  </data>
+  <data name="Report Card" xml:space="preserve">
+    <value>अहवाल कार्ड</value>
+  </data>
+  <data name="Review recorded user activity" xml:space="preserve">
+    <value>नोंदवलेल्या वापरकर्ता कृती तपासा</value>
+  </data>
+  <data name="Select ServoERP SQL backup" xml:space="preserve">
+    <value>ServoERP SQL बॅकअप निवडा</value>
+  </data>
+  <data name="Select company header" xml:space="preserve">
+    <value>कंपनीचे शीर्षलेख निवडा</value>
+  </data>
+  <data name="Select folder  ›  Review &amp; categorise  ›  Confirm import" xml:space="preserve">
+    <value>फोल्डर निवडा  ›  तपासा व वर्गीकृत करा  ›  आयात निश्चित करा</value>
+  </data>
+  <data name="Select signed ServoERP license file" xml:space="preserve">
+    <value>स्वाक्षरी केलेली ServoERP परवाना फाइल निवडा</value>
+  </data>
+  <data name="Service Desk" xml:space="preserve">
+    <value>सेवा कक्ष</value>
+  </data>
+  <data name="ServoERP User Guide" xml:space="preserve">
+    <value>ServoERP वापरकर्ता मार्गदर्शिका</value>
+  </data>
+  <data name="ServoERP card" xml:space="preserve">
+    <value>ServoERP कार्ड</value>
+  </data>
+  <data name="Site Monitor Details" xml:space="preserve">
+    <value>कार्यस्थळ देखरेखीचा तपशील</value>
+  </data>
+  <data name="Site Revenue" xml:space="preserve">
+    <value>कार्यस्थळाचा महसूल</value>
+  </data>
+  <data name="Sites &gt; Technician Capacity &gt; Live Field Operations" xml:space="preserve">
+    <value>कार्यस्थळे &gt; तंत्रज्ञ क्षमता &gt; प्रत्यक्ष क्षेत्रीय कामकाज</value>
+  </data>
+  <data name="Sites with Open Issues" xml:space="preserve">
+    <value>प्रलंबित अडचणी असलेली कार्यस्थळे</value>
+  </data>
+  <data name="Support, health checks and error logs" xml:space="preserve">
+    <value>सहाय्य, स्थिती तपासणी व त्रुटी नोंदी</value>
+  </data>
+  <data name="Tax, invoice and payment preferences" xml:space="preserve">
+    <value>कर, चलन व देयकाची प्राधान्ये</value>
+  </data>
+  <data name="Time &amp; Attendance" xml:space="preserve">
+    <value>वेळ व हजेरी</value>
+  </data>
+  <data name="Track annual maintenance contracts, renewal windows, visits, and covered equipment." xml:space="preserve">
+    <value>वार्षिक देखभाल करार, नूतनीकरण कालावधी, भेटी व समाविष्ट उपकरणांचा मागोवा घ्या.</value>
+  </data>
+  <data name="Upload authorised signature image" xml:space="preserve">
+    <value>अधिकृत स्वाक्षरीचे चित्र अपलोड करा</value>
+  </data>
+  <data name="Upload company document template" xml:space="preserve">
+    <value>कंपनीचा दस्तऐवज नमुना अपलोड करा</value>
+  </data>
+  <data name="Workforce pay control, compliance review, and month-close execution." xml:space="preserve">
+    <value>कर्मचाऱ्यांचे वेतन नियंत्रण, अनुपालन तपासणी व महिनाअखेरची प्रक्रिया.</value>
+  </data>
+  <data name="Workforce presence, month coverage, and payroll-ready review." xml:space="preserve">
+    <value>कर्मचाऱ्यांची उपस्थिती, महिन्यातील व्याप्ती व वेतनपूर्व तपासणी.</value>
+  </data>
+  <data name="plotted value for " xml:space="preserve">
+    <value>आलेखातील मूल्य: </value>
+  </data>
+  <data name="recorded vendor unit price for " xml:space="preserve">
+    <value>पुरवठादाराचा नोंदवलेला प्रति एकक दर: </value>
+  </data>
+  <data name="records in this category after applying the active report filters" xml:space="preserve">
+    <value>सक्रिय अहवाल फिल्टरनंतर या श्रेणीतील नोंदी</value>
+  </data>
+  <data name="report value aggregated for this category using the active report filters" xml:space="preserve">
+    <value>सक्रिय अहवाल फिल्टरनुसार या श्रेणीसाठी एकत्रित अहवाल मूल्य</value>
+  </data>
+  <data name="Configure company profile, compliance, backups, users, and system preferences." xml:space="preserve">
+    <value>कंपनीची माहिती, अनुपालन, बॅकअप, वापरकर्ते व प्रणालीची प्राधान्ये ठरवा.</value>
+  </data>
+  <data name="(revenue - direct cost) / revenue x 100" xml:space="preserve">
+    <value>(महसूल - थेट खर्च) / महसूल x 100</value>
+  </data>
+  <data name="populated relationship keys / child rows x 100" xml:space="preserve">
+    <value>भरलेल्या संबंध कळी / अधीन ओळी x 100</value>
+  </data>
+  <data name="matched parent records / populated relationship keys x 100" xml:space="preserve">
+    <value>जुळलेल्या मुख्य नोंदी / भरलेल्या संबंध कळी x 100</value>
+  </data>
+  <data name="consistent client/site references / populated relationship keys x 100" xml:space="preserve">
+    <value>सुसंगत ग्राहक/कार्यस्थळ संदर्भ / भरलेल्या संबंध कळी x 100</value>
+  </data>
+  <data name="Review recurring and contract revenue by client." xml:space="preserve">
+    <value>ग्राहकनिहाय आवर्ती व करार महसूल तपासा.</value>
+  </data>
+  <data name="Prioritise outstanding invoices and collection follow-up." xml:space="preserve">
+    <value>थकीत चलने व वसुली पाठपुराव्याला प्राधान्य द्या.</value>
+  </data>
+  <data name="Monitor AMC value, expiry dates and renewal actions." xml:space="preserve">
+    <value>AMC मूल्य, समाप्ती तारखा व नूतनीकरण कृती तपासा.</value>
+  </data>
+  <data name="Review job pipeline, priority, assignment and completion." xml:space="preserve">
+    <value>कामाचे टप्पे, प्राधान्य, नेमणूक व पूर्तता तपासा.</value>
+  </data>
+  <data name="Compare technician workload, completion and revenue." xml:space="preserve">
+    <value>तंत्रज्ञांचा कामाचा भार, पूर्तता व महसूल तुलना करा.</value>
+  </data>
+  <data name="Identify low stock, reservations and procurement needs." xml:space="preserve">
+    <value>कमी साठा, आरक्षणे व खरेदीची गरज ओळखा.</value>
+  </data>
+  <data name="Track purchase orders, balances and supplier status." xml:space="preserve">
+    <value>खरेदी आदेश, शिल्लक व पुरवठादार स्थितीचा मागोवा घ्या.</value>
+  </data>
+  <data name="Review supplier advances, application and remaining balance." xml:space="preserve">
+    <value>पुरवठादारांच्या आगाऊ रकमा, त्यांचा वापर व उर्वरित शिल्लक तपासा.</value>
+  </data>
+  <data name="Compare client activity, open work and revenue." xml:space="preserve">
+    <value>ग्राहकांच्या कृती, प्रलंबित कामे व महसूल तुलना करा.</value>
+  </data>
+  <data name="Review imported profitability rows before they affect reporting." xml:space="preserve">
+    <value>अहवालात समावेश करण्यापूर्वी आयात केलेल्या नफ्याच्या ओळी तपासा.</value>
+  </data>
+  <data name="Measure relationship coverage, orphan records, client/site consistency and database protection." xml:space="preserve">
+    <value>संबंधांची व्याप्ती, संबंध नसलेल्या नोंदी, ग्राहक/कार्यस्थळ सुसंगती व डेटाबेस संरक्षण तपासा.</value>
+  </data>
+  <data name="Review operational data." xml:space="preserve">
+    <value>कामकाजाचा डेटा तपासा.</value>
+  </data>
+  <data name="Rows per page" xml:space="preserve">
+    <value>प्रति पृष्ठ ओळी</value>
+  </data>
+  <data name="Rows" xml:space="preserve">
+    <value>ओळी</value>
+  </data>
+  <data name="Showing {0:N0}–{1:N0} of {2:N0}" xml:space="preserve">
+    <value>एकूण {2:N0} पैकी {0:N0}–{1:N0} दाखवत आहे</value>
+  </data>
+  <data name="Clients Management" xml:space="preserve">
+    <value>ग्राहक व्यवस्थापन</value>
+  </data>
+  <data name="Jobs Dashboard" xml:space="preserve">
+    <value>कामांचा डॅशबोर्ड</value>
+  </data>
+  <data name="Supplier Management" xml:space="preserve">
+    <value>पुरवठादार व्यवस्थापन</value>
+  </data>
+  <data name="All registered clients" xml:space="preserve">
+    <value>सर्व नोंदणीकृत ग्राहक</value>
+  </data>
+  <data name="Currently active clients" xml:space="preserve">
+    <value>सध्या सक्रिय ग्राहक</value>
+  </data>
+  <data name="All client contracts" xml:space="preserve">
+    <value>ग्राहकांचे सर्व करार</value>
+  </data>
+  <data name="Total outstanding amount" xml:space="preserve">
+    <value>एकूण थकबाकी रक्कम</value>
+  </data>
+  <data name="Contracts up for renewal" xml:space="preserve">
+    <value>नूतनीकरणासाठी देय करार</value>
+  </data>
+  <data name="Currently open" xml:space="preserve">
+    <value>सध्या प्रलंबित</value>
+  </data>
+  <data name="Currently in progress" xml:space="preserve">
+    <value>सध्या प्रगतीपथावर</value>
+  </data>
+  <data name="All completed" xml:space="preserve">
+    <value>सर्व पूर्ण झालेली</value>
+  </data>
+  <data name="Currently on hold" xml:space="preserve">
+    <value>सध्या स्थगित</value>
+  </data>
+  <data name="All cancelled" xml:space="preserve">
+    <value>सर्व रद्द झालेली</value>
+  </data>
+  <data name="Residential" xml:space="preserve">
+    <value>निवासी</value>
+  </data>
+  <data name="Commercial" xml:space="preserve">
+    <value>व्यावसायिक</value>
+  </data>
+  <data name="Industrial" xml:space="preserve">
+    <value>औद्योगिक</value>
+  </data>
+  <data name="Government" xml:space="preserve">
+    <value>शासकीय</value>
+  </data>
+  <data name="Total Contacts" xml:space="preserve">
+    <value>एकूण संपर्क</value>
+  </data>
+  <data name="Service Sites" xml:space="preserve">
+    <value>सेवेची कार्यस्थळे</value>
+  </data>
+  <data name="Pending Quotes" xml:space="preserve">
+    <value>प्रलंबित कोटेशन</value>
+  </data>
+  <data name="Support Tickets" xml:space="preserve">
+    <value>सहाय्य विनंत्या</value>
+  </data>
+  <data name="Gross payroll" xml:space="preserve">
+    <value>स्थूल वेतन</value>
+  </data>
+  <data name="TOTAL DEDUCTIONS" xml:space="preserve">
+    <value>एकूण कपाती</value>
+  </data>
+  <data name="Statutory + other" xml:space="preserve">
+    <value>वैधानिक + इतर</value>
+  </data>
+  <data name="Payable to staff" xml:space="preserve">
+    <value>कर्मचाऱ्यांना देय</value>
+  </data>
+  <data name="EMPLOYER LIABILITY" xml:space="preserve">
+    <value>नियोक्त्याचे दायित्व</value>
+  </data>
+  <data name="Company contribution" xml:space="preserve">
+    <value>कंपनीचे योगदान</value>
+  </data>
+  <data name="Each active employee across the selected month. Click any cell to cycle its status." xml:space="preserve">
+    <value>निवडलेल्या महिन्यातील प्रत्येक सक्रिय कर्मचारी. स्थिती बदलण्यासाठी चौकटीवर क्लिक करा.</value>
+  </data>
+  <data name="Manage clients first; sites, contacts, jobs, and invoices can be added when details are ready." xml:space="preserve">
+    <value>प्रथम ग्राहक सांभाळा. तपशील तयार झाल्यावर कार्यस्थळे, संपर्क, कामे व चलने जोडता येतील.</value>
+  </data>
+  <data name="Manage suppliers, purchase performance, GST and compliance in one place." xml:space="preserve">
+    <value>पुरवठादार, खरेदीची कामगिरी, GST व अनुपालन एकाच ठिकाणी सांभाळा.</value>
+  </data>
+  <data name="Monitor jobs, technicians, and service status. Client is required; site can be selected later." xml:space="preserve">
+    <value>कामे, तंत्रज्ञ व सेवेची स्थिती तपासा. ग्राहक आवश्यक आहे; कार्यस्थळ नंतर निवडता येईल.</value>
+  </data>
+  <data name="Track AMC agreements, renewals, SLA terms, and optional site links." xml:space="preserve">
+    <value>AMC करार, नूतनीकरण, SLA अटी व ऐच्छिक कार्यस्थळ जोडण्यांचा मागोवा घ्या.</value>
+  </data>
+  <data name="Track receipts, receivables, refunds, and supplier payments." xml:space="preserve">
+    <value>पावत्या, येणी, परतावे व पुरवठादारांना देयकांचा मागोवा घ्या.</value>
+  </data>
+  <data name="Manage and track all purchase orders from creation to receipt and payment." xml:space="preserve">
+    <value>खरेदी आदेश तयार करण्यापासून साहित्य मिळणे व देयकापर्यंत त्यांचे व्यवस्थापन व मागोवा घ्या.</value>
+  </data>
+  <data name="Manage your organization's employees, roles and work assignments." xml:space="preserve">
+    <value>तुमच्या संस्थेचे कर्मचारी, भूमिका व कामांच्या नेमणुका सांभाळा.</value>
   </data>
 </root>

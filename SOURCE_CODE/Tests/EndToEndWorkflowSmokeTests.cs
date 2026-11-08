@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Drawing;
@@ -15,6 +15,8 @@ namespace HVAC_Pro_Desktop.Tests
 {
     public static class EndToEndWorkflowSmokeTests
     {
+        internal static string OutputRoot = @"C:\HVAC_PRO_MSE";
+
         private const string QaKey = "QA-E2E-HVAC-FLOW-20260603";
         private const string ClientName = "QA E2E HVAC Client ServoERP";
         private const string SiteName = "QA E2E Plant Room";
@@ -741,7 +743,7 @@ namespace HVAC_Pro_Desktop.Tests
         private static void VerifyImportWorkflow(InventoryService inventoryService, WorkflowReport report)
         {
             report.Start("Test import workflow");
-            string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEMP");
+            string dir = Path.Combine(OutputRoot, "TEMP");
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "qa-e2e-inventory-import.xlsx");
             if (File.Exists(path))
@@ -774,7 +776,7 @@ namespace HVAC_Pro_Desktop.Tests
 
         private static string WriteReport(WorkflowReport report, WorkflowData data)
         {
-            string dir = Path.Combine(@"C:\HVAC_PRO_MSE", "TEST_RESULTS");
+            string dir = Path.Combine(OutputRoot, "TEST_RESULTS");
             Directory.CreateDirectory(dir);
             string path = Path.Combine(dir, "servoerp-e2e-user-flow-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".md");
             var lines = new List<string>();
@@ -800,24 +802,10 @@ namespace HVAC_Pro_Desktop.Tests
                 lines.Add("- Fix applied: " + flow.FixApplied);
             }
             lines.Add("");
-            lines.Add("## Broken Items Fixed");
-            lines.Add("- Purchase Receive now posts linked purchase line quantities into StockItems and StockMovements once, so Purchase -> Inventory no longer dead-ends.");
-            lines.Add("- End-to-end workflow smoke test added to catch broken client/site/job/quote/purchase/inventory/invoice/payment/report links.");
-            lines.Add("");
-            lines.Add("## Files Modified");
-            lines.Add("- SOURCE_CODE/DAL/PurchaseRepository.cs");
-            lines.Add("- SOURCE_CODE/Tests/EndToEndWorkflowSmokeTests.cs");
-            lines.Add("- SOURCE_CODE/Tests/EnterpriseUiSmokeTests.cs");
-            lines.Add("- SOURCE_CODE/HVAC_Pro_Desktop.csproj");
-            lines.Add("- SOURCE_CODE/Properties/AssemblyInfo.cs");
-            lines.Add("- VERSION");
-            lines.Add("- CHANGELOG.md");
-            lines.Add("");
-            lines.Add("## Remaining Issues");
-            lines.Add("- No schema changes were required. Any deeper click-by-click UI automation can be added later with a Windows UI automation runner; this smoke test validates the same business services and major pages used by the forms.");
-            lines.Add("");
-            lines.Add("## Build Verification");
-            lines.Add("- Release build and `/smoketest` verification completed in this session.");
+            lines.Add("## Verification scope");
+            lines.Add("- This report records the business services, linked records, import pipeline and page construction exercised by this test invocation.");
+            lines.Add("- It does not establish complete translation coverage, click-by-click UI acceptance, a Release build, packaging or publication.");
+            lines.Add("- No product fixes or modified-file list are inferred by this test report.");
             File.WriteAllLines(path, lines);
             File.WriteAllLines(Path.Combine(dir, "servoerp-e2e-user-flow-latest.md"), lines);
             return path;

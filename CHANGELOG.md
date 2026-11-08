@@ -1,11 +1,10 @@
-﻿## 1.1.532 — unreleased Marathi candidate (07/11/2026)
+## 1.1.532 — unreleased Marathi candidate (08/11/2026)
 
-- Restore English / मराठी selection in Settings, persist it per Windows user and load it before login.
-- Move the existing translations into .NET satellite resources; add Marathi login, Settings and custom validation text.
-- Preserve editable/business values and neutral action routing when translating controls and UI alerts.
-- Expand the reviewed Marathi catalogue to 3,191 entries and pass the static caption audit; separate data-bearing labels from caption keys and localize dynamic UI templates.
-- Extended workflow QA is blocked by disposable-database initialization (missing dbo.PurchaseOrders after the Payments fixture dependency was supplied). The full suite has not passed.
-- Release remains held: app-wide translation coverage and full workflow visual verification are incomplete. See Docs/Localization/Marathi-restoration.md.
+- Restore English / मराठी selection, startup persistence and .NET satellite resources; catalogue now 3604 entries, without TODO(mr) placeholders.
+- Localize registered dropdown display while preserving canonical business values; fix Marathi Settings routing, workspace title clipping, invoice risk formatting and notification templates.
+- Repair clean schema initialization ordering and the missing nullable InvoiceLineItems.JobID column.
+- Fresh-database initialization, both language business workflows and ten save/update regressions per language pass; latest functional suite: 4,153 assertions.
+- Release remains INCOMPLETE: rendered linguistic audit finds 86 English resource-backed captions and additional dynamic/custom UI needs review. No publication. See Docs/Localization/Marathi-restoration.md.
 
 ## 1.1.531 (05/11/2026)
 

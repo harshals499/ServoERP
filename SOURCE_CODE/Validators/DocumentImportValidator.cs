@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using FluentValidation;
 using HVAC_Pro_Desktop.Models;
@@ -12,22 +12,22 @@ namespace ServoERP.Validators
             RuleFor(x => x.DocumentType).Must(x => x == ImportDocumentType.Quotation || x == ImportDocumentType.SalesInvoice || x == ImportDocumentType.PurchaseInvoice).WithMessage("This type cannot yet be saved by document import. Choose quotation, sales invoice or purchase invoice.");
             RuleFor(x => x.Direction).Must(x => x != ImportDirection.Unknown).WithMessage("Confirm sales or purchase direction.");
             RuleFor(x => x).Must(x => x.DocumentType == ImportDocumentType.PurchaseInvoice ? x.Direction == ImportDirection.Purchase : x.Direction == ImportDirection.Sales).WithMessage("The selected type and direction disagree. Version one supports sales quotations only.");
-            RuleFor(x => x.DocumentNumber).NotEmpty().MaximumLength(50);
-            RuleFor(x => x.Subject).MaximumLength(200);
-            RuleFor(x => x.DocumentDate).NotNull().Must(x => !x.HasValue || x.Value.Year >= 2000).WithMessage("Enter a valid document date (DD/MM/YYYY).");
+            RuleFor(x => x.DocumentNumber).NotEmpty().WithMessage("Document number is required.").MaximumLength(50).WithMessage("Document number must be 50 characters or less.");
+            RuleFor(x => x.Subject).MaximumLength(200).WithMessage("Subject must be 200 characters or less.");
+            RuleFor(x => x.DocumentDate).NotNull().WithMessage("Document date is required.").Must(x => !x.HasValue || x.Value.Year >= 2000).WithMessage("Enter a valid document date (DD/MM/YYYY).");
             RuleFor(x => x.DueDate).NotNull().WithMessage("Review and enter a due date; no payment terms are inferred.");
             RuleFor(x => x).Must(x => !x.DueDate.HasValue || !x.DocumentDate.HasValue || x.DueDate.Value >= x.DocumentDate.Value).WithMessage("Due date cannot be before document date.");
             RuleFor(x => x).Must(x => x.Lines.Count<=500).WithMessage("Import supports at most 500 lines per document.");
             RuleFor(x => x.PartyId).GreaterThan(0).WithMessage("Match and select an existing customer or supplier.");
             RuleFor(x => x.ReviewConfirmed).Equal(true).WithMessage("Confirm that you reviewed all fields against the source.");
-            RuleFor(x => x.Lines).NotEmpty();
+            RuleFor(x => x.Lines).NotEmpty().WithMessage("Document lines is required.");
             RuleForEach(x => x.Lines).SetValidator(new DocumentImportLineValidator());
-            RuleFor(x => x.TaxableAmount).NotNull().GreaterThanOrEqualTo(0);
-            RuleFor(x => x.CGST).NotNull().GreaterThanOrEqualTo(0);
-            RuleFor(x => x.SGST).NotNull().GreaterThanOrEqualTo(0);
-            RuleFor(x => x.IGST).NotNull().GreaterThanOrEqualTo(0);
-            RuleFor(x => x.RoundOff).NotNull();
-            RuleFor(x => x.Total).NotNull().GreaterThan(0).LessThan(999999999);
+            RuleFor(x => x.TaxableAmount).NotNull().WithMessage("Taxable amount is required.").GreaterThanOrEqualTo(0).WithMessage("Taxable amount cannot be below 0.");
+            RuleFor(x => x.CGST).NotNull().WithMessage("CGST is required.").GreaterThanOrEqualTo(0).WithMessage("CGST cannot be below 0.");
+            RuleFor(x => x.SGST).NotNull().WithMessage("SGST is required.").GreaterThanOrEqualTo(0).WithMessage("SGST cannot be below 0.");
+            RuleFor(x => x.IGST).NotNull().WithMessage("IGST is required.").GreaterThanOrEqualTo(0).WithMessage("IGST cannot be below 0.");
+            RuleFor(x => x.RoundOff).NotNull().WithMessage("Round off is required.");
+            RuleFor(x => x.Total).NotNull().WithMessage("Total amount is required.").GreaterThan(0).WithMessage("Total amount must be greater than 0.").LessThan(999999999).WithMessage("Total amount must be below 999999999.");
             RuleFor(x => x).Must(x => new[]{x.TaxableAmount,x.CGST,x.SGST,x.IGST,x.RoundOff,x.Total}.All(v=>!v.HasValue||decimal.Round(v.Value,2)==v.Value)).WithMessage("Money values must use at most two decimal places; no rounding is applied silently.");
             RuleFor(x => x).Must(x => x.IGST.GetValueOrDefault() == 0 || (x.CGST.GetValueOrDefault() == 0 && x.SGST.GetValueOrDefault() == 0)).WithMessage("IGST cannot be combined with CGST/SGST.");
             RuleFor(x => x).Must(x => Math.Abs(x.CGST.GetValueOrDefault() - x.SGST.GetValueOrDefault()) <= .01m).WithMessage("CGST and SGST do not agree.");
@@ -43,17 +43,17 @@ namespace ServoERP.Validators
     {
         public DocumentImportLineValidator()
         {
-            RuleFor(x => x.Description).NotEmpty().MaximumLength(500);
-            RuleFor(x => x.HSN).MaximumLength(20);
-            RuleFor(x => x.Quantity).NotNull().GreaterThan(0).LessThan(100000000);
+            RuleFor(x => x.Description).NotEmpty().WithMessage("Line description is required.").MaximumLength(500).WithMessage("Line description must be 500 characters or less.");
+            RuleFor(x => x.HSN).MaximumLength(20).WithMessage("HSN must be 20 characters or less.");
+            RuleFor(x => x.Quantity).NotNull().WithMessage("Quantity is required.").GreaterThan(0).WithMessage("Quantity must be greater than 0.").LessThan(100000000).WithMessage("Quantity must be below 100000000.");
             RuleFor(x => x.Quantity).Must(x=>!x.HasValue||decimal.Round(x.Value,2)==x.Value).WithMessage("Version one supports quantities with up to two decimal places.");
             RuleFor(x => x).Must(x=>new[]{x.Rate,x.DiscountPercent,x.GSTPercent,x.Taxable,x.Tax}.All(v=>!v.HasValue||decimal.Round(v.Value,2)==v.Value)).WithMessage("Line values must use at most two decimal places.");
-            RuleFor(x => x.Unit).NotEmpty().MaximumLength(30);
-            RuleFor(x => x.Rate).NotNull().GreaterThanOrEqualTo(0).LessThan(999999999);
-            RuleFor(x => x.DiscountPercent).NotNull().InclusiveBetween(0, 100);
-            RuleFor(x => x.GSTPercent).NotNull().InclusiveBetween(0, 28);
-            RuleFor(x => x.Taxable).NotNull().GreaterThanOrEqualTo(0);
-            RuleFor(x => x.Tax).NotNull().GreaterThanOrEqualTo(0);
+            RuleFor(x => x.Unit).NotEmpty().WithMessage("Unit is required.").MaximumLength(30).WithMessage("Unit must be 30 characters or less.");
+            RuleFor(x => x.Rate).NotNull().WithMessage("Rate is required.").GreaterThanOrEqualTo(0).WithMessage("Rate cannot be below 0.").LessThan(999999999).WithMessage("Rate must be below 999999999.");
+            RuleFor(x => x.DiscountPercent).NotNull().WithMessage("Discount percent is required.").InclusiveBetween(0, 100).WithMessage("Discount percent must be between 0 and 100.");
+            RuleFor(x => x.GSTPercent).NotNull().WithMessage("GST percent is required.").InclusiveBetween(0, 28).WithMessage("GST percent must be between 0 and 28.");
+            RuleFor(x => x.Taxable).NotNull().WithMessage("Line taxable amount is required.").GreaterThanOrEqualTo(0).WithMessage("Line taxable amount cannot be below 0.");
+            RuleFor(x => x.Tax).NotNull().WithMessage("Line tax is required.").GreaterThanOrEqualTo(0).WithMessage("Line tax cannot be below 0.");
             RuleFor(x => x).Must(x => x.Quantity<100000000 && x.Rate<999999999 && x.DiscountPercent>=0 && x.DiscountPercent<=100 && DocumentImportValidator.Close(Math.Round((x.Quantity * x.Rate * (1 - x.DiscountPercent / 100)).GetValueOrDefault(), 2), x.Taxable)).WithMessage("Quantity, rate, discount and taxable amount disagree.");
             RuleFor(x => x).Must(x => x.Taxable<999999999 && x.GSTPercent>=0 && x.GSTPercent<=28 && DocumentImportValidator.Close(Math.Round((x.Taxable * x.GSTPercent / 100).GetValueOrDefault(), 2), x.Tax)).WithMessage("Line GST amount disagrees with its rate.");
         }

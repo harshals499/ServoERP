@@ -424,14 +424,14 @@ namespace HVAC_Pro_Desktop.UI
             {
                 _cmbClient.DataSource = null;
                 _cmbClient.Items.Clear();
-                _cmbClient.Items.Add("Loading clients...");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, "Loading clients...");
                 _cmbClient.SelectedIndex = 0;
                 _cmbSite.DataSource = null;
                 _cmbSite.Items.Clear();
-                _cmbSite.Items.Add("Loading sites...");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, "Loading sites...");
                 _cmbSite.SelectedIndex = 0;
                 _cmbEquipment.Items.Clear();
-                _cmbEquipment.Items.Add("Loading material list...");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbEquipment, "Loading material list...");
                 _cmbEquipment.SelectedIndex = 0;
             }
         }
@@ -449,11 +449,11 @@ namespace HVAC_Pro_Desktop.UI
             _cmbClient.Enabled = false;
             _cmbSite.DataSource = null;
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add("Sites unavailable");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, "Sites unavailable");
             _cmbSite.SelectedIndex = 0;
             _cmbSite.Enabled = false;
             _cmbEquipment.Items.Clear();
-            _cmbEquipment.Items.Add("Material list unavailable");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbEquipment, "Material list unavailable");
             _cmbEquipment.SelectedIndex = 0;
             _cmbEquipment.Enabled = false;
             _btnSave.Enabled = false;
@@ -866,7 +866,7 @@ WHERE ContractID = @ContractID;", connection))
                 AMCNumber = ResolveAMCNumberForSave(),
                 ClientId = GetSelectedClientId(),
                 SiteId = GetSelectedSiteId(),
-                EquipmentDesc = _cmbEquipment.Text.Trim(),
+                EquipmentDesc = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbEquipment).Trim(),
                 AMCType = Convert.ToString(_cmbAMCType.SelectedItem, CultureInfo.InvariantCulture),
                 CoverageType = Convert.ToString(_cmbCoverageType.SelectedItem, CultureInfo.InvariantCulture),
                 StartDate = _dtpStart.Value.Date,

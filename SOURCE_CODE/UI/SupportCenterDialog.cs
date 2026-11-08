@@ -634,7 +634,7 @@ namespace HVAC_Pro_Desktop.UI
             string selected = null;
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Choose messy Excel/ZIP/PDF file for Data Clean Room";
+                dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose messy Excel/ZIP/PDF file for Data Clean Room");
                 dialog.Filter = "Import source (*.xlsx;*.xls;*.csv;*.zip;*.pdf;*.docx)|*.xlsx;*.xls;*.csv;*.zip;*.pdf;*.docx|All files (*.*)|*.*";
                 if (dialog.ShowDialog(this) == DialogResult.OK)
                     selected = dialog.FileName;
@@ -644,7 +644,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 using (FolderBrowserDialog folder = new FolderBrowserDialog())
                 {
-                    folder.Description = "Or choose a folder containing client data files";
+                    folder.Description = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Or choose a folder containing client data files");
                     if (folder.ShowDialog(this) == DialogResult.OK)
                         selected = folder.SelectedPath;
                 }

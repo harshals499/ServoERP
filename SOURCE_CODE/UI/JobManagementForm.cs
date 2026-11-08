@@ -576,7 +576,7 @@ namespace HVAC_Pro_Desktop.UI
                 Panel marker = new Panel { Location = new Point(16, y + 5), Size = new Size(10, 10), BackColor = slice.Color };
                 Label name = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
-                    Text = slice.Name,
+                    Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(slice.Name),
                     Location = new Point(34, y + 1),
                     Size = new Size(98, 16),
                     Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold),
@@ -637,11 +637,11 @@ namespace HVAC_Pro_Desktop.UI
             ConfigureDashboardPlaceholder(_dashboardSearch, "Search");
             _dashboardSearch.TextChanged += (s, e) => { CaptureDashboardFilterState(); _dashboardPage = 1; RefreshAllJobsDashboardCard(); };
             _dashboardStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Location = new Point(card.Width - 536, 36), Size = new Size(126, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right, IntegralHeight = false, MaxDropDownItems = 10, DropDownHeight = 260 };
-            _dashboardStatusFilter.Items.AddRange(new object[] { "All Status", "Open", "In Progress", "Completed", "On Hold", "Cancelled" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_dashboardStatusFilter, new object[] { "All Status", "Open", "In Progress", "Completed", "On Hold", "Cancelled" });
             SelectDashboardCombo(_dashboardStatusFilter, _dashboardStatusValue, "All Status");
             _dashboardStatusFilter.SelectionChangeCommitted += (s, e) => { CaptureDashboardFilterState(); _dashboardInsightFilter = "Visible Jobs"; _dashboardPage = 1; RefreshAllJobsDashboardCard(); };
             _dashboardTypeFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Location = new Point(card.Width - 398, 36), Size = new Size(118, 30), Anchor = AnchorStyles.Top | AnchorStyles.Right, IntegralHeight = false, MaxDropDownItems = 10, DropDownHeight = 260 };
-            _dashboardTypeFilter.Items.AddRange(new object[] { "All Types", "Installation", "Maintenance", "Repair", "Inspection", "Other" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_dashboardTypeFilter, new object[] { "All Types", "Installation", "Maintenance", "Repair", "Inspection", "Other" });
             SelectDashboardCombo(_dashboardTypeFilter, _dashboardTypeValue, "All Types");
             _dashboardTypeFilter.SelectionChangeCommitted += (s, e) => { CaptureDashboardFilterState(); _dashboardInsightFilter = "Visible Jobs"; _dashboardPage = 1; RefreshAllJobsDashboardCard(); };
             Button saved = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(DashboardButton("Saved View", White, TextPrimary, 98, true));
@@ -1187,9 +1187,9 @@ namespace HVAC_Pro_Desktop.UI
             Panel card = new Panel { Size = new Size(width, 84), BackColor = White, Margin = new Padding(0, 0, 10, 0) };
             card.Paint += (s, e) => DrawRoundedBorder(e.Graphics, card.ClientRectangle, White, Border, 8);
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "□", Location = new Point(16, 20), Size = new Size(42, 42), BackColor = iconBg, ForeColor = iconFg, TextAlign = ContentAlignment.MiddleCenter, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 15f, FontStyle.Bold) }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = label, Location = new Point(72, 14), Size = new Size(width - 88, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(label), Location = new Point(72, 14), Size = new Size(width - 88, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.8f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true }));
             card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = value, Location = new Point(72, 34), Size = new Size(width - 88, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 13f, FontStyle.Bold), ForeColor = TextPrimary, AutoEllipsis = true }));
-            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = sub, Location = new Point(72, 60), Size = new Size(width - 88, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = TextSecondary, AutoEllipsis = true }));
+            card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(sub), Location = new Point(72, 60), Size = new Size(width - 88, 18), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = TextSecondary, AutoEllipsis = true }));
             return card;
         }
 
@@ -1226,7 +1226,7 @@ namespace HVAC_Pro_Desktop.UI
             foreach (DashSlice slice in slices)
             {
                 card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "●", Location = new Point(x, y), Size = new Size(16, 16), ForeColor = slice.Color }));
-                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = slice.Name, Location = new Point(x + 18, y), Size = new Size(104, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.3f), ForeColor = TextPrimary, AutoEllipsis = true }));
+                card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(slice.Name), Location = new Point(x + 18, y), Size = new Size(104, 16), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.3f), ForeColor = TextPrimary, AutoEllipsis = true }));
                 card.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = (slice.Value == 0 ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("—") : slice.Value.ToString()), Location = new Point(card.Width - 54, y), Size = new Size(30, 16), Anchor = AnchorStyles.Top | AnchorStyles.Right, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.3f), ForeColor = TextSecondary, TextAlign = ContentAlignment.MiddleRight }));
                 y += 28;
             }
@@ -2985,7 +2985,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 StockItem selectedStock = ResolveSelectedPartStock();
                 int? itemId = selectedStock == null ? (int?)null : selectedStock.ItemID;
-                string typed = selectedStock == null ? _cmbPartSearch.Text?.Trim() : selectedStock.ItemName;
+                string typed = selectedStock == null ? global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbPartSearch)?.Trim() : selectedStock.ItemName;
                 decimal unitRate = _numPartRate == null ? 0m : _numPartRate.Value;
 
                 if (_isNewMode || _currentDetail == null || _currentDetail.Job == null || _currentDetail.Job.JobID <= 0)
@@ -3982,7 +3982,7 @@ namespace HVAC_Pro_Desktop.UI
                     return byId;
             }
 
-            string text = (_cmbPartSearch.Text ?? string.Empty).Trim();
+            string text = (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbPartSearch) ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 

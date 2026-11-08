@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -21,8 +21,8 @@ namespace HVAC_Pro_Desktop.UI
         {
             string title = string.IsNullOrWhiteSpace(Title) ? "Chart value" : Title.Trim();
             string value = string.IsNullOrWhiteSpace(Value) ? "0" : Value.Trim();
-            string calculation = string.IsNullOrWhiteSpace(Calculation) ? string.Empty : "\nCalculation: " + Calculation.Trim();
-            return title + "\nExact value: " + value + calculation;
+            string calculation = string.IsNullOrWhiteSpace(Calculation) ? string.Empty : "\n" + HVAC_Pro_Desktop.Services.LanguageManager.Get("Calculation:") + " " + HVAC_Pro_Desktop.Services.LanguageManager.Get(Calculation.Trim());
+            return title + "\n" + HVAC_Pro_Desktop.Services.LanguageManager.Get("Exact value:") + " " + value + calculation;
         }
     }
 

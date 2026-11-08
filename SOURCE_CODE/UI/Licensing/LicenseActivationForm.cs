@@ -145,7 +145,7 @@ namespace HVAC_Pro_Desktop.UI.Licensing
         {
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Select signed ServoERP license file";
+                dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select signed ServoERP license file");
                 dialog.Filter = "ServoERP License (*.servoerp-license;*.json)|*.servoerp-license;*.json|All files (*.*)|*.*";
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;

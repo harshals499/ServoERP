@@ -366,7 +366,7 @@ namespace HVAC_Pro_Desktop.UI
 			try
 			{
 				_cmbSiteFilter.Items.Clear();
-				_cmbSiteFilter.Items.Add("All sites");
+				global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSiteFilter, "All sites");
 				foreach (string site in System.Linq.Enumerable.OrderBy(System.Linq.Enumerable.Distinct(System.Linq.Enumerable.Where(System.Linq.Enumerable.Select(_employees, (HVAC_Pro_Desktop.Models.Employee employee) => (employee.ClientSite ?? string.Empty).Trim()), (string site) => !string.IsNullOrWhiteSpace(site))), (string site) => site))
 				{
 					_cmbSiteFilter.Items.Add(site);
@@ -1803,7 +1803,7 @@ namespace HVAC_Pro_Desktop.UI
 		{
 			using (System.Windows.Forms.OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog
 			{
-				Title = "Import Attendance Excel or CSV",
+				Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Import Attendance Excel or CSV"),
 				Filter = "Attendance Excel or CSV|*.xlsx;*.xls;*.csv|Excel Files|*.xlsx;*.xls|CSV Files|*.csv|All Files|*.*",
 				Multiselect = true
 			})
@@ -2040,7 +2040,7 @@ namespace HVAC_Pro_Desktop.UI
 			}
 			using (System.Windows.Forms.SaveFileDialog dialog = new System.Windows.Forms.SaveFileDialog
 			{
-				Title = "Export Attendance",
+				Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Export Attendance"),
 				Filter = "CSV files|*.csv|All files|*.*",
 				FileName = "attendance-" + CurrentYear + "-" + CurrentMonth.ToString("00") + ".csv"
 			})

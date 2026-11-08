@@ -1,0 +1,1346 @@
+{
+  "scope": "Rendered English candidates from final synthetic-fixture run; includes data and requires classification. Exact resource-backed untranslated captions are in the strict evidence audit.",
+  "evidence": "artifacts/marathi-localization/run3-final",
+  "candidates": [
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Other",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Industrial",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Add Client",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Add Contact",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Create Contract",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "New Quote",
+      "resourceExists": false
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Schedule Service",
+      "resourceExists": false
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Send Message",
+      "resourceExists": false
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "View All",
+      "resourceExists": true
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "No upcoming renewals.",
+      "resourceExists": false
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "Renewal information will appear here.",
+      "resourceExists": false
+    },
+    {
+      "module": "ClientManagementForm-caption-review.txt",
+      "text": "View Report",
+      "resourceExists": false
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "All time",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Next 30 days",
+      "resourceExists": false
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Action required",
+      "resourceExists": false
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Contract Name",
+      "resourceExists": false
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Party",
+      "resourceExists": false
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Type",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Status",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Start Date",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "End Date",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Renewal",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Value",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Actions",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Service Agreement",
+      "resourceExists": true
+    },
+    {
+      "module": "ContractManagementForm-caption-review.txt",
+      "text": "Active",
+      "resourceExists": true
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "All ▾",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Reconcile Payment",
+      "resourceExists": true
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Today",
+      "resourceExists": true
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Reconcile customer payment",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Recorded receipt needs bank reconciliation.",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Open Quotation",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Complete quotation",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Submission deadline is within seven days.",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Upcoming assigned job",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Overdue invoice balances",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Payments received this month",
+      "resourceExists": false
+    },
+    {
+      "module": "DashboardForm-caption-review.txt",
+      "text": "Pending on this month's invoices",
+      "resourceExists": false
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "Total Employees",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "Active",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "On Duty",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "On Leave",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "Checked In",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "Expiring Skills",
+      "resourceExists": true
+    },
+    {
+      "module": "EmployeeForm-caption-review.txt",
+      "text": "Employee dashboard ready.",
+      "resourceExists": false
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "ITEM DETAILS",
+      "resourceExists": true
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "UNIT",
+      "resourceExists": true
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "BUFFER QTY",
+      "resourceExists": false
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "VALUE (₹)",
+      "resourceExists": false
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "STATUS",
+      "resourceExists": true
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "ACTIONS",
+      "resourceExists": true
+    },
+    {
+      "module": "InventoryForm-caption-review.txt",
+      "text": "Showing 6 catalog items.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "No data available",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "View all",
+      "resourceExists": true
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "No upcoming jobs.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Scheduled jobs will appear here.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "No jobs found.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Add a new job to get started.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Overdue Jobs",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Jobs Due Today",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Jobs Due This Week",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Jobs Due This Month",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Unassigned Jobs",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "View report",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Job assignee data will appear here.",
+      "resourceExists": false
+    },
+    {
+      "module": "JobManagementForm-caption-review.txt",
+      "text": "Location data will appear here.",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "XLS",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Upload",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Excel workbook",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Detect",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Module + sheet",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Clean",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Columns, links, defaults",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Sync",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Safe rows only",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Use Across App",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Quotes, invoices, jobs",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Clients",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Customer master, GST, contacts",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Suppliers",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Supplier master, GST, contacts",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Sites",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Client sites, city, service contacts",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Inventory",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Parts, buying rates, planning quantities",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Supplier Price Book",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Supplier links, preferred rates, buying history",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Purchases",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Supplier bills, items, totals",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Invoices",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Past invoices, due dates, status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Payments",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Collections, UTR, modes, notes",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Quotations",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Quotes, validity, client offers",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Jobs",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Service calls, technician, priority",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Employees",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Staff profiles, phone, ID details",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "AMC Contracts",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Maintenance contracts, dates, clients",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Blood Groups",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Employee Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Employment Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Tax Regimes",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Attendance Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Attendance",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Leave Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Salary Components",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Payroll",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Payment Modes",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Job Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Job Priorities",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Job Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Ticket Categories",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Service Desk",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Equipment Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Ticket Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "AMC Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "AMC",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Coverage Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Billing Cycles",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "AMC Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Stock Categories",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Godowns",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Purchase Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Purchase",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Linked Types",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Invoice Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Sales",
+      "resourceExists": true
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "GST Modes",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Warranty Status",
+      "resourceExists": false
+    },
+    {
+      "module": "MasterDataForm-caption-review.txt",
+      "text": "Quotation Status",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Aging Bucket",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Amount (₹)",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "% Total",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "90+ Days",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Bank Transfer",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "UPI",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Card",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Cash",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Wallet",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "All Transactions",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Receipts",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Payments Made",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Refunds",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Date",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Type",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Reference No.",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Customer / Supplier",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Invoice / Bill No.",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Mode",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Status",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Actions",
+      "resourceExists": true
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Sent to Suppliers",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Received from Suppliers",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Supplier Workflow",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Sent to Clients",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Received from Clients",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Client Workflow",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Record Receipt",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Make Payment",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Add Refund",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Create Link",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "Reconcile Bank",
+      "resourceExists": false
+    },
+    {
+      "module": "PaymentForm-caption-review.txt",
+      "text": "View Reports",
+      "resourceExists": true
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Thin",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Light",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Clear",
+      "resourceExists": true
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "These supporting signals help the payroll operator judge data quality, due-date pressure, and attendance risk without leaving the close cockpit.",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Missing rows, leave, absences, or half-days",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Missing rows 4",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Employees needing valid salary structure",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Missing structure 6",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Bank details 6",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Tax or KYC 6",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Punctuality or unexplained absence risk",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "No punctuality escalations",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Payslips pending after processing",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Complete",
+      "resourceExists": true
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "These are the real people and issues standing between review, clean calculation, statutory follow-through, and employee communication.",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Open Attendance and resolve missing rows, absences, leave, and half-day exceptions first.",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Attendance data still has payroll blockers that should be resolved before calculation.",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Blocked",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Action",
+      "resourceExists": true
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Read the month state first, then work down the blockers in the order that leads cleanly into payroll execution and final lock.",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Pending run",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Run payroll first",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Lock after review",
+      "resourceExists": false
+    },
+    {
+      "module": "PayrollForm-caption-review.txt",
+      "text": "Open",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "This Month",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Worth ₹0.00",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "● Requires Attention",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "For 0 POs",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "● Due in next 30 days",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "PO Number",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Supplier",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "PO Date",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Required",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "PO Value",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Received",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Status",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Payment",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Actions",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "90+ Days",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Sent to Suppliers",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Received from Suppliers",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Supplier Workflow",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Sent to Clients",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Received from Clients",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Client Workflow",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Total POs",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Total PO Value",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Received Value",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Pending Value",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Overdue Value",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Pending amount",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Aged 30+ days",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Linked this month",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "+  New Purchase Order",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Goods Receipt",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Supplier Return",
+      "resourceExists": true
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Import POs",
+      "resourceExists": false
+    },
+    {
+      "module": "PurchaseForm-caption-review.txt",
+      "text": "Download Report",
+      "resourceExists": true
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Based on stage probability",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Won vs. closed quotations",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "From first quote to closure",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "₹11,800.00 at risk",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Priority Follow-ups",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Overdue",
+      "resourceExists": true
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Expiring",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "High Value",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Forecast Insights",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Active Quotations",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "All",
+      "resourceExists": true
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "My Quotations",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Create, price, approve, and convert customer quotations.",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Dashboard / Sales / Quotations",
+      "resourceExists": false
+    },
+    {
+      "module": "TenderBidForm-caption-review.txt",
+      "text": "Quotation workspace ready.",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "View All",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Active",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Inactive",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Blocked",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "View Report",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "No purchase spend this month.",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Excellent (4.5 - 5)",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Good (3.5 - 4.4)",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Average (2.5 - 3.4)",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Poor (0 - 2.4)",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "All Suppliers",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Supplier Code",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Supplier Name",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Category",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Status",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Rating",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Spend (MTD)",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Outstanding",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Last PO Date",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Actions",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "GST Certificate",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "MSME Certificate",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Insurance Policy",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "PAN Card",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "ISO Certificate",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Supplier",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Document",
+      "resourceExists": false
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Due Date",
+      "resourceExists": true
+    },
+    {
+      "module": "VendorForm-caption-review.txt",
+      "text": "Days Left",
+      "resourceExists": false
+    }
+  ]
+}

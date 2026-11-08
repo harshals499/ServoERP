@@ -17,6 +17,19 @@ internal static class MarathiLocalizationTests
         // Do not call LoginForm.OnShown: it attempts remembered-session authentication.
         protected override void OnShown(EventArgs e) { }
     }
+    // Suppress updater/offline/backup startup hooks in the test shell only.
+    private sealed class MainPreview : MainForm
+    {
+        protected override void OnShown(EventArgs e) { }
+        protected override void OnActivated(EventArgs e) { }
+        protected override void OnFormClosing(FormClosingEventArgs e) { }
+    }
+    private static void Capture(Form host, string path)
+    {
+        Application.DoEvents(); host.PerformLayout();
+        using (var image = new Bitmap(host.ClientSize.Width, host.ClientSize.Height))
+        { host.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(path); }
+    }
     private static int _passed;
     private static readonly Assembly App = typeof(LanguageManager).Assembly;
     private static void Check(bool value, string message) { if (!value) throw new Exception(message); Console.WriteLine("PASS " + message); _passed++; }
@@ -43,7 +56,7 @@ internal static class MarathiLocalizationTests
             foreach (System.Collections.DictionaryEntry entry in neutral)
             {
                 string translated = marathi.GetString((string)entry.Key);
-                Check(!string.IsNullOrWhiteSpace(translated), "Marathi resource present: " + entry.Key);
+                Check(!string.IsNullOrWhiteSpace(translated) && !translated.Contains("TODO"), "Marathi resource present: " + entry.Key);
                 var sourceSlots = System.Text.RegularExpressions.Regex.Matches((string)entry.Value, @"\{([0-9]+)[^{}]*\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).OrderBy(v => v);
                 var targetSlots = System.Text.RegularExpressions.Regex.Matches(translated, @"\{([0-9]+)[^{}]*\}").Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).OrderBy(v => v);
                 if (sourceSlots.Any()) Check(sourceSlots.SequenceEqual(targetSlots), "resource format placeholders preserved: " + entry.Key);
@@ -150,25 +163,150 @@ internal static class MarathiLocalizationTests
                 LanguageManager.ApplyControlTree(customerName);
                 Check(customerName.Text == "Cancel", "changing data-bearing text never reuses a caption translation");
             }
+            var displayDetail = App.GetType("HVAC_Pro_Desktop.Services.NotificationCenterService").GetMethod("GetDisplayDetail", BindingFlags.NonPublic | BindingFlags.Static);
+            string notificationDetail = "Technician delay: Save Cancel Patil | 3 day(s) past schedule";
+            string localizedDetail = (string)displayDetail.Invoke(null, new object[] { notificationDetail });
+            Check(localizedDetail.Contains("Save Cancel Patil") && localizedDetail.Contains("3") && localizedDetail != notificationDetail && !localizedDetail.Contains("Technician delay"), "notification template translated with technician data intact");
+            foreach (var pair in new[] { new[] { "Overdue invoice: 123.45", "123.45" }, new[] { "Supplier payable overdue: 42 | due 08 Nov 2026", "08 Nov 2026" }, new[] { "SLA due: 08 Nov 2026", "08 Nov 2026" } })
+                Check(((string)displayDetail.Invoke(null, new object[] { pair[0] })).Contains(pair[1]) && (string)displayDetail.Invoke(null, new object[] { pair[0] }) != pair[0], "notification formatted detail preserves amount/date: " + pair[0]);
+            var draft = new HVAC_Pro_Desktop.Models.DocumentImportDraft();
+            var validation = new ServoERP.Validators.DocumentImportValidator().Validate(draft);
+            Check(!validation.IsValid && validation.Errors.All(error => LanguageManager.Get(error.ErrorMessage) != error.ErrorMessage), "all empty import validation failures have Marathi resources");
+            using (var choices = new ComboBox())
+            {
+                var add = typeof(LanguageManager).GetMethod("AddChoice", BindingFlags.NonPublic | BindingFlags.Static, null, new[] { typeof(ComboBox), typeof(string) }, null);
+                add.Invoke(null, new object[] { choices, "Save" });
+                string customer = new string("Save".ToCharArray()); choices.Items.Add(customer);
+                choices.SelectedIndex = 0;
+                Check(choices.GetItemText(choices.Items[0]) == LanguageManager.Get("Save") && choices.SelectedItem.ToString() == "Save", "registered choice localizes display with canonical selection intact");
+                Check(choices.GetItemText(customer) == "Save", "mixed list customer value matching a caption remains intact");
+                var readChoice = typeof(LanguageManager).GetMethod("ReadChoiceText", BindingFlags.Static | BindingFlags.NonPublic);
+                Check((string)readChoice.Invoke(null, new object[] { choices }) == "Save", "business reads canonical choice despite translated ComboBox.Text");
+                choices.Items.Clear(); choices.Items.Add(new string("Save".ToCharArray()));
+                Check(choices.GetItemText(choices.Items[0]) == "Save", "rebinding choices does not translate incoming business values");
+            }
             // Preview-only database scope. Any accidental SQL access targets this explicitly
-            // identified QA database, never HVAC_PRO. No schema/save methods are called.
+            // identified QA database, never HVAC_PRO. Initialization is tested without table priming.
             var diagnostic = App.GetType("HVAC_Pro_Desktop.DAL.DatabaseConnectionFactory").GetProperty("DiagnosticConnectionString", BindingFlags.Static | BindingFlags.NonPublic);
-            diagnostic.SetValue(null, @"Data Source=.\SQLEXPRESS;Initial Catalog=ServoERP_MarathiQA_20261107_PreviewOnly;Integrated Security=True;Connect Timeout=1", null);
+            string qaDatabase = "ServoERP_MarathiQA_" + DateTime.UtcNow.ToString("yyyyMMdd_HHmmss") + "_" + Guid.NewGuid().ToString("N").Substring(0, 6);
+            File.WriteAllText(Path.Combine(output, "qa-database.txt"), qaDatabase);
+            diagnostic.SetValue(null, @"Data Source=.\SQLEXPRESS;Initial Catalog=" + qaDatabase + ";Integrated Security=True;Connect Timeout=5", null);
             try
             {
                 var qaConnection = new System.Data.SqlClient.SqlConnectionStringBuilder(HVAC_Pro_Desktop.DAL.DatabaseManager.RequireConfiguredConnectionString());
-                if (qaConnection.InitialCatalog != "ServoERP_MarathiQA_20261107_PreviewOnly") throw new InvalidOperationException("Disposable QA database scope is required.");
-                // Guarded schema-only fixture DDL intentionally uses ADO.NET.
-                using (var fixtureConnection = new System.Data.SqlClient.SqlConnection(qaConnection.ConnectionString))
+                if (qaConnection.InitialCatalog != qaDatabase) throw new InvalidOperationException("Disposable QA database scope is required.");
+                // Test DDL intentionally uses ADO.NET; all business access stays in the QA scope.
+                using (var bootstrap = new System.Data.SqlClient.SqlConnection(@"Data Source=.\SQLEXPRESS;Initial Catalog=master;Integrated Security=True;Connect Timeout=5"))
                 {
-                    fixtureConnection.Open();
-                    using (var fixtureCommand = fixtureConnection.CreateCommand())
+                    bootstrap.Open();
+                    using (var command = bootstrap.CreateCommand())
                     {
-                        fixtureCommand.CommandText = File.ReadAllText(Path.GetFullPath(Path.Combine(args[1], "..", "..", "..", "scripts", "Localization", "MarathiPreviewFixture.sql")));
-                        fixtureCommand.ExecuteNonQuery();
+                        command.CommandText = "DECLARE @sql nvarchar(max)=N'CREATE DATABASE '+QUOTENAME(@catalog); IF DB_ID(@catalog) IS NULL EXEC sys.sp_executesql @sql;";
+                        command.Parameters.AddWithValue("@catalog", qaDatabase);
+                        command.ExecuteNonQuery();
+                    }
+                }
+                using (var emptyDatabase = new System.Data.SqlClient.SqlConnection(qaConnection.ConnectionString))
+                {
+                    emptyDatabase.Open();
+                    using (var count = emptyDatabase.CreateCommand())
+                    {
+                        // SQL Server metadata only, intentionally ADO.NET.
+                        count.CommandText = "SELECT COUNT(*) FROM sys.tables WHERE is_ms_shipped=0";
+                        Check(Convert.ToInt32(count.ExecuteScalar()) == 0, "fresh disposable database has zero user tables before initialization");
                     }
                 }
                 new HVAC_Pro_Desktop.DAL.DatabaseManager().InitializeDatabase();
+                Check(true, "clean QA database initialization succeeds without priming tables");
+                new HVAC_Pro_Desktop.DAL.DatabaseManager().InitializeDatabase();
+                Check(true, "QA database initialization is repeatable");
+                // Reuse the existing full service/UI workflow only with an already-valid licence.
+                // Never activate a QA trial or overwrite shared test files in the main workspace.
+                var license = new HVAC_Pro_Desktop.Services.Licensing.LicenseService().ValidateCurrentLicense();
+                Check(license != null && license.Success && !license.IsFrozen, "existing licence allows workflow QA without activation");
+                var workflow = App.GetType("HVAC_Pro_Desktop.Tests.EndToEndWorkflowSmokeTests");
+                workflow.GetField("OutputRoot", BindingFlags.NonPublic | BindingFlags.Static).SetValue(null, Path.GetFullPath(Path.Combine(output, "business-workflow")));
+                foreach (string workflowLanguage in new[] { LanguageManager.English, LanguageManager.Marathi })
+                {
+                    LanguageManager.SetLanguage(workflowLanguage, false);
+                    Console.WriteLine("SCENARIO business workflow / " + workflowLanguage);
+                    foreach (string result in (System.Collections.Generic.IEnumerable<string>)workflow.GetMethod("RunAll").Invoke(null, null))
+                        Check(!result.Contains("skipped"), workflowLanguage + " " + result);
+                    Console.WriteLine("SCENARIO save/update regressions / " + workflowLanguage);
+                    foreach (string result in (System.Collections.Generic.IEnumerable<string>)App.GetType("HVAC_Pro_Desktop.Tests.SaveButtonSmokeTests").GetMethod("RunAll").Invoke(null, null))
+                        Check(result.StartsWith("PASS ", StringComparison.Ordinal), workflowLanguage + " " + result);
+                }
+                foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
+                {
+                    LanguageManager.SetLanguage(language, false);
+                    HVAC_Pro_Desktop.Services.SessionManager.SetSession(new HVAC_Pro_Desktop.Models.AppUserDto { UserId = 1, Username = "marathi-qa", DisplayName = "Marathi QA", RoleName = "Admin", IsActive = true });
+                    using (var shell = new MainPreview { WindowState = FormWindowState.Normal, ClientSize = new Size(1440, 900), StartPosition = FormStartPosition.Manual, Location = new Point(-2500, -2500), ShowInTaskbar = false })
+                    {
+                        shell.Show(); LanguageManager.ApplyControlTree(shell); Application.DoEvents();
+                        Capture(shell, Path.Combine(output, language == LanguageManager.Marathi ? "navigation-marathi.png" : "navigation-english.png"));
+                        Check(Tree(shell).OfType<Button>().Any(b => b.Tag is int), "main navigation constructs with canonical route tags: " + language);
+                        shell.Close();
+                    }
+                    using (var page = new SettingsForm { Dock = DockStyle.Fill })
+                    using (var host = new Form { ClientSize = new Size(1366, 900), StartPosition = FormStartPosition.Manual, Location = new Point(-2500, -2500), ShowInTaskbar = false })
+                    {
+                        typeof(SettingsForm).GetMethod("LoadPreviewForVisualTest", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(page, null);
+                        host.Controls.Add(page); host.Show(); Application.DoEvents(); LanguageManager.ApplyControlTree(page);
+                        Capture(host, Path.Combine(output, language == LanguageManager.Marathi ? "settings-directory-marathi.png" : "settings-directory-english.png"));
+                        var links = Tree(page).OfType<Button>().Where(b => b.Name.StartsWith("SettingsLink_")).ToArray();
+                        Check(links.Length == 14, "all 14 admin Settings sections available: " + language + " count=" + links.Length);
+                        var tabs = page.Controls.OfType<TabControl>().Single();
+                        var company = (TextBox)typeof(SettingsForm).GetField("_txtCompanyName", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(page);
+                        company.Text = "Unsaved Save Cancel QA";
+                        var directory = Tree(page).Single(c => c.Name == "SettingsDirectory");
+                        foreach (var link in links)
+                        {
+                            tabs.SelectedIndex = 0; Application.DoEvents(); link.PerformClick(); Application.DoEvents();
+                            Check(tabs.SelectedIndex != 0 || !directory.Visible, "Settings section opens: " + language + " " + link.Name);
+                            Check(company.Text == "Unsaved Save Cancel QA", "Settings navigation preserves user data: " + link.Name);
+                            if (tabs.SelectedIndex == 0) Tree(page).OfType<Button>().Single(b => b.Name == "SettingsBack").PerformClick();
+                        }
+                        tabs.SelectedIndex = 0;
+                        var search = Tree(page).OfType<TextBox>().Single(c => c.Name == "SettingsDirectorySearch");
+                        search.Text = "zz-no-result"; Application.DoEvents();
+                        Check(!links.Any(b => b.Visible) && Tree(page).Single(c => c.Name == "SettingsSearchEmpty").Visible, "Settings empty search state: " + language);
+                        search.Text = "GST"; Application.DoEvents(); Check(links.Count(b => b.Visible) == 1, "Settings GST search routing: " + language);
+                        host.Close();
+                    }
+                    var confirmType = App.GetType("ServoERP.Infrastructure.ServoConfirmDialog");
+                    using (var dialog = (Form)Activator.CreateInstance(confirmType, BindingFlags.NonPublic | BindingFlags.Instance, null, new object[] { "Delete", "Are you sure?" }, null))
+                    {
+                        dialog.StartPosition = FormStartPosition.Manual; dialog.Location = new Point(-2000, -2000); dialog.ShowInTaskbar = false; dialog.Show();
+                        Capture(dialog, Path.Combine(output, language == LanguageManager.Marathi ? "confirmation-marathi.png" : "confirmation-english.png"));
+                        Check(dialog.CancelButton != null && dialog.AcceptButton != null, "confirmation keyboard actions present: " + language);
+                        dialog.Close();
+                    }
+                }
+                foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
+                {
+                    LanguageManager.SetLanguage(language, false);
+                    foreach (Type surface in new[] { typeof(DashboardForm), typeof(ClientManagementForm), typeof(VendorForm), typeof(JobManagementForm), typeof(PurchaseForm), typeof(InventoryForm), typeof(PaymentForm), typeof(ContractManagementForm), typeof(EmployeeForm), typeof(AttendanceForm), typeof(PayrollForm), typeof(TenderBidForm), typeof(MasterDataForm) })
+                    {
+                        Console.WriteLine("SCENARIO module surface / " + surface.Name + " / " + language);
+                        using (var page = (Control)Activator.CreateInstance(surface))
+                        using (var host = new Form { ClientSize = new Size(1440, 940), StartPosition = FormStartPosition.Manual, Location = new Point(-2500, -2500), ShowInTaskbar = false })
+                        {
+                            page.Dock = DockStyle.Fill; host.Controls.Add(page); host.Show(); Application.DoEvents();
+                            LanguageManager.ApplyControlTree(page);
+                            var until = DateTime.UtcNow.AddMilliseconds(200);
+                            while (DateTime.UtcNow < until) { Application.DoEvents(); Thread.Sleep(10); }
+                            string suffix = language == LanguageManager.Marathi ? "marathi" : "english";
+                            Capture(host, Path.Combine(output, surface.Name + "-" + suffix + ".png"));
+                            if (language == LanguageManager.Marathi)
+                            {
+                                var candidates = Tree(page).Where(c => c.Visible && (c is Label || c is ButtonBase || c is TabPage)).Select(c => c.Text).Where(text => !string.IsNullOrWhiteSpace(text) && System.Text.RegularExpressions.Regex.IsMatch(text, @"[A-Za-z]{3,}") && !System.Text.RegularExpressions.Regex.IsMatch(text, @"[\u0900-\u097f]")).Distinct();
+                                File.WriteAllLines(Path.Combine(output, surface.Name + "-caption-review.txt"), candidates);
+                            }
+                            Check(!page.IsDisposed && Tree(page).Any(c => c is ButtonBase), "native module surface rendered: " + surface.Name + " / " + language);
+                            host.Close();
+                        }
+                    }
+                }
                 HVAC_Pro_Desktop.Services.SessionManager.SetSession(new HVAC_Pro_Desktop.Models.AppUserDto { UserId = 1, Username = "marathi-qa", DisplayName = "Marathi QA", RoleName = "Admin", IsActive = true });
                 foreach (string language in new[] { LanguageManager.English, LanguageManager.Marathi })
                 {
@@ -184,6 +322,14 @@ internal static class MarathiLocalizationTests
                         {
                             page.Dock = DockStyle.Fill; host.Controls.Add(page);
                             LanguageManager.ApplyControlTree(page); host.Show(); Application.DoEvents(); host.PerformLayout();
+                            var headerTitle = Tree(page).OfType<Label>().FirstOrDefault(label => label.Text == LanguageManager.Get(scenario == "invoice" ? "Invoices" : "Reports Command Center"));
+                            Check(headerTitle != null && headerTitle.Visible && headerTitle.Height >= TextRenderer.MeasureText(headerTitle.Text, headerTitle.Font).Height, "workspace title has full font line height: " + scenario + " / " + language);
+                            if (scenario == "invoice")
+                            {
+                                var queue = Tree(page).OfType<DataGridView>().Single(grid => grid.Columns.Contains("Risk"));
+                                Check(Convert.ToString(queue.Rows[0].Cells["Risk"].Value) == "High" && Convert.ToString(queue.Rows[0].Cells["Risk"].FormattedValue) == LanguageManager.Get("High"), "invoice risk display localizes while raw risk stays canonical: " + language);
+                            }
+
                             using (var image = new Bitmap(host.Width, host.Height))
                             { host.DrawToBitmap(image, new Rectangle(Point.Empty, image.Size)); image.Save(Path.Combine(output, scenario + "-" + (language == LanguageManager.Marathi ? "marathi" : "english") + ".png")); }
                             Check(Tree(page).Any(c => c is Button), scenario + " preview renders native workflow actions: " + language);

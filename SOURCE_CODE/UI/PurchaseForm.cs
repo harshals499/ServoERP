@@ -622,7 +622,7 @@ namespace HVAC_Pro_Desktop.UI
             trendCard.Margin = new Padding(8, 0, 0, 0);
             trendCard.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "PO Value Trend", Location = new Point(16, 14), Size = new Size(220, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10.5f, FontStyle.Bold), ForeColor = PoText }));
             _poTrendFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Size = new Size(126, 28), Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            _poTrendFilter.Items.AddRange(new object[] { "This Year", "Last 6 Months", "Last 12 Months" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_poTrendFilter, new object[] { "This Year", "Last 6 Months", "Last 12 Months" });
             _poTrendFilter.SelectedIndex = 0;
             _poTrendFilter.Text = "This Year";
             _poTrendFilter.SelectedIndexChanged += (s, e) => RefreshPurchaseDashboard();
@@ -656,14 +656,14 @@ namespace HVAC_Pro_Desktop.UI
             viewAll.Click += (s, e) => ResetPurchaseOrdersDashboardFilters();
             card.Controls.Add(viewAll);
             _poStatusFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Size = new Size(132, 28) };
-            _poStatusFilter.Items.AddRange(new object[] { "All Status", "Draft", "Pending Approval", "Approved", "Partially Received", "Fully Received", "Cancelled" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_poStatusFilter, new object[] { "All Status", "Draft", "Pending Approval", "Approved", "Partially Received", "Fully Received", "Cancelled" });
             _poStatusFilter.SelectedIndex = 0;
             _poStatusFilter.Text = "All Status";
             _poStatusFilter.SelectedIndexChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
             _poStatusFilterLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeFilterPill("All Status"));
             _poStatusFilterLabel.Click += (s, e) => { CycleCombo(_poStatusFilter, _poStatusFilterLabel); _poPage = 1; RefreshPoTableOnly(); };
             _poPeriodFilter = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), Size = new Size(118, 28) };
-            _poPeriodFilter.Items.AddRange(new object[] { "This Month", "Last Month", "This Quarter", "This Year", "Custom Range" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_poPeriodFilter, new object[] { "This Month", "Last Month", "This Quarter", "This Year", "Custom Range" });
             _poPeriodFilter.SelectedIndex = 3;
             _poPeriodFilter.Text = "This Year";
             _poPeriodFilter.SelectedIndexChanged += (s, e) => { _poPage = 1; RefreshPoTableOnly(); };
@@ -1990,7 +1990,7 @@ namespace HVAC_Pro_Desktop.UI
                 Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9)
             };
             ConfigureDropDownListCombo(_cboListStatusFilter);
-            _cboListStatusFilter.Items.AddRange(new object[] { "All", "Pending", "Partial", "Approved", "Closed", "Received", "Paid", "Overdue", "Due Soon" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cboListStatusFilter, new object[] { "All", "Pending", "Partial", "Approved", "Closed", "Received", "Paid", "Overdue", "Due Soon" });
             _cboListStatusFilter.SelectedIndex = 0;
             _cboListStatusFilter.SelectedIndexChanged += (s, e) => ResetListPageAndRender();
 
@@ -3624,7 +3624,7 @@ namespace HVAC_Pro_Desktop.UI
                 Notes = _txtNotes.Text.Trim(),
                 DeliveryMode = _rbSiteDelivery.Checked ? "SiteDelivery" : "TechPickup",
                 AssignedTechnicianId = (_cboTechnician.SelectedItem as ComboItem<int?>)?.Value,
-                AssignedTechnicianName = (_cboTechnician.SelectedItem as ComboItem<int?>)?.Value.HasValue == true ? _cboTechnician.Text : null,
+                AssignedTechnicianName = (_cboTechnician.SelectedItem as ComboItem<int?>)?.Value.HasValue == true ? global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cboTechnician) : null,
                 DeliveryAddress = _rbSiteDelivery.Checked ? _txtDeliveryAddress.Text.Trim() : null,
                 AddToClientInvoice = _chkAddToClientInvoice.Checked,
                 PendingChargeCreated = _current != null && _current.PendingChargeCreated,
@@ -4699,7 +4699,7 @@ namespace HVAC_Pro_Desktop.UI
             Label lblAmt = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Name = "lblAmt", Text = "Rs 0.00", Location = new Point(780, 16), Width = 64, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold), ForeColor = InfoBlue, TextAlign = ContentAlignment.MiddleRight });
             ComboBox cmbJobLink = new ComboBox { Name = "cmbJobLink", Location = new Point(0, 0), Width = 1, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9), Visible = false };
             ConfigureDropDownListCombo(cmbJobLink);
-            cmbJobLink.Items.AddRange(new object[] { "General", "Project", "This Job" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(cmbJobLink, new object[] { "General", "Project", "This Job" });
             cmbJobLink.SelectedItem = string.Equals(line?.JobLink, "Job", StringComparison.OrdinalIgnoreCase) ? "This Job" : (string.Equals(line?.JobLink, "Project", StringComparison.OrdinalIgnoreCase) ? "Project" : "General");
             Button btnRemove = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Button { Text = "X", Location = new Point(892, 10), Width = 34, Height = 24, BackColor = Color.White, ForeColor = DelRed, FlatStyle = FlatStyle.Flat, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.2f, FontStyle.Bold) });
             Label lblSupplierOffers = new Label { Name = "lblSupplierOffers", Location = new Point(42, 48), Width = 528, Height = 20, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 7.4f), ForeColor = DS.Slate600, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
@@ -4714,19 +4714,19 @@ namespace HVAC_Pro_Desktop.UI
             Action<bool> applySelectedInventory = forceRateRefresh =>
             {
                 int currentInventoryItemId = cmbDesc.Tag is int itemId ? itemId : 0;
-                StockItem stock = _inventoryItems.FirstOrDefault(item => string.Equals(item.ItemName, cmbDesc.Text, StringComparison.OrdinalIgnoreCase));
+                StockItem stock = _inventoryItems.FirstOrDefault(item => string.Equals(item.ItemName, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbDesc), StringComparison.OrdinalIgnoreCase));
                 if (stock != null)
                 {
                     bool itemChanged = currentInventoryItemId != stock.ItemID
                         || !string.Equals(lastAppliedItemName, stock.ItemName, StringComparison.OrdinalIgnoreCase);
                     cmbDesc.Tag = stock.ItemID;
                     lastAppliedItemName = stock.ItemName;
-                    txtCategory.Text = string.IsNullOrWhiteSpace(stock.Category) ? ResolveCategory(cmbHsn.Text) : stock.Category;
+                    txtCategory.Text = string.IsNullOrWhiteSpace(stock.Category) ? ResolveCategory(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn)) : stock.Category;
                     if ((forceRateRefresh || itemChanged || numRate.Value <= 0m) && stock.LastPurchaseRate > 0m)
                         numRate.Value = stock.LastPurchaseRate;
-                    if (string.IsNullOrWhiteSpace(cmbHsn.Text))
+                    if (string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn)))
                     {
-                        HsnSacMasterEntry resolved = ResolveHsnForDescription(cmbDesc.Text);
+                        HsnSacMasterEntry resolved = ResolveHsnForDescription(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbDesc));
                         if (resolved != null)
                         {
                             cmbHsn.Text = resolved.Code;
@@ -4737,7 +4737,7 @@ namespace HVAC_Pro_Desktop.UI
 
                     forceRateRefresh = forceRateRefresh || itemChanged;
                 }
-                else if (string.IsNullOrWhiteSpace(cmbDesc.Text))
+                else if (string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbDesc)))
                 {
                     cmbDesc.Tag = null;
                     lastAppliedItemName = null;
@@ -4755,7 +4755,7 @@ namespace HVAC_Pro_Desktop.UI
             cmbDesc.Leave += (s, e) => applySelectedInventory(false);
             cmbJobLink.SelectedIndexChanged += (s, e) =>
             {
-                if (cmbJobLink.Text == "This Job" && !IsWorkOrderLinked())
+                if (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbJobLink) == "This Job" && !IsWorkOrderLinked())
                 {
                     cmbJobLink.SelectedItem = "General";
                     _toolTip.Show("Link PO to a Work Order first", cmbJobLink, 2500);
@@ -4764,7 +4764,7 @@ namespace HVAC_Pro_Desktop.UI
 
             cmbHsn.SelectedIndexChanged += (s, e) =>
             {
-                HsnSacMasterEntry entry = _hsnEntries.FirstOrDefault(h => string.Equals(h.Code, cmbHsn.Text, StringComparison.OrdinalIgnoreCase));
+                HsnSacMasterEntry entry = _hsnEntries.FirstOrDefault(h => string.Equals(h.Code, global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn), StringComparison.OrdinalIgnoreCase));
                 if (entry != null)
                 {
                     ApplyHsnRates(entry, numGst, numCgst, numSgst, numIgst);
@@ -4806,11 +4806,11 @@ namespace HVAC_Pro_Desktop.UI
                     cmbDesc.Items.Add(line.Description);
                 cmbDesc.SelectedItem = line.Description;
                 cmbDesc.Tag = line.InventoryItemId;
-                txtCategory.Text = ResolveCategory(cmbHsn.Text);
+                txtCategory.Text = ResolveCategory(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn));
             }
 
-            if (!string.IsNullOrWhiteSpace(cmbHsn.Text))
-                txtCategory.Text = ResolveCategory(cmbHsn.Text);
+            if (!string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn)))
+                txtCategory.Text = ResolveCategory(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(cmbHsn));
             _lineItemFlow.Controls.Add(card);
             SetActiveSupplierComparisonRow(cmbDesc, txtCategory, numQty, cmbUom, numRate);
             ResizeLineItemRows();
@@ -4918,7 +4918,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_activeCompareDescription == null)
                 return;
 
-            string itemDescription = _activeCompareDescription.Text?.Trim();
+            string itemDescription = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_activeCompareDescription)?.Trim();
             if (string.IsNullOrWhiteSpace(itemDescription))
                 return;
 
@@ -5027,7 +5027,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (rate != null && (forceRateRefresh || rate.Value <= 0m || switchedVendor))
                     rate.Value = Math.Max(rate.Minimum, Math.Min(rate.Maximum, best.Rate));
 
-                if (unit != null && !string.IsNullOrWhiteSpace(best.Unit) && (string.IsNullOrWhiteSpace(unit.Text) || switchedVendor))
+                if (unit != null && !string.IsNullOrWhiteSpace(best.Unit) && (string.IsNullOrWhiteSpace(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(unit)) || switchedVendor))
                 {
                     string optionUnit = _unitSvc.NormalizeForPickerDisplayOrDefault(best.Unit);
                     EnsureComboItem(unit, optionUnit);
@@ -5244,7 +5244,7 @@ namespace HVAC_Pro_Desktop.UI
             if (descCombo == null || rateCtl == null)
                 return;
 
-            string description = (descCombo.Text ?? string.Empty).Trim();
+            string description = (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(descCombo) ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(description))
             {
                 rateCtl.BackColor = Color.White;

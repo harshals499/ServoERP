@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using HVAC_Pro_Desktop.DAL;
@@ -159,6 +159,38 @@ INSERT INTO NotificationDismissals (NotificationKey, UserId) VALUES (@key, @user
                 AppLogger.LogError("NotificationCenterService." + module, ex);
             }
         }
+
+        // Only service-generated detail templates are localized. Keys, record titles and
+        // persisted details remain canonical, including names inside template arguments.
+        internal static string GetDisplayDetail(string detail)
+        {
+            if (string.IsNullOrEmpty(detail)) return detail;
+            foreach (var template in DetailTemplates)
+            {
+                int count = 0;
+                string pattern = string.Concat(System.Text.RegularExpressions.Regex.Split(template, @"(\{[0-9]+\})")
+                    .Select(part => {
+                        if (System.Text.RegularExpressions.Regex.IsMatch(part, @"^\{[0-9]+\}$")) { count++; return "(.+?)"; }
+                        return System.Text.RegularExpressions.Regex.Escape(part);
+                    }));
+                var found = System.Text.RegularExpressions.Regex.Match(detail, "^" + pattern + "$", System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (!found.Success) continue;
+                object[] arguments = new object[count];
+                for (int i = 0; i < count; i++) arguments[i] = found.Groups[i + 1].Value;
+                return LanguageManager.Format(template, arguments);
+            }
+            return LanguageManager.Get(detail);
+        }
+
+        private static readonly string[] DetailTemplates = {
+            "Overdue invoice: {0}", "Scheduled date passed: {0}",
+            "Current stock below reorder level: {0} / {1}",
+            "Supplier payable overdue: {0} | due {1}", "Supplier payable overdue: {0}",
+            "Pending approval: invoice is still {0}", "Pending approval: {0} | required by {1}",
+            "Pending approval: {0}", "Technician delay: {0} | {1} day(s) past schedule",
+            "Technician delay: SLA breached by {0} hour(s)", "Expires on {0}",
+            "SLA due: {0}", "Employee document expires on {0}", "Certification expires on {0}"
+        };
 
         private void RemoveDismissed(List<FoundationNotification> list)
         {

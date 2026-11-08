@@ -156,7 +156,7 @@ namespace HVAC_Pro_Desktop.UI
             comboWrap.Dock = DockStyle.Fill;
             comboWrap.Margin = new Padding(0, 0, 8, 0);
             _cmbFilter = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f), FlatStyle = FlatStyle.Flat };
-            _cmbFilter.Items.AddRange(new object[] { "All", "Open", "My Work", "Critical", "SLA Breached", "Resolved", "Closed" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbFilter, new object[] { "All", "Open", "My Work", "Critical", "SLA Breached", "Resolved", "Closed" });
             _cmbFilter.SelectedIndex = 0;
             _cmbFilter.SelectedIndexChanged += (s, e) => BindGrid();
             Button filterButton = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Filter", White, DS.Slate700, 76));
@@ -477,7 +477,7 @@ namespace HVAC_Pro_Desktop.UI
             Panel composer = new Panel { Dock = DockStyle.Bottom, Height = 118, BackColor = White, Padding = new Padding(12) };
             composer.Paint += (s, e) => e.Graphics.DrawRectangle(new Pen(Border), 0, 0, composer.Width - 1, composer.Height - 1);
             _cmbNoteType = new ComboBox { Dock = DockStyle.Left, Width = 130, DropDownStyle = ComboBoxStyle.DropDownList };
-            _cmbNoteType.Items.AddRange(new object[] { "Work note", "Customer update", "Internal note", "System" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbNoteType, new object[] { "Work note", "Customer update", "Internal note", "System" });
             _cmbNoteType.SelectedIndex = 0;
             Button btnAdd = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("Add Note", Teal, White, 96));
             btnAdd.Dock = DockStyle.Right;
@@ -1043,10 +1043,10 @@ namespace HVAC_Pro_Desktop.UI
             _current.AssignedEmployeeId = SelectedId(_cmbAssigned);
             _current.CallerName = _txtCaller.Text.Trim();
             _current.CallerPhone = _txtPhone.Text.Trim();
-            _current.Category = _cmbCategory.Text.Trim();
-            _current.EquipmentType = _cmbEquipment.Text.Trim();
-            _current.Priority = _cmbPriority.Text.Trim();
-            _current.Status = _cmbStatus.Text.Trim();
+            _current.Category = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbCategory).Trim();
+            _current.EquipmentType = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbEquipment).Trim();
+            _current.Priority = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbPriority).Trim();
+            _current.Status = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbStatus).Trim();
             _current.ShortDescription = _txtShortDescription.Text.Trim();
             _current.Description = _txtDescription.Text.Trim();
             _current.AssetSerialNumber = _txtSerial.Text.Trim();
@@ -1061,9 +1061,9 @@ namespace HVAC_Pro_Desktop.UI
             string query = string.Join(" ", new[]
             {
                 "incident service report breakdown service call troubleshooting corrective action customer sign-off",
-                _cmbCategory == null ? null : _cmbCategory.Text,
-                _cmbEquipment == null ? null : _cmbEquipment.Text,
-                _cmbPriority == null ? null : _cmbPriority.Text,
+                _cmbCategory == null ? null : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbCategory),
+                _cmbEquipment == null ? null : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbEquipment),
+                _cmbPriority == null ? null : global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbPriority),
                 _txtShortDescription == null ? null : _txtShortDescription.Text
             }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
@@ -1088,8 +1088,8 @@ namespace HVAC_Pro_Desktop.UI
         private void RefreshSlaPreview()
         {
             DateTime opened = _current == null || _current.OpenedAt == default(DateTime) ? DateTime.Now : _current.OpenedAt;
-            DateTime due = ServiceDeskService.ComputeSlaDue(_cmbPriority.Text, opened);
-            bool breached = DateTime.Now > due && !IsClosed(_cmbStatus.Text);
+            DateTime due = ServiceDeskService.ComputeSlaDue(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbPriority), opened);
+            bool breached = DateTime.Now > due && !IsClosed(global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbStatus));
             global::HVAC_Pro_Desktop.Services.LanguageManager.SetDataText(_lblSla, global::HVAC_Pro_Desktop.Services.LanguageManager.Format("SLA due: {0}{1}", due.ToString("dd MMM yyyy, HH:mm"), (breached ? "  |  BREACHED" : "")));
             _lblSla.ForeColor = breached ? Red : TextSecondary;
         }

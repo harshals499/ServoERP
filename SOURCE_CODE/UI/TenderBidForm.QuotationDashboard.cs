@@ -158,12 +158,12 @@ namespace HVAC_Pro_Desktop.UI
             newQuote.Click += (s, e) => NewRecord();
 
             _quoteDashCompany = new ComboBox { Name = "QuotationDashboardCompanyFilter", DropDownStyle = ComboBoxStyle.DropDownList, Width = 240, Height = 30 };
-            _quoteDashCompany.Items.Add("All companies");
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_quoteDashCompany, "All companies");
             _quoteDashCompany.SelectedIndex = 0;
             _quoteDashCompany.SelectedIndexChanged += QuoteDashboardCompany_SelectedIndexChanged;
 
             _quoteDashMonths = new ComboBox { Name = "QuotationDashboardMonthFilter", DropDownStyle = ComboBoxStyle.DropDownList, Width = 112, Height = 30 };
-            _quoteDashMonths.Items.AddRange(new object[] { "1 month", "2 months", "3 months", "12 months" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_quoteDashMonths, new object[] { "1 month", "2 months", "3 months", "12 months" });
             _quoteDashMonths.SelectedItem = "12 months";
             _quoteDashMonths.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
 
@@ -212,7 +212,7 @@ namespace HVAC_Pro_Desktop.UI
             refresh.Click += (s, e) => RefreshQuotationDashboardSafe();
 
             _quoteDashGroup = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 94, Height = 30 };
-            _quoteDashGroup.Items.AddRange(new object[] { "Week", "Day", "Month" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_quoteDashGroup, new object[] { "Week", "Day", "Month" });
             _quoteDashGroup.SelectedIndex = 0;
             _quoteDashGroup.SelectedIndexChanged += (s, e) => RefreshQuotationDashboardSafe();
 

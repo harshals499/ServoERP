@@ -550,7 +550,7 @@ namespace HVAC_Pro_Desktop.UI
             };
             upload.Click += (s, e) =>
             {
-                using (var dialog = new OpenFileDialog { Title = "Select company header", Filter = "Header images|*.png;*.jpg;*.jpeg;*.bmp", CheckFileExists = true })
+                using (var dialog = new OpenFileDialog { Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select company header"), Filter = "Header images|*.png;*.jpg;*.jpeg;*.bmp", CheckFileExists = true })
                 {
                     if (dialog.ShowDialog(FindForm()) != DialogResult.OK) return;
                     try { DocumentBranding.UploadCompanyHeader(dialog.FileName); refresh(); }
@@ -638,7 +638,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             Panel group = new Panel { Name = "SettingsDirectorySection", BackColor = Color.White, Padding = new Padding(18), AccessibleName = title, Tag = "NO_CARD_SURFACE NO_DASHBOARD_RESIZE" };
             group.Paint += (s, e) => { using (Pen pen = new Pen(DS.Border)) e.Graphics.DrawRectangle(pen, 0, 0, group.Width - 1, group.Height - 1); };
-            group.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = title, UseMnemonic = false, Location = new Point(18, 20), Size = new Size(300, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate500 }));
+            group.Controls.Add(global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label { Text = LanguageManager.Get(title), UseMnemonic = false, Location = new Point(18, 20), Size = new Size(300, 24), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9f, FontStyle.Bold), ForeColor = DS.Slate500 }));
             foreach (SettingsDestination destination in destinations)
             {
                 if (destination.AdminOnly && !IsAdminUser()) continue;
@@ -667,7 +667,7 @@ namespace HVAC_Pro_Desktop.UI
             if (destination.AdminOnly && !IsAdminUser()) return;
             if (destination.Tab != null)
             {
-                TabPage tab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(t => t.Text == destination.Tab);
+                TabPage tab = _tabs.TabPages.Cast<TabPage>().FirstOrDefault(t => LanguageManager.GetSourceText(t, t.Text) == destination.Tab);
                 if (tab != null) _tabs.SelectedTab = tab;
                 return;
             }
@@ -808,7 +808,7 @@ namespace HVAC_Pro_Desktop.UI
             _cmbState.Items.AddRange(IndiaStateCatalog.Names.Cast<object>().ToArray());
             PlaceLabeledControl(companyBody, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("State / UT"), _cmbState, 380, 192, 202);
             _cmbGstRegistrationType = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbGstRegistrationType.Items.AddRange(new object[] { "Regular", "Composition", "Unregistered" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbGstRegistrationType, new object[] { "Regular", "Composition", "Unregistered" });
             PlaceLabeledControl(companyBody, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("GST Registration Type"), _cmbGstRegistrationType, 0, 256, 220);
             _txtAuthorisedSignatory = new TextBox();
             PlaceLabeledControl(companyBody, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Authorised Signatory (PDF)"), _txtAuthorisedSignatory, 0, 320, 340);
@@ -819,7 +819,7 @@ namespace HVAC_Pro_Desktop.UI
             AppRuntime.LogTiming("Settings.BuildForm.Display.Start", 0);
             Panel displayBody = AddModernSettingsCard(parent, "Display & Layout", "Customize how dense data is displayed across the system.", 480);
             _cmbDisplayFitMode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDown };
-            _cmbDisplayFitMode.Items.AddRange(new object[]
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbDisplayFitMode, new object[]
             {
                 "Auto detect laptop screens",
                 "IdeaPad / compact laptop",
@@ -1508,7 +1508,7 @@ namespace HVAC_Pro_Desktop.UI
                 AcceptsReturn = false
             };
 
-            _cmbUnitMeasurementSystem.Items.AddRange(new object[] { "", "Metric", "Imperial", "Mixed", "Count", "Service" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbUnitMeasurementSystem, new object[] { "", "Metric", "Imperial", "Mixed", "Count", "Service" });
             _cmbUnitMeasurementSystem.SelectedIndex = 0;
 
             PlaceLabeledControl(parent, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit Code *"), _txtUnitCode, 0, 0, 110);
@@ -1911,7 +1911,7 @@ namespace HVAC_Pro_Desktop.UI
 
             if (_cmbUnitCategory != null)
             {
-                string selected = _cmbUnitCategory.Text;
+                string selected = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbUnitCategory);
                 string[] defaults =
                 {
                     "Length", "Area", "Volume", "Weight and Mass", "Pressure", "Temperature",
@@ -2286,7 +2286,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 string selected = _cmbAuditUser.SelectedItem?.ToString() ?? "All Users";
                 _cmbAuditUser.Items.Clear();
-                _cmbAuditUser.Items.Add("All Users");
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbAuditUser, "All Users");
                 foreach (string username in users.Select(u => u.Username).Distinct().OrderBy(x => x))
                     _cmbAuditUser.Items.Add(username);
                 _cmbAuditUser.SelectedItem = _cmbAuditUser.Items.Contains(selected) ? selected : "All Users";
@@ -3990,7 +3990,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Select ServoERP SQL backup";
+                dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Select ServoERP SQL backup");
                 dialog.Filter = "SQL Server Backup (*.bak)|*.bak";
                 dialog.InitialDirectory = Directory.Exists(BackupService.BackupRoot) ? BackupService.BackupRoot : @"C:\";
                 if (dialog.ShowDialog(this) != DialogResult.OK)

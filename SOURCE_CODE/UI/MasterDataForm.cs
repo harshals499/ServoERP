@@ -250,7 +250,7 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel form = MakeFormFlow();
             _docClient = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client"));
             _docType = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Document type"));
-            _docType.Items.AddRange(new object[] { "AMC Contract", "Purchase Order", "License", "Insurance", "Tax Document", "Warranty", "Manual", "Drawing", "Certificate", "Other" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_docType, new object[] { "AMC Contract", "Purchase Order", "License", "Insurance", "Tax Document", "Warranty", "Manual", "Drawing", "Certificate", "Other" });
             if (_docType.Items.Count > 0) _docType.SelectedIndex = 0;
             _docTitle = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Title *"));
             _docPath = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("File path *"));
@@ -276,7 +276,7 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel form = MakeFormFlow();
             _rateClient = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Client specific"));
             _rateCategory = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Category"));
-            _rateCategory.Items.AddRange(new object[] { "Labor", "Diagnostic", "Emergency", "AMC", "Travel", "Installation", "Repair", "Cleaning", "Other" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_rateCategory, new object[] { "Labor", "Diagnostic", "Emergency", "AMC", "Travel", "Installation", "Repair", "Cleaning", "Other" });
             if (_rateCategory.Items.Count > 0) _rateCategory.SelectedIndex = 0;
             _rateName = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Service name *"));
             _rateUnit = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Unit"));
@@ -363,7 +363,7 @@ namespace HVAC_Pro_Desktop.UI
             FlowLayoutPanel form = MakeFormFlow();
             _serverName = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Connection name *"));
             _serverType = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Server type"));
-            _serverType.Items.AddRange(new object[] { "SQL Server", "REST API", "SFTP", "Shared Folder" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_serverType, new object[] { "SQL Server", "REST API", "SFTP", "Shared Folder" });
             _serverType.SelectedIndex = 0;
             _serverHost = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Host / IP"));
             _serverPort = AddNumber(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Port"), 65535, 0);
@@ -373,7 +373,7 @@ namespace HVAC_Pro_Desktop.UI
             _serverSecret = AddText(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Password / API key"));
             _serverSecret.UseSystemPasswordChar = true;
             _syncDirection = AddCombo(form, global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Sync direction"));
-            _syncDirection.Items.AddRange(new object[] { "Import only", "Export only", "Two way" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_syncDirection, new object[] { "Import only", "Export only", "Two way" });
             _syncDirection.SelectedIndex = 0;
             form.Controls.Add(ActionRow(
                 global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(MakeButton("New connection", ActionBlue, 130, (s, e) => ClearConnectionForm())),
@@ -1282,7 +1282,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (OpenFileDialog dialog = new OpenFileDialog())
             {
-                dialog.Title = "Choose document";
+                dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose document");
                 dialog.Filter = "Documents|*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.csv;*.png;*.jpg;*.jpeg|All files|*.*";
                 if (dialog.ShowDialog(this) == DialogResult.OK)
                 {
@@ -2417,7 +2417,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 using (OpenFileDialog dialog = new OpenFileDialog())
                 {
-                    dialog.Title = "Upload company document template";
+                    dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Upload company document template");
                     dialog.Filter = "Business templates|*.pdf;*.doc;*.docx;*.xls;*.xlsx;*.csv;*.png;*.jpg;*.jpeg;*.bmp|All files|*.*";
                     dialog.Multiselect = true;
                     if (dialog.ShowDialog(this) == DialogResult.OK)

@@ -72,7 +72,7 @@ namespace HVAC_Pro_Desktop.UI
             _search = new TextBox { Dock = DockStyle.Fill, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 10f) };
             _search.TextChanged += (s, e) => BindGrid();
             _filterStatus = new ComboBox { Dock = DockStyle.Fill, DropDownStyle = ComboBoxStyle.DropDownList };
-            _filterStatus.Items.AddRange(new object[] { "All statuses", "Booked", "Assigned", "Picked Up", "In Transit", "Delivered", "Cancelled" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_filterStatus, new object[] { "All statuses", "Booked", "Assigned", "Picked Up", "In Transit", "Delivered", "Cancelled" });
             _filterStatus.SelectedIndex = 0; _filterStatus.SelectedIndexChanged += (s, e) => BindGrid();
             filters.Controls.Add(_search, 0, 0); filters.Controls.Add(_filterStatus, 1, 0);
             filters.Controls.Add(WorkspaceActionUi.CreateClearFilters(() => { _search.Text = string.Empty; _filterStatus.SelectedIndex = 0; BindGrid(); }), 2, 0);

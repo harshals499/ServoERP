@@ -181,7 +181,7 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.Label label = HVAC_Pro_Desktop.UI.ModernIconSystem.Icon(HVAC_Pro_Desktop.UI.ModernIconKind.Search, 18, HVAC_Pro_Desktop.UI.DS.Slate700);
 			label.Location = new System.Drawing.Point(12, 8);
 			label.Size = new System.Drawing.Size(20, 20);
-			System.Windows.Forms.Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
+			System.Windows.Forms.Label value = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = (string.Equals(placeholder, "Search", System.StringComparison.OrdinalIgnoreCase) ? string.Empty : placeholder),
 				Location = new System.Drawing.Point(40, 9),
@@ -193,7 +193,7 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.Label shortcut = null;
 			if (!string.IsNullOrWhiteSpace(shortcutText))
 			{
-				shortcut = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
+				shortcut = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 				{
 					Text = shortcutText,
 					Size = new System.Drawing.Size(62, 22),
@@ -343,7 +343,7 @@ namespace HVAC_Pro_Desktop.UI
 					}
 				};
 			}
-			System.Windows.Forms.Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
+			System.Windows.Forms.Label title = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = (model.Title ?? string.Empty),
 				Location = new System.Drawing.Point(model.Padding.Left, model.Padding.Top + model.TitleTop),
@@ -353,7 +353,7 @@ namespace HVAC_Pro_Desktop.UI
 				TextAlign = System.Drawing.ContentAlignment.MiddleLeft,
 				AutoEllipsis = true
 			});
-			System.Windows.Forms.Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
+			System.Windows.Forms.Label subtitle = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 			{
 				Text = (model.Subtitle ?? string.Empty),
 				Location = new System.Drawing.Point(model.Padding.Left + 1, model.Padding.Top + model.SubtitleTop),
@@ -366,7 +366,7 @@ namespace HVAC_Pro_Desktop.UI
 			System.Windows.Forms.Label status = null;
 			if (!string.IsNullOrWhiteSpace(model.StatusText))
 			{
-				status = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new System.Windows.Forms.Label
+				status = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new System.Windows.Forms.Label
 				{
 					Text = model.StatusText,
 					Location = new System.Drawing.Point(model.Padding.Left + 1, model.Padding.Top + model.StatusTop),
@@ -391,6 +391,10 @@ namespace HVAC_Pro_Desktop.UI
 				item.Anchor = System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left;
 				actionHost.Controls.Add(item);
 			}
+            // Nirmala's Devanagari line metrics are taller than Segoe UI at the same point size.
+            title.Height = System.Math.Max(title.Height, System.Windows.Forms.TextRenderer.MeasureText(title.Text, title.Font).Height);
+            subtitle.Top = System.Math.Max(subtitle.Top, title.Bottom + 2);
+            if (status != null) status.Top = System.Math.Max(status.Top, subtitle.Bottom + 2);
 			header.Controls.Add(title);
 			header.Controls.Add(subtitle);
 			if (status != null)
@@ -455,6 +459,7 @@ namespace HVAC_Pro_Desktop.UI
                     if (row >= 0 && row < table.RowStyles.Count && table.RowStyles[row].SizeType == System.Windows.Forms.SizeType.Absolute && table.RowStyles[row].Height != requiredHeight)
                         table.RowStyles[row].Height = requiredHeight;
                 }
+                requiredHeight = System.Math.Max(requiredHeight, (status ?? subtitle).Bottom + model.Padding.Bottom);
                 header.Height = requiredHeight;
                 actionHost.ResumeLayout(false);
                 actionHost.Invalidate(true);

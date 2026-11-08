@@ -9,7 +9,7 @@ namespace HVAC_Pro_Desktop.Services
         {
             return string.IsNullOrWhiteSpace(section)
                 ? AppName
-                : AppName + " - " + section;
+                : AppName + " - " + LanguageManager.Get(section);
         }
     }
 }

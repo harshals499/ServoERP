@@ -827,7 +827,7 @@ namespace HVAC_Pro_Desktop.UI
                 if (_templates != null && _templates.Count > 0 && _cmbTemplate.Items.Count <= 1)
                     BindTemplateDropdown();
                 else if (_cmbTemplate.Items.Count == 0)
-                    _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
+                    global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTemplate, new ComboItem { Id = 0, Text = "-- Select Template --" }, "-- Select Template --");
             }
 
             if (_editorDataInitialized)
@@ -1688,7 +1688,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             if (combo == null || combo.DropDownStyle == ComboBoxStyle.DropDownList || combo.DroppedDown)
                 return;
-            combo.SelectionStart = combo.Text.Length;
+            combo.SelectionStart = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo).Length;
             combo.SelectionLength = 0;
         }
 
@@ -2222,13 +2222,13 @@ namespace HVAC_Pro_Desktop.UI
         private void SeedInvoiceEditorDropdownPlaceholders()
         {
             if (_cmbClient != null && _cmbClient.Items.Count == 0)
-                _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, new ComboItem { Id = 0, Text = "-- Select Client --" }, "-- Select Client --");
             if (_cmbSite != null && _cmbSite.Items.Count == 0)
-                _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, new ComboItem { Id = 0, Text = "-- No site / site not decided --" }, "-- No site / site not decided --");
             if (_cmbContract != null && _cmbContract.Items.Count == 0)
-                _cmbContract.Items.Add(new ComboItem { Id = 0, Text = "-- No Contract --" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbContract, new ComboItem { Id = 0, Text = "-- No Contract --" }, "-- No Contract --");
             if (_cmbTemplate != null && _cmbTemplate.Items.Count == 0)
-                _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTemplate, new ComboItem { Id = 0, Text = "-- Select Template --" }, "-- Select Template --");
         }
 
         private void AddModernField(TableLayoutPanel grid, string label, Control input, int column, int row, bool required, int columnSpan, int rowSpan = 1)
@@ -2891,7 +2891,7 @@ namespace HVAC_Pro_Desktop.UI
             if (_cmbGstMode == null)
             {
                 _cmbGstMode = new ComboBox { Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 8.5f), DropDownStyle = ComboBoxStyle.DropDown };
-                _cmbGstMode.Items.AddRange(new object[] { "IGST", "CGST+SGST" });
+                global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(_cmbGstMode, new object[] { "IGST", "CGST+SGST" });
                 _cmbGstMode.SelectedIndex = 1;
                 _cmbGstMode.SelectedIndexChanged += (s, e) => RequestRecalculateSummary();
                 RegisterInvoiceComboBox(_cmbGstMode);
@@ -2923,10 +2923,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             int selectedId = GetSelectedComboId(_cmbClient);
-            string selectedText = _cmbClient.Text;
+            string selectedText = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbClient);
             _updating = true;
             _cmbClient.Items.Clear();
-            _cmbClient.Items.Add(new ComboItem { Id = 0, Text = "-- Select Client --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbClient, new ComboItem { Id = 0, Text = "-- Select Client --" }, "-- Select Client --");
             foreach (B2BClient c in _clients)
                 _cmbClient.Items.Add(new ComboItem { Id = c.ClientID, Text = c.CompanyName });
             UIHelper.ShowEmptyClientsMessageIfNeeded(FindForm(), _clients, "InvoiceForm.LoadClientDropdowns");
@@ -2945,10 +2945,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             string selectedTag = (_cmbTemplate.SelectedItem as ComboItem)?.Tag ?? string.Empty;
-            string selectedText = _cmbTemplate.Text;
+            string selectedText = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbTemplate);
             _updating = true;
             _cmbTemplate.Items.Clear();
-            _cmbTemplate.Items.Add(new ComboItem { Id = 0, Text = "-- Select Template --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbTemplate, new ComboItem { Id = 0, Text = "-- Select Template --" }, "-- Select Template --");
             foreach (InvoiceTemplate template in _templates.OrderBy(t => t.TemplateName))
                 _cmbTemplate.Items.Add(new ComboItem { Id = template.TemplateID, Text = template.TemplateName, Tag = template.TemplateCode });
             RestoreComboSelection(_cmbTemplate, 0, selectedTag, selectedText);
@@ -2964,10 +2964,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             int selectedId = GetSelectedComboId(_cmbContract);
-            string selectedText = _cmbContract.Text;
+            string selectedText = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbContract);
             _updating = true;
             _cmbContract.Items.Clear();
-            _cmbContract.Items.Add(new ComboItem { Id = 0, Text = "-- No Contract --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbContract, new ComboItem { Id = 0, Text = "-- No Contract --" }, "-- No Contract --");
             if (clientId <= 0)
             {
                 _cmbContract.SelectedIndex = 0;
@@ -3050,10 +3050,10 @@ namespace HVAC_Pro_Desktop.UI
             }
 
             int selectedId = GetSelectedComboId(_cmbSite);
-            string selectedText = _cmbSite.Text;
+            string selectedText = global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbSite);
             _updating = true;
             _cmbSite.Items.Clear();
-            _cmbSite.Items.Add(new ComboItem { Id = 0, Text = "-- No site / site not decided --" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoice(_cmbSite, new ComboItem { Id = 0, Text = "-- No site / site not decided --" }, "-- No site / site not decided --");
             if (clientId > 0)
             {
                 try
@@ -4092,7 +4092,7 @@ namespace HVAC_Pro_Desktop.UI
 
                 // Keep the selected client text readable at rest; global input policy clears
                 // stale selections across the application without blocking normal editing.
-                _cmbClient.SelectionStart = (_cmbClient.Text ?? string.Empty).Length;
+                _cmbClient.SelectionStart = (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(_cmbClient) ?? string.Empty).Length;
                 _cmbClient.SelectionLength = 0;
             }));
         }
@@ -4311,7 +4311,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label lblMethod = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Payment Method:", AutoSize = true, Location = new Point(lx, fy + 104), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold) });
             ComboBox cmbMethod = new ComboBox { Location = new Point(lx, fy + 122), Width = fw, Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9), DropDownStyle = ComboBoxStyle.DropDown };
-            cmbMethod.Items.AddRange(new object[] { "Cash", "Cheque", "NEFT", "UPI", "Bank Transfer", "NEFT/RTGS", "DD" });
+            global::HVAC_Pro_Desktop.Services.LanguageManager.AddChoices(cmbMethod, new object[] { "Cash", "Cheque", "NEFT", "UPI", "Bank Transfer", "NEFT/RTGS", "DD" });
             cmbMethod.SelectedIndex = 0;
 
             Label lblRef = global::HVAC_Pro_Desktop.Services.LanguageManager.Caption(new Label { Text = "Reference / UTR:", AutoSize = true, Location = new Point(lx, fy + 156), Font = new Font(global::HVAC_Pro_Desktop.Services.LanguageManager.GetUiFontFamily(), 9, FontStyle.Bold) });

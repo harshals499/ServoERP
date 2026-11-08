@@ -94,7 +94,7 @@ namespace HVAC_Pro_Desktop.UI
 
             Label titleLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
             {
-                Text = (string.IsNullOrWhiteSpace(title) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No records found") : title),
+                Text = (string.IsNullOrWhiteSpace(title) ? global::HVAC_Pro_Desktop.Services.LanguageManager.Get("No records found") : global::HVAC_Pro_Desktop.Services.LanguageManager.Get(title)),
                 Dock = DockStyle.Top,
                 Height = 24,
                 Font = DS.BodyBold,
@@ -107,7 +107,7 @@ namespace HVAC_Pro_Desktop.UI
             {
                 Label detailLabel = global::HVAC_Pro_Desktop.Services.LanguageManager.DataText(new Label
                 {
-                    Text = detail,
+                    Text = global::HVAC_Pro_Desktop.Services.LanguageManager.Get(detail),
                     Dock = DockStyle.Top,
                     Height = 42,
                     Font = DS.Small,

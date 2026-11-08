@@ -172,7 +172,7 @@ namespace HVAC_Pro_Desktop.UI
         {
             using (var dialog = new OpenFileDialog())
             {
-                dialog.Title = "Choose a signature image";
+                dialog.Title = global::HVAC_Pro_Desktop.Services.LanguageManager.Get("Choose a signature image");
                 dialog.Filter = "Image Files (*.png;*.jpg;*.jpeg;*.bmp)|*.png;*.jpg;*.jpeg;*.bmp";
                 if (dialog.ShowDialog(this) != DialogResult.OK)
                     return;

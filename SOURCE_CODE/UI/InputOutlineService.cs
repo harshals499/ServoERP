@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -232,7 +232,7 @@ namespace HVAC_Pro_Desktop.UI
                         // Set both values atomically. Setting SelectionStart first makes
                         // WinForms reuse the control's transient SelectionLength, which can
                         // be invalid while a data-bound ComboBox is rebuilding its items.
-                        int textLength = (combo.Text ?? string.Empty).Length;
+                        int textLength = (global::HVAC_Pro_Desktop.Services.LanguageManager.ReadChoiceText(combo) ?? string.Empty).Length;
                         try
                         {
                             combo.Select(textLength, 0);
